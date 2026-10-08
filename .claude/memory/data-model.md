@@ -7,9 +7,10 @@ metadata:
 - A **Game** owns **Copies** (kind key / library / physical). Sources import copies with a stable
   `ExternalID`; the consolidator matches by ExternalID, then Steam AppID, then
   `game.MatchKey(title)`.
-- **Changing an ExternalID format duplicates copies on the next scan**: don't, or write a
-  migration.
-- Prefixes: `steam:<appId>`, `humble:<gamekey>:<keyindex>`, `epic:<catalogItemId>`,
+- **Changing an ExternalID format duplicates copies on the next scan**: don't, or set
+  `ImportedCopy.PreviousExternalID` so the consolidator adopts the old copy (only when it is in the
+  same game; source details are cleared, user notes kept).
+- Prefixes: `steam:<appId>`, `humble:<gamekey>:<machine_name>:<keyindex>` (was `humble:<gamekey>:<keyindex>`, see [[humble]]), `epic:<catalogItemId>`,
   `gog:<productId>`, `battlenet:<titleId>`, `ea:<productId>`, `ubisoft:<spaceId>`,
   `xbox:<productId>`, `psn:<entitlementId>`. Cover providers find a game's own art through them
   (`CoverQuery.ExternalIDsWithPrefix`). See [[provider-chains]].

@@ -26,6 +26,7 @@ one line here. Update a file instead of adding a duplicate; date facts about ext
 - [Cover recognition](memory/cover-recognition.md) — no paid LLMs: OCR + title matching + CLIP tie-break; spike 4/4, logo digits never OCR'd; paused for a 30-50 photo test set
 
 ## External services (as of 2026-10)
+- [Humble Bundle](memory/humble.md) — keyindex is not a key id (use machine_name); one-copy-per-order bug fixed 2026-10-08
 - [Steam](memory/steam.md) — public store APIs, ~200 req / 5 min, Humble AppIDs that don't exist
 - [TheGamesDB](memory/thegamesdb.md) — free quota check, unknown keys look valid, CDN blocks hotlinks
 - [Epic](memory/epic.md) — Legendary's credentials, paste the JSON code, catalog without namespace

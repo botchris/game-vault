@@ -6,9 +6,13 @@ import "time"
 type ImportedCopy struct {
 	// ExternalID must be stable across scans of the same source, e.g. "steam:620".
 	ExternalID string
-	Title      string
-	SteamAppID int64
-	Details    CopyDetails
+	// PreviousExternalID is the id an older version of the source gave this copy, when the format
+	// changed. A copy saved under it is adopted (renamed) if it belongs to the same game, instead
+	// of a duplicate being created.
+	PreviousExternalID string
+	Title              string
+	SteamAppID         int64
+	Details            CopyDetails
 }
 
 // ConsolidationResult summarizes what a consolidation changed.
@@ -95,6 +99,8 @@ func (c *Consolidator) Apply(sourceID string, imported []ImportedCopy, now time.
 			continue
 		}
 
+		c.adoptPrevious(in)
+
 		if g, ok := c.byExternalID[in.ExternalID]; ok {
 			i := g.indexOfExternal(in.ExternalID)
 			cp := &g.copies[i]
@@ -152,6 +158,32 @@ func (c *Consolidator) Apply(sourceID string, imported []ImportedCopy, now time.
 	r.Changed = c.order
 
 	return r
+}
+
+// adoptPrevious renames the copy saved under in.PreviousExternalID to in.ExternalID when it is in
+// the game the import belongs to. Its source details (key, status, deadline) are cleared first:
+// under the old id several copies may have been written into it, so they can belong to another
+// game. What the user added (notes, location, condition) is kept.
+func (c *Consolidator) adoptPrevious(in ImportedCopy) {
+	if in.PreviousExternalID == "" || in.PreviousExternalID == in.ExternalID {
+		return
+	}
+
+	if _, ok := c.byExternalID[in.ExternalID]; ok {
+		return
+	}
+
+	g, ok := c.byExternalID[in.PreviousExternalID]
+	if !ok || c.findGame(in) != g {
+		return
+	}
+
+	cp := &g.copies[g.indexOfExternal(in.PreviousExternalID)]
+	cp.ExternalID = in.ExternalID
+	cp.Key, cp.RedeemBy, cp.Status = "", "", ""
+
+	delete(c.byExternalID, in.PreviousExternalID)
+	c.byExternalID[in.ExternalID] = g
 }
 
 func (c *Consolidator) findGame(in ImportedCopy) *Game {

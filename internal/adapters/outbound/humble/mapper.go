@@ -64,10 +64,21 @@ func MapOrders(orders []json.RawMessage, now time.Time) ([]game.ImportedCopy, []
 				status = game.StatusRevealed
 			}
 
+			// keyindex only numbers repeated copies of the same game in an order (almost always
+			// 0), so the key is told apart by its machine name. Older versions used
+			// gamekey:keyindex alone, which folded every key of an order into one copy.
+			previous := fmt.Sprintf("humble:%s:%v", gamekey, t["keyindex"])
+			id := previous
+
+			if machine := str(t, "machine_name"); machine != "" {
+				id = fmt.Sprintf("humble:%s:%s:%v", gamekey, machine, t["keyindex"])
+			}
+
 			copies = append(copies, game.ImportedCopy{
-				ExternalID: fmt.Sprintf("humble:%s:%v", gamekey, t["keyindex"]),
-				Title:      title,
-				SteamAppID: int64(num(t, "steam_app_id")),
+				ExternalID:         id,
+				PreviousExternalID: previous,
+				Title:              title,
+				SteamAppID:         int64(num(t, "steam_app_id")),
 				Details: game.CopyDetails{
 					Kind:       game.KindKey,
 					Platform:   platformFor(str(t, "key_type"), str(t, "key_type_human_name")),

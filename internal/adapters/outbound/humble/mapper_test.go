@@ -8,50 +8,92 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/source"
 )
 
+// order has the shape of /api/v1/orders?all_tpkds=true: keyindex numbers repeated copies of the
+// same game and is 0 for almost every key, so only machine_name tells the keys of an order apart.
+// Two keys for Hades (keyindex 0 and 1) are what makes keyindex non-zero.
 const order = `{"gamekey":"AAA","created":"2023-05-01T10:00:00.000000","product":{"human_name":"Indie Bundle"},
  "tpkd_dict":{"all_tpks":[
-  {"human_name":"Hades","key_type":"steam","redeemed_key_val":"ABCDE-FGHIJ","steam_app_id":1145360,"keyindex":0},
-  {"human_name":"Celeste","key_type":"steam","keyindex":1,"custom_instructions_html":"Please redeem by March 3, 2027."},
-  {"human_name":"Old","key_type":"origin","keyindex":2,"is_expired":true},
-  {"human_name":"Gift","key_type":"steam","keyindex":3,"redeemed_key_val":"https://www.humblebundle.com/gift?key=x"},
-  {"human_name":"Soon","key_type":"steam","keyindex":4,"num_days_until_expired":10}]}}`
+  {"machine_name":"hades_steam","human_name":"Hades","key_type":"steam","redeemed_key_val":"ABCDE-FGHIJ","steam_app_id":1145360,"keyindex":0},
+  {"machine_name":"hades_steam","human_name":"Hades","key_type":"steam","steam_app_id":1145360,"keyindex":1},
+  {"machine_name":"celeste_steam","human_name":"Celeste","key_type":"steam","keyindex":0,"custom_instructions_html":"Please redeem by March 3, 2027."},
+  {"machine_name":"old_origin","human_name":"Old","key_type":"origin","keyindex":0,"is_expired":true},
+  {"machine_name":"gift_steam","human_name":"Gift","key_type":"steam","keyindex":0,"redeemed_key_val":"https://www.humblebundle.com/gift?key=x"},
+  {"machine_name":"soon_steam","human_name":"Soon","key_type":"steam","keyindex":0,"num_days_until_expired":10}]}}`
 
-func TestMapOrders(t *testing.T) {
+func TestMapOrders_eachKeyIsOneCopy(t *testing.T) {
 	now := time.Date(2026, 10, 7, 0, 0, 0, 0, time.UTC)
 
-	copies, warnings := MapOrders([]json.RawMessage{json.RawMessage(order)}, now)
-	if len(warnings) > 0 || len(copies) != 5 {
-		t.Fatalf("got %d copies, warnings %v", len(copies), warnings)
-	}
+	t.Run("GIVEN an order whose keys all have keyindex 0 except a second copy of one game", func(t *testing.T) {
+		t.Run("WHEN it is mapped", func(t *testing.T) {
+			copies, warnings := MapOrders([]json.RawMessage{json.RawMessage(order)}, now)
+			require.Empty(t, warnings)
+			require.Len(t, copies, 6)
 
-	want := []struct {
-		status   game.Status
-		platform string
-		redeemBy game.Date
-	}{
-		{game.StatusRevealed, "Steam", ""},
-		{game.StatusUnrevealed, "Steam", "2027-03-03"},
-		{game.StatusExpired, "EA App", ""},
-		{game.StatusGifted, "Steam", ""},
-		{game.StatusUnrevealed, "Steam", "2026-10-17"},
-	}
-	for i, w := range want {
-		d := copies[i].Details
-		if d.Status != w.status || d.Platform != w.platform || d.RedeemBy != w.redeemBy {
-			t.Errorf("copy %d = %+v, want %+v", i, d, w)
-		}
-	}
+			t.Run("THEN every key gets its own external id, with the old one as previous", func(t *testing.T) {
+				ids := map[string]bool{}
+				for _, c := range copies {
+					ids[c.ExternalID] = true
+				}
 
-	if c := copies[0]; c.ExternalID != "humble:AAA:0" || c.SteamAppID != 1145360 || c.Details.AcquiredOn != "2023-05-01" {
-		t.Errorf("unexpected first copy %+v", c)
-	}
+				assert.Len(t, ids, 6)
+				assert.Equal(t, "humble:AAA:hades_steam:0", copies[0].ExternalID)
+				assert.Equal(t, "humble:AAA:hades_steam:1", copies[1].ExternalID)
+				assert.Equal(t, "humble:AAA:0", copies[0].PreviousExternalID)
+			})
+
+			t.Run("THEN status, platform and redeem-by come from each key", func(t *testing.T) {
+				want := []struct {
+					status   game.Status
+					platform string
+					redeemBy game.Date
+				}{
+					{game.StatusRevealed, "Steam", ""},
+					{game.StatusUnrevealed, "Steam", ""},
+					{game.StatusUnrevealed, "Steam", "2027-03-03"},
+					{game.StatusExpired, "EA App", ""},
+					{game.StatusGifted, "Steam", ""},
+					{game.StatusUnrevealed, "Steam", "2026-10-17"},
+				}
+				for i, w := range want {
+					d := copies[i].Details
+					assert.Equal(t, w.status, d.Status, "copy %d", i)
+					assert.Equal(t, w.platform, d.Platform, "copy %d", i)
+					assert.Equal(t, w.redeemBy, d.RedeemBy, "copy %d", i)
+				}
+
+				t.Run("AND the order's date and the Steam app id are kept", func(t *testing.T) {
+					assert.Equal(t, int64(1145360), copies[0].SteamAppID)
+					assert.Equal(t, game.Date("2023-05-01"), copies[0].Details.AcquiredOn)
+				})
+			})
+		})
+	})
+
+	t.Run("GIVEN a key without machine_name", func(t *testing.T) {
+		raw := `{"gamekey":"BBB","tpkd_dict":{"all_tpks":[{"human_name":"Mystery","key_type":"steam","keyindex":0}]}}`
+
+		t.Run("WHEN it is mapped", func(t *testing.T) {
+			copies, _ := MapOrders([]json.RawMessage{json.RawMessage(raw)}, now)
+
+			t.Run("THEN it keeps the old id format", func(t *testing.T) {
+				require.Len(t, copies, 1)
+				assert.Equal(t, "humble:BBB:0", copies[0].ExternalID)
+			})
+		})
+	})
 }
 
 func TestFetchAgainstFakeServer(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if c, _ := r.Cookie("_simpleauth_sess"); c == nil || c.Value != "good" {
 			w.WriteHeader(http.StatusUnauthorized)
@@ -71,19 +113,19 @@ func TestFetchAgainstFakeServer(t *testing.T) {
 
 	p := &Provider{BaseURL: srv.URL, Client: srv.Client()}
 
-	copies, _, err := p.Fetch(context.Background(), source.Settings{settingSession: "good"})
-	if err != nil || len(copies) != 5 {
+	copies, _, err := p.Fetch(ctx, source.Settings{settingSession: "good"})
+	if err != nil || len(copies) != 6 {
 		t.Fatalf("fetch: %d copies, err %v", len(copies), err)
 	}
 
-	if _, _, err := p.Fetch(context.Background(), source.Settings{settingSession: "bad"}); err != ErrUnauthorized {
+	if _, _, err := p.Fetch(ctx, source.Settings{settingSession: "bad"}); err != ErrUnauthorized {
 		t.Fatalf("expected ErrUnauthorized, got %v", err)
 	}
 
 	// Test only lists orders, and tolerates the cookie pasted as "_simpleauth_sess=...;" with quotes.
 	ordersRequests = 0
 
-	res, err := p.Test(context.Background(), source.Settings{settingSession: ` _simpleauth_sess="good"; `})
+	res, err := p.Test(ctx, source.Settings{settingSession: ` _simpleauth_sess="good"; `})
 	if err != nil || res.Count != 1 || res.Unit != "orders" || ordersRequests != 0 {
 		t.Fatalf("test: %+v err=%v ordersRequests=%d", res, err, ordersRequests)
 	}
