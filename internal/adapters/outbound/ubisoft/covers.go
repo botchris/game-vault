@@ -1,0 +1,172 @@
+package ubisoft
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
+	"time"
+
+	"gamevault/internal/application/media"
+	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/provider"
+	"gamevault/internal/domain/schema"
+)
+
+// CoverProviderID identifies the Ubisoft cover provider.
+const CoverProviderID provider.ID = "ubisoft-covers"
+
+const (
+	defaultCDNURL = "https://ubiservices.cdn.ubi.com"
+	// The Ubisoft Store's product search (Algolia). The key is the public, search-only key the store
+	// gives every visitor's browser.
+	defaultStoreSearchURL = "https://xely3u4lod-dsn.algolia.net/1/indexes/production__us_ubisoft__products__en_US__best_sellers/query"
+	storeSearchAppID      = "XELY3U4LOD"
+	storeSearchKey        = "dc39136c7548697cbee2fbc171d04133"
+)
+
+// Covers is a cover provider for Ubisoft games: the box art Ubisoft Connect shows for games imported
+// from a Ubisoft library (by space id, on Ubisoft's CDN), else the Ubisoft Store's packshot, found
+// by title. No sign-in needed.
+type Covers struct {
+	CDNURL, StoreSearchURL string
+	Client                 *http.Client
+}
+
+var (
+	_ media.CoverProvider = (*Covers)(nil)
+	_ media.ImageHoster   = (*Covers)(nil)
+)
+
+func NewCovers() *Covers {
+	return &Covers{CDNURL: defaultCDNURL, StoreSearchURL: defaultStoreSearchURL, Client: &http.Client{Timeout: 20 * time.Second}}
+}
+
+func (c *Covers) Descriptor() provider.Descriptor {
+	return provider.Descriptor{
+		ID: CoverProviderID, Kind: provider.KindCover, Name: "Ubisoft",
+		DescriptionKey: "providers.ubisoftCovers.description", EnabledByDefault: true,
+	}
+}
+
+// ImageHosts implements media.ImageHoster.
+func (c *Covers) ImageHosts() []string {
+	return []string{"ubiservices.cdn.ubi.com", "store.ubisoft.com", "staticctf.ubisoft.com"}
+}
+
+// Applies: games imported from a Ubisoft library, or with a copy for Ubisoft Connect (a Humble
+// Uplay key, for instance).
+func (c *Covers) Applies(q media.CoverQuery) bool {
+	if len(q.ExternalIDsWithPrefix("ubisoft:")) > 0 {
+		return true
+	}
+	for _, p := range q.Platforms {
+		if strings.EqualFold(p, Platform) {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
+	var out []media.CoverCandidate
+	for _, space := range q.ExternalIDsWithPrefix("ubisoft:") {
+		u := c.CDNURL + "/" + url.PathEscape(space) + "/spaceCardAsset/boxArt_mobile.jpg"
+		if c.exists(ctx, u) {
+			out = append(out, media.CoverCandidate{URL: u, ThumbURL: u, Label: "Ubisoft Connect: box art", Title: q.Title, Provider: CoverProviderID})
+		}
+	}
+	store, err := c.storeCovers(ctx, q.Title)
+	if err != nil && len(out) == 0 {
+		return nil, err
+	}
+	return append(out, store...), nil
+}
+
+// exists checks an image URL without downloading it (Ubisoft's CDN only has art for some games).
+func (c *Covers) exists(ctx context.Context, u string) bool {
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, u, nil)
+	if err != nil {
+		return false
+	}
+	res, err := c.Client.Do(req)
+	if err != nil {
+		return false
+	}
+	res.Body.Close()
+	return res.StatusCode == http.StatusOK && strings.HasPrefix(res.Header.Get("Content-Type"), "image/")
+}
+
+type storeHit struct {
+	Title       string  `json:"title"`
+	ShortTitle  string  `json:"short_title"`
+	Edition     string  `json:"Edition"`
+	ProductType string  `json:"product_type"`
+	DLCType     *string `json:"dlcType"`
+	ImageGroups []struct {
+		Images []struct {
+			URL string `json:"dis_base_link"`
+		} `json:"images"`
+	} `json:"image_groups"`
+}
+
+// storeCovers searches the Ubisoft Store for the game (full games only, same title) and returns
+// the packshot of the standard edition first.
+func (c *Covers) storeCovers(ctx context.Context, title string) ([]media.CoverCandidate, error) {
+	body, _ := json.Marshal(map[string]any{"query": title, "hitsPerPage": 20})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.StoreSearchURL, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("X-Algolia-Application-Id", storeSearchAppID)
+	req.Header.Set("X-Algolia-API-Key", storeSearchKey)
+	req.Header.Set("Content-Type", "application/json")
+	res, err := c.Client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("ubisoft store search: HTTP %d", res.StatusCode)
+	}
+	var out struct {
+		Hits []storeHit `json:"hits"`
+	}
+	if err := json.NewDecoder(io.LimitReader(res.Body, 8<<20)).Decode(&out); err != nil {
+		return nil, fmt.Errorf("ubisoft store search: %w", err)
+	}
+	return pickStoreCovers(title, out.Hits), nil
+}
+
+func pickStoreCovers(title string, hits []storeHit) []media.CoverCandidate {
+	key := game.MatchKey(title)
+	var standard, others []media.CoverCandidate
+	seen := map[string]bool{}
+	for _, h := range hits {
+		if h.DLCType != nil || !strings.EqualFold(h.ProductType, "Games") {
+			continue
+		}
+		if game.MatchKey(h.ShortTitle) != key && game.MatchKey(h.Title) != key {
+			continue
+		}
+		if len(h.ImageGroups) == 0 || len(h.ImageGroups[0].Images) == 0 {
+			continue
+		}
+		u := h.ImageGroups[0].Images[0].URL
+		if !strings.HasPrefix(u, "https://") || seen[u] {
+			continue
+		}
+		seen[u] = true
+		cand := media.CoverCandidate{URL: u, ThumbURL: u, Label: "Ubisoft Store: " + strings.TrimSpace(h.Edition), Title: h.ShortTitle, Provider: CoverProviderID}
+		if strings.Contains(strings.ToLower(h.Edition), "standard") {
+			standard = append(standard, cand)
+		} else {
+			others = append(others, cand)
+		}
+	}
+	return append(standard, others...)
+}

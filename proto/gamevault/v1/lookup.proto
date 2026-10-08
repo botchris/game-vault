@@ -1,0 +1,76 @@
+syntax = "proto3";
+
+package gamevault.v1;
+
+option go_package = "gamevault/internal/gen/gamevault/v1;gamevaultv1";
+
+// BarcodeMatch is a barcode database's answer for a product.
+message BarcodeMatch {
+  // Product name as the database has it, e.g. "Assassin's Creed Iii Ed. Special Ps3(sp)".
+  string raw = 1;
+  // Cleaned up from raw.
+  string title = 2;
+  string platform = 3;
+  string edition = 4;
+  string image_url = 5;
+  string provider_id = 6;
+}
+
+// GameSuggestion is a canonical game proposed by a cover provider, with its cover.
+message GameSuggestion {
+  string title = 1;
+  string platform = 2;
+  // Set it as the new game's cover_url to pin this cover (and spend no further lookups).
+  string cover_url = 3;
+  string thumb_url = 4;
+  string label = 5;
+  string provider_id = 6;
+}
+
+// GameRef points to a game in the catalog.
+message GameRef {
+  string id = 1;
+  string title = 2;
+}
+
+// OwnedCopy is a copy that already carries the scanned barcode.
+message OwnedCopy {
+  GameRef game = 1;
+  string copy_id = 2;
+  string platform = 3;
+}
+
+message IdentifyBarcodeRequest {
+  // EAN-13, UPC-A or EAN-8; spaces and dashes are ignored.
+  string barcode = 1;
+}
+message IdentifyBarcodeResponse {
+  // Normalised barcode (UPC-A as EAN-13).
+  string barcode = 1;
+  // Copies already registered with this barcode. When set, nothing else is looked up.
+  repeated OwnedCopy owned = 2;
+  // Absent when no barcode provider knows the code: ask the user for the title.
+  BarcodeMatch match = 3;
+  repeated GameSuggestion suggestions = 4;
+  // Catalog games with the same title: add the disc to one of them instead of creating a game.
+  repeated GameRef existing = 5;
+  repeated string warnings = 6;
+}
+
+message SuggestGamesRequest {
+  string title = 1;
+  // Game Vault platform name, e.g. "PS3" or "Xbox 360".
+  string platform = 2;
+}
+message SuggestGamesResponse {
+  repeated GameSuggestion suggestions = 1;
+  repeated GameRef existing = 2;
+  repeated string warnings = 3;
+}
+
+// LookupService identifies physical games from their barcode or title, for quick registration.
+// Saving is done with GameService (CreateGame / AddCopy with the barcode in CopyDetails).
+service LookupService {
+  rpc IdentifyBarcode(IdentifyBarcodeRequest) returns (IdentifyBarcodeResponse);
+  rpc SuggestGames(SuggestGamesRequest) returns (SuggestGamesResponse);
+}

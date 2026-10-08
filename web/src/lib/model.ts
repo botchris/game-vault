@@ -1,0 +1,97 @@
+import { timestampDate, type Timestamp } from '@bufbuild/protobuf/wkt';
+import { CopyKind, CopyStatus, type Copy, type CopyDetails, type Game } from '../gen/gamevault/v1/game_pb';
+
+export { CopyKind, CopyStatus };
+export type { Copy, CopyDetails, Game };
+
+/** Plain, editable shape of CopyDetails (without the protobuf $typeName). */
+export type CopyDetailsInput = Omit<CopyDetails, '$typeName'>;
+
+export const KINDS = [CopyKind.KEY, CopyKind.LIBRARY, CopyKind.PHYSICAL] as const;
+
+/** Translation key suffix for each kind: t(`kind.${kindKey(k)}`). */
+export function kindKey(k: CopyKind): string {
+  return CopyKind[k].toLowerCase();
+}
+
+export function statusKey(s: CopyStatus): string {
+  return CopyStatus[s].toLowerCase();
+}
+
+/** Statuses allowed for each kind; the first one is the default. Mirrors the domain rules. */
+export const STATUSES_BY_KIND: Record<CopyKind, CopyStatus[]> = {
+  [CopyKind.UNSPECIFIED]: [],
+  [CopyKind.KEY]: [CopyStatus.UNREVEALED, CopyStatus.REVEALED, CopyStatus.REDEEMED, CopyStatus.GIFTED, CopyStatus.EXPIRED],
+  [CopyKind.LIBRARY]: [CopyStatus.OWNED],
+  [CopyKind.PHYSICAL]: [CopyStatus.OWNED, CopyStatus.LENT, CopyStatus.SOLD],
+};
+
+export const STORE_PLATFORMS = [
+  'Steam', 'Epic Games', 'GOG', 'EA App', 'Battle.net', 'Ubisoft Connect', 'Microsoft Store / Xbox',
+  'Rockstar', 'Battlestate (Tarkov)', 'Riot', 'itch.io', 'Amazon Games', 'PlayStation Store', 'Nintendo eShop',
+];
+
+export const PHYSICAL_PLATFORMS = [
+  'PC', 'PS5', 'PS4', 'PS3', 'PS2', 'PS1', 'PSP', 'PS Vita', 'Xbox Series', 'Xbox One', 'Xbox 360', 'Xbox',
+  'Switch', 'Wii U', 'Wii', 'GameCube', 'N64', '3DS', 'DS', 'Game Boy',
+];
+
+export function emptyDetails(kind: CopyKind = CopyKind.PHYSICAL): CopyDetailsInput {
+  return {
+    kind, platform: '', status: STATUSES_BY_KIND[kind][0], key: '', redeemBy: '', origin: '',
+    acquiredOn: '', edition: '', condition: '', location: '', notes: '', barcode: '',
+  };
+}
+
+/** Pending = a key you still have to reveal or redeem. */
+export const isPendingKey = (c: Copy) =>
+  c.details?.kind === CopyKind.KEY &&
+  (c.details.status === CopyStatus.UNREVEALED || c.details.status === CopyStatus.REVEALED);
+
+/** Whole days from today until a YYYY-MM-DD date; null when there is no date. */
+export function daysUntil(date: string): number | null {
+  if (!date) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.round((new Date(`${date}T00:00:00`).getTime() - today.getTime()) / 86_400_000);
+}
+
+/** Earliest redeem-by date among the game's pending keys, or ''. */
+export function nextDeadline(g: Game): string {
+  return g.copies
+    .filter((c) => isPendingKey(c) && c.details?.redeemBy)
+    .map((c) => c.details!.redeemBy)
+    .sort()[0] ?? '';
+}
+
+export function toDate(ts?: Timestamp): Date | null {
+  return ts ? timestampDate(ts) : null;
+}
+
+/** Saves bytes as a file in the browser. */
+export function downloadBytes(name: string, bytes: Uint8Array, type: string) {
+  const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type }));
+  const a = Object.assign(document.createElement('a'), { href: url, download: name });
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * URL of the store page that redeems a key, with the key pre-filled, or null when the store has
+ * no such page. Only keys still pending (revealed, not redeemed) get one.
+ */
+export function redeemUrl(c: Copy): string | null {
+  const d = c.details;
+  if (!d || d.kind !== CopyKind.KEY || d.status !== CopyStatus.REVEALED || !d.key || d.key.startsWith('http')) return null;
+  if (d.platform === 'Steam') return `https://store.steampowered.com/account/registerkey?key=${encodeURIComponent(d.key)}`;
+  return null;
+}
+
+/** Validates an EAN-13 / UPC-A / EAN-8 check digit, to drop camera misreads before asking the server. */
+export function validBarcode(code: string): boolean {
+  const d = code.replace(/[\s-]/g, '');
+  if (!/^(\d{8}|\d{12}|\d{13})$/.test(d)) return false;
+  let sum = 0;
+  for (let i = d.length - 2, w = 3; i >= 0; i--, w = w === 3 ? 1 : 3) sum += Number(d[i]) * w;
+  return (10 - (sum % 10)) % 10 === Number(d[d.length - 1]);
+}

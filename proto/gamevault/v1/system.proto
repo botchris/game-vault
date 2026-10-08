@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package gamevault.v1;
+
+import "google/protobuf/timestamp.proto";
+import "gamevault/v1/source.proto";
+
+option go_package = "gamevault/internal/gen/gamevault/v1;gamevaultv1";
+
+message GetStatusRequest {}
+message GetStatusResponse {
+  string version = 1;
+  string config_dir = 2;
+  string database_path = 3;
+  google.protobuf.Timestamp started_at = 4;
+  int32 game_count = 5;
+  int32 copy_count = 6;
+}
+
+message Backup {
+  string name = 1;
+  int64 size_bytes = 2;
+  google.protobuf.Timestamp created_at = 3;
+}
+
+message ListBackupsRequest {}
+message ListBackupsResponse {
+  repeated Backup backups = 1;
+}
+
+message CreateBackupRequest {}
+message CreateBackupResponse {
+  Backup backup = 1;
+}
+
+// ImportCsvRequest imports copies from a CSV file (comma or semicolon separated, header row required).
+// Use it for physical games and for stores without an API. Re-importing the same file updates rows.
+message ImportCsvRequest {
+  bytes content = 1;
+}
+message ImportCsvResponse {
+  SyncReport report = 1;
+}
+
+message ExportCsvRequest {}
+message ExportCsvResponse {
+  string filename = 1;
+  bytes content = 2;
+}
+
+// SystemService exposes status, backups and CSV import/export.
+service SystemService {
+  rpc GetStatus(GetStatusRequest) returns (GetStatusResponse);
+  rpc ListBackups(ListBackupsRequest) returns (ListBackupsResponse);
+  rpc CreateBackup(CreateBackupRequest) returns (CreateBackupResponse);
+  rpc ImportCsv(ImportCsvRequest) returns (ImportCsvResponse);
+  rpc ExportCsv(ExportCsvRequest) returns (ExportCsvResponse);
+}

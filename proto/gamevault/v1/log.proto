@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package gamevault.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "gamevault/internal/gen/gamevault/v1;gamevaultv1";
+
+// LogSettings controls logging and log file rotation.
+message LogSettings {
+  // "debug", "info", "warn" or "error".
+  string level = 1;
+  // The current log file is rotated when it reaches this size, in megabytes (1-100).
+  uint32 max_file_size_mb = 2;
+  // Total number of log files kept, the current one included (1-50). Older files are deleted.
+  uint32 max_files = 3;
+}
+
+// LogFile is a file in config/logs.
+message LogFile {
+  string name = 1;
+  int64 size_bytes = 2;
+  google.protobuf.Timestamp modified_at = 3;
+  // True for the file currently being written.
+  bool current = 4;
+}
+
+message GetLogSettingsRequest {}
+message GetLogSettingsResponse {
+  LogSettings settings = 1;
+}
+
+message UpdateLogSettingsRequest {
+  LogSettings settings = 1;
+}
+message UpdateLogSettingsResponse {
+  LogSettings settings = 1;
+}
+
+message ListLogFilesRequest {}
+message ListLogFilesResponse {
+  // Newest first.
+  repeated LogFile files = 1;
+}
+
+message GetLogFileRequest {
+  string name = 1;
+  // Only return the last N lines. 0 returns the whole file (capped at 10 MB).
+  uint32 tail_lines = 2;
+}
+message GetLogFileResponse {
+  string name = 1;
+  string content = 2;
+  // True when the content was cut because of tail_lines or the size cap.
+  bool truncated = 3;
+}
+
+message ClearLogFilesRequest {}
+message ClearLogFilesResponse {
+  // Number of rotated files deleted. The current file is kept.
+  int32 deleted = 1;
+}
+
+// LogService exposes the server logs and their rotation settings.
+service LogService {
+  rpc GetLogSettings(GetLogSettingsRequest) returns (GetLogSettingsResponse);
+  rpc UpdateLogSettings(UpdateLogSettingsRequest) returns (UpdateLogSettingsResponse);
+  rpc ListLogFiles(ListLogFilesRequest) returns (ListLogFilesResponse);
+  rpc GetLogFile(GetLogFileRequest) returns (GetLogFileResponse);
+  rpc ClearLogFiles(ClearLogFilesRequest) returns (ClearLogFilesResponse);
+}

@@ -1,0 +1,556 @@
+{
+  "app": {
+    "backendError": "Cannot reach the Game Vault server: {{error}}"
+  },
+  "nav": {
+    "library": "Library",
+    "sources": "Sources",
+    "system": "System",
+    "language": "Language",
+    "logs": "Logs",
+    "providers": "Providers",
+    "scan": "Scan",
+    "main": "Main",
+    "settings": "Settings"
+  },
+  "common": {
+    "loading": "Loading…",
+    "working": "Working…",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page {{page}} of {{pages}}",
+    "daysLeft": "{{count}} d",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saving": "Saving…",
+    "create": "Create",
+    "close": "Close",
+    "discard": "Discard",
+    "edit": "Edit",
+    "delete": "Delete",
+    "notes": "Notes"
+  },
+  "kind": {
+    "unspecified": "Unknown",
+    "key": "Key",
+    "library": "Library",
+    "physical": "Physical"
+  },
+  "status": {
+    "unspecified": "Unknown",
+    "unrevealed": "Unrevealed",
+    "revealed": "Revealed, not redeemed",
+    "redeemed": "Redeemed",
+    "gifted": "Gifted",
+    "expired": "Expired",
+    "owned": "Owned",
+    "lent": "Lent",
+    "sold": "Sold / given away"
+  },
+  "library": {
+    "stats": {
+      "games": "Games",
+      "pendingKeys": "Pending keys",
+      "pendingKeysHint": "unrevealed or not redeemed",
+      "expiring": "Expiring ≤ {{days}} days",
+      "redundant": "Keys you don't need",
+      "redundantHint": "already in that library: gift them",
+      "libraryCopies": "Library copies",
+      "physicalCopies": "Physical copies"
+    },
+    "search": "Search titles, bundles, notes…",
+    "allKinds": "Any kind of copy",
+    "allPlatforms": "Any platform",
+    "sort": {
+      "label": "Sort by",
+      "titleAsc": "Title A–Z",
+      "titleDesc": "Title Z–A",
+      "added": "Recently added",
+      "year": "Release year",
+      "deadline": "Redeem deadline",
+      "copies": "Most copies"
+    },
+    "quick": {
+      "all": "",
+      "pending": "Pending keys",
+      "expiring": "Expiring soon",
+      "redundant": "Keys you don't need",
+      "label": "Quick filters"
+    },
+    "markRedeemed_one": "Mark {{count}} key as redeemed",
+    "markRedeemed_other": "Mark {{count}} keys as redeemed",
+    "markRedeemedHelp": "Stores never tell whether a key was redeemed. These keys are revealed and the game is already in that platform's library, so they almost certainly were.",
+    "markedRedeemed_one": "{{count}} key marked as redeemed.",
+    "markedRedeemed_other": "{{count}} keys marked as redeemed.",
+    "addGame": "Add game",
+    "showing": "{{shown}} of {{total}} games",
+    "empty": "Nothing here yet. Add a game by hand, connect your Humble Bundle and Steam accounts in Sources, or import a CSV in System.",
+    "columns": {
+      "copies": "Copies",
+      "pending": "Pending keys",
+      "nextDeadline": "Next deadline"
+    },
+    "redundantBadge_one": "{{count}} spare key",
+    "redundantBadge_other": "{{count}} spare keys",
+    "view": {
+      "label": "View",
+      "list": "List",
+      "posters": "Covers"
+    },
+    "pendingBadge_one": "{{count}} pending key",
+    "pendingBadge_other": "{{count}} pending keys",
+    "filters": {
+      "button": "Filters",
+      "clear": "Clear",
+      "clearAll": "Clear all",
+      "kind": "Kind of copy",
+      "any": "Any",
+      "genres": "Genres",
+      "noGenres": "No genres yet. They appear as game details are downloaded.",
+      "genresPartial": "Genres known for {{cached}} of {{total}} games; the rest download in the background.",
+      "done": "Show results",
+      "sources": "Source",
+      "manual": "Added by hand"
+    },
+    "alpha": "Jump to letter",
+    "noResults": "No games match these filters."
+  },
+  "game": {
+    "title": "Title",
+    "steamAppId": "Steam AppID",
+    "steamStore": "Store page",
+    "delete": "Delete game",
+    "confirmDelete_one": "Delete \"{{title}}\" and its copy? This cannot be undone.",
+    "confirmDelete_other": "Delete \"{{title}}\" and its {{count}} copies? This cannot be undone.",
+    "merge": "Merge another game into this one…",
+    "mergeHelp": "Use it when the same game was imported under two titles.",
+    "mergeTitle": "Merge into \"{{title}}\"",
+    "confirmMerge": "Move every copy of \"{{other}}\" into \"{{title}}\" and delete \"{{other}}\"?",
+    "copies_one": "{{count}} copy",
+    "copies_other": "{{count}} copies",
+    "noCopies": "No copies yet.",
+    "findOnSteam": "Find on Steam…",
+    "coverUrl": "Cover image URL",
+    "coverUrlPlaceholder": "Empty = Steam cover"
+  },
+  "copy": {
+    "add": "Add copy",
+    "edit": "Edit copy",
+    "kind": "Kind",
+    "platform": "Platform",
+    "status": "Status",
+    "key": "Key / gift link",
+    "redeemBy": "Redeem by",
+    "condition": "Condition",
+    "conditions": {
+      "sealed": "Sealed",
+      "complete": "Complete (case + manual)",
+      "caseAndDisc": "Case and disc",
+      "discOnly": "Disc only",
+      "damaged": "Damaged"
+    },
+    "location": "Location",
+    "locationPlaceholder": "Living room shelf, box 3…",
+    "origin": "Origin",
+    "originPlaceholder": "Bundle, shop, gift…",
+    "acquiredOn": "Acquired on",
+    "edition": "Edition",
+    "details": "Details",
+    "managedBy": "Kept in sync by \"{{source}}\". Your changes stay, but the next scan updates the fields the source provides.",
+    "syncedFrom": "via {{source}}",
+    "redundant": "Spare",
+    "redundantHelp": "You already own this game in the library of this platform.",
+    "giftLink": "Gift link",
+    "showKey": "Show key",
+    "hideKey": "Hide key",
+    "copyKey": "Copy to clipboard",
+    "move": "Move to another game",
+    "moveTitle": "Move copy to…",
+    "confirmDelete": "Delete this copy?",
+    "redeemOnSteam": "Redeem on Steam",
+    "markRedeemed": "Mark as redeemed",
+    "barcode": "Barcode (EAN/UPC)"
+  },
+  "picker": {
+    "search": "Search games…",
+    "newGame": "New game \"{{title}}\"",
+    "copies_one": "{{count}} copy",
+    "copies_other": "{{count}} copies",
+    "noMatches": "No matching games."
+  },
+  "newGame": {
+    "firstCopy": "First copy",
+    "hint": "You can add more copies (keys, other stores, discs) from the game page."
+  },
+  "sources": {
+    "title": "Sources",
+    "intro": "Accounts that are scanned to keep your library up to date. Each scan adds new copies, updates existing ones and links them to the right game.",
+    "add": "Add a source",
+    "syncAll": "Scan all",
+    "syncNow": "Scan now",
+    "syncing": "Scanning…",
+    "every_one": "Every hour",
+    "every_other": "Every {{count}} hours",
+    "manual": "Manual only",
+    "disabled": "disabled",
+    "copyCount_one": "{{count}} copy",
+    "copyCount_other": "{{count}} copies",
+    "neverSynced": "Never scanned.",
+    "report": "{{fetched}} found, {{added}} added, {{updated}} updated, {{games}} new games",
+    "warnings_one": "{{count}} warning",
+    "warnings_other": "{{count}} warnings",
+    "confirmDelete": "Delete the source \"{{name}}\"?",
+    "confirmDeleteCopies": "Also delete the {{count}} copies it imported? Press Cancel to keep them as manual copies.",
+    "addTitle": "Add {{type}} source",
+    "editTitle": "Edit \"{{name}}\"",
+    "name": "Name",
+    "interval": "Automatic scan",
+    "enabled": "Enabled",
+    "test": "Test connection",
+    "saveAndSync": "Save and scan",
+    "openLink": "Open the page",
+    "secretsNote": "Credentials are stored in the database inside the config directory and are never sent back to the browser.",
+    "humble": {
+      "description": "Imports every key in your Humble Bundle orders: unrevealed, revealed, gifted and expired. Hidden keys are never revealed.",
+      "sessionCookie": "Session cookie (_simpleauth_sess)",
+      "sessionCookieHelp": "1. Open the page above and sign in to Humble Bundle.\n2. Open DevTools (F12, or Cmd+Option+I on a Mac) → Application → Cookies → `https://www.humblebundle.com`.\n3. Copy the value of `_simpleauth_sess` and paste it here.\nThe cookie expires after a while: paste a new one when scans start failing."
+    },
+    "steam": {
+      "description": "Imports your Steam library with the official Steam Web API.",
+      "apiKey": "Steam Web API key",
+      "apiKeyHelp": "Free key from Steam: open the page above, sign in and register any domain name (for example `localhost`).",
+      "profile": "Profile",
+      "profileHelp": "Your SteamID64, custom URL name or full profile URL.\n\"Game details\" must be Public in your Steam privacy settings."
+    },
+    "testing": "Testing…",
+    "testOkCopies_one": "Connection works: {{count}} copy found.",
+    "testOkCopies_other": "Connection works: {{count}} copies found.",
+    "testOkOrders_one": "Signed in: {{count}} order found. Scan to import its keys.",
+    "testOkOrders_other": "Signed in: {{count}} orders found. Scan to import their keys.",
+    "syncingHint": "Large accounts can take a few minutes; progress is written to the server log.",
+    "epic": {
+      "description": "Imports the games in your Epic Games Store library, including the free weekly games you claimed. It signs in like the Epic launcher does (the same way Heroic and Legendary work) and only reads your library.",
+      "authCode": "Authorization code",
+      "authCodeHelp": "1. Open the page above and sign in to Epic. If Epic emails you a sign-in code, it goes on Epic's page, not here.\n2. Epic then shows a short text. Copy the value of `authorizationCode` (32 letters and digits), or the whole text, and paste it here.\n3. Press Test connection or Save right away: codes work once and expire within minutes.\nOnly needed the first time, or if the session expires after a long time without scans."
+    },
+    "testOkItems_one": "Signed in: {{count}} item in your library. Scan to import the games.",
+    "testOkItems_other": "Signed in: {{count}} items in your library. Scan to import the games.",
+    "gog": {
+      "description": "Imports the games in your GOG library. It signs in like the GOG Galaxy client does (the same way Heroic and Playnite work) and only reads your library.",
+      "authCode": "Login code",
+      "authCodeHelp": "1. Open the page above and sign in to GOG.\n2. GOG then opens an almost blank page whose address starts with `embed.gog.com/on_login_success`.\n3. Copy that whole address from the address bar and paste it here (or just the part after `code=`).\n4. Press Test connection or Save right away: codes work once and expire quickly.\nOnly needed the first time, or if the session expires."
+    },
+    "battlenet": {
+      "description": "Imports the games in your Battle.net account (Blizzard and Activision titles, including classic games like Diablo II). Battle.net has no public library API and its sign-in has a captcha, so it reuses your browser's session on account.battle.net, the way Playnite does. It only reads your account.",
+      "cookies": "Cookies of account.battle.net",
+      "cookiesHelp": "1. Open the page above and sign in to Battle.net.\n2. Open DevTools (F12, or Cmd+Option+I on a Mac) → Network, and reload the page.\n3. Click the first request (`overview`) → Headers → Request Headers → `Cookie`.\n4. Right-click its value → Copy value, and paste it here.\nGame Vault renews the session by itself: paste new cookies only if a scan says you are signed out."
+    },
+    "eaapp": {
+      "description": "Imports the games you own in the EA app (bought on EA's store, redeemed keys included; EA Play subscription games are skipped). EA has no public library API and its sign-in has a captcha, so it reuses your browser's session on accounts.ea.com and reads the library the EA app uses. It only reads your account.",
+      "cookies": "Cookies of accounts.ea.com",
+      "cookiesHelp": "1. Sign in on ea.com in your browser.\n2. Open the page above. It should show a short text with `access_token`; if it says `login_required`, you are not signed in.\n3. Open DevTools (F12, or Cmd+Option+I on a Mac) → Network, and reload the page.\n4. Click the `auth?client_id=…` request → Headers → Request Headers → `Cookie`.\n5. Right-click its value → Copy value, and paste it here.\nNever share that page or the cookies: they give access to your EA account."
+    },
+    "ubisoft": {
+      "description": "Imports the PC games in your Ubisoft Connect library (console games linked to the account are skipped). Ubisoft has no public library API and its sign-in has a captcha, so it reuses the session of Ubisoft's website, the way Lutris does. It only reads your account.",
+      "loginData": "Login data of connect.ubisoft.com",
+      "loginDataHelp": "1. Open the page above in a private window and sign in to Ubisoft with \"Remember me\" ticked. A private window keeps this login apart from your normal browser session: Ubisoft replaces the remember-me ticket every time Game Vault uses it, which would sign that browser out.\n2. On that page, open DevTools (F12, or Cmd+Option+I on a Mac) → Application → Local Storage → `https://connect.ubisoft.com`.\n3. Click the `PRODrememberMe` entry and copy its whole value.\n4. Paste it here, then close the private window without signing out (signing out would revoke the ticket).\nPaste a value once: after Game Vault uses it, the copied value stops working and Game Vault keeps the new ticket by itself. Never share that value: it gives access to your Ubisoft account."
+    },
+    "xbox": {
+      "description": "Imports the games your Microsoft account owns in the Microsoft Store / Xbox (purchases and redeemed codes, for console and PC). Game Pass games, trials and add-ons are skipped. It signs in like the Xbox app does (the way Playnite works) and only reads your account.",
+      "code": "Sign-in address",
+      "codeHelp": "1. Open the page above and sign in with your Microsoft account (the one you use on Xbox).\n2. Microsoft then opens an almost blank page whose address starts with `login.live.com/oauth20_desktop.srf?code=`.\n3. Copy that whole address from the address bar and paste it here (or just the part after `code=`).\n4. Press Test connection or Save right away: codes work once and expire within minutes.\nOnly needed the first time, or if the session expires after a long time without scans. Never share that address: it gives access to your Microsoft account."
+    },
+    "playstation": {
+      "description": "Imports the PS4 and PS5 games bought with your PlayStation Network account (PS Plus games are skipped). It signs in like the PlayStation app does (the way psn-api and PSNAWP work) and only reads your account.",
+      "npsso": "NPSSO token",
+      "npssoHelp": "1. Sign in on playstation.com in your browser.\n2. Open the page above. It shows a short text like `{\"npsso\":\"…\"}`; if it shows an error, you are not signed in.\n3. Copy the `npsso` value (64 letters and digits), or the whole text, and paste it here.\nGame Vault keeps a session that renews itself and uses the token again if needed; it lasts about two months. Never share it: it gives access to your PlayStation account."
+    }
+  },
+  "system": {
+    "status": "Status",
+    "version": "Version",
+    "configDir": "Config directory",
+    "database": "Database",
+    "startedAt": "Started",
+    "counts": "Catalog",
+    "countsValue": "{{games}} games, {{copies}} copies",
+    "configHint": "Everything that changes lives in the config directory. Back it up and you have backed up Game Vault.",
+    "backups": "Backups",
+    "backupNow": "Back up now",
+    "backupCreated": "Backup {{name}} created.",
+    "noBackups": "No backups yet.",
+    "backupName": "File",
+    "backupDate": "Date",
+    "backupSize": "Size",
+    "backupsHint": "Backups are written to config/backups. Automatic backups run daily and the newest 14 are kept (configurable). To restore, stop the server and replace config/gamevault.db with a backup.",
+    "csv": "CSV import / export",
+    "csvIntro": "For physical games and stores without an API. Re-importing the same file updates rows instead of duplicating them.",
+    "importCsv": "Import CSV",
+    "downloadTemplate": "Download template",
+    "exportCsv": "Export everything",
+    "importDone": "{{added}} copies added, {{updated}} updated, {{unchanged}} unchanged, {{games}} new games.",
+    "csvColumns": "Columns: title (required), platform, kind (key / library / physical), status, key, redeemBy, origin, acquiredOn, edition, condition, location, notes, steamAppId, externalId. Comma or semicolon separated; dates as YYYY-MM-DD."
+  },
+  "steamSearch": {
+    "title": "Find on Steam",
+    "placeholder": "Game title…"
+  },
+  "logs": {
+    "settings": "Logging and rotation",
+    "settingsIntro": "Logs are written to config/logs. When the current file reaches the maximum size it is archived, and only the newest files are kept. Changes apply immediately.",
+    "level": "Log level",
+    "levels": {
+      "debug": "Debug (every request)",
+      "info": "Info",
+      "warn": "Warnings",
+      "error": "Errors only"
+    },
+    "maxFileSize": "Max file size (MB)",
+    "maxFiles": "Files to keep (current included)",
+    "maxTotal": "Logs will never use more than about {{mb}} MB.",
+    "settingsSaved": "Log settings saved and applied.",
+    "files": "Log files",
+    "file": "File",
+    "modified": "Last written",
+    "current": "current",
+    "view": "View",
+    "download": "Download",
+    "refresh": "Refresh",
+    "clear_one": "Delete {{count}} archived file",
+    "clear_other": "Delete {{count}} archived files",
+    "confirmClear": "Delete every archived log file? The current file is kept.",
+    "cleared_one": "{{count}} file deleted.",
+    "cleared_other": "{{count}} files deleted.",
+    "filter": "Filter lines…",
+    "minLevel": "{{level}} and above",
+    "tail": "Lines",
+    "lastLines": "Last {{count}} lines",
+    "wholeFile": "Whole file",
+    "follow": "Follow",
+    "lineCount_one": "{{count}} line, newest first",
+    "lineCount_other": "{{count}} lines, newest first",
+    "truncated": "older lines not shown"
+  },
+  "providers": {
+    "title": "Metadata providers",
+    "intro": "Like Plex agents: for each kind of data, enabled providers are tried from top to bottom and the first one with an answer wins. The others act as fallbacks.",
+    "covers": "Covers",
+    "coversIntro": "Each provider only applies to the games it can cover, so keyed providers do not spend their quota on games another source covers better.",
+    "custom": {
+      "name": "Chosen or custom cover",
+      "description": "A cover you picked with \"Choose cover\" or pasted as a URL in the game page."
+    },
+    "alwaysFirst": "always first",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "enable": "Enable",
+    "disable": "Disable",
+    "on": "On",
+    "off": "Off",
+    "configure": "Configure",
+    "retryMissing": "Retry games without cover",
+    "redownload": "Re-download all covers",
+    "confirmRedownload": "Drop every cached cover? They are downloaded again as you browse, which spends provider quota.",
+    "retried_one": "{{count}} game will be looked up again.",
+    "retried_other": "{{count}} games will be looked up again.",
+    "redownloaded_one": "{{count}} cover dropped; it will be downloaded again.",
+    "redownloaded_other": "{{count}} covers dropped; they will be downloaded again.",
+    "testOk": "Settings look good.",
+    "testQuota_one": "API key valid: {{formatted}} request left this month.",
+    "testQuota_other": "API key valid: {{formatted}} requests left this month.",
+    "thegamesdb": {
+      "description": "Platform-specific box art (the Xbox 360 case for an Xbox 360 disc). Used for games with a physical copy, games no store knows, and store games no store had art for. One request per game, then cached.",
+      "apiKey": "API key",
+      "apiKeyHelp": "Request a free key on TheGamesDB forums (page above).\nKeys have a monthly request allowance; Test shows what is left without spending it."
+    },
+    "steam": {
+      "description": "Steam library art for games linked to a Steam AppID. No key and no quota."
+    },
+    "barcodes": "Barcodes",
+    "barcodesIntro": "Used by Scan to identify a disc from the barcode on its box. Unknown codes are identified once by title and then remembered.",
+    "upcitemdb": {
+      "description": "Free, no key needed (about 100 lookups a day). Knows most US boxes and about half of European ones.",
+      "userKey": "User key (optional)",
+      "userKeyHelp": "Only for a paid UPCitemdb plan with a higher limit. Leave empty to use the free endpoint."
+    },
+    "eansearch": {
+      "description": "European product database with good PAL coverage (it knows Xbox 360 boxes that free databases miss). Needs an API token: trial 1 € the first month (100 lookups), Pro 19 €/month (5,000). Test shows the credits left.",
+      "token": "API token",
+      "tokenHelp": "1. Open the page above and create an EAN-Search.org account with API access.\n2. Copy your API token and paste it here.\nYou can cancel any time, for example after cataloguing your collection."
+    },
+    "local": {
+      "name": "Your catalog",
+      "description": "Barcodes you already registered are recognised instantly, without asking any database."
+    },
+    "ebay": {
+      "description": "Finds eBay listings with the scanned EAN. Best free option for old European (PAL) games, which second-hand sellers list with their barcode. Needs free eBay developer keys.",
+      "clientId": "App ID (Client ID)",
+      "clientSecret": "Cert ID (Client Secret)",
+      "keysHelp": "1. Open the page above and create a free eBay developer account.\n2. Go to Application Keys → Production keyset and copy the App ID and Cert ID.\n3. If asked about marketplace account deletion notifications, choose the exemption: Game Vault does not store eBay user data.",
+      "marketplaces": "Marketplaces",
+      "marketplacesHelp": "Tried in order until one has listings. Default: EBAY_ES, EBAY_GB, EBAY_DE, EBAY_FR, EBAY_IT."
+    },
+    "metadata": "Game details",
+    "metadataIntro": "Summary, genres, companies, trailers and screenshots shown in each game. The first provider gives the main sheet; the next ones fill what is missing. Downloaded when you open a game, then cached for 30 days.",
+    "steamDetails": {
+      "description": "Steam store page of games linked to a Steam AppID: summary in your language, genres, companies, Metacritic, trailers and screenshots. Free, no key."
+    },
+    "thegamesdbDetails": {
+      "description": "Platform-specific overview (English), genres, companies, age rating, players and YouTube trailer, for games with a physical copy or without a Steam AppID. Uses the TheGamesDB key from Covers; about 2 requests per game, then cached."
+    },
+    "epicCovers": {
+      "description": "Official box art from the Epic Games Store, for games imported from your Epic library. Free, no key needed."
+    },
+    "gogCovers": {
+      "description": "Official box art from GOG, for games imported from your GOG library. Free, no key needed."
+    },
+    "ubisoftCovers": {
+      "description": "Box art from Ubisoft Connect for games imported from your Ubisoft library, else the Ubisoft Store packshot (also for Ubisoft Connect keys). Free, no key needed."
+    },
+    "eaCovers": {
+      "description": "Official pack art from EA, for games imported from your EA library. Free, no key needed."
+    },
+    "battlenetCovers": {
+      "description": "Blizzard publishes no box art outside its signed-in shop, so games imported from Battle.net are looked up on the Steam store by their exact title (many Blizzard and Activision games are sold there too). Games only on Battle.net fall back to the other providers. Free, no key needed."
+    },
+    "xboxCovers": {
+      "description": "Official poster from the Microsoft Store, for games imported from your Microsoft account. Free, no key needed."
+    }
+  },
+  "coverPicker": {
+    "open": "Choose cover…",
+    "title": "Choose cover",
+    "intro": "Images proposed by your enabled cover providers. The one you pick is kept even if the provider order changes.",
+    "automatic": "Automatic",
+    "automaticHint": "Let the provider chain decide",
+    "none": "No provider has a cover for this game. Link it to Steam or paste an image URL."
+  },
+  "scan": {
+    "title": "Scan games",
+    "intro": "Register physical games quickly: scan the barcode with the camera, a USB/Bluetooth reader or by typing it, confirm and go on with the next box.",
+    "placeholder": "Barcode, e.g. 5 026555 255042",
+    "lookup": "Look up",
+    "invalid": "\"{{code}}\" is not a valid barcode (check the digits).",
+    "camera": {
+      "start": "Use camera",
+      "stop": "Stop camera",
+      "hint": "Point at the barcode on the back of the box",
+      "paused": "Paused — confirm or skip to scan the next one",
+      "insecure": "The camera needs HTTPS (or localhost). On your phone, open Game Vault through an HTTPS address.",
+      "denied": "Camera permission denied. Allow it in the browser settings for this site.",
+      "error": "Cannot start the camera: {{error}}"
+    },
+    "defaults": {
+      "title": "Defaults for this batch",
+      "hint": "Applied to every game you add from here; remembered on this device.",
+      "platform": "Platform",
+      "platformAuto": "Detect from barcode"
+    },
+    "owned": "You already have it: {{title}} ({{platform}}).",
+    "openGame": "Open game",
+    "next": "Scan next",
+    "foundAs": "found as \"{{raw}}\"",
+    "unknown": "No barcode database knows this code. Type the title and search: it will be saved with the barcode, so next time it is recognised.",
+    "searchTitle": "Search",
+    "addTo": "Add as",
+    "newGame": "a new game",
+    "existingGame": "one more copy of \"{{title}}\"",
+    "skip": "Skip",
+    "addGame": "Add game",
+    "addCopy": "Add copy",
+    "added_one": "Added in this session ({{count}})",
+    "added_other": "Added in this session ({{count}})"
+  },
+  "auth": {
+    "username": "Username",
+    "password": "Password",
+    "retry": "Try again",
+    "logout": "Sign out",
+    "login": {
+      "title": "Sign in",
+      "intro": "Game Vault is protected. Sign in with your user.",
+      "submit": "Sign in"
+    },
+    "setup": {
+      "title": "Create your user",
+      "intro": "Create the user to sign in from other devices. On trusted networks (by default, this computer) you can also get in without it.",
+      "submit": "Create user"
+    },
+    "notAllowed": {
+      "title": "Access not authorised",
+      "noUser": "No user has been created yet. Open Game Vault from a trusted network (by default, the computer running it, at http://127.0.0.1:8080) and create one in System → Security."
+    }
+  },
+  "security": {
+    "title": "Security",
+    "saved": "Security settings saved.",
+    "youAre": "You are signed in as {{name}}.",
+    "methods": {
+      "trusted": "trusted network, no sign-in",
+      "session": "password"
+    },
+    "authentication": {
+      "label": "Authentication",
+      "trusted_networks": "Not required on trusted networks",
+      "required": "Required for everyone",
+      "trusted_networksHelp": "Requests from the trusted networks below get in without signing in; everyone else signs in with the user and password.",
+      "requiredHelp": "Everyone signs in with the user and password, this computer included. If you forget the password, start Game Vault with -reset-auth."
+    },
+    "networks": {
+      "label": "Trusted networks",
+      "help": "One network (192.168.1.0/24) or address (192.168.1.20) per line. By default only this computer. Requests through a proxy, or that use a host name instead of an address, are never trusted.",
+      "youAreAt": "You are connecting from {{address}}.",
+      "addMine": "Add it"
+    },
+    "certificates": {
+      "label": "Certificate validation",
+      "enabled": "Enabled",
+      "local_disabled": "Disabled for local addresses",
+      "disabled": "Disabled",
+      "help": "Whether Game Vault checks the HTTPS certificates of the stores and services it connects to. Keep it enabled unless a proxy or a local service uses its own certificate."
+    },
+    "user": {
+      "title": "User",
+      "createIntro": "Create the user to sign in from other devices, or to make authentication required.",
+      "changeIntro": "Changing the password signs out every other session. From a trusted network it can be reset without the current one.",
+      "current": "Current password",
+      "new": "New password",
+      "create": "Create user",
+      "change": "Save user",
+      "created": "User created.",
+      "changed": "User saved; other sessions were signed out."
+    },
+    "youAreTrusted": "You are in without signing in: this request comes from a trusted network."
+  },
+  "details": {
+    "tabs": {
+      "overview": "Overview",
+      "edit": "Edit"
+    },
+    "loading": "Loading details…",
+    "summary": "Summary",
+    "trailers": "Trailers",
+    "trailer": "Trailer",
+    "screenshots": "Screenshots",
+    "release": "Released",
+    "developer": "Developer",
+    "publisher": "Publisher",
+    "ageRating": "Age rating",
+    "players": "Players",
+    "storePage": "Store page",
+    "website": "Website",
+    "sources": "Details from {{sources}}",
+    "updated": "updated {{date}}",
+    "refresh": "Refresh details",
+    "empty": "No provider has details for this game yet.",
+    "emptyNoSteam": "No details found. Link the game to Steam (Edit → Find on Steam) or enable TheGamesDB in Providers.",
+    "steamHint": "Linking a game to Steam gives it a cover and a full sheet.",
+    "readMore": "Read more",
+    "readLess": "Show less"
+  },
+  "platform": {
+    "pendingKey": "key not redeemed yet",
+    "filterBy": "Show only {{platform}} games",
+    "clearFilter": "Show every platform"
+  }
+}

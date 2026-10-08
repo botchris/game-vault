@@ -1,0 +1,102 @@
+syntax = "proto3";
+
+package gamevault.v1;
+
+option go_package = "gamevault/internal/gen/gamevault/v1;gamevaultv1";
+
+// Principal is the authenticated caller.
+message Principal {
+  // "trusted" (a trusted network, no sign-in) or "session" (signed in with the password).
+  string method = 1;
+  string name = 2;
+}
+
+// AuthSettings are the security settings.
+message AuthSettings {
+  reserved 1, 2, 3;
+  reserved "local_bypass", "trust_tailscale", "tailscale_logins";
+  // "required" (everyone signs in) or "trusted_networks" (not required from trusted networks).
+  string authentication = 4;
+  // CIDR prefixes or single addresses whose requests need no sign-in, e.g. "192.168.1.0/24".
+  repeated string trusted_networks = 5;
+  // HTTPS certificates of the services Game Vault connects to: "enabled", "local_disabled"
+  // (not checked for local addresses) or "disabled".
+  string certificate_validation = 6;
+}
+
+message GetAuthStatusRequest {}
+message GetAuthStatusResponse {
+  reserved 4, 5;
+  reserved "tailscale_login", "local";
+  // Absent when the caller must sign in.
+  Principal principal = 1;
+  // No user exists yet.
+  bool setup_required = 2;
+  // No user exists and the caller is on a trusted network, so it may create it.
+  bool can_setup = 3;
+  // The request comes straight from a trusted network.
+  bool trusted = 6;
+}
+
+// SetupRequest creates the user. Only accepted from a trusted network.
+message SetupRequest {
+  string username = 1;
+  string password = 2;
+}
+message SetupResponse {
+  Principal principal = 1;
+}
+
+// LoginRequest opens a session; the session cookie is set on the response.
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+}
+message LoginResponse {
+  Principal principal = 1;
+}
+
+message LogoutRequest {}
+message LogoutResponse {}
+
+// ChangePasswordRequest sets a new password (and the username, when it changes). From a trusted
+// network current_password may be empty (password recovery).
+message ChangePasswordRequest {
+  string username = 1;
+  string current_password = 2;
+  string new_password = 3;
+}
+message ChangePasswordResponse {}
+
+message GetAuthSettingsRequest {}
+message GetAuthSettingsResponse {
+  reserved 2;
+  reserved "denied";
+  AuthSettings settings = 1;
+  // Whether the user exists, and its name.
+  bool has_user = 3;
+  string username = 4;
+  // The address the caller is seen from, to help filling in trusted networks, and whether a
+  // saved trusted network already contains it.
+  string client_address = 5;
+  bool client_in_trusted_networks = 6;
+}
+
+message UpdateAuthSettingsRequest {
+  AuthSettings settings = 1;
+}
+message UpdateAuthSettingsResponse {
+  AuthSettings settings = 1;
+}
+
+// AuthService handles access control. GetAuthStatus, Setup, Login and Logout work without
+// authentication; the other methods (and every other service) require it.
+service AuthService {
+  rpc GetAuthStatus(GetAuthStatusRequest) returns (GetAuthStatusResponse);
+  rpc Setup(SetupRequest) returns (SetupResponse);
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
+  rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
+  rpc GetAuthSettings(GetAuthSettingsRequest) returns (GetAuthSettingsResponse);
+  rpc UpdateAuthSettings(UpdateAuthSettingsRequest) returns (UpdateAuthSettingsResponse);
+}

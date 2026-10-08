@@ -1,0 +1,105 @@
+syntax = "proto3";
+
+package gamevault.v1;
+
+import "gamevault/v1/source.proto";
+
+option go_package = "gamevault/internal/gen/gamevault/v1;gamevaultv1";
+
+// Provider is a metadata provider and the user's configuration of it. Providers of the same kind
+// form a chain (Plex-agent style): enabled providers are tried by ascending priority and the
+// first one with an answer wins.
+message Provider {
+  string id = 1;
+  // "cover" or "barcode".
+  string kind = 2;
+  string name = 3;
+  string description_key = 4;
+  repeated SettingField fields = 5;
+  bool enabled = 6;
+  int32 priority = 7;
+  // Secrets are replaced by ListProvidersResponse.secret_placeholder.
+  map<string, string> settings = 8;
+}
+
+message ListProvidersRequest {
+  string kind = 1;
+}
+message ListProvidersResponse {
+  // In chain order.
+  repeated Provider providers = 1;
+  string secret_placeholder = 2;
+}
+
+message UpdateProviderRequest {
+  string id = 1;
+  bool enabled = 2;
+  // Send the placeholder back to keep a stored secret.
+  map<string, string> settings = 3;
+}
+message UpdateProviderResponse {
+  Provider provider = 1;
+}
+
+message ReorderProvidersRequest {
+  string kind = 1;
+  // Provider ids in the desired order, first = tried first.
+  repeated string ids = 2;
+}
+message ReorderProvidersResponse {
+  repeated Provider providers = 1;
+}
+
+message TestProviderRequest {
+  string id = 1;
+  // Overrides the stored settings for the test; placeholders keep stored secrets.
+  map<string, string> settings = 2;
+}
+message TestProviderResponse {
+  bool success = 1;
+  string message = 2;
+  // Remaining request allowance of the provider's API key; -1 when it has no quota.
+  int32 remaining_quota = 3;
+}
+
+// ProviderService configures the metadata provider chains.
+service ProviderService {
+  rpc ListProviders(ListProvidersRequest) returns (ListProvidersResponse);
+  rpc UpdateProvider(UpdateProviderRequest) returns (UpdateProviderResponse);
+  rpc ReorderProviders(ReorderProvidersRequest) returns (ReorderProvidersResponse);
+  rpc TestProvider(TestProviderRequest) returns (TestProviderResponse);
+}
+
+// CoverCandidate is an image proposed by a cover provider.
+message CoverCandidate {
+  string url = 1;
+  string thumb_url = 2;
+  string label = 3;
+  string provider_id = 4;
+  string provider_name = 5;
+}
+
+message ListCoverCandidatesRequest {
+  string game_id = 1;
+}
+message ListCoverCandidatesResponse {
+  repeated CoverCandidate candidates = 1;
+  // Providers that failed (e.g. quota used up), as human-readable messages.
+  repeated string warnings = 2;
+}
+
+message RefreshCoversRequest {
+  // Only retry games where no cover was found (cheap). When false every cached cover is dropped
+  // and resolved again on next view.
+  bool missing_only = 1;
+}
+message RefreshCoversResponse {
+  int32 games = 1;
+}
+
+// CoverService lets users pick covers among the providers' proposals and refresh the cache.
+// To pin a candidate, set it as the game's cover_url with GameService.UpdateGame.
+service CoverService {
+  rpc ListCoverCandidates(ListCoverCandidatesRequest) returns (ListCoverCandidatesResponse);
+  rpc RefreshCovers(RefreshCoversRequest) returns (RefreshCoversResponse);
+}

@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+package gamevault.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "gamevault/internal/gen/gamevault/v1;gamevaultv1";
+
+// Video is a trailer: an HLS stream (play with a <video> element or hls.js) or a YouTube video.
+message Video {
+  string title = 1;
+  // Path of the locally stored image (/media/games/{id}/assets/…), relative to the API.
+  string thumbnail_url = 2;
+  string hls_url = 3;
+  string youtube_id = 4;
+}
+
+// Screenshot paths point to the locally stored images (/media/games/{id}/assets/…), relative to
+// the API. Missing files are downloaded on first request.
+message Screenshot {
+  string thumb_url = 1;
+  string full_url = 2;
+}
+
+// GameDetails is the descriptive sheet of a game, merged from the metadata providers: the first
+// provider in the chain wins and the next ones fill what is missing.
+message GameDetails {
+  // Plain text; paragraphs separated by blank lines.
+  string summary = 1;
+  repeated string genres = 2;
+  repeated string developers = 3;
+  repeated string publishers = 4;
+  // YYYY-MM-DD when known, otherwise as the provider wrote it ("18 ABR 2011").
+  string release_date = 5;
+  string age_rating = 6;
+  string players = 7;
+  // 0 when unknown.
+  int32 metacritic = 8;
+  string metacritic_url = 9;
+  string website = 10;
+  // Page of the game on the main source (Steam store, TheGamesDB...).
+  string store_url = 11;
+  repeated Video videos = 12;
+  repeated Screenshot screenshots = 13;
+  // Providers that contributed, in chain order.
+  repeated string sources = 14;
+  string language = 15;
+  google.protobuf.Timestamp fetched_at = 16;
+}
+
+message GetGameDetailsRequest {
+  string game_id = 1;
+  // UI language ("en", "es"...). Providers that support it answer in that language.
+  string language = 2;
+  // Ask the providers again instead of using the cache (cached for 30 days).
+  bool refresh = 3;
+}
+message GetGameDetailsResponse {
+  GameDetails details = 1;
+  // Providers that failed, as human-readable messages.
+  repeated string warnings = 2;
+}
+
+// MetadataService serves game details from the metadata provider chain.
+service MetadataService {
+  rpc GetGameDetails(GetGameDetailsRequest) returns (GetGameDetailsResponse);
+}

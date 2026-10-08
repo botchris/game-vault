@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "ENABLE_LSP_TOOL": "1"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(task)",
+      "Bash(task --list)",
+      "Bash(task toolchain)",
+      "Bash(task deps:web)",
+      "Bash(task build)",
+      "Bash(task build:web)",
+      "Bash(task build:server)",
+      "Bash(task build:release)",
+      "Bash(task test)",
+      "Bash(task lint)",
+      "Bash(task fmt)",
+      "Bash(task i18n)",
+      "Bash(task generate)",
+      "Bash(task test-server)",
+      "Bash(task test-server:*)",
+      "Bash(.claude/scripts/test-server.sh:*)",
+      "Bash(docker images:*)",
+      "Bash(docker image inspect:*)"
+    ],
+    "deny": [
+      "Read(./config/gamevault.db*)",
+      "Edit(./config/**)",
+      "Write(./config/**)",
+      "Bash(task run)",
+      "Bash(rm -rf config*)"
+    ]
+  }
+}

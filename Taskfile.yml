@@ -1,0 +1,156 @@
+# Game Vault tasks (https://taskfile.dev). Run `task` to list them.
+#
+# Everything that compiles, tests or generates code runs inside the toolchain container
+# (build/toolchain.Dockerfile): the host only needs Docker and Task. The server binary is
+# cross-compiled for the host and runs there, because Game Vault's local access and Tailscale
+# identity checks rely on requests arriving from 127.0.0.1, which a container cannot provide.
+
+version: '3'
+
+vars:
+  VERSION:
+    sh: date +%Y.%m.%d
+  # The toolchain image is tagged with a hash of its Dockerfile: editing it builds a new image.
+  TOOLCHAIN_HASH:
+    sh: (sha256sum build/toolchain.Dockerfile 2>/dev/null || shasum -a 256 build/toolchain.Dockerfile) | cut -c1-12
+  TOOLCHAIN: gamevault-toolchain:{{.TOOLCHAIN_HASH}}
+  # Caches live in named volumes, so repeated builds are fast and the host stays clean.
+  # web/node_modules is a volume too: npm installs Linux binaries that must not mix with the host.
+  DOCKER_RUN: >-
+    docker run --rm --init
+    -v "{{.ROOT_DIR}}:/src" -w /src
+    -v gamevault-gomod:/go/pkg/mod
+    -v gamevault-gobuild:/root/.cache/go-build
+    -v gamevault-npm:/root/.npm
+    -v gamevault-node-modules:/src/web/node_modules
+  IN_TOOLCHAIN: '{{.DOCKER_RUN}} {{.TOOLCHAIN}}'
+
+tasks:
+  default:
+    desc: List the tasks
+    silent: true
+    cmds:
+      - task --list
+
+  toolchain:
+    desc: Build the toolchain image (once, and whenever build/toolchain.Dockerfile changes)
+    status:
+      - docker image inspect {{.TOOLCHAIN}} >/dev/null 2>&1
+    cmds:
+      - docker build -t {{.TOOLCHAIN}} -f build/toolchain.Dockerfile build
+
+  deps:web:
+    desc: Install the web dependencies in the container (only when package-lock.json changed)
+    deps: [toolchain]
+    cmds:
+      - >-
+        {{.IN_TOOLCHAIN}} sh -c 'cd web &&
+        hash=$(sha256sum package-lock.json | cut -c1-64) &&
+        if [ "$(cat node_modules/.lock-hash 2>/dev/null)" != "$hash" ]; then
+        npm ci --no-audit && echo "$hash" > node_modules/.lock-hash; fi'
+
+  generate:
+    desc: Regenerate Go and TypeScript code from proto/ (after editing the API)
+    deps: [deps:web]
+    cmds:
+      - '{{.IN_TOOLCHAIN}} sh -c "buf lint && buf generate"'
+
+  build:
+    desc: Build the web UI and the server binary for this machine
+    cmds:
+      - task: build:web
+      - task: build:server
+
+  build:web:
+    desc: Build the web UI into web/dist (type check included)
+    deps: [deps:web]
+    cmds:
+      - '{{.IN_TOOLCHAIN}} sh -c "cd web && npm run build"'
+
+  build:server:
+    desc: Build the server binary into bin/ for this machine ({{OS}}/{{ARCH}})
+    deps: [toolchain]
+    cmds:
+      - >-
+        {{.DOCKER_RUN}} -e GOOS={{OS}} -e GOARCH={{ARCH}} {{.TOOLCHAIN}}
+        go build -trimpath -ldflags "-X main.version={{.VERSION}}" -o bin/gamevault ./cmd/gamevault
+
+  build:release:
+    desc: Build server binaries for every supported platform into bin/release/
+    deps: [toolchain]
+    vars:
+      TARGETS: linux/amd64 linux/arm64 darwin/arm64 darwin/amd64 windows/amd64
+    cmds:
+      - for: { var: TARGETS, split: ' ' }
+        cmd: >-
+          {{.DOCKER_RUN}} -e GOOS={{index (splitList "/" .ITEM) 0}} -e GOARCH={{index (splitList "/" .ITEM) 1}} {{.TOOLCHAIN}}
+          go build -trimpath -ldflags "-s -w -X main.version={{.VERSION}}"
+          -o bin/release/gamevault-{{index (splitList "/" .ITEM) 0}}-{{index (splitList "/" .ITEM) 1}}{{if eq (index (splitList "/" .ITEM) 0) "windows"}}.exe{{end}}
+          ./cmd/gamevault
+
+  test:
+    desc: Go vet + tests, TypeScript type check and the translation check
+    deps: [deps:web]
+    cmds:
+      - '{{.IN_TOOLCHAIN}} sh -c "go vet ./... && go test ./... && cd web && npm run typecheck && node ../.claude/scripts/check-i18n.mjs"'
+
+  fmt:
+    desc: Format the Go code
+    deps: [toolchain]
+    cmds:
+      - '{{.IN_TOOLCHAIN}} gofmt -w internal cmd'
+
+  lint:
+    desc: Check formatting and lint the protobuf definitions
+    deps: [toolchain]
+    cmds:
+      - >-
+        {{.IN_TOOLCHAIN}} sh -c 'unformatted=$(gofmt -l internal cmd);
+        if [ -n "$unformatted" ]; then echo "not gofmt-ed:"; echo "$unformatted"; exit 1; fi; buf lint'
+
+  i18n:
+    desc: Check that every UI language has the same translation keys as English
+    deps: [toolchain]
+    cmds:
+      - '{{.IN_TOOLCHAIN}} node .claude/scripts/check-i18n.mjs'
+
+  run:
+    desc: Build everything and run the server on http://127.0.0.1:8080 (on the host)
+    cmds:
+      - task: build
+      - ./bin/gamevault
+
+  dev:web:
+    desc: Rebuild the web UI into web/dist on every change (in the container); the server from `task run` serves it, reload the page to see changes
+    deps: [deps:web]
+    cmds:
+      - '{{.DOCKER_RUN}} -it {{.TOOLCHAIN}} sh -c "cd web && npx vite build --watch"'
+    interactive: true
+
+  shell:
+    desc: Open a shell in the toolchain container (repository at /src)
+    deps: [toolchain]
+    cmds:
+      - '{{.DOCKER_RUN}} -it {{.TOOLCHAIN}} bash'
+    interactive: true
+
+  test-server:
+    desc: 'Throwaway server on http://127.0.0.1:8093 with a copy of config/ (CLI_ARGS: --full copies images too)'
+    cmds:
+      - task: build
+      - .claude/scripts/test-server.sh {{.CLI_ARGS}}
+
+  test-server:stop:
+    desc: Stop the test server
+    cmds:
+      - .claude/scripts/test-server.sh --stop
+
+  clean:
+    desc: Remove build output (never touches config/)
+    cmds:
+      - rm -rf bin web/dist
+
+  clean:caches:
+    desc: Remove the toolchain caches (Go modules, build cache, npm, web/node_modules volumes)
+    cmds:
+      - docker volume rm -f gamevault-gomod gamevault-gobuild gamevault-npm gamevault-node-modules

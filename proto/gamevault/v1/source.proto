@@ -1,0 +1,150 @@
+syntax = "proto3";
+
+package gamevault.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "gamevault/internal/gen/gamevault/v1;gamevaultv1";
+
+// SettingField describes one configuration value a source type needs.
+message SettingField {
+  enum Kind {
+    KIND_UNSPECIFIED = 0;
+    KIND_TEXT = 1;
+    // Secret value. It is never sent back to clients: they get SECRET_PLACEHOLDER instead,
+    // and sending the placeholder back on update keeps the stored value.
+    KIND_SECRET = 2;
+  }
+  string key = 1;
+  // Translation key for the label, e.g. "sources.humble.sessionCookie".
+  string label_key = 2;
+  Kind kind = 3;
+  bool required = 4;
+  // Translation key for the help text.
+  string help_key = 5;
+  // Optional link where the user can get the value.
+  string help_url = 6;
+}
+
+// SourceType is a kind of account that can be scanned (Humble Bundle, Steam...).
+message SourceType {
+  string id = 1;
+  string name = 2;
+  string description_key = 3;
+  repeated SettingField fields = 4;
+}
+
+// SyncReport is the outcome of scanning a source and consolidating its copies.
+message SyncReport {
+  google.protobuf.Timestamp started_at = 1;
+  google.protobuf.Timestamp finished_at = 2;
+  bool success = 3;
+  string error = 4;
+  // Copies returned by the source.
+  int32 fetched = 5;
+  int32 copies_added = 6;
+  int32 copies_updated = 7;
+  int32 copies_unchanged = 8;
+  int32 games_created = 9;
+  repeated string warnings = 10;
+}
+
+// Source is a configured account that is scanned to keep the catalog up to date.
+message Source {
+  string id = 1;
+  string type = 2;
+  string name = 3;
+  bool enabled = 4;
+  // Automatic sync interval in hours. 0 means manual only.
+  uint32 sync_interval_hours = 5;
+  map<string, string> settings = 6;
+  // Absent until the first sync.
+  SyncReport last_sync = 7;
+  // Number of copies currently managed by this source.
+  int32 copy_count = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+message SourceInput {
+  string type = 1;
+  string name = 2;
+  bool enabled = 3;
+  uint32 sync_interval_hours = 4;
+  map<string, string> settings = 5;
+}
+
+message ListSourceTypesRequest {}
+message ListSourceTypesResponse {
+  repeated SourceType types = 1;
+  // Value returned in place of secrets.
+  string secret_placeholder = 2;
+}
+
+message ListSourcesRequest {}
+message ListSourcesResponse {
+  repeated Source sources = 1;
+}
+
+message CreateSourceRequest {
+  SourceInput source = 1;
+}
+message CreateSourceResponse {
+  Source source = 1;
+}
+
+message UpdateSourceRequest {
+  string id = 1;
+  SourceInput source = 2;
+}
+message UpdateSourceResponse {
+  Source source = 1;
+}
+
+message DeleteSourceRequest {
+  string id = 1;
+  // Also delete the copies this source imported (and games left without copies).
+  // When false the copies stay as manual copies.
+  bool delete_copies = 2;
+}
+message DeleteSourceResponse {}
+
+// TestSourceRequest fetches from the source without saving anything.
+// Pass id to test a saved source (input settings override stored ones), or only input for a new one.
+message TestSourceRequest {
+  string id = 1;
+  SourceInput source = 2;
+}
+message TestSourceResponse {
+  bool success = 1;
+  // Error message when success is false.
+  string message = 2;
+  // Number of items found; see count_unit.
+  int32 fetched = 3;
+  // What fetched counts: "copies" or "orders".
+  string count_unit = 4;
+}
+
+message SyncSourceRequest {
+  string id = 1;
+}
+message SyncSourceResponse {
+  Source source = 1;
+}
+
+message SyncAllSourcesRequest {}
+message SyncAllSourcesResponse {
+  repeated Source sources = 1;
+}
+
+// SourceService manages the accounts that feed the catalog and runs scans.
+service SourceService {
+  rpc ListSourceTypes(ListSourceTypesRequest) returns (ListSourceTypesResponse);
+  rpc ListSources(ListSourcesRequest) returns (ListSourcesResponse);
+  rpc CreateSource(CreateSourceRequest) returns (CreateSourceResponse);
+  rpc UpdateSource(UpdateSourceRequest) returns (UpdateSourceResponse);
+  rpc DeleteSource(DeleteSourceRequest) returns (DeleteSourceResponse);
+  rpc TestSource(TestSourceRequest) returns (TestSourceResponse);
+  rpc SyncSource(SyncSourceRequest) returns (SyncSourceResponse);
+  rpc SyncAllSources(SyncAllSourcesRequest) returns (SyncAllSourcesResponse);
+}
