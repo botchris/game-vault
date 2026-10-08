@@ -10,6 +10,11 @@ version: '3'
 vars:
   VERSION:
     sh: date +%Y.%m.%d
+  # Commit the binaries and the image are built from; "-dirty" when there are uncommitted changes.
+  REVISION:
+    sh: git describe --always --dirty 2>/dev/null || echo unknown
+  # Docker Hub repository the image is published to (override with `task docker:publish IMAGE=…`).
+  IMAGE: botchrishub/game-vault
   # The toolchain image is tagged with a hash of its Dockerfile: editing it builds a new image.
   TOOLCHAIN_HASH:
     sh: (sha256sum build/toolchain.Dockerfile 2>/dev/null || shasum -a 256 build/toolchain.Dockerfile) | cut -c1-12
@@ -80,7 +85,8 @@ tasks:
     desc: Build server binaries for every supported platform into bin/release/
     deps: [toolchain]
     vars:
-      TARGETS: linux/amd64 linux/arm64 darwin/arm64 darwin/amd64 windows/amd64
+      # The Docker tasks pass only the Linux targets they package.
+      TARGETS: '{{.TARGETS | default "linux/amd64 linux/arm64 darwin/arm64 darwin/amd64 windows/amd64"}}'
     cmds:
       - for: { var: TARGETS, split: ' ' }
         cmd: >-
@@ -88,6 +94,38 @@ tasks:
           go build -trimpath -ldflags "-s -w -X main.version={{.VERSION}}"
           -o bin/release/gamevault-{{index (splitList "/" .ITEM) 0}}-{{index (splitList "/" .ITEM) 1}}{{if eq (index (splitList "/" .ITEM) 0) "windows"}}.exe{{end}}
           ./cmd/gamevault
+
+  docker:build:
+    desc: Build the Docker image for this machine as {{.IMAGE}}:dev, to try it before publishing
+    cmds:
+      - task: build:web
+      - task: build:release
+        vars: { TARGETS: 'linux/{{ARCH}}' }
+      - >-
+        docker buildx build --platform linux/{{ARCH}} -f build/Dockerfile
+        --build-arg VERSION=dev --build-arg REVISION={{.REVISION}}
+        -t {{.IMAGE}}:dev --load .
+
+  docker:publish:
+    desc: Build the image for linux/amd64 and linux/arm64 and push it to Docker Hub tagged with the date (YYYY.MM.DD) and latest (run `docker login` first)
+    prompt: Publish {{.IMAGE}}:{{.VERSION}} and {{.IMAGE}}:latest (commit {{.REVISION}}) to Docker Hub?
+    cmds:
+      - task: build:web
+      - task: build:release
+        vars: { TARGETS: 'linux/amd64 linux/arm64' }
+      - task: docker:builder
+      - >-
+        docker buildx build --builder gamevault --platform linux/amd64,linux/arm64 -f build/Dockerfile
+        --build-arg VERSION={{.VERSION}} --build-arg REVISION={{.REVISION}}
+        -t {{.IMAGE}}:{{.VERSION}} -t {{.IMAGE}}:latest --push .
+
+  docker:builder:
+    internal: true
+    desc: Create the buildx builder that can push images for several platforms at once
+    status:
+      - docker buildx inspect gamevault >/dev/null 2>&1
+    cmds:
+      - docker buildx create --name gamevault --driver docker-container >/dev/null
 
   test:
     desc: Go vet + tests, TypeScript type check and the translation check

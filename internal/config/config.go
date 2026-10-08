@@ -21,6 +21,10 @@ type Config struct {
 	CORSOrigins    []string
 	BackupInterval time.Duration
 	BackupKeep     int
+	// TrustedNetworks replace "this computer" as the trusted networks until the security
+	// settings are saved from the UI. The Docker image sets them to the private networks, because
+	// inside a container requests never come from 127.0.0.1.
+	TrustedNetworks []string
 	// ResetAuth makes authentication not required on trusted networks again, for when the
 	// password is forgotten while it is required.
 	ResetAuth bool
@@ -55,8 +59,9 @@ func Load(args []string) (Config, error) {
 	fs := flag.NewFlagSet("gamevault", flag.ContinueOnError)
 
 	var (
-		c    Config
-		cors string
+		c       Config
+		cors    string
+		trusted string
 	)
 
 	keep, _ := strconv.Atoi(env("GAMEVAULT_BACKUP_KEEP", "14"))
@@ -72,17 +77,15 @@ func Load(args []string) (Config, error) {
 	fs.StringVar(&cors, "cors-origins", env("GAMEVAULT_CORS_ORIGINS", ""), "comma-separated origins allowed to call the API (env GAMEVAULT_CORS_ORIGINS)")
 	fs.DurationVar(&c.BackupInterval, "backup-interval", interval, "automatic backup interval, 0 to disable (env GAMEVAULT_BACKUP_INTERVAL)")
 	fs.IntVar(&c.BackupKeep, "backup-keep", keep, "number of backups to keep (env GAMEVAULT_BACKUP_KEEP)")
+	fs.StringVar(&trusted, "trusted-networks", env("GAMEVAULT_TRUSTED_NETWORKS", ""), "comma-separated networks trusted until the security settings are saved; default this computer (env GAMEVAULT_TRUSTED_NETWORKS)")
 	fs.BoolVar(&c.ResetAuth, "reset-auth", false, "on start, stop requiring sign-in from trusted networks (forgotten password)")
 
 	if err := fs.Parse(args); err != nil {
 		return c, err
 	}
 
-	for o := range strings.SplitSeq(cors, ",") {
-		if o = strings.TrimSpace(o); o != "" {
-			c.CORSOrigins = append(c.CORSOrigins, o)
-		}
-	}
+	c.CORSOrigins = splitList(cors)
+	c.TrustedNetworks = splitList(trusted)
 
 	if c.UIDir != "" {
 		if info, err := os.Stat(c.UIDir); err != nil || !info.IsDir() {
@@ -93,4 +96,17 @@ func Load(args []string) (Config, error) {
 	c.ConfigDir, err = filepath.Abs(c.ConfigDir)
 
 	return c, err
+}
+
+// splitList parses a comma-separated flag, ignoring blanks.
+func splitList(s string) []string {
+	var out []string
+
+	for v := range strings.SplitSeq(s, ",") {
+		if v = strings.TrimSpace(v); v != "" {
+			out = append(out, v)
+		}
+	}
+
+	return out
 }

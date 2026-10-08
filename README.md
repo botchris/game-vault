@@ -37,6 +37,19 @@ it, step by step.
 
 ## Install and run
 
+### With Docker
+
+```bash
+docker run -d --name game-vault -p 8080:8080 -v game-vault-data:/config botchrishub/game-vault
+```
+
+Then open **http://127.0.0.1:8080**. Your data lives in the `game-vault-data` volume. To update,
+pull the image again (`docker pull botchrishub/game-vault`) and recreate the container. In Docker,
+devices on your home network get in without a password until you change that in
+**System → Security**.
+
+### From the source code
+
 You need [Docker](https://www.docker.com/) and [Task](https://taskfile.dev)
 (on macOS: `brew install go-task`). Nothing else: everything is built inside a container.
 
@@ -48,6 +61,8 @@ task run
 
 The first run takes a few minutes while the build container is prepared. Then open
 **http://127.0.0.1:8080**.
+
+Once it is running:
 
 1. **Sources** — connect your stores and your Humble Bundle account, then press **Scan all**.
 2. **Providers** — box art and game sheets work out of the box; optionally add a free

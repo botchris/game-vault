@@ -1,0 +1,5 @@
+# The image is assembled from build output only (see build/Dockerfile). Everything else stays out
+# of the build context, above all config/: the database holds keys, cookies and tokens.
+*
+!bin/release/gamevault-linux-*
+!web/dist

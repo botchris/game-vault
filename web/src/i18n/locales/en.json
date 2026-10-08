@@ -498,7 +498,7 @@
     },
     "networks": {
       "label": "Trusted networks",
-      "help": "One network (192.168.1.0/24) or address (192.168.1.20) per line. By default only this computer. Requests through a proxy, or that use a host name instead of an address, are never trusted.",
+      "help": "One network (192.168.1.0/24) or address (192.168.1.20) per line. By default only this computer (in Docker, your local network). Requests through a proxy, or that use a host name instead of an address, are never trusted.",
       "youAreAt": "You are connecting from {{address}}.",
       "addMine": "Add it"
     },

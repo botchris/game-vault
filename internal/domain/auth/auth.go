@@ -25,7 +25,7 @@ var (
 	ErrBadCredentials  = errors.New("wrong username or password")
 	ErrNotFound        = errors.New("not found")
 	ErrSetupDone       = errors.New("a user already exists")
-	ErrSetupNotTrusted = errors.New("the user can only be created from a trusted network (by default, the computer running Game Vault)")
+	ErrSetupNotTrusted = errors.New("the user can only be created from a trusted network (by default, the computer running Game Vault; in Docker, your local network)")
 	ErrTooManyAttempts = errors.New("too many failed attempts; wait a few minutes")
 	ErrLockout         = &ValidationError{"create a user before making authentication required, or you would lock yourself out"}
 )

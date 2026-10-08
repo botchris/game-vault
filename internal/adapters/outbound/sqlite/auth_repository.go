@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"slices"
 	"time"
 
 	"gamevault/internal/domain/auth"
@@ -129,7 +130,7 @@ func (r *SettingsRepository) Auth(ctx context.Context) (auth.Settings, error) {
 
 	err := r.db.conn(ctx).QueryRowContext(ctx, `SELECT value FROM settings WHERE key = ?`, keyAuth).Scan(&raw)
 	if errors.Is(err, sql.ErrNoRows) {
-		return auth.DefaultSettings(), nil
+		return r.defaultAuth(), nil
 	}
 
 	if err != nil {
@@ -142,7 +143,7 @@ func (r *SettingsRepository) Auth(ctx context.Context) (auth.Settings, error) {
 	}
 
 	if v.Authentication == "" && v.LegacyLocalBypass != nil {
-		s := auth.DefaultSettings()
+		s := r.defaultAuth()
 		if !*v.LegacyLocalBypass {
 			s.Authentication = auth.AuthRequired
 		}
@@ -154,6 +155,16 @@ func (r *SettingsRepository) Auth(ctx context.Context) (auth.Settings, error) {
 		Authentication: auth.Authentication(v.Authentication), TrustedNetworks: v.TrustedNetworks,
 		CertificateValidation: auth.CertificateValidation(v.CertificateValidation),
 	}.Normalize()
+}
+
+// defaultAuth is auth.DefaultSettings with the configured trusted networks, if any.
+func (r *SettingsRepository) defaultAuth() auth.Settings {
+	s := auth.DefaultSettings()
+	if len(r.DefaultTrustedNetworks) > 0 {
+		s.TrustedNetworks = slices.Clone(r.DefaultTrustedNetworks)
+	}
+
+	return s
 }
 
 // SaveAuth stores the authentication settings.

@@ -47,6 +47,7 @@ import (
 	"gamevault/internal/application/system"
 	"gamevault/internal/application/transfer"
 	"gamevault/internal/config"
+	domainauth "gamevault/internal/domain/auth"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/settings"
 )
@@ -102,6 +103,15 @@ func run() error {
 	games := sqlite.NewGameRepository(db)
 	sources := sqlite.NewSourceRepository(db)
 	settingsRepo := sqlite.NewSettingsRepository(db)
+
+	if len(cfg.TrustedNetworks) > 0 {
+		trusted, err := domainauth.Settings{TrustedNetworks: cfg.TrustedNetworks}.Normalize()
+		if err != nil {
+			return fmt.Errorf("-trusted-networks / GAMEVAULT_TRUSTED_NETWORKS: %w", err)
+		}
+
+		settingsRepo.DefaultTrustedNetworks = trusted.TrustedNetworks
+	}
 
 	assets, err := gamedata.Open(cfg.GameDataDir())
 	if err != nil {

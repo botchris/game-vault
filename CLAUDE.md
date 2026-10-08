@@ -32,11 +32,13 @@ dependencies: the host only needs Docker and Task.
 | Translations check only | `task i18n` |
 | One-off command in the toolchain (one package, a tool…) | `task shell`, or `docker run` with the volumes from `Taskfile.yml` (`DOCKER_RUN`) |
 | Release binaries (linux, darwin, windows) | `task build:release` |
+| Docker image: try locally / publish to Docker Hub | `task docker:build` / `task docker:publish` — publishing asks first; never run it without the user's go-ahead |
 
 The server binary is cross-compiled for the host (`CGO_ENABLED=0`, pure-Go SQLite) and runs on
 the host: access without a password from trusted networks relies on the real client address, which
-a container would hide behind Docker's network. Never run the server inside a container, and never open `config/gamevault.db` from
-a container (SQLite's shared memory does not cross the Docker VM).
+a container would hide behind Docker's network. For development, never run the server inside a container, and never open
+`config/gamevault.db` from a container (SQLite's shared memory does not cross the Docker VM). The published Docker image
+(`build/Dockerfile`) is for users: it trusts the private networks instead (see "Docker image" in `docs/technical.md`).
 
 Go 1.26, Node 24 + Vite 8, TypeScript, React 19. The host shell is fish/zsh on macOS (see gotchas
 in `.claude/memory/shell-gotchas.md`).

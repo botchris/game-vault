@@ -81,11 +81,43 @@ Re-scans never move a key you marked as `redeemed` back to pending.
 | `-cors-origins`      | `GAMEVAULT_CORS_ORIGINS`    | none (set it when the UI is hosted on another origin) |
 | `-backup-interval`   | `GAMEVAULT_BACKUP_INTERVAL` | `24h` (`0` disables) |
 | `-backup-keep`       | `GAMEVAULT_BACKUP_KEEP`     | `14`               |
+| `-trusted-networks`  | `GAMEVAULT_TRUSTED_NETWORKS`| this computer: comma-separated networks trusted until the security settings are saved from the UI |
 | `-reset-auth`        | —                           | off: on start, stop requiring sign-in on trusted networks (forgotten password) |
 
 The log level and log rotation are set in the UI (**Logs** page) and stored in the database. The defaults are `info`, 10 MB per file, and 5 files kept.
 
 The web client calls the page's own origin. To point it at another backend, build it with `VITE_API_URL=https://host:port`.
+
+## Docker image
+
+`botchrishub/game-vault` on Docker Hub, for `linux/amd64` and `linux/arm64`, tagged with the
+build date (`YYYY.MM.DD`) and `latest`. `build/Dockerfile` only packages what the toolchain built
+(`bin/release/gamevault-linux-*` and `web/dist`) on `gcr.io/distroless/static-debian13:nonroot`:
+CA certificates, time zone data and a non-root user (uid 65532), no shell. `.dockerignore` lets
+nothing else into the build context, so `config/` can never end up in an image.
+
+| Task | What it does |
+|---|---|
+| `task docker:build` | Image for this machine's architecture as `botchrishub/game-vault:dev`, loaded into the local Docker |
+| `task docker:publish` | Asks for confirmation, builds both architectures with a `docker-container` buildx builder (`gamevault`, created once) and pushes the date tag and `latest`. Run `docker login` first. `IMAGE=…` publishes elsewhere |
+
+The image sets `GAMEVAULT_ADDR=0.0.0.0:8080` (inside a container the port mapping decides who can
+reach it), `GAMEVAULT_CONFIG_DIR=/config` (a volume) and `GAMEVAULT_UI_DIR=/app/web/dist`.
+
+In a container no request comes from `127.0.0.1`: the host's own browser arrives from Docker's
+gateway (on Docker Desktop, every client does). So the image also sets
+`GAMEVAULT_TRUSTED_NETWORKS` to the private networks (`127.0.0.0/8`, `10.0.0.0/8`,
+`172.16.0.0/12`, `192.168.0.0/16`, `::1/128`, `fc00::/7`, `fe80::/10`), the way Sonarr trusts
+"local addresses". They only apply until the security settings are saved from the UI; the proxy
+and DNS-rebinding rules still hold, so a request with a host name in `Host` signs in.
+
+```bash
+docker run -d --name game-vault -p 8080:8080 -v game-vault-data:/config botchrishub/game-vault
+```
+
+A named volume is writable out of the box. For a host folder, run as its owner
+(`--user "$(id -u):$(id -g)"`) or give it to uid 65532. Arguments after the image name are
+passed to the server, e.g. `… botchrishub/game-vault -reset-auth`.
 
 ## Sources
 
@@ -185,7 +217,7 @@ Like Sonarr and Radarr, there is one user with a password and a few settings, in
 | Setting | Values | Default |
 |---|---|---|
 | Authentication | **Required for everyone**, or **not required on trusted networks** | Not required on trusted networks |
-| Trusted networks | CIDR prefixes (`192.168.1.0/24`) or addresses, one per line | This computer only (`127.0.0.0/8`, `::1/128`) |
+| Trusted networks | CIDR prefixes (`192.168.1.0/24`) or addresses, one per line | This computer only (`127.0.0.0/8`, `::1/128`); in the Docker image, the private networks (see [Docker image](#docker-image)) |
 | Certificate validation | **Enabled**, **disabled for local addresses**, **disabled** — for Game Vault's outgoing HTTPS connections (stores, providers) | Enabled |
 
 - Signing in opens a session: HttpOnly, SameSite=Lax cookie, 30 days. Failed sign-ins are

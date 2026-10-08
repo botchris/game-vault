@@ -498,7 +498,7 @@
     },
     "networks": {
       "label": "Redes de confianza",
-      "help": "Una red (192.168.1.0/24) o dirección (192.168.1.20) por línea. Por defecto, solo este ordenador. Las peticiones a través de un proxy, o que usan un nombre en vez de una dirección, nunca son de confianza.",
+      "help": "Una red (192.168.1.0/24) o dirección (192.168.1.20) por línea. Por defecto, solo este ordenador (en Docker, tu red local). Las peticiones a través de un proxy, o que usan un nombre en vez de una dirección, nunca son de confianza.",
       "youAreAt": "Te conectas desde {{address}}.",
       "addMine": "Añadirla"
     },

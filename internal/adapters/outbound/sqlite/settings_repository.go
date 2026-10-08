@@ -11,7 +11,13 @@ import (
 )
 
 // SettingsRepository implements settings.Repository with one JSON row per settings group.
-type SettingsRepository struct{ db *DB }
+type SettingsRepository struct {
+	db *DB
+
+	// DefaultTrustedNetworks replaces auth.DefaultTrustedNetworks until the security settings are
+	// saved. A container sets it: there, requests never come from 127.0.0.1.
+	DefaultTrustedNetworks []string
+}
 
 // NewSettingsRepository returns the repository backed by db.
 func NewSettingsRepository(db *DB) *SettingsRepository { return &SettingsRepository{db: db} }
