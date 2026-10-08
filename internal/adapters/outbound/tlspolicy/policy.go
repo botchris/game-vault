@@ -28,27 +28,34 @@ func Install(t *http.Transport) *Policy {
 	if t.TLSClientConfig != nil {
 		p.base = t.TLSClientConfig.Clone()
 	}
+
 	p.mode.Store(auth.CertsEnabled)
+
 	dialer := &net.Dialer{}
 	t.DialTLSContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
 		host, _, err := net.SplitHostPort(addr)
 		if err != nil {
 			host = addr
 		}
+
 		raw, err := dialer.DialContext(ctx, network, addr)
 		if err != nil {
 			return nil, err
 		}
+
 		cfg := p.base.Clone()
 		cfg.ServerName = host
 		cfg.InsecureSkipVerify = !p.verifies(host)
+
 		conn := tls.Client(raw, cfg)
 		if err := conn.HandshakeContext(ctx); err != nil {
-			raw.Close()
+			_ = raw.Close() // the handshake error is the one worth reporting
 			return nil, err
 		}
+
 		return conn, nil
 	}
+
 	return p
 }
 
@@ -62,6 +69,7 @@ func (p *Policy) verifies(host string) bool {
 	case auth.CertsLocalDisabled:
 		return !IsLocal(host)
 	}
+
 	return true
 }
 
@@ -74,13 +82,16 @@ func IsLocal(host string) bool {
 		a = a.Unmap()
 		return a.IsLoopback() || a.IsPrivate() || a.IsLinkLocalUnicast()
 	}
+
 	if host == "localhost" || !strings.Contains(host, ".") {
 		return true
 	}
+
 	for _, suffix := range []string{".local", ".lan", ".home.arpa", ".localhost", ".internal"} {
 		if strings.HasSuffix(host, suffix) {
 			return true
 		}
 	}
+
 	return false
 }

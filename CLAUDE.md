@@ -25,7 +25,8 @@ dependencies: the host only needs Docker and Task.
 | Build everything (web, then server binary for this machine) | `task build` |
 | Run (real data, port 8080) | `task run` — the user's own server; do not start or stop it |
 | Go vet + tests, TS type check, i18n check | `task test` |
-| Format / check formatting + buf lint | `task fmt` / `task lint` |
+| Format / lint Go (golangci-lint) + buf lint | `task fmt` / `task lint` |
+| Apply the safe automatic lint fixes | `task lint:fix` |
 | Regenerate API code after editing `proto/` | `task generate` |
 | Test server on a copy of the config (port 8093) | `task test-server` (`-- --full` copies images), `task test-server:stop` |
 | Translations check only | `task i18n` |
@@ -86,7 +87,7 @@ Rules of the architecture:
 
 ## How to verify a change
 
-1. `task lint` and `task test` pass (formatting, buf lint, vet, Go tests, TS types, translations).
+1. `task lint` and `task test` pass (golangci-lint, buf lint, vet, Go tests, TS types, translations).
 2. `task test-server` (builds web + server first) and look at the result in the browser pane on
    http://127.0.0.1:8093 (desktop, then the mobile preset; reset the viewport afterwards), then
    `task test-server:stop`.
@@ -112,5 +113,6 @@ Rules of the architecture:
 
 ## Detailed guides
 
+- Writing Go (style, lint rules, layering, tests): the `write-go` skill, `.claude/skills/write-go/SKILL.md`
 - Adding a source, a cover provider or a metadata provider: `.claude/docs/integrations.md`
 - Web UI, design system and motion rules: `.claude/docs/ui.md`

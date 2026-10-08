@@ -20,6 +20,7 @@ type GameHandler struct {
 
 var _ gamevaultv1connect.GameServiceHandler = (*GameHandler)(nil)
 
+// NewGameHandler returns the GameService handler backed by the catalog and media services.
 func NewGameHandler(c *catalog.Service, m *media.Service) *GameHandler {
 	return &GameHandler{catalog: c, media: m}
 }
@@ -28,20 +29,25 @@ func gameResp[T any](g *game.Game, err error, wrap func(*pb.Game) *T) (*connect.
 	if err != nil {
 		return nil, toConnectError(err)
 	}
+
 	return connect.NewResponse(wrap(gameToPB(g))), nil
 }
 
+// ListGames returns the catalog, filtered and sorted as requested.
 func (h *GameHandler) ListGames(ctx context.Context, req *connect.Request[pb.ListGamesRequest]) (*connect.Response[pb.ListGamesResponse], error) {
 	games, err := h.catalog.ListGames(ctx)
 	if err != nil {
 		return nil, toConnectError(err)
 	}
+
 	summaries, err := h.media.CatalogSummaries(ctx, req.Msg.Language)
 	if err != nil {
 		return nil, toConnectError(err)
 	}
+
 	out := make([]*pb.Game, len(games))
 	cached := 0
+
 	for i, g := range games {
 		out[i] = gameToPB(g)
 		if s, ok := summaries[g.ID()]; ok {
@@ -49,97 +55,126 @@ func (h *GameHandler) ListGames(ctx context.Context, req *connect.Request[pb.Lis
 			cached++
 		}
 	}
+
 	return connect.NewResponse(&pb.ListGamesResponse{Games: out, DetailsCached: int32(cached)}), nil
 }
 
+// GetGame returns one game with its copies.
 func (h *GameHandler) GetGame(ctx context.Context, req *connect.Request[pb.GetGameRequest]) (*connect.Response[pb.GetGameResponse], error) {
 	g, err := h.catalog.GetGame(ctx, game.ID(req.Msg.Id))
 	return gameResp(g, err, func(g *pb.Game) *pb.GetGameResponse { return &pb.GetGameResponse{Game: g} })
 }
 
+// CreateGame adds a game to the catalog, consolidating it with an existing one when they match.
 func (h *GameHandler) CreateGame(ctx context.Context, req *connect.Request[pb.CreateGameRequest]) (*connect.Response[pb.CreateGameResponse], error) {
 	var copies []game.CopyDetails
+
 	for _, d := range req.Msg.Copies {
 		cd, err := detailsFromPB(d)
 		if err != nil {
 			return nil, toConnectError(err)
 		}
+
 		copies = append(copies, cd)
 	}
+
 	info := game.Info{Title: req.Msg.Title, SteamAppID: req.Msg.SteamAppId, Notes: req.Msg.Notes, CoverURL: req.Msg.CoverUrl}
 	g, err := h.catalog.CreateGame(ctx, info, copies)
+
 	return gameResp(g, err, func(g *pb.Game) *pb.CreateGameResponse { return &pb.CreateGameResponse{Game: g} })
 }
 
+// UpdateGame changes the editable fields of a game.
 func (h *GameHandler) UpdateGame(ctx context.Context, req *connect.Request[pb.UpdateGameRequest]) (*connect.Response[pb.UpdateGameResponse], error) {
 	info := game.Info{Title: req.Msg.Title, SteamAppID: req.Msg.SteamAppId, Notes: req.Msg.Notes, CoverURL: req.Msg.CoverUrl}
 	g, err := h.catalog.UpdateGame(ctx, game.ID(req.Msg.Id), info)
+
 	return gameResp(g, err, func(g *pb.Game) *pb.UpdateGameResponse { return &pb.UpdateGameResponse{Game: g} })
 }
 
+// DeleteGame removes a game and all its copies.
 func (h *GameHandler) DeleteGame(ctx context.Context, req *connect.Request[pb.DeleteGameRequest]) (*connect.Response[pb.DeleteGameResponse], error) {
 	if err := h.catalog.DeleteGame(ctx, game.ID(req.Msg.Id)); err != nil {
 		return nil, toConnectError(err)
 	}
+
 	return connect.NewResponse(&pb.DeleteGameResponse{}), nil
 }
 
+// MergeGames moves the copies of several games into one and removes the others.
 func (h *GameHandler) MergeGames(ctx context.Context, req *connect.Request[pb.MergeGamesRequest]) (*connect.Response[pb.MergeGamesResponse], error) {
 	ids := make([]game.ID, len(req.Msg.SourceIds))
 	for i, id := range req.Msg.SourceIds {
 		ids[i] = game.ID(id)
 	}
+
 	g, err := h.catalog.MergeGames(ctx, game.ID(req.Msg.TargetId), ids)
+
 	return gameResp(g, err, func(g *pb.Game) *pb.MergeGamesResponse { return &pb.MergeGamesResponse{Game: g} })
 }
 
+// AddCopy attaches a new copy to a game.
 func (h *GameHandler) AddCopy(ctx context.Context, req *connect.Request[pb.AddCopyRequest]) (*connect.Response[pb.AddCopyResponse], error) {
 	d, err := detailsFromPB(req.Msg.Details)
 	if err != nil {
 		return nil, toConnectError(err)
 	}
+
 	g, err := h.catalog.AddCopy(ctx, game.ID(req.Msg.GameId), d)
+
 	return gameResp(g, err, func(g *pb.Game) *pb.AddCopyResponse { return &pb.AddCopyResponse{Game: g} })
 }
 
+// UpdateCopy changes the details of a copy.
 func (h *GameHandler) UpdateCopy(ctx context.Context, req *connect.Request[pb.UpdateCopyRequest]) (*connect.Response[pb.UpdateCopyResponse], error) {
 	d, err := detailsFromPB(req.Msg.Details)
 	if err != nil {
 		return nil, toConnectError(err)
 	}
+
 	g, err := h.catalog.UpdateCopy(ctx, game.ID(req.Msg.GameId), game.ID(req.Msg.CopyId), d)
+
 	return gameResp(g, err, func(g *pb.Game) *pb.UpdateCopyResponse { return &pb.UpdateCopyResponse{Game: g} })
 }
 
+// DeleteCopy removes a copy from its game.
 func (h *GameHandler) DeleteCopy(ctx context.Context, req *connect.Request[pb.DeleteCopyRequest]) (*connect.Response[pb.DeleteCopyResponse], error) {
 	g, err := h.catalog.DeleteCopy(ctx, game.ID(req.Msg.GameId), game.ID(req.Msg.CopyId))
 	return gameResp(g, err, func(g *pb.Game) *pb.DeleteCopyResponse { return &pb.DeleteCopyResponse{Game: g} })
 }
 
+// MoveCopy reassigns a copy to another game.
 func (h *GameHandler) MoveCopy(ctx context.Context, req *connect.Request[pb.MoveCopyRequest]) (*connect.Response[pb.MoveCopyResponse], error) {
 	src, dst, err := h.catalog.MoveCopy(ctx, game.ID(req.Msg.GameId), game.ID(req.Msg.CopyId), game.ID(req.Msg.TargetGameId), req.Msg.NewGameTitle)
 	if err != nil {
 		return nil, toConnectError(err)
 	}
+
 	return connect.NewResponse(&pb.MoveCopyResponse{SourceGame: gameToPB(src), TargetGame: gameToPB(dst)}), nil
 }
 
+// MarkRedeemedKeys marks as redeemed the unredeemed keys whose game is already in the
+// library of the key's platform.
 func (h *GameHandler) MarkRedeemedKeys(ctx context.Context, _ *connect.Request[pb.MarkRedeemedKeysRequest]) (*connect.Response[pb.MarkRedeemedKeysResponse], error) {
 	n, err := h.catalog.MarkRedeemedKeys(ctx)
 	if err != nil {
 		return nil, toConnectError(err)
 	}
+
 	return connect.NewResponse(&pb.MarkRedeemedKeysResponse{Updated: int32(n)}), nil
 }
 
+// SearchSteamApps searches the Steam store by title, to link a game to its Steam AppID.
 func (h *GameHandler) SearchSteamApps(ctx context.Context, req *connect.Request[pb.SearchSteamAppsRequest]) (*connect.Response[pb.SearchSteamAppsResponse], error) {
 	matches, err := h.media.SearchSteamApps(ctx, req.Msg.Query)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnavailable, err)
 	}
+
 	out := &pb.SearchSteamAppsResponse{}
 	for _, m := range matches {
 		out.Apps = append(out.Apps, &pb.SteamApp{AppId: m.AppID, Name: m.Name, ImageUrl: m.ImageURL})
 	}
+
 	return connect.NewResponse(out), nil
 }

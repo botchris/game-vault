@@ -27,11 +27,13 @@ import (
 	"gamevault/internal/domain/schema"
 )
 
+// ID identifies this provider in settings and provider chains.
+const ID provider.ID = "thegamesdb"
+
 const (
-	ID             provider.ID = "thegamesdb"
-	settingAPIKey              = "api_key"
-	defaultBaseURL             = "https://api.thegamesdb.net"
-	maxCandidates              = 6
+	settingAPIKey  = "api_key"
+	defaultBaseURL = "https://api.thegamesdb.net"
+	maxCandidates  = 6
 )
 
 // platformNames maps Game Vault platform names to TheGamesDB platform names. Names are compared
@@ -77,10 +79,12 @@ var (
 	_ media.Tester        = (*Provider)(nil)
 )
 
+// New returns the TheGamesDB cover provider with its production endpoints.
 func New() *Provider {
 	return &Provider{BaseURL: defaultBaseURL, Client: &http.Client{Timeout: 20 * time.Second}}
 }
 
+// Descriptor implements media.CoverProvider.
 func (p *Provider) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
 		ID: ID, Kind: provider.KindCover, Name: "TheGamesDB", SettingsGroup: string(ID),
@@ -107,13 +111,16 @@ func apiError(res *http.Response) error {
 	var body struct {
 		Status string `json:"status"`
 	}
-	json.NewDecoder(io.LimitReader(res.Body, 4096)).Decode(&body)
+	// Best effort: without a readable message the status code alone describes the error.
+	_ = json.NewDecoder(io.LimitReader(res.Body, 4096)).Decode(&body)
+
 	switch {
 	case body.Status != "":
 		return fmt.Errorf("TheGamesDB: %s (HTTP %d)", body.Status, res.StatusCode)
 	case res.StatusCode == http.StatusForbidden || res.StatusCode == http.StatusUnauthorized:
 		return fmt.Errorf("TheGamesDB rejected the API key or the monthly allowance is used up (HTTP %d)", res.StatusCode)
 	}
+
 	return fmt.Errorf("TheGamesDB: HTTP %d", res.StatusCode)
 }
 
@@ -122,19 +129,22 @@ func (p *Provider) get(ctx context.Context, path string, q url.Values, out any) 
 	if err != nil {
 		return err
 	}
+
 	res, err := p.Client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer res.Body.Close()
+
 	if res.StatusCode != http.StatusOK {
 		return apiError(res)
 	}
+
 	return json.NewDecoder(res.Body).Decode(out)
 }
 
 // ErrUnknownKey means TheGamesDB does not know the API key.
-var ErrUnknownKey = errors.New("TheGamesDB did not recognise the API key")
+var ErrUnknownKey = errors.New("TheGamesDB did not recognize the API key")
 
 // Test reports the remaining allowance; that endpoint does not consume it. It answers 200 even
 // for unknown keys, with no allowance and no refresh timer, which is how those are detected.
@@ -148,9 +158,11 @@ func (p *Provider) Test(ctx context.Context, s schema.Settings) (media.TestResul
 	if err := p.get(ctx, "/v1/API/Limit", url.Values{"apikey": {s[settingAPIKey]}}, &out); err != nil {
 		return media.TestResult{}, err
 	}
+
 	if out.Remaining == nil || (*out.Remaining+out.Extra == 0 && out.Refresh == 0) {
 		return media.TestResult{}, ErrUnknownKey
 	}
+
 	return media.TestResult{RemainingQuota: *out.Remaining + out.Extra}, nil
 }
 
@@ -159,6 +171,7 @@ func (p *Provider) Test(ctx context.Context, s schema.Settings) (media.TestResul
 func (p *Provider) platformIDs(ctx context.Context, apiKey string, names []string) []int64 {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
 	if p.platforms == nil {
 		var out struct {
 			Data struct {
@@ -172,13 +185,16 @@ func (p *Provider) platformIDs(ctx context.Context, apiKey string, names []strin
 		if err := p.get(ctx, "/v1/Platforms", url.Values{"apikey": {apiKey}}, &out); err != nil {
 			return nil // search without a platform filter rather than fail
 		}
+
 		p.platforms = map[string]int64{}
 		for _, pl := range out.Data.Platforms {
 			p.platforms[norm(pl.Name)] = pl.ID
 			p.platforms[norm(pl.Alias)] = pl.ID
 		}
 	}
+
 	var ids []int64
+
 	for _, n := range names {
 		for _, candidate := range append(platformNames[n], n) {
 			if id, ok := p.platforms[norm(candidate)]; ok {
@@ -187,6 +203,7 @@ func (p *Provider) platformIDs(ctx context.Context, apiKey string, names []strin
 			}
 		}
 	}
+
 	return ids
 }
 
@@ -219,45 +236,57 @@ type searchResponse struct {
 // platforms) and returns front box art, exact title matches first.
 func (p *Provider) Covers(ctx context.Context, q media.CoverQuery, s schema.Settings) ([]media.CoverCandidate, error) {
 	key := s[settingAPIKey]
+
 	platforms := q.PhysicalPlatforms
 	if len(platforms) == 0 {
 		platforms = q.Platforms
 	}
+
 	params := url.Values{"apikey": {key}, "name": {q.Title}, "include": {"boxart,platform"}}
 	if ids := p.platformIDs(ctx, key, platforms); len(ids) > 0 {
 		parts := make([]string, len(ids))
 		for i, id := range ids {
 			parts[i] = strconv.FormatInt(id, 10)
 		}
+
 		params.Set("filter[platform]", strings.Join(parts, ","))
 	}
+
 	var out searchResponse
 	if err := p.get(ctx, "/v1.1/Games/ByGameName", params, &out); err != nil {
 		return nil, err
 	}
 
 	base := out.Include.Boxart.BaseURL
+
 	large, thumb := base["large"], base["thumb"]
 	if large == "" {
 		large = base["original"]
 	}
+
 	if thumb == "" {
 		thumb = large
 	}
+
 	want, wantStrict := game.MatchKey(q.Title), strictKey(q.Title)
+
 	var strict, exact, others []media.CoverCandidate
+
 	for _, g := range out.Data.Games {
 		for _, art := range out.Include.Boxart.Data[strconv.FormatInt(g.ID, 10)] {
 			if art.Side != "front" {
 				continue
 			}
+
 			label := g.Title
 			if pl := out.Include.Platform.Data[strconv.FormatInt(g.Platform, 10)].Name; pl != "" {
 				label += " · " + pl
 			}
+
 			if len(g.ReleaseDate) >= 4 {
 				label += " · " + g.ReleaseDate[:4]
 			}
+
 			c := media.CoverCandidate{URL: large + art.Filename, ThumbURL: thumb + art.Filename, Label: label, Title: g.Title, Provider: ID}
 			switch {
 			case strictKey(g.Title) == wantStrict:
@@ -267,10 +296,13 @@ func (p *Provider) Covers(ctx context.Context, q media.CoverQuery, s schema.Sett
 			default:
 				others = append(others, c)
 			}
+
 			break
 		}
 	}
+
 	all := append(append(strict, exact...), others...)
+
 	return all[:min(len(all), maxCandidates)], nil
 }
 

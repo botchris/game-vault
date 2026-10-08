@@ -25,8 +25,10 @@ func fakeAccount(t *testing.T) *httptest.Server {
 		if !signedIn(r) {
 			w.WriteHeader(http.StatusUnauthorized)
 			fmt.Fprint(w, "<html>")
+
 			return
 		}
+
 		fmt.Fprint(w, `{"gameAccounts":[
 		  {"titleId":5730135,"localizedGameName":"World of Warcraft®","gameAccountRegion":"EU"},
 		  {"titleId":5730136,"localizedGameName":"World of Warcraft®","gameAccountRegion":"US"},
@@ -38,6 +40,7 @@ func fakeAccount(t *testing.T) *httptest.Server {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
+
 		fmt.Fprint(w, `{"classicGames":[{"localizedGameName":"Diablo® II"}]}`)
 	})
 	mux.HandleFunc("GET "+renewPath, func(w http.ResponseWriter, r *http.Request) {
@@ -45,6 +48,7 @@ func fakeAccount(t *testing.T) *httptest.Server {
 			http.Redirect(w, r, "/login/en/", http.StatusFound)
 			return
 		}
+
 		http.SetCookie(w, &http.Cookie{Name: "SESSION", Value: "fresh", Path: "/"})
 		http.Redirect(w, r, "/overview", http.StatusFound)
 	})
@@ -52,6 +56,7 @@ func fakeAccount(t *testing.T) *httptest.Server {
 	mux.HandleFunc("GET /overview", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "<html>ok") })
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
+
 	return srv
 }
 
@@ -65,13 +70,16 @@ func TestFetchRenewsTheSession(t *testing.T) {
 	if err != nil || len(warnings) > 0 {
 		t.Fatalf("fetch: %v %v", err, warnings)
 	}
-	var titles []string
+
+	titles := make([]string, 0, len(copies))
 	for _, c := range copies {
 		titles = append(titles, c.Title+"|"+c.Details.Platform)
 	}
+
 	if got := strings.Join(titles, ","); got != "Diablo® II|Battle.net,Overwatch® 2|Battle.net,World of Warcraft®|Battle.net" {
 		t.Fatalf("copies: %s", got)
 	}
+
 	if !strings.Contains(settings[settingSession], `"SESSION":"fresh"`) {
 		t.Fatalf("the renewed session should be kept: %q", settings[settingSession])
 	}
@@ -90,10 +98,12 @@ func TestSignedOut(t *testing.T) {
 	srv := fakeAccount(t)
 	p := NewProvider()
 	p.AccountURL = srv.URL
+
 	_, err := p.Test(context.Background(), source.Settings{settingCookies: "SESSION=expired; BA-tassadar=revoked"})
 	if !errors.Is(err, ErrSignedOut) {
 		t.Fatalf("got %v", err)
 	}
+
 	if _, err := p.Test(context.Background(), source.Settings{settingCookies: " "}); !errors.Is(err, ErrNoCookies) {
 		t.Fatalf("no cookies: %v", err)
 	}

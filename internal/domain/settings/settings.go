@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// Log levels accepted by Logging.Level.
+// LogLevels lists the levels accepted by Logging.Level, from most to least verbose.
 var LogLevels = []string{"debug", "info", "warn", "error"}
 
 // Logging controls the server log and the rotation of its files.
@@ -39,6 +39,7 @@ func (l Logging) Validate() (Logging, error) {
 	case l.MaxFiles < 1 || l.MaxFiles > 50:
 		return l, &ValidationError{"max files must be between 1 and 50"}
 	}
+
 	return l, nil
 }
 

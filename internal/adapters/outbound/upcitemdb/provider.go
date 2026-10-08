@@ -18,10 +18,12 @@ import (
 	"gamevault/internal/domain/schema"
 )
 
+// ID identifies this provider in settings and provider chains.
+const ID provider.ID = "upcitemdb"
+
 const (
-	ID             provider.ID = "upcitemdb"
-	settingUserKey             = "user_key"
-	defaultBaseURL             = "https://api.upcitemdb.com"
+	settingUserKey = "user_key"
+	defaultBaseURL = "https://api.upcitemdb.com"
 )
 
 // Provider implements media.BarcodeProvider.
@@ -32,10 +34,12 @@ type Provider struct {
 
 var _ media.BarcodeProvider = (*Provider)(nil)
 
+// New returns the UPCitemdb barcode provider with its production endpoints.
 func New() *Provider {
 	return &Provider{BaseURL: defaultBaseURL, Client: &http.Client{Timeout: 15 * time.Second}}
 }
 
+// Descriptor implements media.BarcodeProvider.
 func (p *Provider) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
 		ID: ID, Kind: provider.KindBarcode, Name: "UPCitemdb",
@@ -53,15 +57,19 @@ func (p *Provider) Lookup(ctx context.Context, code game.Barcode, s schema.Setti
 	if s[settingUserKey] != "" {
 		path = "/prod/v1/lookup"
 	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.BaseURL+path+"?"+url.Values{"upc": {string(code)}}.Encode(), nil)
 	if err != nil {
 		return nil, err
 	}
+
 	req.Header.Set("Accept", "application/json")
+
 	if k := s[settingUserKey]; k != "" {
 		req.Header.Set("user_key", k)
 		req.Header.Set("key_type", "3scale")
 	}
+
 	res, err := p.Client.Do(req)
 	if err != nil {
 		return nil, err
@@ -76,6 +84,7 @@ func (p *Provider) Lookup(ctx context.Context, code game.Barcode, s schema.Setti
 			Images []string `json:"images"`
 		} `json:"items"`
 	}
+
 	_ = json.NewDecoder(res.Body).Decode(&out)
 	switch {
 	case res.StatusCode == http.StatusTooManyRequests:
@@ -86,20 +95,26 @@ func (p *Provider) Lookup(ctx context.Context, code game.Barcode, s schema.Setti
 		if out.Message != "" {
 			return nil, fmt.Errorf("%s (HTTP %d)", out.Message, res.StatusCode)
 		}
+
 		return nil, fmt.Errorf("HTTP %d", res.StatusCode)
 	}
 
 	var matches []media.BarcodeMatch
+
 	for _, it := range out.Items {
 		if it.Title == "" {
 			continue
 		}
+
 		title, platform, edition := media.CleanProductTitle(it.Title)
+
 		m := media.BarcodeMatch{Raw: it.Title, Title: title, Platform: platform, Edition: edition, Provider: ID}
 		if len(it.Images) > 0 {
 			m.ImageURL = it.Images[0]
 		}
+
 		matches = append(matches, m)
 	}
+
 	return matches, nil
 }

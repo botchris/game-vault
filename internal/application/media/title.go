@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// platformTokens recognises platforms inside retail product names, longest patterns first.
+// platformTokens recognizes platforms inside retail product names, longest patterns first.
 var platformTokens = []struct {
 	re       *regexp.Regexp
 	platform string
@@ -49,23 +49,28 @@ func CleanProductTitle(raw string) (title, platform, edition string) {
 			if platform == "" {
 				platform = t.platform
 			}
+
 			s = s[:loc[0]] + " " + s[loc[1]:]
 		}
 	}
+
 	if m := reEdition.FindString(s); m != "" {
 		edition = editionName(m)
 		s = strings.Replace(s, m, " ", 1)
 	}
+
 	s = reRegion.ReplaceAllString(s, " ")
 	s = reNoise.ReplaceAllString(s, " ")
 	s = reGTIN.ReplaceAllString(s, " ")
 	s = reBrackets.ReplaceAllString(s, " ")
+
 	s = strings.Trim(reSpaces.ReplaceAllString(s, " "), " -–:,")
 	if s == strings.ToUpper(s) && strings.ToLower(s) != s {
 		s = titleCase(s) // "DEAD SPACE 3" → "Dead Space 3"
 	}
 	// Retail databases often title-case roman numerals ("Iii"); restore them.
 	s = reRoman.ReplaceAllStringFunc(s, strings.ToUpper)
+
 	return s, platform, edition
 }
 
@@ -77,6 +82,7 @@ func titleCase(s string) string {
 		r[0] = []rune(strings.ToUpper(string(r[0])))[0]
 		words[i] = string(r)
 	}
+
 	return strings.Join(words, " ")
 }
 

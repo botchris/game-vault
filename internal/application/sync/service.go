@@ -70,11 +70,13 @@ type Service struct {
 	running   gosync.Mutex // one scan at a time keeps consolidation consistent
 }
 
+// NewService builds the service. Each provider is registered under its descriptor's type.
 func NewService(sources source.Repository, games game.Repository, tx port.TxManager, now port.Clock, log *slog.Logger, providers ...Provider) *Service {
 	m := map[source.Type]Provider{}
 	for _, p := range providers {
 		m[p.Descriptor().Type] = p
 	}
+
 	return &Service{sources: sources, games: games, tx: tx, now: now, providers: m, log: log}
 }
 
@@ -84,7 +86,9 @@ func (s *Service) Types() []source.TypeDescriptor {
 	for _, p := range s.providers {
 		out = append(out, p.Descriptor())
 	}
+
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+
 	return out
 }
 
@@ -94,6 +98,7 @@ func (s *Service) Descriptor(t source.Type) (source.TypeDescriptor, error) {
 	if !ok {
 		return source.TypeDescriptor{}, fmt.Errorf("%w: %q", source.ErrUnknownType, t)
 	}
+
 	return p.Descriptor(), nil
 }
 
@@ -103,19 +108,23 @@ type SourceView struct {
 	CopyCount int
 }
 
+// List returns every source with the number of copies it manages.
 func (s *Service) List(ctx context.Context) ([]SourceView, error) {
 	sources, err := s.sources.List(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	counts, err := s.copyCounts(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	out := make([]SourceView, len(sources))
 	for i, src := range sources {
 		out[i] = SourceView{src, counts[string(src.ID())]}
 	}
+
 	return out, nil
 }
 
@@ -129,7 +138,9 @@ func (s *Service) copyCounts(ctx context.Context) (map[string]int, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	counts := map[string]int{}
+
 	for _, g := range games {
 		for _, c := range g.Copies() {
 			if c.SourceID != "" {
@@ -137,45 +148,57 @@ func (s *Service) copyCounts(ctx context.Context) (map[string]int, error) {
 			}
 		}
 	}
+
 	return counts, nil
 }
 
+// Create validates the configuration, prepares the provider and saves a new source of type t.
 func (s *Service) Create(ctx context.Context, t source.Type, cfg source.Config) (SourceView, error) {
 	d, err := s.Descriptor(t)
 	if err != nil {
 		return SourceView{}, err
 	}
+
 	src, err := source.New(d, cfg, s.now())
 	if err != nil {
 		return SourceView{}, err
 	}
+
 	if err := s.prepare(ctx, d, src); err != nil {
 		return SourceView{}, err
 	}
+
 	if err := s.sources.Save(ctx, src); err != nil {
 		return SourceView{}, err
 	}
+
 	return SourceView{Source: src}, nil
 }
 
+// Update applies a new configuration to an existing source.
 func (s *Service) Update(ctx context.Context, id source.ID, cfg source.Config) (SourceView, error) {
 	src, err := s.sources.Get(ctx, id)
 	if err != nil {
 		return SourceView{}, err
 	}
+
 	d, err := s.Descriptor(src.Type())
 	if err != nil {
 		return SourceView{}, err
 	}
+
 	if err := src.Reconfigure(d, cfg, s.now()); err != nil {
 		return SourceView{}, err
 	}
+
 	if err := s.prepare(ctx, d, src); err != nil {
 		return SourceView{}, err
 	}
+
 	if err := s.sources.Save(ctx, src); err != nil {
 		return SourceView{}, err
 	}
+
 	return s.view(ctx, src)
 }
 
@@ -185,13 +208,17 @@ func (s *Service) prepare(ctx context.Context, d source.TypeDescriptor, src *sou
 	if !ok {
 		return nil
 	}
+
 	ctx, cancel := context.WithTimeout(ctx, testTimeout)
 	defer cancel()
+
 	settings, err := p.Prepare(ctx, src.Settings())
 	if err != nil {
 		return err
 	}
+
 	src.ReplaceSettings(d, settings, s.now())
+
 	return nil
 }
 
@@ -202,11 +229,14 @@ func (s *Service) Delete(ctx context.Context, id source.ID, deleteCopies bool) e
 		if _, err := s.sources.Get(ctx, id); err != nil {
 			return err
 		}
+
 		games, err := s.games.List(ctx)
 		if err != nil {
 			return err
 		}
+
 		now := s.now()
+
 		for _, g := range games {
 			var n int
 			if deleteCopies {
@@ -214,6 +244,7 @@ func (s *Service) Delete(ctx context.Context, id source.ID, deleteCopies bool) e
 			} else {
 				n = g.ReleaseCopiesFromSource(string(id), now)
 			}
+
 			switch {
 			case n == 0:
 			case len(g.Copies()) == 0:
@@ -221,10 +252,12 @@ func (s *Service) Delete(ctx context.Context, id source.ID, deleteCopies bool) e
 			default:
 				err = s.games.Save(ctx, g)
 			}
+
 			if err != nil {
 				return err
 			}
 		}
+
 		return s.sources.Delete(ctx, id)
 	})
 }
@@ -233,15 +266,20 @@ func (s *Service) Delete(ctx context.Context, id source.ID, deleteCopies bool) e
 // check; others do a full Fetch. If id is set, cfg settings are merged over the stored ones (so
 // unchanged secrets can be sent as placeholders).
 func (s *Service) Test(ctx context.Context, id source.ID, t source.Type, cfg source.Config) (TestResult, error) {
-	var stored source.Settings
-	var src *source.Source
+	var (
+		stored source.Settings
+		src    *source.Source
+	)
+
 	if id != "" {
 		var err error
 		if src, err = s.sources.Get(ctx, id); err != nil {
 			return TestResult{}, err
 		}
+
 		t, stored = src.Type(), src.Settings()
 	}
+
 	d, err := s.Descriptor(t)
 	if err != nil {
 		return TestResult{}, err
@@ -250,21 +288,26 @@ func (s *Service) Test(ctx context.Context, id source.ID, t source.Type, cfg sou
 	settings := source.Settings{}
 	maps.Copy(settings, stored)
 	maps.Copy(settings, d.MergeSettings(stored, cfg.Settings))
+
 	if err := d.Validate(settings); err != nil {
 		return TestResult{}, err
 	}
+
 	ctx, cancel := context.WithTimeout(ctx, testTimeout)
 	defer cancel()
+
 	if p, ok := s.providers[t].(Preparer); ok {
 		if settings, err = p.Prepare(ctx, settings); err != nil {
 			return TestResult{}, err
 		}
 	}
+
 	var res TestResult
 	if tester, ok := s.providers[t].(Tester); ok {
 		res, err = tester.Test(ctx, settings)
 	} else {
 		var copies []game.ImportedCopy
+
 		copies, _, err = s.providers[t].Fetch(ctx, settings)
 		res = TestResult{Count: len(copies), Unit: "copies"}
 	}
@@ -272,6 +315,7 @@ func (s *Service) Test(ctx context.Context, id source.ID, t source.Type, cfg sou
 	if src != nil && src.UpdateState(d, settings, s.now()) {
 		err = errors.Join(err, s.sources.Save(ctx, src))
 	}
+
 	return res, err
 }
 
@@ -285,6 +329,7 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 	if err != nil {
 		return SourceView{}, err
 	}
+
 	p, ok := s.providers[src.Type()]
 	if !ok {
 		return SourceView{}, fmt.Errorf("%w: %q", source.ErrUnknownType, src.Type())
@@ -292,10 +337,12 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 
 	report := source.SyncReport{StartedAt: s.now()}
 	settings := src.Settings()
+
 	copies, warnings, fetchErr := p.Fetch(ctx, settings)
 	if d, err := s.Descriptor(src.Type()); err == nil {
 		src.UpdateState(d, settings, s.now()) // saved below with the report
 	}
+
 	report.Warnings = warnings
 	report.Fetched = len(copies)
 
@@ -308,26 +355,33 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 			if err != nil {
 				return err
 			}
+
 			res := game.NewConsolidator(games).Apply(string(src.ID()), copies, s.now())
 			for _, g := range res.Changed {
 				if err := s.games.Save(ctx, g); err != nil {
 					return err
 				}
 			}
+
 			report.CopiesAdded, report.CopiesUpdated = res.CopiesAdded, res.CopiesUpdated
 			report.CopiesUnchanged, report.GamesCreated = res.CopiesUnchanged, res.GamesCreated
 			report.Warnings = append(report.Warnings, res.Warnings...)
+
 			return nil
 		})
 	}
+
 	if syncErr != nil {
 		report.Err = syncErr.Error()
 	}
+
 	report.FinishedAt = s.now()
 	src.RecordSync(report)
+
 	if err := s.sources.Save(ctx, src); err != nil {
 		return SourceView{}, errors.Join(syncErr, err)
 	}
+
 	s.log.Info("source synced", "source", src.Name(), "fetched", report.Fetched, "added", report.CopiesAdded,
 		"updated", report.CopiesUpdated, "games_created", report.GamesCreated, "error", report.Err)
 
@@ -335,6 +389,7 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 	if err != nil {
 		return v, err
 	}
+
 	return v, syncErr
 }
 
@@ -344,11 +399,13 @@ func (s *Service) SyncAll(ctx context.Context) ([]SourceView, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	for _, src := range sources {
 		if src.Enabled() {
 			s.Sync(ctx, src.ID()) //nolint:errcheck // the error is stored in the source's report
 		}
 	}
+
 	return s.List(ctx)
 }
 
@@ -370,30 +427,37 @@ func vary(d time.Duration, fraction float64) time.Duration {
 // reports them on the source.
 func (s *Service) RunKeepAlive(ctx context.Context, tick, firstWithin time.Duration) {
 	next := map[source.ID]time.Time{}
+
 	t := time.NewTicker(tick)
 	defer t.Stop()
+
 	for {
 		sources, err := s.sources.List(ctx)
 		if err != nil {
 			s.log.Error("keep-alive: listing sources", "error", err)
 		}
+
 		now := s.now()
 		for _, src := range sources {
 			k, ok := s.providers[src.Type()].(KeepAliver)
 			if !ok || !src.Enabled() {
 				continue
 			}
+
 			due, seen := next[src.ID()]
 			if !seen {
 				due = now.Add(time.Duration(rand.Int64N(int64(firstWithin) + 1)))
 				next[src.ID()] = due
 			}
+
 			if now.Before(due) {
 				continue
 			}
+
 			next[src.ID()] = now.Add(jittered(k.KeepAliveInterval()))
 			s.keepAlive(ctx, src.ID(), k)
 		}
+
 		select {
 		case <-ctx.Done():
 			return
@@ -405,20 +469,26 @@ func (s *Service) RunKeepAlive(ctx context.Context, tick, firstWithin time.Durat
 func (s *Service) keepAlive(ctx context.Context, id source.ID, k KeepAliver) {
 	s.running.Lock() // not during a scan: both may rotate the same credentials
 	defer s.running.Unlock()
+
 	src, err := s.sources.Get(ctx, id)
 	if err != nil {
 		return
 	}
+
 	d, err := s.Descriptor(src.Type())
 	if err != nil {
 		return
 	}
+
 	settings := src.Settings()
+
 	ctx, cancel := context.WithTimeout(ctx, testTimeout)
 	defer cancel()
+
 	if err := k.KeepAlive(ctx, settings); err != nil {
 		s.log.Warn("keep-alive failed", "source", src.Name(), "error", err)
 	}
+
 	if src.UpdateState(d, settings, s.now()) {
 		if err := s.sources.Save(ctx, src); err != nil {
 			s.log.Warn("keep-alive: saving renewed session", "source", src.Name(), "error", err)
@@ -442,8 +512,10 @@ type nextScan struct {
 // server was off, is scanned at a random moment within firstWithin.
 func (s *Service) RunScheduler(ctx context.Context, tick, firstWithin time.Duration) {
 	due := map[source.ID]nextScan{}
+
 	t := time.NewTicker(tick)
 	defer t.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -454,27 +526,34 @@ func (s *Service) RunScheduler(ctx context.Context, tick, firstWithin time.Durat
 				s.log.Error("scheduler: listing sources", "error", err)
 				continue
 			}
+
 			now := s.now()
+
 			for _, src := range sources {
 				interval := src.SyncInterval()
 				if !src.Enabled() || interval <= 0 {
 					continue
 				}
+
 				var last time.Time
 				if r := src.LastSync(); r != nil {
 					last = r.StartedAt
 				}
+
 				n, ok := due[src.ID()]
 				if !ok || !n.after.Equal(last) || n.interval != interval {
 					n = nextScan{after: last, interval: interval}
+
 					n.at = last.Add(vary(interval, scanJitter))
 					if last.IsZero() || n.at.Before(now) {
 						// Never scanned, or overdue (the server was off): at a random moment soon,
 						// so overdue sources are not all scanned in the same minute.
 						n.at = now.Add(time.Duration(rand.Int64N(int64(firstWithin) + 1)))
 					}
+
 					due[src.ID()] = n
 				}
+
 				if !now.Before(n.at) {
 					s.Sync(ctx, src.ID()) //nolint:errcheck // recorded in the report
 				}

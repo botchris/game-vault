@@ -29,9 +29,11 @@ func ParseDate(s string) (Date, error) {
 	if s == "" {
 		return "", nil
 	}
+
 	if _, err := time.Parse(time.DateOnly, s); err != nil {
 		return "", invalid("date %q must be YYYY-MM-DD", s)
 	}
+
 	return Date(s), nil
 }
 
@@ -52,33 +54,41 @@ func ParseBarcode(s string) (Barcode, error) {
 		case r == ' ' || r == '-':
 			return -1
 		}
+
 		return 'x'
 	}, strings.TrimSpace(s))
 	if digits == "" {
 		return "", nil
 	}
+
 	if strings.Contains(digits, "x") || (len(digits) != 8 && len(digits) != 12 && len(digits) != 13) {
 		return "", invalid("barcode %q must have 8, 12 or 13 digits", s)
 	}
+
 	if !gtinChecksumOK(digits) {
 		return "", invalid("barcode %q has a wrong check digit; check it was read correctly", s)
 	}
+
 	if len(digits) == 12 {
 		digits = "0" + digits
 	}
+
 	return Barcode(digits), nil
 }
 
 // gtinChecksumOK verifies the last digit: weights 3,1,3,1... from the right, excluding the check digit.
 func gtinChecksumOK(d string) bool {
 	sum := 0
+
 	for i := len(d) - 2; i >= 0; i-- {
 		n := int(d[i] - '0')
 		if (len(d)-2-i)%2 == 0 {
 			n *= 3
 		}
+
 		sum += n
 	}
+
 	return (10-sum%10)%10 == int(d[len(d)-1]-'0')
 }
 
@@ -117,6 +127,7 @@ func CanonicalPlatform(p string) string {
 			return k
 		}
 	}
+
 	return p
 }
 
@@ -135,10 +146,12 @@ func MatchKey(title string) string {
 	if t, _, err := transform.String(stripMarks, s); err == nil {
 		s = t
 	}
+
 	s = strings.ToLower(s)
 	s = reBrackets.ReplaceAllString(s, " ")
 	s = strings.ReplaceAll(s, "&", " and ")
 	s = reSuffixes.ReplaceAllString(s, " ")
 	s = reNonAlnum.ReplaceAllString(s, " ")
+
 	return strings.Join(strings.Fields(s), " ")
 }

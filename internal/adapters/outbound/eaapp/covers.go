@@ -41,10 +41,12 @@ var (
 	_ media.ImageHoster   = (*Covers)(nil)
 )
 
+// NewCovers returns the EA app cover provider with its production endpoints.
 func NewCovers() *Covers {
 	return &Covers{GraphQLURL: defaultGraphQLURL, Client: &http.Client{Timeout: 20 * time.Second}}
 }
 
+// Descriptor implements media.CoverProvider.
 func (c *Covers) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
 		ID: CoverProviderID, Kind: provider.KindCover, Name: "EA",
@@ -55,7 +57,7 @@ func (c *Covers) Descriptor() provider.Descriptor {
 // ImageHosts implements media.ImageHoster.
 func (c *Covers) ImageHosts() []string { return []string{"app-images.ea.com"} }
 
-// Applies: only games with a copy imported from an EA library.
+// Applies reports whether the game has a copy imported from an EA library.
 func (c *Covers) Applies(q media.CoverQuery) bool { return len(q.ExternalIDsWithPrefix("ea:")) > 0 }
 
 var (
@@ -68,6 +70,7 @@ var (
 func slugify(title string) string {
 	s, _, _ := transform.String(transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC), title)
 	s = strings.NewReplacer("®", "", "™", "", "©", "", "&", " and ", "'", "", "’", "").Replace(strings.ToLower(s))
+
 	return strings.Trim(reNonSlug.ReplaceAllString(s, "-"), "-")
 }
 
@@ -75,6 +78,7 @@ func slugify(title string) string {
 // word by word ("battlefield-1-standard-edition-pc" → … → "battlefield-1").
 func slugCandidates(title string, productIDs []string) []string {
 	var out []string
+
 	add := func(s string) {
 		if s != "" && len(out) < 16 && !slices.Contains(out, s) {
 			out = append(out, s)
@@ -82,13 +86,16 @@ func slugCandidates(title string, productIDs []string) []string {
 	}
 	add(slugify(title))
 	add(slugify(reYearSuffix.ReplaceAllString(title, "")))
+
 	for _, id := range productIDs {
 		body, _, _ := strings.Cut(reLocale.ReplaceAllString(id, ""), "_")
+
 		parts := strings.Split(body, "-")
 		for n := len(parts); n >= 1; n-- {
 			add(strings.Join(parts[:n], "-"))
 		}
 	}
+
 	return out
 }
 
@@ -109,28 +116,35 @@ type eaGame struct {
 	} `json:"keyArt"`
 }
 
+// Covers implements media.CoverProvider.
 func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	slugs := slugCandidates(q.Title, q.ExternalIDsWithPrefix("ea:"))
 	// One request: every candidate slug as an alias; unknown slugs come back null.
 	var b strings.Builder
 	b.WriteString("{")
+
 	for i, s := range slugs {
 		fmt.Fprintf(&b, ` g%d: game(slug: %s) { slug title packArt { aspect9x16Image { path } aspect5x7Image { path } } keyArt { aspect1x1Image { path } aspect16x9Image { path } } }`,
 			i, strconv.Quote(s))
 	}
+
 	b.WriteString(" }")
 	body, _ := json.Marshal(map[string]string{"query": b.String()})
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.GraphQLURL, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
+
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", userAgent)
+
 	res, err := c.Client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer res.Body.Close()
+
 	var out struct {
 		Data   map[string]*eaGame `json:"data"`
 		Errors []struct {
@@ -140,6 +154,7 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 	if err := json.NewDecoder(io.LimitReader(res.Body, 4<<20)).Decode(&out); err != nil {
 		return nil, fmt.Errorf("ea catalog: HTTP %d, unexpected answer", res.StatusCode)
 	}
+
 	if out.Data == nil && len(out.Errors) > 0 {
 		return nil, fmt.Errorf("ea catalog: %s", out.Errors[0].Message)
 	}
@@ -148,26 +163,35 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 		order int
 		g     *eaGame
 	}
+
 	var games []found
+
 	for alias, g := range out.Data {
 		if g == nil {
 			continue
 		}
+
 		i, _ := strconv.Atoi(strings.TrimPrefix(alias, "g"))
 		games = append(games, found{i, g})
 	}
+
 	sort.Slice(games, func(i, j int) bool {
 		mi, mj := game.MatchKey(games[i].g.Title) == game.MatchKey(q.Title), game.MatchKey(games[j].g.Title) == game.MatchKey(q.Title)
 		if mi != mj {
 			return mi
 		}
+
 		return games[i].order < games[j].order
 	})
+
 	if len(games) == 0 {
 		return nil, nil
 	}
+
 	g := games[0].g
+
 	var cands []media.CoverCandidate
+
 	add := func(img *image, label string) {
 		if img != nil && strings.HasPrefix(img.Path, "https://") {
 			cands = append(cands, media.CoverCandidate{URL: img.Path, ThumbURL: img.Path, Label: label, Title: g.Title, Provider: CoverProviderID})
@@ -177,9 +201,11 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 		add(g.PackArt.Tall5x7, "EA: pack art")
 		add(g.PackArt.Tall9x16, "EA: pack art (tall)")
 	}
+
 	if g.KeyArt != nil {
 		add(g.KeyArt.Square, "EA: key art (square)")
 		add(g.KeyArt.Wide, "EA: key art (wide)")
 	}
+
 	return cands, nil
 }

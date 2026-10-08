@@ -1,4 +1,4 @@
-// Package auth holds access control: who may use Game Vault and how they are recognised.
+// Package auth holds access control: who may use Game Vault and how they are recognized.
 //
 // There is one user with a password. Authentication is either required for everyone, or not
 // required for requests from trusted networks (by default only this computer). Requests that
@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// Errors returned by the auth use cases. Callers match them with errors.Is.
 var (
 	ErrUnauthenticated = errors.New("authentication required")
 	ErrBadCredentials  = errors.New("wrong username or password")
@@ -58,9 +59,9 @@ type Request struct {
 type Authentication string
 
 const (
-	// AuthRequired: everyone signs in.
+	// AuthRequired means everyone signs in.
 	AuthRequired Authentication = "required"
-	// AuthTrustedNetworks: requests from trusted networks get in without signing in.
+	// AuthTrustedNetworks lets requests from trusted networks get in without signing in.
 	AuthTrustedNetworks Authentication = "trusted_networks"
 )
 
@@ -68,6 +69,7 @@ const (
 // (stores, providers) are checked.
 type CertificateValidation string
 
+// Values of CertificateValidation, from strict to fully off.
 const (
 	CertsEnabled       CertificateValidation = "enabled"
 	CertsLocalDisabled CertificateValidation = "local_disabled"
@@ -85,7 +87,8 @@ type Settings struct {
 // DefaultTrustedNetworks is this computer only.
 var DefaultTrustedNetworks = []string{"127.0.0.0/8", "::1/128"}
 
-// DefaultSettings: no password needed on this computer, certificates checked.
+// DefaultSettings returns the out-of-the-box settings: no password needed on this computer,
+// certificates checked.
 func DefaultSettings() Settings {
 	return Settings{
 		Authentication: AuthTrustedNetworks, TrustedNetworks: slices.Clone(DefaultTrustedNetworks),
@@ -99,10 +102,12 @@ func parsePrefix(s string) (netip.Prefix, error) {
 		p, err := netip.ParsePrefix(s)
 		return p.Masked(), err
 	}
+
 	a, err := netip.ParseAddr(s)
 	if err != nil {
 		return netip.Prefix{}, err
 	}
+
 	return netip.PrefixFrom(a, a.BitLen()), nil
 }
 
@@ -115,6 +120,7 @@ func (s Settings) Normalize() (Settings, error) {
 	default:
 		return s, invalid("unknown authentication mode %q", s.Authentication)
 	}
+
 	switch s.CertificateValidation {
 	case CertsEnabled, CertsLocalDisabled, CertsDisabled:
 	case "":
@@ -122,25 +128,32 @@ func (s Settings) Normalize() (Settings, error) {
 	default:
 		return s, invalid("unknown certificate validation %q", s.CertificateValidation)
 	}
+
 	var nets []string
+
 	for _, n := range s.TrustedNetworks {
 		n = strings.TrimSpace(n)
 		if n == "" {
 			continue
 		}
+
 		p, err := parsePrefix(n)
 		if err != nil {
 			return s, invalid("%q is not a network (e.g. 192.168.1.0/24) or an address", n)
 		}
+
 		if p.Bits() == 0 {
 			return s, invalid("%q would trust every address on the internet", n)
 		}
+
 		if c := p.String(); !slices.Contains(nets, c) {
 			nets = append(nets, c)
 		}
 	}
+
 	slices.Sort(nets)
 	s.TrustedNetworks = nets
+
 	return s, nil
 }
 
@@ -154,18 +167,21 @@ func (s Settings) Contains(ip netip.Addr) bool {
 	if !ip.IsValid() {
 		return false
 	}
+
 	ip = ip.Unmap()
 	for _, n := range s.TrustedNetworks {
 		if p, err := parsePrefix(n); err == nil && p.Contains(ip) {
 			return true
 		}
 	}
+
 	return false
 }
 
-// Method says how a principal was recognised.
+// Method says how a principal was recognized.
 type Method string
 
+// Values of Method.
 const (
 	MethodTrusted Method = "trusted" // from a trusted network, no sign-in
 	MethodSession Method = "session" // signed in with the password
@@ -195,6 +211,7 @@ func ValidateCredentials(username, password string) error {
 	if !reUsername.MatchString(username) {
 		return invalid("username must be 3-32 letters, digits, dots, dashes or underscores")
 	}
+
 	return ValidatePassword(password)
 }
 
@@ -203,9 +220,11 @@ func ValidatePassword(password string) error {
 	if len(password) < 8 {
 		return invalid("password must have at least 8 characters")
 	}
+
 	if len(password) > 72 {
 		return invalid("password must have at most 72 characters")
 	}
+
 	return nil
 }
 

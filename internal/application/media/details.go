@@ -74,6 +74,7 @@ func (d *GameDetails) fill(o GameDetails) bool {
 			*dst, used = v, true
 		}
 	}
+
 	str(&d.Summary, o.Summary)
 	list(&d.Genres, o.Genres)
 	list(&d.Developers, o.Developers)
@@ -83,15 +84,19 @@ func (d *GameDetails) fill(o GameDetails) bool {
 	str(&d.Players, o.Players)
 	str(&d.Website, o.Website)
 	str(&d.StoreURL, o.StoreURL)
+
 	if d.Metacritic == 0 && o.Metacritic != 0 {
 		d.Metacritic, d.MetacriticURL, used = o.Metacritic, o.MetacriticURL, true
 	}
+
 	if len(o.Videos) > 0 { // trailers from every source are useful: Steam HLS + TheGamesDB YouTube
 		d.Videos, used = append(d.Videos, o.Videos...), true
 	}
+
 	if len(d.Screenshots) == 0 && len(o.Screenshots) > 0 {
 		d.Screenshots, used = o.Screenshots, true
 	}
+
 	return used
 }
 
@@ -110,12 +115,12 @@ type DetailsStore interface {
 	Get(ctx context.Context, id game.ID, language string) (GameDetails, bool, error)
 	Put(ctx context.Context, id game.ID, d GameDetails) error
 	Delete(ctx context.Context, id game.ID) error
-	// Summaries returns the catalogue-level facts (genres, release date) of every cached sheet
+	// Summaries returns the catalog-level facts (genres, release date) of every cached sheet
 	// in a language, with the time each sheet was fetched.
 	Summaries(ctx context.Context, language string) (map[game.ID]Summary, error)
 }
 
-// Summary is what the catalogue needs from a game's details: enough to filter and sort.
+// Summary is what the catalog needs from a game's details: enough to filter and sort.
 type Summary struct {
 	Genres      []string
 	ReleaseDate string
@@ -131,6 +136,7 @@ func (s Summary) Year() int {
 		y, _ := strconv.Atoi(m)
 		return y
 	}
+
 	return 0
 }
 
@@ -140,11 +146,14 @@ func (s *Service) GameDetails(ctx context.Context, id game.ID, language string, 
 	if language == "" {
 		language = "en"
 	}
+
 	g, err := s.games.Get(ctx, id)
 	if err != nil {
 		return GameDetails{}, nil, err
 	}
+
 	ref := GameRef{g.ID(), g.Title()}
+
 	if !refresh {
 		if d, ok, err := s.details.Get(ctx, id, language); err != nil {
 			return d, nil, err
@@ -153,10 +162,12 @@ func (s *Service) GameDetails(ctx context.Context, id game.ID, language string, 
 			return d, nil, nil
 		}
 	}
+
 	type out struct {
 		d        GameDetails
 		warnings []string
 	}
+
 	v, err, _ := s.group.Do("details:"+string(id)+":"+language, func() (any, error) {
 		d, w, err := s.fetchDetails(context.WithoutCancel(ctx), id, language)
 		return out{d, w}, err
@@ -164,8 +175,10 @@ func (s *Service) GameDetails(ctx context.Context, id game.ID, language string, 
 	if err != nil {
 		return GameDetails{}, nil, err
 	}
+
 	r := v.(out)
 	s.registerAssets(ctx, ref, &r.d)
+
 	return r.d, r.warnings, nil
 }
 
@@ -174,24 +187,31 @@ func (s *Service) fetchDetails(ctx context.Context, id game.ID, language string)
 	if err != nil {
 		return GameDetails{}, nil, err
 	}
+
 	chain, err := s.enabled(ctx, provider.KindMetadata)
 	if err != nil {
 		return GameDetails{}, nil, err
 	}
+
 	q := QueryFor(g)
 	merged := GameDetails{Language: language, FetchedAt: s.now()}
+
 	var warnings []string
+
 	for _, p := range chain {
 		impl := s.metadata[p.ID()]
 		if !impl.Applies(q) {
 			continue
 		}
+
 		d, err := impl.Details(ctx, q, language, p.Settings())
 		if err != nil {
 			warnings = append(warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
 			s.log.Warn("metadata provider failed", "provider", p.ID(), "game", g.Title(), "error", err)
+
 			continue
 		}
+
 		if d != nil && merged.fill(*d) {
 			merged.Sources = append(merged.Sources, p.ID())
 		}
@@ -202,5 +222,6 @@ func (s *Service) fetchDetails(ctx context.Context, id game.ID, language string)
 			s.log.Warn("caching details", "error", err)
 		}
 	}
+
 	return merged, warnings, nil
 }

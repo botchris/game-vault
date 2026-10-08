@@ -86,11 +86,13 @@ type CoverQuery struct {
 // ExternalIDsWithPrefix("gog:") of ["gog:1207664643"] is ["1207664643"].
 func (q CoverQuery) ExternalIDsWithPrefix(prefix string) []string {
 	var out []string
+
 	for _, id := range q.ExternalIDs {
 		if rest, ok := strings.CutPrefix(id, prefix); ok && rest != "" {
 			out = append(out, rest)
 		}
 	}
+
 	return out
 }
 
@@ -100,11 +102,13 @@ func (q CoverQuery) HasStoreLink() bool {
 	if q.SteamAppID != 0 {
 		return true
 	}
+
 	for _, store := range []string{"epic:", "gog:", "ubisoft:", "ea:", "battlenet:", "xbox:"} {
 		if len(q.ExternalIDsWithPrefix(store)) > 0 {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -118,16 +122,20 @@ func QueryFor(g *game.Game) CoverQuery {
 		if c.ExternalID != "" {
 			q.ExternalIDs = append(q.ExternalIDs, c.ExternalID)
 		}
+
 		if c.Platform == "" {
 			continue
 		}
+
 		if c.Kind == game.KindPhysical && !slices.Contains(q.PhysicalPlatforms, c.Platform) {
 			q.PhysicalPlatforms = append(q.PhysicalPlatforms, c.Platform)
 		}
+
 		if !slices.Contains(q.Platforms, c.Platform) {
 			q.Platforms = append(q.Platforms, c.Platform)
 		}
 	}
+
 	return q
 }
 
@@ -248,16 +256,19 @@ func NewService(games game.Repository, providers provider.Repository, store Asse
 		s.covers[id], s.impls[id] = p, p
 		s.order = append(s.order, id)
 	}
+
 	for _, p := range impls.Barcodes {
 		id := p.Descriptor().ID
 		s.barcodes[id], s.impls[id] = p, p
 		s.order = append(s.order, id)
 	}
+
 	for _, p := range impls.Metadata {
 		id := p.Descriptor().ID
 		s.metadata[id], s.impls[id] = p, p
 		s.order = append(s.order, id)
 	}
+
 	return s
 }
 
@@ -268,18 +279,22 @@ func (s *Service) siblings(ctx context.Context, group string, except provider.ID
 	if group == "" {
 		return nil, nil
 	}
+
 	var out []*provider.Provider
+
 	for _, k := range allKinds {
 		configs, err := s.providers.List(ctx, k)
 		if err != nil {
 			return nil, err
 		}
+
 		for _, c := range configs {
 			if impl, ok := s.impls[c.ID()]; ok && c.ID() != except && impl.Descriptor().SettingsGroup == group {
 				out = append(out, c)
 			}
 		}
 	}
+
 	return out, nil
 }
 
@@ -296,6 +311,7 @@ func (s *Service) Providers(ctx context.Context, kind provider.Kind) ([]Provider
 	if err != nil {
 		return nil, err
 	}
+
 	known := map[provider.ID]bool{}
 	for _, c := range configs {
 		known[c.ID()] = true
@@ -306,27 +322,35 @@ func (s *Service) Providers(ctx context.Context, kind provider.Kind) ([]Provider
 		if d.Kind != kind || known[id] {
 			continue
 		}
+
 		p := provider.New(d, len(configs), s.now())
 		// A new capability of an already configured service inherits its credentials, and is
 		// enabled if the service is (e.g. TheGamesDB details once TheGamesDB covers have a key).
 		if sib, err := s.siblings(ctx, d.SettingsGroup, id); err == nil && len(sib) > 0 {
 			p.ShareSettings(sib[0].Settings(), s.now())
+
 			if sib[0].Enabled() {
 				_ = p.Configure(d, true, sib[0].Settings(), s.now()) // stays disabled if settings are incomplete
 			}
 		}
+
 		if err := s.providers.Save(ctx, p); err != nil {
 			return nil, err
 		}
+
 		configs = append(configs, p)
 	}
+
 	provider.Sort(configs)
+
 	var out []ProviderView
+
 	for _, c := range configs {
 		if impl, ok := s.impls[c.ID()]; ok { // configurations of removed implementations are ignored
 			out = append(out, ProviderView{c, impl.Descriptor()})
 		}
 	}
+
 	return out, nil
 }
 
@@ -335,15 +359,18 @@ func (s *Service) find(ctx context.Context, id provider.ID) (ProviderView, error
 	if !ok {
 		return ProviderView{}, fmt.Errorf("%w: %q", ErrUnknownProvider, id)
 	}
+
 	list, err := s.Providers(ctx, impl.Descriptor().Kind)
 	if err != nil {
 		return ProviderView{}, err
 	}
+
 	for _, v := range list {
 		if v.ID() == id {
 			return v, nil
 		}
 	}
+
 	return ProviderView{}, provider.ErrNotFound
 }
 
@@ -354,27 +381,34 @@ func (s *Service) ConfigureProvider(ctx context.Context, id provider.ID, enabled
 	if err != nil {
 		return v, err
 	}
+
 	if err := v.Configure(v.Descriptor, enabled, settings, s.now()); err != nil {
 		return v, err
 	}
+
 	if err := s.providers.Save(ctx, v.Provider); err != nil {
 		return v, err
 	}
+
 	sib, err := s.siblings(ctx, v.Descriptor.SettingsGroup, id)
 	if err != nil {
 		return v, err
 	}
+
 	for _, c := range sib { // keep shared credentials in sync
 		c.ShareSettings(v.Settings(), s.now())
+
 		if err := s.providers.Save(ctx, c); err != nil {
 			return v, err
 		}
 	}
+
 	if v.Kind() == provider.KindCover {
 		if _, err := s.RefreshCovers(ctx, true); err != nil {
 			s.log.Warn("forgetting missing covers", "error", err)
 		}
 	}
+
 	return v, nil
 }
 
@@ -384,21 +418,26 @@ func (s *Service) ReorderProviders(ctx context.Context, kind provider.Kind, ids 
 	if err != nil {
 		return nil, err
 	}
+
 	configs := make([]*provider.Provider, len(views))
 	for i, v := range views {
 		configs[i] = v.Provider
 	}
+
 	provider.Reorder(configs, ids, s.now())
+
 	for _, c := range configs {
 		if err := s.providers.Save(ctx, c); err != nil {
 			return nil, err
 		}
 	}
+
 	if kind == provider.KindCover {
 		if _, err := s.RefreshCovers(ctx, true); err != nil {
 			s.log.Warn("forgetting missing covers", "error", err)
 		}
 	}
+
 	return s.Providers(ctx, kind)
 }
 
@@ -408,16 +447,21 @@ func (s *Service) TestProvider(ctx context.Context, id provider.ID, settings sch
 	if err != nil {
 		return TestResult{}, err
 	}
+
 	merged := v.Settings()
 	maps.Copy(merged, v.Descriptor.Fields.Merge(v.Settings(), settings))
+
 	if err := v.Descriptor.Fields.Validate(merged, v.Descriptor.Name); err != nil {
 		return TestResult{}, err
 	}
+
 	if t, ok := s.impls[id].(Tester); ok {
 		ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 		defer cancel()
+
 		return t.Test(ctx, merged)
 	}
+
 	return TestResult{RemainingQuota: -1}, nil
 }
 
@@ -432,6 +476,7 @@ func (s *Service) enabled(ctx context.Context, kind provider.Kind) ([]ProviderVi
 	if err != nil {
 		return nil, err
 	}
+
 	return slices.DeleteFunc(views, func(v ProviderView) bool { return !v.Enabled() }), nil
 }
 
@@ -440,6 +485,7 @@ func (s *Service) Cover(ctx context.Context, id game.ID) (Image, error) {
 	if img, ok, err := s.store.GetCover(id); err != nil || ok {
 		return img, err
 	}
+
 	if since, ok := s.store.CoverMissingSince(id); ok && since.After(coverLogicChanged) && s.now().Sub(since) < s.retryMissing {
 		return Image{}, ErrNoCover
 	}
@@ -448,6 +494,7 @@ func (s *Service) Cover(ctx context.Context, id game.ID) (Image, error) {
 	if err != nil {
 		return Image{}, err
 	}
+
 	return v.(Image), nil
 }
 
@@ -456,21 +503,26 @@ func (s *Service) resolve(ctx context.Context, id game.ID) (Image, error) {
 	if err != nil {
 		return Image{}, err
 	}
+
 	ref := GameRef{g.ID(), g.Title()}
 
 	// A cover the user picked or pasted always wins.
 	if u := g.CoverURL(); u != "" {
 		s.slots <- struct{}{}
+
 		img, err := s.fetchAndCache(ctx, ref, u)
 		<-s.slots
+
 		if err == nil {
 			return img, nil
 		}
+
 		s.log.Warn("custom cover failed, falling back to providers", "game", g.Title(), "url", u)
 	}
 
 	q := QueryFor(g)
 	asked := map[provider.ID]bool{}
+
 	img, err := s.coverFromChain(ctx, ref, q, asked)
 	if errors.Is(err, ErrNoCover) && q.HasStoreLink() {
 		// No store had art for it (a game only on Battle.net, an old EA title…): ask the providers
@@ -478,9 +530,11 @@ func (s *Service) resolve(ctx context.Context, id game.ID) (Image, error) {
 		q.Fallback = true
 		img, err = s.coverFromChain(ctx, ref, q, asked)
 	}
+
 	if err == nil {
 		return img, nil
 	}
+
 	if !errors.Is(err, ErrNoCover) {
 		return Image{}, err
 	}
@@ -488,12 +542,15 @@ func (s *Service) resolve(ctx context.Context, id game.ID) (Image, error) {
 	if img, ok := s.addOnCover(ctx, g); ok {
 		return img, nil
 	}
+
 	if len(asked) > 0 {
 		s.log.Info("no cover found", "game", g.Title())
+
 		if err := s.store.MarkCoverMissing(ref, s.now()); err != nil {
 			s.log.Warn("marking missing cover", "error", err)
 		}
 	}
+
 	return Image{}, ErrNoCover
 }
 
@@ -502,21 +559,26 @@ func (s *Service) resolve(ctx context.Context, id game.ID) (Image, error) {
 func (s *Service) coverFromChain(ctx context.Context, ref GameRef, q CoverQuery, asked map[provider.ID]bool) (Image, error) {
 	s.slots <- struct{}{}
 	defer func() { <-s.slots }()
+
 	chain, err := s.chain(ctx)
 	if err != nil {
 		return Image{}, err
 	}
+
 	for _, p := range chain {
 		impl := s.covers[p.ID()]
 		if asked[p.ID()] || !impl.Applies(q) {
 			continue
 		}
+
 		asked[p.ID()] = true
+
 		candidates, err := impl.Covers(ctx, q, p.Settings())
 		if err != nil {
 			s.log.Warn("cover provider failed", "provider", p.ID(), "game", ref.Title, "error", err)
 			continue
 		}
+
 		for _, c := range candidates[:min(len(candidates), 2)] {
 			if img, err := s.fetchAndCache(ctx, ref, c.URL); err == nil {
 				s.log.Debug("cover cached", "game", ref.Title, "provider", p.ID(), "url", c.URL)
@@ -524,6 +586,7 @@ func (s *Service) coverFromChain(ctx context.Context, ref GameRef, q CoverQuery,
 			}
 		}
 	}
+
 	return Image{}, ErrNoCover
 }
 
@@ -532,9 +595,11 @@ func (s *Service) fetchAndCache(ctx context.Context, g GameRef, url string) (Ima
 	if err != nil {
 		return Image{}, err
 	}
+
 	if err := s.store.PutCover(g, img); err != nil {
 		return Image{}, fmt.Errorf("caching cover: %w", err)
 	}
+
 	return img, nil
 }
 
@@ -545,25 +610,34 @@ func (s *Service) CoverCandidates(ctx context.Context, id game.ID) ([]CoverCandi
 	if err != nil {
 		return nil, nil, err
 	}
+
 	chain, err := s.chain(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	q := QueryFor(g)
-	var out []CoverCandidate
-	var warnings []string
+
+	var (
+		out      []CoverCandidate
+		warnings []string
+	)
+
 	for _, p := range chain {
 		impl := s.covers[p.ID()]
 		if !impl.Applies(q) {
 			continue
 		}
+
 		c, err := impl.Covers(ctx, q, p.Settings())
 		if err != nil {
 			warnings = append(warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
 			continue
 		}
+
 		out = append(out, c...)
 	}
+
 	return out, warnings, nil
 }
 
@@ -574,17 +648,22 @@ func (s *Service) RefreshCovers(ctx context.Context, missingOnly bool) (int, err
 	if err != nil {
 		return 0, err
 	}
+
 	n := 0
+
 	for _, g := range games {
 		_, missing := s.store.CoverMissingSince(g.ID())
 		if missingOnly && !missing {
 			continue
 		}
+
 		if err := s.store.DeleteCover(g.ID()); err != nil {
 			return n, err
 		}
+
 		n++
 	}
+
 	return n, nil
 }
 
@@ -596,6 +675,7 @@ func (s *Service) Invalidate(ctx context.Context, id game.ID) error {
 			return err
 		}
 	}
+
 	return s.store.DeleteAll(id)
 }
 
@@ -604,6 +684,7 @@ func (s *Service) SearchSteamApps(ctx context.Context, query string) ([]AppMatch
 	if len(query) < 2 {
 		return nil, nil
 	}
+
 	return s.search.SearchApps(ctx, query)
 }
 
@@ -651,19 +732,24 @@ func (s *Service) IdentifyBarcode(ctx context.Context, raw string) (BarcodeResul
 	if err != nil {
 		return BarcodeResult{}, err
 	}
+
 	if code == "" {
 		return BarcodeResult{}, fmt.Errorf("%w: empty barcode", game.ErrInvalidBarcode)
 	}
+
 	res := BarcodeResult{Code: code}
+
 	games, err := s.games.List(ctx)
 	if err != nil {
 		return res, err
 	}
+
 	for _, g := range games {
 		if c, ok := g.CopyWithBarcode(code); ok {
 			res.Owned = append(res.Owned, OwnedCopy{Game: GameRef{g.ID(), g.Title()}, CopyID: c.ID, Platform: c.Platform})
 		}
 	}
+
 	if len(res.Owned) > 0 {
 		return res, nil // known locally: no external request
 	}
@@ -672,24 +758,30 @@ func (s *Service) IdentifyBarcode(ctx context.Context, raw string) (BarcodeResul
 	if err != nil {
 		return res, err
 	}
+
 	for _, p := range chain {
 		matches, err := s.barcodes[p.ID()].Lookup(ctx, code, p.Settings())
 		if err != nil {
 			res.Warnings = append(res.Warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
 			continue
 		}
+
 		if len(matches) > 0 {
 			m := matches[0]
 			res.Match = &m
+
 			break
 		}
 	}
+
 	if res.Match == nil {
 		return res, nil
 	}
+
 	sugg, existing, warnings, err := s.suggest(ctx, games, res.Match.Title, res.Match.Platform)
 	res.Suggestions, res.Existing = sugg, existing
 	res.Warnings = append(res.Warnings, warnings...)
+
 	return res, err
 }
 
@@ -700,6 +792,7 @@ func (s *Service) SuggestGames(ctx context.Context, title, platform string) ([]S
 	if err != nil {
 		return nil, nil, nil, err
 	}
+
 	return s.suggest(ctx, games, title, platform)
 }
 
@@ -708,31 +801,40 @@ func (s *Service) suggest(ctx context.Context, games []*game.Game, title, platfo
 	if title == "" {
 		return nil, nil, nil, nil
 	}
+
 	q := CoverQuery{Title: title}
 	if platform != "" {
 		q.PhysicalPlatforms, q.Platforms = []string{platform}, []string{platform}
 	}
+
 	chain, err := s.chain(ctx)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	var out []Suggestion
-	var warnings []string
+
+	var (
+		out      []Suggestion
+		warnings []string
+	)
+
 	for _, p := range chain {
 		impl := s.covers[p.ID()]
 		if !impl.Applies(q) {
 			continue
 		}
+
 		candidates, err := impl.Covers(ctx, q, p.Settings())
 		if err != nil {
 			warnings = append(warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
 			continue
 		}
+
 		for _, c := range candidates {
 			t := c.Title
 			if t == "" {
 				t = title
 			}
+
 			out = append(out, Suggestion{Title: t, Platform: platform, CoverURL: c.URL, ThumbURL: c.ThumbURL, Label: c.Label, Provider: c.Provider})
 		}
 	}
@@ -741,12 +843,15 @@ func (s *Service) suggest(ctx context.Context, games []*game.Game, title, platfo
 	if len(out) > 0 {
 		keys[game.MatchKey(out[0].Title)] = true
 	}
+
 	var existing []GameRef
+
 	for _, g := range games {
 		if keys[g.MatchKey()] {
 			existing = append(existing, GameRef{g.ID(), g.Title()})
 		}
 	}
+
 	return out, existing, warnings, nil
 }
 
@@ -757,6 +862,7 @@ func (s *Service) ProxyImage(ctx context.Context, rawURL string) (Image, error) 
 	if err != nil || u.Scheme != "https" || !s.imageHostAllowed(u.Hostname()) {
 		return Image{}, ErrImageNotAllowed
 	}
+
 	return s.fetch.Fetch(ctx, u.String())
 }
 
@@ -766,5 +872,6 @@ func (s *Service) imageHostAllowed(host string) bool {
 			return true
 		}
 	}
+
 	return false
 }

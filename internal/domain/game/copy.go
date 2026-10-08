@@ -9,6 +9,7 @@ import (
 // Kind says how a copy is owned.
 type Kind string
 
+// Values of Kind.
 const (
 	KindKey      Kind = "key"      // a redeemable CD key
 	KindLibrary  Kind = "library"  // already in an account library (Steam, Ubisoft Connect...)
@@ -18,6 +19,8 @@ const (
 // Status is the lifecycle state of a copy. Which values are valid depends on the Kind.
 type Status string
 
+// Values of Status. KindKey copies use the first five, library copies only StatusOwned and
+// physical copies StatusOwned, StatusLent and StatusSold.
 const (
 	StatusUnrevealed Status = "unrevealed"
 	StatusRevealed   Status = "revealed"
@@ -65,22 +68,28 @@ func (d CopyDetails) normalize() (CopyDetails, error) {
 	for _, s := range []*string{&d.Platform, &d.Key, &d.Origin, &d.Edition, &d.Condition, &d.Location, &d.Notes} {
 		*s = strings.TrimSpace(*s)
 	}
+
 	if !d.Kind.Valid() {
 		return d, invalid("copy kind %q is not valid", d.Kind)
 	}
+
 	if d.Status == "" {
 		d.Status = d.Kind.DefaultStatus()
 	}
+
 	if !d.Kind.Allows(d.Status) {
 		return d, invalid("status %q is not valid for a %s copy", d.Status, d.Kind)
 	}
+
 	d.Platform = CanonicalPlatform(d.Platform)
 	if d.Kind != KindKey {
 		d.Key, d.RedeemBy = "", ""
 	}
+
 	if d.Kind != KindPhysical {
 		d.Barcode = ""
 	}
+
 	return d, nil
 }
 
@@ -115,22 +124,29 @@ func (c *Copy) applyImport(in CopyDetails) bool {
 	set(&c.Edition, in.Edition)
 	set(&c.Condition, in.Condition)
 	set(&c.Location, in.Location)
+
 	if in.Barcode != "" {
 		c.Barcode = in.Barcode
 	}
+
 	set(&c.Notes, in.Notes)
+
 	if in.RedeemBy != "" {
 		c.RedeemBy = in.RedeemBy
 	}
+
 	if in.AcquiredOn != "" {
 		c.AcquiredOn = in.AcquiredOn
 	}
+
 	keepRedeemed := before.Status == StatusRedeemed && (in.Status == StatusUnrevealed || in.Status == StatusRevealed)
 	if in.Status != "" && !keepRedeemed {
 		c.Status = in.Status
 	}
+
 	if !c.Kind.Allows(c.Status) {
 		c.Status = c.Kind.DefaultStatus()
 	}
+
 	return c.CopyDetails != before
 }

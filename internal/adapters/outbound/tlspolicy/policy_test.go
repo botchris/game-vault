@@ -22,24 +22,31 @@ func TestPolicy(t *testing.T) {
 		if err == nil {
 			res.Body.Close()
 		}
+
 		return err
 	}
 
 	if err := get(); err == nil || !strings.Contains(err.Error(), "certificate") {
 		t.Fatalf("certificates must be checked by default, got %v", err)
 	}
+
 	p.SetCertificateValidation(auth.CertsLocalDisabled)
 	transport.CloseIdleConnections()
+
 	if err := get(); err != nil {
 		t.Fatalf("local addresses skip the check: %v", err)
 	}
+
 	p.SetCertificateValidation(auth.CertsDisabled)
 	transport.CloseIdleConnections()
+
 	if err := get(); err != nil {
 		t.Fatalf("disabled: %v", err)
 	}
+
 	p.SetCertificateValidation(auth.CertsEnabled)
 	transport.CloseIdleConnections()
+
 	if err := get(); err == nil {
 		t.Fatal("enabled again: the self-signed certificate must be refused")
 	}

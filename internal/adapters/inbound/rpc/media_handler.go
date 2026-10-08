@@ -17,11 +17,13 @@ func coverHandler(m *media.Service) http.Handler {
 		case errors.Is(err, media.ErrNoCover), errors.Is(err, game.ErrGameNotFound):
 			w.Header().Set("Cache-Control", "no-store") // a cover may be found later: never cache the miss
 			http.Error(w, "no cover", http.StatusNotFound)
+
 			return
 		case err != nil:
 			http.Error(w, "cover unavailable", http.StatusBadGateway)
 			return
 		}
+
 		w.Header().Set("Content-Type", img.ContentType)
 		w.Header().Set("Cache-Control", "private, max-age=604800")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -41,6 +43,7 @@ func imageProxyHandler(m *media.Service) http.Handler {
 			http.Error(w, "image unavailable", http.StatusBadGateway)
 			return
 		}
+
 		w.Header().Set("Content-Type", img.ContentType)
 		w.Header().Set("Cache-Control", "private, max-age=86400")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -61,6 +64,7 @@ func gameAssetHandler(m *media.Service) http.Handler {
 			http.Error(w, "asset unavailable", http.StatusBadGateway)
 			return
 		}
+
 		w.Header().Set("Content-Type", img.ContentType)
 		// Names change when the image changes, so they can be cached for long.
 		w.Header().Set("Cache-Control", "private, max-age=2592000, immutable")

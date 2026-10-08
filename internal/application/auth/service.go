@@ -65,8 +65,10 @@ type Service struct {
 	failures []time.Time
 }
 
+// NewService builds the service. It takes the clock and the hasher as parameters so tests control time
+// and avoid slow password hashing.
 func NewService(repo auth.Repository, settings auth.SettingsRepository, hash Hasher, certs CertificatePolicy, now port.Clock, log *slog.Logger) *Service {
-	dummy, _ := hash.Hash("timing-equaliser-not-a-password")
+	dummy, _ := hash.Hash("timing-equalizer-not-a-password")
 	return &Service{repo: repo, settings: settings, hash: hash, certs: certs, now: now, log: log, dummyHash: dummy}
 }
 
@@ -77,7 +79,9 @@ func (s *Service) Init(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	s.certs.SetCertificateValidation(settings.CertificateValidation)
+
 	return nil
 }
 
@@ -88,11 +92,14 @@ func (s *Service) ResetAuthentication(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	settings.Authentication = auth.AuthTrustedNetworks
 	if len(settings.TrustedNetworks) == 0 {
 		settings.TrustedNetworks = auth.DefaultTrustedNetworks
 	}
+
 	s.log.Warn("authentication reset: no password needed from trusted networks", "trusted_networks", settings.TrustedNetworks)
+
 	return s.settings.SaveAuth(ctx, settings)
 }
 
@@ -101,19 +108,22 @@ func hashToken(token string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// Authenticate recognises the caller: a valid session, or a trusted network when authentication
+// Authenticate recognizes the caller: a valid session, or a trusted network when authentication
 // is not required there.
 func (s *Service) Authenticate(ctx context.Context, r auth.Request) (auth.Principal, error) {
 	if p, ok := s.fromSession(ctx, r); ok {
 		return p, nil
 	}
+
 	settings, err := s.settings.Auth(ctx)
 	if err != nil {
 		return auth.Principal{}, err
 	}
+
 	if settings.Authentication == auth.AuthTrustedNetworks && settings.Trusts(r) {
 		return auth.Principal{Method: auth.MethodTrusted, Name: "trusted network"}, nil
 	}
+
 	return auth.Principal{}, auth.ErrUnauthenticated
 }
 
@@ -121,21 +131,26 @@ func (s *Service) fromSession(ctx context.Context, r auth.Request) (auth.Princip
 	if r.SessionToken == "" {
 		return auth.Principal{}, false
 	}
+
 	sess, err := s.repo.Session(ctx, hashToken(r.SessionToken))
+
 	now := s.now()
 	if err != nil || sess.Expired(now) {
 		return auth.Principal{}, false
 	}
+
 	u, err := s.repo.UserByID(ctx, sess.UserID)
 	if err != nil {
 		return auth.Principal{}, false
 	}
+
 	if now.Sub(sess.LastSeenAt) > touchEvery {
 		sess.LastSeenAt = now
 		if err := s.repo.SaveSession(ctx, sess); err != nil {
 			s.log.Warn("touching session", "error", err)
 		}
 	}
+
 	return auth.Principal{Method: auth.MethodSession, Name: u.Username, UserID: u.ID}, true
 }
 
@@ -144,6 +159,7 @@ func (s *Service) trusted(ctx context.Context, r auth.Request) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+
 	return settings.Trusts(r), nil
 }
 
@@ -153,16 +169,19 @@ func (s *Service) Status(ctx context.Context, r auth.Request) (Status, error) {
 	if err != nil {
 		return Status{}, err
 	}
+
 	trusted, err := s.trusted(ctx, r)
 	if err != nil {
 		return Status{}, err
 	}
+
 	st := Status{SetupRequired: n == 0, CanSetup: n == 0 && trusted, Trusted: trusted}
 	if p, err := s.Authenticate(ctx, r); err == nil {
 		st.Principal = &p
 	} else if !errors.Is(err, auth.ErrUnauthenticated) {
 		return st, err
 	}
+
 	return st, nil
 }
 
@@ -174,25 +193,32 @@ func (s *Service) Setup(ctx context.Context, r auth.Request, username, password 
 	} else if !ok {
 		return "", auth.Principal{}, auth.ErrSetupNotTrusted
 	}
+
 	n, err := s.repo.CountUsers(ctx)
 	if err != nil {
 		return "", auth.Principal{}, err
 	}
+
 	if n > 0 {
 		return "", auth.Principal{}, auth.ErrSetupDone
 	}
+
 	if err := auth.ValidateCredentials(username, password); err != nil {
 		return "", auth.Principal{}, err
 	}
+
 	hash, err := s.hash.Hash(password)
 	if err != nil {
 		return "", auth.Principal{}, err
 	}
+
 	u := auth.NewUser(username, hash, s.now())
 	if err := s.repo.SaveUser(ctx, u); err != nil {
 		return "", auth.Principal{}, err
 	}
+
 	s.log.Info("user created", "username", username)
+
 	return s.newSession(ctx, u, r)
 }
 
@@ -201,19 +227,25 @@ func (s *Service) Login(ctx context.Context, r auth.Request, username, password 
 	if s.throttled() {
 		return "", auth.Principal{}, auth.ErrTooManyAttempts
 	}
+
 	u, err := s.repo.UserByUsername(ctx, username)
+
 	ok := err == nil && s.hash.Verify(u.PasswordHash, password)
 	if errors.Is(err, auth.ErrNotFound) {
 		s.hash.Verify(s.dummyHash, password)
 	} else if err != nil {
 		return "", auth.Principal{}, err
 	}
+
 	if !ok {
 		s.recordFailure()
 		s.log.Warn("failed login", "username", username, "client", r.ClientIP.String())
+
 		return "", auth.Principal{}, auth.ErrBadCredentials
 	}
+
 	_ = s.repo.DeleteExpiredSessions(ctx, s.now())
+
 	return s.newSession(ctx, u, r)
 }
 
@@ -222,12 +254,14 @@ func (s *Service) newSession(ctx context.Context, u auth.User, r auth.Request) (
 	if _, err := rand.Read(buf); err != nil {
 		return "", auth.Principal{}, err
 	}
+
 	token := base64.RawURLEncoding.EncodeToString(buf)
 	now := s.now()
 	err := s.repo.SaveSession(ctx, auth.Session{
 		TokenHash: hashToken(token), UserID: u.ID, CreatedAt: now, ExpiresAt: now.Add(sessionTTL), LastSeenAt: now,
 		UserAgent: truncate(r.UserAgent, 200),
 	})
+
 	return token, auth.Principal{Method: auth.MethodSession, Name: u.Username, UserID: u.ID}, err
 }
 
@@ -239,6 +273,7 @@ func (s *Service) Logout(ctx context.Context, token string) error {
 	if token == "" {
 		return nil
 	}
+
 	return s.repo.DeleteSession(ctx, hashToken(token))
 }
 
@@ -249,14 +284,19 @@ func (s *Service) ChangePassword(ctx context.Context, p auth.Principal, username
 	if err := auth.ValidatePassword(next); err != nil {
 		return err
 	}
-	var u auth.User
-	var err error
+
+	var (
+		u   auth.User
+		err error
+	)
+
 	switch p.Method {
 	case auth.MethodSession:
 		u, err = s.repo.UserByID(ctx, p.UserID)
 		if err != nil {
 			return err
 		}
+
 		if !s.hash.Verify(u.PasswordHash, current) {
 			return auth.ErrBadCredentials
 		}
@@ -268,20 +308,25 @@ func (s *Service) ChangePassword(ctx context.Context, p auth.Principal, username
 	default:
 		return auth.ErrUnauthenticated
 	}
+
 	if username = strings.TrimSpace(username); username != "" && username != u.Username {
 		if err := auth.ValidateCredentials(username, next); err != nil {
 			return err
 		}
+
 		u.Username = username
 	}
+
 	hash, err := s.hash.Hash(next)
 	if err != nil {
 		return err
 	}
+
 	u.PasswordHash, u.UpdatedAt = hash, s.now()
 	if err := s.repo.SaveUser(ctx, u); err != nil {
 		return err
 	}
+
 	return s.repo.DeleteUserSessions(ctx, u.ID)
 }
 
@@ -298,35 +343,43 @@ func (s *Service) UpdateSettings(ctx context.Context, in auth.Settings) (auth.Se
 	if err != nil {
 		return in, err
 	}
+
 	if in.Authentication == auth.AuthRequired {
 		n, err := s.repo.CountUsers(ctx)
 		if err != nil {
 			return in, err
 		}
+
 		if n == 0 {
 			return in, auth.ErrLockout
 		}
 	}
+
 	if err := s.settings.SaveAuth(ctx, in); err != nil {
 		return in, err
 	}
+
 	s.certs.SetCertificateValidation(in.CertificateValidation)
 	s.log.Info("security settings saved", "authentication", in.Authentication, "trusted_networks", in.TrustedNetworks,
 		"certificate_validation", in.CertificateValidation)
+
 	return in, nil
 }
 
 func (s *Service) throttled() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	cutoff := s.now().Add(-failureWindow)
 	s.failures = slices.DeleteFunc(s.failures, func(t time.Time) bool { return t.Before(cutoff) })
+
 	return len(s.failures) >= maxFailures
 }
 
 func (s *Service) recordFailure() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	s.failures = append(s.failures, s.now())
 }
 
@@ -334,5 +387,6 @@ func truncate(s string, n int) string {
 	if len(s) > n {
 		return s[:n]
 	}
+
 	return s
 }

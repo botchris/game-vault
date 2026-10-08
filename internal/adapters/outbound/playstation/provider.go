@@ -75,6 +75,7 @@ func cleanNPSSO(v string) string {
 	if m := reNPSSO.FindStringSubmatch(v); m != nil {
 		return m[1]
 	}
+
 	return strings.Trim(v, `"' `)
 }
 
@@ -97,6 +98,7 @@ type Provider struct {
 	tokens map[string]accessToken // refresh token → access token
 }
 
+// NewProvider returns the PlayStation source with its production endpoints.
 func NewProvider() *Provider {
 	return &Provider{
 		AuthURL: defaultAuthURL, LibraryURL: defaultLibraryURL, Now: time.Now,
@@ -108,6 +110,7 @@ func NewProvider() *Provider {
 	}
 }
 
+// Descriptor implements sync.Provider.
 func (p *Provider) Descriptor() source.TypeDescriptor {
 	return source.TypeDescriptor{
 		Type:           Type,
@@ -132,53 +135,67 @@ type tokenResponse struct {
 // authorize turns the NPSSO token into a one-time authorization code.
 func (p *Provider) authorize(ctx context.Context, npsso string) (string, error) {
 	q := url.Values{"access_type": {"offline"}, "client_id": {clientID}, "redirect_uri": {redirectURI}, "response_type": {"code"}, "scope": {scope}}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.AuthURL+"/authorize?"+q.Encode(), nil)
 	if err != nil {
 		return "", err
 	}
+
 	req.Header.Set("Cookie", "npsso="+npsso)
 	req.Header.Set("User-Agent", userAgent)
+
 	res, err := p.Client.Do(req)
 	if err != nil {
 		return "", err
 	}
+
 	res.Body.Close()
+
 	loc := res.Header.Get("Location")
 	if !strings.HasPrefix(loc, redirectURI) {
 		return "", ErrSignedOut // sent to the sign-in page: the NPSSO is no longer valid
 	}
+
 	m := reCode.FindStringSubmatch(loc)
 	if m == nil {
 		return "", ErrSignedOut
 	}
+
 	return url.QueryUnescape(m[1])
 }
 
 func (p *Provider) token(ctx context.Context, form url.Values) (tokenResponse, error) {
 	form.Set("token_format", "jwt")
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.AuthURL+"/token", strings.NewReader(form.Encode()))
 	if err != nil {
 		return tokenResponse{}, err
 	}
+
 	req.SetBasicAuth(clientID, clientSecret)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("User-Agent", userAgent)
+
 	res, err := p.Client.Do(req)
 	if err != nil {
 		return tokenResponse{}, err
 	}
 	defer res.Body.Close()
+
 	body, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
 	if res.StatusCode != http.StatusOK {
 		if res.StatusCode < 500 {
 			return tokenResponse{}, ErrSignedOut
 		}
+
 		return tokenResponse{}, fmt.Errorf("playstation sign-in: HTTP %d", res.StatusCode)
 	}
+
 	var tok tokenResponse
 	if err := json.Unmarshal(body, &tok); err != nil || tok.AccessToken == "" {
 		return tokenResponse{}, errors.New("playstation sign-in: unexpected answer")
 	}
+
 	return tok, nil
 }
 
@@ -187,34 +204,42 @@ func (p *Provider) token(ctx context.Context, form url.Values) (tokenResponse, e
 // back into settings for the caller to persist.
 func (p *Provider) accessToken(ctx context.Context, settings source.Settings) (string, error) {
 	var s session
+
 	_ = json.Unmarshal([]byte(settings[settingSession]), &s)
 	if s.RefreshToken != "" {
 		p.mu.Lock()
 		cached, ok := p.tokens[s.RefreshToken]
 		p.mu.Unlock()
+
 		if ok && p.Now().Add(time.Minute).Before(cached.expires) {
 			return cached.token, nil
 		}
+
 		tok, err := p.token(ctx, url.Values{"grant_type": {"refresh_token"}, "refresh_token": {s.RefreshToken}, "scope": {scope}})
 		if err == nil {
 			return p.remember(settings, tok, s.RefreshToken), nil
 		}
+
 		if !errors.Is(err, ErrSignedOut) {
 			return "", err
 		}
 	}
+
 	npsso := cleanNPSSO(settings[settingNPSSO])
 	if npsso == "" {
 		return "", ErrNoNPSSO
 	}
+
 	code, err := p.authorize(ctx, npsso)
 	if err != nil {
 		return "", err
 	}
+
 	tok, err := p.token(ctx, url.Values{"grant_type": {"authorization_code"}, "code": {code}, "redirect_uri": {redirectURI}})
 	if err != nil {
 		return "", err
 	}
+
 	return p.remember(settings, tok, ""), nil
 }
 
@@ -223,16 +248,20 @@ func (p *Provider) remember(settings source.Settings, tok tokenResponse, previou
 	if refresh == "" {
 		refresh = previous
 	}
+
 	if refresh != "" {
 		raw, _ := json.Marshal(session{RefreshToken: refresh})
 		settings[settingSession] = string(raw)
+
 		p.mu.Lock()
 		if p.tokens == nil {
 			p.tokens = map[string]accessToken{}
 		}
+
 		p.tokens[refresh] = accessToken{tok.AccessToken, p.Now().Add(time.Duration(tok.ExpiresIn) * time.Second)}
 		p.mu.Unlock()
 	}
+
 	return tok.AccessToken
 }
 
@@ -259,19 +288,24 @@ func (p *Provider) page(ctx context.Context, token, hash string, start int) ([]t
 	})
 	ext, _ := json.Marshal(map[string]any{"persistedQuery": map[string]any{"version": 1, "sha256Hash": hash}})
 	q := url.Values{"operationName": {"getPurchasedGameList"}, "variables": {string(vars)}, "extensions": {string(ext)}}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.LibraryURL+"?"+q.Encode(), nil)
 	if err != nil {
 		return nil, false, err
 	}
+
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json") // Sony's GraphQL refuses requests that could be CSRF
 	req.Header.Set("User-Agent", userAgent)
+
 	res, err := p.Client.Do(req)
 	if err != nil {
 		return nil, false, err
 	}
 	defer res.Body.Close()
+
 	raw, _ := io.ReadAll(io.LimitReader(res.Body, 16<<20))
+
 	var out struct {
 		Message string `json:"message"`
 		Data    struct {
@@ -290,20 +324,26 @@ func (p *Provider) page(ctx context.Context, token, hash string, start int) ([]t
 	if err := json.Unmarshal(raw, &out); err != nil {
 		return nil, false, fmt.Errorf("playstation library: HTTP %d, unexpected answer", res.StatusCode)
 	}
+
 	if strings.Contains(out.Message, "not whitelisted") {
 		return nil, false, errQueryRetired
 	}
+
 	if len(out.Errors) > 0 {
 		if strings.Contains(out.Errors[0].Message, "authorized") || res.StatusCode == http.StatusUnauthorized {
 			return nil, false, ErrSignedOut
 		}
+
 		return nil, false, fmt.Errorf("playstation library: %s", out.Errors[0].Message)
 	}
+
 	if out.Data.Purchased == nil {
 		return nil, false, fmt.Errorf("playstation library: HTTP %d, no library in the answer", res.StatusCode)
 	}
+
 	pg := out.Data.Purchased
 	last := pg.PageInfo.IsLast || len(pg.Games) < pageSize || start+len(pg.Games) >= pg.PageInfo.TotalCount && pg.PageInfo.TotalCount > 0
+
 	return pg.Games, last, nil
 }
 
@@ -314,30 +354,44 @@ func (p *Provider) purchased(ctx context.Context, settings source.Settings) ([]t
 	if err != nil {
 		return nil, err
 	}
+
 	var lastErr error
+
 	for _, hash := range purchasedQueryHashes {
-		var all []title
-		var err error
+		var (
+			all []title
+			err error
+		)
+
 		for page := 0; page < maxPages; page++ {
-			var batch []title
-			var last bool
+			var (
+				batch []title
+				last  bool
+			)
+
 			batch, last, err = p.page(ctx, token, hash, len(all))
 			if err != nil {
 				break
 			}
+
 			all = append(all, batch...)
+
 			if last {
 				break
 			}
 		}
+
 		if err == nil {
 			return all, nil
 		}
+
 		if !errors.Is(err, errQueryRetired) {
 			return nil, err
 		}
+
 		lastErr = err
 	}
+
 	return nil, lastErr
 }
 
@@ -353,6 +407,7 @@ func platformName(p string) string {
 	case "PSVITA", "PS VITA":
 		return "PS Vita"
 	}
+
 	return "PlayStation Store"
 }
 
@@ -360,25 +415,32 @@ func platformName(p string) string {
 // inactive entitlements are left out.
 func mapTitles(titles []title) []game.ImportedCopy {
 	seen := map[string]bool{}
+
 	var out []game.ImportedCopy
+
 	for _, t := range titles {
 		name := strings.TrimSpace(t.Name)
 		if name == "" || (t.IsActive != nil && !*t.IsActive) {
 			continue
 		}
+
 		if m := strings.ToUpper(t.Membership); m != "" && m != "NONE" {
 			continue // PS Plus (or another subscription)
 		}
+
 		id := t.EntitlementID
 		if id == "" {
 			id = t.ProductID
 		}
+
 		if id == "" {
 			id = t.TitleID
 		}
+
 		if id == "" || seen[id] {
 			continue
 		}
+
 		seen[id] = true
 		out = append(out, game.ImportedCopy{
 			ExternalID: "psn:" + id,
@@ -386,7 +448,9 @@ func mapTitles(titles []title) []game.ImportedCopy {
 			Details:    game.CopyDetails{Kind: game.KindLibrary, Platform: platformName(t.Platform), Status: game.StatusOwned, Origin: "PlayStation Store"},
 		})
 	}
+
 	sort.Slice(out, func(i, j int) bool { return out[i].Title < out[j].Title })
+
 	return out
 }
 
@@ -396,15 +460,19 @@ func (p *Provider) Test(ctx context.Context, settings source.Settings) (sync.Tes
 	return sync.TestResult{Count: len(copies), Unit: "copies"}, err
 }
 
+// Fetch implements sync.Provider.
 func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.ImportedCopy, []string, error) {
 	titles, err := p.purchased(ctx, settings)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	copies := mapTitles(titles)
+
 	var warnings []string
 	if len(copies) == 0 {
 		warnings = append(warnings, "PlayStation returned no games bought with this account (PS Plus games are not imported)")
 	}
+
 	return copies, warnings, nil
 }

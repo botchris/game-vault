@@ -18,6 +18,7 @@ func TestConsolidatorMatchesAndDedupes(t *testing.T) {
 	}
 
 	c := NewConsolidator(lib.Changed)
+
 	res := c.Apply("humble-src", []ImportedCopy{
 		key("humble:A:0", "Hades", 1145360, StatusRevealed),            // matched by app id
 		key("humble:A:1", "Celeste™ (Steam Key)", 0, StatusUnrevealed), // matched by title
@@ -26,6 +27,7 @@ func TestConsolidatorMatchesAndDedupes(t *testing.T) {
 	if res.GamesCreated != 1 || res.CopiesAdded != 3 {
 		t.Fatalf("humble import: %+v", res)
 	}
+
 	for _, g := range res.Changed {
 		if g.Title() == "Hades" && (len(g.Copies()) != 2 || !g.IsRedundant(g.Copies()[1])) {
 			t.Errorf("Hades should hold the library copy and a redundant key: %+v", g.Copies())

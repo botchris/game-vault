@@ -12,44 +12,57 @@ import (
 // GameRepository implements game.Repository.
 type GameRepository struct{ db *DB }
 
+// NewGameRepository returns the repository backed by db.
 func NewGameRepository(db *DB) *GameRepository { return &GameRepository{db: db} }
 
 const copyCols = `id, game_id, kind, platform, status, cd_key, redeem_by, origin, acquired_on, edition,
 	condition, location, barcode, notes, COALESCE(source_id, ''), external_id, created_at, updated_at`
 
+// List returns every game with its copies.
 func (r *GameRepository) List(ctx context.Context) ([]*game.Game, error) {
 	q := r.db.conn(ctx)
+
 	copies, err := r.copies(ctx, q, `SELECT `+copyCols+` FROM copies ORDER BY created_at, id`)
 	if err != nil {
 		return nil, err
 	}
+
 	rows, err := q.QueryContext(ctx, `SELECT id, title, steam_app_id, notes, cover_url, created_at, updated_at FROM games ORDER BY title COLLATE NOCASE, id`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
+
 	var games []*game.Game
+
 	for rows.Next() {
 		g, err := scanGame(rows, copies)
 		if err != nil {
 			return nil, err
 		}
+
 		games = append(games, g)
 	}
+
 	return games, rows.Err()
 }
 
+// Get returns a game with its copies.
 func (r *GameRepository) Get(ctx context.Context, id game.ID) (*game.Game, error) {
 	q := r.db.conn(ctx)
+
 	copies, err := r.copies(ctx, q, `SELECT `+copyCols+` FROM copies WHERE game_id = ? ORDER BY created_at, id`, id)
 	if err != nil {
 		return nil, err
 	}
+
 	row := q.QueryRowContext(ctx, `SELECT id, title, steam_app_id, notes, cover_url, created_at, updated_at FROM games WHERE id = ?`, id)
+
 	g, err := scanGame(row, copies)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, game.ErrGameNotFound
 	}
+
 	return g, err
 }
 
@@ -58,6 +71,7 @@ func (r *GameRepository) Get(ctx context.Context, id game.ID) (*game.Game, error
 func (r *GameRepository) Save(ctx context.Context, g *game.Game) error {
 	return r.db.WithinTx(ctx, func(ctx context.Context) error {
 		q := r.db.conn(ctx)
+
 		_, err := q.ExecContext(ctx, `INSERT INTO games (id, title, steam_app_id, notes, cover_url, created_at, updated_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(id) DO UPDATE SET title = excluded.title, steam_app_id = excluded.steam_app_id,
@@ -70,10 +84,12 @@ func (r *GameRepository) Save(ctx context.Context, g *game.Game) error {
 		ids := []string{}
 		for _, c := range g.Copies() {
 			ids = append(ids, string(c.ID))
+
 			var sourceID any
 			if c.SourceID != "" {
 				sourceID = c.SourceID
 			}
+
 			_, err := q.ExecContext(ctx, `INSERT INTO copies (id, game_id, kind, platform, status, cd_key, redeem_by, origin,
 				acquired_on, edition, condition, location, barcode, notes, source_id, external_id, created_at, updated_at)
 				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -88,20 +104,25 @@ func (r *GameRepository) Save(ctx context.Context, g *game.Game) error {
 				return err
 			}
 		}
+
 		idsJSON, _ := json.Marshal(ids)
 		_, err = q.ExecContext(ctx, `DELETE FROM copies WHERE game_id = ? AND id NOT IN (SELECT value FROM json_each(?))`, g.ID(), string(idsJSON))
+
 		return err
 	})
 }
 
+// Delete removes a game and its copies.
 func (r *GameRepository) Delete(ctx context.Context, id game.ID) error {
 	res, err := r.db.conn(ctx).ExecContext(ctx, `DELETE FROM games WHERE id = ?`, id)
 	if err != nil {
 		return err
 	}
+
 	if n, _ := res.RowsAffected(); n == 0 {
 		return game.ErrGameNotFound
 	}
+
 	return nil
 }
 
@@ -111,18 +132,24 @@ func (r *GameRepository) copies(ctx context.Context, q querier, query string, ar
 		return nil, err
 	}
 	defer rows.Close()
+
 	out := map[game.ID][]game.Copy{}
+
 	for rows.Next() {
-		var c game.Copy
-		var gameID game.ID
-		var created, updated string
+		var (
+			c                game.Copy
+			gameID           game.ID
+			created, updated string
+		)
 		if err := rows.Scan(&c.ID, &gameID, &c.Kind, &c.Platform, &c.Status, &c.Key, &c.RedeemBy, &c.Origin,
 			&c.AcquiredOn, &c.Edition, &c.Condition, &c.Location, &c.Barcode, &c.Notes, &c.SourceID, &c.ExternalID, &created, &updated); err != nil {
 			return nil, err
 		}
+
 		c.CreatedAt, c.UpdatedAt = parseTime(created), parseTime(updated)
 		out[gameID] = append(out[gameID], c)
 	}
+
 	return out, rows.Err()
 }
 
@@ -135,5 +162,6 @@ func scanGame(sc interface{ Scan(...any) error }, copies map[game.ID][]game.Copy
 	if err := sc.Scan(&id, &info.Title, &info.SteamAppID, &info.Notes, &info.CoverURL, &created, &updated); err != nil {
 		return nil, err
 	}
+
 	return game.Rehydrate(id, info, copies[id], parseTime(created), parseTime(updated)), nil
 }

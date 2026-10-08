@@ -44,6 +44,7 @@ func invert[K, V comparable](m map[K]V) map[V]K {
 	for k, v := range m {
 		out[v] = k
 	}
+
 	return out
 }
 
@@ -51,6 +52,7 @@ func ts(t time.Time) *timestamppb.Timestamp {
 	if t.IsZero() {
 		return nil
 	}
+
 	return timestamppb.New(t)
 }
 
@@ -58,6 +60,7 @@ func gameToPB(g *game.Game) *pb.Game {
 	if g == nil {
 		return nil
 	}
+
 	out := &pb.Game{
 		Id: string(g.ID()), Title: g.Title(), SteamAppId: g.SteamAppID(), Notes: g.Notes(), CoverUrl: g.CoverURL(),
 		CreatedAt: ts(g.CreatedAt()), UpdatedAt: ts(g.UpdatedAt()),
@@ -73,6 +76,7 @@ func gameToPB(g *game.Game) *pb.Game {
 			UpdatedAt:  ts(c.UpdatedAt),
 		})
 	}
+
 	return out
 }
 
@@ -88,18 +92,22 @@ func detailsFromPB(d *pb.CopyDetails) (game.CopyDetails, error) {
 	if d == nil {
 		return game.CopyDetails{}, connect.NewError(connect.CodeInvalidArgument, errors.New("copy details are required"))
 	}
+
 	redeemBy, err := game.ParseDate(d.RedeemBy)
 	if err != nil {
 		return game.CopyDetails{}, err
 	}
+
 	acquired, err := game.ParseDate(d.AcquiredOn)
 	if err != nil {
 		return game.CopyDetails{}, err
 	}
+
 	barcode, err := game.ParseBarcode(d.Barcode)
 	if err != nil {
 		return game.CopyDetails{}, err
 	}
+
 	return game.CopyDetails{
 		Kind: kindFromPB[d.Kind], Platform: d.Platform, Status: statusFromPB[d.Status], Key: d.Key,
 		RedeemBy: redeemBy, Origin: d.Origin, AcquiredOn: acquired, Edition: d.Edition,
@@ -111,6 +119,7 @@ func reportToPB(r *source.SyncReport) *pb.SyncReport {
 	if r == nil {
 		return nil
 	}
+
 	return &pb.SyncReport{
 		StartedAt: ts(r.StartedAt), FinishedAt: ts(r.FinishedAt), Success: r.Success(), Error: r.Err,
 		Fetched: int32(r.Fetched), CopiesAdded: int32(r.CopiesAdded), CopiesUpdated: int32(r.CopiesUpdated),
@@ -119,16 +128,20 @@ func reportToPB(r *source.SyncReport) *pb.SyncReport {
 }
 
 func fieldsToPB(fields schema.Fields) []*pb.SettingField {
-	var out []*pb.SettingField
-	for _, f := range fields.Public() {
+	public := fields.Public()
+	out := make([]*pb.SettingField, 0, len(public))
+
+	for _, f := range public {
 		kind := pb.SettingField_KIND_TEXT
 		if f.Kind == schema.FieldSecret {
 			kind = pb.SettingField_KIND_SECRET
 		}
+
 		out = append(out, &pb.SettingField{
 			Key: f.Key, LabelKey: f.LabelKey, Kind: kind, Required: f.Required, HelpKey: f.HelpKey, HelpUrl: f.HelpURL,
 		})
 	}
+
 	return out
 }
 
@@ -158,6 +171,7 @@ func configFromPB(in *pb.SourceInput) source.Config {
 	if in == nil {
 		return source.Config{}
 	}
+
 	return source.Config{
 		Name: in.Name, Enabled: in.Enabled, SyncInterval: time.Duration(in.SyncIntervalHours) * time.Hour,
 		Settings: source.Settings(in.Settings),
@@ -169,11 +183,14 @@ func toConnectError(err error) error {
 	if err == nil {
 		return nil
 	}
-	var ce *connect.Error
-	var gv *game.ValidationError
-	var sv *source.ValidationError
-	var setv *settings.ValidationError
-	var schv *schema.ValidationError
+
+	var (
+		ce   *connect.Error
+		gv   *game.ValidationError
+		sv   *source.ValidationError
+		setv *settings.ValidationError
+		schv *schema.ValidationError
+	)
 	switch {
 	case errors.As(err, &ce):
 		return err

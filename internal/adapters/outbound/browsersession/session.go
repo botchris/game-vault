@@ -20,6 +20,7 @@ func Parse(raw string) map[string]string {
 	out := map[string]string{}
 	raw = strings.TrimSpace(raw)
 	raw = strings.TrimPrefix(raw, "Cookie:")
+
 	raw = strings.TrimPrefix(raw, "cookie:")
 	if strings.Contains(raw, "\t") {
 		for _, line := range strings.Split(raw, "\n") {
@@ -28,14 +29,17 @@ func Parse(raw string) map[string]string {
 				out[strings.TrimSpace(f[0])] = strings.TrimSpace(f[1])
 			}
 		}
+
 		return out
 	}
+
 	for _, part := range strings.FieldsFunc(raw, func(r rune) bool { return r == ';' || r == '\n' }) {
 		name, value, ok := strings.Cut(strings.TrimSpace(part), "=")
 		if ok && strings.TrimSpace(name) != "" {
 			out[strings.TrimSpace(name)] = strings.Trim(strings.TrimSpace(value), `"`)
 		}
 	}
+
 	return out
 }
 
@@ -54,12 +58,14 @@ func hash(s string) string {
 // (renewals of an older paste are ignored).
 func Current(pasted, rawState string) map[string]string {
 	out := Parse(pasted)
+
 	var s state
 	if json.Unmarshal([]byte(rawState), &s) == nil && s.From == hash(pasted) {
 		for k, v := range s.Cookies {
 			out[k] = v
 		}
 	}
+
 	return out
 }
 
@@ -68,14 +74,18 @@ func Remember(pasted, rawState string, renewed map[string]string) string {
 	if len(renewed) == 0 {
 		return rawState
 	}
+
 	var s state
 	if json.Unmarshal([]byte(rawState), &s) != nil || s.From != hash(pasted) || s.Cookies == nil {
 		s = state{From: hash(pasted), Cookies: map[string]string{}}
 	}
+
 	for k, v := range renewed {
 		s.Cookies[k] = v
 	}
+
 	raw, _ := json.Marshal(s)
+
 	return string(raw)
 }
 
@@ -95,25 +105,32 @@ func New(baseURL, domain string, cookies map[string]string, timeout time.Duratio
 	if err != nil {
 		return nil, err
 	}
+
 	jar, _ := cookiejar.New(nil)
+
 	if !strings.HasSuffix(base.Hostname(), domain) {
 		domain = ""
 	}
+
 	var list []*http.Cookie
 	for k, v := range cookies {
 		list = append(list, &http.Cookie{Name: k, Value: v, Path: "/", Domain: domain, Secure: base.Scheme == "https"})
 	}
+
 	jar.SetCookies(base, list)
+
 	return &Session{Client: &http.Client{Jar: jar, Timeout: timeout}, jar: jar, base: base, sent: cookies}, nil
 }
 
 // Renewed returns the cookies the site set or changed during the session.
 func (s *Session) Renewed() map[string]string {
 	out := map[string]string{}
+
 	for _, c := range s.jar.Cookies(s.base) {
 		if s.sent[c.Name] != c.Value {
 			out[c.Name] = c.Value
 		}
 	}
+
 	return out
 }

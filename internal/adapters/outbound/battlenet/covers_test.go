@@ -24,17 +24,21 @@ func (f *fakeSteam) Covers(_ context.Context, q media.CoverQuery, _ schema.Setti
 func TestCovers(t *testing.T) {
 	steam := &fakeSteam{}
 	c := NewCovers(steam, steam)
+
 	q := media.CoverQuery{Title: "Call of Duty: Modern Warfare Remastered (2017)", ExternalIDs: []string{"battlenet:1329875278"}}
 	if !c.Applies(q) || c.Applies(media.CoverQuery{Title: "x", SteamAppID: 1}) {
 		t.Fatal("applies only to games imported from Battle.net")
 	}
+
 	got, err := c.Covers(context.Background(), q, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if len(got) != 1 || got[0].Provider != CoverProviderID || got[0].URL != "https://steam/Call of Duty®: Modern Warfare® Remastered" {
 		t.Fatalf("candidates: %+v", got)
 	}
+
 	if steam.asked[0] != "Call of Duty: Modern Warfare Remastered" {
 		t.Fatalf("the year should be dropped from the search: %q", steam.asked[0])
 	}

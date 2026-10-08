@@ -26,6 +26,12 @@ RUN go install github.com/bufbuild/buf/cmd/buf@v${BUF_VERSION} \
  && go install connectrpc.com/connect/cmd/protoc-gen-connect-go@v${PROTOC_GEN_CONNECT_GO_VERSION} \
  && rm -rf /root/.cache/go-build /go/pkg/mod
 
+# Go linter (configuration in .golangci.yml). Built from source with this image's Go, so it always
+# understands the Go version the code is written in.
+ARG GOLANGCI_LINT_VERSION=2.13.2
+RUN go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v${GOLANGCI_LINT_VERSION} \
+ && rm -rf /root/.cache/go-build /go/pkg/mod
+
 # The repository is mounted at /src; its .git (if any) belongs to the host user.
 ENV GOFLAGS=-buildvcs=false \
     CGO_ENABLED=0 \

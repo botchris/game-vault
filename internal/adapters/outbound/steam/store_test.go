@@ -24,12 +24,14 @@ func TestCoversResolveHashedAssetPaths(t *testing.T) {
 			"header":"9246a1154a6af6af07a3eac9dd6e7dbf07504b0d/header.jpg"}}]}}`))
 	}))
 	defer srv.Close()
+
 	s := &Store{CDNURL: "https://legacy.test", APIURL: srv.URL, AssetsURL: "https://assets.test/store_item_assets/", Client: srv.Client()}
 
 	got, err := s.Covers(context.Background(), media.CoverQuery{Title: "Big Rigs", SteamAppID: 3598130}, schema.Settings{})
 	if err != nil || len(got) != 2 {
 		t.Fatalf("covers: %+v %v", got, err)
 	}
+
 	want := "https://assets.test/store_item_assets/steam/apps/3598130/2f9218e19c6da2a053d03217a68c40809c6e6bf1/library_600x900.jpg?t=1782888957"
 	if got[0].URL != want || !strings.HasSuffix(strings.Split(got[1].URL, "?")[0], "/9246a1154a6af6af07a3eac9dd6e7dbf07504b0d/header.jpg") {
 		t.Fatalf("hashed paths not used: %+v", got)

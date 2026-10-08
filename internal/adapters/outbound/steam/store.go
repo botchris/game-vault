@@ -41,6 +41,7 @@ var (
 	_ media.AppSearcher   = (*Store)(nil)
 )
 
+// Descriptor implements media.CoverProvider.
 func (s *Store) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
 		ID: CoverProviderID, Kind: provider.KindCover, Name: "Steam",
@@ -54,7 +55,7 @@ func (s *Store) ImageHosts() []string {
 		"cdn.akamai.steamstatic.com", "shared.akamai.steamstatic.com"}
 }
 
-// Applies: Steam only knows games linked to a Steam AppID.
+// Applies reports whether Steam knows the game: only those linked to a Steam AppID.
 func (s *Store) Applies(q media.CoverQuery) bool { return q.SteamAppID != 0 }
 
 // Covers returns the portrait library art first, then the landscape header. Recent apps keep
@@ -65,35 +66,44 @@ func (s *Store) Covers(ctx context.Context, q media.CoverQuery, _ schema.Setting
 	if library, header, err := s.assetURLs(ctx, q.SteamAppID); err == nil && (library != "" || header != "") {
 		urls = []string{library, header}
 	}
+
 	var out []media.CoverCandidate
+
 	for i, u := range urls {
 		if u == "" {
 			continue
 		}
+
 		label := "Steam · library"
 		if i == 1 {
 			label = "Steam · header"
 		}
+
 		out = append(out, media.CoverCandidate{URL: u, ThumbURL: u, Label: label, Title: q.Title, Provider: CoverProviderID})
 	}
+
 	return out, nil
 }
 
 // assetURLs resolves the library (portrait) and header images of an app.
 func (s *Store) assetURLs(ctx context.Context, appID int64) (library, header string, err error) {
 	input := fmt.Sprintf(`{"ids":[{"appid":%d}],"context":{"language":"english","country_code":"US"},"data_request":{"include_assets":true}}`, appID)
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.APIURL+"/IStoreBrowseService/GetItems/v1/?"+url.Values{"input_json": {input}}.Encode(), nil)
 	if err != nil {
 		return "", "", err
 	}
+
 	res, err := s.Client.Do(req)
 	if err != nil {
 		return "", "", err
 	}
 	defer res.Body.Close()
+
 	if res.StatusCode != http.StatusOK {
 		return "", "", fmt.Errorf("steam store items: HTTP %d", res.StatusCode)
 	}
+
 	var out struct {
 		Response struct {
 			StoreItems []struct {
@@ -108,22 +118,28 @@ func (s *Store) assetURLs(ctx context.Context, appID int64) (library, header str
 	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
 		return "", "", err
 	}
+
 	if len(out.Response.StoreItems) == 0 {
 		return "", "", nil
 	}
+
 	a := out.Response.StoreItems[0].Assets
 	if a.Format == "" {
 		return "", "", nil
 	}
+
 	build := func(file string) string {
 		if file == "" {
 			return ""
 		}
+
 		return s.AssetsURL + strings.Replace(a.Format, "${FILENAME}", file, 1)
 	}
+
 	return build(a.LibraryCapsule), build(a.Header), nil
 }
 
+// NewStore returns the Steam store client with its production endpoints.
 func NewStore() *Store {
 	return &Store{StoreURL: defaultStoreURL, CDNURL: defaultCDNURL, APIURL: defaultAPIURL, AssetsURL: defaultAssetsURL,
 		Client: &http.Client{Timeout: 15 * time.Second}}
@@ -140,18 +156,22 @@ func (s *Store) CoverURLs(appID int64) []string {
 // SearchApps searches the Steam store by title.
 func (s *Store) SearchApps(ctx context.Context, query string) ([]media.AppMatch, error) {
 	q := url.Values{"term": {query}, "l": {"english"}, "cc": {"US"}}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.StoreURL+"/api/storesearch/?"+q.Encode(), nil)
 	if err != nil {
 		return nil, err
 	}
+
 	res, err := s.Client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer res.Body.Close()
+
 	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("steam store search: HTTP %d", res.StatusCode)
 	}
+
 	var out struct {
 		Items []struct {
 			Type      string `json:"type"`
@@ -163,11 +183,13 @@ func (s *Store) SearchApps(ctx context.Context, query string) ([]media.AppMatch,
 	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
 		return nil, err
 	}
+
 	matches := make([]media.AppMatch, 0, len(out.Items))
 	for _, it := range out.Items {
 		if it.Type == "app" {
 			matches = append(matches, media.AppMatch{AppID: it.ID, Name: it.Name, ImageURL: it.TinyImage})
 		}
 	}
+
 	return matches, nil
 }

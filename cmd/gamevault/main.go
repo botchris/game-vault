@@ -66,6 +66,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
+
 	if err := os.MkdirAll(cfg.ConfigDir, 0o755); err != nil {
 		return err
 	}
@@ -73,11 +74,14 @@ func run() error {
 	// Logging: terminal + rotated files in config/logs. The level is a LevelVar so it can be
 	// changed live from the UI; saved settings are applied once the database is open.
 	level := new(slog.LevelVar)
+
 	logFiles, err := logfile.Open(cfg.LogDir(), level, settings.DefaultLogging())
 	if err != nil {
 		return err
 	}
-	defer logFiles.Close()
+	// Closing flushes the log; if that fails there is nowhere left to report it.
+	defer func() { _ = logFiles.Close() }()
+
 	log := slog.New(slog.NewTextHandler(io.MultiWriter(os.Stderr, logFiles), &slog.HandlerOptions{Level: level}))
 	slog.SetDefault(log)
 
@@ -88,19 +92,26 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Error("closing the database", "error", err)
+		}
+	}()
 
 	// Outbound adapters
 	games := sqlite.NewGameRepository(db)
 	sources := sqlite.NewSourceRepository(db)
 	settingsRepo := sqlite.NewSettingsRepository(db)
+
 	assets, err := gamedata.Open(cfg.GameDataDir())
 	if err != nil {
 		return err
 	}
+
 	if err := migrateLegacyCovers(ctx, assets, games, cfg.LegacyCoverDir(), log); err != nil {
 		return fmt.Errorf("migrating covers: %w", err)
 	}
+
 	steamStore := steam.NewStore()
 	now := time.Now
 
@@ -128,18 +139,21 @@ func run() error {
 	go syncSvc.RunScheduler(ctx, time.Minute, 30*time.Minute)
 	go syncSvc.RunKeepAlive(ctx, time.Minute, 10*time.Minute)
 	go mediaSvc.RunDetailsScanner(ctx, 2*time.Second) // Steam store allows ~200 requests / 5 min
+
 	if cfg.BackupInterval > 0 {
 		go systemSvc.RunScheduledBackups(ctx, cfg.BackupInterval)
 	}
 
 	// Certificate validation applies to every outgoing HTTPS request (they all use the default transport).
 	certs := tlspolicy.Install(http.DefaultTransport.(*http.Transport))
+
 	authSvc := auth.NewService(sqlite.NewAuthRepository(db), settingsRepo, passwordhash.New(), certs, now, log)
 	if cfg.ResetAuth {
 		if err := authSvc.ResetAuthentication(ctx); err != nil {
 			return fmt.Errorf("resetting authentication: %w", err)
 		}
 	}
+
 	if err := authSvc.Init(ctx); err != nil {
 		return fmt.Errorf("applying security settings: %w", err)
 	}
@@ -160,19 +174,28 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("cannot listen on %s (is another Game Vault already running? use -addr to pick another port): %w", cfg.Addr, err)
 	}
+
 	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 10 * time.Second}
+
 	go func() {
 		<-ctx.Done()
+
 		shutdown, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		srv.Shutdown(shutdown)
+
+		if err := srv.Shutdown(shutdown); err != nil {
+			log.Warn("requests still running at shutdown were cut off", "error", err)
+		}
 	}()
 
 	log.Info("game vault started", "version", version, "addr", "http://"+cfg.Addr, "config_dir", cfg.ConfigDir, "ui", cfg.UIDir != "")
+
 	if err := srv.Serve(ln); !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
+
 	log.Info("game vault stopped")
+
 	return nil
 }
 
@@ -182,17 +205,21 @@ func migrateLegacyCovers(ctx context.Context, assets *gamedata.Store, games *sql
 	if _, err := os.Stat(legacyDir); os.IsNotExist(err) {
 		return nil
 	}
+
 	list, err := games.List(ctx)
 	if err != nil {
 		return err
 	}
+
 	titles := make(map[game.ID]string, len(list))
 	for _, g := range list {
 		titles[g.ID()] = g.Title()
 	}
+
 	n, err := assets.MigrateLegacyCovers(legacyDir, titles)
 	if n > 0 {
 		log.Info("covers moved to game-data", "count", n)
 	}
+
 	return err
 }

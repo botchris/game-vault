@@ -28,6 +28,7 @@ func New(title string, now time.Time) (*Game, error) {
 	if title == "" {
 		return nil, invalid("title is required")
 	}
+
 	return &Game{id: NewID(), title: title, createdAt: now, updatedAt: now}, nil
 }
 
@@ -45,15 +46,18 @@ func (i Info) normalize() (Info, error) {
 	if i.Title == "" {
 		return i, invalid("title is required")
 	}
+
 	if i.SteamAppID < 0 {
 		return i, invalid("steam app id cannot be negative")
 	}
+
 	if i.CoverURL != "" {
 		u, err := url.Parse(i.CoverURL)
 		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 			return i, invalid("cover url must be an http(s) URL")
 		}
 	}
+
 	return i, nil
 }
 
@@ -63,14 +67,29 @@ func Rehydrate(id ID, info Info, copies []Copy, createdAt, updatedAt time.Time) 
 		copies: copies, createdAt: createdAt, updatedAt: updatedAt}
 }
 
-func (g *Game) ID() ID               { return g.id }
-func (g *Game) Title() string        { return g.title }
-func (g *Game) SteamAppID() int64    { return g.steamAppID }
-func (g *Game) Notes() string        { return g.notes }
-func (g *Game) CoverURL() string     { return g.coverURL }
+// ID returns the game's identifier.
+func (g *Game) ID() ID { return g.id }
+
+// Title returns the game's title.
+func (g *Game) Title() string { return g.title }
+
+// SteamAppID returns the Steam app id used for covers and details, or 0 when unknown.
+func (g *Game) SteamAppID() int64 { return g.steamAppID }
+
+// Notes returns the user's free-form notes about the game.
+func (g *Game) Notes() string { return g.notes }
+
+// CoverURL returns the custom cover image, empty when the default cover applies.
+func (g *Game) CoverURL() string { return g.coverURL }
+
+// CreatedAt returns when the game was registered.
 func (g *Game) CreatedAt() time.Time { return g.createdAt }
+
+// UpdatedAt returns when the game or its copies were last changed.
 func (g *Game) UpdatedAt() time.Time { return g.updatedAt }
-func (g *Game) MatchKey() string     { return MatchKey(g.title) }
+
+// MatchKey returns the normalized title used to consolidate the same game across sources.
+func (g *Game) MatchKey() string { return MatchKey(g.title) }
 
 // Copies returns a copy of the game's copies, so callers cannot bypass the aggregate.
 func (g *Game) Copies() []Copy { return append([]Copy(nil), g.copies...) }
@@ -87,9 +106,11 @@ func (g *Game) UpdateInfo(i Info, now time.Time) (coverChanged bool, err error) 
 	if err != nil {
 		return false, err
 	}
+
 	coverChanged = i.CoverURL != g.coverURL || i.SteamAppID != g.steamAppID
 	g.title, g.steamAppID, g.notes, g.coverURL = i.Title, i.SteamAppID, i.Notes, i.CoverURL
 	g.updatedAt = now
+
 	return coverChanged, nil
 }
 
@@ -103,9 +124,11 @@ func (g *Game) addCopy(d CopyDetails, sourceID, externalID string, now time.Time
 	if err != nil {
 		return Copy{}, err
 	}
+
 	c := Copy{ID: NewID(), CopyDetails: d, SourceID: sourceID, ExternalID: externalID, CreatedAt: now, UpdatedAt: now}
 	g.copies = append(g.copies, c)
 	g.updatedAt = now
+
 	return c, nil
 }
 
@@ -115,13 +138,16 @@ func (g *Game) UpdateCopy(id ID, d CopyDetails, now time.Time) (Copy, error) {
 	if i < 0 {
 		return Copy{}, ErrCopyNotFound
 	}
+
 	d, err := d.normalize()
 	if err != nil {
 		return Copy{}, err
 	}
+
 	g.copies[i].CopyDetails = d
 	g.copies[i].UpdatedAt = now
 	g.updatedAt = now
+
 	return g.copies[i], nil
 }
 
@@ -131,9 +157,11 @@ func (g *Game) RemoveCopy(id ID, now time.Time) (Copy, error) {
 	if i < 0 {
 		return Copy{}, ErrCopyNotFound
 	}
+
 	c := g.copies[i]
 	g.copies = append(g.copies[:i], g.copies[i+1:]...)
 	g.updatedAt = now
+
 	return c, nil
 }
 
@@ -149,16 +177,20 @@ func (g *Game) Absorb(other *Game, now time.Time) {
 	for _, c := range other.copies {
 		g.AttachCopy(c, now)
 	}
+
 	other.copies = nil
 	if g.steamAppID == 0 {
 		g.steamAppID = other.steamAppID
 	}
+
 	if g.coverURL == "" {
 		g.coverURL = other.coverURL
 	}
+
 	if other.notes != "" && !strings.Contains(g.notes, other.notes) {
 		g.notes = strings.TrimSpace(g.notes + "\n" + other.notes)
 	}
+
 	g.updatedAt = now
 }
 
@@ -170,17 +202,21 @@ func (g *Game) RemoveCopiesFromSource(sourceID string, now time.Time) int {
 			kept = append(kept, c)
 		}
 	}
+
 	n := len(g.copies) - len(kept)
+
 	g.copies = kept
 	if n > 0 {
 		g.updatedAt = now
 	}
+
 	return n
 }
 
 // ReleaseCopiesFromSource turns copies managed by sourceID into manual copies.
 func (g *Game) ReleaseCopiesFromSource(sourceID string, now time.Time) int {
 	n := 0
+
 	for i := range g.copies {
 		if g.copies[i].SourceID == sourceID {
 			g.copies[i].SourceID = ""
@@ -188,9 +224,11 @@ func (g *Game) ReleaseCopiesFromSource(sourceID string, now time.Time) int {
 			n++
 		}
 	}
+
 	if n > 0 {
 		g.updatedAt = now
 	}
+
 	return n
 }
 
@@ -201,6 +239,7 @@ func (g *Game) CopyWithBarcode(b Barcode) (Copy, bool) {
 			return c, true
 		}
 	}
+
 	return Copy{}, false
 }
 
@@ -210,11 +249,13 @@ func (g *Game) IsRedundant(c Copy) bool {
 	if !c.IsPendingKey() {
 		return false
 	}
+
 	for _, o := range g.copies {
 		if o.Kind == KindLibrary && strings.EqualFold(o.Platform, c.Platform) {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -222,6 +263,7 @@ func (g *Game) IsRedundant(c Copy) bool {
 // library of the same platform (stores never tell whether a key was redeemed).
 func (g *Game) MarkRedundantKeysRedeemed(now time.Time) int {
 	n := 0
+
 	for i, c := range g.copies {
 		if c.Status == StatusRevealed && g.IsRedundant(c) {
 			g.copies[i].Status = StatusRedeemed
@@ -229,9 +271,11 @@ func (g *Game) MarkRedundantKeysRedeemed(now time.Time) int {
 			n++
 		}
 	}
+
 	if n > 0 {
 		g.updatedAt = now
 	}
+
 	return n
 }
 
@@ -241,6 +285,7 @@ func (g *Game) indexOf(id ID) int {
 			return i
 		}
 	}
+
 	return -1
 }
 

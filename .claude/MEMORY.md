@@ -39,5 +39,5 @@ one line here. Update a file instead of adding a duplicate; date facts about ext
 - [Shell](memory/shell-gotchas.md) — zsh `path` / `GID`; no raw BOM in source
 - [Go](memory/go-gotchas.md) — `filepath.Glob` and `[id]` folder names
 - [Browser pane](memory/browser-pane.md) — cached `index.html`: use `?v=N`
-- [Toolchain](memory/toolchain.md) — Go version for buf; why `dev:web` is a watch build; node_modules volume
+- [Toolchain](memory/toolchain.md) — Go version for buf; golangci-lint and never a bare `--fix`; why `dev:web` is a watch build; node_modules volume
 - [Probing APIs](memory/api-probing.md) — bogus-credential probes, GraphQL aliases, lenient decoding

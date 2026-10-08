@@ -30,17 +30,21 @@ func TestBaseGameOf(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		return g
 	}
 	dlc := mk("GRIP: Combat Racing Artifex DLC")
 	grip, other := mk("GRIP: Combat Racing"), mk("GRIP")
+
 	catalog := []*game.Game{other, dlc, grip, mk("Gripper"), mk("GRIP: Combat Racing Artifex DLC Bundle")}
 	if got := baseGameOf(dlc, catalog); got != grip {
 		t.Fatalf("base game = %v, want the longest title prefix", got.Title())
 	}
+
 	if got := baseGameOf(mk("Dead Space 3 Awakened DLC"), []*game.Game{mk("Dead Space")}); got == nil {
 		t.Fatal("a shorter prefix should still match")
 	}
+
 	if got := baseGameOf(mk("Gripper DLC"), []*game.Game{grip}); got != nil {
 		t.Fatalf("matched a non word prefix: %v", got.Title())
 	}

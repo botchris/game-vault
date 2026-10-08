@@ -39,10 +39,12 @@ type Provider struct {
 	Client  *http.Client
 }
 
+// NewProvider returns the Steam source with its production endpoints.
 func NewProvider() *Provider {
 	return &Provider{BaseURL: defaultBaseURL, Client: &http.Client{Timeout: 60 * time.Second}}
 }
 
+// Descriptor implements sync.Provider.
 func (p *Provider) Descriptor() source.TypeDescriptor {
 	return source.TypeDescriptor{
 		Type:           Type,
@@ -57,12 +59,15 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 	}
 }
 
+// Fetch implements sync.Provider.
 func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.ImportedCopy, []string, error) {
 	key := strings.TrimSpace(settings[settingAPIKey])
+
 	id, err := p.resolveSteamID(ctx, key, settings[settingProfile])
 	if err != nil {
 		return nil, nil, err
 	}
+
 	var out struct {
 		Response struct {
 			Games []struct {
@@ -71,6 +76,7 @@ func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.
 			} `json:"games"`
 		} `json:"response"`
 	}
+
 	q := url.Values{
 		"key": {key}, "steamid": {id}, "include_appinfo": {"1"},
 		"include_played_free_games": {"1"}, "skip_unvetted_apps": {"0"}, "format": {"json"},
@@ -78,15 +84,18 @@ func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.
 	if err := p.get(ctx, "/IPlayerService/GetOwnedGames/v1/", q, &out); err != nil {
 		return nil, nil, err
 	}
+
 	if len(out.Response.Games) == 0 {
 		return nil, nil, ErrPrivateProfile
 	}
+
 	copies := make([]game.ImportedCopy, 0, len(out.Response.Games))
 	for _, g := range out.Response.Games {
 		name := g.Name
 		if name == "" {
 			name = fmt.Sprintf("Steam app %d", g.AppID)
 		}
+
 		copies = append(copies, game.ImportedCopy{
 			ExternalID: fmt.Sprintf("steam:%d", g.AppID),
 			Title:      name,
@@ -94,6 +103,7 @@ func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.
 			Details:    game.CopyDetails{Kind: game.KindLibrary, Platform: "Steam", Status: game.StatusOwned, Origin: "Steam"},
 		})
 	}
+
 	return copies, nil, nil
 }
 
@@ -103,9 +113,11 @@ func (p *Provider) resolveSteamID(ctx context.Context, key, profile string) (str
 	if m := reProfileURL.FindStringSubmatch(profile); m != nil {
 		profile = m[1]
 	}
+
 	if reSteamID64.MatchString(profile) {
 		return profile, nil
 	}
+
 	var out struct {
 		Response struct {
 			SteamID string `json:"steamid"`
@@ -115,9 +127,11 @@ func (p *Provider) resolveSteamID(ctx context.Context, key, profile string) (str
 	if err := p.get(ctx, "/ISteamUser/ResolveVanityURL/v1/", url.Values{"key": {key}, "vanityurl": {profile}}, &out); err != nil {
 		return "", err
 	}
+
 	if out.Response.Success != 1 {
 		return "", fmt.Errorf("steam profile %q not found", profile)
 	}
+
 	return out.Response.SteamID, nil
 }
 
@@ -126,16 +140,19 @@ func (p *Provider) get(ctx context.Context, path string, q url.Values, out any) 
 	if err != nil {
 		return err
 	}
+
 	res, err := p.Client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer res.Body.Close()
+
 	switch {
 	case res.StatusCode == http.StatusUnauthorized || res.StatusCode == http.StatusForbidden:
 		return fmt.Errorf("steam rejected the API key (HTTP %d)", res.StatusCode)
 	case res.StatusCode != http.StatusOK:
 		return fmt.Errorf("steam %s: HTTP %d", path, res.StatusCode)
 	}
+
 	return json.NewDecoder(res.Body).Decode(out)
 }

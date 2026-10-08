@@ -86,7 +86,8 @@ provider, set the same `SettingsGroup` in both descriptors.
 
 ## Checklist before telling the user it is ready
 
-- [ ] `task lint` and `task test` (formatting, vet, Go tests, TS types, translations)
+- [ ] `task lint` and `task test` (golangci-lint, vet, Go tests, TS types, translations); Go written
+  following the `write-go` skill (GIVEN-WHEN-THEN tests with testify against a fake server)
 - [ ] `task test-server`, dialog checked in the browser pane, "Test connection" with bogus
       credentials shows the clean error from the real service; `task test-server:stop`
 - [ ] `docs/technical.md` (and the README platforms table for a new store) updated; the store's `.claude/memory/<store>.md` written and indexed in

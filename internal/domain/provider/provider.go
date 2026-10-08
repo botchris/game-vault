@@ -21,12 +21,14 @@ type ID string
 // Kind is the type of data a provider supplies.
 type Kind string
 
+// Values of Kind.
 const (
 	KindCover    Kind = "cover"
 	KindBarcode  Kind = "barcode"
 	KindMetadata Kind = "metadata" // game details: summary, genres, companies, trailers...
 )
 
+// ErrNotFound means no configuration exists for the provider.
 var ErrNotFound = errors.New("provider not found")
 
 // Descriptor describes a provider implementation and the settings it needs.
@@ -64,19 +66,30 @@ func Rehydrate(id ID, kind Kind, enabled bool, priority int, settings schema.Set
 	if settings == nil {
 		settings = schema.Settings{}
 	}
+
 	return &Provider{id: id, kind: kind, enabled: enabled, priority: priority, settings: settings, updatedAt: updatedAt}
 }
 
-func (p *Provider) ID() ID               { return p.id }
-func (p *Provider) Kind() Kind           { return p.kind }
-func (p *Provider) Enabled() bool        { return p.enabled }
-func (p *Provider) Priority() int        { return p.priority }
+// ID returns the provider implementation this configuration belongs to.
+func (p *Provider) ID() ID { return p.id }
+
+// Kind returns the type of data the provider supplies.
+func (p *Provider) Kind() Kind { return p.kind }
+
+// Enabled reports whether the provider takes part in its chain.
+func (p *Provider) Enabled() bool { return p.enabled }
+
+// Priority returns the position in the chain; lower runs first.
+func (p *Provider) Priority() int { return p.priority }
+
+// UpdatedAt returns when the configuration was last changed.
 func (p *Provider) UpdatedAt() time.Time { return p.updatedAt }
 
 // Settings returns a copy of the raw settings, secrets included.
 func (p *Provider) Settings() schema.Settings {
 	out := schema.Settings{}
 	maps.Copy(out, p.settings)
+
 	return out
 }
 
@@ -89,7 +102,9 @@ func (p *Provider) Configure(d Descriptor, enabled bool, incoming schema.Setting
 			return err
 		}
 	}
+
 	p.enabled, p.settings, p.updatedAt = enabled, settings, now
+
 	return nil
 }
 
@@ -107,9 +122,12 @@ func Reorder(providers []*Provider, ids []ID, now time.Time) {
 		if i := slices.Index(ids, p.id); i >= 0 {
 			return i
 		}
+
 		return len(ids) + p.priority
 	}
+
 	slices.SortStableFunc(providers, func(a, b *Provider) int { return rank(a) - rank(b) })
+
 	for i, p := range providers {
 		if p.priority != i {
 			p.priority, p.updatedAt = i, now

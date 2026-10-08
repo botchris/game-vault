@@ -22,6 +22,7 @@ vars:
     -v gamevault-gomod:/go/pkg/mod
     -v gamevault-gobuild:/root/.cache/go-build
     -v gamevault-npm:/root/.npm
+    -v gamevault-golangci:/root/.cache/golangci-lint
     -v gamevault-node-modules:/src/web/node_modules
   IN_TOOLCHAIN: '{{.DOCKER_RUN}} {{.TOOLCHAIN}}'
 
@@ -101,12 +102,19 @@ tasks:
       - '{{.IN_TOOLCHAIN}} gofmt -w internal cmd'
 
   lint:
-    desc: Check formatting and lint the protobuf definitions
+    desc: Lint the Go code (golangci-lint, formatting included) and the protobuf definitions
     deps: [toolchain]
     cmds:
-      - >-
-        {{.IN_TOOLCHAIN}} sh -c 'unformatted=$(gofmt -l internal cmd);
-        if [ -n "$unformatted" ]; then echo "not gofmt-ed:"; echo "$unformatted"; exit 1; fi; buf lint'
+      - '{{.IN_TOOLCHAIN}} sh -c "golangci-lint run ./... && buf lint"'
+
+  lint:fix:
+    desc: Apply the safe automatic lint fixes (blank lines, comment periods, spelling, formatting)
+    deps: [toolchain]
+    cmds:
+      # Only linters whose fixes cannot change behavior: staticcheck's would, for example, type
+      # constants in a mixed const block and break the build.
+      - '{{.IN_TOOLCHAIN}} golangci-lint run --fix --enable-only wsl_v5,godot,misspell ./...'
+      - '{{.IN_TOOLCHAIN}} golangci-lint fmt ./...'
 
   i18n:
     desc: Check that every UI language has the same translation keys as English

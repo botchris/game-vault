@@ -25,10 +25,12 @@ type Covers struct {
 
 var _ media.CoverProvider = (*Covers)(nil)
 
+// NewCovers returns the Battle.net cover provider with its production endpoints.
 func NewCovers(search media.AppSearcher, steam media.CoverProvider) *Covers {
 	return &Covers{Search: search, Steam: steam}
 }
 
+// Descriptor implements media.CoverProvider.
 func (c *Covers) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
 		ID: CoverProviderID, Kind: provider.KindCover, Name: "Battle.net",
@@ -36,7 +38,7 @@ func (c *Covers) Descriptor() provider.Descriptor {
 	}
 }
 
-// Applies: only games with a copy imported from a Battle.net account.
+// Applies reports whether the game has a copy imported from a Battle.net account.
 func (c *Covers) Applies(q media.CoverQuery) bool {
 	return len(q.ExternalIDsWithPrefix("battlenet:")) > 0
 }
@@ -44,26 +46,33 @@ func (c *Covers) Applies(q media.CoverQuery) bool {
 // reYear drops a year Battle.net adds to tell remasters apart: "… Remastered (2017)".
 var reYear = regexp.MustCompile(`\s*\(\d{4}\)\s*$`)
 
+// Covers implements media.CoverProvider.
 func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, settings schema.Settings) ([]media.CoverCandidate, error) {
 	title := strings.TrimSpace(reYear.ReplaceAllString(q.Title, ""))
+
 	apps, err := c.Search.SearchApps(ctx, title)
 	if err != nil {
 		return nil, err
 	}
+
 	key := game.MatchKey(title)
 	for _, a := range apps {
 		if game.MatchKey(a.Name) != key {
 			continue
 		}
+
 		cands, err := c.Steam.Covers(ctx, media.CoverQuery{Title: a.Name, SteamAppID: a.AppID}, settings)
 		if err != nil {
 			return nil, err
 		}
+
 		for i := range cands {
 			cands[i].Label = "Battle.net (Steam): " + cands[i].Label
 			cands[i].Provider = CoverProviderID
 		}
+
 		return cands, nil
 	}
+
 	return nil, nil
 }

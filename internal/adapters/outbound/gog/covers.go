@@ -31,10 +31,12 @@ var (
 	_ media.ImageHoster   = (*Covers)(nil)
 )
 
+// NewCovers returns the GOG cover provider with its production endpoints.
 func NewCovers() *Covers {
 	return &Covers{APIURL: defaultAPIURL, Client: &http.Client{Timeout: 20 * time.Second}}
 }
 
+// Descriptor implements media.CoverProvider.
 func (c *Covers) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
 		ID: CoverProviderID, Kind: provider.KindCover, Name: "GOG",
@@ -45,15 +47,17 @@ func (c *Covers) Descriptor() provider.Descriptor {
 // ImageHosts implements media.ImageHoster.
 func (c *Covers) ImageHosts() []string { return []string{"images.gog-statics.com"} }
 
-// Applies: only games with a copy imported from a GOG library.
+// Applies reports whether the game has a copy imported from a GOG library.
 func (c *Covers) Applies(q media.CoverQuery) bool { return len(q.ExternalIDsWithPrefix("gog:")) > 0 }
 
 type link struct {
 	Href string `json:"href"`
 }
 
+// Covers implements media.CoverProvider.
 func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	var out []media.CoverCandidate
+
 	for _, id := range q.ExternalIDsWithPrefix("gog:") {
 		var g struct {
 			Links struct {
@@ -69,6 +73,7 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 		if err := c.get(ctx, c.APIURL+"/v2/games/"+id, &g); err != nil {
 			return out, err
 		}
+
 		title := g.Embedded.Product.Title
 		for _, l := range []struct{ href, label string }{
 			{g.Links.BoxArt.Href, "GOG: box art"}, {g.Links.Background.Href, "GOG: wide image"},
@@ -80,6 +85,7 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 	}
 	// Portrait art of every copy first.
 	var portrait, wide []media.CoverCandidate
+
 	for _, cand := range out {
 		if cand.Label == "GOG: box art" {
 			portrait = append(portrait, cand)
@@ -87,6 +93,7 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 			wide = append(wide, cand)
 		}
 	}
+
 	return append(portrait, wide...), nil
 }
 
@@ -95,16 +102,19 @@ func (c *Covers) get(ctx context.Context, u string, out any) error {
 	if err != nil {
 		return err
 	}
+
 	res, err := c.Client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer res.Body.Close()
+
 	switch {
 	case res.StatusCode == http.StatusNotFound:
 		return nil // product unknown to the API: no candidates
 	case res.StatusCode != http.StatusOK:
 		return fmt.Errorf("gog %s: HTTP %d", req.URL.Path, res.StatusCode)
 	}
+
 	return json.NewDecoder(io.LimitReader(res.Body, 4<<20)).Decode(out)
 }

@@ -83,10 +83,12 @@ type Provider struct {
 	Timeout                 time.Duration
 }
 
+// NewProvider returns the EA app source with its production endpoints.
 func NewProvider() *Provider {
 	return &Provider{AccountsURL: defaultAccountsURL, GraphQLURL: defaultGraphQLURL, Timeout: 30 * time.Second}
 }
 
+// Descriptor implements sync.Provider.
 func (p *Provider) Descriptor() source.TypeDescriptor {
 	return source.TypeDescriptor{
 		Type:           Type,
@@ -107,22 +109,28 @@ func (p *Provider) accessToken(ctx context.Context, settings source.Settings) (s
 	if len(c) == 0 {
 		return "", ErrNoCookies
 	}
+
 	sess, err := browsersession.New(p.AccountsURL, "ea.com", c, p.Timeout)
 	if err != nil {
 		return "", err
 	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.AccountsURL+tokenPath, nil)
 	if err != nil {
 		return "", err
 	}
+
 	req.Header.Set("User-Agent", userAgent)
 	req.Header.Set("Accept", "application/json")
+
 	res, err := sess.Client.Do(req)
 	if err != nil {
 		return "", err
 	}
 	defer res.Body.Close()
+
 	body, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
+
 	var tok struct {
 		AccessToken string `json:"access_token"`
 		Error       string `json:"error"`
@@ -131,9 +139,12 @@ func (p *Provider) accessToken(ctx context.Context, settings source.Settings) (s
 		if tok.Error != "" && tok.Error != "login_required" {
 			return "", fmt.Errorf("ea sign-in: %s", tok.Error)
 		}
+
 		return "", ErrSignedOut
 	}
+
 	settings[settingSession] = browsersession.Remember(settings[settingCookies], settings[settingSession], sess.Renewed())
+
 	return tok.AccessToken, nil
 }
 
@@ -163,23 +174,30 @@ type item struct {
 
 func (p *Provider) ownedItems(ctx context.Context, token string) ([]item, error) {
 	client := &http.Client{Timeout: p.Timeout}
+
 	var all []item
+
 	next := "0"
 	for range maxPages {
 		body, _ := json.Marshal(map[string]any{"query": ownedGamesQuery, "variables": map[string]any{"next": next}})
+
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.GraphQLURL, bytes.NewReader(body))
 		if err != nil {
 			return nil, err
 		}
+
 		req.Header.Set("Authorization", "Bearer "+token)
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("User-Agent", userAgent)
+
 		res, err := client.Do(req)
 		if err != nil {
 			return nil, err
 		}
+
 		raw, _ := io.ReadAll(io.LimitReader(res.Body, 16<<20))
 		res.Body.Close()
+
 		var out struct {
 			Data struct {
 				Me struct {
@@ -199,19 +217,25 @@ func (p *Provider) ownedItems(ctx context.Context, token string) ([]item, error)
 		if err := json.Unmarshal(raw, &out); err != nil {
 			return nil, fmt.Errorf("ea library: HTTP %d, unexpected answer", res.StatusCode)
 		}
+
 		if len(out.Errors) > 0 {
 			if out.Errors[0].Extensions.Code == "UNAUTHENTICATED" {
 				return nil, ErrSignedOut
 			}
+
 			return nil, fmt.Errorf("ea library: %s", out.Errors[0].Message)
 		}
+
 		page := out.Data.Me.OwnedGameProducts
+
 		all = append(all, page.Items...)
 		if page.Next == "" || page.Next == next || len(page.Items) == 0 {
 			return all, nil
 		}
+
 		next = page.Next
 	}
+
 	return all, nil
 }
 
@@ -221,12 +245,14 @@ func subscriptionOnly(methods []string) bool {
 	if len(methods) == 0 {
 		return false
 	}
+
 	for _, m := range methods {
 		m = strings.ToUpper(m)
 		if !strings.Contains(m, "VAULT") && !strings.Contains(m, "SUBSCRIPTION") {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -234,37 +260,47 @@ func subscriptionOnly(methods []string) bool {
 // edition when it differs ("Battlefield 1 Revolution" of "Battlefield 1").
 func mapItems(items []item) []game.ImportedCopy {
 	byGame := map[string]game.ImportedCopy{}
+
 	for _, it := range items {
 		if subscriptionOnly(it.Product.GameProductUser.OwnershipMethods) {
 			continue
 		}
+
 		name := strings.TrimSpace(it.Product.Name)
+
 		title := strings.TrimSpace(it.Product.BaseItem.Title)
 		if title == "" {
 			title = name
 		}
+
 		if title == "" {
 			continue
 		}
+
 		id := it.Product.ID
 		if id == "" {
 			id = it.OriginOfferID
 		}
+
 		if id == "" {
 			id = game.MatchKey(title)
 		}
+
 		edition := ""
 		if name != "" && game.MatchKey(name) != game.MatchKey(title) {
 			edition = strings.TrimSpace(strings.TrimPrefix(name, title))
+
 			edition = strings.TrimLeft(edition, " :-–")
 			if edition == "" {
 				edition = name
 			}
 		}
+
 		key := game.MatchKey(title)
 		if prev, ok := byGame[key]; ok && (prev.Details.Edition != "" || edition == "") {
 			continue // keep the first, preferring a named edition
 		}
+
 		byGame[key] = game.ImportedCopy{
 			ExternalID: "ea:" + id,
 			Title:      title,
@@ -273,11 +309,14 @@ func mapItems(items []item) []game.ImportedCopy {
 			},
 		}
 	}
+
 	out := make([]game.ImportedCopy, 0, len(byGame))
 	for _, c := range byGame {
 		out = append(out, c)
 	}
+
 	sort.Slice(out, func(i, j int) bool { return out[i].Title < out[j].Title })
+
 	return out
 }
 
@@ -287,19 +326,24 @@ func (p *Provider) Test(ctx context.Context, settings source.Settings) (sync.Tes
 	return sync.TestResult{Count: len(copies), Unit: "copies"}, err
 }
 
+// Fetch implements sync.Provider.
 func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.ImportedCopy, []string, error) {
 	token, err := p.accessToken(ctx, settings)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	items, err := p.ownedItems(ctx, token)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	copies := mapItems(items)
+
 	var warnings []string
 	if len(copies) == 0 {
 		warnings = append(warnings, "EA returned no games for this account (EA Play games are not imported)")
 	}
+
 	return copies, warnings, nil
 }

@@ -19,10 +19,12 @@ import (
 	"gamevault/internal/domain/schema"
 )
 
+// ID identifies this provider in settings and provider chains.
+const ID provider.ID = "eansearch"
+
 const (
-	ID             provider.ID = "eansearch"
-	settingToken               = "token"
-	defaultBaseURL             = "https://api.ean-search.org"
+	settingToken   = "token"
+	defaultBaseURL = "https://api.ean-search.org"
 )
 
 // Provider implements media.BarcodeProvider.
@@ -36,10 +38,12 @@ var (
 	_ media.Tester          = (*Provider)(nil)
 )
 
+// New returns the EAN-Search barcode provider with its production endpoints.
 func New() *Provider {
 	return &Provider{BaseURL: defaultBaseURL, Client: &http.Client{Timeout: 15 * time.Second}}
 }
 
+// Descriptor implements media.BarcodeProvider.
 func (p *Provider) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
 		ID: ID, Kind: provider.KindBarcode, Name: "EAN-Search",
@@ -59,31 +63,40 @@ func (p *Provider) call(ctx context.Context, q url.Values) ([]byte, int, error) 
 		if err != nil {
 			return nil, -1, err
 		}
+
 		req.Header.Set("User-Agent", "GameVault/1.0")
+
 		res, err := p.Client.Do(req)
 		if err != nil {
 			return nil, -1, err
 		}
+
 		body, err := io.ReadAll(io.LimitReader(res.Body, 1<<20))
 		res.Body.Close()
+
 		if res.StatusCode == http.StatusTooManyRequests && attempt == 0 {
 			select {
 			case <-ctx.Done():
 				return nil, -1, ctx.Err()
 			case <-time.After(time.Second):
 			}
+
 			continue
 		}
+
 		if err != nil {
 			return nil, -1, err
 		}
+
 		if res.StatusCode != http.StatusOK {
 			return nil, -1, fmt.Errorf("HTTP %d", res.StatusCode)
 		}
+
 		remaining := -1
 		if n, err := strconv.Atoi(res.Header.Get("X-Credits-Remaining")); err == nil {
 			remaining = n
 		}
+
 		return body, remaining, nil
 	}
 }
@@ -99,15 +112,19 @@ func isNotFound(msg string) bool { return strings.Contains(strings.ToLower(msg),
 // ("Barcode not found" when the code is unknown).
 func (p *Provider) Lookup(ctx context.Context, code game.Barcode, s schema.Settings) ([]media.BarcodeMatch, error) {
 	q := url.Values{"token": {s[settingToken]}, "op": {"barcode-lookup"}, "ean": {string(code)}, "format": {"json"}}
+
 	body, _, err := p.call(ctx, q)
 	if err != nil {
 		return nil, err
 	}
+
 	var out []result
 	if err := json.Unmarshal(body, &out); err != nil {
 		return nil, fmt.Errorf("unexpected answer: %w", err)
 	}
+
 	var matches []media.BarcodeMatch
+
 	for _, it := range out {
 		switch {
 		case isNotFound(it.Error):
@@ -119,6 +136,7 @@ func (p *Provider) Lookup(ctx context.Context, code game.Barcode, s schema.Setti
 			matches = append(matches, media.BarcodeMatch{Raw: it.Name, Title: title, Platform: platform, Edition: edition, Provider: ID})
 		}
 	}
+
 	return matches, nil
 }
 
@@ -126,13 +144,16 @@ func (p *Provider) Lookup(ctx context.Context, code game.Barcode, s schema.Setti
 // credits from the response header. It may count as one query on some plans.
 func (p *Provider) Test(ctx context.Context, s schema.Settings) (media.TestResult, error) {
 	q := url.Values{"token": {s[settingToken]}, "op": {"verify-checksum"}, "ean": {"5030934110075"}, "format": {"json"}}
+
 	body, remaining, err := p.call(ctx, q)
 	if err != nil {
 		return media.TestResult{}, err
 	}
+
 	var out []result
 	if json.Unmarshal(body, &out) == nil && len(out) > 0 && out[0].Error != "" {
 		return media.TestResult{}, fmt.Errorf("%s", out[0].Error)
 	}
+
 	return media.TestResult{RemainingQuota: remaining}, nil
 }

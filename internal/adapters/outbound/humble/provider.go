@@ -42,6 +42,7 @@ type Provider struct {
 	Log *slog.Logger
 }
 
+// NewProvider returns the Humble Bundle source with its production endpoints.
 func NewProvider(log *slog.Logger) *Provider {
 	return &Provider{BaseURL: defaultBaseURL, Client: &http.Client{Timeout: 60 * time.Second}, Pause: 500 * time.Millisecond, Log: log}
 }
@@ -52,6 +53,7 @@ func cleanCookie(v string) string {
 	v = strings.TrimSpace(v)
 	v = strings.TrimPrefix(v, "_simpleauth_sess=")
 	v = strings.TrimSuffix(v, ";")
+
 	return strings.Trim(strings.TrimSpace(v), `"`)
 }
 
@@ -62,9 +64,11 @@ func (p *Provider) Test(ctx context.Context, settings source.Settings) (sync.Tes
 	if err != nil {
 		return sync.TestResult{}, err
 	}
+
 	return sync.TestResult{Count: len(gamekeys), Unit: "orders"}, nil
 }
 
+// Descriptor implements sync.Provider.
 func (p *Provider) Descriptor() source.TypeDescriptor {
 	return source.TypeDescriptor{
 		Type:           Type,
@@ -81,12 +85,15 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 	}
 }
 
+// Fetch implements sync.Provider.
 func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.ImportedCopy, []string, error) {
 	orders, err := p.fetchOrders(ctx, cleanCookie(settings[settingSession]))
 	if err != nil {
 		return nil, nil, err
 	}
+
 	copies, warnings := MapOrders(orders, time.Now())
+
 	return copies, warnings, nil
 }
 
@@ -95,20 +102,25 @@ func (p *Provider) get(ctx context.Context, cookie, path string) ([]byte, error)
 	if err != nil {
 		return nil, err
 	}
+
 	req.Header.Set("Cookie", "_simpleauth_sess="+cookie)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128 Safari/537.36")
+
 	res, err := p.Client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer res.Body.Close()
+
 	if res.StatusCode == http.StatusUnauthorized || res.StatusCode == http.StatusForbidden || strings.Contains(res.Request.URL.Path, "login") {
 		return nil, ErrUnauthorized
 	}
+
 	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("humble bundle %s: HTTP %d", path, res.StatusCode)
 	}
+
 	return io.ReadAll(res.Body)
 }
 
@@ -117,20 +129,24 @@ func (p *Provider) listGamekeys(ctx context.Context, cookie string) ([]string, e
 	if cookie == "" {
 		return nil, ErrUnauthorized
 	}
+
 	body, err := p.get(ctx, cookie, "/api/v1/user/order")
 	if err != nil {
 		return nil, err
 	}
+
 	var list []struct {
 		Gamekey string `json:"gamekey"`
 	}
 	if err := json.Unmarshal(body, &list); err != nil {
 		return nil, ErrUnauthorized // an HTML login page instead of JSON
 	}
+
 	keys := make([]string, len(list))
 	for i, o := range list {
 		keys[i] = o.Gamekey
 	}
+
 	return keys, nil
 }
 
@@ -139,26 +155,33 @@ func (p *Provider) fetchOrders(ctx context.Context, cookie string) ([]json.RawMe
 	if err != nil {
 		return nil, err
 	}
+
 	p.logf("humble: downloading orders", "orders", len(list))
 
 	var orders []json.RawMessage
+
 	for i := 0; i < len(list); i += batchSize {
 		q := url.Values{"all_tpkds": {"true"}}
 		for _, k := range list[i:min(i+batchSize, len(list))] {
 			q.Add("gamekeys", k)
 		}
+
 		body, err := p.get(ctx, cookie, "/api/v1/orders?"+q.Encode())
 		if err != nil {
 			return nil, err
 		}
+
 		var byKey map[string]json.RawMessage
 		if err := json.Unmarshal(body, &byKey); err != nil {
 			return nil, fmt.Errorf("unexpected humble bundle response: %w", err)
 		}
+
 		for _, o := range byKey {
 			orders = append(orders, o)
 		}
+
 		p.logf("humble: progress", "downloaded", min(i+batchSize, len(list)), "total", len(list))
+
 		if i+batchSize < len(list) {
 			select {
 			case <-ctx.Done():
@@ -167,6 +190,7 @@ func (p *Provider) fetchOrders(ctx context.Context, cookie string) ([]json.RawMe
 			}
 		}
 	}
+
 	return orders, nil
 }
 

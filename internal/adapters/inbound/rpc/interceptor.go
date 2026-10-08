@@ -14,12 +14,14 @@ func loggingInterceptor(log *slog.Logger) connect.UnaryInterceptorFunc {
 		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 			start := time.Now()
 			res, err := next(ctx, req)
+
 			attrs := []any{"procedure", req.Spec().Procedure, "duration", time.Since(start).Round(time.Millisecond)}
 			if err != nil {
 				log.Warn("rpc failed", append(attrs, "code", connect.CodeOf(err).String(), "error", err)...)
 			} else {
 				log.Debug("rpc", attrs...)
 			}
+
 			return res, err
 		}
 	}

@@ -48,6 +48,7 @@ func NewHTTPHandler(h Handlers, opts Options) http.Handler {
 	if log == nil {
 		log = slog.New(slog.DiscardHandler)
 	}
+
 	ic := connect.WithInterceptors(loggingInterceptor(log))
 	mux := http.NewServeMux()
 	mux.Handle(gamevaultv1connect.NewGameServiceHandler(h.Games, ic))
@@ -62,6 +63,7 @@ func NewHTTPHandler(h Handlers, opts Options) http.Handler {
 	mux.Handle("GET /media/covers/{id}", coverHandler(h.Media))
 	mux.Handle("GET /media/proxy", imageProxyHandler(h.Media))
 	mux.Handle("GET /media/games/{id}/assets/{name}", gameAssetHandler(h.Media))
+
 	if opts.UIDir != "" {
 		mux.Handle("/", spa(opts.UIDir))
 	}
@@ -75,6 +77,7 @@ func NewHTTPHandler(h Handlers, opts Options) http.Handler {
 			ExposedHeaders: connectcors.ExposedHeaders(),
 		}).Handler(handler)
 	}
+
 	return handler
 }
 
@@ -83,18 +86,22 @@ func NewHTTPHandler(h Handlers, opts Options) http.Handler {
 // content-hashed, so they can be cached forever.
 func spa(dir string) http.Handler {
 	files := http.FileServer(http.Dir(dir))
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p := filepath.Join(dir, filepath.FromSlash(strings.TrimPrefix(r.URL.Path, "/")))
 		if info, err := os.Stat(p); err != nil || info.IsDir() {
 			w.Header().Set("Cache-Control", "no-cache")
 			http.ServeFile(w, r, filepath.Join(dir, "index.html"))
+
 			return
 		}
+
 		if strings.HasPrefix(r.URL.Path, "/assets/") {
 			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 		} else {
 			w.Header().Set("Cache-Control", "no-cache")
 		}
+
 		files.ServeHTTP(w, r)
 	})
 }

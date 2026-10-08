@@ -33,14 +33,17 @@ var _ media.MetadataProvider = (*Details)(nil)
 // NewDetails builds the metadata provider on top of the cover provider (shared platform cache).
 func NewDetails(p *Provider) *Details { return &Details{p: p, names: map[string]map[int64]string{}} }
 
+// Descriptor implements media.MetadataProvider.
 func (d *Details) Descriptor() provider.Descriptor {
 	desc := d.p.Descriptor()
+
 	return provider.Descriptor{
 		ID: DetailsID, Kind: provider.KindMetadata, Name: "TheGamesDB",
 		DescriptionKey: "providers.thegamesdbDetails.description", Fields: desc.Fields, SettingsGroup: string(ID),
 	}
 }
 
+// Applies implements media.MetadataProvider.
 func (d *Details) Applies(q media.CoverQuery) bool { return d.p.Applies(q) }
 
 // ImageHosts implements media.ImageHoster: screenshots and YouTube thumbnails go through the proxy.
@@ -51,15 +54,18 @@ func (d *Details) lookupNames(ctx context.Context, apiKey, kind string, ids []in
 	d.mu.Lock()
 	table, ok := d.names[kind]
 	d.mu.Unlock()
+
 	if !ok {
 		// data holds {"count": N, "<kind>": {"<id>": {"id": …, "name": …}}}: decode the map alone.
 		var out struct {
 			Data map[string]json.RawMessage `json:"data"`
 		}
+
 		path := "/v1/" + strings.ToUpper(kind[:1]) + kind[1:]
 		if err := d.p.get(ctx, path, url.Values{"apikey": {apiKey}}, &out); err != nil {
 			return nil
 		}
+
 		var items map[string]struct {
 			ID   int64  `json:"id"`
 			Name string `json:"name"`
@@ -67,37 +73,47 @@ func (d *Details) lookupNames(ctx context.Context, apiKey, kind string, ids []in
 		if err := json.Unmarshal(out.Data[kind], &items); err != nil {
 			return nil
 		}
+
 		table = map[int64]string{}
 		for _, item := range items {
 			table[item.ID] = item.Name
 		}
+
 		d.mu.Lock()
 		d.names[kind] = table
 		d.mu.Unlock()
 	}
+
 	var names []string
+
 	for _, id := range ids {
 		if n := table[id]; n != "" {
 			names = append(names, n)
 		}
 	}
+
 	return names
 }
 
+// Details implements media.MetadataProvider.
 func (d *Details) Details(ctx context.Context, q media.CoverQuery, _ string, s schema.Settings) (*media.GameDetails, error) {
 	key := s[settingAPIKey]
+
 	platforms := q.PhysicalPlatforms
 	if len(platforms) == 0 {
 		platforms = q.Platforms
 	}
+
 	params := url.Values{"apikey": {key}, "name": {q.Title}, "fields": {"overview,players,publishers,genres,rating,coop,youtube"}}
 	if ids := d.p.platformIDs(ctx, key, platforms); len(ids) > 0 {
 		parts := make([]string, len(ids))
 		for i, id := range ids {
 			parts[i] = strconv.FormatInt(id, 10)
 		}
+
 		params.Set("filter[platform]", strings.Join(parts, ","))
 	}
+
 	var out struct {
 		Data struct {
 			Games []tgdbGame `json:"games"`
@@ -106,10 +122,12 @@ func (d *Details) Details(ctx context.Context, q media.CoverQuery, _ string, s s
 	if err := d.p.get(ctx, "/v1.1/Games/ByGameName", params, &out); err != nil {
 		return nil, err
 	}
+
 	g, ok := pickGame(out.Data.Games, q.Title)
 	if !ok {
 		return nil, nil
 	}
+
 	det := &media.GameDetails{
 		Summary:     strings.TrimSpace(g.Overview),
 		ReleaseDate: g.ReleaseDate,
@@ -125,10 +143,13 @@ func (d *Details) Details(ctx context.Context, q media.CoverQuery, _ string, s s
 			det.Players += " · co-op"
 		}
 	}
+
 	if yt := youTubeID(g.YouTube); yt != "" {
 		det.Videos = []media.Video{{Title: g.Title, YouTubeID: yt, Thumbnail: "https://i.ytimg.com/vi/" + yt + "/hqdefault.jpg"}}
 	}
+
 	det.Screenshots = d.screenshots(ctx, key, g.ID)
+
 	return det, nil
 }
 
@@ -141,17 +162,21 @@ func (d *Details) screenshots(ctx context.Context, key string, gameID int64) []m
 			} `json:"images"`
 		} `json:"data"`
 	}
+
 	id := strconv.FormatInt(gameID, 10)
 	if err := d.p.get(ctx, "/v1/Games/Images", url.Values{"apikey": {key}, "games_id": {id}, "filter[type]": {"screenshot"}}, &out); err != nil {
 		return nil
 	}
+
 	var shots []media.Screenshot
 	for _, img := range out.Data.Images[id] {
 		if len(shots) == maxScreenshots {
 			break
 		}
+
 		shots = append(shots, media.Screenshot{ThumbURL: out.Data.BaseURL["medium"] + img.Filename, FullURL: out.Data.BaseURL["original"] + img.Filename})
 	}
+
 	return shots
 }
 
@@ -164,13 +189,16 @@ func youTubeID(v string) string {
 		if id := u.Query().Get("v"); id != "" {
 			return id
 		}
+
 		return strings.Trim(u.Path, "/")
 	}
+
 	for _, r := range v {
-		if !(r == '-' || r == '_' || r >= '0' && r <= '9' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z') {
+		if r != '-' && r != '_' && (r < '0' || r > '9') && (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') {
 			return ""
 		}
 	}
+
 	return v
 }
 
@@ -195,17 +223,21 @@ func (g tgdbGame) richness() int {
 	if g.Overview != "" {
 		n += 3
 	}
+
 	if g.YouTube != "" {
 		n += 2
 	}
+
 	for _, l := range [][]int64{g.Genres, g.Developers, g.Publishers} {
 		if len(l) > 0 {
 			n++
 		}
 	}
+
 	if cleanRating(g.Rating) != "" {
 		n++
 	}
+
 	return n
 }
 
@@ -222,10 +254,12 @@ func pickGame(games []tgdbGame, title string) (tgdbGame, bool) {
 				best, found = g, true
 			}
 		}
+
 		if found {
 			return best, true
 		}
 	}
+
 	return tgdbGame{}, false
 }
 
@@ -233,5 +267,6 @@ func cleanRating(r string) string {
 	if strings.EqualFold(strings.TrimSpace(r), "not rated") {
 		return ""
 	}
+
 	return strings.TrimSpace(r)
 }

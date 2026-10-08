@@ -31,10 +31,12 @@ var (
 	_ media.ImageHoster   = (*Covers)(nil)
 )
 
+// NewCovers returns the Epic cover provider with its production endpoints.
 func NewCovers() *Covers {
 	return &Covers{p: NewProvider()}
 }
 
+// Descriptor implements media.CoverProvider.
 func (c *Covers) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
 		ID: CoverProviderID, Kind: provider.KindCover, Name: "Epic Games Store",
@@ -47,19 +49,23 @@ func (c *Covers) ImageHosts() []string {
 	return []string{"cdn1.epicgames.com", "cdn2.epicgames.com", "cdn1.unrealengine.com", "cdn2.unrealengine.com"}
 }
 
-// Applies: only games with a copy imported from an Epic library.
+// Applies reports whether the game has a copy imported from an Epic library.
 func (c *Covers) Applies(q media.CoverQuery) bool { return len(q.ExternalIDsWithPrefix("epic:")) > 0 }
 
 // imageOrder ranks Epic's key image types: portrait box art first, landscape last.
 var imageOrder = []string{"DieselGameBoxTall", "OfferImageTall", "CodeRedemption_340x440", "DieselGameBox", "OfferImageWide", "Thumbnail"}
 
+// Covers implements media.CoverProvider.
 func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	ids := q.ExternalIDsWithPrefix("epic:")
+
 	token, err := c.appToken(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	v := url.Values{"id": ids, "country": {"US"}, "locale": {"en-US"}}
+
 	var items map[string]struct {
 		Title     string `json:"title"`
 		KeyImages []struct {
@@ -71,27 +77,34 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 		c.mu.Lock()
 		c.token = "" // maybe expired early: get a new one next time
 		c.mu.Unlock()
+
 		return nil, err
 	}
+
 	var out []media.CoverCandidate
+
 	for _, typ := range imageOrder {
 		for _, id := range ids {
 			it, ok := items[id]
 			if !ok {
 				continue
 			}
+
 			for _, img := range it.KeyImages {
 				if img.Type != typ || !strings.HasPrefix(img.URL, "https://") {
 					continue
 				}
+
 				label := "Epic: box art"
 				if !strings.Contains(typ, "Tall") && typ != "CodeRedemption_340x440" {
 					label = "Epic: wide image"
 				}
+
 				out = append(out, media.CoverCandidate{URL: img.URL, ThumbURL: img.URL, Label: label, Title: it.Title, Provider: CoverProviderID})
 			}
 		}
 	}
+
 	return out, nil
 }
 
@@ -99,13 +112,17 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 func (c *Covers) appToken(ctx context.Context) (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	if c.token != "" && time.Now().Add(time.Minute).Before(c.expires) {
 		return c.token, nil
 	}
+
 	tok, err := c.p.oauthRaw(ctx, url.Values{"grant_type": {"client_credentials"}, "token_type": {"eg1"}})
 	if err != nil {
 		return "", fmt.Errorf("epic catalog token: %w", err)
 	}
+
 	c.token, c.expires = tok.AccessToken, tok.ExpiresAt
+
 	return c.token, nil
 }

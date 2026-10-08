@@ -20,26 +20,33 @@ type Fetcher struct{ Client *http.Client }
 
 var _ media.ImageFetcher = (*Fetcher)(nil)
 
+// New returns a Fetcher with a 20-second client timeout.
 func New() *Fetcher { return &Fetcher{Client: &http.Client{Timeout: 20 * time.Second}} }
 
+// Fetch implements media.ImageFetcher.
 func (f *Fetcher) Fetch(ctx context.Context, url string) (media.Image, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return media.Image{}, err
 	}
+
 	req.Header.Set("User-Agent", "GameVault/1.0 (+self-hosted game inventory)")
+
 	res, err := f.Client.Do(req)
 	if err != nil {
 		return media.Image{}, err
 	}
 	defer res.Body.Close()
+
 	if res.StatusCode != http.StatusOK {
 		return media.Image{}, fmt.Errorf("HTTP %d", res.StatusCode)
 	}
+
 	data, err := io.ReadAll(io.LimitReader(res.Body, maxBytes+1))
 	if err != nil {
 		return media.Image{}, err
 	}
+
 	if len(data) > maxBytes {
 		return media.Image{}, fmt.Errorf("image larger than %d MB", maxBytes>>20)
 	}
@@ -48,5 +55,6 @@ func (f *Fetcher) Fetch(ctx context.Context, url string) (media.Image, error) {
 	if !strings.HasPrefix(ct, "image/") {
 		return media.Image{}, fmt.Errorf("not an image (%s)", ct)
 	}
+
 	return media.Image{Data: data, ContentType: ct}, nil
 }

@@ -13,8 +13,11 @@ import (
 // MapOrders converts raw Humble orders, as returned by /api/v1/orders, into imported key copies.
 // now is used for relative expiry dates.
 func MapOrders(orders []json.RawMessage, now time.Time) ([]game.ImportedCopy, []string) {
-	var copies []game.ImportedCopy
-	var warnings []string
+	var (
+		copies   []game.ImportedCopy
+		warnings []string
+	)
+
 	for _, raw := range orders {
 		var o struct {
 			Gamekey string `json:"gamekey"`
@@ -30,22 +33,28 @@ func MapOrders(orders []json.RawMessage, now time.Time) ([]game.ImportedCopy, []
 			warnings = append(warnings, "unreadable order: "+err.Error())
 			continue
 		}
+
 		acquired := parseDate(o.Created)
+
 		origin := "Humble Bundle"
 		if o.Product.HumanName != "" {
 			origin = "Humble Bundle – " + o.Product.HumanName
 		}
+
 		for _, t := range o.TpkdDict.AllTpks {
 			title := strings.TrimSpace(str(t, "human_name"))
 			if title == "" {
 				continue
 			}
+
 			gamekey := str(t, "gamekey")
 			if gamekey == "" {
 				gamekey = o.Gamekey
 			}
+
 			key := str(t, "redeemed_key_val")
 			status := game.StatusUnrevealed
+
 			switch {
 			case boolean(t, "is_expired"):
 				status = game.StatusExpired
@@ -54,6 +63,7 @@ func MapOrders(orders []json.RawMessage, now time.Time) ([]game.ImportedCopy, []
 			case key != "":
 				status = game.StatusRevealed
 			}
+
 			copies = append(copies, game.ImportedCopy{
 				ExternalID: fmt.Sprintf("humble:%s:%v", gamekey, t["keyindex"]),
 				Title:      title,
@@ -70,6 +80,7 @@ func MapOrders(orders []json.RawMessage, now time.Time) ([]game.ImportedCopy, []
 			})
 		}
 	}
+
 	return copies, warnings
 }
 
@@ -95,6 +106,7 @@ func platformFor(keyType, human string) string {
 	case human != "":
 		return human
 	}
+
 	return keyType
 }
 
@@ -111,9 +123,11 @@ func deadline(t map[string]any, now time.Time) game.Date {
 			return d
 		}
 	}
+
 	if v, ok := t["num_days_until_expired"].(float64); ok && v >= 0 {
 		return game.DateOf(now.AddDate(0, 0, int(v)))
 	}
+
 	html := str(t, "custom_instructions_html")
 	for _, re := range deadlinePatterns {
 		if m := re.FindStringSubmatch(html); m != nil {
@@ -122,6 +136,7 @@ func deadline(t map[string]any, now time.Time) game.Date {
 			}
 		}
 	}
+
 	return ""
 }
 
@@ -144,6 +159,7 @@ func parseDate(v any) game.Date {
 			}
 		}
 	}
+
 	return ""
 }
 
@@ -163,8 +179,11 @@ func num(m map[string]any, k string) float64 {
 		return v
 	case string:
 		var f float64
-		fmt.Sscan(v, &f)
+
+		_, _ = fmt.Sscan(v, &f) // anything that is not a number counts as zero
+
 		return f
 	}
+
 	return 0
 }

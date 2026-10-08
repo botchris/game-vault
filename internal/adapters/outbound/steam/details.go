@@ -23,7 +23,7 @@ const DetailsProviderID provider.ID = "steam-details"
 var steamLanguages = map[string]string{"en": "english", "es": "spanish", "fr": "french", "de": "german", "it": "italian", "pt": "portuguese"}
 
 // Details implements media.MetadataProvider with the public store API (no key needed), which
-// returns localised descriptions, genres, companies, trailers and screenshots.
+// returns localized descriptions, genres, companies, trailers and screenshots.
 type Details struct{ store *Store }
 
 var _ media.MetadataProvider = (*Details)(nil)
@@ -31,6 +31,7 @@ var _ media.MetadataProvider = (*Details)(nil)
 // NewDetails builds the metadata provider on top of the store client.
 func NewDetails(s *Store) *Details { return &Details{store: s} }
 
+// Descriptor implements media.MetadataProvider.
 func (d *Details) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
 		ID: DetailsProviderID, Kind: provider.KindMetadata, Name: "Steam",
@@ -38,6 +39,7 @@ func (d *Details) Descriptor() provider.Descriptor {
 	}
 }
 
+// Applies implements media.MetadataProvider.
 func (d *Details) Applies(q media.CoverQuery) bool { return q.SteamAppID != 0 }
 
 type appDetails struct {
@@ -79,36 +81,46 @@ type appDetails struct {
 
 const maxVideos, maxScreenshots = 4, 12
 
+// Details implements media.MetadataProvider.
 func (d *Details) Details(ctx context.Context, q media.CoverQuery, language string, _ schema.Settings) (*media.GameDetails, error) {
 	lang := steamLanguages[language]
 	if lang == "" {
 		lang = "english"
 	}
+
 	params := url.Values{"appids": {strconv.FormatInt(q.SteamAppID, 10)}, "l": {lang}}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, d.store.StoreURL+"/api/appdetails?"+params.Encode(), nil)
 	if err != nil {
 		return nil, err
 	}
+
 	res, err := d.store.Client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer res.Body.Close()
+
 	if res.StatusCode == http.StatusTooManyRequests {
 		return nil, fmt.Errorf("steam store: too many requests, try again in a few minutes")
 	}
+
 	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("steam store: HTTP %d", res.StatusCode)
 	}
+
 	var out map[string]appDetails
 	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
 		return nil, err
 	}
+
 	app, ok := out[strconv.FormatInt(q.SteamAppID, 10)]
 	if !ok || !app.Success {
 		return nil, nil // removed from the store or region-locked
 	}
+
 	a := app.Data
+
 	det := &media.GameDetails{
 		Summary:       HTMLToText(a.AboutTheGame),
 		Developers:    a.Developers,
@@ -122,9 +134,11 @@ func (d *Details) Details(ctx context.Context, q media.CoverQuery, language stri
 	if det.Summary == "" {
 		det.Summary = HTMLToText(a.ShortDescription)
 	}
+
 	for _, g := range a.Genres {
 		det.Genres = append(det.Genres, g.Description)
 	}
+
 	for _, board := range []string{"pegi", "esrb", "usk"} {
 		var r struct {
 			Rating string `json:"rating"`
@@ -142,9 +156,11 @@ func (d *Details) Details(ctx context.Context, q media.CoverQuery, language stri
 			}
 		}
 	}
+
 	for _, s := range a.Screenshots[:min(len(a.Screenshots), maxScreenshots)] {
 		det.Screenshots = append(det.Screenshots, media.Screenshot{ThumbURL: s.Thumb, FullURL: s.Full})
 	}
+
 	return det, nil
 }
 
@@ -163,11 +179,14 @@ func HTMLToText(s string) string {
 	s = reListItem.ReplaceAllString(s, "\n• ")
 	s = reTags.ReplaceAllString(s, "")
 	s = html.UnescapeString(s)
+
 	lines := strings.Split(s, "\n")
 	for i, l := range lines {
 		lines[i] = strings.TrimSpace(reSpaces.ReplaceAllString(l, " "))
 	}
+
 	s = strings.Join(lines, "\n")
 	s = reBlank.ReplaceAllString(s, "\n\n")
+
 	return strings.TrimSpace(s)
 }

@@ -16,6 +16,7 @@ const SecretPlaceholder = "********"
 // FieldKind tells clients how to render and protect a setting.
 type FieldKind string
 
+// Values of FieldKind.
 const (
 	FieldText   FieldKind = "text"
 	FieldSecret FieldKind = "secret"
@@ -49,6 +50,7 @@ func (fs Fields) Validate(s Settings, owner string) error {
 			return &ValidationError{fmt.Sprintf("setting %q is required for %s", f.Key, owner)}
 		}
 	}
+
 	return nil
 }
 
@@ -56,59 +58,72 @@ func (fs Fields) Validate(s Settings, owner string) error {
 // back as SecretPlaceholder keep their stored value and state fields always keep it.
 func (fs Fields) Merge(stored, incoming Settings) Settings {
 	out := Settings{}
+
 	for _, f := range fs {
 		if f.Kind == FieldState {
 			if v := stored[f.Key]; v != "" {
 				out[f.Key] = v
 			}
+
 			continue
 		}
+
 		v := strings.TrimSpace(incoming[f.Key])
 		if f.Kind == FieldSecret && v == SecretPlaceholder {
 			v = stored[f.Key]
 		}
+
 		if v != "" {
 			out[f.Key] = v
 		}
 	}
+
 	return out
 }
 
 // Masked returns the settings with secrets replaced by SecretPlaceholder, safe to show to clients.
 func (fs Fields) Masked(s Settings) Settings {
 	out := Settings{}
+
 	for _, f := range fs {
 		if f.Kind == FieldState {
 			continue
 		}
+
 		if v, ok := s[f.Key]; ok {
 			if f.Kind == FieldSecret {
 				v = SecretPlaceholder
 			}
+
 			out[f.Key] = v
 		}
 	}
+
 	return out
 }
 
 // Public returns the fields clients may see and edit (state fields excluded).
 func (fs Fields) Public() Fields {
 	var out Fields
+
 	for _, f := range fs {
 		if f.Kind != FieldState {
 			out = append(out, f)
 		}
 	}
+
 	return out
 }
 
 // State returns the values of the state fields in s.
 func (fs Fields) State(s Settings) Settings {
 	out := Settings{}
+
 	for _, f := range fs {
 		if f.Kind == FieldState && s[f.Key] != "" {
 			out[f.Key] = s[f.Key]
 		}
 	}
+
 	return out
 }

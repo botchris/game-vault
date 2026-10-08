@@ -11,7 +11,7 @@ type ImportedCopy struct {
 	Details    CopyDetails
 }
 
-// ConsolidationResult summarises what a consolidation changed.
+// ConsolidationResult summarizes what a consolidation changed.
 type ConsolidationResult struct {
 	Changed         []*Game // games to persist (new or modified)
 	CopiesAdded     int
@@ -48,6 +48,7 @@ func NewConsolidator(games []*Game) *Consolidator {
 	for _, g := range games {
 		c.index(g)
 	}
+
 	return c
 }
 
@@ -57,11 +58,13 @@ func (c *Consolidator) index(g *Game) {
 			c.byExternalID[cp.ExternalID] = g
 		}
 	}
+
 	if g.steamAppID != 0 {
 		if _, ok := c.bySteamID[g.steamAppID]; !ok {
 			c.bySteamID[g.steamAppID] = g
 		}
 	}
+
 	if k := g.MatchKey(); k != "" {
 		if _, ok := c.byMatchKey[k]; !ok {
 			c.byMatchKey[k] = g
@@ -79,11 +82,13 @@ func (c *Consolidator) markChanged(g *Game) {
 // Apply consolidates the imported copies on behalf of sourceID (empty for one-off imports).
 func (c *Consolidator) Apply(sourceID string, imported []ImportedCopy, now time.Time) ConsolidationResult {
 	var r ConsolidationResult
+
 	for _, in := range imported {
 		if in.ExternalID == "" || in.Title == "" {
 			r.Warnings = append(r.Warnings, "skipped a copy without title or external id: "+in.Title)
 			continue
 		}
+
 		details, err := in.Details.normalize()
 		if err != nil {
 			r.Warnings = append(r.Warnings, in.Title+": "+err.Error())
@@ -93,23 +98,28 @@ func (c *Consolidator) Apply(sourceID string, imported []ImportedCopy, now time.
 		if g, ok := c.byExternalID[in.ExternalID]; ok {
 			i := g.indexOfExternal(in.ExternalID)
 			cp := &g.copies[i]
+
 			changed := cp.applyImport(details)
 			if sourceID != "" && cp.SourceID != sourceID {
 				cp.SourceID = sourceID // adopt copies created by a CSV import or an older source
 				changed = true
 			}
+
 			if g.steamAppID == 0 && in.SteamAppID != 0 {
 				g.steamAppID = in.SteamAppID
 				c.bySteamID[in.SteamAppID] = g
 				changed = true
 			}
+
 			if changed {
 				cp.UpdatedAt, g.updatedAt = now, now
 				c.markChanged(g)
+
 				r.CopiesUpdated++
 			} else {
 				r.CopiesUnchanged++
 			}
+
 			continue
 		}
 
@@ -120,21 +130,27 @@ func (c *Consolidator) Apply(sourceID string, imported []ImportedCopy, now time.
 				r.Warnings = append(r.Warnings, err.Error())
 				continue
 			}
+
 			ng.steamAppID = in.SteamAppID
 			g = ng
 			r.GamesCreated++
 		} else if g.steamAppID == 0 && in.SteamAppID != 0 {
 			g.steamAppID = in.SteamAppID
 		}
+
 		if _, err := g.addCopy(details, sourceID, in.ExternalID, now); err != nil {
 			r.Warnings = append(r.Warnings, in.Title+": "+err.Error())
 			continue
 		}
+
 		c.index(g)
 		c.markChanged(g)
+
 		r.CopiesAdded++
 	}
+
 	r.Changed = c.order
+
 	return r
 }
 
@@ -144,9 +160,11 @@ func (c *Consolidator) findGame(in ImportedCopy) *Game {
 			return g
 		}
 	}
+
 	if g, ok := c.byMatchKey[MatchKey(in.Title)]; ok {
 		return g
 	}
+
 	return nil
 }
 
@@ -156,5 +174,6 @@ func (g *Game) indexOfExternal(ext string) int {
 			return i
 		}
 	}
+
 	return -1
 }

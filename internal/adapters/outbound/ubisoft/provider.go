@@ -108,6 +108,7 @@ func parseLoginData(raw string) loginData {
 		d.RememberMeTicket = t
 		return d
 	}
+
 	for _, m := range reField.FindAllStringSubmatch(raw, -1) {
 		switch m[1] {
 		case "rememberMeTicket":
@@ -118,6 +119,7 @@ func parseLoginData(raw string) loginData {
 			d.SessionID = m[2]
 		}
 	}
+
 	return d
 }
 
@@ -152,10 +154,12 @@ type cached struct {
 // sessionTTL is how long an open session is reused (Ubisoft's last a few hours).
 const sessionTTL = time.Hour
 
+// NewProvider returns the Ubisoft Connect source with its production endpoints.
 func NewProvider() *Provider {
 	return &Provider{APIURL: defaultAPIURL, Client: &http.Client{Timeout: 30 * time.Second}, Now: time.Now}
 }
 
+// Descriptor implements sync.Provider.
 func (p *Provider) Descriptor() source.TypeDescriptor {
 	return source.TypeDescriptor{
 		Type:           Type,
@@ -187,10 +191,12 @@ func (p *Provider) session(ctx context.Context, settings source.Settings, fresh 
 	c, open := p.sessions[key]
 	st := p.rotated[key]
 	p.mu.Unlock()
+
 	var saved state
 	if json.Unmarshal([]byte(settings[settingSession]), &saved) != nil || saved.From != key {
 		saved = state{}
 	}
+
 	if st.RememberMeTicket == "" {
 		st = saved
 	}
@@ -200,51 +206,70 @@ func (p *Provider) session(ctx context.Context, settings source.Settings, fresh 
 		raw, _ := json.Marshal(st)
 		settings[settingSession] = string(raw)
 	}
+
 	if !fresh && open && p.Now().Before(c.expires) {
 		return c.s, nil
 	}
+
 	if !fresh && st.RememberMeTicket == "" && d.Ticket != "" && d.SessionID != "" {
 		return session{d.Ticket, d.SessionID, webAppID}, nil // checked by the first query
 	}
+
 	if st.RememberMeTicket != "" {
 		d.RememberMeTicket = st.RememberMeTicket
 	}
+
 	if d.RememberMeTicket == "" {
 		return session{}, ErrNoLoginData
 	}
+
 	order := appIDs
 	if st.AppID != "" {
 		order = append([]string{st.AppID}, appIDs...)
 	}
+
 	err := ErrSignedOut
+
 	for _, app := range order {
-		var sess session
-		var rm string
+		var (
+			sess session
+			rm   string
+		)
+
 		sess, rm, err = p.renew(ctx, d.RememberMeTicket, app)
 		if errors.Is(err, ErrSignedOut) {
 			continue // a ticket may only be renewable by the app that issued it
 		}
+
 		if err != nil {
 			return session{}, err
 		}
+
 		if rm == "" {
 			rm = d.RememberMeTicket
 		}
+
 		next := state{From: key, RememberMeTicket: rm, AppID: app}
+
 		p.mu.Lock()
 		if p.rotated == nil {
 			p.rotated = map[string]state{}
 		}
+
 		if p.sessions == nil {
 			p.sessions = map[string]cached{}
 		}
+
 		p.rotated[key] = next
 		p.sessions[key] = cached{s: sess, expires: p.Now().Add(sessionTTL)}
 		p.mu.Unlock()
+
 		raw, _ := json.Marshal(next)
 		settings[settingSession] = string(raw)
+
 		return sess, nil
 	}
+
 	return session{}, err
 }
 
@@ -254,20 +279,25 @@ func (p *Provider) renew(ctx context.Context, rememberMe, app string) (session, 
 	if err != nil {
 		return session{}, "", err
 	}
+
 	req.Header.Set("Authorization", "rm_v1 t="+rememberMe)
 	p.headers(req, app)
+
 	res, err := p.Client.Do(req)
 	if err != nil {
 		return session{}, "", err
 	}
 	defer res.Body.Close()
+
 	body, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
 	if res.StatusCode == http.StatusUnauthorized || res.StatusCode == http.StatusForbidden {
 		return session{}, "", ErrSignedOut
 	}
+
 	if res.StatusCode != http.StatusOK {
 		return session{}, "", fmt.Errorf("ubisoft sign-in: HTTP %d", res.StatusCode)
 	}
+
 	var s struct {
 		Ticket           string `json:"ticket"`
 		SessionID        string `json:"sessionId"`
@@ -276,6 +306,7 @@ func (p *Provider) renew(ctx context.Context, rememberMe, app string) (session, 
 	if err := json.Unmarshal(body, &s); err != nil || s.Ticket == "" || s.SessionID == "" {
 		return session{}, "", errors.New("ubisoft sign-in: unexpected answer")
 	}
+
 	return session{s.Ticket, s.SessionID, app}, s.RememberMeTicket, nil
 }
 
@@ -303,19 +334,24 @@ type node struct {
 func (p *Provider) query(ctx context.Context, s session, q string, offset int) ([]node, int, error) {
 	body, _ := json.Marshal(map[string]any{"operationName": "OwnedGames", "query": q,
 		"variables": map[string]any{"limit": pageSize, "offset": offset}})
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.APIURL+"/v1/profiles/me/uplay/graphql", bytes.NewReader(body))
 	if err != nil {
 		return nil, 0, err
 	}
+
 	req.Header.Set("Authorization", "Ubi_v1 t="+s.ticket)
 	req.Header.Set("Ubi-SessionId", s.sessionID)
 	p.headers(req, s.appID)
+
 	res, err := p.Client.Do(req)
 	if err != nil {
 		return nil, 0, err
 	}
 	defer res.Body.Close()
+
 	raw, _ := io.ReadAll(io.LimitReader(res.Body, 16<<20))
+
 	var out struct {
 		Data struct {
 			Viewer struct {
@@ -335,14 +371,18 @@ func (p *Provider) query(ctx context.Context, s session, q string, offset int) (
 	if err := json.Unmarshal(raw, &out); err != nil {
 		return nil, 0, fmt.Errorf("ubisoft library: HTTP %d, unexpected answer", res.StatusCode)
 	}
+
 	if len(out.Errors) > 0 {
 		e := out.Errors[0]
 		if e.Extensions.Code == "INVALID_TICKET" || e.Extensions.Code == "UNAUTHENTICATED" {
 			return nil, 0, ErrSignedOut
 		}
+
 		return nil, 0, fmt.Errorf("ubisoft library: %s", e.Message)
 	}
+
 	g := out.Data.Viewer.Games
+
 	return g.Nodes, g.TotalCount, nil
 }
 
@@ -354,11 +394,13 @@ func (p *Provider) all(ctx context.Context, s session, q string) ([]node, error)
 		if err != nil {
 			return nil, err
 		}
+
 		nodes = append(nodes, batch...)
 		if len(batch) < pageSize || len(nodes) >= total {
 			break
 		}
 	}
+
 	return nodes, nil
 }
 
@@ -368,17 +410,21 @@ func (p *Provider) owned(ctx context.Context, settings source.Settings) ([]node,
 		if err != nil {
 			return nil, err
 		}
+
 		nodes, err := p.all(ctx, s, ownedGamesQuery)
 		if err != nil && !errors.Is(err, ErrSignedOut) {
 			nodes, err = p.all(ctx, s, minimalQuery)
 		}
+
 		return nodes, err
 	}
+
 	nodes, err := read(false)
 	if errors.Is(err, ErrSignedOut) {
 		// The reused or pasted session expired: open a new one with the remember-me ticket.
 		nodes, err = read(true)
 	}
+
 	return nodes, err
 }
 
@@ -398,11 +444,13 @@ func onPC(n node) bool {
 	if len(groups) == 0 {
 		return true
 	}
+
 	for _, g := range groups {
 		if strings.EqualFold(g.Type, "PC") || strings.Contains(strings.ToUpper(g.Name), "PC") {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -410,16 +458,21 @@ func onPC(n node) bool {
 // left out (they are not in the Ubisoft Connect library).
 func mapNodes(nodes []node) []game.ImportedCopy {
 	seen := map[string]bool{}
+
 	var out []game.ImportedCopy
+
 	for _, n := range nodes {
 		title := strings.TrimSpace(n.Name)
+
 		id := n.SpaceID
 		if id == "" {
 			id = n.ID
 		}
+
 		if title == "" || id == "" || seen[id] || !onPC(n) {
 			continue
 		}
+
 		seen[id] = true
 		out = append(out, game.ImportedCopy{
 			ExternalID: "ubisoft:" + id,
@@ -427,7 +480,9 @@ func mapNodes(nodes []node) []game.ImportedCopy {
 			Details:    game.CopyDetails{Kind: game.KindLibrary, Platform: Platform, Status: game.StatusOwned, Origin: "Ubisoft Connect"},
 		})
 	}
+
 	sort.Slice(out, func(i, j int) bool { return out[i].Title < out[j].Title })
+
 	return out
 }
 
@@ -437,15 +492,19 @@ func (p *Provider) Test(ctx context.Context, settings source.Settings) (sync.Tes
 	return sync.TestResult{Count: len(copies), Unit: "copies"}, err
 }
 
+// Fetch implements sync.Provider.
 func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.ImportedCopy, []string, error) {
 	nodes, err := p.owned(ctx, settings)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	copies := mapNodes(nodes)
+
 	var warnings []string
 	if len(copies) == 0 {
 		warnings = append(warnings, "Ubisoft returned no PC games for this account")
 	}
+
 	return copies, warnings, nil
 }

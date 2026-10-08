@@ -45,6 +45,7 @@ func env(key, def string) string {
 	if v, ok := os.LookupEnv(key); ok {
 		return v
 	}
+
 	return def
 }
 
@@ -52,13 +53,19 @@ func env(key, def string) string {
 // GAMEVAULT_* environment variable; flags win.
 func Load(args []string) (Config, error) {
 	fs := flag.NewFlagSet("gamevault", flag.ContinueOnError)
-	var c Config
-	var cors string
+
+	var (
+		c    Config
+		cors string
+	)
+
 	keep, _ := strconv.Atoi(env("GAMEVAULT_BACKUP_KEEP", "14"))
+
 	interval, err := time.ParseDuration(env("GAMEVAULT_BACKUP_INTERVAL", "24h"))
 	if err != nil {
 		return c, err
 	}
+
 	fs.StringVar(&c.Addr, "addr", env("GAMEVAULT_ADDR", "127.0.0.1:8080"), "listen address (env GAMEVAULT_ADDR)")
 	fs.StringVar(&c.ConfigDir, "config-dir", env("GAMEVAULT_CONFIG_DIR", "config"), "data directory: database and backups (env GAMEVAULT_CONFIG_DIR)")
 	fs.StringVar(&c.UIDir, "ui-dir", env("GAMEVAULT_UI_DIR", "web/dist"), "built web UI to serve; empty to disable (env GAMEVAULT_UI_DIR)")
@@ -66,19 +73,24 @@ func Load(args []string) (Config, error) {
 	fs.DurationVar(&c.BackupInterval, "backup-interval", interval, "automatic backup interval, 0 to disable (env GAMEVAULT_BACKUP_INTERVAL)")
 	fs.IntVar(&c.BackupKeep, "backup-keep", keep, "number of backups to keep (env GAMEVAULT_BACKUP_KEEP)")
 	fs.BoolVar(&c.ResetAuth, "reset-auth", false, "on start, stop requiring sign-in from trusted networks (forgotten password)")
+
 	if err := fs.Parse(args); err != nil {
 		return c, err
 	}
+
 	for o := range strings.SplitSeq(cors, ",") {
 		if o = strings.TrimSpace(o); o != "" {
 			c.CORSOrigins = append(c.CORSOrigins, o)
 		}
 	}
+
 	if c.UIDir != "" {
 		if info, err := os.Stat(c.UIDir); err != nil || !info.IsDir() {
 			c.UIDir = "" // UI not built: run the API only
 		}
 	}
+
 	c.ConfigDir, err = filepath.Abs(c.ConfigDir)
+
 	return c, err
 }

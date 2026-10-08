@@ -54,10 +54,12 @@ type Provider struct {
 	Timeout    time.Duration
 }
 
+// NewProvider returns the Battle.net source with its production endpoints.
 func NewProvider() *Provider {
 	return &Provider{AccountURL: defaultAccountURL, Timeout: 30 * time.Second}
 }
 
+// Descriptor implements sync.Provider.
 func (p *Provider) Descriptor() source.TypeDescriptor {
 	return source.TypeDescriptor{
 		Type:           Type,
@@ -78,22 +80,27 @@ func (p *Provider) getJSON(ctx context.Context, settings source.Settings, path s
 	if len(c) == 0 {
 		return ErrNoCookies
 	}
+
 	sess, err := browsersession.New(p.AccountURL, "battle.net", c, p.Timeout)
 	if err != nil {
 		return err
 	}
+
 	err = p.api(ctx, sess.Client, path, out)
 	if errors.Is(err, ErrSignedOut) {
 		if err := p.renew(ctx, sess.Client); err != nil {
 			return err
 		}
+
 		err = p.api(ctx, sess.Client, path, out)
 	}
+
 	if err != nil {
 		return err
 	}
 	// Keep every cookie the site renewed (a refreshed session, the renewal's new session…).
 	settings[settingSession] = browsersession.Remember(settings[settingCookies], settings[settingSession], sess.Renewed())
+
 	return nil
 }
 
@@ -111,13 +118,16 @@ func (p *Provider) api(ctx context.Context, client *http.Client, path string, ou
 	if err != nil {
 		return err
 	}
+
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", userAgent)
+
 	res, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer res.Body.Close()
+
 	body, _ := io.ReadAll(io.LimitReader(res.Body, 8<<20))
 	switch {
 	case res.StatusCode == http.StatusUnauthorized || res.StatusCode == http.StatusForbidden || strings.Contains(res.Request.URL.Path, "login"):
@@ -125,9 +135,11 @@ func (p *Provider) api(ctx context.Context, client *http.Client, path string, ou
 	case res.StatusCode != http.StatusOK:
 		return fmt.Errorf("battle.net %s: HTTP %d", path, res.StatusCode)
 	}
+
 	if err := json.Unmarshal(body, out); err != nil {
 		return ErrSignedOut // an HTML page instead of JSON: not signed in
 	}
+
 	return nil
 }
 
@@ -137,17 +149,23 @@ func (p *Provider) renew(ctx context.Context, client *http.Client) error {
 	if err != nil {
 		return err
 	}
+
 	req.Header.Set("User-Agent", userAgent)
+
 	res, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer res.Body.Close()
-	io.Copy(io.Discard, io.LimitReader(res.Body, 1<<20))
+
+	// Only the status and the final URL matter; draining the body lets the connection be reused.
+	_, _ = io.Copy(io.Discard, io.LimitReader(res.Body, 1<<20))
+
 	if res.StatusCode >= 400 || strings.Contains(res.Request.URL.Path, "login") {
 		// Where the sign-in round trip ended (no query string: it may carry tokens).
 		return fmt.Errorf("%w (session renewal ended at %s%s, HTTP %d)", ErrSignedOut, res.Request.URL.Host, res.Request.URL.Path, res.StatusCode)
 	}
+
 	return nil
 }
 
@@ -167,10 +185,12 @@ func collectTitles(v any, out map[string]title) {
 			if id == "" || id == "<nil>" {
 				id = game.MatchKey(name)
 			}
+
 			if _, seen := out[id]; !seen {
 				out[id] = title{ID: id, Name: strings.TrimSpace(name)}
 			}
 		}
+
 		for _, child := range x {
 			collectTitles(child, out)
 		}
@@ -187,24 +207,29 @@ func firstOf(m map[string]any, keys ...string) any {
 			if f, ok := v.(float64); ok {
 				return int64(f)
 			}
+
 			return v
 		}
 	}
+
 	return nil
 }
 
 func (p *Provider) titles(ctx context.Context, settings source.Settings) (map[string]title, error) {
 	found := map[string]title{}
+
 	var games any
 	if err := p.getJSON(ctx, settings, "/api/games-and-subs", &games); err != nil {
 		return nil, err
 	}
+
 	collectTitles(games, found)
 	// Older games (Diablo II, Warcraft III…) are listed apart; their absence is not an error.
 	var classic any
 	if err := p.getJSON(ctx, settings, "/api/classic-games", &classic); err == nil {
 		collectTitles(classic, found)
 	}
+
 	return found, nil
 }
 
@@ -214,14 +239,17 @@ func (p *Provider) Test(ctx context.Context, settings source.Settings) (sync.Tes
 	if err != nil {
 		return sync.TestResult{}, err
 	}
+
 	return sync.TestResult{Count: len(found), Unit: "copies"}, nil
 }
 
+// Fetch implements sync.Provider.
 func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.ImportedCopy, []string, error) {
 	found, err := p.titles(ctx, settings)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	var warnings []string
 	if len(found) == 0 {
 		warnings = append(warnings, "battle.net returned no games for this account")
@@ -233,6 +261,7 @@ func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.
 			byName[game.MatchKey(t.Name)] = t
 		}
 	}
+
 	out := make([]game.ImportedCopy, 0, len(byName))
 	for _, t := range byName {
 		out = append(out, game.ImportedCopy{
@@ -241,6 +270,8 @@ func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.
 			Details:    game.CopyDetails{Kind: game.KindLibrary, Platform: Platform, Status: game.StatusOwned, Origin: "Battle.net"},
 		})
 	}
+
 	sort.Slice(out, func(i, j int) bool { return out[i].Title < out[j].Title })
+
 	return out, warnings, nil
 }

@@ -24,13 +24,19 @@ func NewID() ID { return ID(uuid.Must(uuid.NewV7()).String()) }
 // Type identifies the provider behind a source, e.g. "humble" or "steam".
 type Type string
 
-// Settings, fields and secret masking are shared with other integrations.
+// The settings types are shared with other integrations, so they live in schema.
 type (
-	Settings  = schema.Settings
-	Field     = schema.Field
+	// Settings is a source's configuration (see schema.Settings).
+	Settings = schema.Settings
+
+	// Field describes one setting a source asks for (see schema.Field).
+	Field = schema.Field
+
+	// FieldKind is how a field is entered and stored (see schema.FieldKind).
 	FieldKind = schema.FieldKind
 )
 
+// Secret masking and field kinds are shared with other integrations, so they live in schema.
 const (
 	SecretPlaceholder = schema.SecretPlaceholder
 	FieldText         = schema.FieldText
@@ -38,6 +44,7 @@ const (
 	FieldState        = schema.FieldState
 )
 
+// Errors returned by source lookups and creation. Callers match them with errors.Is.
 var (
 	ErrNotFound    = errors.New("source not found")
 	ErrUnknownType = errors.New("unknown source type")
@@ -113,19 +120,23 @@ func (c Config) validate(d TypeDescriptor) (Config, error) {
 	if c.Name == "" {
 		c.Name = d.Name
 	}
+
 	if c.SyncInterval < 0 {
 		return c, invalid("sync interval cannot be negative")
 	}
+
 	return c, d.Validate(c.Settings)
 }
 
 // New creates a source of the given type.
 func New(d TypeDescriptor, cfg Config, now time.Time) (*Source, error) {
 	cfg.Settings = d.MergeSettings(nil, cfg.Settings)
+
 	cfg, err := cfg.validate(d)
 	if err != nil {
 		return nil, err
 	}
+
 	return &Source{
 		id: NewID(), typ: d.Type, name: cfg.Name, enabled: cfg.Enabled, syncInterval: cfg.SyncInterval,
 		settings: cfg.Settings, createdAt: now, updatedAt: now,
@@ -139,18 +150,32 @@ func Rehydrate(id ID, typ Type, name string, enabled bool, interval time.Duratio
 		lastSync: lastSync, createdAt: createdAt, updatedAt: updatedAt}
 }
 
-func (s *Source) ID() ID                      { return s.id }
-func (s *Source) Type() Type                  { return s.typ }
-func (s *Source) Name() string                { return s.name }
-func (s *Source) Enabled() bool               { return s.enabled }
+// ID returns the source's identifier.
+func (s *Source) ID() ID { return s.id }
+
+// Type returns the provider behind the source, e.g. "steam".
+func (s *Source) Type() Type { return s.typ }
+
+// Name returns the name the user gave the source.
+func (s *Source) Name() string { return s.name }
+
+// Enabled reports whether the source takes part in scans.
+func (s *Source) Enabled() bool { return s.enabled }
+
+// SyncInterval returns how often the source is scanned automatically; zero means never.
 func (s *Source) SyncInterval() time.Duration { return s.syncInterval }
-func (s *Source) CreatedAt() time.Time        { return s.createdAt }
-func (s *Source) UpdatedAt() time.Time        { return s.updatedAt }
+
+// CreatedAt returns when the source was added.
+func (s *Source) CreatedAt() time.Time { return s.createdAt }
+
+// UpdatedAt returns when the source's configuration was last changed.
+func (s *Source) UpdatedAt() time.Time { return s.updatedAt }
 
 // Settings returns a copy of the raw settings (secrets included).
 func (s *Source) Settings() Settings {
 	out := make(Settings, len(s.settings))
 	maps.Copy(out, s.settings)
+
 	return out
 }
 
@@ -160,12 +185,15 @@ func (s *Source) LastSync() *SyncReport { return s.lastSync }
 // Reconfigure updates the source. Secrets sent as SecretPlaceholder are kept.
 func (s *Source) Reconfigure(d TypeDescriptor, cfg Config, now time.Time) error {
 	cfg.Settings = d.MergeSettings(s.settings, cfg.Settings)
+
 	cfg, err := cfg.validate(d)
 	if err != nil {
 		return err
 	}
+
 	s.name, s.enabled, s.syncInterval, s.settings = cfg.Name, cfg.Enabled, cfg.SyncInterval, cfg.Settings
 	s.updatedAt = now
+
 	return nil
 }
 
@@ -176,14 +204,18 @@ func (s *Source) UpdateState(d TypeDescriptor, settings Settings, now time.Time)
 	if maps.Equal(next, prev) {
 		return false
 	}
+
 	merged := Settings{}
+
 	for k, v := range s.settings {
 		if _, isState := prev[k]; !isState {
 			merged[k] = v
 		}
 	}
+
 	maps.Copy(merged, next)
 	s.settings, s.updatedAt = merged, now
+
 	return true
 }
 
@@ -191,11 +223,13 @@ func (s *Source) UpdateState(d TypeDescriptor, settings Settings, now time.Time)
 // one-time code exchanged for a session). Validation already happened in New or Reconfigure.
 func (s *Source) ReplaceSettings(d TypeDescriptor, settings Settings, now time.Time) {
 	out := Settings{}
+
 	for _, f := range d.Fields {
 		if v := settings[f.Key]; v != "" {
 			out[f.Key] = v
 		}
 	}
+
 	s.settings, s.updatedAt = out, now
 }
 

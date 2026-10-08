@@ -44,6 +44,7 @@ type Service struct {
 	files Files
 }
 
+// NewService builds the service from the settings store, the running logger and the log files.
 func NewService(repo settings.Repository, sink Sink, files Files) *Service {
 	return &Service{repo: repo, sink: sink, files: files}
 }
@@ -54,9 +55,11 @@ func (s *Service) Init(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	return s.sink.Apply(l)
 }
 
+// Settings returns the saved logging settings.
 func (s *Service) Settings(ctx context.Context) (settings.Logging, error) {
 	return s.repo.Logging(ctx)
 }
@@ -67,16 +70,21 @@ func (s *Service) UpdateSettings(ctx context.Context, l settings.Logging) (setti
 	if err != nil {
 		return l, err
 	}
+
 	if err := s.repo.SaveLogging(ctx, l); err != nil {
 		return l, err
 	}
+
 	return l, s.sink.Apply(l)
 }
 
+// ListFiles lists the current log file and its rotated archives.
 func (s *Service) ListFiles(context.Context) ([]File, error) { return s.files.List() }
 
+// ReadFile returns the last tailLines lines of a log file and whether the content was cut.
 func (s *Service) ReadFile(_ context.Context, name string, tailLines int) (string, bool, error) {
 	return s.files.Read(name, tailLines)
 }
 
+// ClearArchived deletes the rotated log files and returns how many were removed.
 func (s *Service) ClearArchived(context.Context) (int, error) { return s.files.ClearArchived() }

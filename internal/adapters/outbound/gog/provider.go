@@ -97,6 +97,7 @@ type Provider struct {
 	tokens  map[string]accessToken    // user id → access token
 }
 
+// NewProvider returns the GOG source with its production endpoints.
 func NewProvider() *Provider {
 	return &Provider{
 		AuthURL: defaultAuthURL, EmbedURL: defaultEmbedURL, Now: time.Now,
@@ -108,6 +109,7 @@ func NewProvider() *Provider {
 	}
 }
 
+// Descriptor implements sync.Provider.
 func (p *Provider) Descriptor() source.TypeDescriptor {
 	return source.TypeDescriptor{
 		Type:           Type,
@@ -128,8 +130,10 @@ func cleanCode(v string) string {
 		if code, err := url.QueryUnescape(m[1]); err == nil {
 			return code
 		}
+
 		return m[1]
 	}
+
 	return strings.Trim(v, `"' `)
 }
 
@@ -145,35 +149,44 @@ func (p *Provider) Prepare(ctx context.Context, settings source.Settings) (sourc
 	for k, v := range settings {
 		out[k] = v
 	}
+
 	code := cleanCode(settings[settingAuthCode])
 	delete(out, settingAuthCode)
+
 	if code == "" || code == source.SecretPlaceholder {
 		if out[settingSession] == "" {
 			return nil, ErrNoSession
 		}
+
 		return out, nil
 	}
 
 	key := hashCode(code)
+
 	p.mu.Lock()
 	pend, ok := p.pending[key]
 	p.mu.Unlock()
+
 	s := pend.s
 	if !ok || p.Now().After(pend.expires) {
 		tok, err := p.token(ctx, url.Values{"grant_type": {"authorization_code"}, "code": {code}, "redirect_uri": {redirectURI}})
 		if err != nil {
 			return nil, err
 		}
+
 		s = p.remember(tok)
 		p.mu.Lock()
 		if p.pending == nil {
 			p.pending = map[string]pendingSession{}
 		}
+
 		p.pending[key] = pendingSession{s: s, expires: p.Now().Add(pendingTTL)}
 		p.mu.Unlock()
 	}
+
 	raw, _ := json.Marshal(s)
 	out[settingSession] = string(raw)
+
 	return out, nil
 }
 
@@ -183,12 +196,14 @@ func (p *Provider) Test(ctx context.Context, settings source.Settings) (sync.Tes
 	if err != nil {
 		return sync.TestResult{}, err
 	}
+
 	var owned struct {
 		Owned []int64 `json:"owned"`
 	}
 	if err := p.get(ctx, token, p.EmbedURL+"/user/data/games", &owned); err != nil {
 		return sync.TestResult{}, err
 	}
+
 	return sync.TestResult{Count: len(owned.Owned), Unit: "items"}, nil
 }
 
@@ -199,38 +214,47 @@ type product struct {
 	IsMovie bool   `json:"isMovie"`
 }
 
+// Fetch implements sync.Provider.
 func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.ImportedCopy, []string, error) {
 	token, err := p.accessToken(ctx, settings)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	var products []product
+
 	for page := 1; page <= maxPages; page++ {
 		var res struct {
 			TotalPages int       `json:"totalPages"`
 			Products   []product `json:"products"`
 		}
+
 		q := url.Values{"mediaType": {"1"}, "page": {strconv.Itoa(page)}}
 		if err := p.get(ctx, token, p.EmbedURL+"/account/getFilteredProducts?"+q.Encode(), &res); err != nil {
 			return nil, nil, err
 		}
+
 		products = append(products, res.Products...)
 		if page >= res.TotalPages || len(res.Products) == 0 {
 			break
 		}
 	}
+
 	return mapProducts(products), nil, nil
 }
 
 // mapProducts turns owned products into copies: games only (mediaType 1 already excludes movies).
 func mapProducts(products []product) []game.ImportedCopy {
 	seen := map[int64]bool{}
+
 	var out []game.ImportedCopy
+
 	for _, pr := range products {
 		title := strings.TrimSpace(pr.Title)
 		if pr.IsMovie || title == "" || seen[pr.ID] {
 			continue
 		}
+
 		seen[pr.ID] = true
 		out = append(out, game.ImportedCopy{
 			ExternalID: fmt.Sprintf("gog:%d", pr.ID),
@@ -238,6 +262,7 @@ func mapProducts(products []product) []game.ImportedCopy {
 			Details:    game.CopyDetails{Kind: game.KindLibrary, Platform: Platform, Status: game.StatusOwned, Origin: "GOG"},
 		})
 	}
+
 	return out
 }
 
@@ -253,36 +278,45 @@ type tokenResponse struct {
 func (p *Provider) token(ctx context.Context, q url.Values) (tokenResponse, error) {
 	q.Set("client_id", clientID)
 	q.Set("client_secret", clientSecret)
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.AuthURL+"/token?"+q.Encode(), nil)
 	if err != nil {
 		return tokenResponse{}, err
 	}
+
 	res, err := p.Client.Do(req)
 	if err != nil {
 		return tokenResponse{}, err
 	}
 	defer res.Body.Close()
+
 	body, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
 	if res.StatusCode != http.StatusOK {
 		var e struct {
 			Error string `json:"error"`
 		}
+
 		_ = json.Unmarshal(body, &e)
+
 		switch {
 		case q.Get("grant_type") == "authorization_code" && res.StatusCode < 500:
 			return tokenResponse{}, ErrBadCode
 		case q.Get("grant_type") == "refresh_token" && res.StatusCode < 500:
 			return tokenResponse{}, ErrSessionExpired
 		}
+
 		return tokenResponse{}, fmt.Errorf("gog sign-in: HTTP %d %s", res.StatusCode, e.Error)
 	}
+
 	var tok tokenResponse
 	if err := json.Unmarshal(body, &tok); err != nil {
 		return tokenResponse{}, fmt.Errorf("gog sign-in: %w", err)
 	}
+
 	if tok.AccessToken == "" || tok.RefreshToken == "" {
 		return tokenResponse{}, errors.New("gog sign-in: response without tokens")
 	}
+
 	return tok, nil
 }
 
@@ -292,8 +326,10 @@ func (p *Provider) remember(tok tokenResponse) session {
 	if p.tokens == nil {
 		p.tokens = map[string]accessToken{}
 	}
+
 	p.tokens[tok.UserID] = accessToken{token: tok.AccessToken, expires: p.Now().Add(time.Duration(tok.ExpiresIn) * time.Second)}
 	p.mu.Unlock()
+
 	return session{RefreshToken: tok.RefreshToken, UserID: tok.UserID}
 }
 
@@ -304,24 +340,30 @@ func (p *Provider) accessToken(ctx context.Context, settings source.Settings) (s
 	if raw := settings[settingSession]; raw == "" || json.Unmarshal([]byte(raw), &s) != nil || s.RefreshToken == "" {
 		return "", ErrNoSession
 	}
+
 	p.mu.Lock()
 	cached, ok := p.tokens[s.UserID]
 	p.mu.Unlock()
+
 	if ok && p.Now().Add(time.Minute).Before(cached.expires) {
 		return cached.token, nil
 	}
+
 	tok, err := p.token(ctx, url.Values{"grant_type": {"refresh_token"}, "refresh_token": {s.RefreshToken}})
 	if err != nil {
 		return "", err
 	}
+
 	raw, _ := json.Marshal(p.remember(tok))
 	settings[settingSession] = string(raw)
+
 	return tok.AccessToken, nil
 }
 
 func (p *Provider) forget(token string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
 	for k, v := range p.tokens {
 		if v.token == token {
 			delete(p.tokens, k)
@@ -334,13 +376,16 @@ func (p *Provider) get(ctx context.Context, token, u string, out any) error {
 	if err != nil {
 		return err
 	}
+
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Accept", "application/json")
+
 	res, err := p.Client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer res.Body.Close()
+
 	switch {
 	case res.StatusCode == http.StatusUnauthorized || (res.StatusCode >= 300 && res.StatusCode < 400):
 		p.forget(token) // next call refreshes the session
@@ -348,5 +393,6 @@ func (p *Provider) get(ctx context.Context, token, u string, out any) error {
 	case res.StatusCode != http.StatusOK:
 		return fmt.Errorf("gog %s: HTTP %d", req.URL.Path, res.StatusCode)
 	}
+
 	return json.NewDecoder(io.LimitReader(res.Body, 32<<20)).Decode(out)
 }

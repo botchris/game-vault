@@ -38,11 +38,14 @@ func authRequest(r *http.Request) auth.Request {
 	if err != nil {
 		peer = r.RemoteAddr
 	}
+
 	ip, _ := netip.ParseAddr(peer)
+
 	host := r.Host
 	if h, _, err := net.SplitHostPort(host); err == nil {
 		host = h
 	}
+
 	host = strings.Trim(strings.ToLower(host), "[]")
 	_, hostErr := netip.ParseAddr(host)
 
@@ -57,6 +60,7 @@ func authRequest(r *http.Request) auth.Request {
 	if c, err := r.Cookie(sessionCookie); err == nil {
 		req.SessionToken = c.Value
 	}
+
 	return req
 }
 
@@ -66,6 +70,7 @@ func isProtected(path string) bool {
 	if strings.HasPrefix(path, "/gamevault.v1.AuthService/") {
 		return false
 	}
+
 	return strings.HasPrefix(path, "/gamevault.v1.") || strings.HasPrefix(path, "/media/")
 }
 
@@ -77,8 +82,10 @@ func authMiddleware(svc *appauth.Service, next http.Handler) http.Handler {
 			next.ServeHTTP(w, r) // static UI: nothing to identify
 			return
 		}
+
 		req := authRequest(r)
 		ctx := context.WithValue(r.Context(), ctxRequest, req)
+
 		p, err := svc.Authenticate(ctx, req)
 		switch {
 		case err == nil:
@@ -88,9 +95,12 @@ func authMiddleware(svc *appauth.Service, next http.Handler) http.Handler {
 				http.Error(w, "authentication failed", http.StatusInternalServerError)
 				return
 			}
+
 			denyUnauthenticated(w, path)
+
 			return
 		}
+
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -101,8 +111,10 @@ func denyUnauthenticated(w http.ResponseWriter, path string) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte(`{"code":"unauthenticated","message":"authentication required"}`))
+
 		return
 	}
+
 	http.Error(w, "authentication required", http.StatusUnauthorized)
 }
 
@@ -116,5 +128,6 @@ func sessionCookieFor(token string, secure bool, maxAge time.Duration) *http.Coo
 	if maxAge <= 0 {
 		c.MaxAge = -1
 	}
+
 	return c
 }

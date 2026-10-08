@@ -12,12 +12,15 @@ func TestNormalize(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if want := []string{"10.0.0.5/32", "192.168.1.0/24", "fd00::/8"}; !slices.Equal(s.TrustedNetworks, want) {
 		t.Fatalf("networks = %v, want %v", s.TrustedNetworks, want)
 	}
+
 	if s.Authentication != AuthTrustedNetworks || s.CertificateValidation != CertsEnabled {
 		t.Fatalf("defaults: %+v", s)
 	}
+
 	for _, bad := range []Settings{
 		{TrustedNetworks: []string{"home"}},
 		{TrustedNetworks: []string{"0.0.0.0/0"}},
@@ -35,6 +38,7 @@ func TestTrusts(t *testing.T) {
 	s := DefaultSettings()
 	s.TrustedNetworks = append(s.TrustedNetworks, "192.168.1.0/24")
 	ip := netip.MustParseAddr
+
 	cases := []struct {
 		name string
 		r    Request
