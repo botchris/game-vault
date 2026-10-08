@@ -43,6 +43,13 @@ function initialCamera(): boolean {
   return window.isSecureContext && window.matchMedia('(pointer: coarse)').matches;
 }
 
+/** Scrolls an element to the top of the view, smoothly unless reduced motion is asked for. */
+function reveal(el: HTMLElement | null) {
+  if (!el) return;
+  const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  requestAnimationFrame(() => el.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' }));
+}
+
 function remember(key: string, value: string) {
   try {
     localStorage.setItem(key, value);
@@ -81,6 +88,17 @@ export default function ScanPage() {
   const input = useRef<HTMLInputElement>(null);
   // The pending result's main action, so Enter in the barcode field can confirm it.
   const confirm = useRef<(() => void) | null>(null);
+  // Where the last code came from. A reader or typing keeps the keyboard loop in the barcode
+  // field; the camera (a phone in your hand) instead moves the view between camera and result and
+  // keeps the on-screen keyboard closed.
+  const via = useRef<'camera' | 'keyboard'>('keyboard');
+  const scanner = useRef<HTMLElement>(null);
+  const outcome = useRef<HTMLDivElement>(null);
+
+  // Bring what the camera led to into view: the placeholder while looking up, then the result.
+  useEffect(() => {
+    if (via.current === 'camera' && (searching || result || error)) reveal(outcome.current);
+  }, [searching, result, error]);
 
   useEffect(() => remember(DEFAULTS_KEY, JSON.stringify(defaults)), [defaults]);
 
@@ -89,7 +107,9 @@ export default function ScanPage() {
     remember(CAMERA_KEY, camera ? '0' : '1');
   };
 
-  const identify = async (raw: string) => {
+  const identify = async (raw: string, from: 'camera' | 'keyboard' = 'keyboard') => {
+    via.current = from;
+    if (from === 'camera' && document.activeElement instanceof HTMLElement) document.activeElement.blur();
     if (!validBarcode(raw)) {
       setError(t('scan.invalid', { code: raw }));
       return;
@@ -113,7 +133,8 @@ export default function ScanPage() {
   const next = () => {
     setResult(null);
     setError('');
-    input.current?.focus();
+    if (via.current === 'camera') reveal(scanner.current);
+    else input.current?.focus();
   };
 
   const submitCode = (e: FormEvent) => {
@@ -137,10 +158,10 @@ export default function ScanPage() {
       </header>
       <p className="muted scan-intro">{t('scan.intro')}</p>
 
-      <section className="card scanner">
+      <section className="card scanner" ref={scanner}>
         {camera && (
           <Suspense fallback={<div className="camera camera-loading" />}>
-            <CameraScanner paused={busy || result !== null} searching={searching} onCode={identify} />
+            <CameraScanner paused={busy || result !== null} searching={searching} onCode={(c) => identify(c, 'camera')} />
           </Suspense>
         )}
         <form className="scanner-form" onSubmit={submitCode}>
@@ -159,6 +180,7 @@ export default function ScanPage() {
         <BatchBar defaults={defaults} onChange={setDefaults} />
       </section>
 
+      <div className="scan-outcome" ref={outcome}>
       {error && <Alert tone="error">{error}</Alert>}
 
       {searching && (
@@ -174,13 +196,14 @@ export default function ScanPage() {
 
       {result && (
         <ScanResult key={result.barcode} result={result} defaults={defaults} confirm={confirm}
-          onOpenGame={setOpenId} onNext={next}
+          focusFields={via.current === 'keyboard'} onOpenGame={setOpenId} onNext={next}
           onAdded={(a, game) => {
             putGame(game);
             setAdded((list) => [a, ...list].slice(0, 30));
             next();
           }} />
       )}
+      </div>
 
       {added.length > 0 && (
         <section className="scan-added">
@@ -240,8 +263,10 @@ function BatchBar({ defaults, onChange }: { defaults: Defaults; onChange: (d: De
   );
 }
 
-function ScanResult({ result, defaults, confirm, onAdded, onNext, onOpenGame }: {
+function ScanResult({ result, defaults, confirm, focusFields, onAdded, onNext, onOpenGame }: {
   result: IdentifyBarcodeResponse;
+  /** Focus the title field when it opens (not after a camera read: it would open the keyboard). */
+  focusFields: boolean;
   defaults: Defaults;
   confirm: MutableRefObject<(() => void) | null>;
   onAdded: (a: Added, game: Game) => void;
@@ -374,7 +399,7 @@ function ScanResult({ result, defaults, confirm, onAdded, onNext, onOpenGame }: 
           <form className="scan-fix" onSubmit={(e) => { e.preventDefault(); search(); }}>
             <label className="scan-fix-title">
               {t('game.title')}
-              <input value={title} onChange={(e) => setTitle(e.target.value)} autoFocus required />
+              <input value={title} onChange={(e) => setTitle(e.target.value)} autoFocus={focusFields} required />
             </label>
             <label>
               {t('copy.platform')}

@@ -745,6 +745,7 @@ td.title { font-weight: 500; min-width: 220px; }
 .scan-intro { margin: 0 0 18px; max-width: 60ch; }
 .scanner { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 16px; }
 .scanner > * { min-width: 0; }
+.scanner, .scan-outcome { scroll-margin-top: 12px; }
 .scanner .alert { margin: 0; }
 .scanner-form { display: flex; gap: 8px; align-items: stretch; }
 .barcode-input { flex: 1 1 auto; min-width: 0; width: 100%; font-size: 20px; font-family: var(--mono); letter-spacing: .06em; padding: 10px 14px; }

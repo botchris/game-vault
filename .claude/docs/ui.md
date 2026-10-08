@@ -51,7 +51,8 @@ because Simple Icons removed them).
   buttons.
 - Scan is a keyboard loop for barcode readers: the barcode field keeps the focus (read-only, never
   disabled, while a lookup runs) and Enter in it confirms the pending result. A form whose submit
-  button is disabled is not submitted by Enter, so that is handled in `onKeyDown`.
+  button is disabled is not submitted by Enter, so that is handled in `onKeyDown`. A camera read is
+  the phone flow instead: blur (close the keyboard), scroll to the result, never autofocus a field.
 - Every string through `t()`; keys in en and es (`task i18n`).
 - Remembered view preferences (sort, list/posters) use `localStorage` with try/catch; anything
   that must persist goes to the backend.
