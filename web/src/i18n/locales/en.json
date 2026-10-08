@@ -264,6 +264,26 @@
       "description": "Imports the PS4 and PS5 games bought with your PlayStation Network account (PS Plus games are skipped). It signs in like the PlayStation app does (the way psn-api and PSNAWP work) and only reads your account.",
       "npsso": "NPSSO token",
       "npssoHelp": "1. Sign in on playstation.com in your browser.\n2. Open the page above. It shows a short text like `{\"npsso\":\"…\"}`; if it shows an error, you are not signed in.\n3. Copy the `npsso` value (64 letters and digits), or the whole text, and paste it here.\nGame Vault keeps a session that renews itself and uses the token again if needed; it lasts about two months. Never share it: it gives access to your PlayStation account."
+    },
+    "addMore": "Add another store",
+    "addAnother": "Add a second account of a store",
+    "today": "Today, {{time}}",
+    "yesterday": "Yesterday, {{time}}",
+    "newCopies_one": "{{count}} new copy",
+    "newCopies_other": "{{count}} new copies",
+    "noChanges": "no changes",
+    "paused": "Paused",
+    "lastScan": "Last scan · {{when}}",
+    "taglines": {
+      "humble": "Every key in your orders, with redeem deadlines",
+      "steam": "Your library, with a free Steam Web API key",
+      "epic": "Your library, signing in like the Epic launcher",
+      "gog": "Your library, signing in like GOG Galaxy",
+      "battlenet": "Blizzard and Activision games, from your browser session",
+      "eaapp": "Games from EA's store, from your browser session",
+      "ubisoft": "Your Ubisoft Connect PC games",
+      "xbox": "Games bought on the Microsoft Store",
+      "playstation": "PS4 and PS5 games bought with your account"
     }
   },
   "system": {
@@ -431,40 +451,53 @@
     "none": "No provider has a cover for this game. Link it to Steam or paste an image URL."
   },
   "scan": {
-    "title": "Scan games",
-    "intro": "Register physical games quickly: scan the barcode with the camera, a USB/Bluetooth reader or by typing it, confirm and go on with the next box.",
+    "title": "Scan",
+    "intro": "Add physical games by their barcode: point the camera at the box, use a USB or Bluetooth reader, or type the code.",
     "placeholder": "Barcode, e.g. 5 026555 255042",
+    "placeholderCamera": "Or type the code",
     "lookup": "Look up",
     "invalid": "\"{{code}}\" is not a valid barcode (check the digits).",
     "camera": {
-      "start": "Use camera",
-      "stop": "Stop camera",
+      "start": "Camera",
+      "stop": "Hide camera",
       "hint": "Point at the barcode on the back of the box",
-      "paused": "Paused — confirm or skip to scan the next one",
+      "paused": "Paused — add or skip this box to scan the next one",
       "insecure": "The camera needs HTTPS (or localhost). On your phone, open Game Vault through an HTTPS address.",
       "denied": "Camera permission denied. Allow it in the browser settings for this site.",
-      "error": "Cannot start the camera: {{error}}"
+      "error": "Cannot start the camera: {{error}}",
+      "hintLaptop": "Hold the barcode 20–30 cm from the camera, level and in good light"
     },
-    "defaults": {
-      "title": "Defaults for this batch",
-      "hint": "Applied to every game you add from here; remembered on this device.",
+    "batch": {
+      "label": "Every box gets",
       "platform": "Platform",
-      "platformAuto": "Detect from barcode"
+      "auto": "from the barcode",
+      "platformAuto": "Detect from the barcode",
+      "change": "Change",
+      "done": "Done",
+      "hint": "Applied to every game you add from here; remembered on this device."
     },
-    "owned": "You already have it: {{title}} ({{platform}}).",
+    "owned": "Already in your collection",
     "openGame": "Open game",
     "next": "Scan next",
-    "foundAs": "found as \"{{raw}}\"",
-    "unknown": "No barcode database knows this code. Type the title and search: it will be saved with the barcode, so next time it is recognised.",
+    "foundIn": "found in {{provider}} as “{{raw}}”",
+    "unknownShort": "not in any barcode database",
+    "unknownTitle": "Which game is it?",
+    "unknown": "Type the title and search. The box is saved with its barcode, so next time it is recognised at once.",
     "searchTitle": "Search",
+    "fix": "Not this game?",
+    "otherCovers": "Cover",
     "addTo": "Add as",
-    "newGame": "a new game",
-    "existingGame": "one more copy of \"{{title}}\"",
+    "newGame": "A new game",
+    "existingGame": "Copy of “{{title}}”",
     "skip": "Skip",
     "addGame": "Add game",
-    "addCopy": "Add copy",
+    "addCopyTo": "Add to “{{title}}”",
+    "enterHint": "Press Enter in the barcode field to confirm.",
     "added_one": "Added in this session ({{count}})",
-    "added_other": "Added in this session ({{count}})"
+    "added_other": "Added in this session ({{count}})",
+    "needPlatform": "Type the platform to add it.",
+    "searching": "Looking it up…",
+    "searchingHint": "Asking the barcode databases; this can take a few seconds."
   },
   "auth": {
     "username": "Username",

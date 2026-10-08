@@ -2,21 +2,24 @@ import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { errorMessage, sourceClient } from '../../api/client';
 import { FieldHelp } from '../../components/FieldHelp';
-import { Alert, Modal } from '../../components/ui';
+import { Alert, Modal, useFormatters } from '../../components/ui';
 import { SettingField_Kind, type Source, type SourceType } from '../../gen/gamevault/v1/source_pb';
+import { toDate } from '../../lib/model';
 
 interface Props {
   type: SourceType;
   source?: Source;
   onClose: () => void;
   onSaved: (id: string, syncNow: boolean) => void;
+  onDeleted: () => void;
 }
 
 /** Create or edit a source. Secret settings come back masked; leaving the mask keeps the stored value. */
 const TEST_MESSAGES: Record<string, string> = { orders: 'sources.testOkOrders', items: 'sources.testOkItems', copies: 'sources.testOkCopies' };
 
-export default function SourceDialog({ type, source, onClose, onSaved }: Props) {
+export default function SourceDialog({ type, source, onClose, onSaved, onDeleted }: Props) {
   const { t } = useTranslation();
+  const fmt = useFormatters();
   const [name, setName] = useState(source?.name ?? type.name);
   const [enabled, setEnabled] = useState(source?.enabled ?? true);
   const [syncHours, setSyncHours] = useState(source?.syncIntervalHours ?? 24);
@@ -58,9 +61,25 @@ export default function SourceDialog({ type, source, onClose, onSaved }: Props) 
     }
   };
 
+  const remove = async () => {
+    if (!source || !confirm(t('sources.confirmDelete', { name: source.name }))) return;
+    const deleteCopies = source.copyCount > 0 && confirm(t('sources.confirmDeleteCopies', { count: source.copyCount }));
+    setBusy(true);
+    try {
+      await sourceClient.deleteSource({ id: source.id, deleteCopies });
+      onDeleted();
+    } catch (e) {
+      setResult({ tone: 'error', text: errorMessage(e) });
+      setBusy(false);
+    }
+  };
+
+  const r = source?.lastSync;
+
   return (
     <Modal title={source ? t('sources.editTitle', { name: source.name }) : t('sources.addTitle', { type: type.name })} onClose={onClose}
       footer={<>
+        {source && <button type="button" className="danger" onClick={remove} disabled={busy}>{t('common.delete')}</button>}
         <button type="button" onClick={test} disabled={busy}>{testing ? t('sources.testing') : t('sources.test')}</button>
         <span className="spacer" />
         <button type="button" onClick={onClose}>{t('common.cancel')}</button>
@@ -69,6 +88,22 @@ export default function SourceDialog({ type, source, onClose, onSaved }: Props) 
       </>}>
       <form id="source-form" onSubmit={(e) => save(e)}>
         <p className="muted">{t(type.descriptionKey)}</p>
+        {r && (
+          <section className={`source-report ${r.success ? '' : 'failed'}`}>
+            <h3>{t('sources.lastScan', { when: fmt.dateTime(toDate(r.finishedAt)) })}</h3>
+            {r.success ? (
+              <p className="small">{t('sources.report', { fetched: r.fetched, added: r.copiesAdded, updated: r.copiesUpdated, games: r.gamesCreated })}</p>
+            ) : (
+              <Alert tone="error">{r.error}</Alert>
+            )}
+            {r.warnings.length > 0 && (
+              <details>
+                <summary>{t('sources.warnings', { count: r.warnings.length })}</summary>
+                <ul>{r.warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>
+              </details>
+            )}
+          </section>
+        )}
         <div className="grid">
           <label className="span2">
             {t('sources.name')}

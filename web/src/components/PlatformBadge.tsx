@@ -1,6 +1,6 @@
 import {
-  siBattledotnet, siEa, siEpicgames, siGogdotcom, siItchdotio, siPlaystation, siRiotgames, siRockstargames, siSega,
-  siSteam, siUbisoft,
+  siBattledotnet, siEa, siEpicgames, siGogdotcom, siHumblebundle, siItchdotio, siPlaystation, siRiotgames, siRockstargames,
+  siSega, siSteam, siUbisoft,
 } from 'simple-icons';
 import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -161,6 +161,30 @@ export function PlatformBadges({ game, max = 3, onSelect, active = [] }: {
     <span className="pbadges">
       {shown.map((h) => <PlatformBadge key={h.platform} {...h} onSelect={onSelect} active={active.includes(h.platform)} />)}
       {rest > 0 && <span className="pbadge more" title={all.slice(shown.length).map((h) => h.platform).join(', ')}>+{rest}</span>}
+    </span>
+  );
+}
+
+/** The store behind each source type, by the platform name its copies use (Humble has its own). */
+const SOURCE_LOOKS: Record<string, PlatformLook> = {
+  humble: { glyph: si(siHumblebundle), bg: '#cc2929' },
+  steam: platformLook('Steam'),
+  epic: platformLook('Epic Games'),
+  gog: platformLook('GOG'),
+  battlenet: platformLook('Battle.net'),
+  eaapp: platformLook('EA App'),
+  ubisoft: platformLook('Ubisoft Connect'),
+  xbox: platformLook('Microsoft Store / Xbox'),
+  playstation: { glyph: PS, bg: PS_BG },
+};
+
+/** A source's store logo in its brand colour, as a rounded tile. */
+export function SourceLogo({ type, size = 40 }: { type: string; size?: number }) {
+  const look = SOURCE_LOOKS[type] ?? { glyph: STORE, bg: '#4b5568' };
+  const style = { '--pb': look.bg, '--pf': look.fg ?? '#fff', width: size, height: size } as CSSProperties;
+  return (
+    <span className="source-logo" style={style} aria-hidden="true">
+      {look.glyph && <GlyphSvg glyph={look.glyph} size={Math.round(size * 0.5)} />}
     </span>
   );
 }

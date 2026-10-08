@@ -13,6 +13,10 @@ because Simple Icons removed them).
 - `features/library/`: `LibraryPage` (search, sort, A–Z rail, filters, posters/list, infinite
   scroll), `FilterPanel` (popover / bottom sheet), `PosterGrid`, `GameDetail` (the game sheet:
   hero, Overview / Copies / Edit tabs), `GameSheet` (details from metadata providers).
+- `features/sources`: configured sources as rows (store logo from `SourceLogo` in
+  `components/PlatformBadge.tsx`, status dot, copies, a round scan button; the row opens the
+  settings dialog, which holds the last scan report and Delete), then tiles for the stores not
+  added yet. Only "Scan all" is amber.
 - `features/sources`, `features/providers`: settings dialogs; field help is rendered by
   `components/FieldHelp.tsx` from plain text (lines `1. …` become numbered steps, backticks become
   code).
@@ -45,6 +49,9 @@ because Simple Icons removed them).
 - Clickable cards with buttons inside: the title is the button and stretches over the card with
   `::after { inset: 0 }`; inner buttons (platform badges) sit above with `z-index`. Never nest
   buttons.
+- Scan is a keyboard loop for barcode readers: the barcode field keeps the focus (read-only, never
+  disabled, while a lookup runs) and Enter in it confirms the pending result. A form whose submit
+  button is disabled is not submitted by Enter, so that is handled in `onKeyDown`.
 - Every string through `t()`; keys in en and es (`task i18n`).
 - Remembered view preferences (sort, list/posters) use `localStorage` with try/catch; anything
   that must persist goes to the backend.

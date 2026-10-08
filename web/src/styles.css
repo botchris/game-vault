@@ -483,10 +483,88 @@ td.title { font-weight: 500; min-width: 220px; }
 .page > .section-head h2 { font-size: 26px; font-weight: 800; font-stretch: 118%; letter-spacing: -.015em; }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; min-width: 0; }
-.card.add-card { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; white-space: normal; text-align: left; border-style: dashed; }
-.card.source.disabled { opacity: .65; }
-.source-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-.source-head h3 { margin: 0 0 2px; }
+
+/* ---------- Sources ---------- */
+.sources { max-width: 920px; }
+.sources .page-head { margin-bottom: 4px; justify-content: space-between; }
+.sources-intro { margin: 0 0 20px; max-width: 64ch; }
+.sources-hint { margin: -8px 0 14px; }
+.source-logo {
+  display: inline-grid; place-items: center; flex: none; border-radius: 10px; background: var(--pb); color: var(--pf);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08);
+}
+
+/* Configured sources: one row each; the row opens the settings, the round button scans. */
+.source-list { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.source-row { position: relative; display: flex; align-items: center; gap: 14px; padding: 12px 14px 12px 16px; }
+.source-row + .source-row { border-top: 1px solid var(--border); }
+.source-row.disabled > :not(.source-sync) { opacity: .55; }
+.source-main {
+  flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+  border: none; background: none; padding: 0; min-height: 0; text-align: left; white-space: normal; font-weight: 500;
+}
+.source-main::after { content: ''; position: absolute; inset: 0; }
+.source-main:hover:not(:disabled) { background: none; }
+.source-main:active:not(:disabled) { transform: none; }
+@media (hover: hover) and (pointer: fine) {
+  .source-row:hover { background: color-mix(in srgb, var(--surface-2) 55%, transparent); }
+}
+.source-row:active { background: var(--surface-2); }
+.source-name { font-weight: 650; font-size: 15px; }
+.source-type { color: var(--muted); font-weight: 500; }
+.source-status { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--muted); min-width: 0; max-width: 100%; }
+.source-status-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.source-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--surface-3); }
+.source-status.tone-ok .source-dot { background: var(--ok); }
+.source-status.tone-warn .source-dot { background: var(--accent-strong); }
+.source-status.tone-error .source-dot { background: var(--danger); }
+.source-status.tone-error { color: var(--danger); }
+.source-status.tone-busy .source-dot { background: var(--accent); }
+.source-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex: none; font-size: 13px; text-align: right; }
+.source-count { font-variant-numeric: tabular-nums; font-weight: 600; }
+.source-schedule { color: var(--muted); }
+.source-sync { position: relative; z-index: 1; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+.source-sync:hover:not(:disabled) { background: var(--surface-2); }
+.source-sync:active:not(:disabled) { transform: scale(0.94); }
+/* While a scan runs the icon turns: it is the only sign of progress the row has. */
+.source-sync.spinning svg { animation: source-spin 900ms linear infinite; }
+.source-sync.spinning:disabled { opacity: 1; }
+@keyframes source-spin { to { transform: rotate(360deg); } }
+
+/* Stores not added yet: equal tiles, everything aligned to the top-left. */
+.source-add { margin-top: 30px; }
+.source-add-another { margin-top: 18px; font-size: 14px; }
+.source-add-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.source-add-head h2 { font-size: 15px; font-weight: 650; margin: 0; }
+.source-add-head .link { font-size: 14px; }
+.source-tiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+.source-tiles li { display: flex; }
+.source-tile {
+  flex: 1; display: flex; align-items: flex-start; gap: 12px; padding: 14px; min-height: 0; text-align: left; white-space: normal;
+  justify-content: flex-start; border-radius: var(--radius); font-weight: 500;
+}
+.source-tile-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.source-tile-name { font-weight: 650; font-size: 15px; line-height: 1.2; }
+.source-tile-tagline { font-size: 13px; line-height: 1.35; color: var(--muted); }
+.source-tile-plus { flex: none; color: var(--muted); margin-top: 1px; }
+@media (hover: hover) and (pointer: fine) {
+  .source-tile:hover .source-tile-plus { color: var(--text); }
+}
+
+/* The last scan in the settings dialog. */
+.source-report { background: var(--surface-2); border-radius: var(--radius); padding: 10px 14px; margin: 4px 0 14px; }
+.source-report h3 { font-size: 13px; margin: 0 0 4px; color: var(--muted); font-weight: 600; }
+.source-report p { margin: 0; }
+.source-report .alert { margin: 4px 0 0; }
+
+@media (max-width: 600px) {
+  .source-row { gap: 12px; padding: 12px; }
+  .source-meta .source-schedule { display: none; }
+  .source-status { align-items: flex-start; }
+  .source-dot { margin-top: 5px; }
+  .source-status-text { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .source-tiles { grid-template-columns: 1fr; }
+}
 .row { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; align-items: center; }
 .row.tight { margin: 0; flex-wrap: nowrap; }
 .row.tight input { flex: 1; }
@@ -662,19 +740,118 @@ td.title { font-weight: 500; min-width: 220px; }
 .picker-grid { margin-top: 10px; }
 
 /* ---------- Scan ---------- */
-.barcode-input { flex: 1 1 260px; font-size: 18px; font-family: var(--mono); letter-spacing: .05em; }
-.camera { position: relative; margin-top: 12px; border-radius: 12px; overflow: hidden; background: #000; max-width: 640px; }
-.camera video { width: 100%; display: block; max-height: 55vh; object-fit: cover; }
+.scan { max-width: 880px; }
+.scan .page-head { margin-bottom: 4px; }
+.scan-intro { margin: 0 0 18px; max-width: 60ch; }
+.scanner { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 16px; }
+.scanner > * { min-width: 0; }
+.scanner .alert { margin: 0; }
+.scanner-form { display: flex; gap: 8px; align-items: stretch; }
+.barcode-input { flex: 1 1 auto; min-width: 0; width: 100%; font-size: 20px; font-family: var(--mono); letter-spacing: .06em; padding: 10px 14px; }
+.camera-toggle { display: inline-flex; align-items: center; gap: 8px; }
+.camera-toggle.active { background: var(--surface-2); }
+.camera { position: relative; border-radius: 12px; overflow: hidden; background: #000; aspect-ratio: 16 / 9; max-height: 55vh; }
+.camera video { width: 100%; height: 100%; display: block; object-fit: cover; transition: opacity 150ms ease; }
 .camera.paused video { opacity: .35; }
-.camera-guide { position: absolute; left: 12%; right: 12%; top: 35%; bottom: 35%; border: 2px solid rgb(255 255 255 / .85); border-radius: 10px; box-shadow: 0 0 0 9999px rgb(0 0 0 / .3); }
-.camera-hint { position: absolute; bottom: 8px; left: 0; right: 0; text-align: center; color: #fff; font-size: 13px; margin: 0; text-shadow: 0 1px 2px #000; }
-.defaults { margin-top: 12px; }
-.defaults summary { cursor: pointer; color: var(--muted); }
-.scan-result .picker-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
-.targets { border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; margin: 12px 0; display: flex; flex-direction: column; gap: 6px; }
-.added-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
-.added-list button { width: 100%; justify-content: flex-start; border: none; background: none; text-align: left; white-space: normal; }
-.added-list img, .thumb-placeholder { width: 32px; height: 45px; object-fit: cover; border-radius: 4px; background: var(--surface-2); flex: none; }
+/* Front and laptop cameras are mirrored, so the box moves on screen the way it moves in your hand. */
+.camera.mirrored video { transform: scaleX(-1); }
+/* A code was read: the frozen picture stays bright and the guide turns amber around it. */
+.camera.found video { opacity: 1; }
+.camera-guide { transition: border-color 120ms ease-out, box-shadow 120ms ease-out; }
+.camera.found .camera-guide { border-color: var(--accent); box-shadow: 0 0 0 9999px rgb(0 0 0 / .45), 0 0 0 4px rgb(255 176 32 / .35); }
+.camera-found {
+  position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); margin: 0; display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 12px; border-radius: 999px; background: rgb(24 28 44 / .86); color: #fff; font-size: 13px; white-space: nowrap;
+}
+.camera-found code { color: var(--accent); letter-spacing: .03em; }
+.spinner {
+  display: inline-block; width: 14px; height: 14px; flex: none; border-radius: 50%; vertical-align: -2px;
+  border: 2px solid currentColor; border-right-color: transparent; animation: source-spin 700ms linear infinite;
+}
+.scan-pending .scan-title { display: inline-flex; align-items: center; gap: 12px; color: var(--muted); }
+.scan-pending .scan-title .spinner { width: 20px; height: 20px; border-width: 3px; color: var(--accent-strong); }
+.scan-pending .cover { background: var(--surface-2); }
+.camera-guide { position: absolute; left: 12%; right: 12%; top: 32%; bottom: 32%; border: 2px solid rgb(255 255 255 / .85); border-radius: 10px; box-shadow: 0 0 0 9999px rgb(0 0 0 / .3); }
+.camera-hint { position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; color: #fff; font-size: 13px; margin: 0; text-shadow: 0 1px 2px #000; }
+
+/* Batch defaults: one line that says what every box gets; the fields open in place. */
+.batch { border-top: 1px solid var(--border); padding-top: 12px; }
+.batch-summary {
+  width: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; justify-content: flex-start;
+  border: none; background: none; padding: 0; min-height: 0; text-align: left; white-space: normal; font-weight: 500;
+}
+.batch-summary:hover:not(:disabled) { background: none; }
+.batch-summary:active:not(:disabled) { transform: none; }
+.batch-label { color: var(--muted); font-size: 13px; margin-right: 2px; }
+.batch-chip { font-size: 13px; color: var(--muted); background: var(--surface-2); border-radius: 999px; padding: 3px 10px; }
+.batch-chip strong { color: var(--text); font-weight: 600; }
+.batch-edit-label { margin-left: auto; font-size: 13px; color: var(--link); font-weight: 600; }
+@media (hover: hover) and (pointer: fine) {
+  .batch-summary:hover .batch-edit-label { text-decoration: underline; text-underline-offset: 2px; }
+}
+.batch-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 12px; margin-top: 12px; }
+.batch-hint { grid-column: 1 / -1; margin: 0; }
+
+/* The result: cover on the left, what was found and one decision on the right. */
+.scan-card {
+  display: grid; grid-template-columns: 168px minmax(0, 1fr); grid-template-areas: "cover info" "cover body" "covers covers";
+  grid-template-rows: auto 1fr auto; gap: 10px 22px; margin-top: 14px; padding: 18px; align-items: start;
+}
+.scan-cover { grid-area: cover; }
+.scan-info { grid-area: info; }
+.scan-body { grid-area: body; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; min-width: 0; }
+.scan-cover .cover { box-shadow: var(--shadow-sm), 0 0 0 1px color-mix(in srgb, var(--text) 6%, transparent); }
+.scan-cover .cover-placeholder { color: var(--muted); }
+.scan-info { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; }
+.scan-state { margin: 0; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.scan-state code { color: var(--text); letter-spacing: .03em; }
+.scan-title { margin: 0; font-size: 26px; line-height: 1.15; font-weight: 800; font-stretch: 118%; letter-spacing: -.015em; overflow-wrap: anywhere; }
+.scan-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.scan-edition { font-size: 13px; color: var(--muted); background: var(--surface-2); border-radius: 999px; padding: 3px 10px; }
+.scan-fix { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px 10px; align-items: end; width: 100%; }
+.scan-fix label { min-width: 0; }
+.scan-fix input { width: 100%; }
+.scan-fix-title { grid-column: 1 / -1; }
+.scan-explain { margin: 0; max-width: 56ch; }
+.scan-target { margin-top: 2px; }
+.scan-target button { white-space: normal; text-align: left; }
+.scan-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; }
+.scan-actions .primary { order: -1; }
+.scan-fix-toggle { margin-left: auto; font-size: 14px; }
+.scan-enter { margin: 0; }
+.scan-covers { grid-area: covers; margin-top: 2px; padding-top: 12px; border-top: 1px solid var(--border); }
+.scan-covers p { margin: 0 0 8px; }
+.scan-cover-strip { display: flex; gap: 10px; overflow-x: auto; padding: 3px 3px 6px; scrollbar-width: thin; }
+.scan-thumb {
+  flex: none; width: 64px; aspect-ratio: 2 / 3; padding: 0; min-height: 0; border-radius: 6px; overflow: hidden;
+  border: none; background: var(--surface-2); box-shadow: 0 0 0 1px var(--border);
+}
+.scan-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.scan-thumb.selected { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent-strong); }
+
+/* Added in this session: a strip of small covers. */
+.scan-added { margin-top: 26px; }
+.scan-added-title { font-size: 15px; font-weight: 650; margin: 0 0 10px; }
+.scan-added ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 14px 12px; }
+.scan-added button { display: flex; flex-direction: column; align-items: stretch; gap: 6px; width: 100%; padding: 0; border: none; background: none; min-height: 0; text-align: left; white-space: normal; }
+.scan-added button:hover:not(:disabled) { background: none; }
+.scan-added img, .thumb-placeholder { width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 6px; background: var(--surface-2); display: block; }
+.scan-added-name { font-size: 12px; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+@media (max-width: 860px) {
+  .scanner { padding: 12px; }
+  .barcode-input { font-size: 17px; letter-spacing: .02em; padding: 8px 10px; }
+  .camera { aspect-ratio: 4 / 3; }
+  .camera-toggle-label { display: none; }
+  .batch-fields { grid-template-columns: 1fr; }
+  .scan-card { grid-template-columns: 88px minmax(0, 1fr); grid-template-areas: "cover info" "body body" "covers covers"; grid-template-rows: auto; gap: 14px; padding: 14px; }
+  .scan-title { font-size: 21px; }
+  .scan-fix { grid-template-columns: 1fr 1fr; }
+  .scan-fix > button { grid-column: 1 / -1; }
+}
+@media (max-width: 520px) {
+  .scan-actions .primary { flex: 1 1 100%; }
+}
 
 /* ---------- Auth ---------- */
 .auth-screen { max-width: 440px; margin: 10vh auto; padding: 0 16px; display: grid; gap: 16px; }
@@ -696,6 +873,8 @@ td.title { font-weight: 500; min-width: 220px; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 1ms !important; animation-duration: 1ms !important; }
+  .source-sync.spinning svg { animation: none; } /* the amber status dot still says it is scanning */
+  .spinner { animation-duration: 1.6s !important; } /* slow, not frozen: it is the only sign of work */
 }
 
 /* ---------- Platform badges: the store or console logo, so a cover tells where you have the game ---------- */
