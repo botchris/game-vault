@@ -1,6 +1,9 @@
 package game
 
-import "time"
+import (
+	"slices"
+	"time"
+)
 
 // ImportedCopy is a copy reported by an external source (a Humble order, a Steam library, a CSV row).
 type ImportedCopy struct {
@@ -10,9 +13,13 @@ type ImportedCopy struct {
 	// changed. A copy saved under it is adopted (renamed) if it belongs to the same game, instead
 	// of a duplicate being created.
 	PreviousExternalID string
-	Title              string
-	SteamAppID         int64
-	Details            CopyDetails
+	// Withdrawn means the source no longer counts this item as a copy (e.g. a key that turned out
+	// not to be a game): a copy it imported earlier under ExternalID is removed, and its game too
+	// if nothing else is left in it.
+	Withdrawn  bool
+	Title      string
+	SteamAppID int64
+	Details    CopyDetails
 }
 
 // ConsolidationResult summarizes what a consolidation changed.
@@ -22,7 +29,10 @@ type ConsolidationResult struct {
 	CopiesUpdated   int
 	CopiesUnchanged int
 	GamesCreated    int
-	Warnings        []string
+	CopiesRemoved   int
+	// Emptied are games whose only copies were withdrawn: the caller deletes them.
+	Emptied  []ID
+	Warnings []string
 }
 
 // Consolidator merges imported copies into the catalog, Sonarr-style: each imported copy is
@@ -88,6 +98,11 @@ func (c *Consolidator) Apply(sourceID string, imported []ImportedCopy, now time.
 	var r ConsolidationResult
 
 	for _, in := range imported {
+		if in.Withdrawn {
+			c.withdraw(sourceID, in, now, &r)
+			continue
+		}
+
 		if in.ExternalID == "" || in.Title == "" {
 			r.Warnings = append(r.Warnings, "skipped a copy without title or external id: "+in.Title)
 			continue
@@ -155,9 +170,54 @@ func (c *Consolidator) Apply(sourceID string, imported []ImportedCopy, now time.
 		r.CopiesAdded++
 	}
 
-	r.Changed = c.order
+	// A game emptied by a withdrawal may have received another copy later in the same import.
+	emptied := r.Emptied
+	r.Emptied = nil
+
+	for _, g := range c.order {
+		if len(g.copies) == 0 && slices.Contains(emptied, g.id) {
+			r.Emptied = append(r.Emptied, g.id)
+			continue
+		}
+
+		r.Changed = append(r.Changed, g)
+	}
 
 	return r
+}
+
+// withdraw removes the copy the source imported under in.ExternalID. The previous id only counts
+// when its copy is in the withdrawn item's own game: old ids could be shared by several items.
+// Copies added by hand or by another source are never removed.
+func (c *Consolidator) withdraw(sourceID string, in ImportedCopy, now time.Time, r *ConsolidationResult) {
+	for _, ext := range []string{in.ExternalID, in.PreviousExternalID} {
+		g, ok := c.byExternalID[ext]
+		if ext == "" || !ok {
+			continue
+		}
+
+		if ext == in.PreviousExternalID && c.findGame(in) != g {
+			continue
+		}
+
+		cp := g.copies[g.indexOfExternal(ext)]
+		if cp.SourceID != sourceID {
+			continue
+		}
+
+		if _, err := g.RemoveCopy(cp.ID, now); err != nil {
+			continue
+		}
+
+		delete(c.byExternalID, ext)
+		c.markChanged(g)
+
+		r.CopiesRemoved++
+
+		if len(g.copies) == 0 {
+			r.Emptied = append(r.Emptied, g.id)
+		}
+	}
 }
 
 // adoptPrevious renames the copy saved under in.PreviousExternalID to in.ExternalID when it is in

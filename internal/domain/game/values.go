@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 	"unicode"
@@ -116,6 +117,12 @@ var knownPlatforms = []string{
 	// Consoles and physical formats
 	"PC", "PS5", "PS4", "PS3", "PS2", "PS1", "PSP", "PS Vita", "Xbox Series", "Xbox One", "Xbox 360", "Xbox",
 	"Switch", "Wii U", "Wii", "GameCube", "N64", "3DS", "DS", "Game Boy",
+}
+
+// IsKnownPlatform reports whether p is one of the stores, launchers or consoles Game Vault knows,
+// as opposed to whatever a source names a key type (a software vendor, a course site…).
+func IsKnownPlatform(p string) bool {
+	return slices.ContainsFunc(knownPlatforms, func(k string) bool { return strings.EqualFold(k, strings.TrimSpace(p)) })
 }
 
 // CanonicalPlatform fixes the casing of known platforms ("steam" → "Steam") so they compare equal.

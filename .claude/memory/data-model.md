@@ -9,7 +9,8 @@ metadata:
   `game.MatchKey(title)`.
 - **Changing an ExternalID format duplicates copies on the next scan**: don't, or set
   `ImportedCopy.PreviousExternalID` so the consolidator adopts the old copy (only when it is in the
-  same game; source details are cleared, user notes kept).
+  same game; source details are cleared, user notes kept). A source drops a copy it imported
+  earlier by returning it `Withdrawn`; games left empty are deleted by the sync.
 - Prefixes: `steam:<appId>`, `humble:<gamekey>:<machine_name>:<keyindex>` (was `humble:<gamekey>:<keyindex>`, see [[humble]]), `epic:<catalogItemId>`,
   `gog:<productId>`, `battlenet:<titleId>`, `ea:<productId>`, `ubisoft:<spaceId>`,
   `xbox:<productId>`, `psn:<entitlementId>`. Cover providers find a game's own art through them

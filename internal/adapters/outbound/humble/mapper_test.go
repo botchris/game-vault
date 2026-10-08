@@ -32,7 +32,7 @@ func TestMapOrders_eachKeyIsOneCopy(t *testing.T) {
 
 	t.Run("GIVEN an order whose keys all have keyindex 0 except a second copy of one game", func(t *testing.T) {
 		t.Run("WHEN it is mapped", func(t *testing.T) {
-			copies, warnings := MapOrders([]json.RawMessage{json.RawMessage(order)}, now)
+			copies, _, warnings := MapOrders([]json.RawMessage{json.RawMessage(order)}, now)
 			require.Empty(t, warnings)
 			require.Len(t, copies, 6)
 
@@ -80,11 +80,51 @@ func TestMapOrders_eachKeyIsOneCopy(t *testing.T) {
 		raw := `{"gamekey":"BBB","tpkd_dict":{"all_tpks":[{"human_name":"Mystery","key_type":"steam","keyindex":0}]}}`
 
 		t.Run("WHEN it is mapped", func(t *testing.T) {
-			copies, _ := MapOrders([]json.RawMessage{json.RawMessage(raw)}, now)
+			copies, _, _ := MapOrders([]json.RawMessage{json.RawMessage(raw)}, now)
 
 			t.Run("THEN it keeps the old id format", func(t *testing.T) {
 				require.Len(t, copies, 1)
 				assert.Equal(t, "humble:BBB:0", copies[0].ExternalID)
+			})
+		})
+	})
+}
+
+// mixed has the kinds of non-game keys found in real bundles: software, a store coupon and in-game
+// items, next to console game keys.
+const mixed = `{"gamekey":"CCC","product":{"human_name":"Stand with Ukraine Bundle"},
+ "tpkd_dict":{"all_tpks":[
+  {"machine_name":"ashampoo_photooptimizer7","human_name":"Ashampoo Photo Optimizer 7","key_type":"generic","key_type_human_name":"Ashampoo","keyindex":0},
+  {"machine_name":"sfv_coupon","human_name":"45% off Street Fighter V PS Store Coupon","key_type":"generic","key_type_human_name":"PS Store","keyindex":0},
+  {"machine_name":"duelyst_orbs","human_name":"Duelyst - 20 Spirit Orbs","key_type":"generic","key_type_human_name":"Duelyst","keyindex":0},
+  {"machine_name":"strider_ps4","human_name":"Strider","key_type":"generic","key_type_human_name":"PS4","keyindex":0},
+  {"machine_name":"tunic_steam","human_name":"Tunic","key_type":"steam","keyindex":0}]}}`
+
+func TestMapOrders_nonGameKeys(t *testing.T) {
+	now := time.Date(2026, 10, 7, 0, 0, 0, 0, time.UTC)
+
+	t.Run("GIVEN a bundle with software, a coupon and in-game items next to games", func(t *testing.T) {
+		t.Run("WHEN it is mapped", func(t *testing.T) {
+			copies, skipped, warnings := MapOrders([]json.RawMessage{json.RawMessage(mixed)}, now)
+			require.Empty(t, warnings)
+			require.Len(t, copies, 5)
+
+			t.Run("THEN only the console and store game keys are copies", func(t *testing.T) {
+				var games []string
+
+				for _, c := range copies {
+					if !c.Withdrawn {
+						games = append(games, c.Title+" ("+c.Details.Platform+")")
+					}
+				}
+
+				assert.Equal(t, []string{"Strider (PS4)", "Tunic (Steam)"}, games)
+			})
+
+			t.Run("AND the others are withdrawn and listed as skipped", func(t *testing.T) {
+				assert.Equal(t, []string{"Ashampoo Photo Optimizer 7", "45% off Street Fighter V PS Store Coupon", "Duelyst - 20 Spirit Orbs"}, skipped)
+				assert.True(t, copies[0].Withdrawn)
+				assert.Equal(t, "humble:CCC:ashampoo_photooptimizer7:0", copies[0].ExternalID)
 			})
 		})
 	})

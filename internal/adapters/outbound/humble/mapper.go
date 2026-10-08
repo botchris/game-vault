@@ -11,13 +11,9 @@ import (
 )
 
 // MapOrders converts raw Humble orders, as returned by /api/v1/orders, into imported key copies.
-// now is used for relative expiry dates.
-func MapOrders(orders []json.RawMessage, now time.Time) ([]game.ImportedCopy, []string) {
-	var (
-		copies   []game.ImportedCopy
-		warnings []string
-	)
-
+// now is used for relative expiry dates. Keys that are not games are returned withdrawn, and their
+// titles listed in skipped.
+func MapOrders(orders []json.RawMessage, now time.Time) (copies []game.ImportedCopy, skipped, warnings []string) {
 	for _, raw := range orders {
 		var o struct {
 			Gamekey string `json:"gamekey"`
@@ -74,6 +70,16 @@ func MapOrders(orders []json.RawMessage, now time.Time) ([]game.ImportedCopy, []
 				id = fmt.Sprintf("humble:%s:%s:%v", gamekey, machine, t["keyindex"])
 			}
 
+			platform := platformFor(str(t, "key_type"), str(t, "key_type_human_name"))
+			if !isGame(title, platform) {
+				// Software, courses, in-game items and store coupons come in bundles too. They are
+				// reported as withdrawn so a copy imported before this filter existed is removed.
+				copies = append(copies, game.ImportedCopy{ExternalID: id, PreviousExternalID: previous, Title: title, Withdrawn: true})
+				skipped = append(skipped, title)
+
+				continue
+			}
+
 			copies = append(copies, game.ImportedCopy{
 				ExternalID:         id,
 				PreviousExternalID: previous,
@@ -81,7 +87,7 @@ func MapOrders(orders []json.RawMessage, now time.Time) ([]game.ImportedCopy, []
 				SteamAppID:         int64(num(t, "steam_app_id")),
 				Details: game.CopyDetails{
 					Kind:       game.KindKey,
-					Platform:   platformFor(str(t, "key_type"), str(t, "key_type_human_name")),
+					Platform:   platform,
 					Status:     status,
 					Key:        key,
 					RedeemBy:   deadline(t, now),
@@ -92,7 +98,17 @@ func MapOrders(orders []json.RawMessage, now time.Time) ([]game.ImportedCopy, []
 		}
 	}
 
-	return copies, warnings
+	return copies, skipped, warnings
+}
+
+// couponTitle matches store coupons ("45% off Street Fighter V PS Store Coupon").
+var couponTitle = regexp.MustCompile(`(?i)\bcoupon\b|^\d+\s*% off\b`)
+
+// isGame reports whether a key unlocks a game: a key for a store or console Game Vault knows that
+// is not a coupon. Humble also sells keys for software (Ashampoo, Corel), courses (Udemy), in-game
+// items (Duelyst, Sega) and the like, each with its own key type.
+func isGame(title, platform string) bool {
+	return !couponTitle.MatchString(title) && game.IsKnownPlatform(platform)
 }
 
 func platformFor(keyType, human string) string {
@@ -114,6 +130,8 @@ func platformFor(keyType, human string) string {
 		return "Rockstar"
 	case strings.Contains(k, "microsoft"), strings.Contains(k, "xbox"):
 		return "Microsoft Store / Xbox"
+	case strings.Contains(k, "nintendo"), strings.Contains(k, "switch"):
+		return "Nintendo eShop"
 	case human != "":
 		return human
 	}

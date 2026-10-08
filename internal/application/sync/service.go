@@ -344,9 +344,18 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 	}
 
 	report.Warnings = warnings
-	report.Fetched = len(copies)
 
-	var syncErr error
+	for _, c := range copies {
+		if !c.Withdrawn {
+			report.Fetched++
+		}
+	}
+
+	var (
+		syncErr error
+		removed int
+	)
+
 	if fetchErr != nil {
 		syncErr = fetchErr
 	} else {
@@ -362,6 +371,15 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 					return err
 				}
 			}
+
+			// Games left without copies after the source withdrew them (they were never games).
+			for _, id := range res.Emptied {
+				if err := s.games.Delete(ctx, id); err != nil {
+					return err
+				}
+			}
+
+			removed = res.CopiesRemoved
 
 			report.CopiesAdded, report.CopiesUpdated = res.CopiesAdded, res.CopiesUpdated
 			report.CopiesUnchanged, report.GamesCreated = res.CopiesUnchanged, res.GamesCreated
@@ -383,7 +401,7 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 	}
 
 	s.log.Info("source synced", "source", src.Name(), "fetched", report.Fetched, "added", report.CopiesAdded,
-		"updated", report.CopiesUpdated, "games_created", report.GamesCreated, "error", report.Err)
+		"updated", report.CopiesUpdated, "removed", removed, "games_created", report.GamesCreated, "error", report.Err)
 
 	v, err := s.view(ctx, src)
 	if err != nil {
