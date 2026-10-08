@@ -6,6 +6,9 @@ metadata:
 ---
 - Chains for covers, barcodes and metadata. Default order = registration order in
   `cmd/gamevault/main.go`; new providers are appended to existing users' chains.
+- Media providers can keep learned state in `schema.FieldState` settings: they write it into the
+  settings map they get, and the media service persists it with `provider.UpdateState` (wired for
+  barcode lookups only so far; CeX's `country_hits`, see [[cex]]).
 - TheGamesDB has a monthly quota (~1,000 requests): it only applies to physical copies, games no
   store knows (`CoverQuery.HasStoreLink`), and on the fallback pass when no store had art.
   Add a new store's prefix to `HasStoreLink` when it gets a cover provider. See [[thegamesdb]].

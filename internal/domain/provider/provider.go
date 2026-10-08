@@ -108,6 +108,29 @@ func (p *Provider) Configure(d Descriptor, enabled bool, incoming schema.Setting
 	return nil
 }
 
+// UpdateState keeps the state fields a provider wrote into settings during a lookup (e.g. what it
+// learned about where to look first) and reports whether they changed, so the caller saves them.
+// Settings the user configured are left as they are.
+func (p *Provider) UpdateState(d Descriptor, settings schema.Settings, now time.Time) bool {
+	next, prev := d.Fields.State(settings), d.Fields.State(p.settings)
+	if maps.Equal(next, prev) {
+		return false
+	}
+
+	merged := schema.Settings{}
+
+	for k, v := range p.settings {
+		if _, isState := prev[k]; !isState {
+			merged[k] = v
+		}
+	}
+
+	maps.Copy(merged, next)
+	p.settings, p.updatedAt = merged, now
+
+	return true
+}
+
 // ShareSettings copies settings configured on a sibling provider (same SettingsGroup).
 func (p *Provider) ShareSettings(settings schema.Settings, now time.Time) {
 	p.settings = schema.Settings{}

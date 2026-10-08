@@ -36,6 +36,7 @@ one line here. Update a file instead of adding a duplicate; date facts about ext
 - [Ubisoft](memory/ubisoft.md) — app `314d4fef…` blocked; `PRODrememberMe` rotates on every use; limit 50
 - [Xbox](memory/xbox.md) — Xbox app client; collections need `"beneficiaries": []`; public display catalog
 - [PlayStation](memory/playstation.md) — NPSSO; registered GraphQL hashes; CSRF header
+- [CeX](memory/cex.md) — free EAN box-detail API with PAL coverage; one lookup per scan, name and platform only, no images
 - [EAN-Search](memory/ean-search.md) — never scrape the public site
 
 ## Gotchas

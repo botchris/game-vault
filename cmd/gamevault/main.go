@@ -20,6 +20,7 @@ import (
 
 	"gamevault/internal/adapters/inbound/rpc"
 	"gamevault/internal/adapters/outbound/battlenet"
+	"gamevault/internal/adapters/outbound/cex"
 	"gamevault/internal/adapters/outbound/csvfile"
 	"gamevault/internal/adapters/outbound/eaapp"
 	"gamevault/internal/adapters/outbound/eansearch"
@@ -135,7 +136,7 @@ func run() error {
 	mediaSvc := media.NewService(games, sqlite.NewProviderRepository(db), assets, sqlite.NewDetailsStore(db), imagefetch.New(), steamStore, now, log,
 		media.Providers{
 			Covers:   []media.CoverProvider{tgdb, steamStore, epic.NewCovers(), gog.NewCovers(), ubisoft.NewCovers(), eaapp.NewCovers(), battlenet.NewCovers(steamStore, steamStore), xbox.NewCovers()},
-			Barcodes: []media.BarcodeProvider{ebay.New(), upcitemdb.New(), eansearch.New()},
+			Barcodes: []media.BarcodeProvider{cex.New(), ebay.New(), upcitemdb.New(), eansearch.New()},
 			Metadata: []media.MetadataProvider{steam.NewDetails(steamStore), thegamesdb.NewDetails(tgdb)},
 		})
 	catalogSvc := catalog.NewService(games, db, now, mediaSvc)

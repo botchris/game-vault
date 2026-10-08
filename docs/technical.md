@@ -40,7 +40,7 @@ internal/
                       Store sources (and their cover providers where the store has public art)
     outbound/browsersession/ Reuse of a website session pasted from the browser (cookies)
     outbound/thegamesdb/ TheGamesDB cover and details providers (platform box art, overview, trailer)
-    outbound/ebay/, upcitemdb/, eansearch/  Barcode databases
+    outbound/cex/, ebay/, upcitemdb/, eansearch/  Barcode databases
     outbound/gamedata/ Per-game asset folders (cover, sheet images, assets.json)
     outbound/sqlite/  Repositories, transactions, migrations, backups
     outbound/logfile/ Size-rotated log files with retention
@@ -206,7 +206,8 @@ Changing a game's Steam AppID or cover drops its cached sheet. Descriptions are 
 The **Scan** page registers discs quickly. You scan the barcode with the camera, a USB or Bluetooth reader, or by typing it. Then you confirm the game and move on to the next box.
 
 1. If one of your copies already has that barcode, you are told you already own it. Nothing external is asked.
-2. Otherwise the **barcode provider chain** is asked: eBay (free developer keys; finds second-hand listings carrying the EAN, the best free source for PAL games), UPCitemdb (free, about 100 lookups a day), then EAN-Search (needs a token).
+2. Otherwise the **barcode provider chain** is asked: CeX (free, no key), eBay (free developer keys; finds second-hand listings carrying the EAN), UPCitemdb (free, about 100 lookups a day), then EAN-Search (needs a token). Installations that existed before CeX get it at the end of the chain; move it up on the Providers page.
+   **CeX** reads the box detail endpoint the CeX website calls (`wss2.cex.{country}.webuy.io/v3/boxes/{ean}/detail`, undocumented; community notes in github.com/Dionakra/webuy-api). It knows many PAL editions the other databases miss. Each country has its own catalog of the editions sold there and a barcode does not say which country it belongs to (the Spanish Dead Space 3 has a UK-registered code and is only in the Spanish catalog), so the countries are asked one at a time, never in parallel, stopping at the first that knows the code. The countries that answered are remembered (an internal provider setting) and asked first, so after the first scans a lookup is usually one request; an unknown code asks every country once. The settings can limit the countries (`uk, es, ie, pt, au, in, mx, it, pl`). Only the product name and the platform (from the category, e.g. "Xbox 360 Juegos") are used: CeX's images and prices are not. Products outside CeX's games category (films, accessories) are not offered as games. If CeX answers with anything but its JSON API (a bot check page), the lookup fails with a clear warning and the next provider is used; it is never worked around.
    The retail product name is cleaned up, e.g. "Assassin's Creed Iii Ed. Special Ps3(sp)" → *Assassin's Creed III*, PS3, Special Edition.
 3. The cover providers (TheGamesDB) propose the canonical game and its box art for that platform. The cover you pick is pinned, so no further lookup is spent.
 4. If the code is unknown (UPCitemdb knew about half of the PAL boxes we tried), you type the title, pick a suggestion, and the disc is saved **with its barcode**. The next scan of that code is recognised instantly.

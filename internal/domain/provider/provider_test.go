@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"gamevault/internal/domain/schema"
 )
 
@@ -41,4 +43,33 @@ func TestReorder(t *testing.T) {
 	if list[0] != c || list[1] != a || list[2] != b || c.Priority() != 0 || b.Priority() != 2 {
 		t.Fatalf("unexpected order: %s %s %s", list[0].ID(), list[1].ID(), list[2].ID())
 	}
+}
+
+func TestProvider_UpdateState(t *testing.T) {
+	now := time.Date(2026, 10, 8, 0, 0, 0, 0, time.UTC)
+	d := Descriptor{ID: "cex", Kind: KindBarcode, Name: "CeX", Fields: schema.Fields{
+		{Key: "countries", Kind: schema.FieldText},
+		{Key: "country_hits", Kind: schema.FieldState},
+	}}
+
+	t.Run("GIVEN a provider the user limited to some countries", func(t *testing.T) {
+		p := Rehydrate("cex", KindBarcode, true, 0, schema.Settings{"countries": "es,uk"}, now)
+
+		t.Run("WHEN a lookup writes what it learned into a copy of the settings", func(t *testing.T) {
+			settings := p.Settings()
+			settings["country_hits"] = "es:1"
+			settings["countries"] = "changed by mistake"
+
+			changed := p.UpdateState(d, settings, now)
+
+			t.Run("THEN the state is kept and the user's settings are not touched", func(t *testing.T) {
+				assert.True(t, changed)
+				assert.Equal(t, schema.Settings{"countries": "es,uk", "country_hits": "es:1"}, p.Settings())
+			})
+
+			t.Run("AND the same state again is not a change", func(t *testing.T) {
+				assert.False(t, p.UpdateState(d, settings, now))
+			})
+		})
+	})
 }

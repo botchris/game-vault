@@ -760,7 +760,16 @@ func (s *Service) IdentifyBarcode(ctx context.Context, raw string) (BarcodeResul
 	}
 
 	for _, p := range chain {
-		matches, err := s.barcodes[p.ID()].Lookup(ctx, code, p.Settings())
+		settings := p.Settings()
+		matches, err := s.barcodes[p.ID()].Lookup(ctx, code, settings)
+
+		// A provider may have learned something worth keeping (state fields), even when it failed.
+		if p.UpdateState(p.Descriptor, settings, s.now()) {
+			if serr := s.providers.Save(ctx, p.Provider); serr != nil {
+				s.log.Warn("saving provider state", "provider", p.ID(), "error", serr)
+			}
+		}
+
 		if err != nil {
 			res.Warnings = append(res.Warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
 			continue

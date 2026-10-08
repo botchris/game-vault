@@ -368,6 +368,11 @@
     },
     "barcodes": "Códigos de barras",
     "barcodesIntro": "Los usa Escanear para identificar un disco por el código de barras de la caja. Los códigos desconocidos se identifican una vez por título y quedan recordados.",
+    "cex": {
+      "description": "El catálogo de la tienda de juegos de segunda mano: gratis, sin clave, y conoce muchas ediciones europeas (PAL) que otras bases de datos no tienen. Cada país tiene su propio catálogo; se consultan uno a uno, y los países que encontraron tus juegos se consultan primero la próxima vez. Solo se usan el nombre y la plataforma.",
+      "countries": "Países (opcional)",
+      "countriesHelp": "Déjalo vacío para buscar en todos los países. Para limitarlo, escribe los códigos de país separados por comas: uk, es, ie, pt, au, in, mx, it, pl."
+    },
     "upcitemdb": {
       "description": "Gratis y sin key (unas 100 consultas al día). Conoce la mayoría de cajas americanas y aproximadamente la mitad de las europeas.",
       "userKey": "User key (opcional)",

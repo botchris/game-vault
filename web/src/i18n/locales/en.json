@@ -368,6 +368,11 @@
     },
     "barcodes": "Barcodes",
     "barcodesIntro": "Used by Scan to identify a disc from the barcode on its box. Unknown codes are identified once by title and then remembered.",
+    "cex": {
+      "description": "The second-hand game store's catalog: free, no key, and it knows many European (PAL) editions that other databases miss. Each country has its own catalog; they are asked one by one, and the countries that found your games are asked first next time. Only the name and platform are used.",
+      "countries": "Countries (optional)",
+      "countriesHelp": "Leave empty to look in every country. To limit it, list country codes separated by commas: uk, es, ie, pt, au, in, mx, it, pl."
+    },
     "upcitemdb": {
       "description": "Free, no key needed (about 100 lookups a day). Knows most US boxes and about half of European ones.",
       "userKey": "User key (optional)",
