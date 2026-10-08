@@ -10,7 +10,7 @@ one line here. Update a file instead of adding a duplicate; date facts about ext
 
 ## Status (update when the user reports results)
 - [Integration status](memory/status-integrations.md) — confirmed: Humble, Steam, Epic, GOG, EA, Ubisoft, Xbox; watch Battle.net keep-alive; PlayStation and the security redesign untested by the user
-- [Open threads](memory/open-threads.md) — offered, not done: PS Store covers, itch.io, Amazon, EAN-Search button, CI, config README
+- [Open threads](memory/open-threads.md) — offered, not done: cover photo recognition (paused), PS Store covers, itch.io, Amazon, EAN-Search button, CI, config README
 - [Known gaps](memory/known-gaps.md) — games without any cover; project not in git yet
 
 ## Decisions
@@ -23,6 +23,7 @@ one line here. Update a file instead of adding a duplicate; date facts about ext
 - [Local images](memory/local-images.md) — downloads into `config/game-data`, proxy only for declared hosts
 - [Security model](memory/security-model.md) — one user, trusted networks, cert validation, `-reset-auth`; never trust proxied or host-name requests
 - [Docker image](memory/docker-image.md) — `botchrishub/game-vault`, amd64+arm64, SemVer git tags from v0.1.0, trusts private networks until saved; publish only on request
+- [Cover recognition](memory/cover-recognition.md) — no paid LLMs: OCR + title matching + CLIP tie-break; spike 4/4, logo digits never OCR'd; paused for a 30-50 photo test set
 
 ## External services (as of 2026-10)
 - [Steam](memory/steam.md) — public store APIs, ~200 req / 5 min, Humble AppIDs that don't exist
