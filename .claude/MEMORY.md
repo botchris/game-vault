@@ -22,7 +22,7 @@ one line here. Update a file instead of adding a duplicate; date facts about ext
 - [Unattended requests](memory/unattended-requests.md) — keep-alive ±30%, scans ±10%, spread start-up
 - [Local images](memory/local-images.md) — downloads into `config/game-data`, proxy only for declared hosts
 - [Security model](memory/security-model.md) — one user, trusted networks, cert validation, `-reset-auth`; never trust proxied or host-name requests
-- [Docker image](memory/docker-image.md) — `botchrishub/game-vault`, amd64+arm64, trusts private networks until saved; publish only on request
+- [Docker image](memory/docker-image.md) — `botchrishub/game-vault`, amd64+arm64, SemVer git tags from v0.1.0, trusts private networks until saved; publish only on request
 
 ## External services (as of 2026-10)
 - [Steam](memory/steam.md) — public store APIs, ~200 req / 5 min, Humble AppIDs that don't exist

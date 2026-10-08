@@ -32,7 +32,8 @@ dependencies: the host only needs Docker and Task.
 | Translations check only | `task i18n` |
 | One-off command in the toolchain (one package, a tool…) | `task shell`, or `docker run` with the volumes from `Taskfile.yml` (`DOCKER_RUN`) |
 | Release binaries (linux, darwin, windows) | `task build:release` |
-| Docker image: try locally / publish to Docker Hub | `task docker:build` / `task docker:publish` — publishing asks first; never run it without the user's go-ahead |
+| Tag a release (SemVer, from a clean main) | `task release -- X.Y.Z` — creates a local tag only |
+| Docker image: try locally / publish a tagged release | `task docker:build` / `task docker:publish` — publishing asks first; never run it, or push tags, without the user's go-ahead |
 
 The server binary is cross-compiled for the host (`CGO_ENABLED=0`, pure-Go SQLite) and runs on
 the host: access without a password from trusted networks relies on the real client address, which

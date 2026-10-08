@@ -5,7 +5,9 @@ metadata:
   type: project
 ---
 Decided 2026-10-08: Game Vault is published as `botchrishub/game-vault` on Docker Hub (the user's
-personal account), multi-arch `linux/amd64` + `linux/arm64`, tags `YYYY.MM.DD` and `latest`.
+personal account), multi-arch `linux/amd64` + `linux/arm64`. Versioning (decided the same day):
+SemVer git tags starting at `v0.1.0`, read with `git describe`; `task release -- X.Y.Z` tags,
+`task docker:publish` only publishes a tagged clean commit (`build/release.sh`).
 
 - `build/Dockerfile` packages the toolchain's output (`bin/release/gamevault-linux-*`, `web/dist`)
   on distroless `static-debian13:nonroot`; nothing compiles in the image build. `.dockerignore`

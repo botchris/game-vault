@@ -8,11 +8,14 @@
 version: '3'
 
 vars:
+  # The version comes from the SemVer git tag (see `task release`): "0.2.0" on a tagged commit,
+  # "0.2.0-3-gabc1234" after it, "-dirty" with uncommitted changes, a commit hash before the first
+  # release.
   VERSION:
-    sh: date +%Y.%m.%d
-  # Commit the binaries and the image are built from; "-dirty" when there are uncommitted changes.
+    sh: (git describe --tags --match 'v[0-9]*' --dirty --always 2>/dev/null || echo dev) | sed 's/^v//'
+  # The commit the binaries and the image are built from.
   REVISION:
-    sh: git describe --always --dirty 2>/dev/null || echo unknown
+    sh: git rev-parse --short HEAD 2>/dev/null || echo unknown
   # Docker Hub repository the image is published to (override with `task docker:publish IMAGE=…`).
   IMAGE: botchrishub/game-vault
   # The toolchain image is tagged with a hash of its Dockerfile: editing it builds a new image.
@@ -106,9 +109,25 @@ tasks:
         --build-arg VERSION=dev --build-arg REVISION={{.REVISION}}
         -t {{.IMAGE}}:dev --load .
 
+  release:
+    desc: 'Tag a release: task release -- X.Y.Z (from a clean main, after lint and tests)'
+    cmds:
+      - build/release.sh check {{.CLI_ARGS}}
+      - task: lint
+      - task: test
+      - build/release.sh tag {{.CLI_ARGS}}
+
   docker:publish:
-    desc: Build the image for linux/amd64 and linux/arm64 and push it to Docker Hub tagged with the date (YYYY.MM.DD) and latest (run `docker login` first)
-    prompt: Publish {{.IMAGE}}:{{.VERSION}} and {{.IMAGE}}:latest (commit {{.REVISION}}) to Docker Hub?
+    desc: Push the image of the release on this commit to Docker Hub, for linux/amd64 and linux/arm64 (run `docker login` first)
+    preconditions:
+      - sh: git describe --tags --exact-match --match 'v[0-9]*' >/dev/null 2>&1
+        msg: 'This commit has no version tag: release it first with `task release -- X.Y.Z`.'
+      - sh: test -z "$(git status --porcelain)"
+        msg: There are uncommitted changes; the image must match the tagged commit exactly.
+    vars:
+      TAGS:
+        sh: build/release.sh docker-tags {{.IMAGE}} 2>/dev/null || true
+    prompt: 'Publish Game Vault {{.VERSION}} to Docker Hub as: {{.TAGS}}?'
     cmds:
       - task: build:web
       - task: build:release
@@ -117,7 +136,7 @@ tasks:
       - >-
         docker buildx build --builder gamevault --platform linux/amd64,linux/arm64 -f build/Dockerfile
         --build-arg VERSION={{.VERSION}} --build-arg REVISION={{.REVISION}}
-        -t {{.IMAGE}}:{{.VERSION}} -t {{.IMAGE}}:latest --push .
+        {{.TAGS}} --push .
 
   docker:builder:
     internal: true

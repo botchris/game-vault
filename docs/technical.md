@@ -91,7 +91,7 @@ The web client calls the page's own origin. To point it at another backend, buil
 ## Docker image
 
 `botchrishub/game-vault` on Docker Hub, for `linux/amd64` and `linux/arm64`, tagged with the
-build date (`YYYY.MM.DD`) and `latest`. `build/Dockerfile` only packages what the toolchain built
+release version (see [Releases](#releases)). `build/Dockerfile` only packages what the toolchain built
 (`bin/release/gamevault-linux-*` and `web/dist`) on `gcr.io/distroless/static-debian13:nonroot`:
 CA certificates, time zone data and a non-root user (uid 65532), no shell. `.dockerignore` lets
 nothing else into the build context, so `config/` can never end up in an image.
@@ -99,7 +99,7 @@ nothing else into the build context, so `config/` can never end up in an image.
 | Task | What it does |
 |---|---|
 | `task docker:build` | Image for this machine's architecture as `botchrishub/game-vault:dev`, loaded into the local Docker |
-| `task docker:publish` | Asks for confirmation, builds both architectures with a `docker-container` buildx builder (`gamevault`, created once) and pushes the date tag and `latest`. Run `docker login` first. `IMAGE=…` publishes elsewhere |
+| `task docker:publish` | Only on a commit with a release tag and no uncommitted changes. Asks for confirmation, builds both architectures with a `docker-container` buildx builder (`gamevault`, created once) and pushes the release's tags. Run `docker login` first. `IMAGE=…` publishes elsewhere |
 
 The image sets `GAMEVAULT_ADDR=0.0.0.0:8080` (inside a container the port mapping decides who can
 reach it), `GAMEVAULT_CONFIG_DIR=/config` (a volume) and `GAMEVAULT_UI_DIR=/app/web/dist`.
@@ -118,6 +118,23 @@ docker run -d --name game-vault -p 8080:8080 -v game-vault-data:/config botchris
 A named volume is writable out of the box. For a host folder, run as its owner
 (`--user "$(id -u):$(id -g)"`) or give it to uid 65532. Arguments after the image name are
 passed to the server, e.g. `… botchrishub/game-vault -reset-auth`.
+
+## Releases
+
+Versions follow [SemVer](https://semver.org) and live only in git tags (`v0.1.0`). Everything
+else reads them with `git describe`: the binaries (`-X main.version`, shown in **System**) and the
+image get `0.2.0` on a tagged commit, `0.2.0-3-gabc1234` on later commits and a `-dirty` suffix with
+uncommitted changes.
+
+- **Patch** (`0.2.1`): fixes. **Minor** (`0.3.0`): new features, e.g. a new store. **Major**:
+  updating needs the user to do something (a renamed setting or variable, a different port, a
+  migration that cannot be undone). `0.x` until the first stable release.
+- `task release -- 0.2.0` checks it runs on a clean `main` and that the version is new and higher
+  than the last one, runs `task lint` and `task test`, and creates the annotated tag. It pushes
+  nothing: then `git push origin main v0.2.0` and `task docker:publish`.
+- Image tags for `1.2.3`: `1.2.3`, `1.2`, `1` and `latest`. For `0.x` there is no major tag
+  (`0.2.1`, `0.2`, `latest`), and a pre-release (`1.3.0-rc.1`) only gets its own tag. The logic
+  is in `build/release.sh`.
 
 ## Sources
 
