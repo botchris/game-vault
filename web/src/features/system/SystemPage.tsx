@@ -119,19 +119,22 @@ export default function SystemPage() {
 
       <SecurityCard />
 
-      {value && value.totals.length > 0 && (
+      {/* Only sources with something to add up: before the first estimates there is nothing to show. */}
+      {value && value.totals.some((v) => v.copies > 0 || v.otherCurrency > 0) && (
         <section className="card">
           <h2>{t('system.collectionValue')}</h2>
           {!value.currency && <p className="muted">{t('system.valueNoCurrency')}</p>}
-          {value.currency && value.totals.map((v) => {
+          {value.currency && value.totals.filter((v) => v.copies > 0 || v.otherCurrency > 0).map((v) => {
             const money = (minor: bigint) => formatAmount(minor, value.currency, i18n.language);
+            const other = v.otherCurrency > 0 && t('system.valueOther', { count: v.otherCurrency });
+            if (v.copies === 0) return <p key={v.provider} className="muted">{v.name}: {other}</p>;
             return (
               <p key={v.provider}>
                 {v.buyCashMinor > 0n || v.buyCreditMinor > 0n
                   ? t('system.valueShop', { name: v.name, sell: money(v.sellMinor), cash: money(v.buyCashMinor), credit: money(v.buyCreditMinor) })
                   : t('system.valueListed', { name: v.name, sell: money(v.sellMinor) })}
                 {' · '}<span className="muted">{t('system.valueCopies', { count: v.copies })}</span>
-                {v.otherCurrency > 0 && <span className="muted"> · {t('system.valueOther', { count: v.otherCurrency })}</span>}
+                {other && <span className="muted"> · {other}</span>}
               </p>
             );
           })}
