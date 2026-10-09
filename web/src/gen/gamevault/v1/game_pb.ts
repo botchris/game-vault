@@ -1389,6 +1389,8 @@ export const ScannedCopyResultSchema: GenMessage<ScannedCopyResult> = /*@__PURE_
  */
 export type AddScannedCopiesResponse = Message<"gamevault.v1.AddScannedCopiesResponse"> & {
   /**
+   * One per item, in the order of the request.
+   *
    * @generated from field: repeated gamevault.v1.ScannedCopyResult results = 1;
    */
   results: ScannedCopyResult[];

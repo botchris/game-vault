@@ -35,14 +35,14 @@ func TestAddScannedCopies_endToEnd(t *testing.T) {
 				Details:  disc("Xbox 360", "5030934110075"),
 			},
 			{
-				ClientId: "r2:0",
-				Title:    "Dead Space 3",
-				Details:  disc("PS3", "5030941110075"),
-			},
-			{
 				ClientId: "r3:0",
 				Title:    "Halo 3",
 				Details:  disc("Xbox 360", "123"),
+			},
+			{
+				ClientId: "r2:0",
+				Title:    "Dead Space 3",
+				Details:  disc("PS3", "5030941110075"),
 			},
 		}}))
 		require.NoError(t, err)
@@ -63,6 +63,15 @@ func TestAddScannedCopies_endToEnd(t *testing.T) {
 			assert.Equal(t, res.Msg.Games[0].Id, byID["r2:0"].GameId)
 			assert.NotEmpty(t, byID["r2:0"].CopyId)
 			assert.NotEmpty(t, byID["r3:0"].Error)
+		})
+
+		t.Run("AND the results come in the order of the request", func(t *testing.T) {
+			order := make([]string, 0, len(res.Msg.Results))
+			for _, r := range res.Msg.Results {
+				order = append(order, r.ClientId)
+			}
+
+			assert.Equal(t, []string{"r1:0", "r3:0", "r2:0"}, order)
 		})
 	})
 

@@ -120,6 +120,10 @@ export default function ScanPage() {
 
   // Every change goes through here: the ref lets handlers read the list synchronously (a read
   // and a lookup answer can arrive in the same tick), and the list is saved on the device.
+  // t changes with the language; through a ref, update (and the lookup queue made from it) stay
+  // the same, so a language change does not start a second queue.
+  const tRef = useRef(t);
+  tRef.current = t;
   const update = useCallback((fn: (r: Row[]) => Row[]) => {
     const next = fn(rowsRef.current);
     if (next === rowsRef.current) return;
@@ -127,9 +131,9 @@ export default function ScanPage() {
     setRows(next);
     if (!remember(LIST_KEY, saveRows(next)) && !warnedStorage.current) {
       warnedStorage.current = true;
-      setNotice({ tone: 'warn', text: t('scan.list.noStorage') });
+      setNotice({ tone: 'warn', text: tRef.current('scan.list.noStorage') });
     }
-  }, [t]);
+  }, []);
 
   const queue = useMemo(() => createLookupQueue(
     (c: string) => lookupClient.identifyBarcode({ barcode: c }).then(toAnswer),
@@ -274,10 +278,10 @@ export default function ScanPage() {
             <Icon name="camera" size={18} />
             <span className="camera-toggle-label">{t(camera ? 'scan.camera.stop' : 'scan.camera.start')}</span>
           </button>
-          <button type="button" className="camera-toggle" onClick={toggleMute} aria-pressed={!muted}
-            title={t(muted ? 'scan.list.unmute' : 'scan.list.mute')} aria-label={t(muted ? 'scan.list.unmute' : 'scan.list.mute')}>
+          {/* A toggle with a fixed name: pressed means the sound is on. */}
+          <button type="button" className="camera-toggle" onClick={toggleMute} aria-pressed={!muted} title={t('scan.list.sound')}>
             <Icon name={muted ? 'muted' : 'sound'} size={18} />
-            <span className="camera-toggle-label">{t(muted ? 'scan.list.unmute' : 'scan.list.mute')}</span>
+            <span className="camera-toggle-label">{t('scan.list.sound')}</span>
           </button>
         </form>
         <BatchBar defaults={defaults} onChange={setDefaults} />

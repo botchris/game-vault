@@ -152,8 +152,13 @@ export default function CameraScanner({ onCode }: { onCode: (code: string) => 'a
     <div className={`camera ${flash ? `flash-${flash.kind}` : ''} ${mirrored ? 'mirrored' : ''}`}>
       <video ref={video} muted playsInline />
       <div className="camera-guide" aria-hidden="true" />
+      {/* One live region stays mounted so screen readers announce every read; the visible toast
+          is remounted per read for its entrance. */}
+      <p className="sr-only" role="status">
+        {flash ? `${flash.code} · ${t(flash.kind === 'added' ? 'scan.list.toastAdded' : 'scan.list.toastRepeat')}` : ''}
+      </p>
       {flash ? (
-        <p key={flash.n} className="camera-toast" role="status">
+        <p key={flash.n} className="camera-toast" aria-hidden="true">
           <code>{flash.code}</code> · {t(flash.kind === 'added' ? 'scan.list.toastAdded' : 'scan.list.toastRepeat')}
         </p>
       ) : (

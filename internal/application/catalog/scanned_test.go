@@ -161,6 +161,28 @@ func TestAddScannedCopies(t *testing.T) {
 		})
 	})
 
+	t.Run("GIVEN two new games whose titles are only punctuation", func(t *testing.T) {
+		svc, _ := setup(t)
+
+		_, games, err := svc.AddScannedCopies(ctx, []catalog.ScannedCopy{
+			{
+				Ref:     "a",
+				Title:   "!!!",
+				Details: physical("PS3", "5030934110075"),
+			},
+			{
+				Ref:     "b",
+				Title:   "???",
+				Details: physical("PS3", "5030941110075"),
+			},
+		})
+		require.NoError(t, err)
+
+		t.Run("THEN they stay two games (their match keys are empty, not equal)", func(t *testing.T) {
+			assert.Len(t, games, 2)
+		})
+	})
+
 	t.Run("GIVEN requests the scan page never sends", func(t *testing.T) {
 		svc, _ := setup(t)
 		tooMany := make([]catalog.ScannedCopy, catalog.MaxScannedCopies+1)

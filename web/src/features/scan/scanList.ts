@@ -128,7 +128,8 @@ export function resolved(row: Row, batchPlatform: string): Choice | null {
   const a = row.answer;
   if (!a) return null;
   const owned = a.owned[0];
-  if (owned) {
+  // A box you have goes to that game, unless the user chose otherwise (its game was deleted…).
+  if (owned && !row.choice) {
     return { title: owned.title, platform: batchPlatform || owned.platform, edition: '', coverUrl: '', thumbUrl: '', gameId: owned.gameId };
   }
   const s = a.suggestions[0];
@@ -147,9 +148,9 @@ export function resolved(row: Row, batchPlatform: string): Choice | null {
 export function status(row: Row, batchPlatform: string): Status {
   if (row.phase === 'looking') return 'looking';
   if (row.phase === 'error' || !row.answer) return 'error';
-  if (row.answer.owned.length) return 'owned';
   // A copy the server refused (its game was deleted…) waits for the user to change the row.
   if (row.error) return 'review';
+  if (row.answer.owned.length && !row.choice) return 'owned';
   const c = resolved(row, batchPlatform)!;
   if (!c.title.trim() || !c.platform.trim()) return 'review';
   // Resolved by itself only when there is a suggested game and at most one of yours to add it to.

@@ -539,15 +539,14 @@
       "added_one": "Añadidos en esta sesión ({{count}})",
       "added_other": "Añadidos en esta sesión ({{count}})",
       "noStorage": "Este navegador no deja a Game Vault guardar la lista: se perderá si cierras la página.",
-      "mute": "Silenciar",
-      "unmute": "Sonido",
       "detailTitle": "Juego",
       "search": "Buscar",
       "addTo": "Añadir como",
       "cover": "Portada",
       "done": "Listo",
       "foundIn": "encontrado en {{provider}} como «{{raw}}»",
-      "unknown": "No está en ninguna base de datos de códigos: escribe el título y busca. La caja guarda su código, así la próxima vez se reconoce al instante."
+      "unknown": "No está en ninguna base de datos de códigos: escribe el título y busca. La caja guarda su código, así la próxima vez se reconoce al instante.",
+      "sound": "Sonido"
     }
   },
   "auth": {
