@@ -104,6 +104,23 @@ message Photo {
   google.protobuf.Timestamp added_at = 4;
 }
 
+// Estimate is a source's latest second-hand price for a physical copy. All its amounts are in one
+// currency.
+message Estimate {
+  // The price provider ("cex-prices", "ebay-prices").
+  string provider = 1;
+  // What the shop sells it for, or the median asking price of the listings.
+  Money sell = 2;
+  // What a shop pays for it in cash or store credit; absent when the source does not buy.
+  Money buy_cash = 3;
+  Money buy_credit = 4;
+  // How many listings the price was taken from; 0 for a shop's price.
+  int32 listings = 5;
+  // The product's page at the source.
+  string url = 6;
+  google.protobuf.Timestamp fetched_at = 7;
+}
+
 // Copy is one owned instance of a game.
 message Copy {
   string id = 1;
@@ -119,6 +136,10 @@ message Copy {
   google.protobuf.Timestamp updated_at = 7;
   // The user's photos of the copy, in their order.
   repeated Photo photos = 8;
+  // Latest second-hand price per source (physical copies with a barcode).
+  repeated Estimate estimates = 9;
+  // When the prices are next estimated; absent when none is planned.
+  google.protobuf.Timestamp next_valuation = 10;
 }
 
 // Game is the aggregate root: a title plus every copy you own of it.

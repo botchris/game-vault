@@ -30,6 +30,9 @@ type Handlers struct {
 	Media    *media.Service
 	Auth     *AuthHandler
 
+	// Valuation serves the second-hand price estimates.
+	Valuation *ValuationHandler
+
 	// AuthService identifies callers for every request (see authMiddleware).
 	AuthService *appauth.Service
 }
@@ -64,6 +67,7 @@ func NewHTTPHandler(h Handlers, opts Options) http.Handler {
 	mux.Handle(gamevaultv1connect.NewLookupServiceHandler(h.MediaRPC, ic))
 	mux.Handle(gamevaultv1connect.NewMetadataServiceHandler(h.MediaRPC, ic))
 	mux.Handle(gamevaultv1connect.NewAuthServiceHandler(h.Auth, ic))
+	mux.Handle(gamevaultv1connect.NewValuationServiceHandler(h.Valuation, ic))
 	mux.Handle("GET /media/covers/{id}", coverHandler(h.Media))
 	mux.Handle("GET /media/proxy", imageProxyHandler(h.Media))
 	mux.Handle("GET /media/games/{id}/assets/{name}", gameAssetHandler(h.Media))

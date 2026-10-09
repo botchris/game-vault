@@ -35,6 +35,7 @@ import (
 	"gamevault/internal/application/sync"
 	"gamevault/internal/application/system"
 	"gamevault/internal/application/transfer"
+	"gamevault/internal/application/valuation"
 	"gamevault/internal/config"
 	domainauth "gamevault/internal/domain/auth"
 	"gamevault/internal/domain/game"
@@ -136,6 +137,7 @@ func run() error {
 
 	mediaSvc := media.NewService(games, sqlite.NewProviderRepository(db), assets, photos, sqlite.NewDetailsStore(db), imagefetch.New(), now, log,
 		plugins.Media())
+	valuationSvc := valuation.NewService(games, db, mediaSvc, settingsRepo, now, log, plugins.Valuations()...)
 	catalogSvc := catalog.NewService(games, db, now, mediaSvc, photos)
 	syncSvc := sync.NewService(sources, games, db, mediaSvc, now, log, plugins.Sources()...)
 	transferSvc := transfer.NewService(games, db, settingsRepo, now, csvfile.Codec{})
@@ -148,10 +150,11 @@ func run() error {
 
 	// Background jobs
 	if cfg.NoUnattended {
-		log.Warn("scheduled scans and keep-alives are off (-no-unattended)")
+		log.Warn("scheduled scans, keep-alives and price estimates are off (-no-unattended)")
 	} else {
 		go syncSvc.RunScheduler(ctx, time.Minute, 30*time.Minute)
 		go syncSvc.RunKeepAlive(ctx, time.Minute, 10*time.Minute)
+		go valuationSvc.RunScheduler(ctx)
 	}
 
 	go mediaSvc.RunDetailsScanner(ctx, 2*time.Second) // gentle enough for the strictest store API (Steam: ~200 requests / 5 min)
@@ -185,6 +188,7 @@ func run() error {
 		Logs:        rpc.NewLogHandler(logsSvc),
 		MediaRPC:    rpc.NewMediaHandler(mediaSvc),
 		Media:       mediaSvc,
+		Valuation:   rpc.NewValuationHandler(valuationSvc),
 	}, rpc.Options{
 		UIDir:       cfg.UIDir,
 		CORSOrigins: cfg.CORSOrigins,
