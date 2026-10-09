@@ -12,6 +12,13 @@ func TestMatchKey(t *testing.T) {
 		"Celeste™ (Steam Key)":            "celeste",
 		"Slay the Spire - Deluxe Edition": "slay the spire",
 		"Pokémon & Friends":               "pokemon and friends",
+		"Celeste Steam Key":               "celeste",
+		"Hades - GOG Key":                 "hades",
+		"Control Epic Games Store Key":    "control",
+		"Forza Horizon 5 Xbox One Key":    "forza horizon 5",
+		"Steamworld Dig":                  "steamworld dig",
+		"Epic Mickey":                     "epic mickey",
+		"Steam Prison":                    "steam prison",
 	}
 	for in, want := range cases {
 		if got := MatchKey(in); got != want {

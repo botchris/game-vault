@@ -142,12 +142,21 @@ func CanonicalPlatform(p string) string {
 var (
 	reTrademarks = regexp.MustCompile(`[™®©]`)
 	reBrackets   = regexp.MustCompile(`\(.*?\)|\[.*?\]`)
-	reSuffixes   = regexp.MustCompile(`\b(steam\s*key|steam|key|pc|digital|game of the year|goty|definitive|complete|deluxe|ultimate|enhanced|remastered|director'?s cut|anniversary|gold|edition)\b`)
+	reStoreKey   = regexp.MustCompile(`\b(` + storeNames + `)\s*(cd\s*)?key\b`)
+	reSuffixes   = regexp.MustCompile(`\b(key|pc|digital|game of the year|goty|definitive|complete|deluxe|ultimate|enhanced|remastered|director'?s cut|anniversary|gold|edition)\b`)
 	reNonAlnum   = regexp.MustCompile(`[^a-z0-9]+`)
 	stripMarks   = transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
 )
 
-// MatchKey reduces a title to a comparable form, e.g. "Celeste™ (Steam Key)" → "celeste".
+// storeNames are the stores a key can be for, as sellers write them in titles ("Celeste Steam Key",
+// "Hades - GOG Key"). Only "<store> key" is dropped: a bare store name can be part of the title
+// ("Epic Mickey", "Switch Force").
+const storeNames = `steam|gog(\.com)?|epic(\s*games)?(\s*store)?|ubisoft(\s*connect)?|uplay|ea(\s*app)?|origin|` +
+	`battle\.?\s*net|rockstar(\s*games)?|microsoft(\s*store)?|xbox(\s*(one|series\s*[xs](\s*\|\s*[xs])?|live))?|` +
+	`windows|playstation(\s*[345])?|psn|ps[345]|nintendo(\s*(switch|eshop))?|switch|itch(\.io)?|amazon(\s*games)?`
+
+// MatchKey reduces a title to a comparable form, e.g. "Celeste™ (Steam Key)" → "celeste" and
+// "Hades GOG Key" → "hades": the store a key is for is not part of the game's name.
 // Two titles with the same match key are treated as the same game when consolidating.
 func MatchKey(title string) string {
 	s := reTrademarks.ReplaceAllString(title, "")
@@ -158,6 +167,7 @@ func MatchKey(title string) string {
 	s = strings.ToLower(s)
 	s = reBrackets.ReplaceAllString(s, " ")
 	s = strings.ReplaceAll(s, "&", " and ")
+	s = reStoreKey.ReplaceAllString(s, " ")
 	s = reSuffixes.ReplaceAllString(s, " ")
 	s = reNonAlnum.ReplaceAllString(s, " ")
 

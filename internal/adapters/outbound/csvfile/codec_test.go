@@ -28,26 +28,45 @@ func TestDecodeSpanishSemicolon(t *testing.T) {
 	}
 }
 
-// The export of the first Game Vault version must import without losing ids, so later scans
-// of Humble and Steam update those copies instead of duplicating them.
-func TestDecodeLegacyExport(t *testing.T) {
-	in := "title,platform,kind,status,cdKey,deadline,source,purchaseDate,edition,condition,location,links,notes,externalId\n" +
-		"Hades,Steam,digital,owned,,,Steam,,,,,steam:1145360,,steam:1145360\n" +
-		"Celeste,Steam,key,unrevealed,,2026-10-19,Humble – Indie Bundle,2023-05-01,,,,,,humble:AAA:1\n"
+func TestDecode_columns(t *testing.T) {
+	t.Run("GIVEN an export with Game Vault's columns", func(t *testing.T) {
+		in := "title,platform,kind,status,key,redeemBy,origin,acquiredOn,edition,condition,location,notes,links,externalId,barcode\n" +
+			"Hades,Steam,library,owned,,,Steam,,,,,,steam:1145360,steam:1145360,\n" +
+			"Celeste,Steam,key,unrevealed,,2026-10-19,Humble – Indie Bundle,2023-05-01,,,,,,humble:AAA:1,\n"
 
-	copies, warnings, err := Codec{}.Decode(strings.NewReader(in))
-	if err != nil || len(warnings) != 0 || len(copies) != 2 {
-		t.Fatalf("copies=%v warnings=%v err=%v", copies, warnings, err)
-	}
+		t.Run("WHEN it is imported", func(t *testing.T) {
+			copies, warnings, err := Codec{}.Decode(strings.NewReader(in))
+			require.NoError(t, err)
 
-	lib, key := copies[0], copies[1]
-	if lib.Details.Kind != game.KindLibrary || lib.ExternalID != "steam:1145360" || lib.Links[game.LinkSteam] != "1145360" {
-		t.Errorf("library row: %+v", lib)
-	}
+			t.Run("THEN every row keeps its id, so later scans update it instead of duplicating it", func(t *testing.T) {
+				assert.Empty(t, warnings)
+				require.Len(t, copies, 2)
+				assert.Equal(t, "steam:1145360", copies[0].ExternalID)
+				assert.Equal(t, game.KindLibrary, copies[0].Details.Kind)
+				assert.Equal(t, game.Links{game.LinkSteam: "1145360"}, copies[0].Links)
+				assert.Equal(t, "humble:AAA:1", copies[1].ExternalID)
+				assert.Equal(t, game.Date("2026-10-19"), copies[1].Details.RedeemBy)
+				assert.Equal(t, "Humble – Indie Bundle", copies[1].Details.Origin)
+			})
+		})
+	})
 
-	if key.Details.Kind != game.KindKey || key.Details.RedeemBy != "2026-10-19" || key.Details.Origin != "Humble – Indie Bundle" || key.ExternalID != "humble:AAA:1" {
-		t.Errorf("key row: %+v", key)
-	}
+	t.Run("GIVEN the column names of the first Game Vault export", func(t *testing.T) {
+		in := "title,cdKey,deadline,source,purchaseDate,steamAppId\nCeleste,AAAA-BBBB,2026-10-19,Humble,2023-05-01,504230\n"
+
+		t.Run("WHEN it is imported", func(t *testing.T) {
+			copies, warnings, err := Codec{}.Decode(strings.NewReader(in))
+			require.NoError(t, err)
+
+			t.Run("THEN those columns are not read, and each one is reported", func(t *testing.T) {
+				require.Len(t, copies, 1)
+				assert.Empty(t, copies[0].Details.Key)
+				assert.Empty(t, copies[0].Links)
+				require.Len(t, warnings, 5)
+				assert.Contains(t, warnings[0], `"cdKey"`)
+			})
+		})
+	})
 }
 
 func TestEncodeDecodeRoundTrip(t *testing.T) {

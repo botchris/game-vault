@@ -66,7 +66,7 @@ Only `cmd/gamevault` knows the concrete adapters.
 | `Game`           | Aggregate root        | Title, links to stores (`{"steam": "620"}`), notes, and its copies. Every copy change goes through the game. |
 | `Copy`           | Entity inside `Game`  | `kind` is `key`, `library` or `physical`. `status` must be valid for the kind. Holds platform, key, redeem-by date, origin, edition, condition, location. |
 | `Source`         | Aggregate root        | A scanned account: type, settings (secrets masked towards clients), interval, last sync report. |
-| `Consolidator`   | Domain service        | Merges imported copies into the catalog. It matches by external id, then by any store link the copy shares with a game, then by normalised title; if nothing matches it creates a new game. |
+| `Consolidator`   | Domain service        | Merges imported copies into the catalog. It matches by external id, then by any store link the copy shares with a game, then by normalised title (no trademarks, brackets, edition words or "<store> key", so "Hades - GOG Key" is "hades"); if nothing matches it creates a new game. |
 
 A key is **redundant** when it is pending (unrevealed or revealed) and the same game already has a `library` copy on the same platform. It is a key you can gift.
 Re-scans never move a key you marked as `redeemed` back to pending.

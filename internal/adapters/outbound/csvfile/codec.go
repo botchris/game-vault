@@ -1,6 +1,7 @@
 // Package csvfile implements transfer.Codec for CSV files: one row per copy.
 //
-// Columns (header names are case-insensitive; Spanish aliases and the legacy Game Vault export are accepted):
+// Columns (header names are case-insensitive; Spanish aliases are accepted, unknown columns are
+// reported and ignored):
 //
 //	title, platform, kind, status, key, redeemBy, origin, acquiredOn, edition, condition,
 //	location, notes, links, externalId, barcode
@@ -31,13 +32,13 @@ var aliases = map[string]string{
 	"titulo": "title", "juego": "title", "nombre": "title", "game": "title",
 	"plataforma": "platform", "store": "platform",
 	"tipo": "kind", "type": "kind",
-	"estado": "status",
-	"clave":  "key", "cdkey": "key",
-	"fechalimite": "redeemBy", "caducidad": "redeemBy", "deadline": "redeemBy",
-	"origen": "origin", "tienda": "origin", "source": "origin", "bundle": "origin",
-	"fechacompra": "acquiredOn", "purchasedate": "acquiredOn",
-	"edicion":   "edition",
-	"condicion": "condition", "estadofisico": "condition",
+	"estado":      "status",
+	"clave":       "key",
+	"fechalimite": "redeemBy", "caducidad": "redeemBy",
+	"origen": "origin", "tienda": "origin", "bundle": "origin",
+	"fechacompra": "acquiredOn",
+	"edicion":     "edition",
+	"condicion":   "condition", "estadofisico": "condition",
 	"ubicacion": "location",
 	"notas":     "notes",
 	"enlaces":   "links", "vinculos": "links",
@@ -46,7 +47,7 @@ var aliases = map[string]string{
 
 var kindAliases = map[string]game.Kind{
 	"key": game.KindKey, "clave": game.KindKey, "cdkey": game.KindKey,
-	"library": game.KindLibrary, "digital": game.KindLibrary, "biblioteca": game.KindLibrary,
+	"library": game.KindLibrary, "biblioteca": game.KindLibrary,
 	"physical": game.KindPhysical, "fisico": game.KindPhysical, "físico": game.KindPhysical, "disco": game.KindPhysical,
 }
 
@@ -97,22 +98,28 @@ func (Codec) Decode(r io.Reader) ([]game.ImportedCopy, []string, error) {
 		return nil, nil, fmt.Errorf("the CSV has no data rows")
 	}
 
-	idx := map[string]int{}
+	var (
+		out      []game.ImportedCopy
+		warnings []string
+		idx      = map[string]int{}
+	)
 
 	for i, h := range records[0] {
-		if k := normalizeHeader(h); k != "" {
-			idx[k] = i
+		k := normalizeHeader(h)
+		if k == "" {
+			if h = strings.TrimSpace(strings.TrimPrefix(h, "\ufeff")); h != "" {
+				warnings = append(warnings, fmt.Sprintf("column %q is not a Game Vault column, ignored (download the template for the column names)", h))
+			}
+
+			continue
 		}
+
+		idx[k] = i
 	}
 
 	if _, ok := idx["title"]; !ok {
 		return nil, nil, fmt.Errorf("missing required column 'title'")
 	}
-
-	var (
-		out      []game.ImportedCopy
-		warnings []string
-	)
 
 	for n, rec := range records[1:] {
 		row := n + 2
