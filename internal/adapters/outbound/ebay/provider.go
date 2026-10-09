@@ -37,7 +37,11 @@ const (
 	settingMarketplaces = "marketplaces"
 	defaultMarketplaces = "EBAY_ES,EBAY_GB,EBAY_DE,EBAY_FR,EBAY_IT"
 	defaultBaseURL      = "https://api.ebay.com"
-	listingsPerLookup   = 20
+
+	// settingsGroup puts both eBay providers in one group: they use the same developer keys and
+	// marketplaces, so the user enters them once.
+	settingsGroup     = "ebay"
+	listingsPerLookup = 20
 )
 
 // Provider implements media.BarcodeProvider.
@@ -74,6 +78,7 @@ func (p *Provider) Descriptor() provider.Descriptor {
 		Kind:           provider.KindBarcode,
 		Name:           "eBay",
 		DescriptionKey: "providers.ebay.description",
+		SettingsGroup:  settingsGroup,
 		Fields: schema.Fields{
 			{
 				Key:      settingClientID,
@@ -180,14 +185,16 @@ func marketplaces(s schema.Settings) []string {
 
 type listing struct {
 	Title string `json:"title"`
+	Price struct {
+		Value    string `json:"value"`
+		Currency string `json:"currency"`
+	} `json:"price"`
 	Image struct {
 		ImageURL string `json:"imageUrl"`
 	} `json:"image"`
 }
 
-func (p *Provider) search(ctx context.Context, tok, marketplace string, code game.Barcode) ([]listing, error) {
-	q := url.Values{"gtin": {string(code)}, "limit": {fmt.Sprint(listingsPerLookup)}}
-
+func (p *Provider) search(ctx context.Context, tok, marketplace string, q url.Values) ([]listing, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.BaseURL+"/buy/browse/v1/item_summary/search?"+q.Encode(), nil)
 	if err != nil {
 		return nil, err
@@ -226,7 +233,7 @@ func (p *Provider) Lookup(ctx context.Context, code game.Barcode, s schema.Setti
 	var lastErr error
 
 	for _, m := range marketplaces(s) {
-		items, err := p.search(ctx, tok, m, code)
+		items, err := p.search(ctx, tok, m, url.Values{"gtin": {string(code)}, "limit": {fmt.Sprint(listingsPerLookup)}})
 		if err != nil {
 			lastErr = err
 			continue

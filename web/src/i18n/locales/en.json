@@ -424,7 +424,7 @@
       "clientSecret": "Cert ID (Client Secret)",
       "keysHelp": "1. Open the page above and create a free eBay developer account.\n2. Go to Application Keys → Production keyset and copy the App ID and Cert ID.\n3. If asked about marketplace account deletion notifications, choose the exemption: Game Vault does not store eBay user data.",
       "marketplaces": "Marketplaces",
-      "marketplacesHelp": "Tried in order until one has listings. Default: EBAY_ES, EBAY_GB, EBAY_DE, EBAY_FR, EBAY_IT."
+      "marketplacesHelp": "Tried in order until one has listings; the first one is also used for prices. Default: EBAY_ES, EBAY_GB, EBAY_DE, EBAY_FR, EBAY_IT."
     },
     "metadata": "Game details",
     "metadataIntro": "Summary, genres, companies, trailers and screenshots shown in each game. The first provider gives the main sheet; the next ones fill what is missing. Downloaded when you open a game, then cached for 30 days.",
@@ -456,6 +456,9 @@
       "description": "What CeX sells your physical games for, and what it pays for them in cash or store credit. Only your own copies with a barcode are asked, one at a time.",
       "countries": "Countries",
       "countriesHelp": "CeX stores to ask, in order, separated by commas: es, uk, ie, pt, it… The first that sells the product gives its price, in its currency. Empty: es."
+    },
+    "ebayPrices": {
+      "description": "The median asking price of used listings with the copy's barcode on your first eBay marketplace. Uses the same developer keys as eBay barcode lookups."
     }
   },
   "coverPicker": {

@@ -424,7 +424,7 @@
       "clientSecret": "Cert ID (Client Secret)",
       "keysHelp": "1. Abre la página de arriba y crea una cuenta gratuita de desarrollador de eBay.\n2. Ve a Application Keys → Production keyset y copia el App ID y el Cert ID.\n3. Si te pregunta por las notificaciones de borrado de cuentas, elige la exención: Game Vault no guarda datos de usuarios de eBay.",
       "marketplaces": "Mercados",
-      "marketplacesHelp": "Se prueban en orden hasta que uno tenga anuncios. Por defecto: EBAY_ES, EBAY_GB, EBAY_DE, EBAY_FR, EBAY_IT."
+      "marketplacesHelp": "Se prueban en orden hasta que uno tenga anuncios; el primero se usa también para los precios. Por defecto: EBAY_ES, EBAY_GB, EBAY_DE, EBAY_FR, EBAY_IT."
     },
     "metadata": "Ficha del juego",
     "metadataIntro": "Sinopsis, géneros, compañías, tráilers y capturas que se muestran en cada juego. El primer proveedor da la ficha principal y los siguientes completan lo que falta. Se descarga al abrir el juego y se guarda 30 días.",
@@ -456,6 +456,9 @@
       "description": "Lo que CeX pide por tus juegos físicos y lo que paga por ellos en efectivo o en vale. Solo se consultan tus copias con código de barras, de una en una.",
       "countries": "Países",
       "countriesHelp": "Tiendas de CeX a consultar, en orden y separadas por comas: es, uk, ie, pt, it… La primera que venda el producto da su precio, en su moneda. Vacío: es."
+    },
+    "ebayPrices": {
+      "description": "El precio mediano que piden los anuncios de segunda mano con el código de barras de la copia en tu primer mercado de eBay. Usa las mismas claves de desarrollador que la búsqueda de códigos de barras de eBay."
     }
   },
   "coverPicker": {
