@@ -106,10 +106,10 @@ func TestAddScannedCopies(t *testing.T) {
 	t.Run("GIVEN a scanning session with copies of a game you have and of a new game twice", func(t *testing.T) {
 		svc, halo := setup(t)
 		items := []catalog.ScannedCopy{
-			{Ref: "a", GameID: halo.ID(), Details: physical("Xbox 360", "882224536697")},
+			{Ref: "a", GameID: halo.ID(), Details: physical("Xbox 360", "882224536691")},
 			{Ref: "b", Title: "Dead Space 3", CoverURL: "https://example.com/ds3.jpg", Details: physical("Xbox 360", "5030934110075")},
-			{Ref: "c", Title: "dead space  3!", Details: physical("PS3", "5030941110074")},
-			{Ref: "d", GameID: halo.ID(), Details: physical("Xbox 360", "882224536697")},
+			{Ref: "c", Title: "dead space  3!", Details: physical("PS3", "5030941110075")},
+			{Ref: "d", GameID: halo.ID(), Details: physical("Xbox 360", "882224536691")},
 		}
 
 		t.Run("WHEN they are saved", func(t *testing.T) {
@@ -152,7 +152,7 @@ func TestAddScannedCopies(t *testing.T) {
 		require.NoError(t, svc.DeleteGame(ctx, halo.ID()))
 
 		results, games, err := svc.AddScannedCopies(ctx, []catalog.ScannedCopy{
-			{Ref: "gone", GameID: halo.ID(), Details: physical("Xbox 360", "882224536697")},
+			{Ref: "gone", GameID: halo.ID(), Details: physical("Xbox 360", "882224536691")},
 			{Ref: "ok", Title: "Dead Space 3", Details: physical("Xbox 360", "5030934110075")},
 		})
 		require.NoError(t, err)
@@ -171,7 +171,7 @@ func TestAddScannedCopies(t *testing.T) {
 
 		results, games, err := svc.AddScannedCopies(ctx, []catalog.ScannedCopy{
 			{Ref: "bad", Title: "Dead Space 3", Details: bad},
-			{Ref: "ok", Title: "Dead Space 3", Details: physical("PS3", "5030941110074")},
+			{Ref: "ok", Title: "Dead Space 3", Details: physical("PS3", "5030941110075")},
 		})
 		require.NoError(t, err)
 
@@ -514,7 +514,7 @@ func TestAddScannedCopies_endToEnd(t *testing.T) {
 
 		res, err := c.games.AddScannedCopies(ctx, connect.NewRequest(&pb.AddScannedCopiesRequest{Items: []*pb.ScannedCopy{
 			{ClientId: "r1:0", Title: "Dead Space 3", Details: disc("Xbox 360", "5030934110075")},
-			{ClientId: "r2:0", Title: "Dead Space 3", Details: disc("PS3", "5030941110074")},
+			{ClientId: "r2:0", Title: "Dead Space 3", Details: disc("PS3", "5030941110075")},
 			{ClientId: "r3:0", Title: "Halo 3", Details: disc("Xbox 360", "123")},
 		}}))
 		require.NoError(t, err)
@@ -687,7 +687,7 @@ const scanned = (code = DS3, id = 'r1') => addCode([], code, id).rows;
 test('barcodes: check digit, and UPC-A as EAN-13', () => {
   assert.equal(validBarcode('5030934110075'), true);
   assert.equal(validBarcode('5030934110076'), false);
-  assert.equal(normalizeBarcode('0-45496-59024-9'), '0045496590249');
+  assert.equal(normalizeBarcode('0-45496-59024-6'), '0045496590246');
   assert.equal(normalizeBarcode('5030934110075'), '5030934110075');
 });
 
@@ -695,9 +695,9 @@ test('a new code joins the top of the list looking up; a repeat or an invalid co
   let r = addCode([], DS3, 'r1');
   assert.equal(r.outcome, 'added');
   assert.deepEqual(r.rows.map((x) => [x.id, x.code, x.count, x.phase]), [['r1', DS3, 1, 'looking']]);
-  r = addCode(r.rows, '045496590249', 'r2');
+  r = addCode(r.rows, '045496590246', 'r2');
   assert.equal(r.rows[0].id, 'r2', 'newest first');
-  const again = addCode(r.rows, '0045496590249', 'r3');
+  const again = addCode(r.rows, '0045496590246', 'r3');
   assert.equal(again.outcome, 'repeat', 'UPC-A and its EAN-13 form are the same box');
   assert.equal(again.rows, r.rows);
   assert.equal(addCode(r.rows, '123', 'r4').outcome, 'invalid');
@@ -758,7 +758,7 @@ test('failed lookups can be retried; send items carry one item per copy', () => 
 });
 
 test('remove and restore put a row back where it was', () => {
-  const rows = addCode(scanned(), '045496590249', 'r2').rows;
+  const rows = addCode(scanned(), '045496590246', 'r2').rows;
   const { rows: left, removed } = remove(rows, 'r1');
   assert.deepEqual(left.map((r) => r.id), ['r2']);
   assert.deepEqual(restore(left, removed).map((r) => r.id), ['r2', 'r1']);
@@ -766,7 +766,7 @@ test('remove and restore put a row back where it was', () => {
 
 test('results remove saved rows and keep failed ones with their error', () => {
   let rows = settle(scanned(), 'r1', answer());
-  rows = settle(addCode(rows, '045496590249', 'r2').rows, 'r2', answer({ barcode: '0045496590249' }));
+  rows = settle(addCode(rows, '045496590246', 'r2').rows, 'r2', answer({ barcode: '0045496590246' }));
   rows = plusOne(rows, 'r2');
   const out = applyResults(rows, [
     { clientId: 'r1:0', gameId: 'g9', error: '' },
@@ -779,7 +779,7 @@ test('results remove saved rows and keep failed ones with their error', () => {
 
 test('summary counts rows by state and the copies Send would add', () => {
   let rows = settle(scanned(), 'r1', answer());
-  rows = addCode(rows, '045496590249', 'r2').rows;
+  rows = addCode(rows, '045496590246', 'r2').rows;
   assert.deepEqual(summary(rows, ''), { ready: 1, review: 0, owned: 0, looking: 1, error: 0, copies: 1 });
 });
 
