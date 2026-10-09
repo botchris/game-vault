@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
 )
 
@@ -81,6 +82,19 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 			LabelKey: "sources.humble.sessionCookie",
 			HelpKey:  "sources.humble.sessionCookieHelp",
 			HelpURL:  "https://www.humblebundle.com/home/keys",
+			SignIn: &schema.SignInRecipe{
+				Version: schema.RecipeVersion,
+				Open:    "https://www.humblebundle.com/home/keys",
+				When: &schema.When{
+					URLPrefix: "https://www.humblebundle.com/home/keys",
+				},
+				Capture: schema.Capture{
+					Cookie: &schema.CookieCapture{
+						URL:  "https://www.humblebundle.com",
+						Name: "_simpleauth_sess",
+					},
+				},
+			},
 			Kind:     source.FieldSecret,
 			Required: true,
 		}},

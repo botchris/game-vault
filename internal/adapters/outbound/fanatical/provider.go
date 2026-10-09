@@ -79,6 +79,19 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 				LabelKey: "sources.fanatical.session",
 				HelpKey:  "sources.fanatical.sessionHelp",
 				HelpURL:  defaultBaseURL + "/en/",
+				SignIn: &schema.SignInRecipe{
+					Version: schema.RecipeVersion,
+					Open:    defaultBaseURL + "/en/",
+					When: &schema.When{
+						Contains: `"authenticated":true`,
+					},
+					Capture: schema.Capture{
+						Storage: &schema.StorageCapture{
+							Origin: defaultBaseURL,
+							Key:    "bsauth",
+						},
+					},
+				},
 				Kind:     schema.FieldSecret,
 				Required: true,
 			},

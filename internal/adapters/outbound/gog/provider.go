@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
 )
 
@@ -135,7 +136,18 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 				LabelKey: "sources.gog.authCode",
 				HelpKey:  "sources.gog.authCodeHelp",
 				HelpURL:  LoginURL,
-				Kind:     source.FieldSecret,
+				SignIn: &schema.SignInRecipe{
+					Version: schema.RecipeVersion,
+					Open:    LoginURL,
+					Hosts:   []string{"embed.gog.com"},
+					Capture: schema.Capture{
+						Redirect: &schema.RedirectCapture{
+							Prefix: "https://embed.gog.com/on_login_success",
+							Param:  "code",
+						},
+					},
+				},
+				Kind: source.FieldSecret,
 			},
 			{
 				Key:  settingSession,

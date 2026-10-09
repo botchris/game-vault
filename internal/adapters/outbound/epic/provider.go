@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
 )
 
@@ -140,7 +141,17 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 				LabelKey: "sources.epic.authCode",
 				HelpKey:  "sources.epic.authCodeHelp",
 				HelpURL:  LoginURL,
-				Kind:     source.FieldSecret,
+				SignIn: &schema.SignInRecipe{
+					Version: schema.RecipeVersion,
+					Open:    LoginURL,
+					Capture: schema.Capture{
+						Fetch: &schema.FetchCapture{
+							URL:   "https://www.epicgames.com/id/api/redirect?clientId=" + clientID + "&responseType=code",
+							Field: "authorizationCode",
+						},
+					},
+				},
+				Kind: source.FieldSecret,
 			},
 			{
 				Key:  settingSession,

@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
 )
 
@@ -135,6 +136,17 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 				LabelKey: "sources.playstation.npsso",
 				HelpKey:  "sources.playstation.npssoHelp",
 				HelpURL:  NPSSOURL,
+				SignIn: &schema.SignInRecipe{
+					Version: schema.RecipeVersion,
+					Open:    "https://www.playstation.com/",
+					Hosts:   []string{"ca.account.sony.com"},
+					Capture: schema.Capture{
+						Fetch: &schema.FetchCapture{
+							URL:   NPSSOURL,
+							Field: "npsso",
+						},
+					},
+				},
 				Kind:     source.FieldSecret,
 				Required: true,
 			},

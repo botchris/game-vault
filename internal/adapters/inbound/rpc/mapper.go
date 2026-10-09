@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -284,7 +285,16 @@ func fieldsToPB(fields schema.Fields) []*pb.SettingField {
 			kind = pb.SettingField_KIND_CONSENT
 		}
 
+		var signIn string
+
+		if f.SignIn != nil {
+			if b, err := json.Marshal(f.SignIn.WithOpen(f.HelpURL)); err == nil {
+				signIn = string(b)
+			}
+		}
+
 		out = append(out, &pb.SettingField{
+			SignIn:   signIn,
 			Key:      f.Key,
 			LabelKey: f.LabelKey,
 			Kind:     kind,

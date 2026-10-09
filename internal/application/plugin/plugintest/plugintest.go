@@ -193,6 +193,19 @@ func (c *checker) fields(where string, fs schema.Fields) {
 		if f.HelpKey != "" {
 			c.translated(where+", field "+f.Key, f.HelpKey)
 		}
+
+		if r := f.SignIn; r != nil {
+			if err := r.Validate(f.HelpURL); err != nil {
+				c.add("%s, field %s: %v", where, f.Key, err)
+			}
+
+			// Cookies and storage can exist before the user signs in: without a condition the
+			// extension would capture anonymous values.
+			anonymous := r.Capture.Cookie != nil || r.Capture.Cookies != nil || r.Capture.Storage != nil
+			if anonymous && r.When == nil && (r.Capture.Storage == nil || r.Capture.Storage.Path == "") {
+				c.add("%s, field %s: a cookie or storage recipe needs a readiness condition (when)", where, f.Key)
+			}
+		}
 	}
 }
 
