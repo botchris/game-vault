@@ -30,3 +30,8 @@ metadata:
   changing a field's meaning bumps `"v"`. Opening an older database writes
   `backups/pre-migration-NNNN.db` first. The user's local `config/` DB is stale (stopped at 0006;
   their real instance runs in Docker), so real-data checks on copies also exercise 0007–0008.
+- **Copies (2026-10-09, part 1 of the physical-copy work):** `Grade`, `Contents` (a bit set, so
+  `CopyDetails` stays comparable), `Price Money` (minor units of the currency, `CurrencyDigits` for
+  JPY/BHD…). Game docs are v2 (old `condition` converted on read). Default currency in
+  `settings.Preferences`. CSV is English only by the user's decision. Next: part 2 photos, part 3
+  second-hand valuation (CeX), each with its own spec.
