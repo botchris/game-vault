@@ -51,8 +51,12 @@ type Photo struct {
   - `ReorderPhotos(copyID, ids []PhotoID, now)`: `ids` must be exactly the copy's photos.
 - `Info.CoverPhoto PhotoID`: the game's cover is one of its copies' photos. It takes precedence over
   `CoverURL`; `UpdateInfo` refuses a photo that none of the game's copies has. Setting or clearing it
-  reports `coverChanged`, so the cached cover is refreshed.
-- Moving or merging a copy keeps its photos. Removing a copy that holds the cover photo clears it.
+  reports `coverChanged`, so the cached cover is refreshed. Editing the game (`UpdateGame`, whose
+  request has no cover photo) keeps the cover photo, unless the custom cover URL changed: then the
+  user chose another cover and the cover photo is cleared.
+- Moving or merging a copy keeps its photos. Removing a copy, or a photo, clears the cover photo
+  when no remaining copy of the game has that photo. `TakenAt` is the camera's clock reading (EXIF
+  has no zone), stored as UTC and shown as a date in UTC.
   Scans (`applyImport`) never touch photos.
 
 ## Storage
@@ -70,7 +74,9 @@ type Photo struct {
 - `Open(id, thumb bool)`: the file for serving.
 - `Prune(referenced set, olderThan time.Duration)`: deletes the files no copy references and that
   are older than `olderThan` (one day), so a photo still being attached, or removed by mistake and
-  added back, survives. It runs after each backup and once a day.
+  added back, survives. It runs an hour after start-up and then once a day. Uploading a photo that
+  is already stored marks its files as just written, so an old unreferenced file uploaded again is
+  not pruned before it is attached.
 - `Link(id, dir)`: adds the photo and its thumbnail to another store directory as hard links,
   copying when the file systems do not allow links; used by backups. Hard links are safe because a
   stored file is never changed in place: its name is its content's hash.
@@ -94,7 +100,9 @@ For each file the user picks:
 ### On the server
 
 - `POST /media/photos` (multipart form: `photo`, `thumb`): the same access control as every
-  `/media/` route. Each part must be a JPEG (`image.DecodeConfig`), the photo at most 8000 px and
+  `/media/` route, plus a required `X-Gamevault-Upload` header. A page on another site cannot send
+  that header without a CORS preflight the server never grants, so it cannot upload photos through a
+  browser on a trusted network (where no session cookie is needed and SameSite does not help). Each part must be a JPEG (`image.DecodeConfig`), the photo at most 8000 px and
   15 MB, the thumbnail at most 512 px. The server computes the id itself, reads `DateTimeOriginal`
   from the EXIF segment if present (a small TIFF/IFD reader, no dependency), stores the files and
   answers `{"id": "…", "takenAt": "…"}`. Invalid input is a 400 with a message that says what is
