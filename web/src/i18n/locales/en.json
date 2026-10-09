@@ -451,6 +451,11 @@
     },
     "xboxCovers": {
       "description": "Official poster from the Microsoft Store, for games imported from your Microsoft account. Free, no key needed."
+    },
+    "cexPrices": {
+      "description": "What CeX sells your physical games for, and what it pays for them in cash or store credit. Only your own copies with a barcode are asked, one at a time.",
+      "countries": "Countries",
+      "countriesHelp": "CeX stores to ask, in order, separated by commas: es, uk, ie, pt, it… The first that sells the product gives its price, in its currency. Empty: es."
     }
   },
   "coverPicker": {

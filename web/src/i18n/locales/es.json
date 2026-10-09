@@ -451,6 +451,11 @@
     },
     "xboxCovers": {
       "description": "Póster oficial de la Microsoft Store, para los juegos importados de tu cuenta Microsoft. Gratis, sin clave."
+    },
+    "cexPrices": {
+      "description": "Lo que CeX pide por tus juegos físicos y lo que paga por ellos en efectivo o en vale. Solo se consultan tus copias con código de barras, de una en una.",
+      "countries": "Países",
+      "countriesHelp": "Tiendas de CeX a consultar, en orden y separadas por comas: es, uk, ie, pt, it… La primera que venda el producto da su precio, en su moneda. Vacío: es."
     }
   },
   "coverPicker": {

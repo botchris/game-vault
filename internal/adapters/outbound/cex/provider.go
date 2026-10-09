@@ -133,9 +133,12 @@ func (p *Provider) Test(ctx context.Context, s schema.Settings) error {
 
 // box is the part of CeX's box detail that is used.
 type box struct {
-	BoxName      string `json:"boxName"`
-	CategoryName string `json:"categoryName"`
-	SuperCatID   int    `json:"superCatId"`
+	BoxName       string  `json:"boxName"`
+	CategoryName  string  `json:"categoryName"`
+	SuperCatID    int     `json:"superCatId"`
+	SellPrice     float64 `json:"sellPrice"`
+	CashPrice     float64 `json:"cashPrice"`
+	ExchangePrice float64 `json:"exchangePrice"`
 }
 
 // detail returns the box with that code in a country's catalog, or nil when it is unknown there.
