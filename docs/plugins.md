@@ -30,99 +30,35 @@ Plugins are compiled in. To add one, write its package and add one line to
 | `internal/adapters/outbound/apiclient` | Calling a JSON API: base URL, User-Agent, headers, size limit, `IsStatus(err, 401, 403)` |
 | `internal/adapters/outbound/browsersession` | Reusing cookies the user copies from their browser, keeping the ones the site renews |
 | `internal/application/plugin/plugintest` | The completeness check every registered plugin passes (run by `task test`) |
+| `internal/adapters/outbound/example` | A complete plugin to copy (see below) |
 | `internal/domain/game` | `ImportedCopy`, `CopyDetails`, `Links`, `Store`: what a source returns |
 | `internal/domain/schema` | Settings fields: text, secret, state (rotating credentials), consent |
 
-The Fanatical plugin (`internal/adapters/outbound/fanatical`) is the smallest complete example:
-one source, `apiclient`, a fake-server test.
+## Start from the example plugin
 
-## A minimal plugin
+[`internal/adapters/outbound/example`](../internal/adapters/outbound/example) is a complete plugin
+for an imaginary store. It compiles, is tested like the real ones and passes the same checks, but is
+not registered, so it never shows up in Game Vault. It has the two pieces most store plugins have:
 
-```go
-// Package mystore imports the library of MyStore accounts.
-package mystore
+| File | What it shows |
+| --- | --- |
+| `plugin.go` | `Plugin()`, and the `LinkedStore` the source and the cover provider share |
+| `source.go` | A source: a token setting, `apiclient`, `Test`, `Fetch`, sentinel errors, skipping what is not an owned game, linking each game to the store |
+| `covers.go` | A cover provider: `DefaultOrder`, `Applies` from the game's link, candidates best first, "unknown game" as no candidates, image hosts |
+| `plugin_test.go` | A fake store with its failures, GIVEN / WHEN / THEN tests, and `plugintest` |
 
-// Type is the source type id of MyStore accounts.
-const Type source.Type = "mystore"
+To write a new plugin:
 
-// LinkedStore is the store this plugin links games to.
-var LinkedStore = game.Store{Key: "mystore", Name: "MyStore", PageURL: "https://mystore.example/game/{id}"}
+1. Copy the package to `internal/adapters/outbound/<name>/` and rename it.
+2. Replace the API calls and the answer shapes with the real service's. Keep a real answer, with
+   its values changed, in the test's fake server.
+3. Add its texts (`sources.<name>.…`, `providers.<id>.description`) to
+   `web/src/i18n/locales/en.json` and `es.json`. Help texts use one step per line (`1. …`).
+4. Add `<name>.Plugin(),` to [`cmd/gamevault/plugins.go`](../cmd/gamevault/plugins.go). From then
+   on `task test` checks it against the UI's translation files.
+5. Delete the pieces it does not need: a key seller has no covers, a game database no source.
 
-// Plugin is the MyStore plugin: the library of MyStore accounts.
-func Plugin() plugin.Plugin {
-	return plugin.Plugin{ID: "mystore", Name: "MyStore", Sources: []sync.Provider{NewProvider()}}
-}
-
-// Provider implements sync.Provider for MyStore accounts.
-type Provider struct {
-	// API calls MyStore; tests point it at a fake server.
-	API *apiclient.Client
-}
-
-// NewProvider returns the MyStore source with its production endpoints.
-func NewProvider() *Provider { return &Provider{API: apiclient.New("https://api.mystore.example")} }
-
-// LinkStore implements sync.StoreLinker.
-func (p *Provider) LinkStore() game.Store { return LinkedStore }
-
-// Descriptor implements sync.Provider.
-func (p *Provider) Descriptor() source.TypeDescriptor {
-	return source.TypeDescriptor{
-		Type: Type, Name: "MyStore", DescriptionKey: "sources.mystore.description",
-		Fields: []source.Field{{
-			Key: "token", LabelKey: "sources.mystore.token", HelpKey: "sources.mystore.tokenHelp",
-			HelpURL: "https://mystore.example/account", Kind: schema.FieldSecret, Required: true,
-		}},
-	}
-}
-
-// Test implements sync.Provider with the cheapest request that proves the token works.
-func (p *Provider) Test(ctx context.Context, s source.Settings) error {
-	_, err := p.library(ctx, s, 1)
-	return err
-}
-
-// Fetch implements sync.Provider.
-func (p *Provider) Fetch(ctx context.Context, s source.Settings) ([]game.ImportedCopy, []string, error) {
-	items, err := p.library(ctx, s, 0)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	copies := make([]game.ImportedCopy, 0, len(items))
-	for _, it := range items {
-		copies = append(copies, game.ImportedCopy{
-			ExternalID: "mystore:" + it.ID, // stable forever: changing it duplicates copies
-			Title:      it.Name,
-			Links:      game.Links{LinkedStore.Key: it.ID},
-			Details:    game.CopyDetails{Kind: game.KindLibrary, Platform: "MyStore", Status: game.StatusOwned},
-		})
-	}
-
-	return copies, nil, nil
-}
-
-// ErrSignedOut means MyStore rejected the token.
-var ErrSignedOut = errors.New("mystore did not accept the token: create a new one on mystore.example and paste it")
-
-func (p *Provider) library(ctx context.Context, s source.Settings, limit int) ([]item, error) {
-	var out struct{ Games []item `json:"games"` }
-
-	err := p.API.Do(ctx, apiclient.Request{
-		Path: "/v1/library", Query: url.Values{"limit": {strconv.Itoa(limit)}},
-		Header: http.Header{"Authorization": {"Bearer " + s["token"]}},
-	}, &out)
-	if apiclient.IsStatus(err, http.StatusUnauthorized, http.StatusForbidden) {
-		return nil, ErrSignedOut
-	}
-
-	return out.Games, err
-}
-```
-
-Then, in `cmd/gamevault/plugins.go`, add `mystore.Plugin(),` to the list, and add the texts
-(`sources.mystore.description`, `sources.mystore.token`, `sources.mystore.tokenHelp`) to
-`web/src/i18n/locales/en.json` and `es.json`. `task test` fails until every text exists in both.
+The Fanatical plugin is a real, small one: one source, `apiclient`, a fake-server test.
 
 ## Rules for sources
 

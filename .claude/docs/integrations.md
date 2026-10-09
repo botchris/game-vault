@@ -1,7 +1,7 @@
 # Adding integrations
 
 Integrations are **plugins**: read [`docs/plugins.md`](../../docs/plugins.md) first. It is the
-contributor guide (the plugin type, the shared code, a minimal plugin, the rules for sources and
+contributor guide (the plugin type, the shared code, the example plugin to copy, the rules for sources and
 media providers, tests). This file adds what you, the agent, do around it.
 
 Probing endpoints with `curl` from the host is fine (it is not part of the build). Before writing

@@ -42,6 +42,7 @@ internal/
              amazon/, fanatical/
                       Store plugins: the source, and cover/details providers where the store has public art
     outbound/apiclient/ Shared JSON API client for plugins (base URL, User-Agent, status errors)
+    outbound/example/ A complete plugin for an imaginary store, to copy (tested, never registered)
     outbound/browsersession/ Reuse of a website session pasted from the browser (cookies)
     outbound/thegamesdb/ TheGamesDB plugin: cover and details providers (platform box art, overview, trailer)
     outbound/cex/, ebay/, upcitemdb/, eansearch/  Barcode database plugins
