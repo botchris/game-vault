@@ -41,7 +41,7 @@ func TestCovers(t *testing.T) {
 	defer srv.Close()
 
 	c := NewCovers()
-	c.CDNURL, c.StoreSearchURL = srv.URL, srv.URL+"/search"
+	c.CDNURL, c.Search.BaseURL = srv.URL, srv.URL+"/search"
 
 	if !c.Applies(media.CoverQuery{Title: "x", Platforms: []string{"Ubisoft Connect"}}) || c.Applies(media.CoverQuery{Title: "x", Links: game.Links{game.LinkSteam: "1"}}) {
 		t.Fatal("applies to games imported from Ubisoft or with a Ubisoft Connect copy")
@@ -75,7 +75,7 @@ func TestCovers_Test(t *testing.T) {
 		defer srv.Close()
 
 		c := NewCovers()
-		c.StoreSearchURL = srv.URL
+		c.Search.BaseURL = srv.URL
 
 		t.Run("WHEN the provider is tested", func(t *testing.T) {
 			t.Run("THEN it succeeds", func(t *testing.T) {
@@ -91,7 +91,7 @@ func TestCovers_Test(t *testing.T) {
 		defer srv.Close()
 
 		c := NewCovers()
-		c.StoreSearchURL = srv.URL
+		c.Search.BaseURL = srv.URL
 
 		t.Run("WHEN the provider is tested", func(t *testing.T) {
 			err := c.Test(ctx, nil)

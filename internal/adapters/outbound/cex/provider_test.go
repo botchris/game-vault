@@ -74,7 +74,8 @@ func TestLookup_learnsTheCountry(t *testing.T) {
 		srv := httptest.NewServer(fake)
 		t.Cleanup(srv.Close)
 
-		p := &Provider{BaseURL: srv.URL + "/%s", Client: srv.Client()}
+		p := New()
+		p.API.BaseURL, p.API.HTTP = srv.URL+"/%s", srv.Client()
 		settings := schema.Settings{}
 
 		t.Run("WHEN a Spanish edition is scanned", func(t *testing.T) {
@@ -127,7 +128,8 @@ func TestLookup_learnsTheCountry(t *testing.T) {
 		srv := httptest.NewServer(fake)
 		t.Cleanup(srv.Close)
 
-		p := &Provider{BaseURL: srv.URL + "/%s", Client: srv.Client()}
+		p := New()
+		p.API.BaseURL, p.API.HTTP = srv.URL+"/%s", srv.Client()
 
 		t.Run("WHEN a code is scanned", func(t *testing.T) {
 			_, err := p.Lookup(ctx, "0000000000000", schema.Settings{settingCountries: " PT, es, xx, pt "})
@@ -149,7 +151,8 @@ func TestTest_asksTheFirstCountry(t *testing.T) {
 		srv := httptest.NewServer(fake)
 		t.Cleanup(srv.Close)
 
-		p := &Provider{BaseURL: srv.URL + "/%s", Client: srv.Client()}
+		p := New()
+		p.API.BaseURL, p.API.HTTP = srv.URL+"/%s", srv.Client()
 
 		t.Run("WHEN the connection is tested", func(t *testing.T) {
 			err := p.Test(ctx, schema.Settings{settingHits: "es:3"})
@@ -171,7 +174,8 @@ func TestLookup_failures(t *testing.T) {
 		srv := httptest.NewServer(fake)
 		t.Cleanup(srv.Close)
 
-		p := &Provider{BaseURL: srv.URL + "/%s", Client: srv.Client()}
+		p := New()
+		p.API.BaseURL, p.API.HTTP = srv.URL+"/%s", srv.Client()
 
 		t.Run("WHEN a code is scanned", func(t *testing.T) {
 			_, err := p.Lookup(ctx, "5030934110075", schema.Settings{})
@@ -187,7 +191,8 @@ func TestLookup_failures(t *testing.T) {
 		srv := httptest.NewServer(&fakeCeX{blocked: true})
 		t.Cleanup(srv.Close)
 
-		p := &Provider{BaseURL: srv.URL + "/%s", Client: srv.Client()}
+		p := New()
+		p.API.BaseURL, p.API.HTTP = srv.URL+"/%s", srv.Client()
 
 		t.Run("WHEN the connection is tested", func(t *testing.T) {
 			err := p.Test(ctx, schema.Settings{})
@@ -202,7 +207,8 @@ func TestLookup_failures(t *testing.T) {
 		srv := httptest.NewServer(&fakeCeX{})
 		t.Cleanup(srv.Close)
 
-		p := &Provider{BaseURL: srv.URL + "/%s", Client: srv.Client()}
+		p := New()
+		p.API.BaseURL, p.API.HTTP = srv.URL+"/%s", srv.Client()
 
 		t.Run("WHEN it is scanned", func(t *testing.T) {
 			m, err := p.Lookup(ctx, "5051892123456", schema.Settings{})

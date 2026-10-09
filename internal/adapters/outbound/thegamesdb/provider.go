@@ -12,7 +12,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -21,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
@@ -67,8 +67,8 @@ func norm(s string) string { return reNonAlnum.ReplaceAllString(strings.ToLower(
 
 // Provider implements media.CoverProvider.
 type Provider struct {
-	BaseURL string
-	Client  *http.Client
+	// API calls TheGamesDB; tests point it at a fake server.
+	API *apiclient.Client
 
 	mu        sync.Mutex
 	platforms map[string]int64 // normalised name or alias → TheGamesDB platform id
@@ -80,7 +80,10 @@ var (
 
 // New returns the TheGamesDB cover provider with its production endpoints.
 func New() *Provider {
-	return &Provider{BaseURL: defaultBaseURL, Client: &http.Client{Timeout: 20 * time.Second}}
+	api := apiclient.New(defaultBaseURL)
+	api.HTTP.Timeout = 20 * time.Second
+
+	return &Provider{API: api}
 }
 
 // Descriptor implements media.CoverProvider.
@@ -107,40 +110,32 @@ func (p *Provider) Applies(q media.CoverQuery) bool {
 
 // apiError builds an error for a non-200 answer, using TheGamesDB's own message when present
 // (e.g. "Invalid API key was provided.").
-func apiError(res *http.Response) error {
+func apiError(se *apiclient.StatusError) error {
 	var body struct {
 		Status string `json:"status"`
 	}
 	// Best effort: without a readable message the status code alone describes the error.
-	_ = json.NewDecoder(io.LimitReader(res.Body, 4096)).Decode(&body)
+	_ = json.Unmarshal([]byte(se.Body), &body)
 
 	switch {
 	case body.Status != "":
-		return fmt.Errorf("TheGamesDB: %s (HTTP %d)", body.Status, res.StatusCode)
-	case res.StatusCode == http.StatusForbidden || res.StatusCode == http.StatusUnauthorized:
-		return fmt.Errorf("TheGamesDB rejected the API key or the monthly allowance is used up (HTTP %d)", res.StatusCode)
+		return fmt.Errorf("TheGamesDB: %s (HTTP %d)", body.Status, se.Status)
+	case se.Status == http.StatusForbidden || se.Status == http.StatusUnauthorized:
+		return fmt.Errorf("TheGamesDB rejected the API key or the monthly allowance is used up (HTTP %d)", se.Status)
 	}
 
-	return fmt.Errorf("TheGamesDB: HTTP %d", res.StatusCode)
+	return fmt.Errorf("TheGamesDB: HTTP %d", se.Status)
 }
 
 func (p *Provider) get(ctx context.Context, path string, q url.Values, out any) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.BaseURL+path+"?"+q.Encode(), nil)
-	if err != nil {
-		return err
+	err := p.API.Get(ctx, path, q, out)
+
+	var se *apiclient.StatusError
+	if errors.As(err, &se) {
+		return apiError(se)
 	}
 
-	res, err := p.Client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode != http.StatusOK {
-		return apiError(res)
-	}
-
-	return json.NewDecoder(res.Body).Decode(out)
+	return err
 }
 
 // ErrUnknownKey means TheGamesDB does not know the API key.

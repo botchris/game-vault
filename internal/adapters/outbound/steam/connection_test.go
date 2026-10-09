@@ -27,7 +27,8 @@ func TestStoreTest(t *testing.T) {
 		}))
 		defer srv.Close()
 
-		s := &Store{APIURL: srv.URL, AssetsURL: "https://assets.test/", Client: srv.Client()}
+		s := testStore(srv)
+		s.AssetsURL = "https://assets.test/"
 
 		t.Run("WHEN it is tested", func(t *testing.T) {
 			err := s.Test(ctx, schema.Settings{})
@@ -45,7 +46,7 @@ func TestStoreTest(t *testing.T) {
 		}))
 		defer srv.Close()
 
-		s := &Store{APIURL: srv.URL, Client: srv.Client()}
+		s := testStore(srv)
 
 		t.Run("WHEN it is tested", func(t *testing.T) {
 			err := s.Test(ctx, schema.Settings{})
@@ -73,7 +74,7 @@ func TestDetailsTest(t *testing.T) {
 		}))
 		defer srv.Close()
 
-		d := NewDetails(&Store{StoreURL: srv.URL, Client: srv.Client()})
+		d := NewDetails(testStore(srv))
 
 		t.Run("WHEN it is tested", func(t *testing.T) {
 			err := d.Test(ctx, schema.Settings{})
@@ -91,7 +92,7 @@ func TestDetailsTest(t *testing.T) {
 		}))
 		defer srv.Close()
 
-		d := NewDetails(&Store{StoreURL: srv.URL, Client: srv.Client()})
+		d := NewDetails(testStore(srv))
 
 		t.Run("WHEN it is tested", func(t *testing.T) {
 			err := d.Test(ctx, schema.Settings{})

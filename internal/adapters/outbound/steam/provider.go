@@ -3,7 +3,6 @@ package steam
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -11,8 +10,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
+	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/source"
 )
@@ -36,14 +35,12 @@ var (
 
 // Provider implements sync.Provider for Steam libraries.
 type Provider struct {
-	BaseURL string
-	Client  *http.Client
+	// API calls the Steam Web API; tests point it at a fake server.
+	API *apiclient.Client
 }
 
 // NewProvider returns the Steam source with its production endpoints.
-func NewProvider() *Provider {
-	return &Provider{BaseURL: defaultBaseURL, Client: &http.Client{Timeout: 60 * time.Second}}
-}
+func NewProvider() *Provider { return &Provider{API: apiclient.New(defaultBaseURL)} }
 
 // LinkStore implements sync.StoreLinker.
 func (p *Provider) LinkStore() game.Store { return LinkedStore }
@@ -166,23 +163,16 @@ func (p *Provider) resolveSteamID(ctx context.Context, key, profile string) (str
 }
 
 func (p *Provider) get(ctx context.Context, path string, q url.Values, out any) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.BaseURL+path+"?"+q.Encode(), nil)
-	if err != nil {
+	err := p.API.Get(ctx, path, q, out)
+
+	var se *apiclient.StatusError
+	if !errors.As(err, &se) {
 		return err
 	}
 
-	res, err := p.Client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
-
-	switch {
-	case res.StatusCode == http.StatusUnauthorized || res.StatusCode == http.StatusForbidden:
-		return fmt.Errorf("steam rejected the API key (HTTP %d)", res.StatusCode)
-	case res.StatusCode != http.StatusOK:
-		return fmt.Errorf("steam %s: HTTP %d", path, res.StatusCode)
+	if se.Status == http.StatusUnauthorized || se.Status == http.StatusForbidden {
+		return fmt.Errorf("steam rejected the API key (HTTP %d)", se.Status)
 	}
 
-	return json.NewDecoder(res.Body).Decode(out)
+	return fmt.Errorf("steam %s: HTTP %d", path, se.Status)
 }

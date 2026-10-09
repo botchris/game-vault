@@ -28,7 +28,7 @@ func TestCovers(t *testing.T) {
 	defer srv.Close()
 
 	c := NewCovers()
-	c.APIURL = srv.URL
+	c.API.BaseURL = srv.URL
 
 	q := media.CoverQuery{Title: "Gwent", Links: game.Links{"gog": "42"}}
 	if !c.Applies(q) || c.Applies(media.CoverQuery{Title: "x", Links: game.Links{game.LinkSteam: "1"}}) {
@@ -60,7 +60,7 @@ func TestCovers_Test(t *testing.T) {
 		defer srv.Close()
 
 		c := NewCovers()
-		c.APIURL = srv.URL
+		c.API.BaseURL = srv.URL
 
 		t.Run("WHEN the provider is tested", func(t *testing.T) {
 			err := c.Test(ctx, nil)
@@ -77,7 +77,7 @@ func TestCovers_Test(t *testing.T) {
 		defer srv.Close()
 
 		c := NewCovers()
-		c.APIURL = srv.URL
+		c.API.BaseURL = srv.URL
 
 		t.Run("WHEN the provider is tested", func(t *testing.T) {
 			err := c.Test(ctx, nil)
@@ -95,7 +95,7 @@ func TestCovers_Test(t *testing.T) {
 		defer srv.Close()
 
 		c := NewCovers()
-		c.APIURL = srv.URL
+		c.API.BaseURL = srv.URL
 
 		t.Run("WHEN the provider is tested", func(t *testing.T) {
 			err := c.Test(ctx, nil)

@@ -55,7 +55,7 @@ func TestDetailsResolvesNames(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	d := NewDetails(&Provider{BaseURL: srv.URL, Client: srv.Client()})
+	d := NewDetails(testProvider(srv))
 
 	got, err := d.Details(context.Background(), media.CoverQuery{Title: "Red Dead Redemption", PhysicalPlatforms: []string{"Xbox 360"}}, "es", schema.Settings{settingAPIKey: "k"})
 	if err != nil || got == nil {
@@ -74,7 +74,7 @@ func TestDetailsTestChecksTheSharedKey(t *testing.T) {
 
 	t.Run("GIVEN a details provider on a TheGamesDB that knows one key", func(t *testing.T) {
 		srv, _ := fakeServer(t)
-		d := NewDetails(&Provider{BaseURL: srv.URL, Client: srv.Client()})
+		d := NewDetails(testProvider(srv))
 
 		t.Run("WHEN it is tested with the good key", func(t *testing.T) {
 			err := d.Test(ctx, schema.Settings{settingAPIKey: "good"})

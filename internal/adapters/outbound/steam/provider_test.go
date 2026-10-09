@@ -58,7 +58,8 @@ func TestTest_countsWithoutDownloading(t *testing.T) {
 	defer cancel()
 
 	srv := fakeSteamAPI(t)
-	p := &Provider{BaseURL: srv.URL, Client: srv.Client()}
+	p := NewProvider()
+	p.API.BaseURL, p.API.HTTP = srv.URL, srv.Client()
 
 	t.Run("GIVEN a valid key and a public profile URL", func(t *testing.T) {
 		settings := source.Settings{settingAPIKey: "good", settingProfile: "https://steamcommunity.com/id/gaben/"}

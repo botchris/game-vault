@@ -80,8 +80,8 @@ func (e *StatusError) Error() string {
 	return fmt.Sprintf("%s %s: HTTP %d", e.Method, e.URL, e.Status)
 }
 
-// ErrNotJSON means the service answered with something else than JSON, usually an HTML page from a
-// bot check or a maintenance notice.
+// ErrNotJSON means the service answered a 2xx with an HTML page instead of JSON, usually a bot check
+// or a maintenance notice.
 var ErrNotJSON = errors.New("the service did not answer with JSON")
 
 // IsStatus reports whether err is a StatusError with one of the statuses.
@@ -102,7 +102,7 @@ func (c *Client) Post(ctx context.Context, path string, body, out any) error {
 }
 
 // Do sends r and decodes a 2xx JSON answer into out (nil to ignore it). Any other status is a
-// *StatusError; a 2xx answer that is not JSON is ErrNotJSON.
+// *StatusError; a 2xx HTML page is ErrNotJSON.
 func (c *Client) Do(ctx context.Context, r Request, out any) error {
 	u := c.BaseURL + r.Path
 	if len(r.Query) > 0 {
@@ -151,7 +151,9 @@ func (c *Client) Do(ctx context.Context, r Request, out any) error {
 		return nil
 	}
 
-	if ct := res.Header.Get("Content-Type"); ct != "" && !strings.Contains(ct, "json") {
+	// Many APIs label JSON as text/plain, so only an HTML page (a bot check, a maintenance notice)
+	// is refused before decoding.
+	if strings.Contains(res.Header.Get("Content-Type"), "html") || bytes.HasPrefix(bytes.TrimSpace(data), []byte("<")) {
 		return ErrNotJSON
 	}
 

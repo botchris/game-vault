@@ -1,16 +1,14 @@
 package ubisoft
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
+	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
@@ -34,8 +32,12 @@ const (
 // from a Ubisoft library (by space id, on Ubisoft's CDN), else the Ubisoft Store's packshot, found
 // by title. No sign-in needed.
 type Covers struct {
-	CDNURL, StoreSearchURL string
-	Client                 *http.Client
+	// CDNURL serves the box art of a space id; CDN checks those images exist.
+	CDNURL string
+	CDN    *http.Client
+
+	// Search calls the Ubisoft Store's search (Algolia), with the key every store visitor gets.
+	Search *apiclient.Client
 }
 
 var (
@@ -45,7 +47,12 @@ var (
 
 // NewCovers returns the Ubisoft Connect cover provider with its production endpoints.
 func NewCovers() *Covers {
-	return &Covers{CDNURL: defaultCDNURL, StoreSearchURL: defaultStoreSearchURL, Client: &http.Client{Timeout: 20 * time.Second}}
+	search := apiclient.New(defaultStoreSearchURL)
+	search.HTTP.Timeout = 20 * time.Second
+	search.Header.Set("X-Algolia-Application-Id", storeSearchAppID)
+	search.Header.Set("X-Algolia-API-Key", storeSearchKey)
+
+	return &Covers{CDNURL: defaultCDNURL, CDN: &http.Client{Timeout: 20 * time.Second}, Search: search}
 }
 
 // Descriptor implements media.CoverProvider.
@@ -107,7 +114,7 @@ func (c *Covers) exists(ctx context.Context, u string) bool {
 		return false
 	}
 
-	res, err := c.Client.Do(req)
+	res, err := c.CDN.Do(req)
 	if err != nil {
 		return false
 	}
@@ -133,31 +140,10 @@ type storeHit struct {
 // storeCovers searches the Ubisoft Store for the game (full games only, same title) and returns
 // the packshot of the standard edition first.
 func (c *Covers) storeCovers(ctx context.Context, title string) ([]media.CoverCandidate, error) {
-	body, _ := json.Marshal(map[string]any{"query": title, "hitsPerPage": 20})
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.StoreSearchURL, bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("X-Algolia-Application-Id", storeSearchAppID)
-	req.Header.Set("X-Algolia-API-Key", storeSearchKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	res, err := c.Client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("ubisoft store search: HTTP %d", res.StatusCode)
-	}
-
 	var out struct {
 		Hits []storeHit `json:"hits"`
 	}
-	if err := json.NewDecoder(io.LimitReader(res.Body, 8<<20)).Decode(&out); err != nil {
+	if err := c.Search.Post(ctx, "", map[string]any{"query": title, "hitsPerPage": 20}, &out); err != nil {
 		return nil, fmt.Errorf("ubisoft store search: %w", err)
 	}
 

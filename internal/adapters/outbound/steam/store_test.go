@@ -26,7 +26,8 @@ func TestCoversResolveHashedAssetPaths(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	s := &Store{CDNURL: "https://legacy.test", APIURL: srv.URL, AssetsURL: "https://assets.test/store_item_assets/", Client: srv.Client()}
+	s := testStore(srv)
+	s.CDNURL, s.AssetsURL = "https://legacy.test", "https://assets.test/store_item_assets/"
 
 	got, err := s.Covers(context.Background(), media.CoverQuery{Title: "Big Rigs", Links: game.Links{game.LinkSteam: "3598130"}}, schema.Settings{})
 	if err != nil || len(got) != 2 {
@@ -43,4 +44,13 @@ func TestCoversResolveHashedAssetPaths(t *testing.T) {
 	if len(got) != 2 || got[0].URL != "https://legacy.test/steam/apps/620/library_600x900.jpg" {
 		t.Fatalf("legacy fallback: %+v", got)
 	}
+}
+
+// testStore points both of the store's clients at the fake server.
+func testStore(srv *httptest.Server) *Store {
+	s := NewStore()
+	s.Site.BaseURL, s.Site.HTTP = srv.URL, srv.Client()
+	s.API.BaseURL, s.API.HTTP = srv.URL, srv.Client()
+
+	return s
 }

@@ -12,9 +12,11 @@ shape are right without needing the user's account. GraphQL APIs often validate 
 authenticating: use that to discover field names. Record what you learned in the store's
 file under `.claude/memory/` (create `<store>.md` and add a line to `.claude/MEMORY.md`).
 
-New code calls JSON APIs through `apiclient`. Older plugins still have their own `get` helpers:
-move one to `apiclient` when you change it substantially, not in passing (most of them hold
-rotating credentials you cannot re-test on a copy).
+New code calls JSON APIs through `apiclient`. Already on it: Steam (source, store, details),
+TheGamesDB, CeX, Fanatical, GOG covers, Ubisoft's store search. The others keep their own helpers:
+the store sources hold rotating credentials you cannot re-test on a copy, so move one only when you
+change it substantially and the user can test it; EA's GraphQL puts the useful error in the body of
+non-2xx answers, which `StatusError` keeps only as a snippet.
 
 ## A new source
 

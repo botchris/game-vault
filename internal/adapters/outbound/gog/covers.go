@@ -3,12 +3,13 @@ package gog
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"time"
 
+	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
@@ -23,8 +24,8 @@ const defaultAPIURL = "https://api.gog.com"
 // Covers is a cover provider for games imported from a GOG library: the store's own box art, from
 // GOG's public product API (no sign-in needed).
 type Covers struct {
-	APIURL string
-	Client *http.Client
+	// API calls GOG's public product API; tests point it at a fake server.
+	API *apiclient.Client
 }
 
 var (
@@ -34,7 +35,10 @@ var (
 
 // NewCovers returns the GOG cover provider with its production endpoints.
 func NewCovers() *Covers {
-	return &Covers{APIURL: defaultAPIURL, Client: &http.Client{Timeout: 20 * time.Second}}
+	api := apiclient.New(defaultAPIURL)
+	api.HTTP.Timeout = 20 * time.Second
+
+	return &Covers{API: api}
 }
 
 // Descriptor implements media.CoverProvider.
@@ -75,7 +79,7 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 				} `json:"product"`
 			} `json:"_embedded"`
 		}
-		if err := c.get(ctx, c.APIURL+"/v2/games/"+id, &g); err != nil {
+		if err := c.get(ctx, "/v2/games/"+id, &g); err != nil {
 			return out, err
 		}
 
@@ -102,26 +106,18 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 	return append(portrait, wide...), nil
 }
 
-func (c *Covers) get(ctx context.Context, u string, out any) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-	if err != nil {
-		return err
-	}
-
-	res, err := c.Client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
-
-	switch {
-	case res.StatusCode == http.StatusNotFound:
+func (c *Covers) get(ctx context.Context, path string, out any) error {
+	err := c.API.Get(ctx, path, nil, out)
+	if apiclient.IsStatus(err, http.StatusNotFound) {
 		return nil // product unknown to the API: no candidates
-	case res.StatusCode != http.StatusOK:
-		return fmt.Errorf("gog %s: HTTP %d", req.URL.Path, res.StatusCode)
 	}
 
-	return json.NewDecoder(io.LimitReader(res.Body, 4<<20)).Decode(out)
+	var se *apiclient.StatusError
+	if errors.As(err, &se) {
+		return fmt.Errorf("gog %s: HTTP %d", path, se.Status)
+	}
+
+	return err
 }
 
 // testProductID is a long-lived GOG product (The Witcher: Enhanced Edition) used to probe the API.
@@ -132,7 +128,7 @@ const testProductID = "1207658924"
 func (c *Covers) Test(ctx context.Context, _ schema.Settings) error {
 	var ignored json.RawMessage
 
-	if err := c.get(ctx, c.APIURL+"/v2/games/"+testProductID, &ignored); err != nil {
+	if err := c.get(ctx, "/v2/games/"+testProductID, &ignored); err != nil {
 		return fmt.Errorf("the GOG product API did not answer (%w): check your connection and try again later", err)
 	}
 

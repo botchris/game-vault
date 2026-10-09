@@ -2,14 +2,13 @@ package steam
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
+	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
@@ -46,15 +45,18 @@ const CoverProviderID provider.ID = "steam"
 // Store uses Steam's public store endpoints (no API key needed). It implements
 // media.CoverProvider and media.LinkSearcher.
 type Store struct {
-	StoreURL string
-	CDNURL   string
+	// Site calls the store's own JSON endpoints (search, app details) on store.steampowered.com.
+	Site *apiclient.Client
 
-	// APIURL serves IStoreBrowseService, which knows the real (hashed) image paths.
-	APIURL string
+	// API calls IStoreBrowseService on api.steampowered.com, which knows the real (hashed) image
+	// paths.
+	API *apiclient.Client
 
-	// AssetsURL is the CDN prefix those paths are relative to.
+	// CDNURL serves the legacy predictable image paths.
+	CDNURL string
+
+	// AssetsURL is the CDN prefix the hashed paths are relative to.
 	AssetsURL string
-	Client    *http.Client
 }
 
 var (
@@ -126,21 +128,6 @@ func (s *Store) Test(ctx context.Context, _ schema.Settings) error {
 func (s *Store) assetURLs(ctx context.Context, appID int64) (library, header string, err error) {
 	input := fmt.Sprintf(`{"ids":[{"appid":%d}],"context":{"language":"english","country_code":"US"},"data_request":{"include_assets":true}}`, appID)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.APIURL+"/IStoreBrowseService/GetItems/v1/?"+url.Values{"input_json": {input}}.Encode(), nil)
-	if err != nil {
-		return "", "", err
-	}
-
-	res, err := s.Client.Do(req)
-	if err != nil {
-		return "", "", err
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf("steam store items: HTTP %d", res.StatusCode)
-	}
-
 	var out struct {
 		Response struct {
 			StoreItems []struct {
@@ -152,8 +139,8 @@ func (s *Store) assetURLs(ctx context.Context, appID int64) (library, header str
 			} `json:"store_items"`
 		} `json:"response"`
 	}
-	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
-		return "", "", err
+	if err := s.API.Get(ctx, "/IStoreBrowseService/GetItems/v1/", url.Values{"input_json": {input}}, &out); err != nil {
+		return "", "", fmt.Errorf("steam store items: %w", err)
 	}
 
 	if len(out.Response.StoreItems) == 0 {
@@ -178,8 +165,10 @@ func (s *Store) assetURLs(ctx context.Context, appID int64) (library, header str
 
 // NewStore returns the Steam store client with its production endpoints.
 func NewStore() *Store {
-	return &Store{StoreURL: defaultStoreURL, CDNURL: defaultCDNURL, APIURL: defaultAPIURL, AssetsURL: defaultAssetsURL,
-		Client: &http.Client{Timeout: 15 * time.Second}}
+	site, api := apiclient.New(defaultStoreURL), apiclient.New(defaultAPIURL)
+	site.HTTP.Timeout, api.HTTP.Timeout = 15*time.Second, 15*time.Second
+
+	return &Store{Site: site, API: api, CDNURL: defaultCDNURL, AssetsURL: defaultAssetsURL}
 }
 
 // CoverURLs returns Steam's portrait and header art URLs for an app.
@@ -197,21 +186,6 @@ func (s *Store) LinkStore() game.Store { return LinkedStore }
 func (s *Store) SearchLinks(ctx context.Context, query string) ([]media.LinkMatch, error) {
 	q := url.Values{"term": {query}, "l": {"english"}, "cc": {"US"}}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.StoreURL+"/api/storesearch/?"+q.Encode(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	res, err := s.Client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("steam store search: HTTP %d", res.StatusCode)
-	}
-
 	var out struct {
 		Items []struct {
 			Type      string `json:"type"`
@@ -220,8 +194,8 @@ func (s *Store) SearchLinks(ctx context.Context, query string) ([]media.LinkMatc
 			TinyImage string `json:"tiny_image"`
 		} `json:"items"`
 	}
-	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
-		return nil, err
+	if err := s.Site.Get(ctx, "/api/storesearch/", q, &out); err != nil {
+		return nil, fmt.Errorf("steam store search: %w", err)
 	}
 
 	matches := make([]media.LinkMatch, 0, len(out.Items))

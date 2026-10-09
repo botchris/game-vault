@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
@@ -91,28 +92,15 @@ func (d *Details) fetch(ctx context.Context, appID int64, lang string) (app appD
 	id := strconv.FormatInt(appID, 10)
 	params := url.Values{"appids": {id}, "l": {lang}}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, d.store.StoreURL+"/api/appdetails?"+params.Encode(), nil)
-	if err != nil {
-		return appDetails{}, false, err
-	}
+	var out map[string]appDetails
 
-	res, err := d.store.Client.Do(req)
-	if err != nil {
-		return appDetails{}, false, err
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode == http.StatusTooManyRequests {
+	err = d.store.Site.Get(ctx, "/api/appdetails", params, &out)
+	if apiclient.IsStatus(err, http.StatusTooManyRequests) {
 		return appDetails{}, false, fmt.Errorf("steam store: too many requests, try again in a few minutes")
 	}
 
-	if res.StatusCode != http.StatusOK {
-		return appDetails{}, false, fmt.Errorf("steam store: HTTP %d", res.StatusCode)
-	}
-
-	var out map[string]appDetails
-	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
-		return appDetails{}, false, err
+	if err != nil {
+		return appDetails{}, false, fmt.Errorf("steam store: %w", err)
 	}
 
 	app, ok = out[id]

@@ -12,16 +12,15 @@ package cex
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"regexp"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
 
+	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
@@ -55,16 +54,19 @@ var ErrBlocked = errors.New("CeX is not answering lookups right now (its site ma
 
 // Provider implements media.BarcodeProvider.
 type Provider struct {
-	// BaseURL has the country code in place of %s, so tests can point every country at one server.
-	BaseURL string
-	Client  *http.Client
+	// API calls CeX. Its BaseURL has the country code in place of %s (each country has its own
+	// host), so tests can point every country at one server.
+	API *apiclient.Client
 }
 
 var _ media.BarcodeProvider = (*Provider)(nil)
 
 // New returns the CeX barcode provider with its production endpoints.
 func New() *Provider {
-	return &Provider{BaseURL: defaultBaseURL, Client: &http.Client{Timeout: 10 * time.Second}}
+	api := apiclient.New(defaultBaseURL)
+	api.HTTP.Timeout = 10 * time.Second
+
+	return &Provider{API: api}
 }
 
 // Descriptor implements media.BarcodeProvider.
@@ -150,30 +152,22 @@ func (p *Provider) detail(ctx context.Context, country string, code game.Barcode
 
 // get decodes the JSON answer of a country's API at path into out.
 func (p *Provider) get(ctx context.Context, country, path string, out any) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf(p.BaseURL, country)+path, nil)
-	if err != nil {
-		return err
-	}
+	api := *p.API
+	api.BaseURL = fmt.Sprintf(p.API.BaseURL, country)
 
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", userAgent)
-
-	res, err := p.Client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
+	err := api.Get(ctx, path, nil, out)
 
 	// A bot check is an HTML page (often 403 or 503): stop rather than try every country.
-	if !strings.Contains(res.Header.Get("Content-Type"), "json") {
+	var se *apiclient.StatusError
+	if errors.Is(err, apiclient.ErrNotJSON) || (errors.As(err, &se) && strings.HasPrefix(se.Body, "<")) {
 		return ErrBlocked
 	}
 
-	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("CeX %s: HTTP %d", country, res.StatusCode)
+	if se != nil {
+		return fmt.Errorf("CeX %s: HTTP %d", country, se.Status)
 	}
 
-	if err := json.NewDecoder(res.Body).Decode(out); err != nil {
+	if err != nil {
 		return fmt.Errorf("unexpected CeX answer: %w", err)
 	}
 

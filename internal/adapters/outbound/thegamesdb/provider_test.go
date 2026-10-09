@@ -55,7 +55,7 @@ func fakeServer(t *testing.T) (*httptest.Server, *[]string) {
 
 func TestCoversPlatformFilterAndRanking(t *testing.T) {
 	srv, calls := fakeServer(t)
-	p := &Provider{BaseURL: srv.URL, Client: srv.Client()}
+	p := testProvider(srv)
 
 	q := media.CoverQuery{Title: "Halo 3", PhysicalPlatforms: []string{"Xbox 360"}}
 	if p.Applies(media.CoverQuery{Title: "Control", Links: game.Links{"epic": "abc"}}) {
@@ -105,7 +105,7 @@ func TestCoversPlatformFilterAndRanking(t *testing.T) {
 
 func TestTestChecksTheKey(t *testing.T) {
 	srv, _ := fakeServer(t)
-	p := &Provider{BaseURL: srv.URL, Client: srv.Client()}
+	p := testProvider(srv)
 
 	if err := p.Test(context.Background(), schema.Settings{settingAPIKey: "good"}); err != nil {
 		t.Fatalf("a key with allowance must work: %v", err)
@@ -119,4 +119,12 @@ func TestTestChecksTheKey(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "Invalid API key was provided.") {
 		t.Fatalf("search errors must carry TheGamesDB's message, got %v", err)
 	}
+}
+
+// testProvider points the provider at the fake server.
+func testProvider(srv *httptest.Server) *Provider {
+	p := New()
+	p.API.BaseURL, p.API.HTTP = srv.URL, srv.Client()
+
+	return p
 }
