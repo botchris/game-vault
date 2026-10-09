@@ -132,6 +132,7 @@
     "links": "Vínculos con tiendas",
     "linkPlaceholder": "Id en la tienda",
     "storePage": "Abrir",
+    "addLink": "Vincular con otra tienda…",
     "searchStore": "Buscar…",
     "linksHelp": "Vincular el juego con una tienda le da carátula y ficha, y permite reconocerlo al importar aunque su título sea distinto. Deja el id vacío para desvincularlo."
   },

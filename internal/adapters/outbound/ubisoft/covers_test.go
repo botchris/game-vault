@@ -48,7 +48,7 @@ func TestCovers(t *testing.T) {
 	}
 
 	got, err := c.Covers(context.Background(), media.CoverQuery{Title: "Assassin's Creed® Origins",
-		ExternalIDs: []string{"ubisoft:space-with-art", "ubisoft:space-without-art"}}, nil)
+		Links: game.Links{"ubisoft": "space-with-art"}}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

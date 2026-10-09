@@ -113,6 +113,13 @@ func NewProvider() *Provider {
 	}
 }
 
+// LinkedStore is the store this package links games to: the source sets the link on every copy it
+// imports, and the cover provider reads it.
+var LinkedStore = game.Store{Key: "epic", Name: "Epic Games"}
+
+// LinkStore implements sync.StoreLinker.
+func (p *Provider) LinkStore() game.Store { return LinkedStore }
+
 // Descriptor implements sync.Provider.
 func (p *Provider) Descriptor() source.TypeDescriptor {
 	return source.TypeDescriptor{
@@ -256,6 +263,7 @@ func mapLibrary(records []libraryRecord, items map[string]catalogItem) []game.Im
 		seen[r.CatalogItemID] = true
 		out = append(out, game.ImportedCopy{
 			ExternalID: "epic:" + r.CatalogItemID,
+			Links:      game.Links{LinkedStore.Key: r.CatalogItemID},
 			Title:      strings.TrimSpace(it.Title),
 			Details: game.CopyDetails{
 				Kind: game.KindLibrary, Platform: Platform, Status: game.StatusOwned, Origin: "Epic Games Store",

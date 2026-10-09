@@ -110,6 +110,13 @@ func NewProvider() *Provider {
 	}
 }
 
+// LinkedStore is the store this package links games to: the source sets the link on every copy it
+// imports.
+var LinkedStore = game.Store{Key: "psn", Name: "PlayStation"}
+
+// LinkStore implements sync.StoreLinker.
+func (p *Provider) LinkStore() game.Store { return LinkedStore }
+
 // Descriptor implements sync.Provider.
 func (p *Provider) Descriptor() source.TypeDescriptor {
 	return source.TypeDescriptor{
@@ -444,6 +451,7 @@ func mapTitles(titles []title) []game.ImportedCopy {
 		seen[id] = true
 		out = append(out, game.ImportedCopy{
 			ExternalID: "psn:" + id,
+			Links:      game.Links{LinkedStore.Key: id},
 			Title:      name,
 			Details:    game.CopyDetails{Kind: game.KindLibrary, Platform: platformName(t.Platform), Status: game.StatusOwned, Origin: "PlayStation Store"},
 		})

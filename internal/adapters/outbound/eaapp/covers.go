@@ -57,8 +57,11 @@ func (c *Covers) Descriptor() provider.Descriptor {
 // ImageHosts implements media.ImageHoster.
 func (c *Covers) ImageHosts() []string { return []string{"app-images.ea.com"} }
 
-// Applies reports whether the game has a copy imported from an EA library.
-func (c *Covers) Applies(q media.CoverQuery) bool { return len(q.ExternalIDsWithPrefix("ea:")) > 0 }
+// LinkStore implements media.StoreLinker.
+func (c *Covers) LinkStore() game.Store { return LinkedStore }
+
+// Applies reports whether the game is linked to the EA app.
+func (c *Covers) Applies(q media.CoverQuery) bool { return q.Links[LinkedStore.Key] != "" }
 
 var (
 	reYearSuffix = regexp.MustCompile(`\s*\(\d{4}\)\s*$`)
@@ -118,7 +121,7 @@ type eaGame struct {
 
 // Covers implements media.CoverProvider.
 func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
-	slugs := slugCandidates(q.Title, q.ExternalIDsWithPrefix("ea:"))
+	slugs := slugCandidates(q.Title, []string{q.Links[LinkedStore.Key]})
 	// One request: every candidate slug as an alias; unknown slugs come back null.
 	var b strings.Builder
 	b.WriteString("{")

@@ -56,7 +56,10 @@ file under `.claude/memory/` (create `<store>.md` and add a line to `.claude/MEM
 6. Translations in `en.json` and `es.json`: `sources.<name>.description`, field labels and help.
    Help text uses one step per line (`1. …`) and backticks for things to copy; it is rendered by
    `web/src/components/FieldHelp.tsx`. The link button above the steps opens `HelpURL`.
-7. If the store has art, add `"<name>:"` to `CoverQuery.HasStoreLink` and a cover provider.
+7. Link games to the store: declare `var LinkedStore = game.Store{Key: "<name>", Name: "…"}` (with
+   `PageURL` only when a page is addressed by the same id), set `Links: game.Links{LinkedStore.Key:
+   id}` on every imported copy, and implement `sync.StoreLinker` (`LinkStore()`). The game page then
+   shows the store, and a cover provider for it reads the same link. If the store has art, add one.
 8. Docs: a bullet in "Sources" of `docs/technical.md` (how it connects, what is imported), and the
    store added to the "Supported platforms" table of `README.md`.
 
@@ -64,9 +67,8 @@ file under `.claude/memory/` (create `<store>.md` and add a line to `.claude/MEM
 
 1. `covers.go` in the store's package (or a new package): `CoverProviderID`, `Descriptor()` with
    `Kind: provider.KindCover`, `EnabledByDefault: true` when it is free.
-2. `Applies(q)` must not touch the network: decide from `q.ExternalIDsWithPrefix("<name>:")`,
-   `q.Links["<store>"]` (the game's link to a store, e.g. `game.LinkSteam`), `q.Platforms`,
-   `q.PhysicalPlatforms`. Quota-limited providers also check
+2. `Applies(q)` must not touch the network: decide from `q.Links[LinkedStore.Key]` (the game's
+   link to the store; implement `media.StoreLinker` too), `q.Platforms`, `q.PhysicalPlatforms`. Quota-limited providers also check
    `q.HasStoreLink()` / `q.Fallback`.
 3. `Covers(ctx, q, settings)` returns candidates best first (portrait art before landscape), each
    with `URL`, `ThumbURL`, a `Label` saying where it comes from, and `Provider`. Return `nil, nil`

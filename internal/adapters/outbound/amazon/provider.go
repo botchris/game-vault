@@ -115,6 +115,13 @@ func NewProvider() *Provider {
 	}
 }
 
+// LinkedStore is the store this package links games to: the source sets the link on every copy it
+// imports.
+var LinkedStore = game.Store{Key: "amazon", Name: "Amazon Games"}
+
+// LinkStore implements sync.StoreLinker.
+func (p *Provider) LinkStore() game.Store { return LinkedStore }
+
 // Descriptor implements sync.Provider. The sign-in link carries this process's device and PKCE
 // challenge, so a code only works with the link of the running server.
 func (p *Provider) Descriptor() source.TypeDescriptor {
@@ -538,9 +545,9 @@ func mapEntitlements(items []entitlement) ([]game.ImportedCopy, []string) {
 			continue
 		}
 
-		var links game.Links
+		links := game.Links{LinkedStore.Key: id}
 		if m := reSteam.FindStringSubmatch(e.Product.ProductDetail.Details.Websites.Steam); m != nil {
-			links = game.Links{game.LinkSteam: m[1]}
+			links[game.LinkSteam] = m[1]
 		}
 
 		copies = append(copies, game.ImportedCopy{

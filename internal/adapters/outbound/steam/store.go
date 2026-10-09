@@ -23,6 +23,9 @@ const (
 	defaultAssetsURL = "https://shared.akamai.steamstatic.com/store_item_assets/"
 )
 
+// LinkedStore is Steam as a store games are linked to by AppID.
+var LinkedStore = game.Store{Key: game.LinkSteam, Name: "Steam", PageURL: StorePageURL + "{id}"}
+
 // StorePageURL is the address of a Steam store page, without the AppID.
 const StorePageURL = "https://store.steampowered.com/app/"
 
@@ -187,9 +190,7 @@ func (s *Store) CoverURLs(appID int64) []string {
 }
 
 // LinkStore implements media.LinkSearcher.
-func (s *Store) LinkStore() media.LinkStore {
-	return media.LinkStore{Key: game.LinkSteam, Name: "Steam", PageURL: StorePageURL + "{id}"}
-}
+func (s *Store) LinkStore() game.Store { return LinkedStore }
 
 // SearchLinks implements media.LinkSearcher: it searches the Steam store by title.
 func (s *Store) SearchLinks(ctx context.Context, query string) ([]media.LinkMatch, error) {

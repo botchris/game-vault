@@ -13,9 +13,23 @@ import (
 // name a source and a provider agree on.
 type Links map[string]string
 
-// LinkSteam is the key of Steam AppIDs, which the Steam source and other sources (Humble Bundle,
-// Amazon) report and the Steam providers read.
+// LinkSteam is the key of Steam AppIDs. Unlike other stores' keys it is shared here because sources
+// other than Steam's (Humble Bundle, Amazon) report AppIDs too.
 const LinkSteam = "steam"
+
+// Store describes a store games can be linked to. The source that imports a store's library and the
+// providers that read its links declare the same Store.
+type Store struct {
+	// Key is the link key of the store's ids ("steam", "epic"…).
+	Key string
+
+	// Name is the store's display name.
+	Name string
+
+	// PageURL is the address of a game's page in the store, with "{id}" where its id goes; empty
+	// when the store has no page addressed by that id.
+	PageURL string
+}
 
 var reLinkKey = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,31}$`)
 

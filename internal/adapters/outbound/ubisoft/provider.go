@@ -161,6 +161,13 @@ func NewProvider() *Provider {
 	return &Provider{APIURL: defaultAPIURL, Client: &http.Client{Timeout: 30 * time.Second}, Now: time.Now}
 }
 
+// LinkedStore is the store this package links games to: the source sets the link on every copy it
+// imports, and the cover provider reads it.
+var LinkedStore = game.Store{Key: "ubisoft", Name: "Ubisoft Connect"}
+
+// LinkStore implements sync.StoreLinker.
+func (p *Provider) LinkStore() game.Store { return LinkedStore }
+
 // Descriptor implements sync.Provider.
 func (p *Provider) Descriptor() source.TypeDescriptor {
 	return source.TypeDescriptor{
@@ -478,6 +485,7 @@ func mapNodes(nodes []node) []game.ImportedCopy {
 		seen[id] = true
 		out = append(out, game.ImportedCopy{
 			ExternalID: "ubisoft:" + id,
+			Links:      game.Links{LinkedStore.Key: id},
 			Title:      title,
 			Details:    game.CopyDetails{Kind: game.KindLibrary, Platform: Platform, Status: game.StatusOwned, Origin: "Ubisoft Connect"},
 		})

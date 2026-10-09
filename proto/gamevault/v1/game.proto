@@ -205,13 +205,16 @@ message MarkRedeemedKeysResponse {
 
 message ListLinkStoresRequest {}
 
-// LinkStore is a store whose catalog can be searched to link a game to it.
+// LinkStore is a store games can be linked to.
 message LinkStore {
   // Link key the store's ids are saved under in Game.links ("steam").
   string key = 1;
   string name = 2;
-  // Address of a game's page in the store, with "{id}" where the link goes.
+  // Address of a game's page in the store, with "{id}" where the link goes; empty when the
+  // store has no page addressed by that id.
   string page_url = 3;
+  // A provider can search the store's catalog (SearchLinks).
+  bool searchable = 4;
 }
 
 message ListLinkStoresResponse {
@@ -252,7 +255,7 @@ service GameService {
   // the game is already in the library of the key's platform it almost certainly was: mark those
   // keys as redeemed.
   rpc MarkRedeemedKeys(MarkRedeemedKeysRequest) returns (MarkRedeemedKeysResponse);
-  // Lists the stores whose catalog can be searched to link a game to them.
+  // Lists the stores games can be linked to, searchable or not.
   rpc ListLinkStores(ListLinkStoresRequest) returns (ListLinkStoresResponse);
   // Searches a store's catalog by title, to link a game (e.g. a physical one) to it and get its
   // cover and details.

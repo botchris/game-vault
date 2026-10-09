@@ -79,7 +79,7 @@ type GameServiceClient interface {
 	// the game is already in the library of the key's platform it almost certainly was: mark those
 	// keys as redeemed.
 	MarkRedeemedKeys(context.Context, *connect.Request[v1.MarkRedeemedKeysRequest]) (*connect.Response[v1.MarkRedeemedKeysResponse], error)
-	// Lists the stores whose catalog can be searched to link a game to them.
+	// Lists the stores games can be linked to, searchable or not.
 	ListLinkStores(context.Context, *connect.Request[v1.ListLinkStoresRequest]) (*connect.Response[v1.ListLinkStoresResponse], error)
 	// Searches a store's catalog by title, to link a game (e.g. a physical one) to it and get its
 	// cover and details.
@@ -276,7 +276,7 @@ type GameServiceHandler interface {
 	// the game is already in the library of the key's platform it almost certainly was: mark those
 	// keys as redeemed.
 	MarkRedeemedKeys(context.Context, *connect.Request[v1.MarkRedeemedKeysRequest]) (*connect.Response[v1.MarkRedeemedKeysResponse], error)
-	// Lists the stores whose catalog can be searched to link a game to them.
+	// Lists the stores games can be linked to, searchable or not.
 	ListLinkStores(context.Context, *connect.Request[v1.ListLinkStoresRequest]) (*connect.Response[v1.ListLinkStoresResponse], error)
 	// Searches a store's catalog by title, to link a game (e.g. a physical one) to it and get its
 	// cover and details.

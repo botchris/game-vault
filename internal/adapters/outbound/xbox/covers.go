@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"gamevault/internal/application/media"
+	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
 )
@@ -43,15 +44,18 @@ func (c *Covers) Descriptor() provider.Descriptor {
 // ImageHosts implements media.ImageHoster.
 func (c *Covers) ImageHosts() []string { return []string{"store-images.s-microsoft.com"} }
 
-// Applies reports whether the game has a copy imported from a Microsoft account.
-func (c *Covers) Applies(q media.CoverQuery) bool { return len(q.ExternalIDsWithPrefix("xbox:")) > 0 }
+// LinkStore implements media.StoreLinker.
+func (c *Covers) LinkStore() game.Store { return LinkedStore }
+
+// Applies reports whether the game is linked to the Microsoft Store.
+func (c *Covers) Applies(q media.CoverQuery) bool { return q.Links[LinkedStore.Key] != "" }
 
 // imagePurposes ranks the Store's images: portrait poster first, square box art next.
 var imagePurposes = []string{"Poster", "BoxArt"}
 
 // Covers implements media.CoverProvider.
 func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
-	ids := q.ExternalIDsWithPrefix("xbox:")
+	ids := []string{q.Links[LinkedStore.Key]}
 
 	products, err := catalog(ctx, c.Client, c.CatalogURL, c.Market, c.Language, ids)
 	if err != nil {

@@ -8,22 +8,25 @@ import (
 
 	"gamevault/internal/application/catalog"
 	"gamevault/internal/application/media"
+	"gamevault/internal/application/sync"
 	"gamevault/internal/domain/game"
 	pb "gamevault/internal/gen/gamevault/v1"
 	"gamevault/internal/gen/gamevault/v1/gamevaultv1connect"
 )
 
-// GameHandler implements gamevaultv1connect.GameServiceHandler on top of the catalog and media use cases.
+// GameHandler implements gamevaultv1connect.GameServiceHandler on top of the catalog and media use
+// cases; the sources only tell which stores they link games to.
 type GameHandler struct {
 	catalog *catalog.Service
 	media   *media.Service
+	sources *sync.Service
 }
 
 var _ gamevaultv1connect.GameServiceHandler = (*GameHandler)(nil)
 
-// NewGameHandler returns the GameService handler backed by the catalog and media services.
-func NewGameHandler(c *catalog.Service, m *media.Service) *GameHandler {
-	return &GameHandler{catalog: c, media: m}
+// NewGameHandler returns the GameService handler backed by the catalog, media and sync services.
+func NewGameHandler(c *catalog.Service, m *media.Service, sources *sync.Service) *GameHandler {
+	return &GameHandler{catalog: c, media: m, sources: sources}
 }
 
 func gameResp[T any](g *game.Game, err error, wrap func(*pb.Game) *T) (*connect.Response[T], error) {
@@ -165,11 +168,30 @@ func (h *GameHandler) MarkRedeemedKeys(ctx context.Context, _ *connect.Request[p
 	return connect.NewResponse(&pb.MarkRedeemedKeysResponse{Updated: int32(n)}), nil
 }
 
-// ListLinkStores lists the stores whose catalog can be searched to link a game to them.
+// ListLinkStores lists the stores games can be linked to: those the media providers read links of
+// (in chain order), then those only sources link games to.
 func (h *GameHandler) ListLinkStores(context.Context, *connect.Request[pb.ListLinkStoresRequest]) (*connect.Response[pb.ListLinkStoresResponse], error) {
 	out := &pb.ListLinkStoresResponse{}
+	byKey := map[string]*pb.LinkStore{}
+	add := func(s game.Store, searchable bool) {
+		if ls, ok := byKey[s.Key]; ok {
+			if ls.PageUrl == "" {
+				ls.PageUrl = s.PageURL
+			}
+
+			return
+		}
+
+		byKey[s.Key] = &pb.LinkStore{Key: s.Key, Name: s.Name, PageUrl: s.PageURL, Searchable: searchable}
+		out.Stores = append(out.Stores, byKey[s.Key])
+	}
+
 	for _, s := range h.media.LinkStores() {
-		out.Stores = append(out.Stores, &pb.LinkStore{Key: s.Key, Name: s.Name, PageUrl: s.PageURL})
+		add(s.Store, s.Searchable)
+	}
+
+	for _, s := range h.sources.LinkStores() {
+		add(s, false)
 	}
 
 	return connect.NewResponse(out), nil

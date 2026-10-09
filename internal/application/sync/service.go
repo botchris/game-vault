@@ -50,6 +50,13 @@ type KeepAliver interface {
 	KeepAlive(ctx context.Context, settings source.Settings) error
 }
 
+// StoreLinker is an optional port for providers that import a store's library and link each game
+// to it (game.ImportedCopy.Links), so the game page can name and show that store.
+type StoreLinker interface {
+	// LinkStore describes the store the provider links games to.
+	LinkStore() game.Store
+}
+
 // Providers may also update their state fields (schema.FieldState) in the settings passed to
 // Fetch or Test, e.g. a refresh token that rotates on every use; the service persists them.
 
@@ -82,6 +89,21 @@ func (s *Service) Types() []source.TypeDescriptor {
 	out := make([]source.TypeDescriptor, 0, len(s.providers))
 	for _, p := range s.providers {
 		out = append(out, p.Descriptor())
+	}
+
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+
+	return out
+}
+
+// LinkStores returns the stores the source types link games to, sorted by name.
+func (s *Service) LinkStores() []game.Store {
+	var out []game.Store
+
+	for _, p := range s.providers {
+		if l, ok := p.(StoreLinker); ok {
+			out = append(out, l.LinkStore())
+		}
 	}
 
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })

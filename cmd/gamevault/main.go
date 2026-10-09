@@ -180,7 +180,7 @@ func run() error {
 	handler := rpc.NewHTTPHandler(rpc.Handlers{
 		Auth:        rpc.NewAuthHandler(authSvc),
 		AuthService: authSvc,
-		Games:       rpc.NewGameHandler(catalogSvc, mediaSvc),
+		Games:       rpc.NewGameHandler(catalogSvc, mediaSvc, syncSvc),
 		Sources:     rpc.NewSourceHandler(syncSvc),
 		System:      rpc.NewSystemHandler(systemSvc, transferSvc),
 		Logs:        rpc.NewLogHandler(logsSvc),

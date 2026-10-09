@@ -39,9 +39,12 @@ func (c *Covers) Descriptor() provider.Descriptor {
 	}
 }
 
-// Applies reports whether the game has a copy imported from a Battle.net account.
+// LinkStore implements media.StoreLinker.
+func (c *Covers) LinkStore() game.Store { return LinkedStore }
+
+// Applies reports whether the game is linked to Battle.net.
 func (c *Covers) Applies(q media.CoverQuery) bool {
-	return len(q.ExternalIDsWithPrefix("battlenet:")) > 0
+	return q.Links[LinkedStore.Key] != ""
 }
 
 // reYear drops a year Battle.net adds to tell remasters apart: "… Remastered (2017)".

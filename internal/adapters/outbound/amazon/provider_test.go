@@ -200,14 +200,14 @@ func TestFetch_readsTheLibrary(t *testing.T) {
 				require.Len(t, copies, 2)
 			})
 
-			t.Run("AND each product is one owned library copy, linked to Steam when Amazon says so", func(t *testing.T) {
+			t.Run("AND each product is one owned library copy, linked to Amazon, and to Steam when Amazon says so", func(t *testing.T) {
 				assert.Equal(t, "amazon:amzn1.adg.product.1", copies[0].ExternalID)
 				assert.Equal(t, "Tunic™", copies[0].Title)
-				assert.Equal(t, game.Links{game.LinkSteam: "553420"}, copies[0].Links)
+				assert.Equal(t, game.Links{"amazon": "amzn1.adg.product.1", game.LinkSteam: "553420"}, copies[0].Links)
 				assert.Equal(t, game.KindLibrary, copies[0].Details.Kind)
 				assert.Equal(t, Platform, copies[0].Details.Platform)
 				assert.Equal(t, game.StatusOwned, copies[0].Details.Status)
-				assert.Empty(t, copies[1].Links)
+				assert.Equal(t, game.Links{"amazon": "amzn1.adg.product.3"}, copies[1].Links)
 			})
 
 			t.Run("AND a product without a title is skipped with a warning", func(t *testing.T) {

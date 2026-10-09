@@ -17,8 +17,10 @@ metadata:
   earlier by returning it `Withdrawn`; games left empty are deleted by the sync.
 - Prefixes: `steam:<appId>`, `humble:<gamekey>:<machine_name>:<keyindex>` (was `humble:<gamekey>:<keyindex>`, see [[humble]]), `epic:<catalogItemId>`,
   `gog:<productId>`, `battlenet:<titleId>`, `ea:<productId>`, `ubisoft:<spaceId>`,
-  `xbox:<productId>`, `psn:<entitlementId>`, `amazon:<productId>`, `fanatical:<keyId>`. Cover providers find a game's own art through them
-  (`CoverQuery.ExternalIDsWithPrefix`). See [[provider-chains]].
+  `xbox:<productId>`, `psn:<entitlementId>`, `amazon:<productId>`, `fanatical:<keyId>`. Each library source also links the
+  game to its store with the same id (`epic`, `gog`, `battlenet`, `ea`, `ubisoft`, `xbox`, `psn`,
+  `amazon`, `steam`; migration 0008 filled existing games), and cover providers read those links,
+  never the copies' ids. See [[provider-chains]].
 - Platform names are shared between sources so Humble keys are flagged as redundant when the
   game is already in that store: "Steam", "Epic Games", "GOG", "Battle.net", "EA App",
   "Ubisoft Connect", "Microsoft Store / Xbox"; PlayStation copies use "PS4"/"PS5".

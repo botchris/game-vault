@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/application/media"
+	"gamevault/internal/domain/game"
 )
 
 func TestSlugCandidates(t *testing.T) {
@@ -56,8 +57,8 @@ func TestCovers(t *testing.T) {
 	c := NewCovers()
 	c.GraphQLURL = srv.URL
 
-	q := media.CoverQuery{Title: "Battlefield™ 1", ExternalIDs: []string{"ea:en-us_battlefield-1-standard-edition-pc-row-juno-3pdd_VideoGameProduct_es_pc"}}
-	if !c.Applies(q) || c.Applies(media.CoverQuery{Title: "x", ExternalIDs: []string{"gog:1"}}) {
+	q := media.CoverQuery{Title: "Battlefield™ 1", Links: game.Links{"ea": "en-us_battlefield-1-standard-edition-pc-row-juno-3pdd_VideoGameProduct_es_pc"}}
+	if !c.Applies(q) || c.Applies(media.CoverQuery{Title: "x", Links: game.Links{"gog": "1"}}) {
 		t.Fatal("applies only to games imported from EA")
 	}
 

@@ -58,11 +58,11 @@ func TestCoversPlatformFilterAndRanking(t *testing.T) {
 	p := &Provider{BaseURL: srv.URL, Client: srv.Client()}
 
 	q := media.CoverQuery{Title: "Halo 3", PhysicalPlatforms: []string{"Xbox 360"}}
-	if p.Applies(media.CoverQuery{Title: "Control", ExternalIDs: []string{"epic:abc"}}) {
+	if p.Applies(media.CoverQuery{Title: "Control", Links: game.Links{"epic": "abc"}}) {
 		t.Fatal("games imported from Epic or GOG have store art: keep the quota")
 	}
 
-	if !p.Applies(media.CoverQuery{Title: "World of Warcraft", ExternalIDs: []string{"battlenet:1"}, Fallback: true}) {
+	if !p.Applies(media.CoverQuery{Title: "World of Warcraft", Links: game.Links{"battlenet": "1"}, Fallback: true}) {
 		t.Fatal("on the fallback pass (no store had art) TheGamesDB helps")
 	}
 

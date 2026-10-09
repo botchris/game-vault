@@ -96,45 +96,14 @@ type CoverQuery struct {
 	// Platforms lists the platforms of every copy.
 	Platforms []string
 
-	// ExternalIDs are the ids of the copies imported from sources ("epic:…", "gog:…"), which
-	// store cover providers use to find the game's own art.
-	ExternalIDs []string
-
 	// Fallback is set on the second pass, after no store had art for a game it knows: providers
 	// that keep their quota for games without store art may then help too.
 	Fallback bool
 }
 
-// ExternalIDsWithPrefix returns the external ids starting with prefix, without it:
-// ExternalIDsWithPrefix("gog:") of ["gog:1207664643"] is ["1207664643"].
-func (q CoverQuery) ExternalIDsWithPrefix(prefix string) []string {
-	var out []string
-
-	for _, id := range q.ExternalIDs {
-		if rest, ok := strings.CutPrefix(id, prefix); ok && rest != "" {
-			out = append(out, rest)
-		}
-	}
-
-	return out
-}
-
-// HasStoreLink reports whether a digital store with its own art knows the game: a link to a store
-// or a copy imported from Epic, GOG, Ubisoft, EA, Battle.net or Xbox. Quota-limited providers skip
-// those games.
-func (q CoverQuery) HasStoreLink() bool {
-	if len(q.Links) > 0 {
-		return true
-	}
-
-	for _, store := range []string{"epic:", "gog:", "ubisoft:", "ea:", "battlenet:", "xbox:"} {
-		if len(q.ExternalIDsWithPrefix(store)) > 0 {
-			return true
-		}
-	}
-
-	return false
-}
+// HasStoreLink reports whether the game is linked to a store, whose providers have its own art.
+// Quota-limited providers skip those games.
+func (q CoverQuery) HasStoreLink() bool { return len(q.Links) > 0 }
 
 // HasPhysical reports whether the game has at least one physical copy.
 func (q CoverQuery) HasPhysical() bool { return len(q.PhysicalPlatforms) > 0 }
@@ -143,10 +112,6 @@ func (q CoverQuery) HasPhysical() bool { return len(q.PhysicalPlatforms) > 0 }
 func QueryFor(g *game.Game) CoverQuery {
 	q := CoverQuery{Title: g.Title(), Links: g.Links()}
 	for _, c := range g.Copies() {
-		if c.ExternalID != "" {
-			q.ExternalIDs = append(q.ExternalIDs, c.ExternalID)
-		}
-
 		if c.Platform == "" {
 			continue
 		}
@@ -228,16 +193,12 @@ type Provider interface {
 	Test(ctx context.Context, settings schema.Settings) error
 }
 
-// LinkStore describes a store games can be linked to.
+// LinkStore is a store games can be linked to, as the media providers know it.
 type LinkStore struct {
-	// Key is the link key the store's ids are saved under (game.LinkSteam).
-	Key string
+	game.Store
 
-	// Name is the store's display name.
-	Name string
-
-	// PageURL is the address of a game's page in the store, with "{id}" where its id goes.
-	PageURL string
+	// Searchable reports that a provider can search the store's catalog (SearchLinks).
+	Searchable bool
 }
 
 // LinkMatch is a game found in a store's catalog.
@@ -248,11 +209,16 @@ type LinkMatch struct {
 	ImageURL string
 }
 
-// LinkSearcher is an optional port for providers that can search their store's catalog by title,
-// so the user (and the add-on cover lookup) can link a game to it.
+// StoreLinker is an optional port for providers that find a game by its link to a store.
+type StoreLinker interface {
+	// LinkStore describes the store whose links the provider reads.
+	LinkStore() game.Store
+}
+
+// LinkSearcher is an optional port for providers that can also search their store's catalog by
+// title, so the user (and the add-on cover lookup) can link a game to it.
 type LinkSearcher interface {
-	// LinkStore describes the store the provider searches.
-	LinkStore() LinkStore
+	StoreLinker
 
 	// SearchLinks returns the store's games whose title matches the query, best first.
 	SearchLinks(ctx context.Context, query string) ([]LinkMatch, error)
@@ -268,6 +234,7 @@ type Service struct {
 	store     AssetStore
 	fetch     ImageFetcher
 	searchers []LinkSearcher // registration order
+	stores    []LinkStore    // every store a provider reads links of, registration order
 	impls     map[provider.ID]Provider
 	covers    map[provider.ID]CoverProvider
 	barcodes  map[provider.ID]BarcodeProvider
@@ -320,16 +287,36 @@ func NewService(games game.Repository, providers provider.Repository, store Asse
 		s.order = append(s.order, id)
 	}
 
-	seen := map[string]bool{}
-
 	for _, id := range s.order {
-		if ls, ok := s.impls[id].(LinkSearcher); ok && !seen[ls.LinkStore().Key] {
-			seen[ls.LinkStore().Key] = true
-			s.searchers = append(s.searchers, ls)
-		}
+		s.addStore(s.impls[id])
 	}
 
 	return s
+}
+
+// addStore records the store whose links p reads, and p as its searcher when it can search it.
+func (s *Service) addStore(p Provider) {
+	linker, ok := p.(StoreLinker)
+	if !ok {
+		return
+	}
+
+	store := linker.LinkStore()
+	i := slices.IndexFunc(s.stores, func(ls LinkStore) bool { return ls.Key == store.Key })
+
+	if i < 0 {
+		s.stores = append(s.stores, LinkStore{Store: store})
+		i = len(s.stores) - 1
+	}
+
+	if s.stores[i].PageURL == "" {
+		s.stores[i].PageURL = store.PageURL
+	}
+
+	if searcher, ok := p.(LinkSearcher); ok && !s.stores[i].Searchable {
+		s.stores[i].Searchable = true
+		s.searchers = append(s.searchers, searcher)
+	}
 }
 
 var allKinds = []provider.Kind{provider.KindCover, provider.KindBarcode, provider.KindMetadata}
@@ -745,15 +732,8 @@ func (s *Service) ProviderName(id provider.ID) string {
 	return string(id)
 }
 
-// LinkStores returns the stores a game can be linked to by searching them, in chain order.
-func (s *Service) LinkStores() []LinkStore {
-	out := make([]LinkStore, 0, len(s.searchers))
-	for _, ls := range s.searchers {
-		out = append(out, ls.LinkStore())
-	}
-
-	return out
-}
+// LinkStores returns the stores whose links the providers read, in chain order.
+func (s *Service) LinkStores() []LinkStore { return slices.Clone(s.stores) }
 
 // SearchLinks searches a store's catalog by title, to link a game to it.
 func (s *Service) SearchLinks(ctx context.Context, store, query string) ([]LinkMatch, error) {

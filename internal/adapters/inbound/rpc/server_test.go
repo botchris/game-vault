@@ -178,8 +178,8 @@ func (f *fakeBoxArt) Covers(_ context.Context, q media.CoverQuery, s schema.Sett
 	return []media.CoverCandidate{{URL: "https://boxart.test/" + q.PhysicalPlatforms[0] + ".png", Label: q.Title, Provider: "boxart"}}, nil
 }
 
-func (fakeSteamStore) LinkStore() media.LinkStore {
-	return media.LinkStore{Key: game.LinkSteam, Name: "Steam", PageURL: "https://steam.test/app/{id}"}
+func (fakeSteamStore) LinkStore() game.Store {
+	return game.Store{Key: game.LinkSteam, Name: "Steam", PageURL: "https://steam.test/app/{id}"}
 }
 
 func (fakeSteamStore) SearchLinks(context.Context, string) ([]media.LinkMatch, error) {
@@ -243,14 +243,15 @@ func newServer(t *testing.T, p sync.Provider) clients {
 		})
 	logsSvc := logs.NewService(sqlite.NewSettingsRepository(db), logFiles, logFiles)
 	authSvc := appauth.NewService(sqlite.NewAuthRepository(db), sqlite.NewSettingsRepository(db), passwordhash.Bcrypt{Cost: 4}, noCerts{}, time.Now, log)
+	syncSvc := sync.NewService(sources, games, db, time.Now, log, p)
 	h := rpc.NewHTTPHandler(rpc.Handlers{
 		Auth:        rpc.NewAuthHandler(authSvc),
 		AuthService: authSvc,
 		Logs:        rpc.NewLogHandler(logsSvc),
 		Media:       mediaSvc,
 		MediaRPC:    rpc.NewMediaHandler(mediaSvc),
-		Games:       rpc.NewGameHandler(catalog.NewService(games, db, time.Now, mediaSvc), mediaSvc),
-		Sources:     rpc.NewSourceHandler(sync.NewService(sources, games, db, time.Now, log, p)),
+		Games:       rpc.NewGameHandler(catalog.NewService(games, db, time.Now, mediaSvc), mediaSvc, syncSvc),
+		Sources:     rpc.NewSourceHandler(syncSvc),
 		System: rpc.NewSystemHandler(
 			system.NewService(games, db, time.Now, log, system.Status{Version: "test"}, filepath.Join(dir, "backups"), 3),
 			transfer.NewService(games, db, time.Now, csvfile.Codec{})),

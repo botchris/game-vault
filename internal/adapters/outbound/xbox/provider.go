@@ -107,6 +107,13 @@ func NewProvider() *Provider {
 	}
 }
 
+// LinkedStore is the store this package links games to: the source sets the link on every copy it
+// imports, and the cover provider reads it.
+var LinkedStore = game.Store{Key: "xbox", Name: "Xbox"}
+
+// LinkStore implements sync.StoreLinker.
+func (p *Provider) LinkStore() game.Store { return LinkedStore }
+
 // Descriptor implements sync.Provider.
 func (p *Provider) Descriptor() source.TypeDescriptor {
 	return source.TypeDescriptor{
@@ -501,6 +508,7 @@ func (p *Provider) owned(ctx context.Context, settings source.Settings) ([]game.
 
 		out = append(out, game.ImportedCopy{
 			ExternalID: "xbox:" + id,
+			Links:      game.Links{LinkedStore.Key: id},
 			Title:      title,
 			Details:    game.CopyDetails{Kind: game.KindLibrary, Platform: Platform, Status: game.StatusOwned, Origin: "Microsoft Store"},
 		})

@@ -89,6 +89,13 @@ func NewProvider() *Provider {
 	return &Provider{AccountsURL: defaultAccountsURL, GraphQLURL: defaultGraphQLURL, Timeout: 30 * time.Second}
 }
 
+// LinkedStore is the store this package links games to: the source sets the link on every copy it
+// imports, and the cover provider reads it.
+var LinkedStore = game.Store{Key: "ea", Name: "EA app"}
+
+// LinkStore implements sync.StoreLinker.
+func (p *Provider) LinkStore() game.Store { return LinkedStore }
+
 // Descriptor implements sync.Provider.
 func (p *Provider) Descriptor() source.TypeDescriptor {
 	return source.TypeDescriptor{
@@ -310,6 +317,7 @@ func mapItems(items []item) []game.ImportedCopy {
 
 		byGame[key] = game.ImportedCopy{
 			ExternalID: "ea:" + id,
+			Links:      game.Links{LinkedStore.Key: id},
 			Title:      title,
 			Details: game.CopyDetails{
 				Kind: game.KindLibrary, Platform: Platform, Status: game.StatusOwned, Origin: "EA app", Edition: edition,

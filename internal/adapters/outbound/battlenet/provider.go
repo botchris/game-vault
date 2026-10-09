@@ -60,6 +60,13 @@ func NewProvider() *Provider {
 	return &Provider{AccountURL: defaultAccountURL, Timeout: 30 * time.Second}
 }
 
+// LinkedStore is the store this package links games to: the source sets the link on every copy it
+// imports, and the cover provider reads it.
+var LinkedStore = game.Store{Key: "battlenet", Name: "Battle.net"}
+
+// LinkStore implements sync.StoreLinker.
+func (p *Provider) LinkStore() game.Store { return LinkedStore }
+
 // Descriptor implements sync.Provider.
 func (p *Provider) Descriptor() source.TypeDescriptor {
 	return source.TypeDescriptor{
@@ -263,6 +270,7 @@ func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.
 	for _, t := range byName {
 		out = append(out, game.ImportedCopy{
 			ExternalID: "battlenet:" + t.ID,
+			Links:      game.Links{LinkedStore.Key: t.ID},
 			Title:      t.Name,
 			Details:    game.CopyDetails{Kind: game.KindLibrary, Platform: Platform, Status: game.StatusOwned, Origin: "Battle.net"},
 		})

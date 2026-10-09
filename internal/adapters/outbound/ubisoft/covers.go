@@ -61,10 +61,13 @@ func (c *Covers) ImageHosts() []string {
 	return []string{"ubiservices.cdn.ubi.com", "store.ubisoft.com", "staticctf.ubisoft.com"}
 }
 
-// Applies reports whether the game came from a Ubisoft library or has a copy for Ubisoft Connect (a Humble
+// LinkStore implements media.StoreLinker.
+func (c *Covers) LinkStore() game.Store { return LinkedStore }
+
+// Applies reports whether the game is linked to Ubisoft Connect or has a copy for it (a Humble
 // Uplay key, for instance).
 func (c *Covers) Applies(q media.CoverQuery) bool {
-	if len(q.ExternalIDsWithPrefix("ubisoft:")) > 0 {
+	if q.Links[LinkedStore.Key] != "" {
 		return true
 	}
 
@@ -81,7 +84,7 @@ func (c *Covers) Applies(q media.CoverQuery) bool {
 func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	var out []media.CoverCandidate
 
-	for _, space := range q.ExternalIDsWithPrefix("ubisoft:") {
+	if space := q.Links[LinkedStore.Key]; space != "" {
 		u := c.CDNURL + "/" + url.PathEscape(space) + "/spaceCardAsset/boxArt_mobile.jpg"
 		if c.exists(ctx, u) {
 			out = append(out, media.CoverCandidate{URL: u, ThumbURL: u, Label: "Ubisoft Connect: box art", Title: q.Title, Provider: CoverProviderID})

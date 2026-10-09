@@ -218,7 +218,7 @@ func TestCovers(t *testing.T) {
 	c := NewCovers()
 	c.CatalogURL = p.CatalogURL
 
-	q := media.CoverQuery{Title: "Halo Infinite", ExternalIDs: []string{"xbox:9HALO"}}
+	q := media.CoverQuery{Title: "Halo Infinite", Links: game.Links{"xbox": "9HALO"}}
 	if !c.Applies(q) || c.Applies(media.CoverQuery{Title: "x", Links: game.Links{game.LinkSteam: "1"}}) {
 		t.Fatal("applies only to games imported from a Microsoft account")
 	}

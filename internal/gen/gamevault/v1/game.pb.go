@@ -1654,14 +1654,17 @@ func (*ListLinkStoresRequest) Descriptor() ([]byte, []int) {
 	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{25}
 }
 
-// LinkStore is a store whose catalog can be searched to link a game to it.
+// LinkStore is a store games can be linked to.
 type LinkStore struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Link key the store's ids are saved under in Game.links ("steam").
 	Key  string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// Address of a game's page in the store, with "{id}" where the link goes.
-	PageUrl       string `protobuf:"bytes,3,opt,name=page_url,json=pageUrl,proto3" json:"page_url,omitempty"`
+	// Address of a game's page in the store, with "{id}" where the link goes; empty when the
+	// store has no page addressed by that id.
+	PageUrl string `protobuf:"bytes,3,opt,name=page_url,json=pageUrl,proto3" json:"page_url,omitempty"`
+	// A provider can search the store's catalog (SearchLinks).
+	Searchable    bool `protobuf:"varint,4,opt,name=searchable,proto3" json:"searchable,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1715,6 +1718,13 @@ func (x *LinkStore) GetPageUrl() string {
 		return x.PageUrl
 	}
 	return ""
+}
+
+func (x *LinkStore) GetSearchable() bool {
+	if x != nil {
+		return x.Searchable
+	}
+	return false
 }
 
 type ListLinkStoresResponse struct {
@@ -2040,11 +2050,14 @@ const file_gamevault_v1_game_proto_rawDesc = "" +
 	"\x17MarkRedeemedKeysRequest\"4\n" +
 	"\x18MarkRedeemedKeysResponse\x12\x18\n" +
 	"\aupdated\x18\x01 \x01(\x05R\aupdated\"\x17\n" +
-	"\x15ListLinkStoresRequest\"L\n" +
+	"\x15ListLinkStoresRequest\"l\n" +
 	"\tLinkStore\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x19\n" +
-	"\bpage_url\x18\x03 \x01(\tR\apageUrl\"I\n" +
+	"\bpage_url\x18\x03 \x01(\tR\apageUrl\x12\x1e\n" +
+	"\n" +
+	"searchable\x18\x04 \x01(\bR\n" +
+	"searchable\"I\n" +
 	"\x16ListLinkStoresResponse\x12/\n" +
 	"\x06stores\x18\x01 \x03(\v2\x17.gamevault.v1.LinkStoreR\x06stores\"@\n" +
 	"\x12SearchLinksRequest\x12\x14\n" +

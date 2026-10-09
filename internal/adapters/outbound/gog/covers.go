@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"gamevault/internal/application/media"
+	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
 )
@@ -47,8 +48,11 @@ func (c *Covers) Descriptor() provider.Descriptor {
 // ImageHosts implements media.ImageHoster.
 func (c *Covers) ImageHosts() []string { return []string{"images.gog-statics.com"} }
 
-// Applies reports whether the game has a copy imported from a GOG library.
-func (c *Covers) Applies(q media.CoverQuery) bool { return len(q.ExternalIDsWithPrefix("gog:")) > 0 }
+// LinkStore implements media.StoreLinker.
+func (c *Covers) LinkStore() game.Store { return LinkedStore }
+
+// Applies reports whether the game is linked to GOG.
+func (c *Covers) Applies(q media.CoverQuery) bool { return q.Links[LinkedStore.Key] != "" }
 
 type link struct {
 	Href string `json:"href"`
@@ -58,7 +62,7 @@ type link struct {
 func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	var out []media.CoverCandidate
 
-	for _, id := range q.ExternalIDsWithPrefix("gog:") {
+	for _, id := range []string{q.Links[LinkedStore.Key]} {
 		var g struct {
 			Links struct {
 				BoxArt     link `json:"boxArtImage"`

@@ -45,6 +45,9 @@ func NewProvider() *Provider {
 	return &Provider{BaseURL: defaultBaseURL, Client: &http.Client{Timeout: 60 * time.Second}}
 }
 
+// LinkStore implements sync.StoreLinker.
+func (p *Provider) LinkStore() game.Store { return LinkedStore }
+
 // Descriptor implements sync.Provider.
 func (p *Provider) Descriptor() source.TypeDescriptor {
 	return source.TypeDescriptor{
@@ -100,7 +103,7 @@ func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.
 		copies = append(copies, game.ImportedCopy{
 			ExternalID: fmt.Sprintf("steam:%d", g.AppID),
 			Title:      name,
-			Links:      game.Links{game.LinkSteam: strconv.FormatInt(g.AppID, 10)},
+			Links:      game.Links{LinkedStore.Key: strconv.FormatInt(g.AppID, 10)},
 			Details:    game.CopyDetails{Kind: game.KindLibrary, Platform: "Steam", Status: game.StatusOwned, Origin: "Steam"},
 		})
 	}

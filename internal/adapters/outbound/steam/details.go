@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"gamevault/internal/application/media"
+	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
 )
@@ -38,6 +39,9 @@ func (d *Details) Descriptor() provider.Descriptor {
 		DescriptionKey: "providers.steamDetails.description", EnabledByDefault: true,
 	}
 }
+
+// LinkStore implements media.StoreLinker.
+func (d *Details) LinkStore() game.Store { return LinkedStore }
 
 // Applies implements media.MetadataProvider.
 func (d *Details) Applies(q media.CoverQuery) bool { return AppIDOf(q) != 0 }

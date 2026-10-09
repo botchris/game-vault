@@ -283,13 +283,16 @@ function EditTab({ game, busy, onSave, setDialog, run, onDeleted }: {
     gameClient.listLinkStores({}).then((res) => setStores(res.stores), () => setStores([]));
   }, []);
 
-  // Searchable stores first, in chain order, then any other store the game is linked to (from an import).
+  // One row per store the game is linked to, plus the searchable ones (to link it by title), in the
+  // server's order; a link to a store nobody describes any more keeps a row named by its key.
+  const shown = (key: string) => key in info.links || stores.some((s) => s.key === key && s.searchable);
   const rows = [
-    ...stores,
+    ...stores.filter((s) => shown(s.key)),
     ...Object.keys(info.links).sort()
       .filter((key) => !stores.some((s) => s.key === key))
-      .map((key) => ({ key, name: key, pageUrl: '' }) as LinkStore),
+      .map((key) => ({ key, name: key, pageUrl: '', searchable: false }) as LinkStore),
   ];
+  const addable = stores.filter((s) => !shown(s.key));
   const setLink = (key: string, id: string) => setInfo({ ...info, links: { ...info.links, [key]: id } });
 
   const save = (e: FormEvent) => {
@@ -328,13 +331,20 @@ function EditTab({ game, busy, onSave, setDialog, run, onDeleted }: {
                       {t('game.storePage')}
                     </a>
                   )}
-                  {stores.includes(store) && (
+                  {store.searchable && (
                     <button type="button" onClick={() => setSearching(store)}>{t('game.searchStore')}</button>
                   )}
                 </span>
               </label>
             );
           })}
+          {addable.length > 0 && (
+            <select className="store-link-add" value="" aria-label={t('game.addLink')}
+              onChange={(e) => e.target.value && setLink(e.target.value, '')}>
+              <option value="">{t('game.addLink')}</option>
+              {addable.map((s) => <option key={s.key} value={s.key}>{s.name}</option>)}
+            </select>
+          )}
           <span className="help">{t('game.linksHelp')}</span>
         </div>
         <label className="span2">

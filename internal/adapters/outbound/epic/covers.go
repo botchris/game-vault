@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"gamevault/internal/application/media"
+	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
 )
@@ -49,15 +50,18 @@ func (c *Covers) ImageHosts() []string {
 	return []string{"cdn1.epicgames.com", "cdn2.epicgames.com", "cdn1.unrealengine.com", "cdn2.unrealengine.com"}
 }
 
-// Applies reports whether the game has a copy imported from an Epic library.
-func (c *Covers) Applies(q media.CoverQuery) bool { return len(q.ExternalIDsWithPrefix("epic:")) > 0 }
+// LinkStore implements media.StoreLinker.
+func (c *Covers) LinkStore() game.Store { return LinkedStore }
+
+// Applies reports whether the game is linked to the Epic Games Store.
+func (c *Covers) Applies(q media.CoverQuery) bool { return q.Links[LinkedStore.Key] != "" }
 
 // imageOrder ranks Epic's key image types: portrait box art first, landscape last.
 var imageOrder = []string{"DieselGameBoxTall", "OfferImageTall", "CodeRedemption_340x440", "DieselGameBox", "OfferImageWide", "Thumbnail"}
 
 // Covers implements media.CoverProvider.
 func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
-	ids := q.ExternalIDsWithPrefix("epic:")
+	ids := []string{q.Links[LinkedStore.Key]}
 
 	token, err := c.appToken(ctx)
 	if err != nil {
