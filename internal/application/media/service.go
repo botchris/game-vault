@@ -404,7 +404,8 @@ func (s *Service) Providers(ctx context.Context, kind provider.Kind) ([]Provider
 		if sib, err := s.siblings(ctx, d.SettingsGroup, id); err == nil && len(sib) > 0 {
 			p.ShareSettings(sib[0].Settings(), s.now())
 
-			if sib[0].Enabled() {
+			// Price providers query on their own schedule, so the user turns them on explicitly.
+			if sib[0].Enabled() && d.Kind != provider.KindValuation {
 				_ = p.Configure(d, true, sib[0].Settings(), s.now()) // stays disabled if settings are incomplete
 			}
 		}

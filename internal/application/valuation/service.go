@@ -24,6 +24,9 @@ var (
 	// ErrNoProviders means no price provider is enabled.
 	ErrNoProviders = errors.New("no price provider is enabled: enable one on the Providers page")
 
+	// errSkipped marks a provider not asked because it failed earlier in the scheduler's round.
+	errSkipped = errors.New("skipped for this round after failing")
+
 	// ErrChanged means the copy's barcode changed while its price was being estimated.
 	ErrChanged = errors.New("the copy changed while its price was being estimated: try again")
 )
@@ -125,26 +128,34 @@ type answer struct {
 // loses it) and plans the next valuation 20–40 days ahead. The warnings name the providers that
 // failed. The providers are asked outside the transaction, so a slow source never blocks writes.
 func (s *Service) EstimateCopy(ctx context.Context, gameID, copyID game.ID) (*game.Game, []string, error) {
+	g, warnings, _, err := s.estimate(ctx, gameID, copyID, nil)
+
+	return g, warnings, err
+}
+
+// estimate is EstimateCopy for the scheduler too: providers in skip are not asked (they failed
+// earlier in the round) and count as failed; it also returns the providers that failed now.
+func (s *Service) estimate(ctx context.Context, gameID, copyID game.ID, skip map[provider.ID]bool) (*game.Game, []string, []provider.ID, error) {
 	g, err := s.games.Get(ctx, gameID)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	c, err := copyOf(g, copyID)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	views, err := s.enabled(ctx)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	if len(views) == 0 {
-		return nil, nil, ErrNoProviders
+		return nil, nil, nil, ErrNoProviders
 	}
 
-	answers, warnings := s.ask(ctx, views, c.Barcode)
+	answers, warnings := s.ask(ctx, views, c.Barcode, skip)
 
 	var out *game.Game
 
@@ -173,7 +184,15 @@ func (s *Service) EstimateCopy(ctx context.Context, gameID, copyID game.ID) (*ga
 		return s.games.Save(ctx, g)
 	})
 
-	return out, warnings, err
+	var failed []provider.ID
+
+	for _, a := range answers {
+		if a.err != nil {
+			failed = append(failed, a.id)
+		}
+	}
+
+	return out, warnings, failed, err
 }
 
 func copyOf(g *game.Game, id game.ID) (game.Copy, error) {
@@ -190,12 +209,21 @@ func copyOf(g *game.Game, id game.ID) (game.Copy, error) {
 	return game.Copy{}, game.ErrCopyNotFound
 }
 
-func (s *Service) ask(ctx context.Context, views []media.ProviderView, code game.Barcode) ([]answer, []string) {
+func (s *Service) ask(ctx context.Context, views []media.ProviderView, code game.Barcode, skip map[provider.ID]bool) ([]answer, []string) {
 	answers := make([]answer, 0, len(views))
 
 	var warnings []string
 
 	for _, v := range views {
+		if skip[v.ID()] {
+			answers = append(answers, answer{
+				id:  v.ID(),
+				err: errSkipped,
+			})
+
+			continue
+		}
+
 		pctx, cancel := context.WithTimeout(ctx, providerTimeout)
 		e, err := s.impls[v.ID()].Estimate(pctx, v.Settings(), code)
 
@@ -211,6 +239,15 @@ func (s *Service) ask(ctx context.Context, views []media.ProviderView, code game
 			s.log.Warn("estimating a price", "provider", v.ID(), "barcode", code, "error", err)
 		default:
 			e.Provider, e.FetchedAt = string(v.ID()), s.now()
+			if err := e.Validate(); err != nil {
+				// An unusable answer is a failure: the copy still gets its next date.
+				a.err = err
+				warnings = append(warnings, fmt.Sprintf("%s: unusable price: %v", v.Descriptor.Name, err))
+				s.log.Warn("unusable price", "provider", v.ID(), "barcode", code, "error", err)
+
+				break
+			}
+
 			a.estimate, a.listed = e, true
 		}
 

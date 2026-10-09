@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/provider"
 )
 
 // Scheduler timings (uniform at random, so requests never follow a fixed rhythm).
@@ -51,6 +52,10 @@ func (s *Service) Tick(ctx context.Context) error {
 		return err
 	}
 
+	// A provider that fails (down, or showing a bot check) is not asked again in this round: its
+	// previous estimates stay and the copies' dates still move.
+	skip := map[provider.ID]bool{}
+
 	for i, d := range list {
 		if i > 0 {
 			if err := s.sleep(ctx, s.between(pauseMin, pauseMax)); err != nil {
@@ -58,7 +63,12 @@ func (s *Service) Tick(ctx context.Context) error {
 			}
 		}
 
-		if _, warnings, err := s.EstimateCopy(ctx, d.game, d.copy); err != nil {
+		_, warnings, failed, err := s.estimate(ctx, d.game, d.copy, skip)
+		for _, id := range failed {
+			skip[id] = true
+		}
+
+		if err != nil {
 			if !errors.Is(err, ErrChanged) && !errors.Is(err, ErrNotValuable) && !errors.Is(err, game.ErrCopyNotFound) {
 				s.log.Warn("estimating a copy's price", "game", d.game, "error", err)
 			}

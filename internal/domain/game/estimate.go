@@ -62,6 +62,13 @@ func (e Estimate) normalize() (Estimate, error) {
 	return e, nil
 }
 
+// Validate reports whether the estimate can be stored: a provider, a price, one currency.
+func (e Estimate) Validate() error {
+	_, err := e.normalize()
+
+	return err
+}
+
 // Valuable reports whether the copy can have price estimates: a physical copy with a barcode,
 // which is how the sources find the product.
 func (c Copy) Valuable() bool { return c.Kind == KindPhysical && c.Barcode != "" }

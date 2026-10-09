@@ -347,3 +347,64 @@ func TestScheduler(t *testing.T) {
 		})
 	})
 }
+
+func TestEstimateCopy_invalidAnswer(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a source that answers a price of zero (listings that round to nothing)", func(t *testing.T) {
+		w := newWorld(ctx, t)
+		w.cex.sell[deadSpace] = game.Money{}
+		gid, cid := w.physical(ctx, t, "Dead Space 3", deadSpace)
+
+		t.Run("WHEN the copy is estimated", func(t *testing.T) {
+			_, warnings, err := w.svc.EstimateCopy(ctx, gid, cid)
+			require.NoError(t, err)
+
+			t.Run("THEN that answer counts as a failure, the other source is kept and the date moves", func(t *testing.T) {
+				c := w.copy(ctx, t, gid)
+				require.Len(t, c.Estimates, 1)
+				assert.Equal(t, "ebay-prices", c.Estimates[0].Provider)
+				assert.Len(t, warnings, 1)
+				assert.Equal(t, now.Add(30*day), c.NextValuation)
+			})
+		})
+	})
+}
+
+func TestScheduler_failingSource(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN three due copies and CeX failing (a bot check)", func(t *testing.T) {
+		w := newWorld(ctx, t)
+		w.cex.fail = errors.New("CeX is asking for a browser check")
+
+		var ids []game.ID
+
+		for _, title := range []string{"A", "B", "C"} {
+			gid, _ := w.physical(ctx, t, title, deadSpace)
+			g, err := w.games.Get(ctx, gid)
+			require.NoError(t, err)
+			require.NoError(t, g.PlanValuation(g.Copies()[0].ID, now.Add(-day)))
+			require.NoError(t, w.games.Save(ctx, g))
+
+			ids = append(ids, gid)
+		}
+
+		t.Run("WHEN the scheduler ticks", func(t *testing.T) {
+			require.NoError(t, w.svc.Tick(ctx))
+
+			t.Run("THEN CeX is asked once and skipped for the rest of the round, eBay still answers, and every date moves", func(t *testing.T) {
+				assert.Len(t, w.cex.calls, 1)
+				assert.Len(t, w.ebay.calls, 3)
+
+				for _, id := range ids {
+					c := w.copy(ctx, t, id)
+					assert.Equal(t, now.Add(30*day), c.NextValuation)
+					require.Len(t, c.Estimates, 1)
+				}
+			})
+		})
+	})
+}
