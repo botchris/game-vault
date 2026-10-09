@@ -871,19 +871,21 @@ td.title { font-weight: 500; min-width: 220px; }
 .scan-list-section { margin-top: 22px; padding-bottom: 84px; }
 .scan-list-title { font-size: 15px; font-weight: 650; margin: 0 0 10px; }
 .scan-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+/* A long product name is cut with an ellipsis; without these it would widen the page on phones. */
+.scan-list-section, .scan-list, .scan-row, .scan-row-line { min-width: 0; }
 .scan-row { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
 .scan-row.is-review { border-color: color-mix(in srgb, var(--accent-strong) 55%, var(--border)); }
 .scan-row.is-error { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
 .scan-row-line { display: flex; align-items: center; gap: 8px; padding: 8px 10px; }
 .scan-row-main {
-  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 0; border: none; background: none;
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; justify-content: flex-start; gap: 12px; padding: 0; border: none; background: none;
   min-height: 0; text-align: left; white-space: normal; font-weight: 500;
 }
 .scan-row-main:hover:not(:disabled) { background: none; }
 .scan-row-main:disabled { opacity: 1; cursor: default; }
 .scan-row-thumb { flex: none; width: 40px; }
 .scan-row-thumb img, .scan-row-thumb .cover, .scan-row-thumb .thumb-placeholder { width: 40px; aspect-ratio: 2 / 3; border-radius: 4px; object-fit: cover; display: block; }
-.scan-row-text { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.scan-row-text { min-width: 0; overflow: hidden; display: flex; flex-direction: column; gap: 4px; }
 .scan-row-title { font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .scan-row-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
 .scan-row-state { display: inline-flex; align-items: center; gap: 6px; }
@@ -908,7 +910,7 @@ td.title { font-weight: 500; min-width: 220px; }
 .scan-sendbar .primary { flex: none; }
 /* Desktop: beside the sidebar. Phones: above the bottom tabs (the shell's breakpoint is 860px). */
 @media (min-width: 861px) { .scan-sendbar { left: var(--sidebar); } }
-@media (max-width: 860px) { .scan-sendbar { bottom: calc(58px + env(safe-area-inset-bottom)); padding-bottom: 10px; } }
+@media (max-width: 860px) { .scan-sendbar { bottom: calc(65px + env(safe-area-inset-bottom)); padding-bottom: 10px; } }
 
 /* Added in this session: a strip of small covers. */
 .scan-added { margin-top: 26px; }

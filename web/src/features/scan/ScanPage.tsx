@@ -14,7 +14,7 @@ import { signal, unlockAudio } from './feedback';
 import { createLookupQueue } from './lookupQueue';
 import { ScanRow } from './ScanRow';
 import {
-  addCode, applyResults, choose, loadRows, plusOne, remove, restore, retry, saveRows, sendItems, settle, summary, type Answer, type Row,
+  addCode, amend, applyResults, loadRows, plusOne, remove, restore, retry, saveRows, sendItems, settle, summary, type Answer, type Row,
 } from './scanList.ts';
 
 const CameraScanner = lazy(() => import('./CameraScanner'));
@@ -284,7 +284,7 @@ export default function ScanPage() {
                   onPlus={() => update((x) => plusOne(x, r.id))}
                   onRemove={() => removeRow(r.id)}
                   onRetry={() => { update((x) => retry(x, r.id)); queue.push(r.id, r.code); }}
-                  onChoose={(c) => update((x) => choose(x, r.id, c))} />
+                  onAmend={(patch) => update((x) => amend(x, r.id, patch))} />
               ))}
             </ul>
             <button type="button" className="link scan-clear" onClick={clearList}>{t('scan.list.clear')}</button>

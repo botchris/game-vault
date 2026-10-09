@@ -11,7 +11,7 @@ import { resolved, status, type Answer, type Choice, type Row } from './scanList
 /** Names of the barcode databases, for "found in …". */
 const PROVIDER_NAMES: Record<string, string> = { cex: 'CeX', ebay: 'eBay', upcitemdb: 'UPCitemdb', eansearch: 'EAN-Search' };
 
-export function ScanRow({ row, platform, open, onToggle, onPlus, onRemove, onRetry, onChoose }: {
+export function ScanRow({ row, platform, open, onToggle, onPlus, onRemove, onRetry, onAmend }: {
   row: Row;
   /** The batch platform ('' when the code's is used). */
   platform: string;
@@ -20,7 +20,8 @@ export function ScanRow({ row, platform, open, onToggle, onPlus, onRemove, onRet
   onPlus: () => void;
   onRemove: () => void;
   onRetry: () => void;
-  onChoose: (c: Choice) => void;
+  /** Changes some of the row's choice (see scanList.amend). */
+  onAmend: (patch: Partial<Choice>) => void;
 }) {
   const { t } = useTranslation();
   const { games } = useAppData();
@@ -59,17 +60,17 @@ export function ScanRow({ row, platform, open, onToggle, onPlus, onRemove, onRet
           </button>
         </div>
       </div>
-      {open && canOpen && row.answer && c && <RowDetail key={row.id} answer={row.answer} choice={c} batchPlatform={platform} onChoose={onChoose} onDone={onToggle} />}
+      {open && canOpen && row.answer && c && <RowDetail key={row.id} answer={row.answer} choice={c} batchPlatform={platform} onAmend={onAmend} onDone={onToggle} />}
     </li>
   );
 }
 
-/** The expanded row: what today's result card offered, editing the row's choice as you go. */
-function RowDetail({ answer, choice, batchPlatform, onChoose, onDone }: {
+/** The expanded row: title, platform, edition, cover and target game, changed as you go. */
+function RowDetail({ answer, choice, batchPlatform, onAmend, onDone }: {
   answer: Answer;
   choice: Choice;
   batchPlatform: string;
-  onChoose: (c: Choice) => void;
+  onAmend: (patch: Partial<Choice>) => void;
   onDone: () => void;
 }) {
   const { t } = useTranslation();
@@ -79,7 +80,7 @@ function RowDetail({ answer, choice, batchPlatform, onChoose, onDone }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const m = answer.match;
-  const set = (patch: Partial<Choice>) => onChoose({ ...choice, ...patch });
+  const set = onAmend;
 
   const search = async () => {
     if (!choice.title.trim()) return;

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { normalizeBarcode, validBarcode } from '../src/lib/barcode.ts';
 import {
-  addCode, applyResults, choose, loadRows, plusOne, remove, resolved, restore, retry, saveRows, sendItems, settle, status, summary,
+  addCode, amend, applyResults, choose, loadRows, plusOne, remove, resolved, restore, retry, saveRows, sendItems, settle, status, summary,
 } from '../src/features/scan/scanList.ts';
 
 const DS3 = '5030934110075';
@@ -120,4 +120,16 @@ test('the list round-trips through storage; anything else loads empty', () => {
   assert.deepEqual(loadRows('{oops'), []);
   assert.deepEqual(loadRows(JSON.stringify({ v: 2, rows })), []);
   assert.deepEqual(loadRows(JSON.stringify({ v: 1, rows: [{ id: 'x' }, ...rows] })), rows, 'broken rows are dropped');
+});
+
+test('changes to a row apply to its current choice, so two quick edits both stay', () => {
+  let rows = settle(scanned(), 'r1', answer({ match: null, suggestions: [] }));
+  rows = amend(rows, 'r1', { title: 'Halo 3' });
+  rows = amend(rows, 'r1', { platform: 'Xbox 360' });
+  assert.equal(resolved(rows[0], '').title, 'Halo 3');
+  assert.equal(resolved(rows[0], '').platform, 'Xbox 360');
+  assert.equal(status(rows[0], ''), 'ready');
+  // The batch platform shown in the detail is not written into the row.
+  const resolvedRow = settle(scanned(), 'r1', answer());
+  assert.equal(amend(resolvedRow, 'r1', { edition: 'GOTY' })[0].choice.platform, 'Xbox 360');
 });

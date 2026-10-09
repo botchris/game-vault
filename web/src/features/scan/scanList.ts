@@ -96,6 +96,19 @@ export function choose(rows: Row[], id: string, choice: Choice): Row[] {
   return update(rows, id, (r) => ({ ...r, choice }));
 }
 
+/**
+ * Changes some of a row's choice, on top of what it is now (the user's choice, or what the row
+ * resolved by itself). Edits are applied to the current row, so quick successive edits all stay;
+ * the batch platform is never written into the row.
+ */
+export function amend(rows: Row[], id: string, patch: Partial<Choice>): Row[] {
+  return update(rows, id, (r) => {
+    const base = r.choice ?? resolved(r, '');
+    if (!base) return r;
+    return { ...r, choice: { ...base, ...patch } };
+  });
+}
+
 export function remove(rows: Row[], id: string): { rows: Row[]; removed?: Removed } {
   const index = rows.findIndex((r) => r.id === id);
   if (index < 0) return { rows };
