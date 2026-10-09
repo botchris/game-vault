@@ -23,9 +23,10 @@ type Kind string
 
 // Values of Kind.
 const (
-	KindCover    Kind = "cover"
-	KindBarcode  Kind = "barcode"
-	KindMetadata Kind = "metadata" // game details: summary, genres, companies, trailers...
+	KindCover     Kind = "cover"
+	KindBarcode   Kind = "barcode"
+	KindMetadata  Kind = "metadata"  // game details: summary, genres, companies, trailers...
+	KindValuation Kind = "valuation" // second-hand price estimates of physical copies
 )
 
 // ErrNotFound means no configuration exists for the provider.

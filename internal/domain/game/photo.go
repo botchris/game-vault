@@ -220,6 +220,7 @@ func (g *Game) touchCopy(i int, now time.Time) Copy {
 // clone returns the copy with its own photo slice, so callers cannot change the aggregate.
 func (c Copy) clone() Copy {
 	c.Photos = slices.Clone(c.Photos)
+	c.Estimates = slices.Clone(c.Estimates)
 
 	return c
 }
