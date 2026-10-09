@@ -127,7 +127,9 @@ next time each document is saved.
 
 When `sqlite.Open` finds pending migrations on an existing database, it first writes a full copy
 with `VACUUM INTO <backupDir>/pre-migration-<first pending version>.db` (for example
-`pre-migration-0009.db`) and only then migrates. `Open` receives the backup directory from the
+`pre-migration-0009.db`) and only then migrates. If that file exists already (a pre-migration copy
+was restored and is being migrated again), the new copy gets a timestamp
+(`pre-migration-0009-20261009-183000.db`) instead of blocking the start. `Open` receives the backup directory from the
 caller (`cfg.BackupDir()`); a new, empty database is not backed up. A failed backup stops the start
 with an error that names the path. The backups page lists every `.db` in that directory, so the
 file shows up in System → Backups (where it can be downloaded) and is rotated with the scheduled
