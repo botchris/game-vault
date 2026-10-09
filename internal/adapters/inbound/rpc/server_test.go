@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/adapters/inbound/rpc"
 	"gamevault/internal/adapters/outbound/csvfile"
@@ -334,7 +336,7 @@ func newServer(t *testing.T, p sync.Provider) clients {
 		Games:       rpc.NewGameHandler(catalog.NewService(games, db, time.Now, mediaSvc), mediaSvc, syncSvc),
 		Sources:     rpc.NewSourceHandler(syncSvc),
 		System: rpc.NewSystemHandler(
-			system.NewService(games, db, time.Now, log, system.Status{Version: "test"}, filepath.Join(dir, "backups"), 3),
+			system.NewService(games, db, sqlite.NewSettingsRepository(db), time.Now, log, system.Status{Version: "test"}, filepath.Join(dir, "backups"), 3),
 			transfer.NewService(games, db, time.Now, csvfile.Codec{})),
 	}, rpc.Options{Log: log})
 	srv := httptest.NewServer(h)
@@ -971,3 +973,60 @@ func TestCatalogIncludesGenres(t *testing.T) {
 type noCerts struct{}
 
 func (noCerts) SetCertificateValidation(auth.CertificateValidation) {}
+
+func TestPhysicalCopyDetails(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a server", func(t *testing.T) {
+		c := newServer(t, &fakeProvider{})
+
+		t.Run("WHEN a game is created with a graded, priced physical copy", func(t *testing.T) {
+			res, err := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{
+				Title: "Halo 3",
+				Copies: []*pb.CopyDetails{{
+					Kind:     pb.CopyKind_COPY_KIND_PHYSICAL,
+					Platform: "Xbox 360",
+					Grade:    pb.CopyGrade_COPY_GRADE_VERY_GOOD,
+					Contents: []pb.CopyContent{pb.CopyContent_COPY_CONTENT_MEDIA, pb.CopyContent_COPY_CONTENT_BOX},
+					Price: &pb.Money{
+						AmountMinor: 2995,
+						Currency:    "eur",
+					},
+				}},
+			}))
+			require.NoError(t, err)
+
+			t.Run("THEN it comes back normalized", func(t *testing.T) {
+				d := res.Msg.Game.Copies[0].Details
+				assert.Equal(t, pb.CopyGrade_COPY_GRADE_VERY_GOOD, d.Grade)
+				assert.Equal(t, []pb.CopyContent{pb.CopyContent_COPY_CONTENT_BOX, pb.CopyContent_COPY_CONTENT_MEDIA}, d.Contents)
+				assert.Equal(t, int64(2995), d.Price.GetAmountMinor())
+				assert.Equal(t, "EUR", d.Price.GetCurrency())
+			})
+		})
+
+		t.Run("WHEN the default currency is set to an invalid code", func(t *testing.T) {
+			_, err := c.system.UpdatePreferences(ctx, connect.NewRequest(&pb.UpdatePreferencesRequest{
+				Preferences: &pb.Preferences{Currency: "EURO"},
+			}))
+
+			t.Run("THEN it is refused as invalid", func(t *testing.T) {
+				assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+			})
+		})
+
+		t.Run("WHEN it is set to gbp", func(t *testing.T) {
+			_, err := c.system.UpdatePreferences(ctx, connect.NewRequest(&pb.UpdatePreferencesRequest{
+				Preferences: &pb.Preferences{Currency: "gbp"},
+			}))
+			require.NoError(t, err)
+
+			t.Run("THEN it is read back upper-cased", func(t *testing.T) {
+				got, err := c.system.GetPreferences(ctx, connect.NewRequest(&pb.GetPreferencesRequest{}))
+				require.NoError(t, err)
+				assert.Equal(t, "GBP", got.Msg.Preferences.GetCurrency())
+			})
+		})
+	})
+}

@@ -7,6 +7,7 @@ import (
 
 	"gamevault/internal/application/system"
 	"gamevault/internal/application/transfer"
+	"gamevault/internal/domain/settings"
 	pb "gamevault/internal/gen/gamevault/v1"
 	"gamevault/internal/gen/gamevault/v1/gamevaultv1connect"
 )
@@ -98,4 +99,24 @@ func (h *SystemHandler) ExportCsv(ctx context.Context, _ *connect.Request[pb.Exp
 		Filename: name,
 		Content:  content,
 	}), nil
+}
+
+// GetPreferences returns the user's preferences.
+func (h *SystemHandler) GetPreferences(ctx context.Context, _ *connect.Request[pb.GetPreferencesRequest]) (*connect.Response[pb.GetPreferencesResponse], error) {
+	p, err := h.system.Preferences(ctx)
+	if err != nil {
+		return nil, toConnectError(err)
+	}
+
+	return connect.NewResponse(&pb.GetPreferencesResponse{Preferences: &pb.Preferences{Currency: p.Currency}}), nil
+}
+
+// UpdatePreferences stores the user's preferences.
+func (h *SystemHandler) UpdatePreferences(ctx context.Context, req *connect.Request[pb.UpdatePreferencesRequest]) (*connect.Response[pb.UpdatePreferencesResponse], error) {
+	p, err := h.system.UpdatePreferences(ctx, settings.Preferences{Currency: req.Msg.GetPreferences().GetCurrency()})
+	if err != nil {
+		return nil, toConnectError(err)
+	}
+
+	return connect.NewResponse(&pb.UpdatePreferencesResponse{Preferences: &pb.Preferences{Currency: p.Currency}}), nil
 }

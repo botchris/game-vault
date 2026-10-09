@@ -127,7 +127,7 @@ func run() error {
 	catalogSvc := catalog.NewService(games, db, now, mediaSvc)
 	syncSvc := sync.NewService(sources, games, db, now, log, plugins.Sources()...)
 	transferSvc := transfer.NewService(games, db, now, csvfile.Codec{})
-	systemSvc := system.NewService(games, db, now, log, system.Status{
+	systemSvc := system.NewService(games, db, settingsRepo, now, log, system.Status{
 		Version:      version,
 		ConfigDir:    cfg.ConfigDir,
 		DatabasePath: cfg.DatabasePath(),

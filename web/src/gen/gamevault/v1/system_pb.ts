@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file gamevault/v1/system.proto.
  */
 export const file_gamevault_v1_system: GenFile = /*@__PURE__*/
-  fileDesc("ChlnYW1ldmF1bHQvdjEvc3lzdGVtLnByb3RvEgxnYW1ldmF1bHQudjEiEgoQR2V0U3RhdHVzUmVxdWVzdCKnAQoRR2V0U3RhdHVzUmVzcG9uc2USDwoHdmVyc2lvbhgBIAEoCRISCgpjb25maWdfZGlyGAIgASgJEhUKDWRhdGFiYXNlX3BhdGgYAyABKAkSLgoKc3RhcnRlZF9hdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEgoKZ2FtZV9jb3VudBgFIAEoBRISCgpjb3B5X2NvdW50GAYgASgFIloKBkJhY2t1cBIMCgRuYW1lGAEgASgJEhIKCnNpemVfYnl0ZXMYAiABKAMSLgoKY3JlYXRlZF9hdBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiFAoSTGlzdEJhY2t1cHNSZXF1ZXN0IjwKE0xpc3RCYWNrdXBzUmVzcG9uc2USJQoHYmFja3VwcxgBIAMoCzIULmdhbWV2YXVsdC52MS5CYWNrdXAiFQoTQ3JlYXRlQmFja3VwUmVxdWVzdCI8ChRDcmVhdGVCYWNrdXBSZXNwb25zZRIkCgZiYWNrdXAYASABKAsyFC5nYW1ldmF1bHQudjEuQmFja3VwIiMKEEltcG9ydENzdlJlcXVlc3QSDwoHY29udGVudBgBIAEoDCI9ChFJbXBvcnRDc3ZSZXNwb25zZRIoCgZyZXBvcnQYASABKAsyGC5nYW1ldmF1bHQudjEuU3luY1JlcG9ydCISChBFeHBvcnRDc3ZSZXF1ZXN0IjYKEUV4cG9ydENzdlJlc3BvbnNlEhAKCGZpbGVuYW1lGAEgASgJEg8KB2NvbnRlbnQYAiABKAwypAMKDVN5c3RlbVNlcnZpY2USTAoJR2V0U3RhdHVzEh4uZ2FtZXZhdWx0LnYxLkdldFN0YXR1c1JlcXVlc3QaHy5nYW1ldmF1bHQudjEuR2V0U3RhdHVzUmVzcG9uc2USUgoLTGlzdEJhY2t1cHMSIC5nYW1ldmF1bHQudjEuTGlzdEJhY2t1cHNSZXF1ZXN0GiEuZ2FtZXZhdWx0LnYxLkxpc3RCYWNrdXBzUmVzcG9uc2USVQoMQ3JlYXRlQmFja3VwEiEuZ2FtZXZhdWx0LnYxLkNyZWF0ZUJhY2t1cFJlcXVlc3QaIi5nYW1ldmF1bHQudjEuQ3JlYXRlQmFja3VwUmVzcG9uc2USTAoJSW1wb3J0Q3N2Eh4uZ2FtZXZhdWx0LnYxLkltcG9ydENzdlJlcXVlc3QaHy5nYW1ldmF1bHQudjEuSW1wb3J0Q3N2UmVzcG9uc2USTAoJRXhwb3J0Q3N2Eh4uZ2FtZXZhdWx0LnYxLkV4cG9ydENzdlJlcXVlc3QaHy5nYW1ldmF1bHQudjEuRXhwb3J0Q3N2UmVzcG9uc2VCMVovZ2FtZXZhdWx0L2ludGVybmFsL2dlbi9nYW1ldmF1bHQvdjE7Z2FtZXZhdWx0djFiBnByb3RvMw", [file_google_protobuf_timestamp, file_gamevault_v1_source]);
+  fileDesc("ChlnYW1ldmF1bHQvdjEvc3lzdGVtLnByb3RvEgxnYW1ldmF1bHQudjEiEgoQR2V0U3RhdHVzUmVxdWVzdCKnAQoRR2V0U3RhdHVzUmVzcG9uc2USDwoHdmVyc2lvbhgBIAEoCRISCgpjb25maWdfZGlyGAIgASgJEhUKDWRhdGFiYXNlX3BhdGgYAyABKAkSLgoKc3RhcnRlZF9hdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEgoKZ2FtZV9jb3VudBgFIAEoBRISCgpjb3B5X2NvdW50GAYgASgFIloKBkJhY2t1cBIMCgRuYW1lGAEgASgJEhIKCnNpemVfYnl0ZXMYAiABKAMSLgoKY3JlYXRlZF9hdBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiFAoSTGlzdEJhY2t1cHNSZXF1ZXN0IjwKE0xpc3RCYWNrdXBzUmVzcG9uc2USJQoHYmFja3VwcxgBIAMoCzIULmdhbWV2YXVsdC52MS5CYWNrdXAiFQoTQ3JlYXRlQmFja3VwUmVxdWVzdCI8ChRDcmVhdGVCYWNrdXBSZXNwb25zZRIkCgZiYWNrdXAYASABKAsyFC5nYW1ldmF1bHQudjEuQmFja3VwIiMKEEltcG9ydENzdlJlcXVlc3QSDwoHY29udGVudBgBIAEoDCI9ChFJbXBvcnRDc3ZSZXNwb25zZRIoCgZyZXBvcnQYASABKAsyGC5nYW1ldmF1bHQudjEuU3luY1JlcG9ydCISChBFeHBvcnRDc3ZSZXF1ZXN0IjYKEUV4cG9ydENzdlJlc3BvbnNlEhAKCGZpbGVuYW1lGAEgASgJEg8KB2NvbnRlbnQYAiABKAwiHwoLUHJlZmVyZW5jZXMSEAoIY3VycmVuY3kYASABKAkiFwoVR2V0UHJlZmVyZW5jZXNSZXF1ZXN0IkgKFkdldFByZWZlcmVuY2VzUmVzcG9uc2USLgoLcHJlZmVyZW5jZXMYASABKAsyGS5nYW1ldmF1bHQudjEuUHJlZmVyZW5jZXMiSgoYVXBkYXRlUHJlZmVyZW5jZXNSZXF1ZXN0Ei4KC3ByZWZlcmVuY2VzGAEgASgLMhkuZ2FtZXZhdWx0LnYxLlByZWZlcmVuY2VzIksKGVVwZGF0ZVByZWZlcmVuY2VzUmVzcG9uc2USLgoLcHJlZmVyZW5jZXMYASABKAsyGS5nYW1ldmF1bHQudjEuUHJlZmVyZW5jZXMy5wQKDVN5c3RlbVNlcnZpY2USTAoJR2V0U3RhdHVzEh4uZ2FtZXZhdWx0LnYxLkdldFN0YXR1c1JlcXVlc3QaHy5nYW1ldmF1bHQudjEuR2V0U3RhdHVzUmVzcG9uc2USUgoLTGlzdEJhY2t1cHMSIC5nYW1ldmF1bHQudjEuTGlzdEJhY2t1cHNSZXF1ZXN0GiEuZ2FtZXZhdWx0LnYxLkxpc3RCYWNrdXBzUmVzcG9uc2USVQoMQ3JlYXRlQmFja3VwEiEuZ2FtZXZhdWx0LnYxLkNyZWF0ZUJhY2t1cFJlcXVlc3QaIi5nYW1ldmF1bHQudjEuQ3JlYXRlQmFja3VwUmVzcG9uc2USTAoJSW1wb3J0Q3N2Eh4uZ2FtZXZhdWx0LnYxLkltcG9ydENzdlJlcXVlc3QaHy5nYW1ldmF1bHQudjEuSW1wb3J0Q3N2UmVzcG9uc2USTAoJRXhwb3J0Q3N2Eh4uZ2FtZXZhdWx0LnYxLkV4cG9ydENzdlJlcXVlc3QaHy5nYW1ldmF1bHQudjEuRXhwb3J0Q3N2UmVzcG9uc2USWwoOR2V0UHJlZmVyZW5jZXMSIy5nYW1ldmF1bHQudjEuR2V0UHJlZmVyZW5jZXNSZXF1ZXN0GiQuZ2FtZXZhdWx0LnYxLkdldFByZWZlcmVuY2VzUmVzcG9uc2USZAoRVXBkYXRlUHJlZmVyZW5jZXMSJi5nYW1ldmF1bHQudjEuVXBkYXRlUHJlZmVyZW5jZXNSZXF1ZXN0GicuZ2FtZXZhdWx0LnYxLlVwZGF0ZVByZWZlcmVuY2VzUmVzcG9uc2VCMVovZ2FtZXZhdWx0L2ludGVybmFsL2dlbi9nYW1ldmF1bHQvdjE7Z2FtZXZhdWx0djFiBnByb3RvMw", [file_google_protobuf_timestamp, file_gamevault_v1_source]);
 
 /**
  * @generated from message gamevault.v1.GetStatusRequest
@@ -231,7 +231,92 @@ export const ExportCsvResponseSchema: GenMessage<ExportCsvResponse> = /*@__PURE_
   messageDesc(file_gamevault_v1_system, 10);
 
 /**
- * SystemService exposes status, backups and CSV import/export.
+ * Preferences are the user's choices that shape the UI and the imports.
+ *
+ * @generated from message gamevault.v1.Preferences
+ */
+export type Preferences = Message<"gamevault.v1.Preferences"> & {
+  /**
+   * Default currency of new prices (ISO 4217); empty until chosen.
+   *
+   * @generated from field: string currency = 1;
+   */
+  currency: string;
+};
+
+/**
+ * Describes the message gamevault.v1.Preferences.
+ * Use `create(PreferencesSchema)` to create a new message.
+ */
+export const PreferencesSchema: GenMessage<Preferences> = /*@__PURE__*/
+  messageDesc(file_gamevault_v1_system, 11);
+
+/**
+ * @generated from message gamevault.v1.GetPreferencesRequest
+ */
+export type GetPreferencesRequest = Message<"gamevault.v1.GetPreferencesRequest"> & {
+};
+
+/**
+ * Describes the message gamevault.v1.GetPreferencesRequest.
+ * Use `create(GetPreferencesRequestSchema)` to create a new message.
+ */
+export const GetPreferencesRequestSchema: GenMessage<GetPreferencesRequest> = /*@__PURE__*/
+  messageDesc(file_gamevault_v1_system, 12);
+
+/**
+ * @generated from message gamevault.v1.GetPreferencesResponse
+ */
+export type GetPreferencesResponse = Message<"gamevault.v1.GetPreferencesResponse"> & {
+  /**
+   * @generated from field: gamevault.v1.Preferences preferences = 1;
+   */
+  preferences?: Preferences | undefined;
+};
+
+/**
+ * Describes the message gamevault.v1.GetPreferencesResponse.
+ * Use `create(GetPreferencesResponseSchema)` to create a new message.
+ */
+export const GetPreferencesResponseSchema: GenMessage<GetPreferencesResponse> = /*@__PURE__*/
+  messageDesc(file_gamevault_v1_system, 13);
+
+/**
+ * @generated from message gamevault.v1.UpdatePreferencesRequest
+ */
+export type UpdatePreferencesRequest = Message<"gamevault.v1.UpdatePreferencesRequest"> & {
+  /**
+   * @generated from field: gamevault.v1.Preferences preferences = 1;
+   */
+  preferences?: Preferences | undefined;
+};
+
+/**
+ * Describes the message gamevault.v1.UpdatePreferencesRequest.
+ * Use `create(UpdatePreferencesRequestSchema)` to create a new message.
+ */
+export const UpdatePreferencesRequestSchema: GenMessage<UpdatePreferencesRequest> = /*@__PURE__*/
+  messageDesc(file_gamevault_v1_system, 14);
+
+/**
+ * @generated from message gamevault.v1.UpdatePreferencesResponse
+ */
+export type UpdatePreferencesResponse = Message<"gamevault.v1.UpdatePreferencesResponse"> & {
+  /**
+   * @generated from field: gamevault.v1.Preferences preferences = 1;
+   */
+  preferences?: Preferences | undefined;
+};
+
+/**
+ * Describes the message gamevault.v1.UpdatePreferencesResponse.
+ * Use `create(UpdatePreferencesResponseSchema)` to create a new message.
+ */
+export const UpdatePreferencesResponseSchema: GenMessage<UpdatePreferencesResponse> = /*@__PURE__*/
+  messageDesc(file_gamevault_v1_system, 15);
+
+/**
+ * SystemService exposes status, backups, preferences and CSV import/export.
  *
  * @generated from service gamevault.v1.SystemService
  */
@@ -275,6 +360,22 @@ export const SystemService: GenService<{
     methodKind: "unary";
     input: typeof ExportCsvRequestSchema;
     output: typeof ExportCsvResponseSchema;
+  },
+  /**
+   * @generated from rpc gamevault.v1.SystemService.GetPreferences
+   */
+  getPreferences: {
+    methodKind: "unary";
+    input: typeof GetPreferencesRequestSchema;
+    output: typeof GetPreferencesResponseSchema;
+  },
+  /**
+   * @generated from rpc gamevault.v1.SystemService.UpdatePreferences
+   */
+  updatePreferences: {
+    methodKind: "unary";
+    input: typeof UpdatePreferencesRequestSchema;
+    output: typeof UpdatePreferencesResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_gamevault_v1_system, 0);
