@@ -43,7 +43,7 @@ check)
 tag)
   v=${2#v}
   git tag -a "v$v" -m "Game Vault v$v"
-  echo "tagged v$v. Next: git push origin main v$v, then task docker:publish"
+  echo "tagged v$v. Next: git push origin main v$v (GitHub Actions then publishes the Docker image)"
   ;;
 docker-tags)
   image=${2:?image}

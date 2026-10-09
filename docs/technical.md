@@ -143,7 +143,8 @@ uncommitted changes.
   migration that cannot be undone). `0.x` until the first stable release.
 - `task release -- 0.2.0` checks it runs on a clean `main` and that the version is new and higher
   than the last one, runs `task lint` and `task test`, and creates the annotated tag. It pushes
-  nothing: then `git push origin main v0.2.0` and `task docker:publish`.
+  nothing: then `git push origin main v0.2.0`, and GitHub Actions publishes the image
+  (`.github/workflows/release.yml`). `task docker:publish` does the same by hand.
 - Image tags for `1.2.3`: `1.2.3`, `1.2`, `1` and `latest`. For `0.x` there is no major tag
   (`0.2.1`, `0.2`, `latest`), and a pre-release (`1.3.0-rc.1`) only gets its own tag. The logic
   is in `build/release.sh`.
@@ -292,3 +293,4 @@ Logs never contain keys or credentials.
 - Schema changes go in a new numbered file in `internal/adapters/outbound/sqlite/migrations/`, which is applied on start.
 - `task test` runs the Go tests, the TypeScript type check and the translation check, in the toolchain container. The Go tests cover the domain, SQLite, the providers (against fake servers), CSV, and an end-to-end Connect test.
 - GitHub Actions (`.github/workflows/ci.yml`) runs `task lint`, checks that `task generate` changes nothing, and runs `task test` on every push to `main` and every pull request, inside the same toolchain image (its layers cached in GitHub Actions, rebuilt only when `build/toolchain.Dockerfile` changes).
+- Pushing a version tag (`v1.2.3`) runs `.github/workflows/release.yml`: the same checks, then `task docker:publish` for linux/amd64 and linux/arm64 with the Docker Hub credentials in the repository secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`.

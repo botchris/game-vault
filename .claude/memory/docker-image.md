@@ -21,3 +21,7 @@ SemVer git tags starting at `v0.1.0`, read with `git describe`; `task release --
   published port is "trusted": the README says to set this in System → Security.
 - `task docker:publish` pushes public content: only run it when the user explicitly asks, after
   they ran `docker login` themselves.
+- Since 2026-10-09 (user's request) `.github/workflows/release.yml` publishes on every pushed `v*`
+  tag: CI checks first (ci.yml as a reusable workflow), then `task docker:publish --yes` in the
+  `docker-hub` environment with the repository secrets `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN`
+  (the user creates them; never ask for or handle the token). So pushing a tag = publishing.

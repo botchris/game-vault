@@ -1,0 +1,57 @@
+# Publishes the Docker image when a version tag is pushed (git push origin vX.Y.Z, after
+# `task release -- X.Y.Z`): the same checks as CI first, then `task docker:publish`, the same task
+# used by hand, for linux/amd64 and linux/arm64 with the tags build/release.sh chooses (1.2.3, 1.2,
+# 1 and latest; a pre-release only gets its own tag).
+#
+# Needs two repository secrets: DOCKERHUB_USERNAME and DOCKERHUB_TOKEN (a Docker Hub access token
+# with Read & Write access to the repository).
+name: Release
+
+on:
+  push:
+    tags: ['v[0-9]+.[0-9]+.[0-9]+*']
+
+permissions:
+  contents: read
+
+# Two tags pushed together publish one after the other, never at the same time.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    name: Checks
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    name: Publish the Docker image
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: docker-hub
+    steps:
+      # The whole history: the version comes from `git describe` on the tag.
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/toolchain
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # --yes answers the confirmation prompt the task shows when run by hand. The task checks that
+      # the commit carries the tag and that the tree is clean.
+      - name: task docker:publish
+        run: task docker:publish --yes
+
+      - name: Summary
+        run: |
+          {
+            echo "### Game Vault ${GITHUB_REF_NAME} published"
+            echo
+            echo "Image tags: $(build/release.sh docker-tags botchrishub/game-vault | sed 's/-t //g')"
+          } >> "$GITHUB_STEP_SUMMARY"

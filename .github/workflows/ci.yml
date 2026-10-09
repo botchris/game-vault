@@ -7,13 +7,15 @@ on:
   push:
     branches: [main]
   pull_request:
+  # The release workflow runs these checks before publishing a tagged version.
+  workflow_call:
 
 permissions:
   contents: read
 
 # A newer push to the same branch or pull request makes the running checks pointless.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
