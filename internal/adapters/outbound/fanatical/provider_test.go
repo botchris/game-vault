@@ -89,6 +89,8 @@ func TestFetch_readsTheKeys(t *testing.T) {
 				assert.Equal(t, game.Date("2025-11-20"), copies[0].Details.AcquiredOn)
 				assert.Equal(t, game.StatusUnrevealed, copies[0].Details.Status)
 				assert.Equal(t, game.StatusRevealed, copies[1].Details.Status)
+				assert.Empty(t, copies[0].Details.Key)
+				assert.Equal(t, "AAAAA-BBBBB-CCCCC", copies[1].Details.Key, "a revealed key is copied")
 			})
 
 			t.Run("AND a key from a bundle names it in its origin", func(t *testing.T) {

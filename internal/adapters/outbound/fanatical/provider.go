@@ -5,7 +5,7 @@
 // Fanatical's Terms and Conditions forbid taking data from the website into databases without
 // their consent. The source therefore needs the user to accept that risk explicitly (a consent
 // setting), scans only when asked unless the user schedules it, makes one request per scan and
-// never reveals or redeems a key.
+// never reveals or redeems a key: it copies the keys the user already revealed on the site.
 package fanatical
 
 import (
@@ -93,21 +93,34 @@ func token(pasted string) string {
 // entries are keys; a bundle bought as one product is also listed, with status "fulfilled" and no
 // serial, next to the keys it was split into (each naming it in bundleName).
 type item struct {
-	ID           string          `json:"_id"`
-	Name         string          `json:"name"`
-	Type         string          `json:"type"`
-	Status       string          `json:"status"`
-	DRM          map[string]bool `json:"drm"`
-	SerialID     string          `json:"serialId"`
-	SerialExpiry string          `json:"serialExpiry"`
-	Purchased    string          `json:"purchased"`
-	BundleName   string          `json:"bundleName"`
+	ID       string          `json:"_id"`
+	Name     string          `json:"name"`
+	Type     string          `json:"type"`
+	Status   string          `json:"status"`
+	DRM      map[string]bool `json:"drm"`
+	SerialID string          `json:"serialId"`
+
+	// Key is the key itself, present once it has been revealed on the site.
+	Key          string `json:"key"`
+	SerialExpiry string `json:"serialExpiry"`
+	Purchased    string `json:"purchased"`
+	BundleName   string `json:"bundleName"`
 }
 
 // isBundle reports whether the entry is a bundle purchase already split into its own keys, not a
 // key: it has no serial and is "fulfilled".
 func (it item) isBundle() bool {
 	return it.SerialID == "" && strings.EqualFold(it.Status, "fulfilled")
+}
+
+// status is the key's state. A key the list already shows was revealed, whatever the status says.
+func (it item) status() game.Status {
+	st := statusOf(it.Status)
+	if st == game.StatusUnrevealed && strings.TrimSpace(it.Key) != "" {
+		return game.StatusRevealed
+	}
+
+	return st
 }
 
 // origin says where the key came from: the bundle it was part of, when it was.
@@ -227,7 +240,7 @@ func mapItems(items []item) ([]game.ImportedCopy, []string) {
 			ExternalID: "fanatical:" + it.ID,
 			Title:      strings.TrimSpace(it.Name),
 			Details: game.CopyDetails{
-				Kind: game.KindKey, Platform: platform, Status: statusOf(it.Status), Origin: it.origin(),
+				Kind: game.KindKey, Platform: platform, Status: it.status(), Key: strings.TrimSpace(it.Key), Origin: it.origin(),
 				RedeemBy: date(it.SerialExpiry), AcquiredOn: date(it.Purchased),
 			},
 		})

@@ -23,7 +23,7 @@ As of 2026-10-09:
   scan, README warning, and an explicit exception in CLAUDE.md. The project is public: the
   wording must make clear the user accepts the risk, not the authors.
 - Confirmed with the user's account (2026-10-09): keys have `serialId`, `status` ("revealed"…),
-  `key` once revealed (Game Vault does not store it), `serialExpiry` (null when none), and, when
+  `key` once revealed (copied into the copy since 2026-10-09, at the user's request), `serialExpiry` (null when none), and, when
   they came from a bundle, `bundleName` + `bid`. **A bundle bought as one product is also listed**
   (e.g. "Overlord: Ultimate Evil Collection"): `type: game`, `status: "fulfilled"`, no `serialId`
   or `key`, `bundles: []`, `payment` — it is not a key, its keys are separate entries. The

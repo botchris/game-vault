@@ -291,7 +291,7 @@
     },
     "testOk": "Connection works.",
     "fanatical": {
-      "description": "Imports the game keys you bought on Fanatical, with the store each key is for (Steam, Epic, GOG…) and its redeem deadline. Read-only: keys are never revealed or redeemed. DLC, software, books, audio and vouchers are not imported.",
+      "description": "Imports the game keys you bought on Fanatical, with the store each key is for (Steam, Epic, GOG…), its redeem deadline and the key itself once you have revealed it on Fanatical. Read-only: keys are never revealed or redeemed. DLC, software, books, audio and vouchers are not imported.",
       "consent": "I understand the risk and use this at my own responsibility",
       "consentHelp": "Fanatical has no official way for other apps to read your account, and its Terms and Conditions do not allow it: they forbid to \"take data from our website for your or third party databases or data harvests without our consent\". Game Vault reads your key list the way the Playnite Fanatical plugin does. Fanatical could consider this a breach of its terms and suspend or close your account.\nGame Vault only reads, once per scan, and scans only when you ask unless you schedule it. The authors of Game Vault are not responsible for what Fanatical does with your account. If you are not comfortable with that, do not add this source.",
       "session": "Session data (bsauth)",
