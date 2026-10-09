@@ -4,7 +4,7 @@
 
 let audio: AudioContext | null = null;
 
-/** Browsers start audio only after a tap: call it from one (opening the camera, unmuting). */
+/** Browsers start audio only after a tap or a key: call it from one (the page does on the first). */
 export function unlockAudio() {
   try {
     audio ??= new AudioContext();
@@ -17,6 +17,8 @@ export function unlockAudio() {
 export function signal(kind: 'new' | 'repeat', muted: boolean) {
   navigator.vibrate?.(kind === 'new' ? 60 : [40, 60, 40]);
   if (muted || !audio) return;
+  // Phones suspend audio when the screen locks or a call comes in: wake it up again.
+  if (audio.state !== 'running') void audio.resume();
   const tones = kind === 'new' ? [1320] : [330, 330];
   tones.forEach((frequency, i) => {
     const t0 = audio!.currentTime + i * 0.13;

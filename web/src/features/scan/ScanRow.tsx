@@ -11,11 +11,13 @@ import { resolved, status, type Answer, type Choice, type Row } from './scanList
 /** Names of the barcode databases, for "found in …". */
 const PROVIDER_NAMES: Record<string, string> = { cex: 'CeX', ebay: 'eBay', upcitemdb: 'UPCitemdb', eansearch: 'EAN-Search' };
 
-export function ScanRow({ row, platform, open, onToggle, onPlus, onRemove, onRetry, onAmend }: {
+export function ScanRow({ row, platform, open, locked = false, onToggle, onPlus, onRemove, onRetry, onAmend }: {
   row: Row;
   /** The batch platform ('' when the code's is used). */
   platform: string;
   open: boolean;
+  /** While a send runs rows cannot be removed: an undo could bring back a copy already saved. */
+  locked?: boolean;
   onToggle: () => void;
   onPlus: () => void;
   onRemove: () => void;
@@ -55,7 +57,7 @@ export function ScanRow({ row, platform, open, onToggle, onPlus, onRemove, onRet
         <div className="scan-row-actions">
           {st === 'error' && row.phase === 'error' && <button type="button" className="small-button" onClick={onRetry}>{t('scan.list.retry')}</button>}
           <button type="button" className="small-button" onClick={onPlus} title={t('scan.list.plusOneTitle')}>{t('scan.list.plusOne')}</button>
-          <button type="button" className="icon-button" onClick={onRemove} aria-label={t('scan.list.remove')} title={t('scan.list.remove')}>
+          <button type="button" className="icon-button" onClick={onRemove} disabled={locked} aria-label={t('scan.list.remove')} title={t('scan.list.remove')}>
             <Icon name="close" size={16} />
           </button>
         </div>

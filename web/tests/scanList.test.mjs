@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { normalizeBarcode, validBarcode } from '../src/lib/barcode.ts';
 import {
-  addCode, amend, applyResults, choose, loadRows, plusOne, remove, resolved, restore, retry, saveRows, sendItems, settle, status, summary,
+  addCode, amend, applyResults, chunkItems, choose, loadRows, plusOne, remove, resolved, restore, retry, saveRows, sendItems, settle, status, summary,
 } from '../src/features/scan/scanList.ts';
 
 const DS3 = '5030934110075';
@@ -132,4 +132,53 @@ test('changes to a row apply to its current choice, so two quick edits both stay
   // The batch platform shown in the detail is not written into the row.
   const resolvedRow = settle(scanned(), 'r1', answer());
   assert.equal(amend(resolvedRow, 'r1', { edition: 'GOTY' })[0].choice.platform, 'Xbox 360');
+});
+
+test('a stored list with rows of the right format but broken insides drops those rows', () => {
+  const good = settle(scanned(), 'r1', answer())[0];
+  const broken = [
+    { ...good, id: 'a', answer: { barcode: 'x' } },
+    { ...good, id: 'b', choice: { gameId: '' } },
+    { ...good, id: 'c', count: Infinity },
+    { ...good, id: 'd', count: -1 },
+    { ...good, id: 'e', answer: { ...good.answer, match: 'nope' } },
+  ];
+  const rows = loadRows(JSON.stringify({ v: 1, rows: [...broken, good] }));
+  assert.deepEqual(rows.map((r) => r.id), ['r1']);
+  assert.doesNotThrow(() => summary(rows, ''));
+});
+
+test('copies added with +1 while a send was running are kept', () => {
+  let rows = settle(scanned(), 'r1', answer());
+  const sent = sendItems(rows, '');
+  rows = plusOne(rows, 'r1'); // pressed while the request was in flight
+  const out = applyResults(rows, sent.map((i) => ({ clientId: i.clientId, gameId: 'g1', error: '' })));
+  assert.deepEqual(out.rows.map((r) => [r.id, r.count, r.error]), [['r1', 1, undefined]]);
+});
+
+test('a row whose copy failed to save is to review until it is changed', () => {
+  let rows = settle(scanned(), 'r1', answer({ existing: [{ id: 'g1', title: 'Dead Space 3' }] }));
+  rows = applyResults(rows, [{ clientId: 'r1:0', gameId: '', error: 'the game no longer exists; choose another one' }]).rows;
+  assert.equal(status(rows[0], ''), 'review');
+  assert.deepEqual(sendItems(rows, ''), [], 'not sent again as it is');
+  rows = amend(rows, 'r1', { gameId: '' });
+  assert.equal(rows[0].error, undefined);
+  assert.equal(status(rows[0], ''), 'ready');
+});
+
+test('send items are split into requests at row boundaries, keeping one new game together', () => {
+  let rows = [];
+  for (let i = 0; i < 3; i++) {
+    rows = addCode(rows, ['5030934110075', '5026555255042', '3307215643006'][i], `r${i}`).rows;
+    rows = settle(rows, `r${i}`, answer({ barcode: rows[0].code }));
+  }
+  rows = amend(rows, 'r0', { title: 'Halo 3' });
+  rows = amend(rows, 'r1', { title: 'Gears' });
+  rows = amend(rows, 'r2', { title: 'halo 3!' });
+  for (let n = 0; n < 2; n++) rows = plusOne(rows, 'r1'); // r1: 3 copies
+  const chunks = chunkItems(sendItems(rows, ''), 3);
+  for (const c of chunks) assert.ok(c.length <= 3 || new Set(c.map((i) => i.rowId)).size === 1);
+  const where = (rowId) => chunks.findIndex((c) => c.some((i) => i.rowId === rowId));
+  assert.equal(new Set(chunks[where('r1')].map((i) => i.rowId)).size, 1, 'a row is never split');
+  assert.equal(where('r0'), where('r2'), 'rows for the same new game go together');
 });

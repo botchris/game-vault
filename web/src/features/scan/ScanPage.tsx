@@ -14,7 +14,7 @@ import { signal, unlockAudio } from './feedback';
 import { createLookupQueue } from './lookupQueue';
 import { ScanRow } from './ScanRow';
 import {
-  addCode, amend, applyResults, loadRows, plusOne, remove, restore, retry, saveRows, sendItems, settle, summary, type Answer, type Row,
+  addCode, amend, applyResults, chunkItems, loadRows, plusOne, remove, restore, retry, saveRows, sendItems, settle, summary, type Answer, type Row,
 } from './scanList.ts';
 
 const CameraScanner = lazy(() => import('./CameraScanner'));
@@ -141,6 +141,18 @@ export default function ScanPage() {
     for (const r of rowsRef.current) if (r.phase === 'looking') queue.push(r.id, r.code);
   }, [queue]);
 
+  // Browsers let a page play sound only after a tap or a key: the first one anywhere unlocks the
+  // beeps (on phones the camera opens by itself, so no button tap may come before the first read).
+  useEffect(() => {
+    const unlock = () => unlockAudio();
+    window.addEventListener('pointerdown', unlock, { once: true });
+    window.addEventListener('keydown', unlock, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+  }, []);
+
   // Undo offers last a few seconds.
   useEffect(() => {
     if (!undo) return;
@@ -214,9 +226,9 @@ export default function ScanPage() {
     setSending(true);
     setNotice(null);
     try {
-      for (let i = 0; i < items.length; i += SEND_CHUNK) {
+      for (const chunk of chunkItems(items, SEND_CHUNK)) {
         const res = await gameClient.addScannedCopies({
-          items: items.slice(i, i + SEND_CHUNK).map((it) => ({
+          items: chunk.map((it) => ({
             clientId: it.clientId, gameId: it.gameId, title: it.title, coverUrl: it.coverUrl,
             details: {
               ...emptyDetails(CopyKind.PHYSICAL), status: CopyStatus.OWNED, platform: it.platform, edition: it.edition,
@@ -282,12 +294,12 @@ export default function ScanPage() {
                 <ScanRow key={r.id} row={r} platform={defaults.platform} open={openRow === r.id}
                   onToggle={() => setOpenRow(openRow === r.id ? null : r.id)}
                   onPlus={() => update((x) => plusOne(x, r.id))}
-                  onRemove={() => removeRow(r.id)}
+                  onRemove={() => removeRow(r.id)} locked={sending}
                   onRetry={() => { update((x) => retry(x, r.id)); queue.push(r.id, r.code); }}
                   onAmend={(patch) => update((x) => amend(x, r.id, patch))} />
               ))}
             </ul>
-            <button type="button" className="link scan-clear" onClick={clearList}>{t('scan.list.clear')}</button>
+            <button type="button" className="link scan-clear" onClick={clearList} disabled={sending}>{t('scan.list.clear')}</button>
           </>
         )}
       </section>
@@ -314,7 +326,7 @@ export default function ScanPage() {
       {(rows.length > 0 || undo) && (
         <div className="scan-sendbar" role="region" aria-label={t('scan.list.title', { count: rows.length })}>
           {undo ? (
-            <p className="scan-sendbar-undo">{undo.text} <button type="button" className="link" onClick={() => { undo.apply(); setUndo(null); }}>{t('scan.list.undo')}</button></p>
+            <p className="scan-sendbar-undo">{undo.text} <button type="button" className="link" disabled={sending} onClick={() => { undo.apply(); setUndo(null); }}>{t('scan.list.undo')}</button></p>
           ) : (
             <p className="scan-sendbar-summary">
               {t('scan.list.summary', { ready: sum.ready, review: sum.review, owned: sum.owned })}

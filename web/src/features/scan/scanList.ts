@@ -93,7 +93,7 @@ export function plusOne(rows: Row[], id: string): Row[] {
 
 /** The user's choice for a row (from its detail). */
 export function choose(rows: Row[], id: string, choice: Choice): Row[] {
-  return update(rows, id, (r) => ({ ...r, choice }));
+  return update(rows, id, (r) => ({ ...withoutError(r), choice }));
 }
 
 /**
@@ -105,7 +105,8 @@ export function amend(rows: Row[], id: string, patch: Partial<Choice>): Row[] {
   return update(rows, id, (r) => {
     const base = r.choice ?? resolved(r, '');
     if (!base) return r;
-    return { ...r, choice: { ...base, ...patch } };
+    // A change answers the error a send left on the row.
+    return { ...withoutError(r), choice: { ...base, ...patch } };
   });
 }
 
@@ -147,6 +148,8 @@ export function status(row: Row, batchPlatform: string): Status {
   if (row.phase === 'looking') return 'looking';
   if (row.phase === 'error' || !row.answer) return 'error';
   if (row.answer.owned.length) return 'owned';
+  // A copy the server refused (its game was deleted…) waits for the user to change the row.
+  if (row.error) return 'review';
   const c = resolved(row, batchPlatform)!;
   if (!c.title.trim() || !c.platform.trim()) return 'review';
   // Resolved by itself only when there is a suggested game and at most one of yours to add it to.
@@ -166,7 +169,7 @@ export function sendItems(rows: Row[], batchPlatform: string): SendItem[] {
   const items: SendItem[] = [];
   for (const r of rows) {
     const st = status(r, batchPlatform);
-    if (st !== 'ready' && st !== 'owned') continue;
+    if (r.error || (st !== 'ready' && st !== 'owned')) continue;
     const c = resolved(r, batchPlatform)!;
     for (let n = 0; n < r.count; n++) {
       items.push({
@@ -194,7 +197,10 @@ export function applyResults(rows: Row[], results: { clientId: string; gameId: s
     const ok = mine.filter((x) => !x.error);
     const failed = mine.filter((x) => x.error);
     if (ok.length) saved.push({ row: r, gameId: ok[0]!.gameId });
-    if (failed.length) next.push({ ...r, count: failed.length, error: failed[0]!.error });
+    // Saved copies are taken from the row as it is now: a "+1" pressed during the send stays.
+    const left = r.count - ok.length;
+    if (failed.length) next.push({ ...r, count: Math.max(left, failed.length), error: failed[0]!.error });
+    else if (left > 0) next.push({ ...r, count: left });
   }
   return { rows: next, saved };
 }
@@ -203,10 +209,26 @@ export function saveRows(rows: Row[]): string {
   return JSON.stringify({ v: FORMAT, rows });
 }
 
+const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+const strings = (v: unknown, keys: string[]) => isObject(v) && keys.every((k) => typeof v[k] === 'string');
+const listOf = (v: unknown, keys: string[]) => Array.isArray(v) && v.every((x) => strings(x, keys));
+
+const isAnswer = (a: unknown): a is Answer => isObject(a) && typeof a.barcode === 'string'
+  && listOf(a.owned, ['gameId', 'title', 'platform'])
+  && (a.match === null || strings(a.match, ['raw', 'title', 'platform', 'edition', 'providerId']))
+  && listOf(a.suggestions, ['title', 'platform', 'coverUrl', 'thumbUrl', 'label'])
+  && listOf(a.existing, ['id', 'title'])
+  && Array.isArray(a.warnings) && a.warnings.every((w) => typeof w === 'string');
+
+/** Whether a stored row is complete: a broken one would break the page, so it is dropped instead. */
 const isRow = (r: unknown): r is Row => {
-  const x = r as Row;
-  return !!x && typeof x.id === 'string' && typeof x.code === 'string' && typeof x.count === 'number'
-    && ['looking', 'done', 'error'].includes(x.phase) && (x.phase !== 'done' || !!x.answer);
+  if (!isObject(r)) return false;
+  return typeof r.id === 'string' && typeof r.code === 'string'
+    && Number.isInteger(r.count) && (r.count as number) >= 0 && (r.count as number) <= 99
+    && ['looking', 'done', 'error'].includes(r.phase as string)
+    && (r.answer === undefined ? r.phase !== 'done' : isAnswer(r.answer))
+    && (r.choice === undefined || strings(r.choice, ['title', 'platform', 'edition', 'coverUrl', 'thumbUrl', 'gameId']))
+    && (r.error === undefined || typeof r.error === 'string');
 };
 
 /** The stored list; empty when there is none, it is broken or it has another format. */
@@ -219,4 +241,31 @@ export function loadRows(text: string | null): Row[] {
   } catch {
     return [];
   }
+}
+
+/** A new game's grouping key, close to the server's match key: letters and digits, lower case. */
+const titleKey = (title: string) => title.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '') || title.trim();
+
+/**
+ * Splits the send items into requests of at most max items. A row is never split, and rows for
+ * the same game (the same target, or the same new title) travel together, so a request that fails
+ * leaves whole rows and a new game is never created twice.
+ */
+export function chunkItems(items: SendItem[], max: number): SendItem[][] {
+  const bundles = new Map<string, SendItem[]>();
+  for (const it of items) {
+    const key = it.gameId ? `id:${it.gameId}` : `new:${titleKey(it.title)}`;
+    bundles.set(key, [...(bundles.get(key) ?? []), it]);
+  }
+  const chunks: SendItem[][] = [];
+  let current: SendItem[] = [];
+  for (const bundle of bundles.values()) {
+    if (current.length && current.length + bundle.length > max) {
+      chunks.push(current);
+      current = [];
+    }
+    current = [...current, ...bundle];
+  }
+  if (current.length) chunks.push(current);
+  return chunks;
 }
