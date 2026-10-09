@@ -1,0 +1,54 @@
+# Lint and test every push to main and every pull request, the same way as on a developer's
+# machine: through Task, inside the toolchain container (build/toolchain.Dockerfile), so CI uses
+# exactly the pinned Go, Node, golangci-lint and buf versions. The runner only needs Docker and Task.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch or pull request makes the running checks pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ./.github/actions/toolchain
+
+      # golangci-lint, the house layout rules (tools/docspacing, tools/fieldlines) and buf lint.
+      - name: task lint
+        run: task lint
+
+      # Code generated from proto/ is committed: regenerating it must change nothing.
+      - name: Generated code is up to date
+        run: |
+          task generate
+          if ! git diff --exit-code --stat; then
+            echo "::error::The generated code is out of date: run 'task generate' and commit the result."
+            exit 1
+          fi
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ./.github/actions/toolchain
+
+      # go vet, the Go tests (plugin checks included), the TypeScript type check and the
+      # translation check.
+      - name: task test
+        run: task test

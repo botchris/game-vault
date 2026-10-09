@@ -116,7 +116,7 @@ named.
 ## Before opening a pull request
 
 - `task lint` and `task test` pass (everything runs in the toolchain container: you only need
-  Docker and Task).
+  Docker and Task). CI runs the same on the pull request.
 - "Test connection" against the real service with wrong credentials gives a clean error, not a
   404 or a decoding error.
 - `docs/technical.md` describes how the plugin connects and what it imports, and a new store is

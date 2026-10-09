@@ -291,3 +291,4 @@ Logs never contain keys or credentials.
 - Add a UI language: add `web/src/i18n/locales/<code>.json` and register it in `web/src/i18n/index.ts`.
 - Schema changes go in a new numbered file in `internal/adapters/outbound/sqlite/migrations/`, which is applied on start.
 - `task test` runs the Go tests, the TypeScript type check and the translation check, in the toolchain container. The Go tests cover the domain, SQLite, the providers (against fake servers), CSV, and an end-to-end Connect test.
+- GitHub Actions (`.github/workflows/ci.yml`) runs `task lint`, checks that `task generate` changes nothing, and runs `task test` on every push to `main` and every pull request, inside the same toolchain image (its layers cached in GitHub Actions, rebuilt only when `build/toolchain.Dockerfile` changes).

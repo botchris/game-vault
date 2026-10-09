@@ -98,6 +98,9 @@ Rules of the architecture:
 
 ## How to verify a change
 
+CI (`.github/workflows/ci.yml`) runs `task lint`, a `task generate` freshness check and `task test`
+on every push to main and pull request; it does not replace the steps below.
+
 1. `task lint` and `task test` pass (golangci-lint, buf lint, vet, Go tests, TS types, translations).
 2. `task test-server` (builds web + server first) and look at the result in the browser pane on
    http://127.0.0.1:8093 (desktop, then the mobile preset; reset the viewport afterwards), then
