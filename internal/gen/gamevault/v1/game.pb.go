@@ -483,6 +483,78 @@ func (x *CopyDetails) GetPrice() *Money {
 	return nil
 }
 
+// Photo is a picture of a copy the user uploaded (POST /media/photos). The image is served at
+// GET /media/photos/{id} and its thumbnail at GET /media/photos/{id}/thumb.
+type Photo struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// SHA-256 of the stored JPEG, lowercase hex.
+	Id      string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Caption string `protobuf:"bytes,2,opt,name=caption,proto3" json:"caption,omitempty"`
+	// From the photo's metadata: the camera's clock reading, as UTC. Absent when unknown.
+	TakenAt       *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=taken_at,json=takenAt,proto3" json:"taken_at,omitempty"`
+	AddedAt       *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=added_at,json=addedAt,proto3" json:"added_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Photo) Reset() {
+	*x = Photo{}
+	mi := &file_gamevault_v1_game_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Photo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Photo) ProtoMessage() {}
+
+func (x *Photo) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_game_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Photo.ProtoReflect.Descriptor instead.
+func (*Photo) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *Photo) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Photo) GetCaption() string {
+	if x != nil {
+		return x.Caption
+	}
+	return ""
+}
+
+func (x *Photo) GetTakenAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.TakenAt
+	}
+	return nil
+}
+
+func (x *Photo) GetAddedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AddedAt
+	}
+	return nil
+}
+
 // Copy is one owned instance of a game.
 type Copy struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
@@ -494,16 +566,18 @@ type Copy struct {
 	ExternalId string `protobuf:"bytes,4,opt,name=external_id,json=externalId,proto3" json:"external_id,omitempty"`
 	// True for a pending key (unrevealed or revealed) of a game you already own
 	// in a library on the same platform. A good candidate to gift.
-	Redundant     bool                   `protobuf:"varint,5,opt,name=redundant,proto3" json:"redundant,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	Redundant bool                   `protobuf:"varint,5,opt,name=redundant,proto3" json:"redundant,omitempty"`
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// The user's photos of the copy, in their order.
+	Photos        []*Photo `protobuf:"bytes,8,rep,name=photos,proto3" json:"photos,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Copy) Reset() {
 	*x = Copy{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[2]
+	mi := &file_gamevault_v1_game_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -515,7 +589,7 @@ func (x *Copy) String() string {
 func (*Copy) ProtoMessage() {}
 
 func (x *Copy) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[2]
+	mi := &file_gamevault_v1_game_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -528,7 +602,7 @@ func (x *Copy) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Copy.ProtoReflect.Descriptor instead.
 func (*Copy) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{2}
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Copy) GetId() string {
@@ -580,6 +654,13 @@ func (x *Copy) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *Copy) GetPhotos() []*Photo {
+	if x != nil {
+		return x.Photos
+	}
+	return nil
+}
+
 // Game is the aggregate root: a title plus every copy you own of it.
 type Game struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
@@ -599,14 +680,16 @@ type Game struct {
 	ReleaseYear int32 `protobuf:"varint,10,opt,name=release_year,json=releaseYear,proto3" json:"release_year,omitempty"`
 	// Stores the game is linked to: link key ("steam") → the game's id there ("620"). Providers
 	// that know a store use its link for covers and details; imports use links to match games.
-	Links         map[string]string `protobuf:"bytes,11,rep,name=links,proto3" json:"links,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Links map[string]string `protobuf:"bytes,11,rep,name=links,proto3" json:"links,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// One of the copies' photos used as the cover (it wins over cover_url); empty when none.
+	CoverPhotoId  string `protobuf:"bytes,12,opt,name=cover_photo_id,json=coverPhotoId,proto3" json:"cover_photo_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Game) Reset() {
 	*x = Game{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[3]
+	mi := &file_gamevault_v1_game_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -618,7 +701,7 @@ func (x *Game) String() string {
 func (*Game) ProtoMessage() {}
 
 func (x *Game) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[3]
+	mi := &file_gamevault_v1_game_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -631,7 +714,7 @@ func (x *Game) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Game.ProtoReflect.Descriptor instead.
 func (*Game) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{3}
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Game) GetId() string {
@@ -704,6 +787,13 @@ func (x *Game) GetLinks() map[string]string {
 	return nil
 }
 
+func (x *Game) GetCoverPhotoId() string {
+	if x != nil {
+		return x.CoverPhotoId
+	}
+	return ""
+}
+
 type ListGamesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// UI language for genres ("en", "es"...). Details are downloaded in the background for it.
@@ -714,7 +804,7 @@ type ListGamesRequest struct {
 
 func (x *ListGamesRequest) Reset() {
 	*x = ListGamesRequest{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[4]
+	mi := &file_gamevault_v1_game_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -726,7 +816,7 @@ func (x *ListGamesRequest) String() string {
 func (*ListGamesRequest) ProtoMessage() {}
 
 func (x *ListGamesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[4]
+	mi := &file_gamevault_v1_game_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -739,7 +829,7 @@ func (x *ListGamesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListGamesRequest.ProtoReflect.Descriptor instead.
 func (*ListGamesRequest) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{4}
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ListGamesRequest) GetLanguage() string {
@@ -760,7 +850,7 @@ type ListGamesResponse struct {
 
 func (x *ListGamesResponse) Reset() {
 	*x = ListGamesResponse{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[5]
+	mi := &file_gamevault_v1_game_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -772,7 +862,7 @@ func (x *ListGamesResponse) String() string {
 func (*ListGamesResponse) ProtoMessage() {}
 
 func (x *ListGamesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[5]
+	mi := &file_gamevault_v1_game_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -785,7 +875,7 @@ func (x *ListGamesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListGamesResponse.ProtoReflect.Descriptor instead.
 func (*ListGamesResponse) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{5}
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ListGamesResponse) GetGames() []*Game {
@@ -811,7 +901,7 @@ type GetGameRequest struct {
 
 func (x *GetGameRequest) Reset() {
 	*x = GetGameRequest{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[6]
+	mi := &file_gamevault_v1_game_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -823,7 +913,7 @@ func (x *GetGameRequest) String() string {
 func (*GetGameRequest) ProtoMessage() {}
 
 func (x *GetGameRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[6]
+	mi := &file_gamevault_v1_game_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -836,7 +926,7 @@ func (x *GetGameRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetGameRequest.ProtoReflect.Descriptor instead.
 func (*GetGameRequest) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{6}
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GetGameRequest) GetId() string {
@@ -855,7 +945,7 @@ type GetGameResponse struct {
 
 func (x *GetGameResponse) Reset() {
 	*x = GetGameResponse{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[7]
+	mi := &file_gamevault_v1_game_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -867,7 +957,7 @@ func (x *GetGameResponse) String() string {
 func (*GetGameResponse) ProtoMessage() {}
 
 func (x *GetGameResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[7]
+	mi := &file_gamevault_v1_game_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -880,7 +970,7 @@ func (x *GetGameResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetGameResponse.ProtoReflect.Descriptor instead.
 func (*GetGameResponse) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{7}
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GetGameResponse) GetGame() *Game {
@@ -904,7 +994,7 @@ type CreateGameRequest struct {
 
 func (x *CreateGameRequest) Reset() {
 	*x = CreateGameRequest{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[8]
+	mi := &file_gamevault_v1_game_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -916,7 +1006,7 @@ func (x *CreateGameRequest) String() string {
 func (*CreateGameRequest) ProtoMessage() {}
 
 func (x *CreateGameRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[8]
+	mi := &file_gamevault_v1_game_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -929,7 +1019,7 @@ func (x *CreateGameRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateGameRequest.ProtoReflect.Descriptor instead.
 func (*CreateGameRequest) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{8}
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *CreateGameRequest) GetTitle() string {
@@ -976,7 +1066,7 @@ type CreateGameResponse struct {
 
 func (x *CreateGameResponse) Reset() {
 	*x = CreateGameResponse{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[9]
+	mi := &file_gamevault_v1_game_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -988,7 +1078,7 @@ func (x *CreateGameResponse) String() string {
 func (*CreateGameResponse) ProtoMessage() {}
 
 func (x *CreateGameResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[9]
+	mi := &file_gamevault_v1_game_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1001,7 +1091,7 @@ func (x *CreateGameResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateGameResponse.ProtoReflect.Descriptor instead.
 func (*CreateGameResponse) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{9}
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *CreateGameResponse) GetGame() *Game {
@@ -1025,7 +1115,7 @@ type UpdateGameRequest struct {
 
 func (x *UpdateGameRequest) Reset() {
 	*x = UpdateGameRequest{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[10]
+	mi := &file_gamevault_v1_game_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1037,7 +1127,7 @@ func (x *UpdateGameRequest) String() string {
 func (*UpdateGameRequest) ProtoMessage() {}
 
 func (x *UpdateGameRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[10]
+	mi := &file_gamevault_v1_game_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1050,7 +1140,7 @@ func (x *UpdateGameRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateGameRequest.ProtoReflect.Descriptor instead.
 func (*UpdateGameRequest) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{10}
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *UpdateGameRequest) GetId() string {
@@ -1097,7 +1187,7 @@ type UpdateGameResponse struct {
 
 func (x *UpdateGameResponse) Reset() {
 	*x = UpdateGameResponse{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[11]
+	mi := &file_gamevault_v1_game_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1109,7 +1199,7 @@ func (x *UpdateGameResponse) String() string {
 func (*UpdateGameResponse) ProtoMessage() {}
 
 func (x *UpdateGameResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[11]
+	mi := &file_gamevault_v1_game_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1122,7 +1212,7 @@ func (x *UpdateGameResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateGameResponse.ProtoReflect.Descriptor instead.
 func (*UpdateGameResponse) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{11}
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *UpdateGameResponse) GetGame() *Game {
@@ -1141,7 +1231,7 @@ type DeleteGameRequest struct {
 
 func (x *DeleteGameRequest) Reset() {
 	*x = DeleteGameRequest{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[12]
+	mi := &file_gamevault_v1_game_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1153,7 +1243,7 @@ func (x *DeleteGameRequest) String() string {
 func (*DeleteGameRequest) ProtoMessage() {}
 
 func (x *DeleteGameRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[12]
+	mi := &file_gamevault_v1_game_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1166,7 +1256,7 @@ func (x *DeleteGameRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteGameRequest.ProtoReflect.Descriptor instead.
 func (*DeleteGameRequest) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{12}
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *DeleteGameRequest) GetId() string {
@@ -1184,7 +1274,7 @@ type DeleteGameResponse struct {
 
 func (x *DeleteGameResponse) Reset() {
 	*x = DeleteGameResponse{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[13]
+	mi := &file_gamevault_v1_game_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1196,7 +1286,7 @@ func (x *DeleteGameResponse) String() string {
 func (*DeleteGameResponse) ProtoMessage() {}
 
 func (x *DeleteGameResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[13]
+	mi := &file_gamevault_v1_game_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1209,7 +1299,7 @@ func (x *DeleteGameResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteGameResponse.ProtoReflect.Descriptor instead.
 func (*DeleteGameResponse) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{13}
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{14}
 }
 
 // MergeGamesRequest moves every copy of source_ids into target_id and deletes the sources.
@@ -1224,7 +1314,7 @@ type MergeGamesRequest struct {
 
 func (x *MergeGamesRequest) Reset() {
 	*x = MergeGamesRequest{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[14]
+	mi := &file_gamevault_v1_game_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1236,7 +1326,7 @@ func (x *MergeGamesRequest) String() string {
 func (*MergeGamesRequest) ProtoMessage() {}
 
 func (x *MergeGamesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[14]
+	mi := &file_gamevault_v1_game_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1249,7 +1339,7 @@ func (x *MergeGamesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MergeGamesRequest.ProtoReflect.Descriptor instead.
 func (*MergeGamesRequest) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{14}
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *MergeGamesRequest) GetTargetId() string {
@@ -1275,7 +1365,7 @@ type MergeGamesResponse struct {
 
 func (x *MergeGamesResponse) Reset() {
 	*x = MergeGamesResponse{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[15]
+	mi := &file_gamevault_v1_game_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1287,7 +1377,7 @@ func (x *MergeGamesResponse) String() string {
 func (*MergeGamesResponse) ProtoMessage() {}
 
 func (x *MergeGamesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[15]
+	mi := &file_gamevault_v1_game_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1300,7 +1390,7 @@ func (x *MergeGamesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MergeGamesResponse.ProtoReflect.Descriptor instead.
 func (*MergeGamesResponse) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{15}
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *MergeGamesResponse) GetGame() *Game {
@@ -1320,7 +1410,7 @@ type AddCopyRequest struct {
 
 func (x *AddCopyRequest) Reset() {
 	*x = AddCopyRequest{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[16]
+	mi := &file_gamevault_v1_game_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1332,7 +1422,7 @@ func (x *AddCopyRequest) String() string {
 func (*AddCopyRequest) ProtoMessage() {}
 
 func (x *AddCopyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[16]
+	mi := &file_gamevault_v1_game_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1345,7 +1435,7 @@ func (x *AddCopyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddCopyRequest.ProtoReflect.Descriptor instead.
 func (*AddCopyRequest) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{16}
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *AddCopyRequest) GetGameId() string {
@@ -1371,7 +1461,7 @@ type AddCopyResponse struct {
 
 func (x *AddCopyResponse) Reset() {
 	*x = AddCopyResponse{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[17]
+	mi := &file_gamevault_v1_game_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1383,7 +1473,7 @@ func (x *AddCopyResponse) String() string {
 func (*AddCopyResponse) ProtoMessage() {}
 
 func (x *AddCopyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[17]
+	mi := &file_gamevault_v1_game_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1396,7 +1486,7 @@ func (x *AddCopyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddCopyResponse.ProtoReflect.Descriptor instead.
 func (*AddCopyResponse) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{17}
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *AddCopyResponse) GetGame() *Game {
@@ -1417,7 +1507,7 @@ type UpdateCopyRequest struct {
 
 func (x *UpdateCopyRequest) Reset() {
 	*x = UpdateCopyRequest{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[18]
+	mi := &file_gamevault_v1_game_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1429,7 +1519,7 @@ func (x *UpdateCopyRequest) String() string {
 func (*UpdateCopyRequest) ProtoMessage() {}
 
 func (x *UpdateCopyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[18]
+	mi := &file_gamevault_v1_game_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1442,7 +1532,7 @@ func (x *UpdateCopyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateCopyRequest.ProtoReflect.Descriptor instead.
 func (*UpdateCopyRequest) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{18}
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *UpdateCopyRequest) GetGameId() string {
@@ -1475,7 +1565,7 @@ type UpdateCopyResponse struct {
 
 func (x *UpdateCopyResponse) Reset() {
 	*x = UpdateCopyResponse{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[19]
+	mi := &file_gamevault_v1_game_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1487,7 +1577,7 @@ func (x *UpdateCopyResponse) String() string {
 func (*UpdateCopyResponse) ProtoMessage() {}
 
 func (x *UpdateCopyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[19]
+	mi := &file_gamevault_v1_game_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1500,7 +1590,7 @@ func (x *UpdateCopyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateCopyResponse.ProtoReflect.Descriptor instead.
 func (*UpdateCopyResponse) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{19}
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *UpdateCopyResponse) GetGame() *Game {
@@ -1520,7 +1610,7 @@ type DeleteCopyRequest struct {
 
 func (x *DeleteCopyRequest) Reset() {
 	*x = DeleteCopyRequest{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[20]
+	mi := &file_gamevault_v1_game_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1532,7 +1622,7 @@ func (x *DeleteCopyRequest) String() string {
 func (*DeleteCopyRequest) ProtoMessage() {}
 
 func (x *DeleteCopyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[20]
+	mi := &file_gamevault_v1_game_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1545,7 +1635,7 @@ func (x *DeleteCopyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteCopyRequest.ProtoReflect.Descriptor instead.
 func (*DeleteCopyRequest) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{20}
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *DeleteCopyRequest) GetGameId() string {
@@ -1571,7 +1661,7 @@ type DeleteCopyResponse struct {
 
 func (x *DeleteCopyResponse) Reset() {
 	*x = DeleteCopyResponse{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[21]
+	mi := &file_gamevault_v1_game_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1583,7 +1673,7 @@ func (x *DeleteCopyResponse) String() string {
 func (*DeleteCopyResponse) ProtoMessage() {}
 
 func (x *DeleteCopyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[21]
+	mi := &file_gamevault_v1_game_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1596,7 +1686,7 @@ func (x *DeleteCopyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteCopyResponse.ProtoReflect.Descriptor instead.
 func (*DeleteCopyResponse) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{21}
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *DeleteCopyResponse) GetGame() *Game {
@@ -1620,7 +1710,7 @@ type MoveCopyRequest struct {
 
 func (x *MoveCopyRequest) Reset() {
 	*x = MoveCopyRequest{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[22]
+	mi := &file_gamevault_v1_game_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1632,7 +1722,7 @@ func (x *MoveCopyRequest) String() string {
 func (*MoveCopyRequest) ProtoMessage() {}
 
 func (x *MoveCopyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[22]
+	mi := &file_gamevault_v1_game_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1645,7 +1735,7 @@ func (x *MoveCopyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MoveCopyRequest.ProtoReflect.Descriptor instead.
 func (*MoveCopyRequest) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{22}
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *MoveCopyRequest) GetGameId() string {
@@ -1687,7 +1777,7 @@ type MoveCopyResponse struct {
 
 func (x *MoveCopyResponse) Reset() {
 	*x = MoveCopyResponse{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[23]
+	mi := &file_gamevault_v1_game_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1699,7 +1789,7 @@ func (x *MoveCopyResponse) String() string {
 func (*MoveCopyResponse) ProtoMessage() {}
 
 func (x *MoveCopyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[23]
+	mi := &file_gamevault_v1_game_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1712,7 +1802,7 @@ func (x *MoveCopyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MoveCopyResponse.ProtoReflect.Descriptor instead.
 func (*MoveCopyResponse) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{23}
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *MoveCopyResponse) GetSourceGame() *Game {
@@ -1737,7 +1827,7 @@ type MarkRedeemedKeysRequest struct {
 
 func (x *MarkRedeemedKeysRequest) Reset() {
 	*x = MarkRedeemedKeysRequest{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[24]
+	mi := &file_gamevault_v1_game_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1749,7 +1839,7 @@ func (x *MarkRedeemedKeysRequest) String() string {
 func (*MarkRedeemedKeysRequest) ProtoMessage() {}
 
 func (x *MarkRedeemedKeysRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[24]
+	mi := &file_gamevault_v1_game_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1762,7 +1852,7 @@ func (x *MarkRedeemedKeysRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MarkRedeemedKeysRequest.ProtoReflect.Descriptor instead.
 func (*MarkRedeemedKeysRequest) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{24}
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{25}
 }
 
 type MarkRedeemedKeysResponse struct {
@@ -1775,7 +1865,7 @@ type MarkRedeemedKeysResponse struct {
 
 func (x *MarkRedeemedKeysResponse) Reset() {
 	*x = MarkRedeemedKeysResponse{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[25]
+	mi := &file_gamevault_v1_game_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1787,7 +1877,7 @@ func (x *MarkRedeemedKeysResponse) String() string {
 func (*MarkRedeemedKeysResponse) ProtoMessage() {}
 
 func (x *MarkRedeemedKeysResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[25]
+	mi := &file_gamevault_v1_game_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1800,7 +1890,7 @@ func (x *MarkRedeemedKeysResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MarkRedeemedKeysResponse.ProtoReflect.Descriptor instead.
 func (*MarkRedeemedKeysResponse) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{25}
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *MarkRedeemedKeysResponse) GetUpdated() int32 {
@@ -1818,7 +1908,7 @@ type ListLinkStoresRequest struct {
 
 func (x *ListLinkStoresRequest) Reset() {
 	*x = ListLinkStoresRequest{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[26]
+	mi := &file_gamevault_v1_game_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1830,7 +1920,7 @@ func (x *ListLinkStoresRequest) String() string {
 func (*ListLinkStoresRequest) ProtoMessage() {}
 
 func (x *ListLinkStoresRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[26]
+	mi := &file_gamevault_v1_game_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1843,7 +1933,7 @@ func (x *ListLinkStoresRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLinkStoresRequest.ProtoReflect.Descriptor instead.
 func (*ListLinkStoresRequest) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{26}
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{27}
 }
 
 // LinkStore is a store games can be linked to.
@@ -1863,7 +1953,7 @@ type LinkStore struct {
 
 func (x *LinkStore) Reset() {
 	*x = LinkStore{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[27]
+	mi := &file_gamevault_v1_game_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1875,7 +1965,7 @@ func (x *LinkStore) String() string {
 func (*LinkStore) ProtoMessage() {}
 
 func (x *LinkStore) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[27]
+	mi := &file_gamevault_v1_game_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1888,7 +1978,7 @@ func (x *LinkStore) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LinkStore.ProtoReflect.Descriptor instead.
 func (*LinkStore) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{27}
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *LinkStore) GetKey() string {
@@ -1928,7 +2018,7 @@ type ListLinkStoresResponse struct {
 
 func (x *ListLinkStoresResponse) Reset() {
 	*x = ListLinkStoresResponse{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[28]
+	mi := &file_gamevault_v1_game_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1940,7 +2030,7 @@ func (x *ListLinkStoresResponse) String() string {
 func (*ListLinkStoresResponse) ProtoMessage() {}
 
 func (x *ListLinkStoresResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[28]
+	mi := &file_gamevault_v1_game_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1953,7 +2043,7 @@ func (x *ListLinkStoresResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLinkStoresResponse.ProtoReflect.Descriptor instead.
 func (*ListLinkStoresResponse) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{28}
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *ListLinkStoresResponse) GetStores() []*LinkStore {
@@ -1974,7 +2064,7 @@ type SearchLinksRequest struct {
 
 func (x *SearchLinksRequest) Reset() {
 	*x = SearchLinksRequest{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[29]
+	mi := &file_gamevault_v1_game_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1986,7 +2076,7 @@ func (x *SearchLinksRequest) String() string {
 func (*SearchLinksRequest) ProtoMessage() {}
 
 func (x *SearchLinksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[29]
+	mi := &file_gamevault_v1_game_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1999,7 +2089,7 @@ func (x *SearchLinksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchLinksRequest.ProtoReflect.Descriptor instead.
 func (*SearchLinksRequest) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{29}
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *SearchLinksRequest) GetStore() string {
@@ -2029,7 +2119,7 @@ type LinkMatch struct {
 
 func (x *LinkMatch) Reset() {
 	*x = LinkMatch{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[30]
+	mi := &file_gamevault_v1_game_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2041,7 +2131,7 @@ func (x *LinkMatch) String() string {
 func (*LinkMatch) ProtoMessage() {}
 
 func (x *LinkMatch) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[30]
+	mi := &file_gamevault_v1_game_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2054,7 +2144,7 @@ func (x *LinkMatch) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LinkMatch.ProtoReflect.Descriptor instead.
 func (*LinkMatch) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{30}
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *LinkMatch) GetId() string {
@@ -2087,7 +2177,7 @@ type SearchLinksResponse struct {
 
 func (x *SearchLinksResponse) Reset() {
 	*x = SearchLinksResponse{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[31]
+	mi := &file_gamevault_v1_game_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2099,7 +2189,7 @@ func (x *SearchLinksResponse) String() string {
 func (*SearchLinksResponse) ProtoMessage() {}
 
 func (x *SearchLinksResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[31]
+	mi := &file_gamevault_v1_game_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2112,12 +2202,598 @@ func (x *SearchLinksResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchLinksResponse.ProtoReflect.Descriptor instead.
 func (*SearchLinksResponse) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{31}
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *SearchLinksResponse) GetMatches() []*LinkMatch {
 	if x != nil {
 		return x.Matches
+	}
+	return nil
+}
+
+// NewPhoto is an uploaded photo to attach to a copy.
+type NewPhoto struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The id POST /media/photos answered.
+	Id      string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Caption string `protobuf:"bytes,2,opt,name=caption,proto3" json:"caption,omitempty"`
+	// The takenAt POST /media/photos answered, if any.
+	TakenAt       *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=taken_at,json=takenAt,proto3" json:"taken_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NewPhoto) Reset() {
+	*x = NewPhoto{}
+	mi := &file_gamevault_v1_game_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NewPhoto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NewPhoto) ProtoMessage() {}
+
+func (x *NewPhoto) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_game_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NewPhoto.ProtoReflect.Descriptor instead.
+func (*NewPhoto) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *NewPhoto) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *NewPhoto) GetCaption() string {
+	if x != nil {
+		return x.Caption
+	}
+	return ""
+}
+
+func (x *NewPhoto) GetTakenAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.TakenAt
+	}
+	return nil
+}
+
+type AddCopyPhotosRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	GameId        string                 `protobuf:"bytes,1,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`
+	CopyId        string                 `protobuf:"bytes,2,opt,name=copy_id,json=copyId,proto3" json:"copy_id,omitempty"`
+	Photos        []*NewPhoto            `protobuf:"bytes,3,rep,name=photos,proto3" json:"photos,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AddCopyPhotosRequest) Reset() {
+	*x = AddCopyPhotosRequest{}
+	mi := &file_gamevault_v1_game_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddCopyPhotosRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddCopyPhotosRequest) ProtoMessage() {}
+
+func (x *AddCopyPhotosRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_game_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddCopyPhotosRequest.ProtoReflect.Descriptor instead.
+func (*AddCopyPhotosRequest) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *AddCopyPhotosRequest) GetGameId() string {
+	if x != nil {
+		return x.GameId
+	}
+	return ""
+}
+
+func (x *AddCopyPhotosRequest) GetCopyId() string {
+	if x != nil {
+		return x.CopyId
+	}
+	return ""
+}
+
+func (x *AddCopyPhotosRequest) GetPhotos() []*NewPhoto {
+	if x != nil {
+		return x.Photos
+	}
+	return nil
+}
+
+type AddCopyPhotosResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Game          *Game                  `protobuf:"bytes,1,opt,name=game,proto3" json:"game,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AddCopyPhotosResponse) Reset() {
+	*x = AddCopyPhotosResponse{}
+	mi := &file_gamevault_v1_game_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddCopyPhotosResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddCopyPhotosResponse) ProtoMessage() {}
+
+func (x *AddCopyPhotosResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_game_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddCopyPhotosResponse.ProtoReflect.Descriptor instead.
+func (*AddCopyPhotosResponse) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *AddCopyPhotosResponse) GetGame() *Game {
+	if x != nil {
+		return x.Game
+	}
+	return nil
+}
+
+type UpdateCopyPhotoRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	GameId        string                 `protobuf:"bytes,1,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`
+	CopyId        string                 `protobuf:"bytes,2,opt,name=copy_id,json=copyId,proto3" json:"copy_id,omitempty"`
+	PhotoId       string                 `protobuf:"bytes,3,opt,name=photo_id,json=photoId,proto3" json:"photo_id,omitempty"`
+	Caption       string                 `protobuf:"bytes,4,opt,name=caption,proto3" json:"caption,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateCopyPhotoRequest) Reset() {
+	*x = UpdateCopyPhotoRequest{}
+	mi := &file_gamevault_v1_game_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateCopyPhotoRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateCopyPhotoRequest) ProtoMessage() {}
+
+func (x *UpdateCopyPhotoRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_game_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateCopyPhotoRequest.ProtoReflect.Descriptor instead.
+func (*UpdateCopyPhotoRequest) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *UpdateCopyPhotoRequest) GetGameId() string {
+	if x != nil {
+		return x.GameId
+	}
+	return ""
+}
+
+func (x *UpdateCopyPhotoRequest) GetCopyId() string {
+	if x != nil {
+		return x.CopyId
+	}
+	return ""
+}
+
+func (x *UpdateCopyPhotoRequest) GetPhotoId() string {
+	if x != nil {
+		return x.PhotoId
+	}
+	return ""
+}
+
+func (x *UpdateCopyPhotoRequest) GetCaption() string {
+	if x != nil {
+		return x.Caption
+	}
+	return ""
+}
+
+type UpdateCopyPhotoResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Game          *Game                  `protobuf:"bytes,1,opt,name=game,proto3" json:"game,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateCopyPhotoResponse) Reset() {
+	*x = UpdateCopyPhotoResponse{}
+	mi := &file_gamevault_v1_game_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateCopyPhotoResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateCopyPhotoResponse) ProtoMessage() {}
+
+func (x *UpdateCopyPhotoResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_game_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateCopyPhotoResponse.ProtoReflect.Descriptor instead.
+func (*UpdateCopyPhotoResponse) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *UpdateCopyPhotoResponse) GetGame() *Game {
+	if x != nil {
+		return x.Game
+	}
+	return nil
+}
+
+type RemoveCopyPhotoRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	GameId        string                 `protobuf:"bytes,1,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`
+	CopyId        string                 `protobuf:"bytes,2,opt,name=copy_id,json=copyId,proto3" json:"copy_id,omitempty"`
+	PhotoId       string                 `protobuf:"bytes,3,opt,name=photo_id,json=photoId,proto3" json:"photo_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RemoveCopyPhotoRequest) Reset() {
+	*x = RemoveCopyPhotoRequest{}
+	mi := &file_gamevault_v1_game_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RemoveCopyPhotoRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RemoveCopyPhotoRequest) ProtoMessage() {}
+
+func (x *RemoveCopyPhotoRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_game_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RemoveCopyPhotoRequest.ProtoReflect.Descriptor instead.
+func (*RemoveCopyPhotoRequest) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *RemoveCopyPhotoRequest) GetGameId() string {
+	if x != nil {
+		return x.GameId
+	}
+	return ""
+}
+
+func (x *RemoveCopyPhotoRequest) GetCopyId() string {
+	if x != nil {
+		return x.CopyId
+	}
+	return ""
+}
+
+func (x *RemoveCopyPhotoRequest) GetPhotoId() string {
+	if x != nil {
+		return x.PhotoId
+	}
+	return ""
+}
+
+type RemoveCopyPhotoResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Game          *Game                  `protobuf:"bytes,1,opt,name=game,proto3" json:"game,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RemoveCopyPhotoResponse) Reset() {
+	*x = RemoveCopyPhotoResponse{}
+	mi := &file_gamevault_v1_game_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RemoveCopyPhotoResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RemoveCopyPhotoResponse) ProtoMessage() {}
+
+func (x *RemoveCopyPhotoResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_game_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RemoveCopyPhotoResponse.ProtoReflect.Descriptor instead.
+func (*RemoveCopyPhotoResponse) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *RemoveCopyPhotoResponse) GetGame() *Game {
+	if x != nil {
+		return x.Game
+	}
+	return nil
+}
+
+// ReorderCopyPhotosRequest gives the copy's photos in their new order; it must list each once.
+type ReorderCopyPhotosRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	GameId        string                 `protobuf:"bytes,1,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`
+	CopyId        string                 `protobuf:"bytes,2,opt,name=copy_id,json=copyId,proto3" json:"copy_id,omitempty"`
+	PhotoIds      []string               `protobuf:"bytes,3,rep,name=photo_ids,json=photoIds,proto3" json:"photo_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReorderCopyPhotosRequest) Reset() {
+	*x = ReorderCopyPhotosRequest{}
+	mi := &file_gamevault_v1_game_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReorderCopyPhotosRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReorderCopyPhotosRequest) ProtoMessage() {}
+
+func (x *ReorderCopyPhotosRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_game_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReorderCopyPhotosRequest.ProtoReflect.Descriptor instead.
+func (*ReorderCopyPhotosRequest) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *ReorderCopyPhotosRequest) GetGameId() string {
+	if x != nil {
+		return x.GameId
+	}
+	return ""
+}
+
+func (x *ReorderCopyPhotosRequest) GetCopyId() string {
+	if x != nil {
+		return x.CopyId
+	}
+	return ""
+}
+
+func (x *ReorderCopyPhotosRequest) GetPhotoIds() []string {
+	if x != nil {
+		return x.PhotoIds
+	}
+	return nil
+}
+
+type ReorderCopyPhotosResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Game          *Game                  `protobuf:"bytes,1,opt,name=game,proto3" json:"game,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReorderCopyPhotosResponse) Reset() {
+	*x = ReorderCopyPhotosResponse{}
+	mi := &file_gamevault_v1_game_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReorderCopyPhotosResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReorderCopyPhotosResponse) ProtoMessage() {}
+
+func (x *ReorderCopyPhotosResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_game_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReorderCopyPhotosResponse.ProtoReflect.Descriptor instead.
+func (*ReorderCopyPhotosResponse) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *ReorderCopyPhotosResponse) GetGame() *Game {
+	if x != nil {
+		return x.Game
+	}
+	return nil
+}
+
+// SetCoverPhotoRequest makes one of the copies' photos the game's cover; an empty photo_id stops
+// using a photo as the cover.
+type SetCoverPhotoRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	GameId        string                 `protobuf:"bytes,1,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`
+	PhotoId       string                 `protobuf:"bytes,2,opt,name=photo_id,json=photoId,proto3" json:"photo_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetCoverPhotoRequest) Reset() {
+	*x = SetCoverPhotoRequest{}
+	mi := &file_gamevault_v1_game_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetCoverPhotoRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetCoverPhotoRequest) ProtoMessage() {}
+
+func (x *SetCoverPhotoRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_game_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetCoverPhotoRequest.ProtoReflect.Descriptor instead.
+func (*SetCoverPhotoRequest) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *SetCoverPhotoRequest) GetGameId() string {
+	if x != nil {
+		return x.GameId
+	}
+	return ""
+}
+
+func (x *SetCoverPhotoRequest) GetPhotoId() string {
+	if x != nil {
+		return x.PhotoId
+	}
+	return ""
+}
+
+type SetCoverPhotoResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Game          *Game                  `protobuf:"bytes,1,opt,name=game,proto3" json:"game,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetCoverPhotoResponse) Reset() {
+	*x = SetCoverPhotoResponse{}
+	mi := &file_gamevault_v1_game_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetCoverPhotoResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetCoverPhotoResponse) ProtoMessage() {}
+
+func (x *SetCoverPhotoResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_game_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetCoverPhotoResponse.ProtoReflect.Descriptor instead.
+func (*SetCoverPhotoResponse) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *SetCoverPhotoResponse) GetGame() *Game {
+	if x != nil {
+		return x.Game
 	}
 	return nil
 }
@@ -2147,7 +2823,12 @@ const file_gamevault_v1_game_proto_rawDesc = "" +
 	"\x05grade\x18\r \x01(\x0e2\x17.gamevault.v1.CopyGradeR\x05grade\x125\n" +
 	"\bcontents\x18\x0e \x03(\x0e2\x19.gamevault.v1.CopyContentR\bcontents\x12)\n" +
 	"\x05price\x18\x0f \x01(\v2\x13.gamevault.v1.MoneyR\x05priceJ\x04\b\t\x10\n" +
-	"R\tcondition\"\x9d\x02\n" +
+	"R\tcondition\"\x9f\x01\n" +
+	"\x05Photo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
+	"\acaption\x18\x02 \x01(\tR\acaption\x125\n" +
+	"\btaken_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\atakenAt\x125\n" +
+	"\badded_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\aaddedAt\"\xca\x02\n" +
 	"\x04Copy\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x123\n" +
 	"\adetails\x18\x02 \x01(\v2\x19.gamevault.v1.CopyDetailsR\adetails\x12\x1b\n" +
@@ -2158,7 +2839,8 @@ const file_gamevault_v1_game_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xbf\x03\n" +
+	"updated_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12+\n" +
+	"\x06photos\x18\b \x03(\v2\x13.gamevault.v1.PhotoR\x06photos\"\xe5\x03\n" +
 	"\x04Game\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x14\n" +
@@ -2172,7 +2854,8 @@ const file_gamevault_v1_game_proto_rawDesc = "" +
 	"\x06genres\x18\t \x03(\tR\x06genres\x12!\n" +
 	"\frelease_year\x18\n" +
 	" \x01(\x05R\vreleaseYear\x123\n" +
-	"\x05links\x18\v \x03(\v2\x1d.gamevault.v1.Game.LinksEntryR\x05links\x1a8\n" +
+	"\x05links\x18\v \x03(\v2\x1d.gamevault.v1.Game.LinksEntryR\x05links\x12$\n" +
+	"\x0ecover_photo_id\x18\f \x01(\tR\fcoverPhotoId\x1a8\n" +
 	"\n" +
 	"LinksEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
@@ -2266,7 +2949,41 @@ const file_gamevault_v1_game_proto_rawDesc = "" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1b\n" +
 	"\timage_url\x18\x03 \x01(\tR\bimageUrl\"H\n" +
 	"\x13SearchLinksResponse\x121\n" +
-	"\amatches\x18\x01 \x03(\v2\x17.gamevault.v1.LinkMatchR\amatches*g\n" +
+	"\amatches\x18\x01 \x03(\v2\x17.gamevault.v1.LinkMatchR\amatches\"k\n" +
+	"\bNewPhoto\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
+	"\acaption\x18\x02 \x01(\tR\acaption\x125\n" +
+	"\btaken_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\atakenAt\"x\n" +
+	"\x14AddCopyPhotosRequest\x12\x17\n" +
+	"\agame_id\x18\x01 \x01(\tR\x06gameId\x12\x17\n" +
+	"\acopy_id\x18\x02 \x01(\tR\x06copyId\x12.\n" +
+	"\x06photos\x18\x03 \x03(\v2\x16.gamevault.v1.NewPhotoR\x06photos\"?\n" +
+	"\x15AddCopyPhotosResponse\x12&\n" +
+	"\x04game\x18\x01 \x01(\v2\x12.gamevault.v1.GameR\x04game\"\x7f\n" +
+	"\x16UpdateCopyPhotoRequest\x12\x17\n" +
+	"\agame_id\x18\x01 \x01(\tR\x06gameId\x12\x17\n" +
+	"\acopy_id\x18\x02 \x01(\tR\x06copyId\x12\x19\n" +
+	"\bphoto_id\x18\x03 \x01(\tR\aphotoId\x12\x18\n" +
+	"\acaption\x18\x04 \x01(\tR\acaption\"A\n" +
+	"\x17UpdateCopyPhotoResponse\x12&\n" +
+	"\x04game\x18\x01 \x01(\v2\x12.gamevault.v1.GameR\x04game\"e\n" +
+	"\x16RemoveCopyPhotoRequest\x12\x17\n" +
+	"\agame_id\x18\x01 \x01(\tR\x06gameId\x12\x17\n" +
+	"\acopy_id\x18\x02 \x01(\tR\x06copyId\x12\x19\n" +
+	"\bphoto_id\x18\x03 \x01(\tR\aphotoId\"A\n" +
+	"\x17RemoveCopyPhotoResponse\x12&\n" +
+	"\x04game\x18\x01 \x01(\v2\x12.gamevault.v1.GameR\x04game\"i\n" +
+	"\x18ReorderCopyPhotosRequest\x12\x17\n" +
+	"\agame_id\x18\x01 \x01(\tR\x06gameId\x12\x17\n" +
+	"\acopy_id\x18\x02 \x01(\tR\x06copyId\x12\x1b\n" +
+	"\tphoto_ids\x18\x03 \x03(\tR\bphotoIds\"C\n" +
+	"\x19ReorderCopyPhotosResponse\x12&\n" +
+	"\x04game\x18\x01 \x01(\v2\x12.gamevault.v1.GameR\x04game\"J\n" +
+	"\x14SetCoverPhotoRequest\x12\x17\n" +
+	"\agame_id\x18\x01 \x01(\tR\x06gameId\x12\x19\n" +
+	"\bphoto_id\x18\x02 \x01(\tR\aphotoId\"?\n" +
+	"\x15SetCoverPhotoResponse\x12&\n" +
+	"\x04game\x18\x01 \x01(\v2\x12.gamevault.v1.GameR\x04game*g\n" +
 	"\bCopyKind\x12\x19\n" +
 	"\x15COPY_KIND_UNSPECIFIED\x10\x00\x12\x11\n" +
 	"\rCOPY_KIND_KEY\x10\x01\x12\x15\n" +
@@ -2296,7 +3013,7 @@ const file_gamevault_v1_game_proto_rawDesc = "" +
 	"\x10COPY_CONTENT_BOX\x10\x01\x12\x17\n" +
 	"\x13COPY_CONTENT_MANUAL\x10\x02\x12\x16\n" +
 	"\x12COPY_CONTENT_MEDIA\x10\x03\x12\x17\n" +
-	"\x13COPY_CONTENT_EXTRAS\x10\x042\xb0\b\n" +
+	"\x13COPY_CONTENT_EXTRAS\x10\x042\x8a\f\n" +
 	"\vGameService\x12L\n" +
 	"\tListGames\x12\x1e.gamevault.v1.ListGamesRequest\x1a\x1f.gamevault.v1.ListGamesResponse\x12F\n" +
 	"\aGetGame\x12\x1c.gamevault.v1.GetGameRequest\x1a\x1d.gamevault.v1.GetGameResponse\x12O\n" +
@@ -2316,7 +3033,12 @@ const file_gamevault_v1_game_proto_rawDesc = "" +
 	"\bMoveCopy\x12\x1d.gamevault.v1.MoveCopyRequest\x1a\x1e.gamevault.v1.MoveCopyResponse\x12a\n" +
 	"\x10MarkRedeemedKeys\x12%.gamevault.v1.MarkRedeemedKeysRequest\x1a&.gamevault.v1.MarkRedeemedKeysResponse\x12[\n" +
 	"\x0eListLinkStores\x12#.gamevault.v1.ListLinkStoresRequest\x1a$.gamevault.v1.ListLinkStoresResponse\x12R\n" +
-	"\vSearchLinks\x12 .gamevault.v1.SearchLinksRequest\x1a!.gamevault.v1.SearchLinksResponseB1Z/gamevault/internal/gen/gamevault/v1;gamevaultv1b\x06proto3"
+	"\vSearchLinks\x12 .gamevault.v1.SearchLinksRequest\x1a!.gamevault.v1.SearchLinksResponse\x12X\n" +
+	"\rAddCopyPhotos\x12\".gamevault.v1.AddCopyPhotosRequest\x1a#.gamevault.v1.AddCopyPhotosResponse\x12^\n" +
+	"\x0fUpdateCopyPhoto\x12$.gamevault.v1.UpdateCopyPhotoRequest\x1a%.gamevault.v1.UpdateCopyPhotoResponse\x12^\n" +
+	"\x0fRemoveCopyPhoto\x12$.gamevault.v1.RemoveCopyPhotoRequest\x1a%.gamevault.v1.RemoveCopyPhotoResponse\x12d\n" +
+	"\x11ReorderCopyPhotos\x12&.gamevault.v1.ReorderCopyPhotosRequest\x1a'.gamevault.v1.ReorderCopyPhotosResponse\x12X\n" +
+	"\rSetCoverPhoto\x12\".gamevault.v1.SetCoverPhotoRequest\x1a#.gamevault.v1.SetCoverPhotoResponseB1Z/gamevault/internal/gen/gamevault/v1;gamevaultv1b\x06proto3"
 
 var (
 	file_gamevault_v1_game_proto_rawDescOnce sync.Once
@@ -2331,48 +3053,60 @@ func file_gamevault_v1_game_proto_rawDescGZIP() []byte {
 }
 
 var file_gamevault_v1_game_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_gamevault_v1_game_proto_msgTypes = make([]protoimpl.MessageInfo, 35)
+var file_gamevault_v1_game_proto_msgTypes = make([]protoimpl.MessageInfo, 47)
 var file_gamevault_v1_game_proto_goTypes = []any{
-	(CopyKind)(0),                    // 0: gamevault.v1.CopyKind
-	(CopyStatus)(0),                  // 1: gamevault.v1.CopyStatus
-	(CopyGrade)(0),                   // 2: gamevault.v1.CopyGrade
-	(CopyContent)(0),                 // 3: gamevault.v1.CopyContent
-	(*Money)(nil),                    // 4: gamevault.v1.Money
-	(*CopyDetails)(nil),              // 5: gamevault.v1.CopyDetails
-	(*Copy)(nil),                     // 6: gamevault.v1.Copy
-	(*Game)(nil),                     // 7: gamevault.v1.Game
-	(*ListGamesRequest)(nil),         // 8: gamevault.v1.ListGamesRequest
-	(*ListGamesResponse)(nil),        // 9: gamevault.v1.ListGamesResponse
-	(*GetGameRequest)(nil),           // 10: gamevault.v1.GetGameRequest
-	(*GetGameResponse)(nil),          // 11: gamevault.v1.GetGameResponse
-	(*CreateGameRequest)(nil),        // 12: gamevault.v1.CreateGameRequest
-	(*CreateGameResponse)(nil),       // 13: gamevault.v1.CreateGameResponse
-	(*UpdateGameRequest)(nil),        // 14: gamevault.v1.UpdateGameRequest
-	(*UpdateGameResponse)(nil),       // 15: gamevault.v1.UpdateGameResponse
-	(*DeleteGameRequest)(nil),        // 16: gamevault.v1.DeleteGameRequest
-	(*DeleteGameResponse)(nil),       // 17: gamevault.v1.DeleteGameResponse
-	(*MergeGamesRequest)(nil),        // 18: gamevault.v1.MergeGamesRequest
-	(*MergeGamesResponse)(nil),       // 19: gamevault.v1.MergeGamesResponse
-	(*AddCopyRequest)(nil),           // 20: gamevault.v1.AddCopyRequest
-	(*AddCopyResponse)(nil),          // 21: gamevault.v1.AddCopyResponse
-	(*UpdateCopyRequest)(nil),        // 22: gamevault.v1.UpdateCopyRequest
-	(*UpdateCopyResponse)(nil),       // 23: gamevault.v1.UpdateCopyResponse
-	(*DeleteCopyRequest)(nil),        // 24: gamevault.v1.DeleteCopyRequest
-	(*DeleteCopyResponse)(nil),       // 25: gamevault.v1.DeleteCopyResponse
-	(*MoveCopyRequest)(nil),          // 26: gamevault.v1.MoveCopyRequest
-	(*MoveCopyResponse)(nil),         // 27: gamevault.v1.MoveCopyResponse
-	(*MarkRedeemedKeysRequest)(nil),  // 28: gamevault.v1.MarkRedeemedKeysRequest
-	(*MarkRedeemedKeysResponse)(nil), // 29: gamevault.v1.MarkRedeemedKeysResponse
-	(*ListLinkStoresRequest)(nil),    // 30: gamevault.v1.ListLinkStoresRequest
-	(*LinkStore)(nil),                // 31: gamevault.v1.LinkStore
-	(*ListLinkStoresResponse)(nil),   // 32: gamevault.v1.ListLinkStoresResponse
-	(*SearchLinksRequest)(nil),       // 33: gamevault.v1.SearchLinksRequest
-	(*LinkMatch)(nil),                // 34: gamevault.v1.LinkMatch
-	(*SearchLinksResponse)(nil),      // 35: gamevault.v1.SearchLinksResponse
-	nil,                              // 36: gamevault.v1.Game.LinksEntry
-	nil,                              // 37: gamevault.v1.CreateGameRequest.LinksEntry
-	nil,                              // 38: gamevault.v1.UpdateGameRequest.LinksEntry
-	(*timestamppb.Timestamp)(nil),    // 39: google.protobuf.Timestamp
+	(CopyKind)(0),                     // 0: gamevault.v1.CopyKind
+	(CopyStatus)(0),                   // 1: gamevault.v1.CopyStatus
+	(CopyGrade)(0),                    // 2: gamevault.v1.CopyGrade
+	(CopyContent)(0),                  // 3: gamevault.v1.CopyContent
+	(*Money)(nil),                     // 4: gamevault.v1.Money
+	(*CopyDetails)(nil),               // 5: gamevault.v1.CopyDetails
+	(*Photo)(nil),                     // 6: gamevault.v1.Photo
+	(*Copy)(nil),                      // 7: gamevault.v1.Copy
+	(*Game)(nil),                      // 8: gamevault.v1.Game
+	(*ListGamesRequest)(nil),          // 9: gamevault.v1.ListGamesRequest
+	(*ListGamesResponse)(nil),         // 10: gamevault.v1.ListGamesResponse
+	(*GetGameRequest)(nil),            // 11: gamevault.v1.GetGameRequest
+	(*GetGameResponse)(nil),           // 12: gamevault.v1.GetGameResponse
+	(*CreateGameRequest)(nil),         // 13: gamevault.v1.CreateGameRequest
+	(*CreateGameResponse)(nil),        // 14: gamevault.v1.CreateGameResponse
+	(*UpdateGameRequest)(nil),         // 15: gamevault.v1.UpdateGameRequest
+	(*UpdateGameResponse)(nil),        // 16: gamevault.v1.UpdateGameResponse
+	(*DeleteGameRequest)(nil),         // 17: gamevault.v1.DeleteGameRequest
+	(*DeleteGameResponse)(nil),        // 18: gamevault.v1.DeleteGameResponse
+	(*MergeGamesRequest)(nil),         // 19: gamevault.v1.MergeGamesRequest
+	(*MergeGamesResponse)(nil),        // 20: gamevault.v1.MergeGamesResponse
+	(*AddCopyRequest)(nil),            // 21: gamevault.v1.AddCopyRequest
+	(*AddCopyResponse)(nil),           // 22: gamevault.v1.AddCopyResponse
+	(*UpdateCopyRequest)(nil),         // 23: gamevault.v1.UpdateCopyRequest
+	(*UpdateCopyResponse)(nil),        // 24: gamevault.v1.UpdateCopyResponse
+	(*DeleteCopyRequest)(nil),         // 25: gamevault.v1.DeleteCopyRequest
+	(*DeleteCopyResponse)(nil),        // 26: gamevault.v1.DeleteCopyResponse
+	(*MoveCopyRequest)(nil),           // 27: gamevault.v1.MoveCopyRequest
+	(*MoveCopyResponse)(nil),          // 28: gamevault.v1.MoveCopyResponse
+	(*MarkRedeemedKeysRequest)(nil),   // 29: gamevault.v1.MarkRedeemedKeysRequest
+	(*MarkRedeemedKeysResponse)(nil),  // 30: gamevault.v1.MarkRedeemedKeysResponse
+	(*ListLinkStoresRequest)(nil),     // 31: gamevault.v1.ListLinkStoresRequest
+	(*LinkStore)(nil),                 // 32: gamevault.v1.LinkStore
+	(*ListLinkStoresResponse)(nil),    // 33: gamevault.v1.ListLinkStoresResponse
+	(*SearchLinksRequest)(nil),        // 34: gamevault.v1.SearchLinksRequest
+	(*LinkMatch)(nil),                 // 35: gamevault.v1.LinkMatch
+	(*SearchLinksResponse)(nil),       // 36: gamevault.v1.SearchLinksResponse
+	(*NewPhoto)(nil),                  // 37: gamevault.v1.NewPhoto
+	(*AddCopyPhotosRequest)(nil),      // 38: gamevault.v1.AddCopyPhotosRequest
+	(*AddCopyPhotosResponse)(nil),     // 39: gamevault.v1.AddCopyPhotosResponse
+	(*UpdateCopyPhotoRequest)(nil),    // 40: gamevault.v1.UpdateCopyPhotoRequest
+	(*UpdateCopyPhotoResponse)(nil),   // 41: gamevault.v1.UpdateCopyPhotoResponse
+	(*RemoveCopyPhotoRequest)(nil),    // 42: gamevault.v1.RemoveCopyPhotoRequest
+	(*RemoveCopyPhotoResponse)(nil),   // 43: gamevault.v1.RemoveCopyPhotoResponse
+	(*ReorderCopyPhotosRequest)(nil),  // 44: gamevault.v1.ReorderCopyPhotosRequest
+	(*ReorderCopyPhotosResponse)(nil), // 45: gamevault.v1.ReorderCopyPhotosResponse
+	(*SetCoverPhotoRequest)(nil),      // 46: gamevault.v1.SetCoverPhotoRequest
+	(*SetCoverPhotoResponse)(nil),     // 47: gamevault.v1.SetCoverPhotoResponse
+	nil,                               // 48: gamevault.v1.Game.LinksEntry
+	nil,                               // 49: gamevault.v1.CreateGameRequest.LinksEntry
+	nil,                               // 50: gamevault.v1.UpdateGameRequest.LinksEntry
+	(*timestamppb.Timestamp)(nil),     // 51: google.protobuf.Timestamp
 }
 var file_gamevault_v1_game_proto_depIdxs = []int32{
 	0,  // 0: gamevault.v1.CopyDetails.kind:type_name -> gamevault.v1.CopyKind
@@ -2380,61 +3114,81 @@ var file_gamevault_v1_game_proto_depIdxs = []int32{
 	2,  // 2: gamevault.v1.CopyDetails.grade:type_name -> gamevault.v1.CopyGrade
 	3,  // 3: gamevault.v1.CopyDetails.contents:type_name -> gamevault.v1.CopyContent
 	4,  // 4: gamevault.v1.CopyDetails.price:type_name -> gamevault.v1.Money
-	5,  // 5: gamevault.v1.Copy.details:type_name -> gamevault.v1.CopyDetails
-	39, // 6: gamevault.v1.Copy.created_at:type_name -> google.protobuf.Timestamp
-	39, // 7: gamevault.v1.Copy.updated_at:type_name -> google.protobuf.Timestamp
-	6,  // 8: gamevault.v1.Game.copies:type_name -> gamevault.v1.Copy
-	39, // 9: gamevault.v1.Game.created_at:type_name -> google.protobuf.Timestamp
-	39, // 10: gamevault.v1.Game.updated_at:type_name -> google.protobuf.Timestamp
-	36, // 11: gamevault.v1.Game.links:type_name -> gamevault.v1.Game.LinksEntry
-	7,  // 12: gamevault.v1.ListGamesResponse.games:type_name -> gamevault.v1.Game
-	7,  // 13: gamevault.v1.GetGameResponse.game:type_name -> gamevault.v1.Game
-	5,  // 14: gamevault.v1.CreateGameRequest.copies:type_name -> gamevault.v1.CopyDetails
-	37, // 15: gamevault.v1.CreateGameRequest.links:type_name -> gamevault.v1.CreateGameRequest.LinksEntry
-	7,  // 16: gamevault.v1.CreateGameResponse.game:type_name -> gamevault.v1.Game
-	38, // 17: gamevault.v1.UpdateGameRequest.links:type_name -> gamevault.v1.UpdateGameRequest.LinksEntry
-	7,  // 18: gamevault.v1.UpdateGameResponse.game:type_name -> gamevault.v1.Game
-	7,  // 19: gamevault.v1.MergeGamesResponse.game:type_name -> gamevault.v1.Game
-	5,  // 20: gamevault.v1.AddCopyRequest.details:type_name -> gamevault.v1.CopyDetails
-	7,  // 21: gamevault.v1.AddCopyResponse.game:type_name -> gamevault.v1.Game
-	5,  // 22: gamevault.v1.UpdateCopyRequest.details:type_name -> gamevault.v1.CopyDetails
-	7,  // 23: gamevault.v1.UpdateCopyResponse.game:type_name -> gamevault.v1.Game
-	7,  // 24: gamevault.v1.DeleteCopyResponse.game:type_name -> gamevault.v1.Game
-	7,  // 25: gamevault.v1.MoveCopyResponse.source_game:type_name -> gamevault.v1.Game
-	7,  // 26: gamevault.v1.MoveCopyResponse.target_game:type_name -> gamevault.v1.Game
-	31, // 27: gamevault.v1.ListLinkStoresResponse.stores:type_name -> gamevault.v1.LinkStore
-	34, // 28: gamevault.v1.SearchLinksResponse.matches:type_name -> gamevault.v1.LinkMatch
-	8,  // 29: gamevault.v1.GameService.ListGames:input_type -> gamevault.v1.ListGamesRequest
-	10, // 30: gamevault.v1.GameService.GetGame:input_type -> gamevault.v1.GetGameRequest
-	12, // 31: gamevault.v1.GameService.CreateGame:input_type -> gamevault.v1.CreateGameRequest
-	14, // 32: gamevault.v1.GameService.UpdateGame:input_type -> gamevault.v1.UpdateGameRequest
-	16, // 33: gamevault.v1.GameService.DeleteGame:input_type -> gamevault.v1.DeleteGameRequest
-	18, // 34: gamevault.v1.GameService.MergeGames:input_type -> gamevault.v1.MergeGamesRequest
-	20, // 35: gamevault.v1.GameService.AddCopy:input_type -> gamevault.v1.AddCopyRequest
-	22, // 36: gamevault.v1.GameService.UpdateCopy:input_type -> gamevault.v1.UpdateCopyRequest
-	24, // 37: gamevault.v1.GameService.DeleteCopy:input_type -> gamevault.v1.DeleteCopyRequest
-	26, // 38: gamevault.v1.GameService.MoveCopy:input_type -> gamevault.v1.MoveCopyRequest
-	28, // 39: gamevault.v1.GameService.MarkRedeemedKeys:input_type -> gamevault.v1.MarkRedeemedKeysRequest
-	30, // 40: gamevault.v1.GameService.ListLinkStores:input_type -> gamevault.v1.ListLinkStoresRequest
-	33, // 41: gamevault.v1.GameService.SearchLinks:input_type -> gamevault.v1.SearchLinksRequest
-	9,  // 42: gamevault.v1.GameService.ListGames:output_type -> gamevault.v1.ListGamesResponse
-	11, // 43: gamevault.v1.GameService.GetGame:output_type -> gamevault.v1.GetGameResponse
-	13, // 44: gamevault.v1.GameService.CreateGame:output_type -> gamevault.v1.CreateGameResponse
-	15, // 45: gamevault.v1.GameService.UpdateGame:output_type -> gamevault.v1.UpdateGameResponse
-	17, // 46: gamevault.v1.GameService.DeleteGame:output_type -> gamevault.v1.DeleteGameResponse
-	19, // 47: gamevault.v1.GameService.MergeGames:output_type -> gamevault.v1.MergeGamesResponse
-	21, // 48: gamevault.v1.GameService.AddCopy:output_type -> gamevault.v1.AddCopyResponse
-	23, // 49: gamevault.v1.GameService.UpdateCopy:output_type -> gamevault.v1.UpdateCopyResponse
-	25, // 50: gamevault.v1.GameService.DeleteCopy:output_type -> gamevault.v1.DeleteCopyResponse
-	27, // 51: gamevault.v1.GameService.MoveCopy:output_type -> gamevault.v1.MoveCopyResponse
-	29, // 52: gamevault.v1.GameService.MarkRedeemedKeys:output_type -> gamevault.v1.MarkRedeemedKeysResponse
-	32, // 53: gamevault.v1.GameService.ListLinkStores:output_type -> gamevault.v1.ListLinkStoresResponse
-	35, // 54: gamevault.v1.GameService.SearchLinks:output_type -> gamevault.v1.SearchLinksResponse
-	42, // [42:55] is the sub-list for method output_type
-	29, // [29:42] is the sub-list for method input_type
-	29, // [29:29] is the sub-list for extension type_name
-	29, // [29:29] is the sub-list for extension extendee
-	0,  // [0:29] is the sub-list for field type_name
+	51, // 5: gamevault.v1.Photo.taken_at:type_name -> google.protobuf.Timestamp
+	51, // 6: gamevault.v1.Photo.added_at:type_name -> google.protobuf.Timestamp
+	5,  // 7: gamevault.v1.Copy.details:type_name -> gamevault.v1.CopyDetails
+	51, // 8: gamevault.v1.Copy.created_at:type_name -> google.protobuf.Timestamp
+	51, // 9: gamevault.v1.Copy.updated_at:type_name -> google.protobuf.Timestamp
+	6,  // 10: gamevault.v1.Copy.photos:type_name -> gamevault.v1.Photo
+	7,  // 11: gamevault.v1.Game.copies:type_name -> gamevault.v1.Copy
+	51, // 12: gamevault.v1.Game.created_at:type_name -> google.protobuf.Timestamp
+	51, // 13: gamevault.v1.Game.updated_at:type_name -> google.protobuf.Timestamp
+	48, // 14: gamevault.v1.Game.links:type_name -> gamevault.v1.Game.LinksEntry
+	8,  // 15: gamevault.v1.ListGamesResponse.games:type_name -> gamevault.v1.Game
+	8,  // 16: gamevault.v1.GetGameResponse.game:type_name -> gamevault.v1.Game
+	5,  // 17: gamevault.v1.CreateGameRequest.copies:type_name -> gamevault.v1.CopyDetails
+	49, // 18: gamevault.v1.CreateGameRequest.links:type_name -> gamevault.v1.CreateGameRequest.LinksEntry
+	8,  // 19: gamevault.v1.CreateGameResponse.game:type_name -> gamevault.v1.Game
+	50, // 20: gamevault.v1.UpdateGameRequest.links:type_name -> gamevault.v1.UpdateGameRequest.LinksEntry
+	8,  // 21: gamevault.v1.UpdateGameResponse.game:type_name -> gamevault.v1.Game
+	8,  // 22: gamevault.v1.MergeGamesResponse.game:type_name -> gamevault.v1.Game
+	5,  // 23: gamevault.v1.AddCopyRequest.details:type_name -> gamevault.v1.CopyDetails
+	8,  // 24: gamevault.v1.AddCopyResponse.game:type_name -> gamevault.v1.Game
+	5,  // 25: gamevault.v1.UpdateCopyRequest.details:type_name -> gamevault.v1.CopyDetails
+	8,  // 26: gamevault.v1.UpdateCopyResponse.game:type_name -> gamevault.v1.Game
+	8,  // 27: gamevault.v1.DeleteCopyResponse.game:type_name -> gamevault.v1.Game
+	8,  // 28: gamevault.v1.MoveCopyResponse.source_game:type_name -> gamevault.v1.Game
+	8,  // 29: gamevault.v1.MoveCopyResponse.target_game:type_name -> gamevault.v1.Game
+	32, // 30: gamevault.v1.ListLinkStoresResponse.stores:type_name -> gamevault.v1.LinkStore
+	35, // 31: gamevault.v1.SearchLinksResponse.matches:type_name -> gamevault.v1.LinkMatch
+	51, // 32: gamevault.v1.NewPhoto.taken_at:type_name -> google.protobuf.Timestamp
+	37, // 33: gamevault.v1.AddCopyPhotosRequest.photos:type_name -> gamevault.v1.NewPhoto
+	8,  // 34: gamevault.v1.AddCopyPhotosResponse.game:type_name -> gamevault.v1.Game
+	8,  // 35: gamevault.v1.UpdateCopyPhotoResponse.game:type_name -> gamevault.v1.Game
+	8,  // 36: gamevault.v1.RemoveCopyPhotoResponse.game:type_name -> gamevault.v1.Game
+	8,  // 37: gamevault.v1.ReorderCopyPhotosResponse.game:type_name -> gamevault.v1.Game
+	8,  // 38: gamevault.v1.SetCoverPhotoResponse.game:type_name -> gamevault.v1.Game
+	9,  // 39: gamevault.v1.GameService.ListGames:input_type -> gamevault.v1.ListGamesRequest
+	11, // 40: gamevault.v1.GameService.GetGame:input_type -> gamevault.v1.GetGameRequest
+	13, // 41: gamevault.v1.GameService.CreateGame:input_type -> gamevault.v1.CreateGameRequest
+	15, // 42: gamevault.v1.GameService.UpdateGame:input_type -> gamevault.v1.UpdateGameRequest
+	17, // 43: gamevault.v1.GameService.DeleteGame:input_type -> gamevault.v1.DeleteGameRequest
+	19, // 44: gamevault.v1.GameService.MergeGames:input_type -> gamevault.v1.MergeGamesRequest
+	21, // 45: gamevault.v1.GameService.AddCopy:input_type -> gamevault.v1.AddCopyRequest
+	23, // 46: gamevault.v1.GameService.UpdateCopy:input_type -> gamevault.v1.UpdateCopyRequest
+	25, // 47: gamevault.v1.GameService.DeleteCopy:input_type -> gamevault.v1.DeleteCopyRequest
+	27, // 48: gamevault.v1.GameService.MoveCopy:input_type -> gamevault.v1.MoveCopyRequest
+	29, // 49: gamevault.v1.GameService.MarkRedeemedKeys:input_type -> gamevault.v1.MarkRedeemedKeysRequest
+	31, // 50: gamevault.v1.GameService.ListLinkStores:input_type -> gamevault.v1.ListLinkStoresRequest
+	34, // 51: gamevault.v1.GameService.SearchLinks:input_type -> gamevault.v1.SearchLinksRequest
+	38, // 52: gamevault.v1.GameService.AddCopyPhotos:input_type -> gamevault.v1.AddCopyPhotosRequest
+	40, // 53: gamevault.v1.GameService.UpdateCopyPhoto:input_type -> gamevault.v1.UpdateCopyPhotoRequest
+	42, // 54: gamevault.v1.GameService.RemoveCopyPhoto:input_type -> gamevault.v1.RemoveCopyPhotoRequest
+	44, // 55: gamevault.v1.GameService.ReorderCopyPhotos:input_type -> gamevault.v1.ReorderCopyPhotosRequest
+	46, // 56: gamevault.v1.GameService.SetCoverPhoto:input_type -> gamevault.v1.SetCoverPhotoRequest
+	10, // 57: gamevault.v1.GameService.ListGames:output_type -> gamevault.v1.ListGamesResponse
+	12, // 58: gamevault.v1.GameService.GetGame:output_type -> gamevault.v1.GetGameResponse
+	14, // 59: gamevault.v1.GameService.CreateGame:output_type -> gamevault.v1.CreateGameResponse
+	16, // 60: gamevault.v1.GameService.UpdateGame:output_type -> gamevault.v1.UpdateGameResponse
+	18, // 61: gamevault.v1.GameService.DeleteGame:output_type -> gamevault.v1.DeleteGameResponse
+	20, // 62: gamevault.v1.GameService.MergeGames:output_type -> gamevault.v1.MergeGamesResponse
+	22, // 63: gamevault.v1.GameService.AddCopy:output_type -> gamevault.v1.AddCopyResponse
+	24, // 64: gamevault.v1.GameService.UpdateCopy:output_type -> gamevault.v1.UpdateCopyResponse
+	26, // 65: gamevault.v1.GameService.DeleteCopy:output_type -> gamevault.v1.DeleteCopyResponse
+	28, // 66: gamevault.v1.GameService.MoveCopy:output_type -> gamevault.v1.MoveCopyResponse
+	30, // 67: gamevault.v1.GameService.MarkRedeemedKeys:output_type -> gamevault.v1.MarkRedeemedKeysResponse
+	33, // 68: gamevault.v1.GameService.ListLinkStores:output_type -> gamevault.v1.ListLinkStoresResponse
+	36, // 69: gamevault.v1.GameService.SearchLinks:output_type -> gamevault.v1.SearchLinksResponse
+	39, // 70: gamevault.v1.GameService.AddCopyPhotos:output_type -> gamevault.v1.AddCopyPhotosResponse
+	41, // 71: gamevault.v1.GameService.UpdateCopyPhoto:output_type -> gamevault.v1.UpdateCopyPhotoResponse
+	43, // 72: gamevault.v1.GameService.RemoveCopyPhoto:output_type -> gamevault.v1.RemoveCopyPhotoResponse
+	45, // 73: gamevault.v1.GameService.ReorderCopyPhotos:output_type -> gamevault.v1.ReorderCopyPhotosResponse
+	47, // 74: gamevault.v1.GameService.SetCoverPhoto:output_type -> gamevault.v1.SetCoverPhotoResponse
+	57, // [57:75] is the sub-list for method output_type
+	39, // [39:57] is the sub-list for method input_type
+	39, // [39:39] is the sub-list for extension type_name
+	39, // [39:39] is the sub-list for extension extendee
+	0,  // [0:39] is the sub-list for field type_name
 }
 
 func init() { file_gamevault_v1_game_proto_init() }
@@ -2448,7 +3202,7 @@ func file_gamevault_v1_game_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gamevault_v1_game_proto_rawDesc), len(file_gamevault_v1_game_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   35,
+			NumMessages:   47,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -340,7 +340,7 @@ func newServer(t *testing.T, p sync.Provider) clients {
 		Logs:        rpc.NewLogHandler(logsSvc),
 		Media:       mediaSvc,
 		MediaRPC:    rpc.NewMediaHandler(mediaSvc),
-		Games:       rpc.NewGameHandler(catalog.NewService(games, db, time.Now, mediaSvc), mediaSvc, syncSvc),
+		Games:       rpc.NewGameHandler(catalog.NewService(games, db, time.Now, mediaSvc, photos), mediaSvc, syncSvc),
 		Sources:     rpc.NewSourceHandler(syncSvc),
 		System: rpc.NewSystemHandler(
 			system.NewService(games, db, sqlite.NewSettingsRepository(db), time.Now, log, system.Status{Version: "test"}, filepath.Join(dir, "backups"), 3),

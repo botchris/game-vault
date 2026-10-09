@@ -10,11 +10,17 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
+	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	pb "gamevault/internal/gen/gamevault/v1"
 )
 
 func encodeJPEG(t *testing.T, w, h int) []byte {
@@ -147,6 +153,152 @@ func TestPhotoUpload(t *testing.T) {
 			t.Run("THEN it is not found", func(t *testing.T) {
 				assert.Equal(t, http.StatusNotFound, r1.StatusCode)
 				assert.Equal(t, http.StatusNotFound, r2.StatusCode)
+			})
+		})
+	})
+}
+
+func TestCopyPhotos_endToEnd(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a game with a physical copy and two uploaded photos", func(t *testing.T) {
+		c := newServer(t, &fakeProvider{})
+
+		created, err := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{
+			Title: "Halo 3",
+			Copies: []*pb.CopyDetails{{
+				Kind:     pb.CopyKind_COPY_KIND_PHYSICAL,
+				Platform: "Xbox 360",
+			}},
+		}))
+		require.NoError(t, err)
+
+		g := created.Msg.Game
+		copyID := g.Copies[0].Id
+
+		ids := make([]string, 0, 2)
+
+		for _, w := range []int{40, 50} {
+			res := upload(ctx, t, c.baseURL, encodeJPEG(t, w, w), encodeJPEG(t, 10, 10), true)
+
+			var up struct {
+				ID string `json:"id"`
+			}
+			require.NoError(t, json.NewDecoder(res.Body).Decode(&up))
+			ids = append(ids, up.ID)
+		}
+
+		t.Run("WHEN they are attached, one with a caption and a date", func(t *testing.T) {
+			taken := time.Date(2024, 3, 9, 18, 4, 5, 0, time.UTC)
+			res, err := c.games.AddCopyPhotos(ctx, connect.NewRequest(&pb.AddCopyPhotosRequest{
+				GameId: g.Id,
+				CopyId: copyID,
+				Photos: []*pb.NewPhoto{{
+					Id:      ids[0],
+					Caption: "box",
+					TakenAt: timestamppb.New(taken),
+				}, {Id: ids[1]}},
+			}))
+			require.NoError(t, err)
+
+			t.Run("THEN the copy shows them in order", func(t *testing.T) {
+				photos := res.Msg.Game.Copies[0].Photos
+				require.Len(t, photos, 2)
+				assert.Equal(t, "box", photos[0].Caption)
+				assert.True(t, taken.Equal(photos[0].TakenAt.AsTime()))
+				assert.Nil(t, photos[1].TakenAt)
+			})
+		})
+
+		t.Run("WHEN a photo that was never uploaded is attached", func(t *testing.T) {
+			_, err := c.games.AddCopyPhotos(ctx, connect.NewRequest(&pb.AddCopyPhotosRequest{
+				GameId: g.Id,
+				CopyId: copyID,
+				Photos: []*pb.NewPhoto{{Id: strings.Repeat("c", 64)}},
+			}))
+
+			t.Run("THEN it is refused", func(t *testing.T) {
+				assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
+			})
+		})
+
+		t.Run("WHEN a caption is changed and the photos reordered", func(t *testing.T) {
+			_, err := c.games.UpdateCopyPhoto(ctx, connect.NewRequest(&pb.UpdateCopyPhotoRequest{
+				GameId:  g.Id,
+				CopyId:  copyID,
+				PhotoId: ids[1],
+				Caption: "disc",
+			}))
+			require.NoError(t, err)
+
+			res, err := c.games.ReorderCopyPhotos(ctx, connect.NewRequest(&pb.ReorderCopyPhotosRequest{
+				GameId:   g.Id,
+				CopyId:   copyID,
+				PhotoIds: []string{ids[1], ids[0]},
+			}))
+			require.NoError(t, err)
+
+			t.Run("THEN the new order and caption are kept", func(t *testing.T) {
+				photos := res.Msg.Game.Copies[0].Photos
+				assert.Equal(t, ids[1], photos[0].Id)
+				assert.Equal(t, "disc", photos[0].Caption)
+			})
+		})
+
+		t.Run("WHEN a photo becomes the cover", func(t *testing.T) {
+			res, err := c.games.SetCoverPhoto(ctx, connect.NewRequest(&pb.SetCoverPhotoRequest{
+				GameId:  g.Id,
+				PhotoId: ids[0],
+			}))
+			require.NoError(t, err)
+
+			t.Run("THEN the game says so and its cover is that photo", func(t *testing.T) {
+				assert.Equal(t, ids[0], res.Msg.Game.CoverPhotoId)
+
+				r, err := http.Get(c.baseURL + "/media/covers/" + g.Id)
+				require.NoError(t, err)
+
+				data, _ := io.ReadAll(r.Body)
+				r.Body.Close()
+
+				p, err := http.Get(c.baseURL + "/media/photos/" + ids[0])
+				require.NoError(t, err)
+
+				want, _ := io.ReadAll(p.Body)
+				p.Body.Close()
+				assert.Equal(t, want, data)
+			})
+
+			t.Run("AND editing the title keeps it, but a new custom cover URL replaces it", func(t *testing.T) {
+				kept, err := c.games.UpdateGame(ctx, connect.NewRequest(&pb.UpdateGameRequest{
+					Id:    g.Id,
+					Title: "Halo 3 (2007)",
+				}))
+				require.NoError(t, err)
+				assert.Equal(t, ids[0], kept.Msg.Game.CoverPhotoId)
+
+				replaced, err := c.games.UpdateGame(ctx, connect.NewRequest(&pb.UpdateGameRequest{
+					Id:       g.Id,
+					Title:    "Halo 3 (2007)",
+					CoverUrl: "https://example.test/halo.jpg",
+				}))
+				require.NoError(t, err)
+				assert.Empty(t, replaced.Msg.Game.CoverPhotoId)
+			})
+		})
+
+		t.Run("WHEN a photo is removed", func(t *testing.T) {
+			res, err := c.games.RemoveCopyPhoto(ctx, connect.NewRequest(&pb.RemoveCopyPhotoRequest{
+				GameId:  g.Id,
+				CopyId:  copyID,
+				PhotoId: ids[1],
+			}))
+			require.NoError(t, err)
+
+			t.Run("THEN the copy keeps the other one", func(t *testing.T) {
+				require.Len(t, res.Msg.Game.Copies[0].Photos, 1)
+				assert.Equal(t, ids[0], res.Msg.Game.Copies[0].Photos[0].Id)
 			})
 		})
 	})

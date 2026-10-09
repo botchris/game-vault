@@ -7,6 +7,7 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"gamevault/internal/application/catalog"
 	"gamevault/internal/application/media"
 	"gamevault/internal/application/sync"
 	"gamevault/internal/domain/game"
@@ -80,13 +81,14 @@ func gameToPB(g *game.Game) *pb.Game {
 	}
 
 	out := &pb.Game{
-		Id:        string(g.ID()),
-		Title:     g.Title(),
-		Links:     g.Links(),
-		Notes:     g.Notes(),
-		CoverUrl:  g.CoverURL(),
-		CreatedAt: ts(g.CreatedAt()),
-		UpdatedAt: ts(g.UpdatedAt()),
+		Id:           string(g.ID()),
+		Title:        g.Title(),
+		Links:        g.Links(),
+		Notes:        g.Notes(),
+		CoverUrl:     g.CoverURL(),
+		CoverPhotoId: string(g.CoverPhoto()),
+		CreatedAt:    ts(g.CreatedAt()),
+		UpdatedAt:    ts(g.UpdatedAt()),
 	}
 	for _, c := range g.Copies() {
 		out.Copies = append(out.Copies, &pb.Copy{
@@ -95,9 +97,28 @@ func gameToPB(g *game.Game) *pb.Game {
 			SourceId:   c.SourceID,
 			ExternalId: c.ExternalID,
 			Redundant:  g.IsRedundant(c),
+			Photos:     photosToPB(c.Photos),
 			CreatedAt:  ts(c.CreatedAt),
 			UpdatedAt:  ts(c.UpdatedAt),
 		})
+	}
+
+	return out
+}
+
+func photosToPB(photos []game.Photo) []*pb.Photo {
+	out := make([]*pb.Photo, 0, len(photos))
+	for _, p := range photos {
+		ph := &pb.Photo{
+			Id:      string(p.ID),
+			Caption: p.Caption,
+			AddedAt: ts(p.AddedAt),
+		}
+		if !p.TakenAt.IsZero() {
+			ph.TakenAt = ts(p.TakenAt)
+		}
+
+		out = append(out, ph)
 	}
 
 	return out
@@ -315,12 +336,14 @@ func toConnectError(err error) error {
 	switch {
 	case errors.As(err, &ce):
 		return err
-	case errors.Is(err, game.ErrGameNotFound), errors.Is(err, game.ErrCopyNotFound), errors.Is(err, source.ErrNotFound),
+	case errors.Is(err, game.ErrGameNotFound), errors.Is(err, game.ErrCopyNotFound), errors.Is(err, game.ErrPhotoNotFound), errors.Is(err, source.ErrNotFound),
 		errors.Is(err, provider.ErrNotFound), errors.Is(err, media.ErrUnknownProvider):
 		return connect.NewError(connect.CodeNotFound, err)
 	case errors.As(err, &gv), errors.As(err, &sv), errors.As(err, &setv), errors.As(err, &schv), errors.Is(err, source.ErrUnknownType),
 		errors.Is(err, game.ErrInvalidBarcode):
 		return connect.NewError(connect.CodeInvalidArgument, err)
+	case errors.Is(err, catalog.ErrPhotoNotUploaded):
+		return connect.NewError(connect.CodeFailedPrecondition, err)
 	default:
 		return connect.NewError(connect.CodeInternal, err)
 	}

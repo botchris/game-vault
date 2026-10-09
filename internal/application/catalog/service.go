@@ -4,6 +4,7 @@ package catalog
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 
 	"gamevault/internal/application/port"
@@ -16,21 +17,34 @@ type CoverCache interface {
 	Invalidate(ctx context.Context, id game.ID) error
 }
 
+// PhotoFiles is the port that tells whether an uploaded photo's files are stored.
+type PhotoFiles interface {
+	// Has reports whether the photo and its thumbnail are stored.
+	Has(id game.PhotoID) bool
+}
+
+// ErrPhotoNotUploaded means a photo to attach is not stored: it was never uploaded, or it was
+// pruned before being attached.
+var ErrPhotoNotUploaded = errors.New("photo not uploaded: upload it again")
+
 // Service exposes the catalog use cases.
 type Service struct {
 	games  game.Repository
 	tx     port.TxManager
 	now    port.Clock
 	covers CoverCache
+	photos PhotoFiles
 }
 
-// NewService builds the service. covers may be nil when no cover cache is wired.
-func NewService(games game.Repository, tx port.TxManager, now port.Clock, covers CoverCache) *Service {
+// NewService builds the service. covers may be nil when no cover cache is wired; photos may be nil,
+// and attached photos are then not checked.
+func NewService(games game.Repository, tx port.TxManager, now port.Clock, covers CoverCache, photos PhotoFiles) *Service {
 	return &Service{
 		games:  games,
 		tx:     tx,
 		now:    now,
 		covers: covers,
+		photos: photos,
 	}
 }
 
@@ -78,6 +92,12 @@ func (s *Service) UpdateGame(ctx context.Context, id game.ID, info game.Info) (*
 	var coverChanged bool
 
 	g, err := s.mutate(ctx, id, func(g *game.Game) error {
+		// The request does not carry the cover photo: keep it, unless the user chose another
+		// custom cover.
+		if info.CoverURL == g.CoverURL() {
+			info.CoverPhoto = g.CoverPhoto()
+		}
+
 		var err error
 
 		coverChanged, err = g.UpdateInfo(info, s.now())
@@ -120,7 +140,7 @@ func (s *Service) UpdateCopy(ctx context.Context, id, copyID game.ID, d game.Cop
 
 // DeleteCopy removes one copy from a game and returns the updated game.
 func (s *Service) DeleteCopy(ctx context.Context, id, copyID game.ID) (*game.Game, error) {
-	return s.mutate(ctx, id, func(g *game.Game) error {
+	return s.mutatePhotos(ctx, id, func(g *game.Game) error {
 		_, err := g.RemoveCopy(copyID, s.now())
 		return err
 	})
@@ -176,13 +196,18 @@ func (s *Service) MergeGames(ctx context.Context, target game.ID, sources []game
 // MoveCopy moves a copy to another game, or to a new game titled newTitle when target is empty.
 // The source game is deleted if it ends up without copies; in that case the first result is nil.
 func (s *Service) MoveCopy(ctx context.Context, from, copyID, target game.ID, newTitle string) (*game.Game, *game.Game, error) {
-	var src, dst *game.Game
+	var (
+		src, dst *game.Game
+		srcCover game.PhotoID
+	)
 
 	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
 		var err error
 		if src, err = s.games.Get(ctx, from); err != nil {
 			return err
 		}
+
+		srcCover = src.CoverPhoto()
 
 		now := s.now()
 		if target != "" {
@@ -219,7 +244,76 @@ func (s *Service) MoveCopy(ctx context.Context, from, copyID, target game.ID, ne
 		return nil, nil, err
 	}
 
+	if src != nil && src.CoverPhoto() != srcCover {
+		s.invalidateCover(ctx, from) // the moved copy took the cover photo with it
+	}
+
 	return src, dst, nil
+}
+
+// AddCopyPhotos attaches uploaded photos to a copy and returns the updated game.
+func (s *Service) AddCopyPhotos(ctx context.Context, id, copyID game.ID, photos []game.Photo) (*game.Game, error) {
+	for _, p := range photos {
+		if s.photos != nil && !s.photos.Has(p.ID) {
+			return nil, fmt.Errorf("%w (%s)", ErrPhotoNotUploaded, p.ID)
+		}
+	}
+
+	return s.mutatePhotos(ctx, id, func(g *game.Game) error {
+		_, err := g.AddPhotos(copyID, photos, s.now())
+		return err
+	})
+}
+
+// UpdateCopyPhoto changes a photo's caption and returns the updated game.
+func (s *Service) UpdateCopyPhoto(ctx context.Context, id, copyID game.ID, photoID game.PhotoID, caption string) (*game.Game, error) {
+	return s.mutatePhotos(ctx, id, func(g *game.Game) error {
+		_, err := g.UpdatePhoto(copyID, photoID, caption, s.now())
+		return err
+	})
+}
+
+// RemoveCopyPhoto removes a photo from a copy and returns the updated game. The file stays until
+// the daily cleanup, so a mistake can be undone by uploading it again.
+func (s *Service) RemoveCopyPhoto(ctx context.Context, id, copyID game.ID, photoID game.PhotoID) (*game.Game, error) {
+	return s.mutatePhotos(ctx, id, func(g *game.Game) error {
+		_, err := g.RemovePhoto(copyID, photoID, s.now())
+		return err
+	})
+}
+
+// ReorderCopyPhotos puts a copy's photos in a new order and returns the updated game.
+func (s *Service) ReorderCopyPhotos(ctx context.Context, id, copyID game.ID, ids []game.PhotoID) (*game.Game, error) {
+	return s.mutatePhotos(ctx, id, func(g *game.Game) error {
+		_, err := g.ReorderPhotos(copyID, ids, s.now())
+		return err
+	})
+}
+
+// SetCoverPhoto makes one of the copies' photos the cover; an empty id stops using a photo.
+func (s *Service) SetCoverPhoto(ctx context.Context, id game.ID, photoID game.PhotoID) (*game.Game, error) {
+	return s.mutatePhotos(ctx, id, func(g *game.Game) error {
+		info := g.Info()
+		info.CoverPhoto = photoID
+		_, err := g.UpdateInfo(info, s.now())
+
+		return err
+	})
+}
+
+// mutatePhotos is mutate, dropping the cached cover when the change touched the cover photo.
+func (s *Service) mutatePhotos(ctx context.Context, id game.ID, fn func(*game.Game) error) (*game.Game, error) {
+	var before game.PhotoID
+
+	g, err := s.mutate(ctx, id, func(g *game.Game) error {
+		before = g.CoverPhoto()
+		return fn(g)
+	})
+	if err == nil && g.CoverPhoto() != before {
+		s.invalidateCover(ctx, id)
+	}
+
+	return g, err
 }
 
 // MarkRedeemedKeys marks revealed keys as redeemed when the game is already in the platform's library.

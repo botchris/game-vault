@@ -61,6 +61,21 @@ const (
 	GameServiceListLinkStoresProcedure = "/gamevault.v1.GameService/ListLinkStores"
 	// GameServiceSearchLinksProcedure is the fully-qualified name of the GameService's SearchLinks RPC.
 	GameServiceSearchLinksProcedure = "/gamevault.v1.GameService/SearchLinks"
+	// GameServiceAddCopyPhotosProcedure is the fully-qualified name of the GameService's AddCopyPhotos
+	// RPC.
+	GameServiceAddCopyPhotosProcedure = "/gamevault.v1.GameService/AddCopyPhotos"
+	// GameServiceUpdateCopyPhotoProcedure is the fully-qualified name of the GameService's
+	// UpdateCopyPhoto RPC.
+	GameServiceUpdateCopyPhotoProcedure = "/gamevault.v1.GameService/UpdateCopyPhoto"
+	// GameServiceRemoveCopyPhotoProcedure is the fully-qualified name of the GameService's
+	// RemoveCopyPhoto RPC.
+	GameServiceRemoveCopyPhotoProcedure = "/gamevault.v1.GameService/RemoveCopyPhoto"
+	// GameServiceReorderCopyPhotosProcedure is the fully-qualified name of the GameService's
+	// ReorderCopyPhotos RPC.
+	GameServiceReorderCopyPhotosProcedure = "/gamevault.v1.GameService/ReorderCopyPhotos"
+	// GameServiceSetCoverPhotoProcedure is the fully-qualified name of the GameService's SetCoverPhoto
+	// RPC.
+	GameServiceSetCoverPhotoProcedure = "/gamevault.v1.GameService/SetCoverPhoto"
 )
 
 // GameServiceClient is a client for the gamevault.v1.GameService service.
@@ -84,6 +99,12 @@ type GameServiceClient interface {
 	// Searches a store's catalog by title, to link a game (e.g. a physical one) to it and get its
 	// cover and details.
 	SearchLinks(context.Context, *connect.Request[v1.SearchLinksRequest]) (*connect.Response[v1.SearchLinksResponse], error)
+	// Attaches uploaded photos to a copy (at most 50 per copy; a photo already on it is skipped).
+	AddCopyPhotos(context.Context, *connect.Request[v1.AddCopyPhotosRequest]) (*connect.Response[v1.AddCopyPhotosResponse], error)
+	UpdateCopyPhoto(context.Context, *connect.Request[v1.UpdateCopyPhotoRequest]) (*connect.Response[v1.UpdateCopyPhotoResponse], error)
+	RemoveCopyPhoto(context.Context, *connect.Request[v1.RemoveCopyPhotoRequest]) (*connect.Response[v1.RemoveCopyPhotoResponse], error)
+	ReorderCopyPhotos(context.Context, *connect.Request[v1.ReorderCopyPhotosRequest]) (*connect.Response[v1.ReorderCopyPhotosResponse], error)
+	SetCoverPhoto(context.Context, *connect.Request[v1.SetCoverPhotoRequest]) (*connect.Response[v1.SetCoverPhotoResponse], error)
 }
 
 // NewGameServiceClient constructs a client for the gamevault.v1.GameService service. By default, it
@@ -175,24 +196,59 @@ func NewGameServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(gameServiceMethods.ByName("SearchLinks")),
 			connect.WithClientOptions(opts...),
 		),
+		addCopyPhotos: connect.NewClient[v1.AddCopyPhotosRequest, v1.AddCopyPhotosResponse](
+			httpClient,
+			baseURL+GameServiceAddCopyPhotosProcedure,
+			connect.WithSchema(gameServiceMethods.ByName("AddCopyPhotos")),
+			connect.WithClientOptions(opts...),
+		),
+		updateCopyPhoto: connect.NewClient[v1.UpdateCopyPhotoRequest, v1.UpdateCopyPhotoResponse](
+			httpClient,
+			baseURL+GameServiceUpdateCopyPhotoProcedure,
+			connect.WithSchema(gameServiceMethods.ByName("UpdateCopyPhoto")),
+			connect.WithClientOptions(opts...),
+		),
+		removeCopyPhoto: connect.NewClient[v1.RemoveCopyPhotoRequest, v1.RemoveCopyPhotoResponse](
+			httpClient,
+			baseURL+GameServiceRemoveCopyPhotoProcedure,
+			connect.WithSchema(gameServiceMethods.ByName("RemoveCopyPhoto")),
+			connect.WithClientOptions(opts...),
+		),
+		reorderCopyPhotos: connect.NewClient[v1.ReorderCopyPhotosRequest, v1.ReorderCopyPhotosResponse](
+			httpClient,
+			baseURL+GameServiceReorderCopyPhotosProcedure,
+			connect.WithSchema(gameServiceMethods.ByName("ReorderCopyPhotos")),
+			connect.WithClientOptions(opts...),
+		),
+		setCoverPhoto: connect.NewClient[v1.SetCoverPhotoRequest, v1.SetCoverPhotoResponse](
+			httpClient,
+			baseURL+GameServiceSetCoverPhotoProcedure,
+			connect.WithSchema(gameServiceMethods.ByName("SetCoverPhoto")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // gameServiceClient implements GameServiceClient.
 type gameServiceClient struct {
-	listGames        *connect.Client[v1.ListGamesRequest, v1.ListGamesResponse]
-	getGame          *connect.Client[v1.GetGameRequest, v1.GetGameResponse]
-	createGame       *connect.Client[v1.CreateGameRequest, v1.CreateGameResponse]
-	updateGame       *connect.Client[v1.UpdateGameRequest, v1.UpdateGameResponse]
-	deleteGame       *connect.Client[v1.DeleteGameRequest, v1.DeleteGameResponse]
-	mergeGames       *connect.Client[v1.MergeGamesRequest, v1.MergeGamesResponse]
-	addCopy          *connect.Client[v1.AddCopyRequest, v1.AddCopyResponse]
-	updateCopy       *connect.Client[v1.UpdateCopyRequest, v1.UpdateCopyResponse]
-	deleteCopy       *connect.Client[v1.DeleteCopyRequest, v1.DeleteCopyResponse]
-	moveCopy         *connect.Client[v1.MoveCopyRequest, v1.MoveCopyResponse]
-	markRedeemedKeys *connect.Client[v1.MarkRedeemedKeysRequest, v1.MarkRedeemedKeysResponse]
-	listLinkStores   *connect.Client[v1.ListLinkStoresRequest, v1.ListLinkStoresResponse]
-	searchLinks      *connect.Client[v1.SearchLinksRequest, v1.SearchLinksResponse]
+	listGames         *connect.Client[v1.ListGamesRequest, v1.ListGamesResponse]
+	getGame           *connect.Client[v1.GetGameRequest, v1.GetGameResponse]
+	createGame        *connect.Client[v1.CreateGameRequest, v1.CreateGameResponse]
+	updateGame        *connect.Client[v1.UpdateGameRequest, v1.UpdateGameResponse]
+	deleteGame        *connect.Client[v1.DeleteGameRequest, v1.DeleteGameResponse]
+	mergeGames        *connect.Client[v1.MergeGamesRequest, v1.MergeGamesResponse]
+	addCopy           *connect.Client[v1.AddCopyRequest, v1.AddCopyResponse]
+	updateCopy        *connect.Client[v1.UpdateCopyRequest, v1.UpdateCopyResponse]
+	deleteCopy        *connect.Client[v1.DeleteCopyRequest, v1.DeleteCopyResponse]
+	moveCopy          *connect.Client[v1.MoveCopyRequest, v1.MoveCopyResponse]
+	markRedeemedKeys  *connect.Client[v1.MarkRedeemedKeysRequest, v1.MarkRedeemedKeysResponse]
+	listLinkStores    *connect.Client[v1.ListLinkStoresRequest, v1.ListLinkStoresResponse]
+	searchLinks       *connect.Client[v1.SearchLinksRequest, v1.SearchLinksResponse]
+	addCopyPhotos     *connect.Client[v1.AddCopyPhotosRequest, v1.AddCopyPhotosResponse]
+	updateCopyPhoto   *connect.Client[v1.UpdateCopyPhotoRequest, v1.UpdateCopyPhotoResponse]
+	removeCopyPhoto   *connect.Client[v1.RemoveCopyPhotoRequest, v1.RemoveCopyPhotoResponse]
+	reorderCopyPhotos *connect.Client[v1.ReorderCopyPhotosRequest, v1.ReorderCopyPhotosResponse]
+	setCoverPhoto     *connect.Client[v1.SetCoverPhotoRequest, v1.SetCoverPhotoResponse]
 }
 
 // ListGames calls gamevault.v1.GameService.ListGames.
@@ -260,6 +316,31 @@ func (c *gameServiceClient) SearchLinks(ctx context.Context, req *connect.Reques
 	return c.searchLinks.CallUnary(ctx, req)
 }
 
+// AddCopyPhotos calls gamevault.v1.GameService.AddCopyPhotos.
+func (c *gameServiceClient) AddCopyPhotos(ctx context.Context, req *connect.Request[v1.AddCopyPhotosRequest]) (*connect.Response[v1.AddCopyPhotosResponse], error) {
+	return c.addCopyPhotos.CallUnary(ctx, req)
+}
+
+// UpdateCopyPhoto calls gamevault.v1.GameService.UpdateCopyPhoto.
+func (c *gameServiceClient) UpdateCopyPhoto(ctx context.Context, req *connect.Request[v1.UpdateCopyPhotoRequest]) (*connect.Response[v1.UpdateCopyPhotoResponse], error) {
+	return c.updateCopyPhoto.CallUnary(ctx, req)
+}
+
+// RemoveCopyPhoto calls gamevault.v1.GameService.RemoveCopyPhoto.
+func (c *gameServiceClient) RemoveCopyPhoto(ctx context.Context, req *connect.Request[v1.RemoveCopyPhotoRequest]) (*connect.Response[v1.RemoveCopyPhotoResponse], error) {
+	return c.removeCopyPhoto.CallUnary(ctx, req)
+}
+
+// ReorderCopyPhotos calls gamevault.v1.GameService.ReorderCopyPhotos.
+func (c *gameServiceClient) ReorderCopyPhotos(ctx context.Context, req *connect.Request[v1.ReorderCopyPhotosRequest]) (*connect.Response[v1.ReorderCopyPhotosResponse], error) {
+	return c.reorderCopyPhotos.CallUnary(ctx, req)
+}
+
+// SetCoverPhoto calls gamevault.v1.GameService.SetCoverPhoto.
+func (c *gameServiceClient) SetCoverPhoto(ctx context.Context, req *connect.Request[v1.SetCoverPhotoRequest]) (*connect.Response[v1.SetCoverPhotoResponse], error) {
+	return c.setCoverPhoto.CallUnary(ctx, req)
+}
+
 // GameServiceHandler is an implementation of the gamevault.v1.GameService service.
 type GameServiceHandler interface {
 	ListGames(context.Context, *connect.Request[v1.ListGamesRequest]) (*connect.Response[v1.ListGamesResponse], error)
@@ -281,6 +362,12 @@ type GameServiceHandler interface {
 	// Searches a store's catalog by title, to link a game (e.g. a physical one) to it and get its
 	// cover and details.
 	SearchLinks(context.Context, *connect.Request[v1.SearchLinksRequest]) (*connect.Response[v1.SearchLinksResponse], error)
+	// Attaches uploaded photos to a copy (at most 50 per copy; a photo already on it is skipped).
+	AddCopyPhotos(context.Context, *connect.Request[v1.AddCopyPhotosRequest]) (*connect.Response[v1.AddCopyPhotosResponse], error)
+	UpdateCopyPhoto(context.Context, *connect.Request[v1.UpdateCopyPhotoRequest]) (*connect.Response[v1.UpdateCopyPhotoResponse], error)
+	RemoveCopyPhoto(context.Context, *connect.Request[v1.RemoveCopyPhotoRequest]) (*connect.Response[v1.RemoveCopyPhotoResponse], error)
+	ReorderCopyPhotos(context.Context, *connect.Request[v1.ReorderCopyPhotosRequest]) (*connect.Response[v1.ReorderCopyPhotosResponse], error)
+	SetCoverPhoto(context.Context, *connect.Request[v1.SetCoverPhotoRequest]) (*connect.Response[v1.SetCoverPhotoResponse], error)
 }
 
 // NewGameServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -368,6 +455,36 @@ func NewGameServiceHandler(svc GameServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(gameServiceMethods.ByName("SearchLinks")),
 		connect.WithHandlerOptions(opts...),
 	)
+	gameServiceAddCopyPhotosHandler := connect.NewUnaryHandler(
+		GameServiceAddCopyPhotosProcedure,
+		svc.AddCopyPhotos,
+		connect.WithSchema(gameServiceMethods.ByName("AddCopyPhotos")),
+		connect.WithHandlerOptions(opts...),
+	)
+	gameServiceUpdateCopyPhotoHandler := connect.NewUnaryHandler(
+		GameServiceUpdateCopyPhotoProcedure,
+		svc.UpdateCopyPhoto,
+		connect.WithSchema(gameServiceMethods.ByName("UpdateCopyPhoto")),
+		connect.WithHandlerOptions(opts...),
+	)
+	gameServiceRemoveCopyPhotoHandler := connect.NewUnaryHandler(
+		GameServiceRemoveCopyPhotoProcedure,
+		svc.RemoveCopyPhoto,
+		connect.WithSchema(gameServiceMethods.ByName("RemoveCopyPhoto")),
+		connect.WithHandlerOptions(opts...),
+	)
+	gameServiceReorderCopyPhotosHandler := connect.NewUnaryHandler(
+		GameServiceReorderCopyPhotosProcedure,
+		svc.ReorderCopyPhotos,
+		connect.WithSchema(gameServiceMethods.ByName("ReorderCopyPhotos")),
+		connect.WithHandlerOptions(opts...),
+	)
+	gameServiceSetCoverPhotoHandler := connect.NewUnaryHandler(
+		GameServiceSetCoverPhotoProcedure,
+		svc.SetCoverPhoto,
+		connect.WithSchema(gameServiceMethods.ByName("SetCoverPhoto")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/gamevault.v1.GameService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case GameServiceListGamesProcedure:
@@ -396,6 +513,16 @@ func NewGameServiceHandler(svc GameServiceHandler, opts ...connect.HandlerOption
 			gameServiceListLinkStoresHandler.ServeHTTP(w, r)
 		case GameServiceSearchLinksProcedure:
 			gameServiceSearchLinksHandler.ServeHTTP(w, r)
+		case GameServiceAddCopyPhotosProcedure:
+			gameServiceAddCopyPhotosHandler.ServeHTTP(w, r)
+		case GameServiceUpdateCopyPhotoProcedure:
+			gameServiceUpdateCopyPhotoHandler.ServeHTTP(w, r)
+		case GameServiceRemoveCopyPhotoProcedure:
+			gameServiceRemoveCopyPhotoHandler.ServeHTTP(w, r)
+		case GameServiceReorderCopyPhotosProcedure:
+			gameServiceReorderCopyPhotosHandler.ServeHTTP(w, r)
+		case GameServiceSetCoverPhotoProcedure:
+			gameServiceSetCoverPhotoHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -455,4 +582,24 @@ func (UnimplementedGameServiceHandler) ListLinkStores(context.Context, *connect.
 
 func (UnimplementedGameServiceHandler) SearchLinks(context.Context, *connect.Request[v1.SearchLinksRequest]) (*connect.Response[v1.SearchLinksResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gamevault.v1.GameService.SearchLinks is not implemented"))
+}
+
+func (UnimplementedGameServiceHandler) AddCopyPhotos(context.Context, *connect.Request[v1.AddCopyPhotosRequest]) (*connect.Response[v1.AddCopyPhotosResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gamevault.v1.GameService.AddCopyPhotos is not implemented"))
+}
+
+func (UnimplementedGameServiceHandler) UpdateCopyPhoto(context.Context, *connect.Request[v1.UpdateCopyPhotoRequest]) (*connect.Response[v1.UpdateCopyPhotoResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gamevault.v1.GameService.UpdateCopyPhoto is not implemented"))
+}
+
+func (UnimplementedGameServiceHandler) RemoveCopyPhoto(context.Context, *connect.Request[v1.RemoveCopyPhotoRequest]) (*connect.Response[v1.RemoveCopyPhotoResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gamevault.v1.GameService.RemoveCopyPhoto is not implemented"))
+}
+
+func (UnimplementedGameServiceHandler) ReorderCopyPhotos(context.Context, *connect.Request[v1.ReorderCopyPhotosRequest]) (*connect.Response[v1.ReorderCopyPhotosResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gamevault.v1.GameService.ReorderCopyPhotos is not implemented"))
+}
+
+func (UnimplementedGameServiceHandler) SetCoverPhoto(context.Context, *connect.Request[v1.SetCoverPhotoRequest]) (*connect.Response[v1.SetCoverPhotoResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gamevault.v1.GameService.SetCoverPhoto is not implemented"))
 }
