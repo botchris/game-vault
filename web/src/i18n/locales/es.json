@@ -326,7 +326,15 @@
     "currencyHelp": "Se usa en los precios nuevos y en las filas de CSV sin moneda.",
     "currencyNotSaved": "Propuesta según la región de tu navegador, aún sin guardar: guárdala para que las filas de CSV sin moneda la usen.",
     "backupPhotos": "Fotos",
-    "photoStore": "Fotos en las copias de seguridad: {{size}} en total; cada foto se guarda una sola vez, la tengan las copias que la tengan."
+    "photoStore": "Fotos en las copias de seguridad: {{size}} en total; cada foto se guarda una sola vez, la tengan las copias que la tengan.",
+    "collectionValue": "Valor de la colección",
+    "valueShop": "{{name}} vende tu colección por {{sell}} y pagaría {{cash}} en efectivo ({{credit}} en vale)",
+    "valueListed": "En {{name}} está anunciada por {{sell}}",
+    "valueCopies_one": "{{count}} copia",
+    "valueCopies_other": "{{count}} copias",
+    "valueOther_one": "{{count}} estimación en otra moneda no se suma",
+    "valueOther_other": "{{count}} estimaciones en otras monedas no se suman",
+    "valueNoCurrency": "Elige una moneda por defecto en Preferencias para sumar las estimaciones."
   },
   "logs": {
     "settings": "Logs y rotación",
@@ -459,7 +467,9 @@
     },
     "ebayPrices": {
       "description": "El precio mediano que piden los anuncios de segunda mano con el código de barras de la copia en tu primer mercado de eBay. Usa las mismas claves de desarrollador que la búsqueda de códigos de barras de eBay."
-    }
+    },
+    "valuations": "Precios",
+    "valuationsIntro": "Precios de segunda mano de tus copias físicas con código de barras. Se consultan todas las fuentes activadas, cada copia en su propia fecha, más o menos una vez al mes; el orden solo indica cómo se muestran."
   },
   "coverPicker": {
     "open": "Elegir carátula…",
@@ -659,5 +669,16 @@
     "stopCover": "Dejar de usar como portada",
     "isCover": "La portada del juego",
     "confirmDelete": "¿Borrar esta foto de la copia?"
+  },
+  "value": {
+    "sells": "{{name}}: la vende a {{price}}",
+    "pays": ", paga {{cash}} en efectivo / {{credit}} en vale",
+    "listed_one": "{{name}}: {{price}} ({{count}} anuncio)",
+    "listed_other": "{{name}}: {{price}} ({{count}} anuncios)",
+    "update": "Actualizar precio",
+    "updating": "Actualizando…",
+    "pending": "Precio pendiente",
+    "planned": "Precio pendiente (previsto el {{date}})",
+    "addBarcode": "Añade el código de barras para estimar su precio"
   }
 }

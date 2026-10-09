@@ -8,6 +8,7 @@ import { MetadataService } from '../gen/gamevault/v1/metadata_pb';
 import { CoverService, ProviderService } from '../gen/gamevault/v1/provider_pb';
 import { SourceService } from '../gen/gamevault/v1/source_pb';
 import { SystemService } from '../gen/gamevault/v1/system_pb';
+import { ValuationService } from '../gen/gamevault/v1/valuation_pb';
 
 /** Fired when the server says the session is gone, so the app shows the login screen again. */
 export const UNAUTHENTICATED_EVENT = 'gamevault:unauthenticated';
@@ -36,6 +37,7 @@ export const providerClient = createClient(ProviderService, transport);
 export const coverClient = createClient(CoverService, transport);
 export const lookupClient = createClient(LookupService, transport);
 export const metadataClient = createClient(MetadataService, transport);
+export const valuationClient = createClient(ValuationService, transport);
 
 /**
  * Cover image URL. Images are plain HTTP (not RPC) so <img> can load and cache them;

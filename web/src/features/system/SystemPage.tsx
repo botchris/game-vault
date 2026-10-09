@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { errorMessage, systemClient } from '../../api/client';
+import { errorMessage, systemClient, valuationClient } from '../../api/client';
 import { Alert, useFormatters } from '../../components/ui';
 import type { Backup, GetStatusResponse } from '../../gen/gamevault/v1/system_pb';
 import type { SyncReport } from '../../gen/gamevault/v1/source_pb';
-import { currencyList, regionCurrency } from '../../lib/money';
+import type { GetCollectionValueResponse } from '../../gen/gamevault/v1/valuation_pb';
+import { currencyList, formatAmount, regionCurrency } from '../../lib/money';
 import { downloadBytes, toDate } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
 import SecurityCard from './SecurityCard';
@@ -30,11 +31,14 @@ export default function SystemPage() {
   const [status, setStatus] = useState<GetStatusResponse | null>(null);
   const [backups, setBackups] = useState<Backup[]>([]);
   const [photoStore, setPhotoStore] = useState(0n);
+  const [value, setValue] = useState<GetCollectionValueResponse | null>(null);
   const [busy, setBusy] = useState('');
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string; report?: SyncReport } | null>(null);
 
   const load = useCallback(async () => {
-    const [st, bk, prefs] = await Promise.all([systemClient.getStatus({}), systemClient.listBackups({}), systemClient.getPreferences({})]);
+    const [st, bk, prefs, val] = await Promise.all([systemClient.getStatus({}), systemClient.listBackups({}), systemClient.getPreferences({}),
+      valuationClient.getCollectionValue({}).catch(() => null)]);
+    setValue(val);
     setStatus(st);
     setBackups(bk.backups);
     setPhotoStore(bk.photoStoreBytes);
@@ -114,6 +118,25 @@ export default function SystemPage() {
       </section>
 
       <SecurityCard />
+
+      {value && value.totals.length > 0 && (
+        <section className="card">
+          <h2>{t('system.collectionValue')}</h2>
+          {!value.currency && <p className="muted">{t('system.valueNoCurrency')}</p>}
+          {value.currency && value.totals.map((v) => {
+            const money = (minor: bigint) => formatAmount(minor, value.currency, i18n.language);
+            return (
+              <p key={v.provider}>
+                {v.buyCashMinor > 0n || v.buyCreditMinor > 0n
+                  ? t('system.valueShop', { name: v.name, sell: money(v.sellMinor), cash: money(v.buyCashMinor), credit: money(v.buyCreditMinor) })
+                  : t('system.valueListed', { name: v.name, sell: money(v.sellMinor) })}
+                {' · '}<span className="muted">{t('system.valueCopies', { count: v.copies })}</span>
+                {v.otherCurrency > 0 && <span className="muted"> · {t('system.valueOther', { count: v.otherCurrency })}</span>}
+              </p>
+            );
+          })}
+        </section>
+      )}
 
       <section className="card">
         <div className="section-head">

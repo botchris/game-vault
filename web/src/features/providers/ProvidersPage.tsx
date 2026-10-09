@@ -5,6 +5,7 @@ import { Alert } from '../../components/ui';
 import type { Provider } from '../../gen/gamevault/v1/provider_pb';
 import { useAppData } from '../../state/AppData';
 import ProviderDialog from './ProviderDialog';
+import { forgetPriceProviders } from '../../lib/usePriceProviders';
 
 type Notice = { tone: 'ok' | 'error'; text: string } | null;
 
@@ -49,12 +50,15 @@ export default function ProvidersPage() {
         pinned={{ name: t('providers.local.name'), description: t('providers.local.description') }} />
 
       <ProviderChain kind="metadata" title={t('providers.metadata')} intro={t('providers.metadataIntro')} onNotice={setNotice} />
+
+      <ProviderChain kind="valuation" title={t('providers.valuations')} intro={t('providers.valuationsIntro')} onNotice={setNotice}
+        onChanged={async () => forgetPriceProviders()} />
     </div>
   );
 }
 
 function ProviderChain(props: {
-  kind: 'cover' | 'barcode' | 'metadata';
+  kind: 'cover' | 'barcode' | 'metadata' | 'valuation';
   title: string;
   intro: string;
   pinned?: { name: string; description: string };
