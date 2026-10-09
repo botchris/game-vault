@@ -169,8 +169,10 @@ func detailsFromPB(d *pb.CopyDetails) (game.CopyDetails, error) {
 }
 
 func contentsToPB(c game.Contents) []pb.CopyContent {
-	var out []pb.CopyContent
-	for _, x := range c.List() {
+	list := c.List()
+	out := make([]pb.CopyContent, 0, len(list))
+
+	for _, x := range list {
 		out = append(out, contentToPB[x])
 	}
 
