@@ -31,6 +31,7 @@ internal/
     sync/             Configure sources, scan them, scheduler. Declares the Provider port
     transfer/         CSV import/export. Declares the Codec port
     system/           Status and backups. Declares the DatabaseBackup and PhotoArchive ports
+    valuation/        Second-hand price estimates: estimate a copy, the collection's value, the scheduler. Declares the price Provider port
     media/            Provider chains, covers (resolve + cache), store link search, photo uploads. Declares CoverProvider, PhotoStore & co.
     plugin/           The Plugin type (one external service's source and providers) and its registry;
                       plugintest/ checks every registered plugin
@@ -45,7 +46,7 @@ internal/
     outbound/example/ A complete plugin for an imaginary store, to copy (tested, never registered)
     outbound/browsersession/ Reuse of a website session pasted from the browser (cookies)
     outbound/thegamesdb/ TheGamesDB plugin: cover and details providers (platform box art, overview, trailer)
-    outbound/cex/, ebay/, upcitemdb/, eansearch/  Barcode database plugins
+    outbound/cex/, ebay/, upcitemdb/, eansearch/  Barcode database plugins (CeX and eBay also give second-hand prices)
     outbound/gamedata/ Per-game asset folders (cover, sheet images, assets.json)
     outbound/photostore/ Content-addressed photos of copies, and the backups' shared photo store
     outbound/sqlite/  Repositories, transactions, migrations, backups
@@ -270,6 +271,36 @@ next buttons, a counter, zoom (buttons, double click or tap, Ctrl/⌘ + wheel, t
 pinch, drag to pan), full screen where the browser supports it, swipe on touch screens and the keys
 ← → Esc + − 0 F. Copy photos add a footer: caption edited in place, date taken, move left / right,
 use as cover, delete.
+
+## Second-hand prices
+
+Physical copies with a barcode get second-hand price estimates from the **price providers**
+(Providers → Prices), which plugins add like any other provider (`provider.KindValuation`,
+`internal/application/valuation`). Every enabled one is asked; their order is only how they are
+listed. Keys, library copies and physical copies without a barcode have no estimates (the card
+offers to add the barcode).
+
+| Price provider | What the figure is | Settings |
+|---|---|---|
+| CeX (`cex-prices`, on by default) | What CeX sells the product for, and what it pays in cash or store credit, from `boxes/{EAN}/detail` | Countries to ask, in order (default `es`); the first whose catalog has the EAN answers, in its currency |
+| eBay (`ebay-prices`, off by default) | The median asking price of up to 50 used listings with the EAN on the first configured marketplace (shipping excluded; listings in other currencies ignored). eBay keeps sold prices for approved partners | Shares the developer keys and marketplaces of the eBay barcode provider (settings group `ebay`) |
+
+- **What is kept:** each copy keeps the latest estimate of each provider (amounts in the currency's
+  minor units, the product's page, the date) and its next valuation date, in the copy document.
+  Changing the barcode or the kind clears them; scans and CSV imports never set them (a CSV import
+  that changes the barcode clears them too). There is no history.
+- **When:** each copy has its own date, 20–40 days (uniform) after its last estimate. A copy that
+  becomes priceable without a date (first start, a barcode added) gets one within the next 30 days,
+  so a collection is spread over the month instead of being asked at once. A background task wakes
+  every 3–7 minutes, estimates the due copies one at a time with 20–60 seconds between them, and is
+  off with `-no-unattended`. "Update price" on a copy asks now and gives it a new date.
+- **Failures:** a provider that fails keeps its previous estimate for that copy; one that no longer
+  lists the product loses it; the copy's date always moves forward, so nothing is retried in a loop.
+  A provider that is disabled drops out of the next estimate and of the totals. When CeX answers
+  with a bot check (Cloudflare), its prices are reported as unavailable and nothing works around it.
+- **Collection value** (System): per provider, the sum of its estimates in the default currency and
+  how many copies that covers; estimates in other currencies are counted apart. Providers are never
+  mixed: a shop's price and an asking price are different things.
 
 ## Backups
 

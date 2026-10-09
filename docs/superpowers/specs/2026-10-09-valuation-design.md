@@ -107,9 +107,10 @@ var ErrNotListed = errors.New("not listed")
 ### eBay prices (`internal/adapters/outbound/ebay`, id `ebay-prices`)
 
 - Browse API `GET /buy/browse/v1/item_summary/search?gtin={EAN}&filter=conditions:{USED}&limit=50`
-  with the `X-EBAY-C-MARKETPLACE-ID` header. Settings: `client_id`, `client_secret` (the same free
-  developer keys as the eBay barcode provider, entered again: plugin pieces never share state) and
-  `marketplace` (default `EBAY_ES`).
+  with the `X-EBAY-C-MARKETPLACE-ID` header. Settings: shared with the eBay barcode provider through
+  the settings group `ebay` (decided while planning: the provider framework already shares a group's
+  settings, so the keys are entered once); prices use the first of its `marketplaces` (default
+  `EBAY_ES`).
 - The application token (client credentials) is obtained and cached like the barcode provider's.
 - Estimate: the median of the listings' item prices (shipping excluded) in the marketplace's
   currency, and how many listings there were; listings in another currency are ignored. No

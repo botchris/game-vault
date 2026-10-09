@@ -13,6 +13,8 @@ Game Vault puts your whole collection in one catalog that runs on your own compu
   store library, a CD key, a physical disc.
 - **Your store libraries are imported automatically** and kept up to date.
 - **Physical games are added by scanning their barcode** with your phone's camera.
+- **What your physical games are worth:** second-hand prices from CeX and eBay for each copy with a
+  barcode, kept up to date, and the value of the whole collection.
 - **Keys are tracked:** which ones you have not redeemed, which expire soon, and which you don't
   need because you already own the game on that platform (so you can gift them). Steam keys get a
   direct "redeem" link.
