@@ -15,9 +15,28 @@ import (
 
 func TestPickGamePrefersCompleteEntry(t *testing.T) {
 	games := []tgdbGame{
-		{ID: 100167, Title: "Red Dead Redemption", Overview: "Short.", Rating: "Not Rated"},
-		{ID: 191, Title: "Red Dead Redemption", Overview: "Western epic.", YouTube: "abc", Genres: []int64{1}, Publishers: []int64{2}, Rating: "M - Mature"},
-		{ID: 5, Title: "Red Dead Redemption: Undead Nightmare", Overview: "Zombies.", YouTube: "x", Genres: []int64{1}},
+		{
+			ID:       100167,
+			Title:    "Red Dead Redemption",
+			Overview: "Short.",
+			Rating:   "Not Rated",
+		},
+		{
+			ID:         191,
+			Title:      "Red Dead Redemption",
+			Overview:   "Western epic.",
+			YouTube:    "abc",
+			Genres:     []int64{1},
+			Publishers: []int64{2},
+			Rating:     "M - Mature",
+		},
+		{
+			ID:       5,
+			Title:    "Red Dead Redemption: Undead Nightmare",
+			Overview: "Zombies.",
+			YouTube:  "x",
+			Genres:   []int64{1},
+		},
 	}
 
 	g, ok := pickGame(games, "Red Dead Redemption")
@@ -57,7 +76,10 @@ func TestDetailsResolvesNames(t *testing.T) {
 
 	d := NewDetails(testProvider(srv))
 
-	got, err := d.Details(context.Background(), media.CoverQuery{Title: "Red Dead Redemption", PhysicalPlatforms: []string{"Xbox 360"}}, "es", schema.Settings{settingAPIKey: "k"})
+	got, err := d.Details(context.Background(), media.CoverQuery{
+		Title:             "Red Dead Redemption",
+		PhysicalPlatforms: []string{"Xbox 360"},
+	}, "es", schema.Settings{settingAPIKey: "k"})
 	if err != nil || got == nil {
 		t.Fatal(err)
 	}

@@ -75,7 +75,12 @@ func MapOrders(orders []json.RawMessage, now time.Time) (copies []game.ImportedC
 			if !isGame(title, platform) {
 				// Software, courses, in-game items and store coupons come in bundles too. They are
 				// reported as withdrawn so a copy imported before this filter existed is removed.
-				copies = append(copies, game.ImportedCopy{ExternalID: id, PreviousExternalID: previous, Title: title, Withdrawn: true})
+				copies = append(copies, game.ImportedCopy{
+					ExternalID:         id,
+					PreviousExternalID: previous,
+					Title:              title,
+					Withdrawn:          true,
+				})
 				skipped = append(skipped, title)
 
 				continue

@@ -57,16 +57,29 @@ func TestCoversPlatformFilterAndRanking(t *testing.T) {
 	srv, calls := fakeServer(t)
 	p := testProvider(srv)
 
-	q := media.CoverQuery{Title: "Halo 3", PhysicalPlatforms: []string{"Xbox 360"}}
-	if p.Applies(media.CoverQuery{Title: "Control", Links: game.Links{"epic": "abc"}}) {
+	q := media.CoverQuery{
+		Title:             "Halo 3",
+		PhysicalPlatforms: []string{"Xbox 360"},
+	}
+	if p.Applies(media.CoverQuery{
+		Title: "Control",
+		Links: game.Links{"epic": "abc"},
+	}) {
 		t.Fatal("games imported from Epic or GOG have store art: keep the quota")
 	}
 
-	if !p.Applies(media.CoverQuery{Title: "World of Warcraft", Links: game.Links{"battlenet": "1"}, Fallback: true}) {
+	if !p.Applies(media.CoverQuery{
+		Title:    "World of Warcraft",
+		Links:    game.Links{"battlenet": "1"},
+		Fallback: true,
+	}) {
 		t.Fatal("on the fallback pass (no store had art) TheGamesDB helps")
 	}
 
-	if !p.Applies(q) || p.Applies(media.CoverQuery{Title: "Hades", Links: game.Links{game.LinkSteam: "1145360"}}) {
+	if !p.Applies(q) || p.Applies(media.CoverQuery{
+		Title: "Hades",
+		Links: game.Links{game.LinkSteam: "1145360"},
+	}) {
 		t.Fatal("must apply to physical copies and skip Steam-only games")
 	}
 

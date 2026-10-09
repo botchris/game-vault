@@ -8,8 +8,16 @@ import (
 
 func TestValidate_consent(t *testing.T) {
 	fields := Fields{
-		{Key: "accept_risk", Kind: FieldConsent, Required: true},
-		{Key: "token", Kind: FieldSecret, Required: true},
+		{
+			Key:      "accept_risk",
+			Kind:     FieldConsent,
+			Required: true,
+		},
+		{
+			Key:      "token",
+			Kind:     FieldSecret,
+			Required: true,
+		},
 	}
 
 	t.Run("GIVEN a required consent that was not ticked", func(t *testing.T) {

@@ -40,9 +40,12 @@ func NewCovers() *Covers {
 // Descriptor implements media.CoverProvider.
 func (c *Covers) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
-		ID: CoverProviderID, Kind: provider.KindCover, Name: "Epic Games Store",
-		DescriptionKey: "providers.epicCovers.description", EnabledByDefault: true,
-		DefaultOrder: 30,
+		ID:               CoverProviderID,
+		Kind:             provider.KindCover,
+		Name:             "Epic Games Store",
+		DescriptionKey:   "providers.epicCovers.description",
+		EnabledByDefault: true,
+		DefaultOrder:     30,
 	}
 }
 
@@ -105,7 +108,13 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 					label = "Epic: wide image"
 				}
 
-				out = append(out, media.CoverCandidate{URL: img.URL, ThumbURL: img.URL, Label: label, Title: it.Title, Provider: CoverProviderID})
+				out = append(out, media.CoverCandidate{
+					URL:      img.URL,
+					ThumbURL: img.URL,
+					Label:    label,
+					Title:    it.Title,
+					Provider: CoverProviderID,
+				})
 			}
 		}
 	}

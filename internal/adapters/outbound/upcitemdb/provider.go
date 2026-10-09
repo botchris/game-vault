@@ -36,17 +36,26 @@ var _ media.BarcodeProvider = (*Provider)(nil)
 
 // New returns the UPCitemdb barcode provider with its production endpoints.
 func New() *Provider {
-	return &Provider{BaseURL: defaultBaseURL, Client: &http.Client{Timeout: 15 * time.Second}}
+	return &Provider{
+		BaseURL: defaultBaseURL,
+		Client:  &http.Client{Timeout: 15 * time.Second},
+	}
 }
 
 // Descriptor implements media.BarcodeProvider.
 func (p *Provider) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
-		ID: ID, Kind: provider.KindBarcode, Name: "UPCitemdb",
-		DescriptionKey: "providers.upcitemdb.description", EnabledByDefault: true,
+		ID:               ID,
+		Kind:             provider.KindBarcode,
+		Name:             "UPCitemdb",
+		DescriptionKey:   "providers.upcitemdb.description",
+		EnabledByDefault: true,
 		Fields: schema.Fields{{
-			Key: settingUserKey, LabelKey: "providers.upcitemdb.userKey", HelpKey: "providers.upcitemdb.userKeyHelp",
-			HelpURL: "https://www.upcitemdb.com/wp/docs/main/development/", Kind: schema.FieldSecret,
+			Key:      settingUserKey,
+			LabelKey: "providers.upcitemdb.userKey",
+			HelpKey:  "providers.upcitemdb.userKeyHelp",
+			HelpURL:  "https://www.upcitemdb.com/wp/docs/main/development/",
+			Kind:     schema.FieldSecret,
 		}},
 		DefaultOrder: 30,
 	}
@@ -120,7 +129,13 @@ func (p *Provider) Lookup(ctx context.Context, code game.Barcode, s schema.Setti
 
 		title, platform, edition := media.CleanProductTitle(it.Title)
 
-		m := media.BarcodeMatch{Raw: it.Title, Title: title, Platform: platform, Edition: edition, Provider: ID}
+		m := media.BarcodeMatch{
+			Raw:      it.Title,
+			Title:    title,
+			Platform: platform,
+			Edition:  edition,
+			Provider: ID,
+		}
 		if len(it.Images) > 0 {
 			m.ImageURL = it.Images[0]
 		}

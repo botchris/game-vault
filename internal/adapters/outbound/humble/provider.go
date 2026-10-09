@@ -45,7 +45,12 @@ type Provider struct {
 
 // NewProvider returns the Humble Bundle source with its production endpoints.
 func NewProvider(log *slog.Logger) *Provider {
-	return &Provider{BaseURL: defaultBaseURL, Client: &http.Client{Timeout: 60 * time.Second}, Pause: 500 * time.Millisecond, Log: log}
+	return &Provider{
+		BaseURL: defaultBaseURL,
+		Client:  &http.Client{Timeout: 60 * time.Second},
+		Pause:   500 * time.Millisecond,
+		Log:     log,
+	}
 }
 
 // cleanCookie accepts the value as copied from the browser, tolerating a "_simpleauth_sess=" prefix,

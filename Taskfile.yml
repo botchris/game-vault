@@ -162,16 +162,19 @@ tasks:
     desc: Lint the Go code (golangci-lint, formatting included, and the doc-comment layout) and the protobuf definitions
     deps: [toolchain]
     cmds:
-      # tools/docspacing checks a house rule no linter has: blank lines around member doc comments
-      # and a doc comment on every interface method.
-      - '{{.IN_TOOLCHAIN}} sh -c "golangci-lint run ./... && go run ./tools/docspacing internal cmd tools && buf lint"'
+      # tools/docspacing and tools/fieldlines check house rules no linter has: blank lines around
+      # member doc comments, a doc comment on every interface method, and one struct field per line.
+      - '{{.IN_TOOLCHAIN}} sh -c "golangci-lint run ./... && go run ./tools/docspacing internal cmd tools && go run ./tools/fieldlines ./... && buf lint"'
 
   lint:fix:
-    desc: Apply the safe automatic lint fixes (blank lines, comment periods, spelling, formatting)
+    desc: Apply the safe automatic lint fixes (one field per line, blank lines, comment periods, spelling, formatting)
     deps: [toolchain]
     cmds:
       # Only linters whose fixes cannot change behavior: staticcheck's would, for example, type
       # constants in a mixed const block and break the build.
+      # fieldlines first: it breaks struct fields onto their own lines, which the others then tidy.
+      # It exits non-zero when it applied fixes, so its status is ignored; task lint reports what is left.
+      - '{{.IN_TOOLCHAIN}} sh -c "go run ./tools/fieldlines -fix ./... > /dev/null || true"'
       - '{{.IN_TOOLCHAIN}} golangci-lint run --fix --enable-only wsl_v5,godot,misspell ./...'
       - '{{.IN_TOOLCHAIN}} go run ./tools/docspacing -fix internal cmd tools'
       - '{{.IN_TOOLCHAIN}} golangci-lint fmt ./...'

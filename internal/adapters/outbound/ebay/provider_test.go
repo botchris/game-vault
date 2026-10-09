@@ -45,7 +45,11 @@ func TestLookupConsensusAndMarketplaceFallback(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := &Provider{BaseURL: srv.URL, Client: srv.Client(), tokens: map[string]token{}}
+	p := &Provider{
+		BaseURL: srv.URL,
+		Client:  srv.Client(),
+		tokens:  map[string]token{},
+	}
 	s := schema.Settings{settingClientID: "id", settingClientSecret: "secret", settingMarketplaces: "EBAY_ES, EBAY_GB"}
 
 	m, err := p.Lookup(context.Background(), "5030934110075", s)

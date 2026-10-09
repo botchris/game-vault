@@ -30,7 +30,8 @@ type problem struct {
 	msg  string
 
 	// insertBefore and removeAt are 1-based lines for -fix (0 when there is nothing to do).
-	insertBefore, removeAt int
+	insertBefore int
+	removeAt     int
 }
 
 func main() {
@@ -103,8 +104,9 @@ func checkFile(path string, fix bool) (bool, error) {
 
 // member is one entry of a grouped declaration: its doc comment (may be nil) and its extent.
 type member struct {
-	doc        *ast.CommentGroup
-	start, end token.Pos
+	doc   *ast.CommentGroup
+	start token.Pos
+	end   token.Pos
 }
 
 // check finds the problems of every grouped declaration in the file.
@@ -122,14 +124,22 @@ func check(fset *token.FileSet, f *ast.File) []problem {
 			docLine := line(m.doc.Pos())
 			if i == 0 {
 				if docLine > line(open)+1 {
-					out = append(out, problem{line: docLine, msg: "no blank line between the opening brace and the first doc comment", removeAt: docLine - 1})
+					out = append(out, problem{
+						line:     docLine,
+						msg:      "no blank line between the opening brace and the first doc comment",
+						removeAt: docLine - 1,
+					})
 				}
 
 				continue
 			}
 
 			if docLine == line(members[i-1].end)+1 {
-				out = append(out, problem{line: docLine, msg: "doc comment needs a blank line above it, to separate it from the previous member", insertBefore: docLine})
+				out = append(out, problem{
+					line:         docLine,
+					msg:          "doc comment needs a blank line above it, to separate it from the previous member",
+					insertBefore: docLine,
+				})
 			}
 		}
 	}
@@ -143,7 +153,11 @@ func check(fset *token.FileSet, f *ast.File) []problem {
 
 			var ms []member
 			for _, s := range n.Specs {
-				ms = append(ms, member{doc: specDoc(s), start: s.Pos(), end: s.End()})
+				ms = append(ms, member{
+					doc:   specDoc(s),
+					start: s.Pos(),
+					end:   s.End(),
+				})
 			}
 
 			group(n.Lparen, ms)
@@ -155,7 +169,10 @@ func check(fset *token.FileSet, f *ast.File) []problem {
 
 			for _, fl := range it.Methods.List {
 				if _, isMethod := fl.Type.(*ast.FuncType); isMethod && fl.Doc == nil {
-					out = append(out, problem{line: line(fl.Pos()), msg: fmt.Sprintf("interface method %s needs a doc comment", fl.Names[0].Name)})
+					out = append(out, problem{
+						line: line(fl.Pos()),
+						msg:  fmt.Sprintf("interface method %s needs a doc comment", fl.Names[0].Name),
+					})
 				}
 			}
 		case *ast.InterfaceType:
@@ -173,7 +190,11 @@ func check(fset *token.FileSet, f *ast.File) []problem {
 func fieldMembers(fl *ast.FieldList) []member {
 	ms := make([]member, 0, len(fl.List))
 	for _, f := range fl.List {
-		ms = append(ms, member{doc: f.Doc, start: f.Pos(), end: f.End()})
+		ms = append(ms, member{
+			doc:   f.Doc,
+			start: f.Pos(),
+			end:   f.End(),
+		})
 	}
 
 	return ms

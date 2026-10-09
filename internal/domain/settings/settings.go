@@ -23,7 +23,13 @@ type Logging struct {
 }
 
 // DefaultLogging is used until the user saves their own settings: at most 5 × 10 MB of logs.
-func DefaultLogging() Logging { return Logging{Level: "info", MaxFileSizeMB: 10, MaxFiles: 5} }
+func DefaultLogging() Logging {
+	return Logging{
+		Level:         "info",
+		MaxFileSizeMB: 10,
+		MaxFiles:      5,
+	}
+}
 
 // ValidationError reports settings outside the allowed ranges.
 type ValidationError struct{ msg string }

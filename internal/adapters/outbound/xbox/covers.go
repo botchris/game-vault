@@ -19,8 +19,10 @@ const CoverProviderID provider.ID = "xbox-covers"
 // Covers is a cover provider for games imported from a Microsoft account: the Store's official
 // poster (portrait), from the public Store catalog. No sign-in needed.
 type Covers struct {
-	CatalogURL, Market, Language string
-	Client                       *http.Client
+	CatalogURL string
+	Market     string
+	Language   string
+	Client     *http.Client
 }
 
 var (
@@ -30,7 +32,12 @@ var (
 
 // NewCovers returns the Xbox / Microsoft Store cover provider with its production endpoints.
 func NewCovers() *Covers {
-	return &Covers{CatalogURL: defaultCatalogURL, Market: "US", Language: "en-US", Client: &http.Client{Timeout: 20 * time.Second}}
+	return &Covers{
+		CatalogURL: defaultCatalogURL,
+		Market:     "US",
+		Language:   "en-US",
+		Client:     &http.Client{Timeout: 20 * time.Second},
+	}
 }
 
 // Descriptor implements media.CoverProvider.
@@ -86,8 +93,13 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 					u = "https:" + u
 				}
 
-				out = append(out, media.CoverCandidate{URL: u, ThumbURL: u + "?w=300", Label: "Microsoft Store: " + strings.ToLower(purpose),
-					Title: lp.ProductTitle, Provider: CoverProviderID})
+				out = append(out, media.CoverCandidate{
+					URL:      u,
+					ThumbURL: u + "?w=300",
+					Label:    "Microsoft Store: " + strings.ToLower(purpose),
+					Title:    lp.ProductTitle,
+					Provider: CoverProviderID,
+				})
 
 				break
 			}

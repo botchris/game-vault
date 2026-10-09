@@ -31,16 +31,25 @@ type Details struct {
 var _ media.MetadataProvider = (*Details)(nil)
 
 // NewDetails builds the metadata provider on top of the cover provider (shared platform cache).
-func NewDetails(p *Provider) *Details { return &Details{p: p, names: map[string]map[int64]string{}} }
+func NewDetails(p *Provider) *Details {
+	return &Details{
+		p:     p,
+		names: map[string]map[int64]string{},
+	}
+}
 
 // Descriptor implements media.MetadataProvider.
 func (d *Details) Descriptor() provider.Descriptor {
 	desc := d.p.Descriptor()
 
 	return provider.Descriptor{
-		ID: DetailsID, Kind: provider.KindMetadata, Name: "TheGamesDB",
-		DescriptionKey: "providers.thegamesdbDetails.description", Fields: desc.Fields, SettingsGroup: string(ID),
-		DefaultOrder: 20,
+		ID:             DetailsID,
+		Kind:           provider.KindMetadata,
+		Name:           "TheGamesDB",
+		DescriptionKey: "providers.thegamesdbDetails.description",
+		Fields:         desc.Fields,
+		SettingsGroup:  string(ID),
+		DefaultOrder:   20,
 	}
 }
 
@@ -150,7 +159,11 @@ func (d *Details) Details(ctx context.Context, q media.CoverQuery, _ string, s s
 	}
 
 	if yt := youTubeID(g.YouTube); yt != "" {
-		det.Videos = []media.Video{{Title: g.Title, YouTubeID: yt, Thumbnail: "https://i.ytimg.com/vi/" + yt + "/hqdefault.jpg"}}
+		det.Videos = []media.Video{{
+			Title:     g.Title,
+			YouTubeID: yt,
+			Thumbnail: "https://i.ytimg.com/vi/" + yt + "/hqdefault.jpg",
+		}}
 	}
 
 	det.Screenshots = d.screenshots(ctx, key, g.ID)
@@ -179,7 +192,10 @@ func (d *Details) screenshots(ctx context.Context, key string, gameID int64) []m
 			break
 		}
 
-		shots = append(shots, media.Screenshot{ThumbURL: out.Data.BaseURL["medium"] + img.Filename, FullURL: out.Data.BaseURL["original"] + img.Filename})
+		shots = append(shots, media.Screenshot{
+			ThumbURL: out.Data.BaseURL["medium"] + img.Filename,
+			FullURL:  out.Data.BaseURL["original"] + img.Filename,
+		})
 	}
 
 	return shots

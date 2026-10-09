@@ -49,7 +49,11 @@ func fakeAccount(t *testing.T) *httptest.Server {
 			return
 		}
 
-		http.SetCookie(w, &http.Cookie{Name: "SESSION", Value: "fresh", Path: "/"})
+		http.SetCookie(w, &http.Cookie{
+			Name:  "SESSION",
+			Value: "fresh",
+			Path:  "/",
+		})
 		http.Redirect(w, r, "/overview", http.StatusFound)
 	})
 	mux.HandleFunc("GET /login/en/", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "<html>login") })

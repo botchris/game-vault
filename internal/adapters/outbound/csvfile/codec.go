@@ -137,9 +137,14 @@ func (Codec) Decode(r io.Reader) ([]game.ImportedCopy, []string, error) {
 		}
 
 		d := game.CopyDetails{
-			Platform: get("platform"), Status: game.Status(strings.ToLower(get("status"))), Key: get("key"),
-			Origin: get("origin"), Edition: get("edition"), Condition: get("condition"),
-			Location: get("location"), Notes: get("notes"),
+			Platform:  get("platform"),
+			Status:    game.Status(strings.ToLower(get("status"))),
+			Key:       get("key"),
+			Origin:    get("origin"),
+			Edition:   get("edition"),
+			Condition: get("condition"),
+			Location:  get("location"),
+			Notes:     get("notes"),
 		}
 
 		var ok bool
@@ -190,7 +195,12 @@ func (Codec) Decode(r io.Reader) ([]game.ImportedCopy, []string, error) {
 			ext = fmt.Sprintf("csv:%s|%s|%s|%s", d.Kind, strings.ToLower(d.Platform), game.MatchKey(title), d.Key)
 		}
 
-		out = append(out, game.ImportedCopy{ExternalID: ext, Title: title, Links: links, Details: d})
+		out = append(out, game.ImportedCopy{
+			ExternalID: ext,
+			Title:      title,
+			Links:      links,
+			Details:    d,
+		})
 	}
 
 	return out, warnings, nil

@@ -30,8 +30,14 @@ func TestCovers(t *testing.T) {
 	c := NewCovers()
 	c.API.BaseURL = srv.URL
 
-	q := media.CoverQuery{Title: "Gwent", Links: game.Links{"gog": "42"}}
-	if !c.Applies(q) || c.Applies(media.CoverQuery{Title: "x", Links: game.Links{game.LinkSteam: "1"}}) {
+	q := media.CoverQuery{
+		Title: "Gwent",
+		Links: game.Links{"gog": "42"},
+	}
+	if !c.Applies(q) || c.Applies(media.CoverQuery{
+		Title: "x",
+		Links: game.Links{game.LinkSteam: "1"},
+	}) {
 		t.Fatal("applies only to games imported from GOG")
 	}
 

@@ -86,7 +86,11 @@ func (s *DetailsStore) Summaries(ctx context.Context, language string) (map[game
 			continue
 		}
 
-		out[id] = media.Summary{Genres: d.Genres, ReleaseDate: d.ReleaseDate, FetchedAt: parseTime(fetched)}
+		out[id] = media.Summary{
+			Genres:      d.Genres,
+			ReleaseDate: d.ReleaseDate,
+			FetchedAt:   parseTime(fetched),
+		}
 	}
 
 	return out, rows.Err()

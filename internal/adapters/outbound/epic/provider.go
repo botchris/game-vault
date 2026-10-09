@@ -90,9 +90,11 @@ type accessToken struct {
 
 // Provider implements sync.Provider and sync.Preparer for Epic accounts.
 type Provider struct {
-	OAuthURL, LibraryURL, CatalogURL string
-	Client                           *http.Client
-	Now                              func() time.Time
+	OAuthURL   string
+	LibraryURL string
+	CatalogURL string
+	Client     *http.Client
+	Now        func() time.Time
 
 	mu      gosync.Mutex
 	pending map[string]pendingSession // sha256(code) → session from a recent exchange
@@ -108,14 +110,20 @@ type pendingSession struct {
 // NewProvider returns the Epic source with its production endpoints.
 func NewProvider() *Provider {
 	return &Provider{
-		OAuthURL: defaultOAuthURL, LibraryURL: defaultLibraryURL, CatalogURL: defaultCatalogURL,
-		Client: &http.Client{Timeout: 30 * time.Second}, Now: time.Now,
+		OAuthURL:   defaultOAuthURL,
+		LibraryURL: defaultLibraryURL,
+		CatalogURL: defaultCatalogURL,
+		Client:     &http.Client{Timeout: 30 * time.Second},
+		Now:        time.Now,
 	}
 }
 
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
 // imports, and the cover provider reads it.
-var LinkedStore = game.Store{Key: "epic", Name: "Epic Games"}
+var LinkedStore = game.Store{
+	Key:  "epic",
+	Name: "Epic Games",
+}
 
 // LinkStore implements sync.StoreLinker.
 func (p *Provider) LinkStore() game.Store { return LinkedStore }
@@ -127,9 +135,17 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 		Name:           "Epic Games Store",
 		DescriptionKey: "sources.epic.description",
 		Fields: []source.Field{
-			{Key: settingAuthCode, LabelKey: "sources.epic.authCode", HelpKey: "sources.epic.authCodeHelp",
-				HelpURL: LoginURL, Kind: source.FieldSecret},
-			{Key: settingSession, Kind: source.FieldState},
+			{
+				Key:      settingAuthCode,
+				LabelKey: "sources.epic.authCode",
+				HelpKey:  "sources.epic.authCodeHelp",
+				HelpURL:  LoginURL,
+				Kind:     source.FieldSecret,
+			},
+			{
+				Key:  settingSession,
+				Kind: source.FieldState,
+			},
 		},
 	}
 }
@@ -200,7 +216,10 @@ func (p *Provider) Prepare(ctx context.Context, settings source.Settings) (sourc
 			p.pending = map[string]pendingSession{}
 		}
 
-		p.pending[key] = pendingSession{s: s, expires: p.Now().Add(pendingTTL)}
+		p.pending[key] = pendingSession{
+			s:       s,
+			expires: p.Now().Add(pendingTTL),
+		}
 		p.mu.Unlock()
 	}
 
@@ -266,7 +285,10 @@ func mapLibrary(records []libraryRecord, items map[string]catalogItem) []game.Im
 			Links:      game.Links{LinkedStore.Key: r.CatalogItemID},
 			Title:      strings.TrimSpace(it.Title),
 			Details: game.CopyDetails{
-				Kind: game.KindLibrary, Platform: Platform, Status: game.StatusOwned, Origin: "Epic Games Store",
+				Kind:     game.KindLibrary,
+				Platform: Platform,
+				Status:   game.StatusOwned,
+				Origin:   "Epic Games Store",
 			},
 		})
 	}
@@ -351,10 +373,18 @@ func (p *Provider) remember(tok tokenResponse) session {
 		p.tokens = map[string]accessToken{}
 	}
 
-	p.tokens[tok.AccountID] = accessToken{token: tok.AccessToken, expires: tok.ExpiresAt}
+	p.tokens[tok.AccountID] = accessToken{
+		token:   tok.AccessToken,
+		expires: tok.ExpiresAt,
+	}
 	p.mu.Unlock()
 
-	return session{RefreshToken: tok.RefreshToken, RefreshExpiresAt: tok.RefreshExpiresAt, AccountID: tok.AccountID, DisplayName: tok.DisplayName}
+	return session{
+		RefreshToken:     tok.RefreshToken,
+		RefreshExpiresAt: tok.RefreshExpiresAt,
+		AccountID:        tok.AccountID,
+		DisplayName:      tok.DisplayName,
+	}
 }
 
 // accessToken returns a valid access token, refreshing the session when needed. A refresh rotates

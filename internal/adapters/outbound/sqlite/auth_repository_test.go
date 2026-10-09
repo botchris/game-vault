@@ -21,7 +21,11 @@ func TestAuthSettings(t *testing.T) {
 		t.Fatalf("defaults: %+v %v", s, err)
 	}
 
-	want := auth.Settings{Authentication: auth.AuthRequired, TrustedNetworks: []string{"192.168.1.0/24"}, CertificateValidation: auth.CertsLocalDisabled}
+	want := auth.Settings{
+		Authentication:        auth.AuthRequired,
+		TrustedNetworks:       []string{"192.168.1.0/24"},
+		CertificateValidation: auth.CertsLocalDisabled,
+	}
 	if err := r.SaveAuth(ctx, want); err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +76,11 @@ func TestAuthSettings_defaultTrustedNetworks(t *testing.T) {
 		})
 
 		t.Run("WHEN the security settings are saved from the UI", func(t *testing.T) {
-			saved := auth.Settings{Authentication: auth.AuthTrustedNetworks, TrustedNetworks: []string{"192.168.1.0/24"}, CertificateValidation: auth.CertsEnabled}
+			saved := auth.Settings{
+				Authentication:        auth.AuthTrustedNetworks,
+				TrustedNetworks:       []string{"192.168.1.0/24"},
+				CertificateValidation: auth.CertsEnabled,
+			}
 			require.NoError(t, r.SaveAuth(ctx, saved))
 
 			got, err := r.Auth(ctx)

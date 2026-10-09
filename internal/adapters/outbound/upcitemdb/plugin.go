@@ -7,5 +7,9 @@ import (
 
 // Plugin is the UPCitemdb plugin: barcode lookups in UPCitemdb.
 func Plugin() plugin.Plugin {
-	return plugin.Plugin{ID: "upcitemdb", Name: "UPCitemdb", Barcodes: []media.BarcodeProvider{New()}}
+	return plugin.Plugin{
+		ID:       "upcitemdb",
+		Name:     "UPCitemdb",
+		Barcodes: []media.BarcodeProvider{New()},
+	}
 }

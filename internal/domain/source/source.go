@@ -142,16 +142,31 @@ func New(d TypeDescriptor, cfg Config, now time.Time) (*Source, error) {
 	}
 
 	return &Source{
-		id: NewID(), typ: d.Type, name: cfg.Name, enabled: cfg.Enabled, syncInterval: cfg.SyncInterval,
-		settings: cfg.Settings, createdAt: now, updatedAt: now,
+		id:           NewID(),
+		typ:          d.Type,
+		name:         cfg.Name,
+		enabled:      cfg.Enabled,
+		syncInterval: cfg.SyncInterval,
+		settings:     cfg.Settings,
+		createdAt:    now,
+		updatedAt:    now,
 	}, nil
 }
 
 // Rehydrate rebuilds a source from storage. Only repositories should call it.
 func Rehydrate(id ID, typ Type, name string, enabled bool, interval time.Duration, settings Settings,
 	lastSync *SyncReport, createdAt, updatedAt time.Time) *Source {
-	return &Source{id: id, typ: typ, name: name, enabled: enabled, syncInterval: interval, settings: settings,
-		lastSync: lastSync, createdAt: createdAt, updatedAt: updatedAt}
+	return &Source{
+		id:           id,
+		typ:          typ,
+		name:         name,
+		enabled:      enabled,
+		syncInterval: interval,
+		settings:     settings,
+		lastSync:     lastSync,
+		createdAt:    createdAt,
+		updatedAt:    updatedAt,
+	}
 }
 
 // ID returns the source's identifier.

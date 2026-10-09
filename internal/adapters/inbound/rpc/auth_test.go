@@ -37,7 +37,14 @@ func (t hostTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 
 func clientWith(host string, headers map[string]string) *http.Client {
 	jar, _ := cookiejar.New(nil)
-	return &http.Client{Transport: hostTransport{host: host, headers: headers}, Jar: jar}
+
+	return &http.Client{
+		Transport: hostTransport{
+			host:    host,
+			headers: headers,
+		},
+		Jar: jar,
+	}
 }
 
 func TestAccessControl(t *testing.T) {
@@ -89,7 +96,10 @@ func TestAccessControl(t *testing.T) {
 				})
 
 				t.Run("AND it cannot create the user", func(t *testing.T) {
-					_, err := rebindingAuth.Setup(ctx, connect.NewRequest(&pb.SetupRequest{Username: "admin", Password: "correct horse"}))
+					_, err := rebindingAuth.Setup(ctx, connect.NewRequest(&pb.SetupRequest{
+						Username: "admin",
+						Password: "correct horse",
+					}))
 					assert.Equal(t, connect.CodePermissionDenied, connect.CodeOf(err))
 				})
 			})
@@ -112,16 +122,25 @@ func TestAccessControl(t *testing.T) {
 		})
 
 		t.Run("WHEN this computer creates the user", func(t *testing.T) {
-			_, err := local.Setup(ctx, connect.NewRequest(&pb.SetupRequest{Username: "admin", Password: "correct horse"}))
+			_, err := local.Setup(ctx, connect.NewRequest(&pb.SetupRequest{
+				Username: "admin",
+				Password: "correct horse",
+			}))
 			require.NoError(t, err)
 
 			t.Run("THEN a wrong password is refused from anywhere", func(t *testing.T) {
-				_, err := rebindingAuth.Login(ctx, connect.NewRequest(&pb.LoginRequest{Username: "admin", Password: "wrong password"}))
+				_, err := rebindingAuth.Login(ctx, connect.NewRequest(&pb.LoginRequest{
+					Username: "admin",
+					Password: "wrong password",
+				}))
 				assert.Equal(t, connect.CodeUnauthenticated, connect.CodeOf(err))
 			})
 
 			t.Run("THEN the right password signs in from anywhere", func(t *testing.T) {
-				login, err := rebindingAuth.Login(ctx, connect.NewRequest(&pb.LoginRequest{Username: "admin", Password: "correct horse"}))
+				login, err := rebindingAuth.Login(ctx, connect.NewRequest(&pb.LoginRequest{
+					Username: "admin",
+					Password: "correct horse",
+				}))
 				require.NoError(t, err)
 				assert.Equal(t, "session", login.Msg.Principal.Method)
 				assert.Contains(t, login.Header().Get("Set-Cookie"), "HttpOnly")
@@ -156,7 +175,8 @@ func TestAccessControl(t *testing.T) {
 
 				t.Run("AND invalid networks are refused", func(t *testing.T) {
 					_, err := signedIn.UpdateAuthSettings(ctx, connect.NewRequest(&pb.UpdateAuthSettingsRequest{Settings: &pb.AuthSettings{
-						Authentication: "trusted_networks", TrustedNetworks: []string{"not a network"},
+						Authentication:  "trusted_networks",
+						TrustedNetworks: []string{"not a network"},
 					}}))
 					assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
 				})
@@ -175,7 +195,10 @@ func TestAccessControl(t *testing.T) {
 				})
 
 				t.Run("AND the new password works", func(t *testing.T) {
-					_, err := rebindingAuth.Login(ctx, connect.NewRequest(&pb.LoginRequest{Username: "admin", Password: "another horse"}))
+					_, err := rebindingAuth.Login(ctx, connect.NewRequest(&pb.LoginRequest{
+						Username: "admin",
+						Password: "another horse",
+					}))
 					assert.NoError(t, err)
 				})
 			})

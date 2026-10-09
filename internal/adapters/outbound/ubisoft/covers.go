@@ -52,15 +52,22 @@ func NewCovers() *Covers {
 	search.Header.Set("X-Algolia-Application-Id", storeSearchAppID)
 	search.Header.Set("X-Algolia-API-Key", storeSearchKey)
 
-	return &Covers{CDNURL: defaultCDNURL, CDN: &http.Client{Timeout: 20 * time.Second}, Search: search}
+	return &Covers{
+		CDNURL: defaultCDNURL,
+		CDN:    &http.Client{Timeout: 20 * time.Second},
+		Search: search,
+	}
 }
 
 // Descriptor implements media.CoverProvider.
 func (c *Covers) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
-		ID: CoverProviderID, Kind: provider.KindCover, Name: "Ubisoft",
-		DescriptionKey: "providers.ubisoftCovers.description", EnabledByDefault: true,
-		DefaultOrder: 50,
+		ID:               CoverProviderID,
+		Kind:             provider.KindCover,
+		Name:             "Ubisoft",
+		DescriptionKey:   "providers.ubisoftCovers.description",
+		EnabledByDefault: true,
+		DefaultOrder:     50,
 	}
 }
 
@@ -95,7 +102,13 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 	if space := q.Links[LinkedStore.Key]; space != "" {
 		u := c.CDNURL + "/" + url.PathEscape(space) + "/spaceCardAsset/boxArt_mobile.jpg"
 		if c.exists(ctx, u) {
-			out = append(out, media.CoverCandidate{URL: u, ThumbURL: u, Label: "Ubisoft Connect: box art", Title: q.Title, Provider: CoverProviderID})
+			out = append(out, media.CoverCandidate{
+				URL:      u,
+				ThumbURL: u,
+				Label:    "Ubisoft Connect: box art",
+				Title:    q.Title,
+				Provider: CoverProviderID,
+			})
 		}
 	}
 
@@ -177,7 +190,13 @@ func pickStoreCovers(title string, hits []storeHit) []media.CoverCandidate {
 
 		seen[u] = true
 
-		cand := media.CoverCandidate{URL: u, ThumbURL: u, Label: "Ubisoft Store: " + strings.TrimSpace(h.Edition), Title: h.ShortTitle, Provider: CoverProviderID}
+		cand := media.CoverCandidate{
+			URL:      u,
+			ThumbURL: u,
+			Label:    "Ubisoft Store: " + strings.TrimSpace(h.Edition),
+			Title:    h.ShortTitle,
+			Provider: CoverProviderID,
+		}
 		if strings.Contains(strings.ToLower(h.Edition), "standard") {
 			standard = append(standard, cand)
 		} else {

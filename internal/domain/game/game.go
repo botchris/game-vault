@@ -29,7 +29,12 @@ func New(title string, now time.Time) (*Game, error) {
 		return nil, invalid("title is required")
 	}
 
-	return &Game{id: NewID(), title: title, createdAt: now, updatedAt: now}, nil
+	return &Game{
+		id:        NewID(),
+		title:     title,
+		createdAt: now,
+		updatedAt: now,
+	}, nil
 }
 
 // Info holds a game's own editable attributes.
@@ -69,8 +74,16 @@ func (i Info) normalize() (Info, error) {
 
 // Rehydrate rebuilds a game from storage. Only repositories should call it.
 func Rehydrate(id ID, info Info, copies []Copy, createdAt, updatedAt time.Time) *Game {
-	return &Game{id: id, title: info.Title, links: info.Links.clone(), notes: info.Notes, coverURL: info.CoverURL,
-		copies: copies, createdAt: createdAt, updatedAt: updatedAt}
+	return &Game{
+		id:        id,
+		title:     info.Title,
+		links:     info.Links.clone(),
+		notes:     info.Notes,
+		coverURL:  info.CoverURL,
+		copies:    copies,
+		createdAt: createdAt,
+		updatedAt: updatedAt,
+	}
 }
 
 // ID returns the game's identifier.
@@ -102,7 +115,12 @@ func (g *Game) Copies() []Copy { return append([]Copy(nil), g.copies...) }
 
 // Info returns the game's own attributes.
 func (g *Game) Info() Info {
-	return Info{Title: g.title, Links: g.links.clone(), Notes: g.notes, CoverURL: g.coverURL}
+	return Info{
+		Title:    g.title,
+		Links:    g.links.clone(),
+		Notes:    g.notes,
+		CoverURL: g.coverURL,
+	}
 }
 
 // UpdateInfo changes the game's own attributes. It reports whether the cover may have changed
@@ -131,7 +149,14 @@ func (g *Game) addCopy(d CopyDetails, sourceID, externalID string, now time.Time
 		return Copy{}, err
 	}
 
-	c := Copy{ID: NewID(), CopyDetails: d, SourceID: sourceID, ExternalID: externalID, CreatedAt: now, UpdatedAt: now}
+	c := Copy{
+		ID:          NewID(),
+		CopyDetails: d,
+		SourceID:    sourceID,
+		ExternalID:  externalID,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
 	g.copies = append(g.copies, c)
 	g.updatedAt = now
 

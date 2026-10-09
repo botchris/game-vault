@@ -72,14 +72,22 @@ func New() *Provider {
 // Descriptor implements media.BarcodeProvider.
 func (p *Provider) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
-		ID: ID, Kind: provider.KindBarcode, Name: "CeX",
-		DescriptionKey: "providers.cex.description", EnabledByDefault: true,
+		ID:               ID,
+		Kind:             provider.KindBarcode,
+		Name:             "CeX",
+		DescriptionKey:   "providers.cex.description",
+		EnabledByDefault: true,
 		Fields: schema.Fields{
 			{
-				Key: settingCountries, LabelKey: "providers.cex.countries", HelpKey: "providers.cex.countriesHelp",
-				Kind: schema.FieldText,
+				Key:      settingCountries,
+				LabelKey: "providers.cex.countries",
+				HelpKey:  "providers.cex.countriesHelp",
+				Kind:     schema.FieldText,
 			},
-			{Key: settingHits, Kind: schema.FieldState},
+			{
+				Key:  settingHits,
+				Kind: schema.FieldState,
+			},
 		},
 		DefaultOrder: 10,
 	}
@@ -184,7 +192,13 @@ func match(b box) media.BarcodeMatch {
 		platform = p
 	}
 
-	return media.BarcodeMatch{Raw: b.BoxName, Title: title, Platform: platform, Edition: edition, Provider: ID}
+	return media.BarcodeMatch{
+		Raw:      b.BoxName,
+		Title:    title,
+		Platform: platform,
+		Edition:  edition,
+		Provider: ID,
+	}
 }
 
 // allowed returns the countries the user limited lookups to, or every country.

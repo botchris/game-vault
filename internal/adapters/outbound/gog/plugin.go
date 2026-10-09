@@ -9,7 +9,8 @@ import (
 // Plugin is the GOG plugin: the library of GOG accounts and the store's box art.
 func Plugin() plugin.Plugin {
 	return plugin.Plugin{
-		ID: "gog", Name: "GOG",
+		ID:      "gog",
+		Name:    "GOG",
 		Sources: []sync.Provider{NewProvider()},
 		Covers:  []media.CoverProvider{NewCovers()},
 	}

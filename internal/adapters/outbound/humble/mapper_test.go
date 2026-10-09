@@ -151,7 +151,10 @@ func TestFetchAgainstFakeServer(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := &Provider{BaseURL: srv.URL, Client: srv.Client()}
+	p := &Provider{
+		BaseURL: srv.URL,
+		Client:  srv.Client(),
+	}
 
 	copies, _, err := p.Fetch(ctx, source.Settings{settingSession: "good"})
 	if err != nil || len(copies) != 6 {

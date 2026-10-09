@@ -3,7 +3,12 @@ package media
 import "testing"
 
 func TestCleanProductTitle(t *testing.T) {
-	cases := []struct{ raw, title, platform, edition string }{
+	cases := []struct {
+		raw      string
+		title    string
+		platform string
+		edition  string
+	}{
 		// Real UPCitemdb answers for PAL (Spanish) boxes.
 		{"Assassin's Creed Iii Ed. Special Ps3(sp)", "Assassin's Creed III", "PS3", "Special Edition"},
 		{"Call Of Duty Modern Warfare 2 Ps3(sp)", "Call Of Duty Modern Warfare 2", "PS3", ""},

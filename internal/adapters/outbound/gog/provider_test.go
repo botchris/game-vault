@@ -185,7 +185,10 @@ func TestErrors(t *testing.T) {
 		t.Errorf("stale session: %v", err)
 	}
 	// A token GOG no longer accepts makes it redirect to the login page.
-	p.tokens = map[string]accessToken{"u1": {token: "revoked", expires: p.Now().Add(1e12)}}
+	p.tokens = map[string]accessToken{"u1": {
+		token:   "revoked",
+		expires: p.Now().Add(1e12),
+	}}
 	if err := p.get(ctx, "revoked", p.EmbedURL+"/user/data/games", &struct{}{}); !errors.Is(err, ErrSessionExpired) {
 		t.Errorf("redirect to login: %v", err)
 	}

@@ -28,15 +28,21 @@ var _ media.CoverProvider = (*Covers)(nil)
 
 // NewCovers returns the Battle.net cover provider with its production endpoints.
 func NewCovers(search media.LinkSearcher, steam media.CoverProvider) *Covers {
-	return &Covers{Search: search, Steam: steam}
+	return &Covers{
+		Search: search,
+		Steam:  steam,
+	}
 }
 
 // Descriptor implements media.CoverProvider.
 func (c *Covers) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
-		ID: CoverProviderID, Kind: provider.KindCover, Name: "Battle.net",
-		DescriptionKey: "providers.battlenetCovers.description", EnabledByDefault: true,
-		DefaultOrder: 70,
+		ID:               CoverProviderID,
+		Kind:             provider.KindCover,
+		Name:             "Battle.net",
+		DescriptionKey:   "providers.battlenetCovers.description",
+		EnabledByDefault: true,
+		DefaultOrder:     70,
 	}
 }
 
@@ -68,7 +74,10 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, settings schema
 			continue
 		}
 
-		cands, err := c.Steam.Covers(ctx, media.CoverQuery{Title: m.Name, Links: game.Links{store: m.ID}}, settings)
+		cands, err := c.Steam.Covers(ctx, media.CoverQuery{
+			Title: m.Name,
+			Links: game.Links{store: m.ID},
+		}, settings)
 		if err != nil {
 			return nil, err
 		}

@@ -25,12 +25,17 @@ const defaultBaseURL = "https://api.example-store.invalid"
 
 // LinkedStore is the store this plugin links games to. The source sets the link on every game it
 // imports and the cover provider reads it: that is the only thing the two pieces share.
-var LinkedStore = game.Store{Key: "example", Name: "Example Store", PageURL: "https://example-store.invalid/game/{id}"}
+var LinkedStore = game.Store{
+	Key:     "example",
+	Name:    "Example Store",
+	PageURL: "https://example-store.invalid/game/{id}",
+}
 
 // Plugin is the Example Store plugin: the library of Example Store accounts and the store's box art.
 func Plugin() plugin.Plugin {
 	return plugin.Plugin{
-		ID: "example", Name: "Example Store",
+		ID:      "example",
+		Name:    "Example Store",
 		Sources: []sync.Provider{NewProvider()},
 		Covers:  []media.CoverProvider{NewCovers()},
 	}

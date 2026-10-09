@@ -9,5 +9,9 @@ import (
 
 // Plugin is the Humble Bundle plugin: the keys in Humble Bundle orders.
 func Plugin(log *slog.Logger) plugin.Plugin {
-	return plugin.Plugin{ID: "humble", Name: "Humble Bundle", Sources: []sync.Provider{NewProvider(log)}}
+	return plugin.Plugin{
+		ID:      "humble",
+		Name:    "Humble Bundle",
+		Sources: []sync.Provider{NewProvider(log)},
+	}
 }

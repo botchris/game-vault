@@ -33,7 +33,12 @@ type Service struct {
 
 // NewService builds the service around the file codec.
 func NewService(games game.Repository, tx port.TxManager, now port.Clock, codec Codec) *Service {
-	return &Service{games: games, tx: tx, now: now, codec: codec}
+	return &Service{
+		games: games,
+		tx:    tx,
+		now:   now,
+		codec: codec,
+	}
 }
 
 // Import consolidates the rows of a file into the catalog. Rows carry stable external ids, so

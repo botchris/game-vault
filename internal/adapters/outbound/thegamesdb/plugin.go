@@ -11,7 +11,8 @@ func Plugin() plugin.Plugin {
 	tgdb := New()
 
 	return plugin.Plugin{
-		ID: "thegamesdb", Name: "TheGamesDB",
+		ID:       "thegamesdb",
+		Name:     "TheGamesDB",
 		Covers:   []media.CoverProvider{tgdb},
 		Metadata: []media.MetadataProvider{NewDetails(tgdb)},
 	}

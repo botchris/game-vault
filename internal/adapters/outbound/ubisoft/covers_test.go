@@ -43,12 +43,20 @@ func TestCovers(t *testing.T) {
 	c := NewCovers()
 	c.CDNURL, c.Search.BaseURL = srv.URL, srv.URL+"/search"
 
-	if !c.Applies(media.CoverQuery{Title: "x", Platforms: []string{"Ubisoft Connect"}}) || c.Applies(media.CoverQuery{Title: "x", Links: game.Links{game.LinkSteam: "1"}}) {
+	if !c.Applies(media.CoverQuery{
+		Title:     "x",
+		Platforms: []string{"Ubisoft Connect"},
+	}) || c.Applies(media.CoverQuery{
+		Title: "x",
+		Links: game.Links{game.LinkSteam: "1"},
+	}) {
 		t.Fatal("applies to games imported from Ubisoft or with a Ubisoft Connect copy")
 	}
 
-	got, err := c.Covers(context.Background(), media.CoverQuery{Title: "Assassin's Creed® Origins",
-		Links: game.Links{"ubisoft": "space-with-art"}}, nil)
+	got, err := c.Covers(context.Background(), media.CoverQuery{
+		Title: "Assassin's Creed® Origins",
+		Links: game.Links{"ubisoft": "space-with-art"},
+	}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

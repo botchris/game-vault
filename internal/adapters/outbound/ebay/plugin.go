@@ -7,5 +7,9 @@ import (
 
 // Plugin is the eBay plugin: barcode lookups in eBay's catalog.
 func Plugin() plugin.Plugin {
-	return plugin.Plugin{ID: "ebay", Name: "eBay", Barcodes: []media.BarcodeProvider{New()}}
+	return plugin.Plugin{
+		ID:       "ebay",
+		Name:     "eBay",
+		Barcodes: []media.BarcodeProvider{New()},
+	}
 }

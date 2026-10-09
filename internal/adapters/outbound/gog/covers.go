@@ -44,9 +44,12 @@ func NewCovers() *Covers {
 // Descriptor implements media.CoverProvider.
 func (c *Covers) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
-		ID: CoverProviderID, Kind: provider.KindCover, Name: "GOG",
-		DescriptionKey: "providers.gogCovers.description", EnabledByDefault: true,
-		DefaultOrder: 40,
+		ID:               CoverProviderID,
+		Kind:             provider.KindCover,
+		Name:             "GOG",
+		DescriptionKey:   "providers.gogCovers.description",
+		EnabledByDefault: true,
+		DefaultOrder:     40,
 	}
 }
 
@@ -84,11 +87,20 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 		}
 
 		title := g.Embedded.Product.Title
-		for _, l := range []struct{ href, label string }{
+		for _, l := range []struct {
+			href  string
+			label string
+		}{
 			{g.Links.BoxArt.Href, "GOG: box art"}, {g.Links.Background.Href, "GOG: wide image"},
 		} {
 			if strings.HasPrefix(l.href, "https://") {
-				out = append(out, media.CoverCandidate{URL: l.href, ThumbURL: l.href, Label: l.label, Title: title, Provider: CoverProviderID})
+				out = append(out, media.CoverCandidate{
+					URL:      l.href,
+					ThumbURL: l.href,
+					Label:    l.label,
+					Title:    title,
+					Provider: CoverProviderID,
+				})
 			}
 		}
 	}

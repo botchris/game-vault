@@ -10,7 +10,10 @@ import (
 	"gamevault/internal/domain/game"
 )
 
-var jpg = media.Image{Data: []byte("\xff\xd8\xff fake jpeg"), ContentType: "image/jpeg"}
+var jpg = media.Image{
+	Data:        []byte("\xff\xd8\xff fake jpeg"),
+	ContentType: "image/jpeg",
+}
 
 func TestLayoutRenameAndPrune(t *testing.T) {
 	root := t.TempDir()
@@ -20,7 +23,10 @@ func TestLayoutRenameAndPrune(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	g := media.GameRef{ID: "019b11c2-aaaa", Title: `Halo 3: ODST / "Collector's"`}
+	g := media.GameRef{
+		ID:    "019b11c2-aaaa",
+		Title: `Halo 3: ODST / "Collector's"`,
+	}
 	if err := s.PutCover(g, jpg); err != nil {
 		t.Fatal(err)
 	}

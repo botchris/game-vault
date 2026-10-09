@@ -13,7 +13,11 @@ func TestRotationAndRetention(t *testing.T) {
 
 	var lvl slog.LevelVar
 
-	r, err := Open(dir, &lvl, settings.Logging{Level: "debug", MaxFileSizeMB: 1, MaxFiles: 3})
+	r, err := Open(dir, &lvl, settings.Logging{
+		Level:         "debug",
+		MaxFileSizeMB: 1,
+		MaxFiles:      3,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +59,11 @@ func TestRotationAndRetention(t *testing.T) {
 	}
 
 	// Lowering retention prunes immediately; clearing removes every archived file.
-	if err := r.Apply(settings.Logging{Level: "info", MaxFileSizeMB: 1, MaxFiles: 2}); err != nil {
+	if err := r.Apply(settings.Logging{
+		Level:         "info",
+		MaxFileSizeMB: 1,
+		MaxFiles:      2,
+	}); err != nil {
 		t.Fatal(err)
 	}
 

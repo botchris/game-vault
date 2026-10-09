@@ -29,7 +29,10 @@ func TestCoversResolveHashedAssetPaths(t *testing.T) {
 	s := testStore(srv)
 	s.CDNURL, s.AssetsURL = "https://legacy.test", "https://assets.test/store_item_assets/"
 
-	got, err := s.Covers(context.Background(), media.CoverQuery{Title: "Big Rigs", Links: game.Links{game.LinkSteam: "3598130"}}, schema.Settings{})
+	got, err := s.Covers(context.Background(), media.CoverQuery{
+		Title: "Big Rigs",
+		Links: game.Links{game.LinkSteam: "3598130"},
+	}, schema.Settings{})
 	if err != nil || len(got) != 2 {
 		t.Fatalf("covers: %+v %v", got, err)
 	}
@@ -40,7 +43,10 @@ func TestCoversResolveHashedAssetPaths(t *testing.T) {
 	}
 
 	// If the API fails, the legacy predictable URLs are still offered.
-	got, _ = s.Covers(context.Background(), media.CoverQuery{Title: "Portal 2", Links: game.Links{game.LinkSteam: "620"}}, schema.Settings{})
+	got, _ = s.Covers(context.Background(), media.CoverQuery{
+		Title: "Portal 2",
+		Links: game.Links{game.LinkSteam: "620"},
+	}, schema.Settings{})
 	if len(got) != 2 || got[0].URL != "https://legacy.test/steam/apps/620/library_600x900.jpg" {
 		t.Fatalf("legacy fallback: %+v", got)
 	}

@@ -81,7 +81,14 @@ func NewService(sources source.Repository, games game.Repository, tx port.TxMana
 		m[p.Descriptor().Type] = p
 	}
 
-	return &Service{sources: sources, games: games, tx: tx, now: now, providers: m, log: log}
+	return &Service{
+		sources:   sources,
+		games:     games,
+		tx:        tx,
+		now:       now,
+		providers: m,
+		log:       log,
+	}
 }
 
 // Types lists the available source types, sorted by name.
@@ -570,7 +577,10 @@ func (s *Service) RunScheduler(ctx context.Context, tick, firstWithin time.Durat
 
 				n, ok := due[src.ID()]
 				if !ok || !n.after.Equal(last) || n.interval != interval {
-					n = nextScan{after: last, interval: interval}
+					n = nextScan{
+						after:    last,
+						interval: interval,
+					}
 
 					n.at = last.Add(vary(interval, scanJitter))
 					if last.IsZero() || n.at.Before(now) {

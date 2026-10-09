@@ -49,8 +49,14 @@ func TestCovers(t *testing.T) {
 	c := NewCovers()
 	c.p.OAuthURL, c.p.CatalogURL = srv.URL, srv.URL
 
-	q := media.CoverQuery{Title: "Control", Links: game.Links{"steam": "1", "epic": "abc"}}
-	if !c.Applies(q) || c.Applies(media.CoverQuery{Title: "x", Links: game.Links{"gog": "1"}}) {
+	q := media.CoverQuery{
+		Title: "Control",
+		Links: game.Links{"steam": "1", "epic": "abc"},
+	}
+	if !c.Applies(q) || c.Applies(media.CoverQuery{
+		Title: "x",
+		Links: game.Links{"gog": "1"},
+	}) {
 		t.Fatal("applies only to games imported from Epic")
 	}
 

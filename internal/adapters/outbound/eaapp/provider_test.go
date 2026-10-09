@@ -22,8 +22,16 @@ func fakeEA(t *testing.T) *httptest.Server {
 			return
 		}
 
-		http.SetCookie(w, &http.Cookie{Name: "sid", Value: "good", Path: "/"})
-		http.SetCookie(w, &http.Cookie{Name: "_nx_mpcid", Value: "renewed", Path: "/"})
+		http.SetCookie(w, &http.Cookie{
+			Name:  "sid",
+			Value: "good",
+			Path:  "/",
+		})
+		http.SetCookie(w, &http.Cookie{
+			Name:  "_nx_mpcid",
+			Value: "renewed",
+			Path:  "/",
+		})
 		fmt.Fprint(w, `{"access_token":"tok","token_type":"Bearer","expires_in":"3599"}`)
 	})
 	mux.HandleFunc("POST /graphql", func(w http.ResponseWriter, r *http.Request) {

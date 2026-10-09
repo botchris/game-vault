@@ -89,11 +89,18 @@ func New() *Provider {
 // Descriptor implements media.CoverProvider.
 func (p *Provider) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
-		ID: ID, Kind: provider.KindCover, Name: "TheGamesDB", SettingsGroup: string(ID),
+		ID:             ID,
+		Kind:           provider.KindCover,
+		Name:           "TheGamesDB",
+		SettingsGroup:  string(ID),
 		DescriptionKey: "providers.thegamesdb.description",
 		Fields: schema.Fields{{
-			Key: settingAPIKey, LabelKey: "providers.thegamesdb.apiKey", HelpKey: "providers.thegamesdb.apiKeyHelp",
-			HelpURL: "https://forums.thegamesdb.net/viewforum.php?f=10", Kind: schema.FieldSecret, Required: true,
+			Key:      settingAPIKey,
+			LabelKey: "providers.thegamesdb.apiKey",
+			HelpKey:  "providers.thegamesdb.apiKeyHelp",
+			HelpURL:  "https://forums.thegamesdb.net/viewforum.php?f=10",
+			Kind:     schema.FieldSecret,
+			Required: true,
 		}},
 		DefaultOrder: 10,
 	}
@@ -289,7 +296,13 @@ func (p *Provider) Covers(ctx context.Context, q media.CoverQuery, s schema.Sett
 				label += " · " + g.ReleaseDate[:4]
 			}
 
-			c := media.CoverCandidate{URL: large + art.Filename, ThumbURL: thumb + art.Filename, Label: label, Title: g.Title, Provider: ID}
+			c := media.CoverCandidate{
+				URL:      large + art.Filename,
+				ThumbURL: thumb + art.Filename,
+				Label:    label,
+				Title:    g.Title,
+				Provider: ID,
+			}
 			switch {
 			case strictKey(g.Title) == wantStrict:
 				strict = append(strict, c)

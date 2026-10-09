@@ -89,10 +89,15 @@ type pending struct {
 
 // Provider implements sync.Provider and sync.Preparer for Xbox accounts.
 type Provider struct {
-	LiveURL, UserAuthURL, XSTSURL, CollectionsURL, CatalogURL string
-	Client                                                    *http.Client
-	Market, Language                                          string
-	Now                                                       func() time.Time
+	LiveURL        string
+	UserAuthURL    string
+	XSTSURL        string
+	CollectionsURL string
+	CatalogURL     string
+	Client         *http.Client
+	Market         string
+	Language       string
+	Now            func() time.Time
 
 	mu      gosync.Mutex
 	pending map[string]pending // sha256(code) → session from a recent exchange
@@ -101,15 +106,24 @@ type Provider struct {
 // NewProvider returns the Xbox / Microsoft Store source with its production endpoints.
 func NewProvider() *Provider {
 	return &Provider{
-		LiveURL: defaultLiveURL, UserAuthURL: defaultUserAuthURL, XSTSURL: defaultXSTSURL,
-		CollectionsURL: defaultCollectionsURL, CatalogURL: defaultCatalogURL,
-		Client: &http.Client{Timeout: 30 * time.Second}, Market: "US", Language: "en-US", Now: time.Now,
+		LiveURL:        defaultLiveURL,
+		UserAuthURL:    defaultUserAuthURL,
+		XSTSURL:        defaultXSTSURL,
+		CollectionsURL: defaultCollectionsURL,
+		CatalogURL:     defaultCatalogURL,
+		Client:         &http.Client{Timeout: 30 * time.Second},
+		Market:         "US",
+		Language:       "en-US",
+		Now:            time.Now,
 	}
 }
 
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
 // imports, and the cover provider reads it.
-var LinkedStore = game.Store{Key: "xbox", Name: "Xbox"}
+var LinkedStore = game.Store{
+	Key:  "xbox",
+	Name: "Xbox",
+}
 
 // LinkStore implements sync.StoreLinker.
 func (p *Provider) LinkStore() game.Store { return LinkedStore }
@@ -121,8 +135,17 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 		Name:           "Xbox / Microsoft Store",
 		DescriptionKey: "sources.xbox.description",
 		Fields: []source.Field{
-			{Key: settingCode, LabelKey: "sources.xbox.code", HelpKey: "sources.xbox.codeHelp", HelpURL: LoginURL, Kind: source.FieldSecret},
-			{Key: settingSession, Kind: source.FieldState},
+			{
+				Key:      settingCode,
+				LabelKey: "sources.xbox.code",
+				HelpKey:  "sources.xbox.codeHelp",
+				HelpURL:  LoginURL,
+				Kind:     source.FieldSecret,
+			},
+			{
+				Key:  settingSession,
+				Kind: source.FieldState,
+			},
 		},
 	}
 }
@@ -224,7 +247,14 @@ func (p *Provider) Prepare(ctx context.Context, settings source.Settings) (sourc
 			return nil, err
 		}
 
-		pend = pending{s: session{RefreshToken: tok.RefreshToken, UserID: tok.UserID}, access: tok.AccessToken, expires: p.Now().Add(pendingTTL)}
+		pend = pending{
+			s: session{
+				RefreshToken: tok.RefreshToken,
+				UserID:       tok.UserID,
+			},
+			access:  tok.AccessToken,
+			expires: p.Now().Add(pendingTTL),
+		}
 		p.mu.Lock()
 		if p.pending == nil {
 			p.pending = map[string]pending{}
@@ -262,7 +292,10 @@ func (p *Provider) accessToken(ctx context.Context, settings source.Settings) (s
 		return "", err
 	}
 
-	raw, _ := json.Marshal(session{RefreshToken: tok.RefreshToken, UserID: s.UserID})
+	raw, _ := json.Marshal(session{
+		RefreshToken: tok.RefreshToken,
+		UserID:       s.UserID,
+	})
 	settings[settingSession] = string(raw)
 
 	return tok.AccessToken, nil
@@ -510,7 +543,12 @@ func (p *Provider) owned(ctx context.Context, settings source.Settings) ([]game.
 			ExternalID: "xbox:" + id,
 			Links:      game.Links{LinkedStore.Key: id},
 			Title:      title,
-			Details:    game.CopyDetails{Kind: game.KindLibrary, Platform: Platform, Status: game.StatusOwned, Origin: "Microsoft Store"},
+			Details: game.CopyDetails{
+				Kind:     game.KindLibrary,
+				Platform: Platform,
+				Status:   game.StatusOwned,
+				Origin:   "Microsoft Store",
+			},
 		})
 	}
 

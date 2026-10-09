@@ -51,7 +51,15 @@ type Service struct {
 
 // NewService builds the service. Backups are written to backupDir and only the newest keep are kept.
 func NewService(games game.Repository, db DatabaseBackup, now port.Clock, log *slog.Logger, status Status, backupDir string, keep int) *Service {
-	return &Service{games: games, db: db, now: now, log: log, status: status, backupDir: backupDir, keep: keep}
+	return &Service{
+		games:     games,
+		db:        db,
+		now:       now,
+		log:       log,
+		status:    status,
+		backupDir: backupDir,
+		keep:      keep,
+	}
 }
 
 // Status reports the running version and the size of the catalog.
@@ -93,7 +101,11 @@ func (s *Service) CreateBackup(ctx context.Context) (Backup, error) {
 		return Backup{}, err
 	}
 
-	return Backup{Name: name, SizeBytes: info.Size(), CreatedAt: info.ModTime()}, nil
+	return Backup{
+		Name:      name,
+		SizeBytes: info.Size(),
+		CreatedAt: info.ModTime(),
+	}, nil
 }
 
 // ListBackups returns the backups, newest first.
@@ -119,7 +131,11 @@ func (s *Service) ListBackups(context.Context) ([]Backup, error) {
 			continue
 		}
 
-		out = append(out, Backup{Name: e.Name(), SizeBytes: info.Size(), CreatedAt: info.ModTime()})
+		out = append(out, Backup{
+			Name:      e.Name(),
+			SizeBytes: info.Size(),
+			CreatedAt: info.ModTime(),
+		})
 	}
 
 	sort.Slice(out, func(i, j int) bool { return out[i].Name > out[j].Name })

@@ -9,7 +9,8 @@ import (
 // Plugin is the Xbox plugin: the library of Microsoft accounts and the Microsoft Store's art.
 func Plugin() plugin.Plugin {
 	return plugin.Plugin{
-		ID: "xbox", Name: "Xbox",
+		ID:      "xbox",
+		Name:    "Xbox",
 		Sources: []sync.Provider{NewProvider()},
 		Covers:  []media.CoverProvider{NewCovers()},
 	}

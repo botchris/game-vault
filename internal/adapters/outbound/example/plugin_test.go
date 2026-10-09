@@ -123,7 +123,10 @@ func TestCovers(t *testing.T) {
 	c.API.BaseURL, c.API.HTTP = srv.URL, srv.Client()
 
 	t.Run("GIVEN a game linked to the store, by a scan or by hand", func(t *testing.T) {
-		q := media.CoverQuery{Title: "Tunic", Links: game.Links{"example": "101"}}
+		q := media.CoverQuery{
+			Title: "Tunic",
+			Links: game.Links{"example": "101"},
+		}
 
 		t.Run("WHEN its covers are asked", func(t *testing.T) {
 			got, err := c.Covers(ctx, q, nil)
@@ -148,7 +151,10 @@ func TestCovers(t *testing.T) {
 
 	t.Run("GIVEN a game not linked to the store", func(t *testing.T) {
 		t.Run("THEN the provider does not apply", func(t *testing.T) {
-			assert.False(t, c.Applies(media.CoverQuery{Title: "Tunic", Links: game.Links{"steam": "553420"}}))
+			assert.False(t, c.Applies(media.CoverQuery{
+				Title: "Tunic",
+				Links: game.Links{"steam": "553420"},
+			}))
 		})
 	})
 }

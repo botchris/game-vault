@@ -44,12 +44,31 @@ func TestTrusts(t *testing.T) {
 		r    Request
 		want bool
 	}{
-		{"this computer", Request{ClientIP: ip("127.0.0.1"), HostIsAddress: true}, true},
-		{"this computer over IPv6", Request{ClientIP: ip("::1"), HostIsAddress: true}, true},
-		{"IPv4-mapped address", Request{ClientIP: ip("::ffff:192.168.1.20"), HostIsAddress: true}, true},
-		{"home network", Request{ClientIP: ip("192.168.1.20"), HostIsAddress: true}, true},
-		{"another network", Request{ClientIP: ip("192.168.2.20"), HostIsAddress: true}, false},
-		{"through a proxy", Request{ClientIP: ip("127.0.0.1"), HostIsAddress: true, Forwarded: true}, false},
+		{"this computer", Request{
+			ClientIP:      ip("127.0.0.1"),
+			HostIsAddress: true,
+		}, true},
+		{"this computer over IPv6", Request{
+			ClientIP:      ip("::1"),
+			HostIsAddress: true,
+		}, true},
+		{"IPv4-mapped address", Request{
+			ClientIP:      ip("::ffff:192.168.1.20"),
+			HostIsAddress: true,
+		}, true},
+		{"home network", Request{
+			ClientIP:      ip("192.168.1.20"),
+			HostIsAddress: true,
+		}, true},
+		{"another network", Request{
+			ClientIP:      ip("192.168.2.20"),
+			HostIsAddress: true,
+		}, false},
+		{"through a proxy", Request{
+			ClientIP:      ip("127.0.0.1"),
+			HostIsAddress: true,
+			Forwarded:     true,
+		}, false},
 		{"DNS rebinding (a site's own name pointing here)", Request{ClientIP: ip("127.0.0.1")}, false},
 		{"no address", Request{HostIsAddress: true}, false},
 	}

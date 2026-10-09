@@ -23,7 +23,11 @@ var _ gamevaultv1connect.LogServiceHandler = (*LogHandler)(nil)
 func NewLogHandler(l *logs.Service) *LogHandler { return &LogHandler{logs: l} }
 
 func logSettingsToPB(l settings.Logging) *pb.LogSettings {
-	return &pb.LogSettings{Level: l.Level, MaxFileSizeMb: uint32(l.MaxFileSizeMB), MaxFiles: uint32(l.MaxFiles)}
+	return &pb.LogSettings{
+		Level:         l.Level,
+		MaxFileSizeMb: uint32(l.MaxFileSizeMB),
+		MaxFiles:      uint32(l.MaxFiles),
+	}
 }
 
 // GetLogSettings returns the log level and rotation settings.
@@ -43,7 +47,11 @@ func (h *LogHandler) UpdateLogSettings(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("settings are required"))
 	}
 
-	l, err := h.logs.UpdateSettings(ctx, settings.Logging{Level: in.Level, MaxFileSizeMB: int(in.MaxFileSizeMb), MaxFiles: int(in.MaxFiles)})
+	l, err := h.logs.UpdateSettings(ctx, settings.Logging{
+		Level:         in.Level,
+		MaxFileSizeMB: int(in.MaxFileSizeMb),
+		MaxFiles:      int(in.MaxFiles),
+	})
 	if err != nil {
 		return nil, toConnectError(err)
 	}
@@ -60,7 +68,12 @@ func (h *LogHandler) ListLogFiles(ctx context.Context, _ *connect.Request[pb.Lis
 
 	out := &pb.ListLogFilesResponse{}
 	for _, f := range files {
-		out.Files = append(out.Files, &pb.LogFile{Name: f.Name, SizeBytes: f.SizeBytes, ModifiedAt: ts(f.ModifiedAt), Current: f.Current})
+		out.Files = append(out.Files, &pb.LogFile{
+			Name:       f.Name,
+			SizeBytes:  f.SizeBytes,
+			ModifiedAt: ts(f.ModifiedAt),
+			Current:    f.Current,
+		})
 	}
 
 	return connect.NewResponse(out), nil
@@ -78,7 +91,11 @@ func (h *LogHandler) GetLogFile(ctx context.Context, req *connect.Request[pb.Get
 		return nil, toConnectError(err)
 	}
 
-	return connect.NewResponse(&pb.GetLogFileResponse{Name: req.Msg.Name, Content: content, Truncated: truncated}), nil
+	return connect.NewResponse(&pb.GetLogFileResponse{
+		Name:      req.Msg.Name,
+		Content:   content,
+		Truncated: truncated,
+	}), nil
 }
 
 // ClearLogFiles deletes the log files.

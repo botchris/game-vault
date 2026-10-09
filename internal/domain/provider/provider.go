@@ -64,7 +64,14 @@ type Provider struct {
 
 // New creates the default configuration for a provider seen for the first time.
 func New(d Descriptor, priority int, now time.Time) *Provider {
-	return &Provider{id: d.ID, kind: d.Kind, enabled: d.EnabledByDefault, priority: priority, settings: schema.Settings{}, updatedAt: now}
+	return &Provider{
+		id:        d.ID,
+		kind:      d.Kind,
+		enabled:   d.EnabledByDefault,
+		priority:  priority,
+		settings:  schema.Settings{},
+		updatedAt: now,
+	}
 }
 
 // Rehydrate rebuilds a configuration from storage. Only repositories should call it.
@@ -73,7 +80,14 @@ func Rehydrate(id ID, kind Kind, enabled bool, priority int, settings schema.Set
 		settings = schema.Settings{}
 	}
 
-	return &Provider{id: id, kind: kind, enabled: enabled, priority: priority, settings: settings, updatedAt: updatedAt}
+	return &Provider{
+		id:        id,
+		kind:      kind,
+		enabled:   enabled,
+		priority:  priority,
+		settings:  settings,
+		updatedAt: updatedAt,
+	}
 }
 
 // ID returns the provider implementation this configuration belongs to.

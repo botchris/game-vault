@@ -10,7 +10,8 @@ import (
 // page's details, all through store (also the store Battle.net's covers search).
 func Plugin(store *Store) plugin.Plugin {
 	return plugin.Plugin{
-		ID: "steam", Name: "Steam",
+		ID:       "steam",
+		Name:     "Steam",
 		Sources:  []sync.Provider{NewProvider()},
 		Covers:   []media.CoverProvider{store},
 		Metadata: []media.MetadataProvider{NewDetails(store)},

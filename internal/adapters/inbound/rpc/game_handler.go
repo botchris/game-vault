@@ -26,7 +26,11 @@ var _ gamevaultv1connect.GameServiceHandler = (*GameHandler)(nil)
 
 // NewGameHandler returns the GameService handler backed by the catalog, media and sync services.
 func NewGameHandler(c *catalog.Service, m *media.Service, sources *sync.Service) *GameHandler {
-	return &GameHandler{catalog: c, media: m, sources: sources}
+	return &GameHandler{
+		catalog: c,
+		media:   m,
+		sources: sources,
+	}
 }
 
 func gameResp[T any](g *game.Game, err error, wrap func(*pb.Game) *T) (*connect.Response[T], error) {
@@ -60,7 +64,10 @@ func (h *GameHandler) ListGames(ctx context.Context, req *connect.Request[pb.Lis
 		}
 	}
 
-	return connect.NewResponse(&pb.ListGamesResponse{Games: out, DetailsCached: int32(cached)}), nil
+	return connect.NewResponse(&pb.ListGamesResponse{
+		Games:         out,
+		DetailsCached: int32(cached),
+	}), nil
 }
 
 // GetGame returns one game with its copies.
@@ -82,7 +89,12 @@ func (h *GameHandler) CreateGame(ctx context.Context, req *connect.Request[pb.Cr
 		copies = append(copies, cd)
 	}
 
-	info := game.Info{Title: req.Msg.Title, Links: req.Msg.Links, Notes: req.Msg.Notes, CoverURL: req.Msg.CoverUrl}
+	info := game.Info{
+		Title:    req.Msg.Title,
+		Links:    req.Msg.Links,
+		Notes:    req.Msg.Notes,
+		CoverURL: req.Msg.CoverUrl,
+	}
 	g, err := h.catalog.CreateGame(ctx, info, copies)
 
 	return gameResp(g, err, func(g *pb.Game) *pb.CreateGameResponse { return &pb.CreateGameResponse{Game: g} })
@@ -90,7 +102,12 @@ func (h *GameHandler) CreateGame(ctx context.Context, req *connect.Request[pb.Cr
 
 // UpdateGame changes the editable fields of a game.
 func (h *GameHandler) UpdateGame(ctx context.Context, req *connect.Request[pb.UpdateGameRequest]) (*connect.Response[pb.UpdateGameResponse], error) {
-	info := game.Info{Title: req.Msg.Title, Links: req.Msg.Links, Notes: req.Msg.Notes, CoverURL: req.Msg.CoverUrl}
+	info := game.Info{
+		Title:    req.Msg.Title,
+		Links:    req.Msg.Links,
+		Notes:    req.Msg.Notes,
+		CoverURL: req.Msg.CoverUrl,
+	}
 	g, err := h.catalog.UpdateGame(ctx, game.ID(req.Msg.Id), info)
 
 	return gameResp(g, err, func(g *pb.Game) *pb.UpdateGameResponse { return &pb.UpdateGameResponse{Game: g} })
@@ -154,7 +171,10 @@ func (h *GameHandler) MoveCopy(ctx context.Context, req *connect.Request[pb.Move
 		return nil, toConnectError(err)
 	}
 
-	return connect.NewResponse(&pb.MoveCopyResponse{SourceGame: gameToPB(src), TargetGame: gameToPB(dst)}), nil
+	return connect.NewResponse(&pb.MoveCopyResponse{
+		SourceGame: gameToPB(src),
+		TargetGame: gameToPB(dst),
+	}), nil
 }
 
 // MarkRedeemedKeys marks as redeemed the unredeemed keys whose game is already in the
@@ -182,7 +202,12 @@ func (h *GameHandler) ListLinkStores(context.Context, *connect.Request[pb.ListLi
 			return
 		}
 
-		byKey[s.Key] = &pb.LinkStore{Key: s.Key, Name: s.Name, PageUrl: s.PageURL, Searchable: searchable}
+		byKey[s.Key] = &pb.LinkStore{
+			Key:        s.Key,
+			Name:       s.Name,
+			PageUrl:    s.PageURL,
+			Searchable: searchable,
+		}
 		out.Stores = append(out.Stores, byKey[s.Key])
 	}
 
@@ -210,7 +235,11 @@ func (h *GameHandler) SearchLinks(ctx context.Context, req *connect.Request[pb.S
 
 	out := &pb.SearchLinksResponse{}
 	for _, m := range matches {
-		out.Matches = append(out.Matches, &pb.LinkMatch{Id: m.ID, Name: m.Name, ImageUrl: m.ImageURL})
+		out.Matches = append(out.Matches, &pb.LinkMatch{
+			Id:       m.ID,
+			Name:     m.Name,
+			ImageUrl: m.ImageURL,
+		})
 	}
 
 	return connect.NewResponse(out), nil

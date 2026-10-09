@@ -26,7 +26,12 @@ type Service struct {
 
 // NewService builds the service. covers may be nil when no cover cache is wired.
 func NewService(games game.Repository, tx port.TxManager, now port.Clock, covers CoverCache) *Service {
-	return &Service{games: games, tx: tx, now: now, covers: covers}
+	return &Service{
+		games:  games,
+		tx:     tx,
+		now:    now,
+		covers: covers,
+	}
 }
 
 // invalidateCover is best effort: a stale cached image is not worth failing the use case.

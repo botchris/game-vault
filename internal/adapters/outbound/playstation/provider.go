@@ -90,9 +90,10 @@ type accessToken struct {
 
 // Provider implements sync.Provider for PlayStation accounts.
 type Provider struct {
-	AuthURL, LibraryURL string
-	Client              *http.Client
-	Now                 func() time.Time
+	AuthURL    string
+	LibraryURL string
+	Client     *http.Client
+	Now        func() time.Time
 
 	mu     gosync.Mutex
 	tokens map[string]accessToken // refresh token → access token
@@ -101,7 +102,9 @@ type Provider struct {
 // NewProvider returns the PlayStation source with its production endpoints.
 func NewProvider() *Provider {
 	return &Provider{
-		AuthURL: defaultAuthURL, LibraryURL: defaultLibraryURL, Now: time.Now,
+		AuthURL:    defaultAuthURL,
+		LibraryURL: defaultLibraryURL,
+		Now:        time.Now,
 		Client: &http.Client{
 			Timeout: 30 * time.Second,
 			// The authorization step answers with a redirect to the app's custom scheme: read it, do not follow it.
@@ -112,7 +115,10 @@ func NewProvider() *Provider {
 
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
 // imports.
-var LinkedStore = game.Store{Key: "psn", Name: "PlayStation"}
+var LinkedStore = game.Store{
+	Key:  "psn",
+	Name: "PlayStation",
+}
 
 // LinkStore implements sync.StoreLinker.
 func (p *Provider) LinkStore() game.Store { return LinkedStore }
@@ -124,9 +130,18 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 		Name:           "PlayStation",
 		DescriptionKey: "sources.playstation.description",
 		Fields: []source.Field{
-			{Key: settingNPSSO, LabelKey: "sources.playstation.npsso", HelpKey: "sources.playstation.npssoHelp",
-				HelpURL: NPSSOURL, Kind: source.FieldSecret, Required: true},
-			{Key: settingSession, Kind: source.FieldState},
+			{
+				Key:      settingNPSSO,
+				LabelKey: "sources.playstation.npsso",
+				HelpKey:  "sources.playstation.npssoHelp",
+				HelpURL:  NPSSOURL,
+				Kind:     source.FieldSecret,
+				Required: true,
+			},
+			{
+				Key:  settingSession,
+				Kind: source.FieldState,
+			},
 		},
 	}
 }
@@ -453,7 +468,12 @@ func mapTitles(titles []title) []game.ImportedCopy {
 			ExternalID: "psn:" + id,
 			Links:      game.Links{LinkedStore.Key: id},
 			Title:      name,
-			Details:    game.CopyDetails{Kind: game.KindLibrary, Platform: platformName(t.Platform), Status: game.StatusOwned, Origin: "PlayStation Store"},
+			Details: game.CopyDetails{
+				Kind:     game.KindLibrary,
+				Platform: platformName(t.Platform),
+				Status:   game.StatusOwned,
+				Origin:   "PlayStation Store",
+			},
 		})
 	}
 

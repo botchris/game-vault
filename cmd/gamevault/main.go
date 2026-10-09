@@ -128,7 +128,10 @@ func run() error {
 	syncSvc := sync.NewService(sources, games, db, now, log, plugins.Sources()...)
 	transferSvc := transfer.NewService(games, db, now, csvfile.Codec{})
 	systemSvc := system.NewService(games, db, now, log, system.Status{
-		Version: version, ConfigDir: cfg.ConfigDir, DatabasePath: cfg.DatabasePath(), StartedAt: now(),
+		Version:      version,
+		ConfigDir:    cfg.ConfigDir,
+		DatabasePath: cfg.DatabasePath(),
+		StartedAt:    now(),
 	}, cfg.BackupDir(), cfg.BackupKeep)
 
 	// Background jobs
@@ -169,14 +172,21 @@ func run() error {
 		Logs:        rpc.NewLogHandler(logsSvc),
 		MediaRPC:    rpc.NewMediaHandler(mediaSvc),
 		Media:       mediaSvc,
-	}, rpc.Options{UIDir: cfg.UIDir, CORSOrigins: cfg.CORSOrigins, Log: log})
+	}, rpc.Options{
+		UIDir:       cfg.UIDir,
+		CORSOrigins: cfg.CORSOrigins,
+		Log:         log,
+	})
 
 	ln, err := net.Listen("tcp", cfg.Addr)
 	if err != nil {
 		return fmt.Errorf("cannot listen on %s (is another Game Vault already running? use -addr to pick another port): %w", cfg.Addr, err)
 	}
 
-	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 10 * time.Second}
+	srv := &http.Server{
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
 
 	go func() {
 		<-ctx.Done()

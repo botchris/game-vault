@@ -100,8 +100,11 @@ func newTestProvider(t *testing.T, fake *fakeAmazon) *Provider {
 	t.Cleanup(srv.Close)
 
 	return &Provider{
-		SignInURL: "https://amazon.test/ap/signin", APIURL: srv.URL, EntitlementsURL: srv.URL + "/entitlements",
-		Client: srv.Client(), Now: func() time.Time { return time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC) },
+		SignInURL:       "https://amazon.test/ap/signin",
+		APIURL:          srv.URL,
+		EntitlementsURL: srv.URL + "/entitlements",
+		Client:          srv.Client(),
+		Now:             func() time.Time { return time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC) },
 	}
 }
 
@@ -189,7 +192,10 @@ func TestFetch_readsTheLibrary(t *testing.T) {
 	t.Run("GIVEN a stored session whose access token expired", func(t *testing.T) {
 		fake := &fakeAmazon{expireFirst: true}
 		p := newTestProvider(t, fake)
-		p.tokens = map[string]token{"Atnr|good": {access: "Atna|first", expires: p.Now().Add(time.Hour)}}
+		p.tokens = map[string]token{"Atnr|good": {
+			access:  "Atna|first",
+			expires: p.Now().Add(time.Hour),
+		}}
 
 		t.Run("WHEN the library is scanned", func(t *testing.T) {
 			copies, warnings, err := p.Fetch(ctx, stored)

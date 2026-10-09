@@ -152,7 +152,8 @@ func (r *SettingsRepository) Auth(ctx context.Context) (auth.Settings, error) {
 	}
 
 	return auth.Settings{
-		Authentication: auth.Authentication(v.Authentication), TrustedNetworks: v.TrustedNetworks,
+		Authentication:        auth.Authentication(v.Authentication),
+		TrustedNetworks:       v.TrustedNetworks,
 		CertificateValidation: auth.CertificateValidation(v.CertificateValidation),
 	}.Normalize()
 }
@@ -170,7 +171,8 @@ func (r *SettingsRepository) defaultAuth() auth.Settings {
 // SaveAuth stores the authentication settings.
 func (r *SettingsRepository) SaveAuth(ctx context.Context, s auth.Settings) error {
 	b, err := json.Marshal(authSettingsJSON{
-		Authentication: string(s.Authentication), TrustedNetworks: s.TrustedNetworks,
+		Authentication:        string(s.Authentication),
+		TrustedNetworks:       s.TrustedNetworks,
 		CertificateValidation: string(s.CertificateValidation),
 	})
 	if err != nil {

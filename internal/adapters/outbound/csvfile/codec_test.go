@@ -71,7 +71,11 @@ func TestDecode_columns(t *testing.T) {
 
 func TestEncodeDecodeRoundTrip(t *testing.T) {
 	g, _ := game.New("Halo 3", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
-	g.AddCopy(game.CopyDetails{Kind: game.KindPhysical, Platform: "Xbox 360", Location: "Shelf"}, time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
+	g.AddCopy(game.CopyDetails{
+		Kind:     game.KindPhysical,
+		Platform: "Xbox 360",
+		Location: "Shelf",
+	}, time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
 
 	var b strings.Builder
 	if err := (Codec{}).Encode(&b, []*game.Game{g}); err != nil {
@@ -88,9 +92,15 @@ func TestLinks_roundTrip(t *testing.T) {
 	t.Run("GIVEN a game linked to two stores", func(t *testing.T) {
 		now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 		g, _ := game.New("Hades", now)
-		_, err := g.UpdateInfo(game.Info{Title: "Hades", Links: game.Links{"steam": "1145360", "gog": "1207658924"}}, now)
+		_, err := g.UpdateInfo(game.Info{
+			Title: "Hades",
+			Links: game.Links{"steam": "1145360", "gog": "1207658924"},
+		}, now)
 		require.NoError(t, err)
-		g.AddCopy(game.CopyDetails{Kind: game.KindLibrary, Platform: "Steam"}, now)
+		g.AddCopy(game.CopyDetails{
+			Kind:     game.KindLibrary,
+			Platform: "Steam",
+		}, now)
 
 		t.Run("WHEN it is exported and imported again", func(t *testing.T) {
 			var b strings.Builder

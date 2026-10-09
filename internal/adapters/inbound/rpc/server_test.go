@@ -42,9 +42,17 @@ import (
 type fakeProvider struct{ copies []game.ImportedCopy }
 
 func (f *fakeProvider) Descriptor() source.TypeDescriptor {
-	return source.TypeDescriptor{Type: "fake", Name: "Fake store", Fields: []source.Field{
-		{Key: "token", Kind: source.FieldSecret, Required: true},
-	}}
+	return source.TypeDescriptor{
+		Type: "fake",
+		Name: "Fake store",
+		Fields: []source.Field{
+			{
+				Key:      "token",
+				Kind:     source.FieldSecret,
+				Required: true,
+			},
+		},
+	}
 }
 
 func (f *fakeProvider) Fetch(context.Context, source.Settings) ([]game.ImportedCopy, []string, error) {
@@ -69,7 +77,10 @@ func (f *fakeImages) Fetch(_ context.Context, url string) (media.Image, error) {
 	f.fetched++
 
 	if strings.HasSuffix(url, ".png") {
-		return media.Image{Data: png1x1, ContentType: "image/png"}, nil
+		return media.Image{
+			Data:        png1x1,
+			ContentType: "image/png",
+		}, nil
 	}
 
 	return media.Image{}, errors.New("404")
@@ -78,7 +89,12 @@ func (f *fakeImages) Fetch(_ context.Context, url string) (media.Image, error) {
 type fakeSteamStore struct{}
 
 func (fakeSteamStore) Descriptor() provider.Descriptor {
-	return provider.Descriptor{ID: "steam", Kind: provider.KindCover, Name: "Steam", EnabledByDefault: true}
+	return provider.Descriptor{
+		ID:               "steam",
+		Kind:             provider.KindCover,
+		Name:             "Steam",
+		EnabledByDefault: true,
+	}
 }
 
 func (fakeSteamStore) Test(context.Context, schema.Settings) error { return nil }
@@ -87,8 +103,14 @@ func (fakeSteamStore) Applies(q media.CoverQuery) bool { return q.Links[game.Lin
 
 func (fakeSteamStore) Covers(_ context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	return []media.CoverCandidate{
-		{URL: "https://steam.test/" + q.Links[game.LinkSteam] + "/library.jpg", Provider: "steam"},
-		{URL: "https://steam.test/" + q.Links[game.LinkSteam] + "/header.png", Provider: "steam"},
+		{
+			URL:      "https://steam.test/" + q.Links[game.LinkSteam] + "/library.jpg",
+			Provider: "steam",
+		},
+		{
+			URL:      "https://steam.test/" + q.Links[game.LinkSteam] + "/header.png",
+			Provider: "steam",
+		},
 	}, nil
 }
 
@@ -96,7 +118,12 @@ func (fakeSteamStore) Covers(_ context.Context, q media.CoverQuery, _ schema.Set
 type fakeBarcodes struct{}
 
 func (*fakeBarcodes) Descriptor() provider.Descriptor {
-	return provider.Descriptor{ID: "barcodes", Kind: provider.KindBarcode, Name: "Barcodes", EnabledByDefault: true}
+	return provider.Descriptor{
+		ID:               "barcodes",
+		Kind:             provider.KindBarcode,
+		Name:             "Barcodes",
+		EnabledByDefault: true,
+	}
 }
 
 func (*fakeBarcodes) Test(context.Context, schema.Settings) error { return nil }
@@ -104,7 +131,14 @@ func (*fakeBarcodes) Test(context.Context, schema.Settings) error { return nil }
 func (*fakeBarcodes) Lookup(_ context.Context, code game.Barcode, _ schema.Settings) ([]media.BarcodeMatch, error) {
 	if code == "3307215643006" {
 		title, platform, edition := media.CleanProductTitle("Assassin's Creed Iii Ed. Special Ps3(sp)")
-		return []media.BarcodeMatch{{Raw: "Assassin's Creed Iii Ed. Special Ps3(sp)", Title: title, Platform: platform, Edition: edition, Provider: "barcodes"}}, nil
+
+		return []media.BarcodeMatch{{
+			Raw:      "Assassin's Creed Iii Ed. Special Ps3(sp)",
+			Title:    title,
+			Platform: platform,
+			Edition:  edition,
+			Provider: "barcodes",
+		}}, nil
 	}
 
 	return nil, nil
@@ -114,8 +148,17 @@ func (*fakeBarcodes) Lookup(_ context.Context, code game.Barcode, _ schema.Setti
 type fakeBoxArt struct{ asked int }
 
 func (*fakeBoxArt) Descriptor() provider.Descriptor {
-	return provider.Descriptor{ID: "boxart", Kind: provider.KindCover, Name: "Box art", SettingsGroup: "boxart",
-		Fields: schema.Fields{{Key: "api_key", Kind: schema.FieldSecret, Required: true}}}
+	return provider.Descriptor{
+		ID:            "boxart",
+		Kind:          provider.KindCover,
+		Name:          "Box art",
+		SettingsGroup: "boxart",
+		Fields: schema.Fields{{
+			Key:      "api_key",
+			Kind:     schema.FieldSecret,
+			Required: true,
+		}},
+	}
 }
 
 func (*fakeBoxArt) Test(context.Context, schema.Settings) error { return nil }
@@ -124,7 +167,12 @@ func (*fakeBoxArt) Test(context.Context, schema.Settings) error { return nil }
 type fakeStoreDetails struct{}
 
 func (fakeStoreDetails) Descriptor() provider.Descriptor {
-	return provider.Descriptor{ID: "store-details", Kind: provider.KindMetadata, Name: "Store", EnabledByDefault: true}
+	return provider.Descriptor{
+		ID:               "store-details",
+		Kind:             provider.KindMetadata,
+		Name:             "Store",
+		EnabledByDefault: true,
+	}
 }
 
 func (fakeStoreDetails) Test(context.Context, schema.Settings) error { return nil }
@@ -137,17 +185,35 @@ func (fakeStoreDetails) Details(_ context.Context, q media.CoverQuery, lang stri
 		summary = "Un juego de puzles."
 	}
 
-	return &media.GameDetails{Summary: summary, Genres: []string{"Puzzle"},
-		Videos:      []media.Video{{HLSURL: "https://video.test/trailer.m3u8", Thumbnail: "https://img.test/poster.png"}},
-		Screenshots: []media.Screenshot{{ThumbURL: "https://img.test/shot-thumb.png", FullURL: "https://img.test/shot.png"}}}, nil
+	return &media.GameDetails{
+		Summary: summary,
+		Genres:  []string{"Puzzle"},
+		Videos: []media.Video{{
+			HLSURL:    "https://video.test/trailer.m3u8",
+			Thumbnail: "https://img.test/poster.png",
+		}},
+		Screenshots: []media.Screenshot{{
+			ThumbURL: "https://img.test/shot-thumb.png",
+			FullURL:  "https://img.test/shot.png",
+		}},
+	}, nil
 }
 
 // fakeBoxDetails shares the box art key (same settings group) and adds publisher + YouTube trailer.
 type fakeBoxDetails struct{ calls int }
 
 func (*fakeBoxDetails) Descriptor() provider.Descriptor {
-	return provider.Descriptor{ID: "boxart-details", Kind: provider.KindMetadata, Name: "Box art details", SettingsGroup: "boxart",
-		Fields: schema.Fields{{Key: "api_key", Kind: schema.FieldSecret, Required: true}}}
+	return provider.Descriptor{
+		ID:            "boxart-details",
+		Kind:          provider.KindMetadata,
+		Name:          "Box art details",
+		SettingsGroup: "boxart",
+		Fields: schema.Fields{{
+			Key:      "api_key",
+			Kind:     schema.FieldSecret,
+			Required: true,
+		}},
+	}
 }
 
 func (*fakeBoxDetails) Test(context.Context, schema.Settings) error { return nil }
@@ -161,7 +227,11 @@ func (f *fakeBoxDetails) Details(_ context.Context, q media.CoverQuery, _ string
 		return nil, errors.New("bad key")
 	}
 
-	return &media.GameDetails{Summary: "English overview.", Publishers: []string{"Valve"}, Videos: []media.Video{{YouTubeID: "abc123"}}}, nil
+	return &media.GameDetails{
+		Summary:    "English overview.",
+		Publishers: []string{"Valve"},
+		Videos:     []media.Video{{YouTubeID: "abc123"}},
+	}, nil
 }
 
 func (*fakeBoxArt) Applies(q media.CoverQuery) bool { return q.HasPhysical() }
@@ -175,15 +245,26 @@ func (f *fakeBoxArt) Covers(_ context.Context, q media.CoverQuery, s schema.Sett
 		return nil, errors.New("bad key")
 	}
 
-	return []media.CoverCandidate{{URL: "https://boxart.test/" + q.PhysicalPlatforms[0] + ".png", Label: q.Title, Provider: "boxart"}}, nil
+	return []media.CoverCandidate{{
+		URL:      "https://boxart.test/" + q.PhysicalPlatforms[0] + ".png",
+		Label:    q.Title,
+		Provider: "boxart",
+	}}, nil
 }
 
 func (fakeSteamStore) LinkStore() game.Store {
-	return game.Store{Key: game.LinkSteam, Name: "Steam", PageURL: "https://steam.test/app/{id}"}
+	return game.Store{
+		Key:     game.LinkSteam,
+		Name:    "Steam",
+		PageURL: "https://steam.test/app/{id}",
+	}
 }
 
 func (fakeSteamStore) SearchLinks(context.Context, string) ([]media.LinkMatch, error) {
-	return []media.LinkMatch{{ID: "1064271", Name: "Halo 3"}}, nil
+	return []media.LinkMatch{{
+		ID:   "1064271",
+		Name: "Halo 3",
+	}}, nil
 }
 
 type clients struct {
@@ -279,21 +360,37 @@ func newServer(t *testing.T, p sync.Provider) clients {
 func TestEndToEnd(t *testing.T) {
 	ctx := context.Background()
 	fake := &fakeProvider{copies: []game.ImportedCopy{
-		{ExternalID: "fake:1", Title: "Hades", Links: game.Links{game.LinkSteam: "1145360"}, Details: game.CopyDetails{Kind: game.KindLibrary, Platform: "Steam"}},
+		{
+			ExternalID: "fake:1",
+			Title:      "Hades",
+			Links:      game.Links{game.LinkSteam: "1145360"},
+			Details: game.CopyDetails{
+				Kind:     game.KindLibrary,
+				Platform: "Steam",
+			},
+		},
 	}}
 	c := newServer(t, fake)
 
 	// A manual game with a key, then a source scan that brings the same game in the library.
 	created, err := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{
-		Title: "Hades", Links: map[string]string{"steam": "1145360"},
-		Copies: []*pb.CopyDetails{{Kind: pb.CopyKind_COPY_KIND_KEY, Platform: "Steam", Status: pb.CopyStatus_COPY_STATUS_REVEALED, Key: "AAAA-BBBB"}},
+		Title: "Hades",
+		Links: map[string]string{"steam": "1145360"},
+		Copies: []*pb.CopyDetails{{
+			Kind:     pb.CopyKind_COPY_KIND_KEY,
+			Platform: "Steam",
+			Status:   pb.CopyStatus_COPY_STATUS_REVEALED,
+			Key:      "AAAA-BBBB",
+		}},
 	}))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	src, err := c.sources.CreateSource(ctx, connect.NewRequest(&pb.CreateSourceRequest{Source: &pb.SourceInput{
-		Type: "fake", Enabled: true, Settings: map[string]string{"token": "s3cret"},
+		Type:     "fake",
+		Enabled:  true,
+		Settings: map[string]string{"token": "s3cret"},
 	}}))
 	if err != nil {
 		t.Fatal(err)
@@ -327,9 +424,14 @@ func TestEndToEnd(t *testing.T) {
 	}
 
 	// Updating with the placeholder keeps the stored secret: the next sync still works.
-	if _, err := c.sources.UpdateSource(ctx, connect.NewRequest(&pb.UpdateSourceRequest{Id: src.Msg.Source.Id, Source: &pb.SourceInput{
-		Name: "Renamed", Enabled: true, Settings: map[string]string{"token": source.SecretPlaceholder},
-	}})); err != nil {
+	if _, err := c.sources.UpdateSource(ctx, connect.NewRequest(&pb.UpdateSourceRequest{
+		Id: src.Msg.Source.Id,
+		Source: &pb.SourceInput{
+			Name:     "Renamed",
+			Enabled:  true,
+			Settings: map[string]string{"token": source.SecretPlaceholder},
+		},
+	})); err != nil {
 		t.Fatal(err)
 	}
 
@@ -406,17 +508,27 @@ func TestCoversAndLogs(t *testing.T) {
 		t.Fatalf("link stores: %+v %v", stores, err)
 	}
 
-	found, err := c.games.SearchLinks(ctx, connect.NewRequest(&pb.SearchLinksRequest{Store: game.LinkSteam, Query: "halo 3"}))
+	found, err := c.games.SearchLinks(ctx, connect.NewRequest(&pb.SearchLinksRequest{
+		Store: game.LinkSteam,
+		Query: "halo 3",
+	}))
 	if err != nil || len(found.Msg.Matches) != 1 {
 		t.Fatalf("search: %+v %v", found, err)
 	}
 
-	if _, err := c.games.SearchLinks(ctx, connect.NewRequest(&pb.SearchLinksRequest{Store: "nowhere", Query: "halo 3"})); connect.CodeOf(err) != connect.CodeNotFound {
+	if _, err := c.games.SearchLinks(ctx, connect.NewRequest(&pb.SearchLinksRequest{
+		Store: "nowhere",
+		Query: "halo 3",
+	})); connect.CodeOf(err) != connect.CodeNotFound {
 		t.Fatalf("a store nobody searches: want NotFound, got %v", err)
 	}
 
 	links := map[string]string{game.LinkSteam: found.Msg.Matches[0].Id}
-	if _, err := c.games.UpdateGame(ctx, connect.NewRequest(&pb.UpdateGameRequest{Id: id, Title: "Halo 3", Links: links})); err != nil {
+	if _, err := c.games.UpdateGame(ctx, connect.NewRequest(&pb.UpdateGameRequest{
+		Id:    id,
+		Title: "Halo 3",
+		Links: links,
+	})); err != nil {
 		t.Fatal(err)
 	}
 
@@ -430,17 +542,29 @@ func TestCoversAndLogs(t *testing.T) {
 	}
 
 	// Invalid cover URLs are rejected by the domain.
-	_, err = c.games.UpdateGame(ctx, connect.NewRequest(&pb.UpdateGameRequest{Id: id, Title: "Halo 3", CoverUrl: "file:///etc/passwd"}))
+	_, err = c.games.UpdateGame(ctx, connect.NewRequest(&pb.UpdateGameRequest{
+		Id:       id,
+		Title:    "Halo 3",
+		CoverUrl: "file:///etc/passwd",
+	}))
 	if connect.CodeOf(err) != connect.CodeInvalidArgument {
 		t.Fatalf("expected InvalidArgument for a file:// cover, got %v", err)
 	}
 
 	// Log settings round-trip, validation, and reading the current file through the API.
-	if _, err := c.logs.UpdateLogSettings(ctx, connect.NewRequest(&pb.UpdateLogSettingsRequest{Settings: &pb.LogSettings{Level: "debug", MaxFileSizeMb: 2, MaxFiles: 3}})); err != nil {
+	if _, err := c.logs.UpdateLogSettings(ctx, connect.NewRequest(&pb.UpdateLogSettingsRequest{Settings: &pb.LogSettings{
+		Level:         "debug",
+		MaxFileSizeMb: 2,
+		MaxFiles:      3,
+	}})); err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = c.logs.UpdateLogSettings(ctx, connect.NewRequest(&pb.UpdateLogSettingsRequest{Settings: &pb.LogSettings{Level: "loud", MaxFileSizeMb: 2, MaxFiles: 3}}))
+	_, err = c.logs.UpdateLogSettings(ctx, connect.NewRequest(&pb.UpdateLogSettingsRequest{Settings: &pb.LogSettings{
+		Level:         "loud",
+		MaxFileSizeMb: 2,
+		MaxFiles:      3,
+	}}))
 	if connect.CodeOf(err) != connect.CodeInvalidArgument {
 		t.Fatalf("expected InvalidArgument for a bad level, got %v", err)
 	}
@@ -457,7 +581,10 @@ func TestCoversAndLogs(t *testing.T) {
 		t.Fatalf("list logs: %+v %v", files, err)
 	}
 
-	file, err := c.logs.GetLogFile(ctx, connect.NewRequest(&pb.GetLogFileRequest{Name: files.Msg.Files[0].Name, TailLines: 50}))
+	file, err := c.logs.GetLogFile(ctx, connect.NewRequest(&pb.GetLogFileRequest{
+		Name:      files.Msg.Files[0].Name,
+		TailLines: 50,
+	}))
 	if err != nil || !strings.Contains(file.Msg.Content, "ListGames") {
 		t.Fatalf("log should contain the RPC line: %v\n%s", err, file.Msg.Content)
 	}
@@ -483,12 +610,19 @@ func TestCoverProviderChain(t *testing.T) {
 		}
 	}
 	// Enabling without the key fails; with it works, and the key never comes back.
-	_, err = c.providers.UpdateProvider(ctx, connect.NewRequest(&pb.UpdateProviderRequest{Id: "boxart", Enabled: true}))
+	_, err = c.providers.UpdateProvider(ctx, connect.NewRequest(&pb.UpdateProviderRequest{
+		Id:      "boxart",
+		Enabled: true,
+	}))
 	if connect.CodeOf(err) != connect.CodeInvalidArgument {
 		t.Fatalf("expected InvalidArgument, got %v", err)
 	}
 
-	up, err := c.providers.UpdateProvider(ctx, connect.NewRequest(&pb.UpdateProviderRequest{Id: "boxart", Enabled: true, Settings: map[string]string{"api_key": "k"}}))
+	up, err := c.providers.UpdateProvider(ctx, connect.NewRequest(&pb.UpdateProviderRequest{
+		Id:       "boxart",
+		Enabled:  true,
+		Settings: map[string]string{"api_key": "k"},
+	}))
 	if err != nil || up.Msg.Provider.Settings["api_key"] != schema.SecretPlaceholder {
 		t.Fatalf("update: %+v %v", up, err)
 	}
@@ -500,11 +634,18 @@ func TestCoverProviderChain(t *testing.T) {
 
 	// A PS3 disc of a Steam game: box art first after reordering, Steam as fallback.
 	g, _ := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{
-		Title: "Portal 2", Links: map[string]string{"steam": "620"},
-		Copies: []*pb.CopyDetails{{Kind: pb.CopyKind_COPY_KIND_PHYSICAL, Platform: "PS3"}},
+		Title: "Portal 2",
+		Links: map[string]string{"steam": "620"},
+		Copies: []*pb.CopyDetails{{
+			Kind:     pb.CopyKind_COPY_KIND_PHYSICAL,
+			Platform: "PS3",
+		}},
 	}))
 
-	re, err := c.providers.ReorderProviders(ctx, connect.NewRequest(&pb.ReorderProvidersRequest{Kind: "cover", Ids: []string{"boxart", "steam"}}))
+	re, err := c.providers.ReorderProviders(ctx, connect.NewRequest(&pb.ReorderProvidersRequest{
+		Kind: "cover",
+		Ids:  []string{"boxart", "steam"},
+	}))
 	if err != nil || re.Msg.Providers[0].Id != "boxart" {
 		t.Fatalf("reorder: %+v %v", re, err)
 	}
@@ -523,7 +664,10 @@ func TestCoverProviderChain(t *testing.T) {
 
 	// A Steam-only game never asks the keyed provider.
 	asked := c.boxart.asked
-	s, _ := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{Title: "Hades", Links: map[string]string{"steam": "1145360"}}))
+	s, _ := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{
+		Title: "Hades",
+		Links: map[string]string{"steam": "1145360"},
+	}))
 	http.Get(c.baseURL + "/media/covers/" + s.Msg.Game.Id)
 
 	if c.boxart.asked != asked {
@@ -531,7 +675,12 @@ func TestCoverProviderChain(t *testing.T) {
 	}
 
 	// Pinning a candidate = setting it as the custom cover.
-	if _, err := c.games.UpdateGame(ctx, connect.NewRequest(&pb.UpdateGameRequest{Id: g.Msg.Game.Id, Title: "Portal 2", Links: map[string]string{"steam": "620"}, CoverUrl: cands.Msg.Candidates[1].Url})); err != nil {
+	if _, err := c.games.UpdateGame(ctx, connect.NewRequest(&pb.UpdateGameRequest{
+		Id:       g.Msg.Game.Id,
+		Title:    "Portal 2",
+		Links:    map[string]string{"steam": "620"},
+		CoverUrl: cands.Msg.Candidates[1].Url,
+	})); err != nil {
 		t.Fatal(err)
 	}
 
@@ -544,7 +693,11 @@ func TestBarcodeScanFlow(t *testing.T) {
 	ctx := context.Background()
 
 	c := newServer(t, &fakeProvider{})
-	if _, err := c.providers.UpdateProvider(ctx, connect.NewRequest(&pb.UpdateProviderRequest{Id: "boxart", Enabled: true, Settings: map[string]string{"api_key": "k"}})); err != nil {
+	if _, err := c.providers.UpdateProvider(ctx, connect.NewRequest(&pb.UpdateProviderRequest{
+		Id:       "boxart",
+		Enabled:  true,
+		Settings: map[string]string{"api_key": "k"},
+	})); err != nil {
 		t.Fatal(err)
 	}
 
@@ -563,8 +716,14 @@ func TestBarcodeScanFlow(t *testing.T) {
 	s := res.Msg.Suggestions[0]
 
 	created, err := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{
-		Title: s.Title, CoverUrl: s.CoverUrl,
-		Copies: []*pb.CopyDetails{{Kind: pb.CopyKind_COPY_KIND_PHYSICAL, Platform: s.Platform, Edition: m.Edition, Barcode: res.Msg.Barcode}},
+		Title:    s.Title,
+		CoverUrl: s.CoverUrl,
+		Copies: []*pb.CopyDetails{{
+			Kind:     pb.CopyKind_COPY_KIND_PHYSICAL,
+			Platform: s.Platform,
+			Edition:  m.Edition,
+			Barcode:  res.Msg.Barcode,
+		}},
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -582,7 +741,10 @@ func TestBarcodeScanFlow(t *testing.T) {
 		t.Fatalf("unknown code: %+v %v", unknown.Msg, err)
 	}
 
-	sugg, err := c.lookup.SuggestGames(ctx, connect.NewRequest(&pb.SuggestGamesRequest{Title: "Red Dead Redemption", Platform: "xbox 360"}))
+	sugg, err := c.lookup.SuggestGames(ctx, connect.NewRequest(&pb.SuggestGamesRequest{
+		Title:    "Red Dead Redemption",
+		Platform: "xbox 360",
+	}))
 	if err != nil || len(sugg.Msg.Suggestions) != 1 || sugg.Msg.Suggestions[0].Platform != "Xbox 360" {
 		t.Fatalf("suggest: %+v %v", sugg.Msg, err)
 	}
@@ -590,7 +752,10 @@ func TestBarcodeScanFlow(t *testing.T) {
 	// The game exists already (e.g. on Steam): it is offered so the disc becomes one more copy.
 	c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{Title: "Red Dead Redemption"}))
 
-	sugg, _ = c.lookup.SuggestGames(ctx, connect.NewRequest(&pb.SuggestGamesRequest{Title: "red dead redemption", Platform: "Xbox 360"}))
+	sugg, _ = c.lookup.SuggestGames(ctx, connect.NewRequest(&pb.SuggestGamesRequest{
+		Title:    "red dead redemption",
+		Platform: "Xbox 360",
+	}))
 	if len(sugg.Msg.Existing) != 1 {
 		t.Fatalf("existing game not offered: %+v", sugg.Msg)
 	}
@@ -631,7 +796,11 @@ func TestGameDetailsChain(t *testing.T) {
 	c := newServer(t, &fakeProvider{})
 
 	// Configuring the box art key once also configures (and enables) its details capability.
-	if _, err := c.providers.UpdateProvider(ctx, connect.NewRequest(&pb.UpdateProviderRequest{Id: "boxart", Enabled: true, Settings: map[string]string{"api_key": "k"}})); err != nil {
+	if _, err := c.providers.UpdateProvider(ctx, connect.NewRequest(&pb.UpdateProviderRequest{
+		Id:       "boxart",
+		Enabled:  true,
+		Settings: map[string]string{"api_key": "k"},
+	})); err != nil {
 		t.Fatal(err)
 	}
 
@@ -643,10 +812,18 @@ func TestGameDetailsChain(t *testing.T) {
 	// A PS3 disc of a Steam game: the store sheet wins (localized), box art fills the publisher,
 	// and both trailers are kept.
 	g, _ := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{
-		Title: "Portal 2", Links: map[string]string{"steam": "620"}, Copies: []*pb.CopyDetails{{Kind: pb.CopyKind_COPY_KIND_PHYSICAL, Platform: "PS3"}},
+		Title: "Portal 2",
+		Links: map[string]string{"steam": "620"},
+		Copies: []*pb.CopyDetails{{
+			Kind:     pb.CopyKind_COPY_KIND_PHYSICAL,
+			Platform: "PS3",
+		}},
 	}))
 
-	res, err := c.metadata.GetGameDetails(ctx, connect.NewRequest(&pb.GetGameDetailsRequest{GameId: g.Msg.Game.Id, Language: "es"}))
+	res, err := c.metadata.GetGameDetails(ctx, connect.NewRequest(&pb.GetGameDetailsRequest{
+		GameId:   g.Msg.Game.Id,
+		Language: "es",
+	}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -659,22 +836,36 @@ func TestGameDetailsChain(t *testing.T) {
 	// Cached: no second call; refresh asks again.
 	detailsCalls := func(c clients) int { return c.boxDet.calls }
 	before := detailsCalls(c)
-	c.metadata.GetGameDetails(ctx, connect.NewRequest(&pb.GetGameDetailsRequest{GameId: g.Msg.Game.Id, Language: "es"}))
+	c.metadata.GetGameDetails(ctx, connect.NewRequest(&pb.GetGameDetailsRequest{
+		GameId:   g.Msg.Game.Id,
+		Language: "es",
+	}))
 
 	if detailsCalls(c) != before {
 		t.Fatal("second view must come from the cache")
 	}
 
-	c.metadata.GetGameDetails(ctx, connect.NewRequest(&pb.GetGameDetailsRequest{GameId: g.Msg.Game.Id, Language: "es", Refresh: true}))
+	c.metadata.GetGameDetails(ctx, connect.NewRequest(&pb.GetGameDetailsRequest{
+		GameId:   g.Msg.Game.Id,
+		Language: "es",
+		Refresh:  true,
+	}))
 
 	if detailsCalls(c) != before+1 {
 		t.Fatal("refresh must ask the providers again")
 	}
 
 	// Changing the Steam AppID invalidates the cached sheet.
-	c.games.UpdateGame(ctx, connect.NewRequest(&pb.UpdateGameRequest{Id: g.Msg.Game.Id, Title: "Portal 2", Links: nil}))
+	c.games.UpdateGame(ctx, connect.NewRequest(&pb.UpdateGameRequest{
+		Id:    g.Msg.Game.Id,
+		Title: "Portal 2",
+		Links: nil,
+	}))
 
-	res, _ = c.metadata.GetGameDetails(ctx, connect.NewRequest(&pb.GetGameDetailsRequest{GameId: g.Msg.Game.Id, Language: "es"}))
+	res, _ = c.metadata.GetGameDetails(ctx, connect.NewRequest(&pb.GetGameDetailsRequest{
+		GameId:   g.Msg.Game.Id,
+		Language: "es",
+	}))
 	if res.Msg.Details.Summary != "English overview." {
 		t.Fatalf("without AppID only the box art provider applies: %+v", res.Msg.Details)
 	}
@@ -683,10 +874,16 @@ func TestGameDetailsChain(t *testing.T) {
 func TestSheetImagesAreStoredPerGame(t *testing.T) {
 	ctx := context.Background()
 	c := newServer(t, &fakeProvider{})
-	g, _ := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{Title: "Portal 2", Links: map[string]string{"steam": "620"}}))
+	g, _ := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{
+		Title: "Portal 2",
+		Links: map[string]string{"steam": "620"},
+	}))
 	id := g.Msg.Game.Id
 
-	res, err := c.metadata.GetGameDetails(ctx, connect.NewRequest(&pb.GetGameDetailsRequest{GameId: id, Language: "en"}))
+	res, err := c.metadata.GetGameDetails(ctx, connect.NewRequest(&pb.GetGameDetailsRequest{
+		GameId:   id,
+		Language: "en",
+	}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -742,7 +939,10 @@ func TestSheetImagesAreStoredPerGame(t *testing.T) {
 func TestCatalogIncludesGenres(t *testing.T) {
 	ctx := context.Background()
 	c := newServer(t, &fakeProvider{})
-	g, _ := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{Title: "Portal 2", Links: map[string]string{"steam": "620"}}))
+	g, _ := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{
+		Title: "Portal 2",
+		Links: map[string]string{"steam": "620"},
+	}))
 	c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{Title: "Halo 3"}))
 
 	list, _ := c.games.ListGames(ctx, connect.NewRequest(&pb.ListGamesRequest{Language: "es"}))
@@ -750,7 +950,10 @@ func TestCatalogIncludesGenres(t *testing.T) {
 		t.Fatalf("no details yet: %d", list.Msg.DetailsCached)
 	}
 
-	c.metadata.GetGameDetails(ctx, connect.NewRequest(&pb.GetGameDetailsRequest{GameId: g.Msg.Game.Id, Language: "es"}))
+	c.metadata.GetGameDetails(ctx, connect.NewRequest(&pb.GetGameDetailsRequest{
+		GameId:   g.Msg.Game.Id,
+		Language: "es",
+	}))
 
 	list, _ = c.games.ListGames(ctx, connect.NewRequest(&pb.ListGamesRequest{Language: "es"}))
 	if list.Msg.DetailsCached != 1 {

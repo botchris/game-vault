@@ -26,7 +26,10 @@ func TestLookup(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := &Provider{BaseURL: srv.URL, Client: srv.Client()}
+	p := &Provider{
+		BaseURL: srv.URL,
+		Client:  srv.Client(),
+	}
 
 	m, err := p.Lookup(context.Background(), "3307215643006", schema.Settings{})
 	if err != nil || len(m) != 1 || m[0].Title != "Assassin's Creed III" || m[0].Platform != "PS3" || m[0].Edition != "Special Edition" {
@@ -67,7 +70,10 @@ func TestProviderTest(t *testing.T) {
 		}))
 		defer srv.Close()
 
-		p := &Provider{BaseURL: srv.URL, Client: srv.Client()}
+		p := &Provider{
+			BaseURL: srv.URL,
+			Client:  srv.Client(),
+		}
 
 		t.Run("WHEN it is tested without a key and the EAN is unknown", func(t *testing.T) {
 			err := p.Test(ctx, schema.Settings{})
@@ -104,7 +110,10 @@ func TestProviderTest(t *testing.T) {
 		}))
 		defer srv.Close()
 
-		p := &Provider{BaseURL: srv.URL, Client: srv.Client()}
+		p := &Provider{
+			BaseURL: srv.URL,
+			Client:  srv.Client(),
+		}
 
 		t.Run("WHEN it is tested", func(t *testing.T) {
 			err := p.Test(ctx, schema.Settings{})

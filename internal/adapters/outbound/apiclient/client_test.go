@@ -72,8 +72,12 @@ func TestClient(t *testing.T) {
 		t.Run("WHEN a body is posted with a header of its own", func(t *testing.T) {
 			var out map[string]any
 
-			err := c.Do(ctx, Request{Method: http.MethodPost, Path: "/echo", Body: map[string]int{"n": 1},
-				Header: http.Header{"X-Extra": {"e"}}}, &out)
+			err := c.Do(ctx, Request{
+				Method: http.MethodPost,
+				Path:   "/echo",
+				Body:   map[string]int{"n": 1},
+				Header: http.Header{"X-Extra": {"e"}},
+			}, &out)
 			require.NoError(t, err)
 
 			t.Run("THEN it arrives as JSON with both headers", func(t *testing.T) {

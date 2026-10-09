@@ -18,10 +18,21 @@ import (
 type rotating struct{ calls int }
 
 func (r *rotating) Descriptor() source.TypeDescriptor {
-	return source.TypeDescriptor{Type: "rot", Name: "Rotating", Fields: []source.Field{
-		{Key: "token", Kind: source.FieldSecret, Required: true},
-		{Key: "session", Kind: source.FieldState},
-	}}
+	return source.TypeDescriptor{
+		Type: "rot",
+		Name: "Rotating",
+		Fields: []source.Field{
+			{
+				Key:      "token",
+				Kind:     source.FieldSecret,
+				Required: true,
+			},
+			{
+				Key:  "session",
+				Kind: source.FieldState,
+			},
+		},
+	}
 }
 
 func (r *rotating) Fetch(context.Context, source.Settings) ([]game.ImportedCopy, []string, error) {
@@ -52,7 +63,10 @@ func TestKeepAliveSavesRenewedSessions(t *testing.T) {
 	p := &rotating{}
 	svc := sync.NewService(sources, sqlite.NewGameRepository(db), db, time.Now, slog.New(slog.NewTextHandler(io.Discard, nil)), p)
 
-	v, err := svc.Create(ctx, "rot", source.Config{Enabled: true, Settings: source.Settings{"token": "t"}})
+	v, err := svc.Create(ctx, "rot", source.Config{
+		Enabled:  true,
+		Settings: source.Settings{"token": "t"},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +116,10 @@ func TestJitteredStaysWithinBounds(t *testing.T) {
 type counting struct{ scans int }
 
 func (c *counting) Descriptor() source.TypeDescriptor {
-	return source.TypeDescriptor{Type: "cnt", Name: "Counting"}
+	return source.TypeDescriptor{
+		Type: "cnt",
+		Name: "Counting",
+	}
 }
 
 func (c *counting) Fetch(context.Context, source.Settings) ([]game.ImportedCopy, []string, error) {
@@ -125,7 +142,10 @@ func TestSchedulerScansOnceAndWaitsForTheVariedInterval(t *testing.T) {
 
 	svc := sync.NewService(sqlite.NewSourceRepository(db), sqlite.NewGameRepository(db), db, time.Now, slog.New(slog.NewTextHandler(io.Discard, nil)), p)
 
-	if _, err := svc.Create(ctx, "cnt", source.Config{Enabled: true, SyncInterval: time.Hour}); err != nil {
+	if _, err := svc.Create(ctx, "cnt", source.Config{
+		Enabled:      true,
+		SyncInterval: time.Hour,
+	}); err != nil {
 		t.Fatal(err)
 	}
 	go svc.RunScheduler(ctx, 5*time.Millisecond, 0)

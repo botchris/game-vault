@@ -21,11 +21,18 @@ var _ gamevaultv1connect.SystemServiceHandler = (*SystemHandler)(nil)
 
 // NewSystemHandler returns the SystemService handler backed by the system and transfer services.
 func NewSystemHandler(s *system.Service, t *transfer.Service) *SystemHandler {
-	return &SystemHandler{system: s, transfer: t}
+	return &SystemHandler{
+		system:   s,
+		transfer: t,
+	}
 }
 
 func backupToPB(b system.Backup) *pb.Backup {
-	return &pb.Backup{Name: b.Name, SizeBytes: b.SizeBytes, CreatedAt: ts(b.CreatedAt)}
+	return &pb.Backup{
+		Name:      b.Name,
+		SizeBytes: b.SizeBytes,
+		CreatedAt: ts(b.CreatedAt),
+	}
 }
 
 // GetStatus returns the server version and catalog totals.
@@ -36,8 +43,12 @@ func (h *SystemHandler) GetStatus(ctx context.Context, _ *connect.Request[pb.Get
 	}
 
 	return connect.NewResponse(&pb.GetStatusResponse{
-		Version: st.Version, ConfigDir: st.ConfigDir, DatabasePath: st.DatabasePath, StartedAt: ts(st.StartedAt),
-		GameCount: int32(st.GameCount), CopyCount: int32(st.CopyCount),
+		Version:      st.Version,
+		ConfigDir:    st.ConfigDir,
+		DatabasePath: st.DatabasePath,
+		StartedAt:    ts(st.StartedAt),
+		GameCount:    int32(st.GameCount),
+		CopyCount:    int32(st.CopyCount),
 	}), nil
 }
 
@@ -83,5 +94,8 @@ func (h *SystemHandler) ExportCsv(ctx context.Context, _ *connect.Request[pb.Exp
 		return nil, toConnectError(err)
 	}
 
-	return connect.NewResponse(&pb.ExportCsvResponse{Filename: name, Content: content}), nil
+	return connect.NewResponse(&pb.ExportCsvResponse{
+		Filename: name,
+		Content:  content,
+	}), nil
 }

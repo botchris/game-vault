@@ -12,8 +12,16 @@ import (
 var now = time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
 
 func TestConfigureRequiresSettingsToEnable(t *testing.T) {
-	d := Descriptor{ID: "thegamesdb", Kind: KindCover, Name: "TheGamesDB",
-		Fields: schema.Fields{{Key: "api_key", Kind: schema.FieldSecret, Required: true}}}
+	d := Descriptor{
+		ID:   "thegamesdb",
+		Kind: KindCover,
+		Name: "TheGamesDB",
+		Fields: schema.Fields{{
+			Key:      "api_key",
+			Kind:     schema.FieldSecret,
+			Required: true,
+		}},
+	}
 
 	p := New(d, 0, now)
 	if p.Enabled() {
@@ -47,10 +55,21 @@ func TestReorder(t *testing.T) {
 
 func TestProvider_UpdateState(t *testing.T) {
 	now := time.Date(2026, 10, 8, 0, 0, 0, 0, time.UTC)
-	d := Descriptor{ID: "cex", Kind: KindBarcode, Name: "CeX", Fields: schema.Fields{
-		{Key: "countries", Kind: schema.FieldText},
-		{Key: "country_hits", Kind: schema.FieldState},
-	}}
+	d := Descriptor{
+		ID:   "cex",
+		Kind: KindBarcode,
+		Name: "CeX",
+		Fields: schema.Fields{
+			{
+				Key:  "countries",
+				Kind: schema.FieldText,
+			},
+			{
+				Key:  "country_hits",
+				Kind: schema.FieldState,
+			},
+		},
+	}
 
 	t.Run("GIVEN a provider the user limited to some countries", func(t *testing.T) {
 		p := Rehydrate("cex", KindBarcode, true, 0, schema.Settings{"countries": "es,uk"}, now)

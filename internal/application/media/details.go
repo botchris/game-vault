@@ -204,7 +204,10 @@ func (s *Service) fetchDetails(ctx context.Context, id game.ID, language string)
 	}
 
 	q := QueryFor(g)
-	merged := GameDetails{Language: language, FetchedAt: s.now()}
+	merged := GameDetails{
+		Language:  language,
+		FetchedAt: s.now(),
+	}
 
 	var warnings []string
 

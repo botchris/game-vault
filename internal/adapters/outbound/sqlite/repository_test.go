@@ -31,7 +31,12 @@ func TestGameRepositoryRoundTripAndMove(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Millisecond)
 
 	a, _ := game.New("Hades", now)
-	a.AddCopy(game.CopyDetails{Kind: game.KindKey, Platform: "Steam", Key: "AAAA", RedeemBy: "2027-01-01"}, now)
+	a.AddCopy(game.CopyDetails{
+		Kind:     game.KindKey,
+		Platform: "Steam",
+		Key:      "AAAA",
+		RedeemBy: "2027-01-01",
+	}, now)
 	b, _ := game.New("Hades II", now)
 
 	if err := repo.Save(ctx, a); err != nil {
@@ -87,14 +92,30 @@ func TestSourceRepositoryAndBackup(t *testing.T) {
 	ctx := context.Background()
 	db := openTest(t)
 	repo := NewSourceRepository(db)
-	d := source.TypeDescriptor{Type: "steam", Name: "Steam", Fields: []source.Field{{Key: "api_key", Kind: source.FieldSecret, Required: true}}}
+	d := source.TypeDescriptor{
+		Type: "steam",
+		Name: "Steam",
+		Fields: []source.Field{{
+			Key:      "api_key",
+			Kind:     source.FieldSecret,
+			Required: true,
+		}},
+	}
 
-	s, err := source.New(d, source.Config{Enabled: true, SyncInterval: 6 * time.Hour, Settings: source.Settings{"api_key": "secret"}}, time.Now())
+	s, err := source.New(d, source.Config{
+		Enabled:      true,
+		SyncInterval: 6 * time.Hour,
+		Settings:     source.Settings{"api_key": "secret"},
+	}, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	s.RecordSync(source.SyncReport{StartedAt: time.Now(), Fetched: 3, Warnings: []string{"w"}})
+	s.RecordSync(source.SyncReport{
+		StartedAt: time.Now(),
+		Fetched:   3,
+		Warnings:  []string{"w"},
+	})
 
 	if err := repo.Save(ctx, s); err != nil {
 		t.Fatal(err)

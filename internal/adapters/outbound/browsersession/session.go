@@ -77,7 +77,10 @@ func Remember(pasted, rawState string, renewed map[string]string) string {
 
 	var s state
 	if json.Unmarshal([]byte(rawState), &s) != nil || s.From != hash(pasted) || s.Cookies == nil {
-		s = state{From: hash(pasted), Cookies: map[string]string{}}
+		s = state{
+			From:    hash(pasted),
+			Cookies: map[string]string{},
+		}
 	}
 
 	for k, v := range renewed {
@@ -114,12 +117,26 @@ func New(baseURL, domain string, cookies map[string]string, timeout time.Duratio
 
 	var list []*http.Cookie
 	for k, v := range cookies {
-		list = append(list, &http.Cookie{Name: k, Value: v, Path: "/", Domain: domain, Secure: base.Scheme == "https"})
+		list = append(list, &http.Cookie{
+			Name:   k,
+			Value:  v,
+			Path:   "/",
+			Domain: domain,
+			Secure: base.Scheme == "https",
+		})
 	}
 
 	jar.SetCookies(base, list)
 
-	return &Session{Client: &http.Client{Jar: jar, Timeout: timeout}, jar: jar, base: base, sent: cookies}, nil
+	return &Session{
+		Client: &http.Client{
+			Jar:     jar,
+			Timeout: timeout,
+		},
+		jar:  jar,
+		base: base,
+		sent: cookies,
+	}, nil
 }
 
 // Renewed returns the cookies the site set or changed during the session.

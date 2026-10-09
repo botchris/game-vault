@@ -52,10 +52,21 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 		Name:           "Steam",
 		DescriptionKey: "sources.steam.description",
 		Fields: []source.Field{
-			{Key: settingAPIKey, LabelKey: "sources.steam.apiKey", HelpKey: "sources.steam.apiKeyHelp",
-				HelpURL: "https://steamcommunity.com/dev/apikey", Kind: source.FieldSecret, Required: true},
-			{Key: settingProfile, LabelKey: "sources.steam.profile", HelpKey: "sources.steam.profileHelp",
-				Kind: source.FieldText, Required: true},
+			{
+				Key:      settingAPIKey,
+				LabelKey: "sources.steam.apiKey",
+				HelpKey:  "sources.steam.apiKeyHelp",
+				HelpURL:  "https://steamcommunity.com/dev/apikey",
+				Kind:     source.FieldSecret,
+				Required: true,
+			},
+			{
+				Key:      settingProfile,
+				LabelKey: "sources.steam.profile",
+				HelpKey:  "sources.steam.profileHelp",
+				Kind:     source.FieldText,
+				Required: true,
+			},
 		},
 	}
 }
@@ -101,7 +112,12 @@ func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.
 			ExternalID: fmt.Sprintf("steam:%d", g.AppID),
 			Title:      name,
 			Links:      game.Links{LinkedStore.Key: strconv.FormatInt(g.AppID, 10)},
-			Details:    game.CopyDetails{Kind: game.KindLibrary, Platform: "Steam", Status: game.StatusOwned, Origin: "Steam"},
+			Details: game.CopyDetails{
+				Kind:     game.KindLibrary,
+				Platform: "Steam",
+				Status:   game.StatusOwned,
+				Origin:   "Steam",
+			},
 		})
 	}
 

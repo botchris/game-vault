@@ -76,7 +76,16 @@ type Service struct {
 // and avoid slow password hashing.
 func NewService(repo auth.Repository, settings auth.SettingsRepository, hash Hasher, certs CertificatePolicy, now port.Clock, log *slog.Logger) *Service {
 	dummy, _ := hash.Hash("timing-equalizer-not-a-password")
-	return &Service{repo: repo, settings: settings, hash: hash, certs: certs, now: now, log: log, dummyHash: dummy}
+
+	return &Service{
+		repo:      repo,
+		settings:  settings,
+		hash:      hash,
+		certs:     certs,
+		now:       now,
+		log:       log,
+		dummyHash: dummy,
+	}
 }
 
 // Init applies the saved settings that act outside requests (certificate validation). Call it on
@@ -128,7 +137,10 @@ func (s *Service) Authenticate(ctx context.Context, r auth.Request) (auth.Princi
 	}
 
 	if settings.Authentication == auth.AuthTrustedNetworks && settings.Trusts(r) {
-		return auth.Principal{Method: auth.MethodTrusted, Name: "trusted network"}, nil
+		return auth.Principal{
+			Method: auth.MethodTrusted,
+			Name:   "trusted network",
+		}, nil
 	}
 
 	return auth.Principal{}, auth.ErrUnauthenticated
@@ -158,7 +170,11 @@ func (s *Service) fromSession(ctx context.Context, r auth.Request) (auth.Princip
 		}
 	}
 
-	return auth.Principal{Method: auth.MethodSession, Name: u.Username, UserID: u.ID}, true
+	return auth.Principal{
+		Method: auth.MethodSession,
+		Name:   u.Username,
+		UserID: u.ID,
+	}, true
 }
 
 func (s *Service) trusted(ctx context.Context, r auth.Request) (bool, error) {
@@ -182,7 +198,11 @@ func (s *Service) Status(ctx context.Context, r auth.Request) (Status, error) {
 		return Status{}, err
 	}
 
-	st := Status{SetupRequired: n == 0, CanSetup: n == 0 && trusted, Trusted: trusted}
+	st := Status{
+		SetupRequired: n == 0,
+		CanSetup:      n == 0 && trusted,
+		Trusted:       trusted,
+	}
 	if p, err := s.Authenticate(ctx, r); err == nil {
 		st.Principal = &p
 	} else if !errors.Is(err, auth.ErrUnauthenticated) {
@@ -265,11 +285,19 @@ func (s *Service) newSession(ctx context.Context, u auth.User, r auth.Request) (
 	token := base64.RawURLEncoding.EncodeToString(buf)
 	now := s.now()
 	err := s.repo.SaveSession(ctx, auth.Session{
-		TokenHash: hashToken(token), UserID: u.ID, CreatedAt: now, ExpiresAt: now.Add(sessionTTL), LastSeenAt: now,
-		UserAgent: truncate(r.UserAgent, 200),
+		TokenHash:  hashToken(token),
+		UserID:     u.ID,
+		CreatedAt:  now,
+		ExpiresAt:  now.Add(sessionTTL),
+		LastSeenAt: now,
+		UserAgent:  truncate(r.UserAgent, 200),
 	})
 
-	return token, auth.Principal{Method: auth.MethodSession, Name: u.Username, UserID: u.ID}, err
+	return token, auth.Principal{
+		Method: auth.MethodSession,
+		Name:   u.Username,
+		UserID: u.ID,
+	}, err
 }
 
 // SessionTTL is how long a login lasts; adapters use it for the cookie lifetime.

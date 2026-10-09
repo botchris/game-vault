@@ -1,0 +1,36 @@
+package a
+
+type Descriptor struct {
+	ID    string
+	Name  string
+	Order int
+}
+
+type Settings map[string]string
+
+const settingKey = "key"
+
+func literals() []any {
+	return []any{
+		Descriptor{ID: "x", Name: "X"}, // want `struct literal with several fields on a line`
+		&Descriptor{ // want `struct literal with several fields on a line`
+			ID: "x", Name: "X",
+			Order: 1,
+		},
+		Descriptor{
+			ID:   "x",
+			Name: "X",
+		},
+		Descriptor{ID: "x"},
+		Descriptor{"x", "X", 1},
+		Settings{settingKey: "a", "other": "b"},
+		map[string]int{"a": 1, "b": 2},
+	}
+}
+
+type pair struct{ a, b string } // want `struct type with several fields on a line`
+
+type named struct {
+	first, second int // want `struct field with several names`
+	third         int
+}

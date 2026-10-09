@@ -111,7 +111,10 @@ func (q CoverQuery) HasPhysical() bool { return len(q.PhysicalPlatforms) > 0 }
 
 // QueryFor builds the cover query of a game.
 func QueryFor(g *game.Game) CoverQuery {
-	q := CoverQuery{Title: g.Title(), Links: g.Links()}
+	q := CoverQuery{
+		Title: g.Title(),
+		Links: g.Links(),
+	}
 	for _, c := range g.Copies() {
 		if c.Platform == "" {
 			continue
@@ -264,12 +267,19 @@ type Providers struct {
 func NewService(games game.Repository, providers provider.Repository, store AssetStore, details DetailsStore, fetch ImageFetcher,
 	now port.Clock, log *slog.Logger, impls Providers) *Service {
 	s := &Service{
-		games: games, providers: providers, store: store, details: details, fetch: fetch, now: now, log: log,
+		games:        games,
+		providers:    providers,
+		store:        store,
+		details:      details,
+		fetch:        fetch,
+		now:          now,
+		log:          log,
 		impls:        map[provider.ID]Provider{},
 		covers:       map[provider.ID]CoverProvider{},
 		barcodes:     map[provider.ID]BarcodeProvider{},
 		metadata:     map[provider.ID]MetadataProvider{},
-		retryMissing: 7 * 24 * time.Hour, slots: make(chan struct{}, 6),
+		retryMissing: 7 * 24 * time.Hour,
+		slots:        make(chan struct{}, 6),
 	}
 	for _, p := range impls.Covers {
 		id := p.Descriptor().ID
@@ -820,7 +830,11 @@ func (s *Service) IdentifyBarcode(ctx context.Context, raw string) (BarcodeResul
 
 	for _, g := range games {
 		if c, ok := g.CopyWithBarcode(code); ok {
-			res.Owned = append(res.Owned, OwnedCopy{Game: GameRef{g.ID(), g.Title()}, CopyID: c.ID, Platform: c.Platform})
+			res.Owned = append(res.Owned, OwnedCopy{
+				Game:     GameRef{g.ID(), g.Title()},
+				CopyID:   c.ID,
+				Platform: c.Platform,
+			})
 		}
 	}
 
@@ -918,7 +932,14 @@ func (s *Service) suggest(ctx context.Context, games []*game.Game, title, platfo
 				t = title
 			}
 
-			out = append(out, Suggestion{Title: t, Platform: platform, CoverURL: c.URL, ThumbURL: c.ThumbURL, Label: c.Label, Provider: c.Provider})
+			out = append(out, Suggestion{
+				Title:    t,
+				Platform: platform,
+				CoverURL: c.URL,
+				ThumbURL: c.ThumbURL,
+				Label:    c.Label,
+				Provider: c.Provider,
+			})
 		}
 	}
 

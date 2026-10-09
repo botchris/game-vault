@@ -29,11 +29,18 @@ func TestMatchKey(t *testing.T) {
 
 func TestCopyInvariants(t *testing.T) {
 	g, _ := New("Halo 3", t0)
-	if _, err := g.AddCopy(CopyDetails{Kind: KindPhysical, Status: StatusRedeemed}, t0); err == nil {
+	if _, err := g.AddCopy(CopyDetails{
+		Kind:   KindPhysical,
+		Status: StatusRedeemed,
+	}, t0); err == nil {
 		t.Error("a physical copy cannot be redeemed")
 	}
 
-	c, err := g.AddCopy(CopyDetails{Kind: KindPhysical, Platform: "xbox 360", Key: "SHOULD-DROP"}, t0)
+	c, err := g.AddCopy(CopyDetails{
+		Kind:     KindPhysical,
+		Platform: "xbox 360",
+		Key:      "SHOULD-DROP",
+	}, t0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,12 +53,20 @@ func TestCopyInvariants(t *testing.T) {
 func TestRedundantKeys(t *testing.T) {
 	g, _ := New("Hades", t0)
 
-	key, _ := g.AddCopy(CopyDetails{Kind: KindKey, Platform: "Steam", Status: StatusRevealed, Key: "K"}, t0)
+	key, _ := g.AddCopy(CopyDetails{
+		Kind:     KindKey,
+		Platform: "Steam",
+		Status:   StatusRevealed,
+		Key:      "K",
+	}, t0)
 	if g.IsRedundant(key) {
 		t.Fatal("not redundant without a library copy")
 	}
 
-	g.AddCopy(CopyDetails{Kind: KindLibrary, Platform: "steam"}, t0)
+	g.AddCopy(CopyDetails{
+		Kind:     KindLibrary,
+		Platform: "steam",
+	}, t0)
 
 	if !g.IsRedundant(g.Copies()[0]) {
 		t.Fatal("expected redundant once the game is in the Steam library")
@@ -64,10 +79,20 @@ func TestRedundantKeys(t *testing.T) {
 
 func TestAbsorb(t *testing.T) {
 	a, _ := New("Witcher 3", t0)
-	a.AddCopy(CopyDetails{Kind: KindLibrary, Platform: "GOG"}, t0)
+	a.AddCopy(CopyDetails{
+		Kind:     KindLibrary,
+		Platform: "GOG",
+	}, t0)
 	b, _ := New("The Witcher 3: Wild Hunt", t0)
-	b.UpdateInfo(Info{Title: b.Title(), Links: Links{LinkSteam: "292030"}, Notes: "GOTY"}, t0)
-	b.AddCopy(CopyDetails{Kind: KindPhysical, Platform: "PS4"}, t0)
+	b.UpdateInfo(Info{
+		Title: b.Title(),
+		Links: Links{LinkSteam: "292030"},
+		Notes: "GOTY",
+	}, t0)
+	b.AddCopy(CopyDetails{
+		Kind:     KindPhysical,
+		Platform: "PS4",
+	}, t0)
 	a.Absorb(b, t0)
 
 	if len(a.Copies()) != 2 || len(b.Copies()) != 0 || a.Links()[LinkSteam] != "292030" || a.Notes() != "GOTY" {
@@ -77,16 +102,26 @@ func TestAbsorb(t *testing.T) {
 
 func TestUpdateInfoCover(t *testing.T) {
 	g, _ := New("Halo 3", t0)
-	if _, err := g.UpdateInfo(Info{Title: "Halo 3", CoverURL: "javascript:alert(1)"}, t0); err == nil {
+	if _, err := g.UpdateInfo(Info{
+		Title:    "Halo 3",
+		CoverURL: "javascript:alert(1)",
+	}, t0); err == nil {
 		t.Error("non-http cover urls must be rejected")
 	}
 
-	changed, err := g.UpdateInfo(Info{Title: "Halo 3", CoverURL: "https://example.com/halo.jpg"}, t0)
+	changed, err := g.UpdateInfo(Info{
+		Title:    "Halo 3",
+		CoverURL: "https://example.com/halo.jpg",
+	}, t0)
 	if err != nil || !changed {
 		t.Fatalf("cover change not reported: %v %v", changed, err)
 	}
 
-	if changed, _ := g.UpdateInfo(Info{Title: "Halo 3 ", CoverURL: "https://example.com/halo.jpg", Notes: "x"}, t0); changed {
+	if changed, _ := g.UpdateInfo(Info{
+		Title:    "Halo 3 ",
+		CoverURL: "https://example.com/halo.jpg",
+		Notes:    "x",
+	}, t0); changed {
 		t.Error("only title/notes changed, the cover did not")
 	}
 }
@@ -111,9 +146,17 @@ func TestParseBarcode(t *testing.T) {
 	}
 
 	g, _ := New("Red Dead Redemption", t0)
-	g.AddCopy(CopyDetails{Kind: KindPhysical, Platform: "Xbox 360", Barcode: "5026555255042"}, t0)
+	g.AddCopy(CopyDetails{
+		Kind:     KindPhysical,
+		Platform: "Xbox 360",
+		Barcode:  "5026555255042",
+	}, t0)
 
-	key, _ := g.AddCopy(CopyDetails{Kind: KindKey, Platform: "Steam", Barcode: "5026555255042"}, t0)
+	key, _ := g.AddCopy(CopyDetails{
+		Kind:     KindKey,
+		Platform: "Steam",
+		Barcode:  "5026555255042",
+	}, t0)
 	if key.Barcode != "" {
 		t.Error("only physical copies keep a barcode")
 	}

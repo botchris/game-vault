@@ -40,7 +40,10 @@ func TestLookupAndTest(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := &Provider{BaseURL: srv.URL, Client: srv.Client()}
+	p := &Provider{
+		BaseURL: srv.URL,
+		Client:  srv.Client(),
+	}
 	good := schema.Settings{settingToken: "good"}
 
 	m, err := p.Lookup(context.Background(), "5030934110075", good)

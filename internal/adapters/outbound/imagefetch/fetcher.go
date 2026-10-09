@@ -56,5 +56,8 @@ func (f *Fetcher) Fetch(ctx context.Context, url string) (media.Image, error) {
 		return media.Image{}, fmt.Errorf("not an image (%s)", ct)
 	}
 
-	return media.Image{Data: data, ContentType: ct}, nil
+	return media.Image{
+		Data:        data,
+		ContentType: ct,
+	}, nil
 }

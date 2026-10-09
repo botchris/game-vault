@@ -36,9 +36,12 @@ func NewDetails(s *Store) *Details { return &Details{store: s} }
 // Descriptor implements media.MetadataProvider.
 func (d *Details) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
-		ID: DetailsProviderID, Kind: provider.KindMetadata, Name: "Steam",
-		DescriptionKey: "providers.steamDetails.description", EnabledByDefault: true,
-		DefaultOrder: 10,
+		ID:               DetailsProviderID,
+		Kind:             provider.KindMetadata,
+		Name:             "Steam",
+		DescriptionKey:   "providers.steamDetails.description",
+		EnabledByDefault: true,
+		DefaultOrder:     10,
 	}
 }
 
@@ -172,13 +175,20 @@ func (d *Details) Details(ctx context.Context, q media.CoverQuery, language stri
 	for _, pass := range []bool{true, false} {
 		for _, m := range a.Movies {
 			if m.Highlight == pass && m.HLS != "" && len(det.Videos) < maxVideos {
-				det.Videos = append(det.Videos, media.Video{Title: m.Name, Thumbnail: m.Thumbnail, HLSURL: m.HLS})
+				det.Videos = append(det.Videos, media.Video{
+					Title:     m.Name,
+					Thumbnail: m.Thumbnail,
+					HLSURL:    m.HLS,
+				})
 			}
 		}
 	}
 
 	for _, s := range a.Screenshots[:min(len(a.Screenshots), maxScreenshots)] {
-		det.Screenshots = append(det.Screenshots, media.Screenshot{ThumbURL: s.Thumb, FullURL: s.Full})
+		det.Screenshots = append(det.Screenshots, media.Screenshot{
+			ThumbURL: s.Thumb,
+			FullURL:  s.Full,
+		})
 	}
 
 	return det, nil

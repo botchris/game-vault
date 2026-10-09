@@ -17,7 +17,8 @@ type SteamStore interface {
 // box art.
 func Plugin(steam SteamStore) plugin.Plugin {
 	return plugin.Plugin{
-		ID: "battlenet", Name: "Battle.net",
+		ID:      "battlenet",
+		Name:    "Battle.net",
 		Sources: []sync.Provider{NewProvider()},
 		Covers:  []media.CoverProvider{NewCovers(steam, steam)},
 	}

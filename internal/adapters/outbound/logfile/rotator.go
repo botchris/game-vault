@@ -67,7 +67,10 @@ func Open(dir string, level *slog.LevelVar, s settings.Logging) (*Rotator, error
 		return nil, err
 	}
 
-	r := &Rotator{dir: dir, level: level}
+	r := &Rotator{
+		dir:   dir,
+		level: level,
+	}
 	if err := r.Apply(s); err != nil {
 		return nil, err
 	}
@@ -221,7 +224,12 @@ func (r *Rotator) List() ([]logs.File, error) {
 			continue
 		}
 
-		out = append(out, logs.File{Name: n, SizeBytes: info.Size(), ModifiedAt: info.ModTime(), Current: n == currentName})
+		out = append(out, logs.File{
+			Name:       n,
+			SizeBytes:  info.Size(),
+			ModifiedAt: info.ModTime(),
+			Current:    n == currentName,
+		})
 	}
 
 	return out, nil

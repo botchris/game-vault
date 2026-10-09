@@ -80,18 +80,26 @@ const ownedGamesQuery = `query OwnedGames($next: String) {
 
 // Provider implements sync.Provider for EA accounts.
 type Provider struct {
-	AccountsURL, GraphQLURL string
-	Timeout                 time.Duration
+	AccountsURL string
+	GraphQLURL  string
+	Timeout     time.Duration
 }
 
 // NewProvider returns the EA app source with its production endpoints.
 func NewProvider() *Provider {
-	return &Provider{AccountsURL: defaultAccountsURL, GraphQLURL: defaultGraphQLURL, Timeout: 30 * time.Second}
+	return &Provider{
+		AccountsURL: defaultAccountsURL,
+		GraphQLURL:  defaultGraphQLURL,
+		Timeout:     30 * time.Second,
+	}
 }
 
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
 // imports, and the cover provider reads it.
-var LinkedStore = game.Store{Key: "ea", Name: "EA app"}
+var LinkedStore = game.Store{
+	Key:  "ea",
+	Name: "EA app",
+}
 
 // LinkStore implements sync.StoreLinker.
 func (p *Provider) LinkStore() game.Store { return LinkedStore }
@@ -111,7 +119,10 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 				Kind:     source.FieldSecret,
 				Required: true,
 			},
-			{Key: settingSession, Kind: source.FieldState},
+			{
+				Key:  settingSession,
+				Kind: source.FieldState,
+			},
 		},
 	}
 }
@@ -320,7 +331,11 @@ func mapItems(items []item) []game.ImportedCopy {
 			Links:      game.Links{LinkedStore.Key: id},
 			Title:      title,
 			Details: game.CopyDetails{
-				Kind: game.KindLibrary, Platform: Platform, Status: game.StatusOwned, Origin: "EA app", Edition: edition,
+				Kind:     game.KindLibrary,
+				Platform: Platform,
+				Status:   game.StatusOwned,
+				Origin:   "EA app",
+				Edition:  edition,
 			},
 		}
 	}

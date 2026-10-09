@@ -19,8 +19,15 @@ type halfDone struct{}
 
 func (halfDone) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
-		ID: "half", Kind: provider.KindBarcode, Name: "Half", DescriptionKey: "providers.half.description",
-		Fields: schema.Fields{{Key: "api_key", LabelKey: "providers.half.apiKey", Kind: schema.FieldSecret}},
+		ID:             "half",
+		Kind:           provider.KindBarcode,
+		Name:           "Half",
+		DescriptionKey: "providers.half.description",
+		Fields: schema.Fields{{
+			Key:      "api_key",
+			LabelKey: "providers.half.apiKey",
+			Kind:     schema.FieldSecret,
+		}},
 	}
 }
 
@@ -38,7 +45,11 @@ func TestProblems(t *testing.T) {
 	}
 
 	t.Run("GIVEN a plugin with an incomplete provider", func(t *testing.T) {
-		p := plugin.Plugin{ID: "half", Name: "Half", Covers: []media.CoverProvider{halfDone{}}}
+		p := plugin.Plugin{
+			ID:     "half",
+			Name:   "Half",
+			Covers: []media.CoverProvider{halfDone{}},
+		}
 
 		t.Run("WHEN it is checked", func(t *testing.T) {
 			problems := Problems(p, tr)
@@ -55,7 +66,10 @@ func TestProblems(t *testing.T) {
 
 	t.Run("GIVEN a plugin that adds nothing", func(t *testing.T) {
 		t.Run("THEN it is reported", func(t *testing.T) {
-			assert.Equal(t, []string{`plugin "empty": adds nothing (no source and no provider)`}, Problems(plugin.Plugin{ID: "empty", Name: "Empty"}, tr))
+			assert.Equal(t, []string{`plugin "empty": adds nothing (no source and no provider)`}, Problems(plugin.Plugin{
+				ID:   "empty",
+				Name: "Empty",
+			}, tr))
 		})
 	})
 }

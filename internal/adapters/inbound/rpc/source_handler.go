@@ -94,7 +94,10 @@ func (h *SourceHandler) TestSource(ctx context.Context, req *connect.Request[pb.
 
 	if err := h.sync.Test(ctx, source.ID(req.Msg.Id), source.Type(in.Type), configFromPB(in)); err != nil {
 		// A failed connection is a valid test result, not an RPC failure.
-		return connect.NewResponse(&pb.TestSourceResponse{Success: false, Message: err.Error()}), nil
+		return connect.NewResponse(&pb.TestSourceResponse{
+			Success: false,
+			Message: err.Error(),
+		}), nil
 	}
 
 	return connect.NewResponse(&pb.TestSourceResponse{Success: true}), nil

@@ -67,12 +67,20 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 		ManualScans:    true,
 		Fields: []source.Field{
 			{
-				Key: settingConsent, LabelKey: "sources.fanatical.consent", HelpKey: "sources.fanatical.consentHelp",
-				HelpURL: TermsURL, Kind: schema.FieldConsent, Required: true,
+				Key:      settingConsent,
+				LabelKey: "sources.fanatical.consent",
+				HelpKey:  "sources.fanatical.consentHelp",
+				HelpURL:  TermsURL,
+				Kind:     schema.FieldConsent,
+				Required: true,
 			},
 			{
-				Key: settingSession, LabelKey: "sources.fanatical.session", HelpKey: "sources.fanatical.sessionHelp",
-				HelpURL: defaultBaseURL + "/en/", Kind: schema.FieldSecret, Required: true,
+				Key:      settingSession,
+				LabelKey: "sources.fanatical.session",
+				HelpKey:  "sources.fanatical.sessionHelp",
+				HelpURL:  defaultBaseURL + "/en/",
+				Kind:     schema.FieldSecret,
+				Required: true,
 			},
 		},
 	}
@@ -144,7 +152,10 @@ func (p *Provider) keys(ctx context.Context, settings source.Settings) ([]item, 
 
 	var items []item
 
-	err := p.API.Do(ctx, apiclient.Request{Path: "/api/user/keys", Header: http.Header{"Authorization": {tok}}}, &items)
+	err := p.API.Do(ctx, apiclient.Request{
+		Path:   "/api/user/keys",
+		Header: http.Header{"Authorization": {tok}},
+	}, &items)
 	if apiclient.IsStatus(err, http.StatusUnauthorized, http.StatusForbidden) {
 		return nil, ErrSignedOut
 	}
@@ -157,7 +168,10 @@ func (p *Provider) keys(ctx context.Context, settings source.Settings) ([]item, 
 }
 
 // drmPlatforms maps Fanatical's DRM flags to Game Vault's platform names, most specific first.
-var drmPlatforms = []struct{ flag, platform string }{
+var drmPlatforms = []struct {
+	flag     string
+	platform string
+}{
 	{"steam", "Steam"}, {"epicgames", "Epic Games"}, {"gog", "GOG"}, {"uplay", "Ubisoft Connect"},
 	{"origin", "EA App"}, {"rockstar", "Rockstar"}, {"xbox", "Microsoft Store / Xbox"},
 	{"playstation", "PlayStation Store"}, {"switch", "Nintendo eShop"}, {"drm_free", "PC"},
@@ -209,7 +223,11 @@ func mapItems(items []item) ([]game.ImportedCopy, []string) {
 	for _, it := range items {
 		if it.isBundle() {
 			if it.ID != "" {
-				copies = append(copies, game.ImportedCopy{ExternalID: "fanatical:" + it.ID, Title: strings.TrimSpace(it.Name), Withdrawn: true})
+				copies = append(copies, game.ImportedCopy{
+					ExternalID: "fanatical:" + it.ID,
+					Title:      strings.TrimSpace(it.Name),
+					Withdrawn:  true,
+				})
 			}
 
 			continue
@@ -225,8 +243,13 @@ func mapItems(items []item) ([]game.ImportedCopy, []string) {
 			ExternalID: "fanatical:" + it.ID,
 			Title:      strings.TrimSpace(it.Name),
 			Details: game.CopyDetails{
-				Kind: game.KindKey, Platform: platform, Status: it.status(), Key: strings.TrimSpace(it.Key), Origin: it.origin(),
-				RedeemBy: date(it.SerialExpiry), AcquiredOn: date(it.Purchased),
+				Kind:       game.KindKey,
+				Platform:   platform,
+				Status:     it.status(),
+				Key:        strings.TrimSpace(it.Key),
+				Origin:     it.origin(),
+				RedeemBy:   date(it.SerialExpiry),
+				AcquiredOn: date(it.Purchased),
 			},
 		})
 	}

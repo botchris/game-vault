@@ -111,6 +111,40 @@ constant into its own declaration instead.
   for them) and `task lint:fix` applies (`-fix` inserts and removes the blank lines; missing
   interface docs must be written by hand).
 
+- **One struct field per line.** A struct literal with two or more keyed fields puts each field on
+  its own line and the closing brace on a line of its own, however short the fields are:
+
+  ```go
+  // WRONG
+  return provider.Descriptor{
+      ID: CoverProviderID, Kind: provider.KindCover, Name: "Xbox / Microsoft Store",
+      DescriptionKey: "providers.xboxCovers.description", EnabledByDefault: true,
+      DefaultOrder: 80,
+  }
+
+  // WRONG too: a one-line literal with several fields
+  return game.Store{Key: "epic", Name: "Epic Games"}
+
+  // RIGHT
+  return provider.Descriptor{
+      ID:               CoverProviderID,
+      Kind:             provider.KindCover,
+      Name:             "Xbox / Microsoft Store",
+      DescriptionKey:   "providers.xboxCovers.description",
+      EnabledByDefault: true,
+      DefaultOrder:     80,
+  }
+  ```
+
+  The same holds for struct types: one field per line, one name per field (`a string` and
+  `b string`, never `a, b string`), including anonymous ones (`struct{ a, b string }` is wrong).
+  Not covered: map literals (`source.Settings{settingToken: "x", …}`), positional struct literals
+  (test tables), literals with a single field, and function arguments.
+
+  Checked by `tools/fieldlines` (a `go/analysis` analyzer, so it knows a struct from a map), which
+  `task lint` runs and `task lint:fix` applies (`-fix` breaks the fields onto their own lines, then
+  gofmt aligns them).
+
 - **Error strings**: lowercase, no trailing punctuation (`revive:error-strings`). Sentinel errors
   are `ErrX` (exported) / `errX` (`error-naming`) and callers match them with `errors.Is`. Wrap with
   context: `fmt.Errorf("caching cover: %w", err)`. Errors that reach the UI say what happened and

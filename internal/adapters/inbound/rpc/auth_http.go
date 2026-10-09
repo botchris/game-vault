@@ -122,8 +122,13 @@ func denyUnauthenticated(w http.ResponseWriter, path string) {
 // plus Connect's JSON-only requests block cross-site request forgery.
 func sessionCookieFor(token string, secure bool, maxAge time.Duration) *http.Cookie {
 	c := &http.Cookie{
-		Name: sessionCookie, Value: token, Path: "/", HttpOnly: true, Secure: secure, SameSite: http.SameSiteLaxMode,
-		MaxAge: int(maxAge / time.Second),
+		Name:     sessionCookie,
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   secure,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   int(maxAge / time.Second),
 	}
 	if maxAge <= 0 {
 		c.MaxAge = -1

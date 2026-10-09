@@ -99,7 +99,9 @@ const maxPages = 100
 
 // loginData is what the site keeps in the browser after signing in.
 type loginData struct {
-	RememberMeTicket, Ticket, SessionID string
+	RememberMeTicket string
+	Ticket           string
+	SessionID        string
 }
 
 // parseLoginData reads the login data the site keeps in Local Storage (the PRODrememberMe entry),
@@ -158,12 +160,19 @@ const sessionTTL = time.Hour
 
 // NewProvider returns the Ubisoft Connect source with its production endpoints.
 func NewProvider() *Provider {
-	return &Provider{APIURL: defaultAPIURL, Client: &http.Client{Timeout: 30 * time.Second}, Now: time.Now}
+	return &Provider{
+		APIURL: defaultAPIURL,
+		Client: &http.Client{Timeout: 30 * time.Second},
+		Now:    time.Now,
+	}
 }
 
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
 // imports, and the cover provider reads it.
-var LinkedStore = game.Store{Key: "ubisoft", Name: "Ubisoft Connect"}
+var LinkedStore = game.Store{
+	Key:  "ubisoft",
+	Name: "Ubisoft Connect",
+}
 
 // LinkStore implements sync.StoreLinker.
 func (p *Provider) LinkStore() game.Store { return LinkedStore }
@@ -175,15 +184,26 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 		Name:           "Ubisoft Connect",
 		DescriptionKey: "sources.ubisoft.description",
 		Fields: []source.Field{
-			{Key: settingLoginData, LabelKey: "sources.ubisoft.loginData", HelpKey: "sources.ubisoft.loginDataHelp",
-				HelpURL: LoginURL, Kind: source.FieldSecret, Required: true},
-			{Key: settingSession, Kind: source.FieldState},
+			{
+				Key:      settingLoginData,
+				LabelKey: "sources.ubisoft.loginData",
+				HelpKey:  "sources.ubisoft.loginDataHelp",
+				HelpURL:  LoginURL,
+				Kind:     source.FieldSecret,
+				Required: true,
+			},
+			{
+				Key:  settingSession,
+				Kind: source.FieldState,
+			},
 		},
 	}
 }
 
 type session struct {
-	ticket, sessionID, appID string
+	ticket    string
+	sessionID string
+	appID     string
 }
 
 // session opens a session, spending the remember-me ticket as little as possible because Ubisoft
@@ -258,7 +278,11 @@ func (p *Provider) session(ctx context.Context, settings source.Settings, fresh 
 			rm = d.RememberMeTicket
 		}
 
-		next := state{From: key, RememberMeTicket: rm, AppID: app}
+		next := state{
+			From:             key,
+			RememberMeTicket: rm,
+			AppID:            app,
+		}
 
 		p.mu.Lock()
 		if p.rotated == nil {
@@ -270,7 +294,10 @@ func (p *Provider) session(ctx context.Context, settings source.Settings, fresh 
 		}
 
 		p.rotated[key] = next
-		p.sessions[key] = cached{s: sess, expires: p.Now().Add(sessionTTL)}
+		p.sessions[key] = cached{
+			s:       sess,
+			expires: p.Now().Add(sessionTTL),
+		}
 		p.mu.Unlock()
 
 		raw, _ := json.Marshal(next)
@@ -487,7 +514,12 @@ func mapNodes(nodes []node) []game.ImportedCopy {
 			ExternalID: "ubisoft:" + id,
 			Links:      game.Links{LinkedStore.Key: id},
 			Title:      title,
-			Details:    game.CopyDetails{Kind: game.KindLibrary, Platform: Platform, Status: game.StatusOwned, Origin: "Ubisoft Connect"},
+			Details: game.CopyDetails{
+				Kind:     game.KindLibrary,
+				Platform: Platform,
+				Status:   game.StatusOwned,
+				Origin:   "Ubisoft Connect",
+			},
 		})
 	}
 

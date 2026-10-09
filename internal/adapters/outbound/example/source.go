@@ -49,10 +49,16 @@ func (p *Provider) LinkStore() game.Store { return LinkedStore }
 // Descriptor implements sync.Provider. Every key is a translation key that plugintest checks.
 func (p *Provider) Descriptor() source.TypeDescriptor {
 	return source.TypeDescriptor{
-		Type: Type, Name: "Example Store", DescriptionKey: "sources.example.description",
+		Type:           Type,
+		Name:           "Example Store",
+		DescriptionKey: "sources.example.description",
 		Fields: []source.Field{{
-			Key: settingToken, LabelKey: "sources.example.token", HelpKey: "sources.example.tokenHelp",
-			HelpURL: "https://example-store.invalid/account/tokens", Kind: schema.FieldSecret, Required: true,
+			Key:      settingToken,
+			LabelKey: "sources.example.token",
+			HelpKey:  "sources.example.tokenHelp",
+			HelpURL:  "https://example-store.invalid/account/tokens",
+			Kind:     schema.FieldSecret,
+			Required: true,
 		}},
 	}
 }
@@ -125,7 +131,10 @@ func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.
 			Title:      title,
 			Links:      game.Links{LinkedStore.Key: id},
 			Details: game.CopyDetails{
-				Kind: game.KindLibrary, Platform: Platform, Status: game.StatusOwned, Origin: "Example Store",
+				Kind:     game.KindLibrary,
+				Platform: Platform,
+				Status:   game.StatusOwned,
+				Origin:   "Example Store",
 			},
 		})
 	}

@@ -39,9 +39,12 @@ func NewCovers() *Covers { return &Covers{API: apiclient.New(defaultBaseURL)} }
 // installs: after the stores already there (Steam is 20, Xbox 80). The user can reorder it.
 func (c *Covers) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
-		ID: CoverProviderID, Kind: provider.KindCover, Name: "Example Store",
-		DescriptionKey: "providers.exampleCovers.description", EnabledByDefault: true,
-		DefaultOrder: 90,
+		ID:               CoverProviderID,
+		Kind:             provider.KindCover,
+		Name:             "Example Store",
+		DescriptionKey:   "providers.exampleCovers.description",
+		EnabledByDefault: true,
+		DefaultOrder:     90,
 	}
 }
 
@@ -85,10 +88,17 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 
 	var out []media.CoverCandidate
 
-	for _, a := range []struct{ url, label string }{{p.Art.Portrait, "box art"}, {p.Art.Wide, "banner"}} {
+	for _, a := range []struct {
+		url   string
+		label string
+	}{{p.Art.Portrait, "box art"}, {p.Art.Wide, "banner"}} {
 		if a.url != "" {
 			out = append(out, media.CoverCandidate{
-				URL: a.url, ThumbURL: a.url, Label: "Example Store: " + a.label, Title: p.Title, Provider: CoverProviderID,
+				URL:      a.url,
+				ThumbURL: a.url,
+				Label:    "Example Store: " + a.label,
+				Title:    p.Title,
+				Provider: CoverProviderID,
 			})
 		}
 	}

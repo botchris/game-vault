@@ -40,17 +40,26 @@ var (
 
 // New returns the EAN-Search barcode provider with its production endpoints.
 func New() *Provider {
-	return &Provider{BaseURL: defaultBaseURL, Client: &http.Client{Timeout: 15 * time.Second}}
+	return &Provider{
+		BaseURL: defaultBaseURL,
+		Client:  &http.Client{Timeout: 15 * time.Second},
+	}
 }
 
 // Descriptor implements media.BarcodeProvider.
 func (p *Provider) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
-		ID: ID, Kind: provider.KindBarcode, Name: "EAN-Search",
+		ID:             ID,
+		Kind:           provider.KindBarcode,
+		Name:           "EAN-Search",
 		DescriptionKey: "providers.eansearch.description",
 		Fields: schema.Fields{{
-			Key: settingToken, LabelKey: "providers.eansearch.token", HelpKey: "providers.eansearch.tokenHelp",
-			HelpURL: "https://www.ean-search.org/ean-database-api.html", Kind: schema.FieldSecret, Required: true,
+			Key:      settingToken,
+			LabelKey: "providers.eansearch.token",
+			HelpKey:  "providers.eansearch.tokenHelp",
+			HelpURL:  "https://www.ean-search.org/ean-database-api.html",
+			Kind:     schema.FieldSecret,
+			Required: true,
 		}},
 		DefaultOrder: 40,
 	}
@@ -134,7 +143,13 @@ func (p *Provider) Lookup(ctx context.Context, code game.Barcode, s schema.Setti
 			return nil, fmt.Errorf("%s", it.Error)
 		case it.Name != "":
 			title, platform, edition := media.CleanProductTitle(it.Name)
-			matches = append(matches, media.BarcodeMatch{Raw: it.Name, Title: title, Platform: platform, Edition: edition, Provider: ID})
+			matches = append(matches, media.BarcodeMatch{
+				Raw:      it.Name,
+				Title:    title,
+				Platform: platform,
+				Edition:  edition,
+				Provider: ID,
+			})
 		}
 	}
 

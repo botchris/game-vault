@@ -75,7 +75,10 @@ func (h *MediaHandler) ReorderProviders(ctx context.Context, req *connect.Reques
 func (h *MediaHandler) TestProvider(ctx context.Context, req *connect.Request[pb.TestProviderRequest]) (*connect.Response[pb.TestProviderResponse], error) {
 	if err := h.media.TestProvider(ctx, provider.ID(req.Msg.Id), schema.Settings(req.Msg.Settings)); err != nil {
 		// A failed check is a valid test result, not an RPC failure.
-		return connect.NewResponse(&pb.TestProviderResponse{Success: false, Message: err.Error()}), nil
+		return connect.NewResponse(&pb.TestProviderResponse{
+			Success: false,
+			Message: err.Error(),
+		}), nil
 	}
 
 	return connect.NewResponse(&pb.TestProviderResponse{Success: true}), nil
@@ -99,7 +102,11 @@ func (h *MediaHandler) ListCoverCandidates(ctx context.Context, req *connect.Req
 	out := &pb.ListCoverCandidatesResponse{Warnings: warnings}
 	for _, c := range candidates {
 		out.Candidates = append(out.Candidates, &pb.CoverCandidate{
-			Url: c.URL, ThumbUrl: c.ThumbURL, Label: c.Label, ProviderId: string(c.Provider), ProviderName: names[c.Provider],
+			Url:          c.URL,
+			ThumbUrl:     c.ThumbURL,
+			Label:        c.Label,
+			ProviderId:   string(c.Provider),
+			ProviderName: names[c.Provider],
 		})
 	}
 

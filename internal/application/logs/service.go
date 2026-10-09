@@ -50,7 +50,11 @@ type Service struct {
 
 // NewService builds the service from the settings store, the running logger and the log files.
 func NewService(repo settings.Repository, sink Sink, files Files) *Service {
-	return &Service{repo: repo, sink: sink, files: files}
+	return &Service{
+		repo:  repo,
+		sink:  sink,
+		files: files,
+	}
 }
 
 // Init applies the saved settings to the running logger. Call it once at start-up.

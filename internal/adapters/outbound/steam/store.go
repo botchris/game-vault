@@ -23,7 +23,11 @@ const (
 )
 
 // LinkedStore is Steam as a store games are linked to by AppID.
-var LinkedStore = game.Store{Key: game.LinkSteam, Name: "Steam", PageURL: StorePageURL + "{id}"}
+var LinkedStore = game.Store{
+	Key:     game.LinkSteam,
+	Name:    "Steam",
+	PageURL: StorePageURL + "{id}",
+}
 
 // StorePageURL is the address of a Steam store page, without the AppID.
 const StorePageURL = "https://store.steampowered.com/app/"
@@ -67,9 +71,12 @@ var (
 // Descriptor implements media.CoverProvider.
 func (s *Store) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
-		ID: CoverProviderID, Kind: provider.KindCover, Name: "Steam",
-		DescriptionKey: "providers.steam.description", EnabledByDefault: true,
-		DefaultOrder: 20,
+		ID:               CoverProviderID,
+		Kind:             provider.KindCover,
+		Name:             "Steam",
+		DescriptionKey:   "providers.steam.description",
+		EnabledByDefault: true,
+		DefaultOrder:     20,
 	}
 }
 
@@ -108,7 +115,13 @@ func (s *Store) Covers(ctx context.Context, q media.CoverQuery, _ schema.Setting
 			label = "Steam · header"
 		}
 
-		out = append(out, media.CoverCandidate{URL: u, ThumbURL: u, Label: label, Title: q.Title, Provider: CoverProviderID})
+		out = append(out, media.CoverCandidate{
+			URL:      u,
+			ThumbURL: u,
+			Label:    label,
+			Title:    q.Title,
+			Provider: CoverProviderID,
+		})
 	}
 
 	return out, nil
@@ -168,7 +181,12 @@ func NewStore() *Store {
 	site, api := apiclient.New(defaultStoreURL), apiclient.New(defaultAPIURL)
 	site.HTTP.Timeout, api.HTTP.Timeout = 15*time.Second, 15*time.Second
 
-	return &Store{Site: site, API: api, CDNURL: defaultCDNURL, AssetsURL: defaultAssetsURL}
+	return &Store{
+		Site:      site,
+		API:       api,
+		CDNURL:    defaultCDNURL,
+		AssetsURL: defaultAssetsURL,
+	}
 }
 
 // CoverURLs returns Steam's portrait and header art URLs for an app.
@@ -201,7 +219,11 @@ func (s *Store) SearchLinks(ctx context.Context, query string) ([]media.LinkMatc
 	matches := make([]media.LinkMatch, 0, len(out.Items))
 	for _, it := range out.Items {
 		if it.Type == "app" {
-			matches = append(matches, media.LinkMatch{ID: strconv.FormatInt(it.ID, 10), Name: it.Name, ImageURL: it.TinyImage})
+			matches = append(matches, media.LinkMatch{
+				ID:       strconv.FormatInt(it.ID, 10),
+				Name:     it.Name,
+				ImageURL: it.TinyImage,
+			})
 		}
 	}
 

@@ -87,7 +87,10 @@ type session struct {
 
 // login is the device a sign-in link registers; it lives in memory until a code uses it.
 type login struct {
-	serial, clientID, verifier, url string
+	serial   string
+	clientID string
+	verifier string
+	url      string
 }
 
 type token struct {
@@ -97,9 +100,11 @@ type token struct {
 
 // Provider implements sync.Provider and sync.Preparer for Amazon Games accounts.
 type Provider struct {
-	SignInURL, APIURL, EntitlementsURL string
-	Client                             *http.Client
-	Now                                func() time.Time
+	SignInURL       string
+	APIURL          string
+	EntitlementsURL string
+	Client          *http.Client
+	Now             func() time.Time
 
 	mu      gosync.Mutex
 	login   login
@@ -110,14 +115,20 @@ type Provider struct {
 // NewProvider returns the Amazon Games source with its production endpoints.
 func NewProvider() *Provider {
 	return &Provider{
-		SignInURL: defaultSignInURL, APIURL: defaultAPIURL, EntitlementsURL: defaultEntitlementsURL,
-		Client: &http.Client{Timeout: 30 * time.Second}, Now: time.Now,
+		SignInURL:       defaultSignInURL,
+		APIURL:          defaultAPIURL,
+		EntitlementsURL: defaultEntitlementsURL,
+		Client:          &http.Client{Timeout: 30 * time.Second},
+		Now:             time.Now,
 	}
 }
 
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
 // imports.
-var LinkedStore = game.Store{Key: "amazon", Name: "Amazon Games"}
+var LinkedStore = game.Store{
+	Key:  "amazon",
+	Name: "Amazon Games",
+}
 
 // LinkStore implements sync.StoreLinker.
 func (p *Provider) LinkStore() game.Store { return LinkedStore }
@@ -130,8 +141,17 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 		Name:           "Amazon Games",
 		DescriptionKey: "sources.amazon.description",
 		Fields: []source.Field{
-			{Key: settingCode, LabelKey: "sources.amazon.code", HelpKey: "sources.amazon.codeHelp", HelpURL: p.currentLogin().url, Kind: source.FieldSecret},
-			{Key: settingSession, Kind: source.FieldState},
+			{
+				Key:      settingCode,
+				LabelKey: "sources.amazon.code",
+				HelpKey:  "sources.amazon.codeHelp",
+				HelpURL:  p.currentLogin().url,
+				Kind:     source.FieldSecret,
+			},
+			{
+				Key:  settingSession,
+				Kind: source.FieldState,
+			},
 		},
 	}
 }
@@ -173,7 +193,12 @@ func newLogin(signInURL string) login {
 		"language":                         {"en_US"},
 	}
 
-	return login{serial: serial, clientID: clientID, verifier: verifier, url: signInURL + "?" + q.Encode()}
+	return login{
+		serial:   serial,
+		clientID: clientID,
+		verifier: verifier,
+		url:      signInURL + "?" + q.Encode(),
+	}
 }
 
 func randomBytes(n int) []byte {
@@ -287,7 +312,10 @@ func (p *Provider) register(ctx context.Context, code string) (session, string, 
 	p.login = login{}
 	p.mu.Unlock()
 
-	return session{RefreshToken: b.RefreshToken, Serial: l.serial}, b.AccessToken, time.Duration(b.ExpiresIn), nil
+	return session{
+		RefreshToken: b.RefreshToken,
+		Serial:       l.serial,
+	}, b.AccessToken, time.Duration(b.ExpiresIn), nil
 }
 
 // expiresIn is Amazon's expires_in: a number of seconds, sent as a string by /auth/register and
@@ -363,7 +391,10 @@ func (p *Provider) remember(refresh, access string, ttl time.Duration) {
 		p.tokens = map[string]token{}
 	}
 
-	p.tokens[refresh] = token{access: access, expires: p.Now().Add(ttl - time.Minute)}
+	p.tokens[refresh] = token{
+		access:  access,
+		expires: p.Now().Add(ttl - time.Minute),
+	}
 }
 
 // accessToken returns a current access token for the session, refreshing it when needed. fresh
@@ -554,7 +585,11 @@ func mapEntitlements(items []entitlement) ([]game.ImportedCopy, []string) {
 			ExternalID: "amazon:" + id,
 			Title:      title,
 			Links:      links,
-			Details:    game.CopyDetails{Kind: game.KindLibrary, Platform: Platform, Status: game.StatusOwned},
+			Details: game.CopyDetails{
+				Kind:     game.KindLibrary,
+				Platform: Platform,
+				Status:   game.StatusOwned,
+			},
 		})
 	}
 

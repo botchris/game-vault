@@ -28,7 +28,10 @@ func principalToPB(p *auth.Principal) *pb.Principal {
 		return nil
 	}
 
-	return &pb.Principal{Method: string(p.Method), Name: p.Name}
+	return &pb.Principal{
+		Method: string(p.Method),
+		Name:   p.Name,
+	}
 }
 
 func authError(err error) error {
@@ -68,7 +71,10 @@ func (h *AuthHandler) GetAuthStatus(ctx context.Context, _ *connect.Request[pb.G
 	}
 
 	return connect.NewResponse(&pb.GetAuthStatusResponse{
-		Principal: principalToPB(st.Principal), SetupRequired: st.SetupRequired, CanSetup: st.CanSetup, Trusted: st.Trusted,
+		Principal:     principalToPB(st.Principal),
+		SetupRequired: st.SetupRequired,
+		CanSetup:      st.CanSetup,
+		Trusted:       st.Trusted,
 	}), nil
 }
 
@@ -132,8 +138,11 @@ func (h *AuthHandler) ChangePassword(ctx context.Context, req *connect.Request[p
 }
 
 func authSettingsToPB(s auth.Settings) *pb.AuthSettings {
-	return &pb.AuthSettings{Authentication: string(s.Authentication), TrustedNetworks: s.TrustedNetworks,
-		CertificateValidation: string(s.CertificateValidation)}
+	return &pb.AuthSettings{
+		Authentication:        string(s.Authentication),
+		TrustedNetworks:       s.TrustedNetworks,
+		CertificateValidation: string(s.CertificateValidation),
+	}
 }
 
 // GetAuthSettings returns the access settings, such as the trusted networks.
@@ -149,8 +158,11 @@ func (h *AuthHandler) GetAuthSettings(ctx context.Context, _ *connect.Request[pb
 
 	r := requestFrom(ctx)
 
-	out := &pb.GetAuthSettingsResponse{Settings: authSettingsToPB(s), ClientAddress: r.ClientIP.Unmap().String(),
-		ClientInTrustedNetworks: s.Contains(r.ClientIP)}
+	out := &pb.GetAuthSettingsResponse{
+		Settings:                authSettingsToPB(s),
+		ClientAddress:           r.ClientIP.Unmap().String(),
+		ClientInTrustedNetworks: s.Contains(r.ClientIP),
+	}
 	if u, err := h.auth.User(ctx); err == nil {
 		out.HasUser, out.Username = true, u.Username
 	} else if !errors.Is(err, auth.ErrNotFound) {
@@ -172,7 +184,8 @@ func (h *AuthHandler) UpdateAuthSettings(ctx context.Context, req *connect.Reque
 	}
 
 	s, err := h.auth.UpdateSettings(ctx, auth.Settings{
-		Authentication: auth.Authentication(in.Authentication), TrustedNetworks: in.TrustedNetworks,
+		Authentication:        auth.Authentication(in.Authentication),
+		TrustedNetworks:       in.TrustedNetworks,
 		CertificateValidation: auth.CertificateValidation(in.CertificateValidation),
 	})
 	if err != nil {

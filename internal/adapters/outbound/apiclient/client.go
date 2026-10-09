@@ -53,8 +53,11 @@ type Client struct {
 // New returns a client for the API at baseURL, with a 60 s timeout and Game Vault's User-Agent.
 func New(baseURL string) *Client {
 	return &Client{
-		BaseURL: strings.TrimSuffix(baseURL, "/"), HTTP: &http.Client{Timeout: 60 * time.Second},
-		UserAgent: UserAgent, Header: http.Header{}, MaxBody: DefaultMaxBody,
+		BaseURL:   strings.TrimSuffix(baseURL, "/"),
+		HTTP:      &http.Client{Timeout: 60 * time.Second},
+		UserAgent: UserAgent,
+		Header:    http.Header{},
+		MaxBody:   DefaultMaxBody,
 	}
 }
 
@@ -93,12 +96,20 @@ func IsStatus(err error, statuses ...int) bool {
 
 // Get calls GET path with the query and decodes the JSON answer into out.
 func (c *Client) Get(ctx context.Context, path string, query url.Values, out any) error {
-	return c.Do(ctx, Request{Method: http.MethodGet, Path: path, Query: query}, out)
+	return c.Do(ctx, Request{
+		Method: http.MethodGet,
+		Path:   path,
+		Query:  query,
+	}, out)
 }
 
 // Post sends body as JSON to path and decodes the JSON answer into out (nil to ignore it).
 func (c *Client) Post(ctx context.Context, path string, body, out any) error {
-	return c.Do(ctx, Request{Method: http.MethodPost, Path: path, Body: body}, out)
+	return c.Do(ctx, Request{
+		Method: http.MethodPost,
+		Path:   path,
+		Body:   body,
+	}, out)
 }
 
 // Do sends r and decodes a 2xx JSON answer into out (nil to ignore it). Any other status is a
@@ -144,7 +155,12 @@ func (c *Client) Do(ctx context.Context, r Request, out any) error {
 	}
 
 	if res.StatusCode < 200 || res.StatusCode > 299 {
-		return &StatusError{Method: method, URL: c.BaseURL + r.Path, Status: res.StatusCode, Body: snippet(data)}
+		return &StatusError{
+			Method: method,
+			URL:    c.BaseURL + r.Path,
+			Status: res.StatusCode,
+			Body:   snippet(data),
+		}
 	}
 
 	if out == nil {

@@ -60,19 +60,41 @@ var (
 
 // New returns the eBay barcode provider with its production endpoints.
 func New() *Provider {
-	return &Provider{BaseURL: defaultBaseURL, Client: &http.Client{Timeout: 15 * time.Second}, tokens: map[string]token{}}
+	return &Provider{
+		BaseURL: defaultBaseURL,
+		Client:  &http.Client{Timeout: 15 * time.Second},
+		tokens:  map[string]token{},
+	}
 }
 
 // Descriptor implements media.BarcodeProvider.
 func (p *Provider) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
-		ID: ID, Kind: provider.KindBarcode, Name: "eBay",
+		ID:             ID,
+		Kind:           provider.KindBarcode,
+		Name:           "eBay",
 		DescriptionKey: "providers.ebay.description",
 		Fields: schema.Fields{
-			{Key: settingClientID, LabelKey: "providers.ebay.clientId", HelpKey: "providers.ebay.keysHelp",
-				HelpURL: "https://developer.ebay.com/my/keys", Kind: schema.FieldText, Required: true},
-			{Key: settingClientSecret, LabelKey: "providers.ebay.clientSecret", Kind: schema.FieldSecret, Required: true},
-			{Key: settingMarketplaces, LabelKey: "providers.ebay.marketplaces", HelpKey: "providers.ebay.marketplacesHelp", Kind: schema.FieldText},
+			{
+				Key:      settingClientID,
+				LabelKey: "providers.ebay.clientId",
+				HelpKey:  "providers.ebay.keysHelp",
+				HelpURL:  "https://developer.ebay.com/my/keys",
+				Kind:     schema.FieldText,
+				Required: true,
+			},
+			{
+				Key:      settingClientSecret,
+				LabelKey: "providers.ebay.clientSecret",
+				Kind:     schema.FieldSecret,
+				Required: true,
+			},
+			{
+				Key:      settingMarketplaces,
+				LabelKey: "providers.ebay.marketplaces",
+				HelpKey:  "providers.ebay.marketplacesHelp",
+				Kind:     schema.FieldText,
+			},
 		},
 		DefaultOrder: 20,
 	}
@@ -124,7 +146,10 @@ func (p *Provider) accessToken(ctx context.Context, s schema.Settings) (string, 
 	}
 
 	p.mu.Lock()
-	p.tokens[cacheKey] = token{value: out.AccessToken, expires: time.Now().Add(time.Duration(out.ExpiresIn)*time.Second - time.Minute)}
+	p.tokens[cacheKey] = token{
+		value:   out.AccessToken,
+		expires: time.Now().Add(time.Duration(out.ExpiresIn)*time.Second - time.Minute),
+	}
 	p.mu.Unlock()
 
 	return out.AccessToken, nil
@@ -248,7 +273,11 @@ func consensus(items []listing) (media.BarcodeMatch, bool) {
 
 		g := groups[key]
 		if g == nil {
-			g = &group{title: title, raw: it.Title, image: it.Image.ImageURL}
+			g = &group{
+				title: title,
+				raw:   it.Title,
+				image: it.Image.ImageURL,
+			}
 			groups[key] = g
 		}
 
@@ -283,5 +312,11 @@ func consensus(items []listing) (media.BarcodeMatch, bool) {
 		}
 	}
 
-	return media.BarcodeMatch{Raw: best.raw, Title: best.title, Platform: platform, ImageURL: best.image, Provider: ID}, true
+	return media.BarcodeMatch{
+		Raw:      best.raw,
+		Title:    best.title,
+		Platform: platform,
+		ImageURL: best.image,
+		Provider: ID,
+	}, true
 }

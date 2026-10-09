@@ -27,7 +27,10 @@ func (fakeSource) Test(context.Context, source.Settings) error { return nil }
 type fakeCovers struct{ id provider.ID }
 
 func (f fakeCovers) Descriptor() provider.Descriptor {
-	return provider.Descriptor{ID: f.id, Kind: provider.KindCover}
+	return provider.Descriptor{
+		ID:   f.id,
+		Kind: provider.KindCover,
+	}
 }
 func (fakeCovers) Test(context.Context, schema.Settings) error { return nil }
 func (fakeCovers) Applies(media.CoverQuery) bool               { return true }
@@ -36,8 +39,15 @@ func (fakeCovers) Covers(context.Context, media.CoverQuery, schema.Settings) ([]
 }
 
 func TestRegistry(t *testing.T) {
-	store := plugin.Plugin{ID: "store", Sources: []sync.Provider{fakeSource{"store"}}, Covers: []media.CoverProvider{fakeCovers{"store"}}}
-	db := plugin.Plugin{ID: "db", Covers: []media.CoverProvider{fakeCovers{"db"}}}
+	store := plugin.Plugin{
+		ID:      "store",
+		Sources: []sync.Provider{fakeSource{"store"}},
+		Covers:  []media.CoverProvider{fakeCovers{"store"}},
+	}
+	db := plugin.Plugin{
+		ID:     "db",
+		Covers: []media.CoverProvider{fakeCovers{"db"}},
+	}
 
 	t.Run("GIVEN plugins with unique ids", func(t *testing.T) {
 		r, err := plugin.NewRegistry(store, db)
@@ -53,7 +63,10 @@ func TestRegistry(t *testing.T) {
 	})
 
 	t.Run("GIVEN two plugins with a provider under the same id", func(t *testing.T) {
-		_, err := plugin.NewRegistry(store, plugin.Plugin{ID: "copy", Covers: []media.CoverProvider{fakeCovers{"store"}}})
+		_, err := plugin.NewRegistry(store, plugin.Plugin{
+			ID:     "copy",
+			Covers: []media.CoverProvider{fakeCovers{"store"}},
+		})
 
 		t.Run("THEN the registry refuses them, naming both", func(t *testing.T) {
 			assert.ErrorIs(t, err, plugin.ErrDuplicate)
@@ -62,7 +75,10 @@ func TestRegistry(t *testing.T) {
 	})
 
 	t.Run("GIVEN two plugins with the same source type or id", func(t *testing.T) {
-		_, errType := plugin.NewRegistry(store, plugin.Plugin{ID: "other", Sources: []sync.Provider{fakeSource{"store"}}})
+		_, errType := plugin.NewRegistry(store, plugin.Plugin{
+			ID:      "other",
+			Sources: []sync.Provider{fakeSource{"store"}},
+		})
 		_, errID := plugin.NewRegistry(store, plugin.Plugin{ID: "store"})
 
 		t.Run("THEN both are refused", func(t *testing.T) {

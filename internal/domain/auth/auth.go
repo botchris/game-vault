@@ -95,7 +95,8 @@ var DefaultTrustedNetworks = []string{"127.0.0.0/8", "::1/128"}
 // certificates checked.
 func DefaultSettings() Settings {
 	return Settings{
-		Authentication: AuthTrustedNetworks, TrustedNetworks: slices.Clone(DefaultTrustedNetworks),
+		Authentication:        AuthTrustedNetworks,
+		TrustedNetworks:       slices.Clone(DefaultTrustedNetworks),
 		CertificateValidation: CertsEnabled,
 	}
 }
@@ -235,7 +236,13 @@ func ValidatePassword(password string) error {
 
 // NewUser creates a user from an already hashed password.
 func NewUser(username, hash string, now time.Time) User {
-	return User{ID: uuid.Must(uuid.NewV7()).String(), Username: username, PasswordHash: hash, CreatedAt: now, UpdatedAt: now}
+	return User{
+		ID:           uuid.Must(uuid.NewV7()).String(),
+		Username:     username,
+		PasswordHash: hash,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
 }
 
 // Session is a logged-in browser. Only a hash of the token is stored.

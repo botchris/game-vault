@@ -57,12 +57,18 @@ type Provider struct {
 
 // NewProvider returns the Battle.net source with its production endpoints.
 func NewProvider() *Provider {
-	return &Provider{AccountURL: defaultAccountURL, Timeout: 30 * time.Second}
+	return &Provider{
+		AccountURL: defaultAccountURL,
+		Timeout:    30 * time.Second,
+	}
 }
 
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
 // imports, and the cover provider reads it.
-var LinkedStore = game.Store{Key: "battlenet", Name: "Battle.net"}
+var LinkedStore = game.Store{
+	Key:  "battlenet",
+	Name: "Battle.net",
+}
 
 // LinkStore implements sync.StoreLinker.
 func (p *Provider) LinkStore() game.Store { return LinkedStore }
@@ -74,9 +80,18 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 		Name:           "Battle.net",
 		DescriptionKey: "sources.battlenet.description",
 		Fields: []source.Field{
-			{Key: settingCookies, LabelKey: "sources.battlenet.cookies", HelpKey: "sources.battlenet.cookiesHelp",
-				HelpURL: defaultAccountURL + "/overview", Kind: source.FieldSecret, Required: true},
-			{Key: settingSession, Kind: source.FieldState},
+			{
+				Key:      settingCookies,
+				LabelKey: "sources.battlenet.cookies",
+				HelpKey:  "sources.battlenet.cookiesHelp",
+				HelpURL:  defaultAccountURL + "/overview",
+				Kind:     source.FieldSecret,
+				Required: true,
+			},
+			{
+				Key:  settingSession,
+				Kind: source.FieldState,
+			},
 		},
 	}
 }
@@ -195,7 +210,10 @@ func collectTitles(v any, out map[string]title) {
 			}
 
 			if _, seen := out[id]; !seen {
-				out[id] = title{ID: id, Name: strings.TrimSpace(name)}
+				out[id] = title{
+					ID:   id,
+					Name: strings.TrimSpace(name),
+				}
 			}
 		}
 
@@ -272,7 +290,12 @@ func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.
 			ExternalID: "battlenet:" + t.ID,
 			Links:      game.Links{LinkedStore.Key: t.ID},
 			Title:      t.Name,
-			Details:    game.CopyDetails{Kind: game.KindLibrary, Platform: Platform, Status: game.StatusOwned, Origin: "Battle.net"},
+			Details: game.CopyDetails{
+				Kind:     game.KindLibrary,
+				Platform: Platform,
+				Status:   game.StatusOwned,
+				Origin:   "Battle.net",
+			},
 		})
 	}
 

@@ -14,7 +14,10 @@ import (
 )
 
 // fakeSony mimics Sony's sign-in and the library GraphQL (only the second hash is registered).
-type fakeSony struct{ refreshes, authorizes int }
+type fakeSony struct {
+	refreshes  int
+	authorizes int
+}
 
 func (f *fakeSony) handler() http.Handler {
 	mux := http.NewServeMux()

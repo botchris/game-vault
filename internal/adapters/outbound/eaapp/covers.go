@@ -43,15 +43,21 @@ var (
 
 // NewCovers returns the EA app cover provider with its production endpoints.
 func NewCovers() *Covers {
-	return &Covers{GraphQLURL: defaultGraphQLURL, Client: &http.Client{Timeout: 20 * time.Second}}
+	return &Covers{
+		GraphQLURL: defaultGraphQLURL,
+		Client:     &http.Client{Timeout: 20 * time.Second},
+	}
 }
 
 // Descriptor implements media.CoverProvider.
 func (c *Covers) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
-		ID: CoverProviderID, Kind: provider.KindCover, Name: "EA",
-		DescriptionKey: "providers.eaCovers.description", EnabledByDefault: true,
-		DefaultOrder: 60,
+		ID:               CoverProviderID,
+		Kind:             provider.KindCover,
+		Name:             "EA",
+		DescriptionKey:   "providers.eaCovers.description",
+		EnabledByDefault: true,
+		DefaultOrder:     60,
 	}
 }
 
@@ -198,7 +204,13 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 
 	add := func(img *image, label string) {
 		if img != nil && strings.HasPrefix(img.Path, "https://") {
-			cands = append(cands, media.CoverCandidate{URL: img.Path, ThumbURL: img.Path, Label: label, Title: g.Title, Provider: CoverProviderID})
+			cands = append(cands, media.CoverCandidate{
+				URL:      img.Path,
+				ThumbURL: img.Path,
+				Label:    label,
+				Title:    g.Title,
+				Provider: CoverProviderID,
+			})
 		}
 	}
 	if g.PackArt != nil {

@@ -6,10 +6,20 @@ import (
 )
 
 func TestStateFields(t *testing.T) {
-	d := TypeDescriptor{Type: "x", Name: "X", Fields: []Field{
-		{Key: "code", Kind: FieldSecret},
-		{Key: "session", Kind: FieldState},
-	}}
+	d := TypeDescriptor{
+		Type: "x",
+		Name: "X",
+		Fields: []Field{
+			{
+				Key:  "code",
+				Kind: FieldSecret,
+			},
+			{
+				Key:  "session",
+				Kind: FieldState,
+			},
+		},
+	}
 	now := time.Now()
 
 	src, err := New(d, Config{Settings: Settings{"code": "abc", "session": "from-client"}}, now)

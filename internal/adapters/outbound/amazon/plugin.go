@@ -8,7 +8,8 @@ import (
 // Plugin is the Amazon Games plugin: the library of Amazon Games / Prime Gaming accounts.
 func Plugin() plugin.Plugin {
 	return plugin.Plugin{
-		ID: "amazon", Name: "Amazon Games",
+		ID:      "amazon",
+		Name:    "Amazon Games",
 		Sources: []sync.Provider{NewProvider()},
 	}
 }

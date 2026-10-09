@@ -9,7 +9,8 @@ import (
 // Plugin is the Ubisoft Connect plugin: the library of Ubisoft accounts and Ubisoft's box art.
 func Plugin() plugin.Plugin {
 	return plugin.Plugin{
-		ID: "ubisoft", Name: "Ubisoft Connect",
+		ID:      "ubisoft",
+		Name:    "Ubisoft Connect",
 		Sources: []sync.Provider{NewProvider()},
 		Covers:  []media.CoverProvider{NewCovers()},
 	}

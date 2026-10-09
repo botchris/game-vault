@@ -116,7 +116,10 @@ func (s *Service) baseCoverIn(ctx context.Context, ls LinkSearcher, g *game.Game
 				continue
 			}
 			// Linked to the store, the query only reaches providers that know it (no quota spent).
-			cq := CoverQuery{Title: m.Name, Links: game.Links{store.Key: m.ID}}
+			cq := CoverQuery{
+				Title: m.Name,
+				Links: game.Links{store.Key: m.ID},
+			}
 			if img, err := s.coverFromChain(ctx, ref, cq, map[provider.ID]bool{}); err == nil {
 				s.log.Info("add-on cover taken from its base game", "game", g.Title(), "base", m.Name, "store", store.Name)
 				return img, true

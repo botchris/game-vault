@@ -89,9 +89,10 @@ type pendingSession struct {
 
 // Provider implements sync.Provider and sync.Preparer for GOG accounts.
 type Provider struct {
-	AuthURL, EmbedURL string
-	Client            *http.Client
-	Now               func() time.Time
+	AuthURL  string
+	EmbedURL string
+	Client   *http.Client
+	Now      func() time.Time
 
 	mu      gosync.Mutex
 	pending map[string]pendingSession // sha256(code) → session from a recent exchange
@@ -101,7 +102,9 @@ type Provider struct {
 // NewProvider returns the GOG source with its production endpoints.
 func NewProvider() *Provider {
 	return &Provider{
-		AuthURL: defaultAuthURL, EmbedURL: defaultEmbedURL, Now: time.Now,
+		AuthURL:  defaultAuthURL,
+		EmbedURL: defaultEmbedURL,
+		Now:      time.Now,
 		Client: &http.Client{
 			Timeout: 30 * time.Second,
 			// Without a valid session GOG redirects to its login page: report that, do not follow it.
@@ -112,7 +115,10 @@ func NewProvider() *Provider {
 
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
 // imports, and the cover provider reads it.
-var LinkedStore = game.Store{Key: "gog", Name: "GOG"}
+var LinkedStore = game.Store{
+	Key:  "gog",
+	Name: "GOG",
+}
 
 // LinkStore implements sync.StoreLinker.
 func (p *Provider) LinkStore() game.Store { return LinkedStore }
@@ -124,9 +130,17 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 		Name:           "GOG",
 		DescriptionKey: "sources.gog.description",
 		Fields: []source.Field{
-			{Key: settingAuthCode, LabelKey: "sources.gog.authCode", HelpKey: "sources.gog.authCodeHelp",
-				HelpURL: LoginURL, Kind: source.FieldSecret},
-			{Key: settingSession, Kind: source.FieldState},
+			{
+				Key:      settingAuthCode,
+				LabelKey: "sources.gog.authCode",
+				HelpKey:  "sources.gog.authCodeHelp",
+				HelpURL:  LoginURL,
+				Kind:     source.FieldSecret,
+			},
+			{
+				Key:  settingSession,
+				Kind: source.FieldState,
+			},
 		},
 	}
 }
@@ -188,7 +202,10 @@ func (p *Provider) Prepare(ctx context.Context, settings source.Settings) (sourc
 			p.pending = map[string]pendingSession{}
 		}
 
-		p.pending[key] = pendingSession{s: s, expires: p.Now().Add(pendingTTL)}
+		p.pending[key] = pendingSession{
+			s:       s,
+			expires: p.Now().Add(pendingTTL),
+		}
 		p.mu.Unlock()
 	}
 
@@ -265,7 +282,12 @@ func mapProducts(products []product) []game.ImportedCopy {
 			ExternalID: fmt.Sprintf("gog:%d", pr.ID),
 			Links:      game.Links{LinkedStore.Key: strconv.FormatInt(pr.ID, 10)},
 			Title:      title,
-			Details:    game.CopyDetails{Kind: game.KindLibrary, Platform: Platform, Status: game.StatusOwned, Origin: "GOG"},
+			Details: game.CopyDetails{
+				Kind:     game.KindLibrary,
+				Platform: Platform,
+				Status:   game.StatusOwned,
+				Origin:   "GOG",
+			},
 		})
 	}
 
@@ -333,10 +355,16 @@ func (p *Provider) remember(tok tokenResponse) session {
 		p.tokens = map[string]accessToken{}
 	}
 
-	p.tokens[tok.UserID] = accessToken{token: tok.AccessToken, expires: p.Now().Add(time.Duration(tok.ExpiresIn) * time.Second)}
+	p.tokens[tok.UserID] = accessToken{
+		token:   tok.AccessToken,
+		expires: p.Now().Add(time.Duration(tok.ExpiresIn) * time.Second),
+	}
 	p.mu.Unlock()
 
-	return session{RefreshToken: tok.RefreshToken, UserID: tok.UserID}
+	return session{
+		RefreshToken: tok.RefreshToken,
+		UserID:       tok.UserID,
+	}
 }
 
 // accessToken returns a valid access token, refreshing the session when needed. A refresh rotates

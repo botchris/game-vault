@@ -67,7 +67,11 @@ func Open(root string) (*Store, error) {
 		return nil, err
 	}
 
-	s := &Store{root: root, dirs: map[game.ID]string{}, sources: map[game.ID]map[string]string{}}
+	s := &Store{
+		root:    root,
+		dirs:    map[game.ID]string{},
+		sources: map[game.ID]map[string]string{},
+	}
 
 	entries, err := os.ReadDir(root)
 	if err != nil {
@@ -157,7 +161,10 @@ func readImage(dir, name string) (media.Image, bool, error) {
 			return media.Image{}, false, err
 		}
 
-		return media.Image{Data: data, ContentType: ct}, true, nil
+		return media.Image{
+			Data:        data,
+			ContentType: ct,
+		}, true, nil
 	}
 
 	return media.Image{}, false, nil
@@ -425,7 +432,10 @@ func (s *Store) MigrateLegacyCovers(legacyDir string, titles map[game.ID]string)
 			continue
 		}
 
-		dir, err := s.ensureDir(media.GameRef{ID: id, Title: title})
+		dir, err := s.ensureDir(media.GameRef{
+			ID:    id,
+			Title: title,
+		})
 		if err != nil {
 			return moved, err
 		}
