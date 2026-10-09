@@ -3,6 +3,7 @@ package valuation_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"path/filepath"
@@ -404,6 +405,73 @@ func TestScheduler_failingSource(t *testing.T) {
 					assert.Equal(t, now.Add(30*day), c.NextValuation)
 					require.Len(t, c.Estimates, 1)
 				}
+			})
+		})
+	})
+}
+
+// dueCopies adds n copies due yesterday and returns their game ids.
+func (w *world) dueCopies(ctx context.Context, t *testing.T, n int) []game.ID {
+	t.Helper()
+
+	ids := make([]game.ID, 0, n)
+
+	for i := range n {
+		gid, _ := w.physical(ctx, t, fmt.Sprintf("Due %d", i), deadSpace)
+		g, err := w.games.Get(ctx, gid)
+		require.NoError(t, err)
+		require.NoError(t, g.PlanValuation(g.Copies()[0].ID, now.Add(-day)))
+		require.NoError(t, w.games.Save(ctx, g))
+
+		ids = append(ids, gid)
+	}
+
+	return ids
+}
+
+func TestScheduler_changesDuringARound(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN two due copies, and the second is priced by hand while the round waits", func(t *testing.T) {
+		w := newWorld(ctx, t)
+		ids := w.dueCopies(ctx, t, 2)
+		w.svc.SetChance(func() float64 { return 0.5 }, func(context.Context, time.Duration) error {
+			g, err := w.games.Get(ctx, ids[1])
+			require.NoError(t, err)
+			require.NoError(t, g.PlanValuation(g.Copies()[0].ID, now.Add(20*day)))
+
+			return w.games.Save(ctx, g)
+		})
+
+		t.Run("WHEN the scheduler ticks", func(t *testing.T) {
+			require.NoError(t, w.svc.Tick(ctx))
+
+			t.Run("THEN the second copy is no longer due and is not asked again", func(t *testing.T) {
+				assert.Len(t, w.cex.calls, 1)
+			})
+		})
+	})
+
+	t.Run("GIVEN three due copies, and every price provider is disabled while the round waits", func(t *testing.T) {
+		w := newWorld(ctx, t)
+		w.dueCopies(ctx, t, 3)
+
+		pauses := 0
+
+		w.svc.SetChance(func() float64 { return 0.5 }, func(context.Context, time.Duration) error {
+			pauses++
+			w.cfg.on = map[provider.ID]bool{}
+
+			return nil
+		})
+
+		t.Run("WHEN the scheduler ticks", func(t *testing.T) {
+			require.NoError(t, w.svc.Tick(ctx))
+
+			t.Run("THEN the round stops instead of pausing for every remaining copy", func(t *testing.T) {
+				assert.Equal(t, 1, pauses)
+				assert.Len(t, w.cex.calls, 1)
 			})
 		})
 	})

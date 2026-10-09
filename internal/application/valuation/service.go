@@ -24,6 +24,9 @@ var (
 	// ErrNoProviders means no price provider is enabled.
 	ErrNoProviders = errors.New("no price provider is enabled: enable one on the Providers page")
 
+	// errNotDue means the scheduler found the copy no longer due when its turn came.
+	errNotDue = errors.New("no longer due")
+
 	// errSkipped marks a provider not asked because it failed earlier in the scheduler's round.
 	errSkipped = errors.New("skipped for this round after failing")
 
@@ -128,14 +131,15 @@ type answer struct {
 // loses it) and plans the next valuation 20–40 days ahead. The warnings name the providers that
 // failed. The providers are asked outside the transaction, so a slow source never blocks writes.
 func (s *Service) EstimateCopy(ctx context.Context, gameID, copyID game.ID) (*game.Game, []string, error) {
-	g, warnings, _, err := s.estimate(ctx, gameID, copyID, nil)
+	g, warnings, _, err := s.estimate(ctx, gameID, copyID, nil, false)
 
 	return g, warnings, err
 }
 
 // estimate is EstimateCopy for the scheduler too: providers in skip are not asked (they failed
-// earlier in the round) and count as failed; it also returns the providers that failed now.
-func (s *Service) estimate(ctx context.Context, gameID, copyID game.ID, skip map[provider.ID]bool) (*game.Game, []string, []provider.ID, error) {
+// earlier in the round) and count as failed; it also returns the providers that failed now. With
+// onlyDue, a copy that is no longer due (priced by hand meanwhile) is left alone (errNotDue).
+func (s *Service) estimate(ctx context.Context, gameID, copyID game.ID, skip map[provider.ID]bool, onlyDue bool) (*game.Game, []string, []provider.ID, error) {
 	g, err := s.games.Get(ctx, gameID)
 	if err != nil {
 		return nil, nil, nil, err
@@ -144,6 +148,10 @@ func (s *Service) estimate(ctx context.Context, gameID, copyID game.ID, skip map
 	c, err := copyOf(g, copyID)
 	if err != nil {
 		return nil, nil, nil, err
+	}
+
+	if onlyDue && c.NextValuation.After(s.now()) {
+		return nil, nil, nil, errNotDue
 	}
 
 	views, err := s.enabled(ctx)

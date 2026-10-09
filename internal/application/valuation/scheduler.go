@@ -63,13 +63,17 @@ func (s *Service) Tick(ctx context.Context) error {
 			}
 		}
 
-		_, warnings, failed, err := s.estimate(ctx, d.game, d.copy, skip)
+		_, warnings, failed, err := s.estimate(ctx, d.game, d.copy, skip, true)
 		for _, id := range failed {
 			skip[id] = true
 		}
 
+		if errors.Is(err, ErrNoProviders) {
+			return nil // every provider was disabled during the round
+		}
+
 		if err != nil {
-			if !errors.Is(err, ErrChanged) && !errors.Is(err, ErrNotValuable) && !errors.Is(err, game.ErrCopyNotFound) {
+			if !errors.Is(err, ErrChanged) && !errors.Is(err, errNotDue) && !errors.Is(err, ErrNotValuable) && !errors.Is(err, game.ErrCopyNotFound) {
 				s.log.Warn("estimating a copy's price", "game", d.game, "error", err)
 			}
 		} else if len(warnings) > 0 {
