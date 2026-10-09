@@ -24,6 +24,9 @@ export default function SystemPage() {
   const { reloadGames } = useAppData();
   const region = regionCurrency(i18n.language);
   const [currency, setCurrency] = useState(region);
+  // Until the user saves one, the region's currency is only proposed: CSV prices without a
+  // currency are not imported, so the proposal must be easy to save as it is.
+  const [currencySaved, setCurrencySaved] = useState(true);
   const [status, setStatus] = useState<GetStatusResponse | null>(null);
   const [backups, setBackups] = useState<Backup[]>([]);
   const [busy, setBusy] = useState('');
@@ -34,6 +37,7 @@ export default function SystemPage() {
     setStatus(st);
     setBackups(bk.backups);
     if (prefs.preferences?.currency) setCurrency(prefs.preferences.currency);
+    setCurrencySaved(!!prefs.preferences?.currency);
   }, []);
 
   useEffect(() => {
@@ -51,6 +55,12 @@ export default function SystemPage() {
       setBusy('');
     }
   };
+
+  const saveCurrency = (c: string) => run('currency', async () => {
+    const res = await systemClient.updatePreferences({ preferences: { currency: c } });
+    setCurrency(res.preferences?.currency || c);
+    setCurrencySaved(true);
+  });
 
   const importCsv = (file: File) => run('import', async () => {
     const res = await systemClient.importCsv({ content: new Uint8Array(await file.arrayBuffer()) });
@@ -89,16 +99,15 @@ export default function SystemPage() {
         <h2>{t('system.preferences')}</h2>
         <label className="field">
           {t('system.currency')}
-          <select value={currency} disabled={!!busy} onChange={(e) => {
-            const c = e.target.value;
-            run('currency', async () => {
-              const res = await systemClient.updatePreferences({ preferences: { currency: c } });
-              setCurrency(res.preferences?.currency || c);
-            });
-          }}>
-            {[region, ...currencyList().filter((c) => c !== region)].map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <span className="help">{t('system.currencyHelp')}</span>
+          <span className="row tight">
+            <select value={currency} disabled={!!busy} onChange={(e) => saveCurrency(e.target.value)}>
+              {[region, ...currencyList().filter((c) => c !== region)].map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            {!currencySaved && (
+              <button type="button" className="primary" disabled={!!busy} onClick={() => saveCurrency(currency)}>{t('common.save')}</button>
+            )}
+          </span>
+          <span className="help">{currencySaved ? t('system.currencyHelp') : t('system.currencyNotSaved')}</span>
         </label>
       </section>
 

@@ -323,7 +323,8 @@
     "csvColumns": "Columnas (en inglés): title (obligatoria), platform, kind (key / library / physical), status, key, redeemBy, origin, acquiredOn, edition, grade (sealed, mint, very_good, good, acceptable, damaged), contents (box manual media extras), location, price (29.95), currency (EUR), notes, links (pares tienda:id separados por espacios, p. ej. steam:620), externalId, barcode. Separador coma o punto y coma; fechas AAAA-MM-DD.",
     "preferences": "Preferencias",
     "currency": "Moneda por defecto",
-    "currencyHelp": "Se usa en los precios nuevos y en las filas de CSV sin moneda."
+    "currencyHelp": "Se usa en los precios nuevos y en las filas de CSV sin moneda.",
+    "currencyNotSaved": "Propuesta según la región de tu navegador, aún sin guardar: guárdala para que las filas de CSV sin moneda la usen."
   },
   "logs": {
     "settings": "Logs y rotación",
