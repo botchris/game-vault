@@ -63,19 +63,21 @@ type copyDoc struct {
 
 	// Condition is the free-text condition of version-1 documents, converted when read; never
 	// written.
-	Condition     string     `json:"condition,omitempty"`
-	Grade         string     `json:"grade,omitempty"`
-	Contents      []string   `json:"contents,omitempty"`
-	Location      string     `json:"location,omitempty"`
-	Barcode       string     `json:"barcode,omitempty"`
-	PriceAmount   int64      `json:"priceAmount,omitempty"`
-	PriceCurrency string     `json:"priceCurrency,omitempty"`
-	Notes         string     `json:"notes,omitempty"`
-	Photos        []photoDoc `json:"photos,omitempty"`
-	SourceID      string     `json:"sourceId,omitempty"`
-	ExternalID    string     `json:"externalId,omitempty"`
-	CreatedAt     string     `json:"createdAt"`
-	UpdatedAt     string     `json:"updatedAt"`
+	Condition     string        `json:"condition,omitempty"`
+	Grade         string        `json:"grade,omitempty"`
+	Contents      []string      `json:"contents,omitempty"`
+	Location      string        `json:"location,omitempty"`
+	Barcode       string        `json:"barcode,omitempty"`
+	PriceAmount   int64         `json:"priceAmount,omitempty"`
+	PriceCurrency string        `json:"priceCurrency,omitempty"`
+	Notes         string        `json:"notes,omitempty"`
+	Photos        []photoDoc    `json:"photos,omitempty"`
+	Estimates     []estimateDoc `json:"estimates,omitempty"`
+	NextValuation string        `json:"nextValuation,omitempty"`
+	SourceID      string        `json:"sourceId,omitempty"`
+	ExternalID    string        `json:"externalId,omitempty"`
+	CreatedAt     string        `json:"createdAt"`
+	UpdatedAt     string        `json:"updatedAt"`
 }
 
 // photoDoc is the stored form of a game.Photo.
@@ -84,6 +86,18 @@ type photoDoc struct {
 	Caption string `json:"caption,omitempty"`
 	TakenAt string `json:"takenAt,omitempty"`
 	AddedAt string `json:"addedAt"`
+}
+
+// estimateDoc is the stored form of a game.Estimate: one currency, amounts in its minor units.
+type estimateDoc struct {
+	Provider  string `json:"provider"`
+	Currency  string `json:"currency"`
+	Sell      int64  `json:"sell"`
+	BuyCash   int64  `json:"buyCash,omitempty"`
+	BuyCredit int64  `json:"buyCredit,omitempty"`
+	Listings  int    `json:"listings,omitempty"`
+	URL       string `json:"url,omitempty"`
+	FetchedAt string `json:"fetchedAt"`
 }
 
 // sourceDoc is the stored form of a source.Source.
@@ -163,6 +177,8 @@ func encodeGame(g *game.Game) (string, error) {
 			PriceCurrency: c.Price.Currency,
 			Notes:         c.Notes,
 			Photos:        photoDocs(c.Photos),
+			Estimates:     estimateDocs(c.Estimates),
+			NextValuation: optionalTime(c.NextValuation),
 			SourceID:      c.SourceID,
 			ExternalID:    c.ExternalID,
 			CreatedAt:     formatTime(c.CreatedAt),
@@ -211,11 +227,13 @@ func decodeGame(id game.ID, raw string) (*game.Game, error) {
 				},
 				Notes: c.Notes,
 			},
-			Photos:     photosOf(c.Photos),
-			SourceID:   c.SourceID,
-			ExternalID: c.ExternalID,
-			CreatedAt:  parseTime(c.CreatedAt),
-			UpdatedAt:  parseTime(c.UpdatedAt),
+			Photos:        photosOf(c.Photos),
+			Estimates:     estimatesOf(c.Estimates),
+			NextValuation: parseTime(c.NextValuation),
+			SourceID:      c.SourceID,
+			ExternalID:    c.ExternalID,
+			CreatedAt:     parseTime(c.CreatedAt),
+			UpdatedAt:     parseTime(c.UpdatedAt),
 		}
 
 		if doc.V < 2 && strings.TrimSpace(c.Condition) != "" {
@@ -369,16 +387,12 @@ func photoDocs(photos []game.Photo) []photoDoc {
 
 	out := make([]photoDoc, 0, len(photos))
 	for _, p := range photos {
-		d := photoDoc{
+		out = append(out, photoDoc{
 			ID:      string(p.ID),
 			Caption: p.Caption,
+			TakenAt: optionalTime(p.TakenAt),
 			AddedAt: formatTime(p.AddedAt),
-		}
-		if !p.TakenAt.IsZero() {
-			d.TakenAt = formatTime(p.TakenAt)
-		}
-
-		out = append(out, d)
+		})
 	}
 
 	return out
@@ -396,6 +410,68 @@ func photosOf(docs []photoDoc) []game.Photo {
 			Caption: d.Caption,
 			TakenAt: parseTime(d.TakenAt),
 			AddedAt: parseTime(d.AddedAt),
+		})
+	}
+
+	return out
+}
+
+func optionalTime(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+
+	return formatTime(t)
+}
+
+func estimateDocs(estimates []game.Estimate) []estimateDoc {
+	if len(estimates) == 0 {
+		return nil
+	}
+
+	out := make([]estimateDoc, 0, len(estimates))
+	for _, e := range estimates {
+		out = append(out, estimateDoc{
+			Provider:  e.Provider,
+			Currency:  e.Sell.Currency,
+			Sell:      e.Sell.Amount,
+			BuyCash:   e.BuyCash.Amount,
+			BuyCredit: e.BuyCredit.Amount,
+			Listings:  e.Listings,
+			URL:       e.URL,
+			FetchedAt: formatTime(e.FetchedAt),
+		})
+	}
+
+	return out
+}
+
+func estimatesOf(docs []estimateDoc) []game.Estimate {
+	if len(docs) == 0 {
+		return nil
+	}
+
+	money := func(amount int64, currency string) game.Money {
+		if amount == 0 {
+			return game.Money{}
+		}
+
+		return game.Money{
+			Amount:   amount,
+			Currency: currency,
+		}
+	}
+
+	out := make([]game.Estimate, 0, len(docs))
+	for _, d := range docs {
+		out = append(out, game.Estimate{
+			Provider:  d.Provider,
+			Sell:      money(d.Sell, d.Currency),
+			BuyCash:   money(d.BuyCash, d.Currency),
+			BuyCredit: money(d.BuyCredit, d.Currency),
+			Listings:  d.Listings,
+			URL:       d.URL,
+			FetchedAt: parseTime(d.FetchedAt),
 		})
 	}
 

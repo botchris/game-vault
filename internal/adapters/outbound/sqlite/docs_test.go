@@ -311,3 +311,72 @@ func TestDocuments_photos(t *testing.T) {
 		})
 	})
 }
+
+func TestDocuments_estimates(t *testing.T) {
+	t.Run("GIVEN a physical copy with two estimates and a next date", func(t *testing.T) {
+		next := docTime.Add(30 * 24 * time.Hour)
+		g := game.Rehydrate("g1", game.Info{Title: "Dead Space 3"}, []game.Copy{{
+			ID: "c1",
+			CopyDetails: game.CopyDetails{
+				Kind:    game.KindPhysical,
+				Status:  game.StatusOwned,
+				Barcode: "5030934110075",
+			},
+			Estimates: []game.Estimate{
+				{
+					Provider: "cex-prices",
+					Sell: game.Money{
+						Amount:   2000,
+						Currency: "EUR",
+					},
+					BuyCash: game.Money{
+						Amount:   600,
+						Currency: "EUR",
+					},
+					BuyCredit: game.Money{
+						Amount:   1000,
+						Currency: "EUR",
+					},
+					URL:       "https://es.webuy.com/product-detail/?id=5030934110075",
+					FetchedAt: docTime,
+				},
+				{
+					Provider: "ebay-prices",
+					Sell: game.Money{
+						Amount:   1400,
+						Currency: "EUR",
+					},
+					Listings:  9,
+					FetchedAt: docTime,
+				},
+			},
+			NextValuation: next,
+			CreatedAt:     docTime,
+			UpdatedAt:     docTime,
+		}}, docTime, docTime)
+
+		t.Run("WHEN it is encoded and decoded", func(t *testing.T) {
+			raw, err := encodeGame(g)
+			require.NoError(t, err)
+
+			got, err := decodeGame(g.ID(), raw)
+			require.NoError(t, err)
+
+			t.Run("THEN the estimates and the date come back, as version 2", func(t *testing.T) {
+				assert.Equal(t, g.Copies(), got.Copies())
+				assert.Contains(t, raw, `"v":2`)
+				assert.Contains(t, raw, `"currency":"EUR"`)
+			})
+
+			t.Run("AND zero amounts and empty fields are left out", func(t *testing.T) {
+				assert.Equal(t, 1, strings.Count(raw, `"buyCash"`))
+				assert.Equal(t, 1, strings.Count(raw, `"listings"`))
+
+				plain, err := encodeGame(sampleGame(t))
+				require.NoError(t, err)
+				assert.NotContains(t, plain, `"estimates"`)
+				assert.NotContains(t, plain, `"nextValuation"`)
+			})
+		})
+	})
+}
