@@ -89,15 +89,34 @@ func token(pasted string) string {
 	return strings.ReplaceAll(strings.Trim(v, `"' `), " ", "")
 }
 
-// item is one key in the account, as /api/user/keys returns it (shape from the Playnite plugin).
+// item is one entry of /api/user/keys (shape confirmed with a real account on 2026-10-09). Most
+// entries are keys; a bundle bought as one product is also listed, with status "fulfilled" and no
+// serial, next to the keys it was split into (each naming it in bundleName).
 type item struct {
 	ID           string          `json:"_id"`
 	Name         string          `json:"name"`
 	Type         string          `json:"type"`
 	Status       string          `json:"status"`
 	DRM          map[string]bool `json:"drm"`
+	SerialID     string          `json:"serialId"`
 	SerialExpiry string          `json:"serialExpiry"`
 	Purchased    string          `json:"purchased"`
+	BundleName   string          `json:"bundleName"`
+}
+
+// isBundle reports whether the entry is a bundle purchase already split into its own keys, not a
+// key: it has no serial and is "fulfilled".
+func (it item) isBundle() bool {
+	return it.SerialID == "" && strings.EqualFold(it.Status, "fulfilled")
+}
+
+// origin says where the key came from: the bundle it was part of, when it was.
+func (it item) origin() string {
+	if b := strings.TrimSpace(it.BundleName); b != "" {
+		return "Fanatical – " + b
+	}
+
+	return "Fanatical"
 }
 
 // keys reads the account's key list.
@@ -181,7 +200,8 @@ func date(v string) game.Date {
 }
 
 // mapItems turns keys into copies: games only (DLC, software, books, audio and vouchers are
-// left out), on the store the key is for. Skipped items are counted in a warning.
+// left out), on the store the key is for. Skipped items are counted in a warning. Bundle purchases
+// are not keys: they are returned withdrawn, so a copy imported for one before is removed.
 func mapItems(items []item) ([]game.ImportedCopy, []string) {
 	var (
 		copies  []game.ImportedCopy
@@ -189,6 +209,14 @@ func mapItems(items []item) ([]game.ImportedCopy, []string) {
 	)
 
 	for _, it := range items {
+		if it.isBundle() {
+			if it.ID != "" {
+				copies = append(copies, game.ImportedCopy{ExternalID: "fanatical:" + it.ID, Title: strings.TrimSpace(it.Name), Withdrawn: true})
+			}
+
+			continue
+		}
+
 		platform := platformOf(it.DRM)
 		if it.ID == "" || strings.TrimSpace(it.Name) == "" || !strings.EqualFold(it.Type, "game") || platform == "" {
 			skipped++
@@ -199,7 +227,7 @@ func mapItems(items []item) ([]game.ImportedCopy, []string) {
 			ExternalID: "fanatical:" + it.ID,
 			Title:      strings.TrimSpace(it.Name),
 			Details: game.CopyDetails{
-				Kind: game.KindKey, Platform: platform, Status: statusOf(it.Status), Origin: "Fanatical",
+				Kind: game.KindKey, Platform: platform, Status: statusOf(it.Status), Origin: it.origin(),
 				RedeemBy: date(it.SerialExpiry), AcquiredOn: date(it.Purchased),
 			},
 		})

@@ -22,5 +22,10 @@ As of 2026-10-09:
   quoting the clause first in the dialog, manual scans by default (`ManualScans`), one read per
   scan, README warning, and an explicit exception in CLAUDE.md. The project is public: the
   wording must make clear the user accepts the risk, not the authors.
-- Not confirmed with a real account: the item shape and how `status` marks revealed/redeemed
-  keys; whether the key value itself is in the list (Game Vault does not store it).
+- Confirmed with the user's account (2026-10-09): keys have `serialId`, `status` ("revealed"…),
+  `key` once revealed (Game Vault does not store it), `serialExpiry` (null when none), and, when
+  they came from a bundle, `bundleName` + `bid`. **A bundle bought as one product is also listed**
+  (e.g. "Overlord: Ultimate Evil Collection"): `type: game`, `status: "fulfilled"`, no `serialId`
+  or `key`, `bundles: []`, `payment` — it is not a key, its keys are separate entries. The
+  importer withdraws it (v0.1.6 had imported it as an unrevealed key). Not seen yet: the status
+  words of unrevealed and redeemed keys.

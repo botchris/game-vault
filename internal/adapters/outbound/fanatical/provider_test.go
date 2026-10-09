@@ -15,15 +15,22 @@ import (
 	"gamevault/internal/domain/source"
 )
 
-// keysAnswer has the shape of GET /api/user/keys as the Playnite Fanatical plugin reads it; the
-// rejections are the real 2026-10-09 answers (plain text, HTTP 401).
+// keysAnswer has the shape of GET /api/user/keys as a real account returned it on 2026-10-09
+// (fake ids, fields the importer does not read left out): keys bought on their own or split from a
+// bundle (bundleName), and the bundle purchase itself, "fulfilled" and without a serial. The
+// rejections are the real answers to a bad session (plain text, HTTP 401).
 const keysAnswer = `[
- {"_id":"k1","name":"Tunic","type":"game","status":"fulfilled","drm":{"steam":true,"gog":false},
+ {"_id":"k1","name":"Tunic","type":"game","status":"unrevealed","serialId":"s1","drm":{"steam":true,"gog":false},
   "serialExpiry":"2027-03-01T00:00:00.000Z","purchased":"2025-11-20T10:00:00.000Z","order":{"_id":"o1"}},
- {"_id":"k2","name":"Alan Wake","type":"game","status":"revealed","drm":{"epicgames":true}},
- {"_id":"k3","name":"Tunic - Soundtrack","type":"audio","drm":{"redeem":true}},
- {"_id":"k4","name":"Some DLC","type":"dlc","drm":{"steam":true}},
- {"_id":"k5","name":"Photo Editor","type":"software","drm":{"magix":true}}
+ {"_id":"k2","name":"Alan Wake","type":"game","status":"revealed","serialId":"s2","key":"AAAAA-BBBBB-CCCCC","drm":{"epicgames":true},"serialExpiry":null},
+ {"_id":"k3","name":"Tunic - Soundtrack","type":"audio","serialId":"s3","drm":{"redeem":true}},
+ {"_id":"k4","name":"Overlord: Raising Hell DLC","type":"dlc","status":"revealed","serialId":"s4","drm":{"steam":true},
+  "bundleName":"Overlord: Ultimate Evil Collection","bid":"b1"},
+ {"_id":"k5","name":"Photo Editor","type":"software","serialId":"s5","drm":{"magix":true}},
+ {"_id":"k6","name":"Overlord II","type":"game","status":"revealed","serialId":"s6","drm":{"steam":true},
+  "bundleName":"Overlord: Ultimate Evil Collection","bid":"b1","purchased":"2021-07-11T19:09:57.915Z"},
+ {"_id":"b1","name":"Overlord: Ultimate Evil Collection","type":"game","status":"fulfilled","drm":{"steam":true},
+  "bundles":[],"payment":{"total":89},"purchased":"2020-10-05T08:39:43.558Z"}
 ]`
 
 func fakeFanatical(t *testing.T) *httptest.Server {
@@ -69,7 +76,7 @@ func TestFetch_readsTheKeys(t *testing.T) {
 			require.NoError(t, err)
 
 			t.Run("THEN each game key is a copy on the store it is for", func(t *testing.T) {
-				require.Len(t, copies, 2)
+				require.Len(t, copies, 4)
 				assert.Equal(t, "fanatical:k1", copies[0].ExternalID)
 				assert.Equal(t, "Tunic", copies[0].Title)
 				assert.Equal(t, game.KindKey, copies[0].Details.Kind)
@@ -82,6 +89,17 @@ func TestFetch_readsTheKeys(t *testing.T) {
 				assert.Equal(t, game.Date("2025-11-20"), copies[0].Details.AcquiredOn)
 				assert.Equal(t, game.StatusUnrevealed, copies[0].Details.Status)
 				assert.Equal(t, game.StatusRevealed, copies[1].Details.Status)
+			})
+
+			t.Run("AND a key from a bundle names it in its origin", func(t *testing.T) {
+				assert.Equal(t, "Fanatical", copies[0].Details.Origin)
+				assert.Equal(t, "Overlord II", copies[2].Title)
+				assert.Equal(t, "Fanatical – Overlord: Ultimate Evil Collection", copies[2].Details.Origin)
+			})
+
+			t.Run("AND the bundle purchase is not a key: it is withdrawn, so an earlier import of it goes", func(t *testing.T) {
+				assert.Equal(t, "fanatical:b1", copies[3].ExternalID)
+				assert.True(t, copies[3].Withdrawn)
 			})
 
 			t.Run("AND DLC, software and audio are left out with a warning", func(t *testing.T) {
