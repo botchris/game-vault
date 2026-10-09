@@ -144,14 +144,6 @@
     "status": "Estado",
     "key": "Clave / enlace de regalo",
     "redeemBy": "Canjear antes de",
-    "condition": "Estado del disco",
-    "conditions": {
-      "sealed": "Precintado",
-      "complete": "Completo (caja + manual)",
-      "caseAndDisc": "Caja y disco",
-      "discOnly": "Sólo disco",
-      "damaged": "Dañado"
-    },
     "location": "Ubicación",
     "locationPlaceholder": "Estantería del salón, caja 3…",
     "origin": "Origen",
@@ -172,7 +164,12 @@
     "confirmDelete": "¿Borrar esta copia?",
     "redeemOn": "Canjear en {{platform}}",
     "markRedeemed": "Marcar como canjeada",
-    "barcode": "Código de barras (EAN/UPC)"
+    "barcode": "Código de barras (EAN/UPC)",
+    "grade": "Estado",
+    "contents": "Contenido",
+    "price": "Precio de compra",
+    "currency": "Moneda",
+    "priceInvalid": "No es un importe, p. ej. 29,95"
   },
   "picker": {
     "search": "Buscar juegos…",
@@ -323,7 +320,10 @@
     "downloadTemplate": "Descargar plantilla",
     "exportCsv": "Exportar todo",
     "importDone": "{{added}} copias añadidas, {{updated}} actualizadas, {{unchanged}} sin cambios, {{games}} juegos nuevos.",
-    "csvColumns": "Columnas: title (obligatoria), platform, kind (key / library / physical), status, key, redeemBy, origin, acquiredOn, edition, condition, location, notes, links (pares tienda:id separados por espacios, p. ej. steam:620), externalId, barcode. También se aceptan en español (titulo, plataforma, tipo…). Separador coma o punto y coma; fechas AAAA-MM-DD."
+    "csvColumns": "Columnas (en inglés): title (obligatoria), platform, kind (key / library / physical), status, key, redeemBy, origin, acquiredOn, edition, grade (sealed, mint, very_good, good, acceptable, damaged), contents (box manual media extras), location, price (29.95), currency (EUR), notes, links (pares tienda:id separados por espacios, p. ej. steam:620), externalId, barcode. Separador coma o punto y coma; fechas AAAA-MM-DD.",
+    "preferences": "Preferencias",
+    "currency": "Moneda por defecto",
+    "currencyHelp": "Se usa en los precios nuevos y en las filas de CSV sin moneda."
   },
   "logs": {
     "settings": "Logs y rotación",
@@ -601,5 +601,20 @@
   "linkSearch": {
     "title": "Buscar en {{store}}",
     "placeholder": "Título del juego…"
+  },
+  "grade": {
+    "unspecified": "Sin indicar",
+    "sealed": "Precintado",
+    "mint": "Como nuevo",
+    "very_good": "Muy bueno",
+    "good": "Bueno",
+    "acceptable": "Aceptable",
+    "damaged": "Dañado"
+  },
+  "content": {
+    "box": "Caja",
+    "manual": "Manual",
+    "media": "Disco o cartucho",
+    "extras": "Extras"
   }
 }

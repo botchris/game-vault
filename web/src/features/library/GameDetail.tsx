@@ -5,7 +5,10 @@ import { Cover } from '../../components/Cover';
 import { Icon } from '../../components/Icon';
 import { PlatformBadge, platformHoldings } from '../../components/PlatformBadge';
 import { Alert, KeyCell, useFormatters } from '../../components/ui';
-import { CopyKind, CopyStatus, daysUntil, kindKey, redeemUrl, statusKey, type Copy, type CopyDetailsInput, type Game } from '../../lib/model';
+import { formatAmount } from '../../lib/money';
+import {
+  CopyKind, CopyStatus, contentKey, daysUntil, gradeKey, kindKey, redeemUrl, statusKey, type Copy, type CopyDetailsInput, type Game,
+} from '../../lib/model';
 import type { LinkStore } from '../../gen/gamevault/v1/game_pb';
 import { useAppData } from '../../state/AppData';
 import CopyForm from './CopyForm';
@@ -190,7 +193,7 @@ function CopiesTab({ game, busy, run, setDialog }: {
   run: (fn: () => Promise<void>) => Promise<void>;
   setDialog: (d: Dialog) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const fmt = useFormatters();
   const { putGame, sourceName } = useAppData();
   // Copy whose key was just opened in the store: offer to mark it as redeemed.
@@ -219,7 +222,13 @@ function CopiesTab({ game, busy, run, setDialog }: {
           const d = c.details!;
           const days = daysUntil(d.redeemBy);
           const source = c.sourceId ? sourceName(c.sourceId) : '';
-          const extra = [d.origin, d.edition, d.condition, d.location, fmt.date(d.acquiredOn), d.barcode && `EAN ${d.barcode}`].filter(Boolean);
+          const physical = [
+            d.grade ? t(`grade.${gradeKey(d.grade)}`) : '',
+            d.contents.length ? d.contents.map((c) => t(`content.${contentKey(c)}`)).join(', ') : '',
+            d.price?.amountMinor ? formatAmount(d.price.amountMinor, d.price.currency, i18n.language) : '',
+            d.location,
+          ];
+          const extra = [d.origin, d.edition, ...physical, fmt.date(d.acquiredOn), d.barcode && `EAN ${d.barcode}`].filter(Boolean);
           return (
             <li key={c.id} className={`copy-card kind-edge-${kindKey(d.kind)}`}>
               <div className="copy-top">

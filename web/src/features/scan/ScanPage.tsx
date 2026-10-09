@@ -6,7 +6,10 @@ import { Icon } from '../../components/Icon';
 import { PlatformBadge } from '../../components/PlatformBadge';
 import { Alert } from '../../components/ui';
 import type { GameRef, GameSuggestion, IdentifyBarcodeResponse } from '../../gen/gamevault/v1/lookup_pb';
-import { CopyKind, CopyStatus, PHYSICAL_PLATFORMS, emptyDetails, validBarcode, type Game } from '../../lib/model';
+import { CopyContent, CopyGrade } from '../../gen/gamevault/v1/game_pb';
+import {
+  CONTENTS, CopyKind, CopyStatus, GRADES, PHYSICAL_PLATFORMS, contentKey, emptyDetails, gradeKey, validBarcode, type Game,
+} from '../../lib/model';
 import { useAppData } from '../../state/AppData';
 import GameDetail from '../library/GameDetail';
 
@@ -20,15 +23,20 @@ const PROVIDER_NAMES: Record<string, string> = { cex: 'CeX', ebay: 'eBay', upcit
 
 interface Defaults {
   platform: string;
-  condition: string;
+  grade: CopyGrade;
+  contents: CopyContent[];
   location: string;
 }
 
+const NO_DEFAULTS: Defaults = { platform: '', grade: CopyGrade.UNSPECIFIED, contents: [], location: '' };
+
 function loadDefaults(): Defaults {
   try {
-    return { platform: '', condition: '', location: '', ...JSON.parse(localStorage.getItem(DEFAULTS_KEY) ?? '{}') };
+    // Older versions stored a free-text condition: it is dropped.
+    const { condition: _old, ...saved } = JSON.parse(localStorage.getItem(DEFAULTS_KEY) ?? '{}');
+    return { ...NO_DEFAULTS, ...saved };
   } catch {
-    return { platform: '', condition: '', location: '' };
+    return NO_DEFAULTS;
   }
 }
 
@@ -236,7 +244,8 @@ function BatchBar({ defaults, onChange }: { defaults: Defaults; onChange: (d: De
       <button type="button" className="batch-summary" onClick={() => setEditing(!editing)} aria-expanded={editing}>
         <span className="batch-label">{t('scan.batch.label')}</span>
         <span className="batch-chip">{t('scan.batch.platform')}: <strong>{value(defaults.platform, t('scan.batch.auto'))}</strong></span>
-        <span className="batch-chip">{t('copy.condition')}: <strong>{value(defaults.condition, '—')}</strong></span>
+        <span className="batch-chip">{t('copy.grade')}: <strong>{defaults.grade ? t(`grade.${gradeKey(defaults.grade)}`) : '—'}</strong></span>
+        <span className="batch-chip">{t('copy.contents')}: <strong>{defaults.contents.length ? defaults.contents.map((c) => t(`content.${contentKey(c)}`)).join(', ') : '—'}</strong></span>
         <span className="batch-chip">{t('copy.location')}: <strong>{value(defaults.location, '—')}</strong></span>
         <span className="batch-edit-label">{editing ? t('scan.batch.done') : t('scan.batch.change')}</span>
       </button>
@@ -248,9 +257,26 @@ function BatchBar({ defaults, onChange }: { defaults: Defaults; onChange: (d: De
               onChange={(e) => onChange({ ...defaults, platform: e.target.value })} placeholder={t('scan.batch.platformAuto')} />
           </label>
           <label>
-            {t('copy.condition')}
-            <input value={defaults.condition} onChange={(e) => onChange({ ...defaults, condition: e.target.value })} />
+            {t('copy.grade')}
+            <select value={defaults.grade} onChange={(e) => onChange({ ...defaults, grade: Number(e.target.value) })}>
+              <option value={CopyGrade.UNSPECIFIED}>{t('grade.unspecified')}</option>
+              {GRADES.map((g) => <option key={g} value={g}>{t(`grade.${gradeKey(g)}`)}</option>)}
+            </select>
           </label>
+          <div className="field">
+            <span className="field-label">{t('copy.contents')}</span>
+            <div className="toggles" role="group" aria-label={t('copy.contents')}>
+              {CONTENTS.map((c) => {
+                const on = defaults.contents.includes(c);
+                return (
+                  <button type="button" key={c} className={on ? 'toggle on' : 'toggle'} aria-pressed={on}
+                    onClick={() => onChange({ ...defaults, contents: on ? defaults.contents.filter((x) => x !== c) : [...defaults.contents, c] })}>
+                    {t(`content.${contentKey(c)}`)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           <label>
             {t('copy.location')}
             <input value={defaults.location} onChange={(e) => onChange({ ...defaults, location: e.target.value })} placeholder={t('copy.locationPlaceholder')} />
@@ -325,7 +351,7 @@ function ScanResult({ result, defaults, confirm, focusFields, onAdded, onNext, o
     setError('');
     const details = {
       ...emptyDetails(CopyKind.PHYSICAL), status: CopyStatus.OWNED, platform, edition,
-      condition: defaults.condition, location: defaults.location, barcode: result.barcode,
+      grade: defaults.grade, contents: defaults.contents, location: defaults.location, barcode: result.barcode,
     };
     try {
       const res = target

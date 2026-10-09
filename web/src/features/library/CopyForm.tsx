@@ -1,11 +1,16 @@
-import { useState, type FormEvent } from 'react';
+import { create } from '@bufbuild/protobuf';
+import { useMemo, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { errorMessage } from '../../api/client';
 import { Alert, Modal } from '../../components/ui';
+import { CopyGrade, MoneySchema } from '../../gen/gamevault/v1/game_pb';
+import { amountInput, currencyDigits, currencyList, parseAmount } from '../../lib/money';
 import {
-  CopyKind, KINDS, PHYSICAL_PLATFORMS, STATUSES_BY_KIND, STORE_PLATFORMS, emptyDetails, kindKey, statusKey,
-  type CopyDetailsInput,
+  CONTENTS, CopyKind, GRADES, KINDS, PHYSICAL_PLATFORMS, STATUSES_BY_KIND, STORE_PLATFORMS, contentKey, emptyDetails,
+  gradeKey, kindKey, statusKey, usedLocations, type CopyDetailsInput,
 } from '../../lib/model';
+import { usePreferredCurrency } from '../../lib/usePreferences';
+import { useAppData } from '../../state/AppData';
 
 interface Props {
   initial?: CopyDetailsInput;
@@ -17,10 +22,19 @@ interface Props {
 
 /** Add or edit one copy of a game. */
 export default function CopyForm({ initial, managedBy, onSubmit, onClose }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { games } = useAppData();
+  const locations = useMemo(() => usedLocations(games), [games]);
+  const preferred = usePreferredCurrency(i18n.language);
   const [d, setD] = useState<CopyDetailsInput>(initial ?? emptyDetails());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [amount, setAmount] = useState(() => (d.price?.amountMinor ? amountInput(d.price.amountMinor, d.price.currency, i18n.language) : ''));
+  const [chosenCurrency, setCurrency] = useState(d.price?.currency ?? '');
+  // A new price uses the default currency until the user picks another one.
+  const currency = chosenCurrency || preferred;
+  const minor = amount.trim() === '' ? 0n : parseAmount(amount, currencyDigits(currency));
+  const amountInvalid = minor === null;
 
   const set = <K extends keyof CopyDetailsInput>(k: K, v: CopyDetailsInput[K]) => setD((x) => ({ ...x, [k]: v }));
   const changeKind = (kind: CopyKind) =>
@@ -28,10 +42,11 @@ export default function CopyForm({ initial, managedBy, onSubmit, onClose }: Prop
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (amountInvalid) return;
     setBusy(true);
     setError('');
     try {
-      await onSubmit(d);
+      await onSubmit({ ...d, price: minor ? create(MoneySchema, { amountMinor: minor, currency }) : undefined });
     } catch (err) {
       setError(errorMessage(err));
       setBusy(false);
@@ -45,7 +60,7 @@ export default function CopyForm({ initial, managedBy, onSubmit, onClose }: Prop
       footer={<>
         <span className="spacer" />
         <button type="button" onClick={onClose}>{t('common.cancel')}</button>
-        <button type="submit" form="copy-form" className="primary" disabled={busy}>{busy ? t('common.saving') : t('common.save')}</button>
+        <button type="submit" form="copy-form" className="primary" disabled={busy || amountInvalid}>{busy ? t('common.saving') : t('common.save')}</button>
       </>}>
       <form id="copy-form" onSubmit={submit}>
         {managedBy && <p className="muted small">{t('copy.managedBy', { source: managedBy })}</p>}
@@ -82,16 +97,31 @@ export default function CopyForm({ initial, managedBy, onSubmit, onClose }: Prop
           {d.kind === CopyKind.PHYSICAL && (
             <>
               <label>
-                {t('copy.condition')}
-                <input list="copy-conditions" value={d.condition} onChange={(e) => set('condition', e.target.value)} />
-                <datalist id="copy-conditions">
-                  {['sealed', 'complete', 'caseAndDisc', 'discOnly', 'damaged'].map((c) => <option key={c} value={t(`copy.conditions.${c}`)} />)}
-                </datalist>
+                {t('copy.grade')}
+                <select value={d.grade} onChange={(e) => set('grade', Number(e.target.value))}>
+                  <option value={CopyGrade.UNSPECIFIED}>{t('grade.unspecified')}</option>
+                  {GRADES.map((g) => <option key={g} value={g}>{t(`grade.${gradeKey(g)}`)}</option>)}
+                </select>
               </label>
               <label>
                 {t('copy.location')}
-                <input value={d.location} onChange={(e) => set('location', e.target.value)} placeholder={t('copy.locationPlaceholder')} />
+                <input list="copy-locations" value={d.location} onChange={(e) => set('location', e.target.value)} placeholder={t('copy.locationPlaceholder')} />
+                <datalist id="copy-locations">{locations.map((l) => <option key={l} value={l} />)}</datalist>
               </label>
+              <div className="span2 field">
+                <span className="field-label">{t('copy.contents')}</span>
+                <div className="toggles" role="group" aria-label={t('copy.contents')}>
+                  {CONTENTS.map((c) => {
+                    const on = d.contents.includes(c);
+                    return (
+                      <button type="button" key={c} className={on ? 'toggle on' : 'toggle'} aria-pressed={on}
+                        onClick={() => set('contents', on ? d.contents.filter((x) => x !== c) : [...d.contents, c])}>
+                        {t(`content.${contentKey(c)}`)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
               <label>
                 {t('copy.barcode')}
                 <input className="mono" inputMode="numeric" value={d.barcode} onChange={(e) => set('barcode', e.target.value)} placeholder="5 026555 255042" />
@@ -105,6 +135,17 @@ export default function CopyForm({ initial, managedBy, onSubmit, onClose }: Prop
           <label>
             {t('copy.acquiredOn')}
             <input type="date" value={d.acquiredOn} onChange={(e) => set('acquiredOn', e.target.value)} />
+          </label>
+          <label>
+            {t('copy.price')}
+            <span className="row tight">
+              <input inputMode="decimal" value={amount} aria-invalid={amountInvalid}
+                onChange={(e) => setAmount(e.target.value)} placeholder={amountInput(2995n, currency, i18n.language)} />
+              <select className="currency" value={currency} onChange={(e) => setCurrency(e.target.value)} aria-label={t('copy.currency')}>
+                {currencyList().map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </span>
+            {amountInvalid && <span className="help error">{t('copy.priceInvalid')}</span>}
           </label>
           <label>
             {t('copy.edition')}
