@@ -38,15 +38,34 @@ jobs:
 
       - uses: ./.github/actions/toolchain
 
-      - uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      # Docker Hub sometimes stops answering for a moment (the 0.3.0 release failed on a login
+      # timeout): the login and the push are retried with a growing pause before giving up.
+      - name: Log in to Docker Hub
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          for attempt in 1 2 3 4 5; do
+            if echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin; then
+              exit 0
+            fi
+            echo "::warning::Docker Hub login failed (attempt $attempt of 5); retrying"
+            sleep $((attempt * 15))
+          done
+          exit 1
 
       # --yes answers the confirmation prompt the task shows when run by hand. The task checks that
-      # the commit carries the tag and that the tree is clean.
+      # the commit carries the tag and that the tree is clean. Pushing the same tags again is safe.
       - name: task docker:publish
-        run: task docker:publish --yes
+        run: |
+          for attempt in 1 2 3; do
+            if task docker:publish --yes; then
+              exit 0
+            fi
+            echo "::warning::Publishing failed (attempt $attempt of 3); retrying"
+            sleep $((attempt * 30))
+          done
+          exit 1
 
       - name: Summary
         run: |
