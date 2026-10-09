@@ -46,18 +46,25 @@ const zxingHints = new Map<DecodeHintType, unknown>([
  * a few blurry pixels) and continuous focus where it has it. A front or laptop camera is shown
  * mirrored, so the box moves on screen the way it moves in your hand.
  *
- * While paused the picture freezes, so the box that was read stays on screen; `searching` is the
- * code being looked up, shown over it at once (lookups can take seconds).
+ * The camera never pauses: boxes are scanned one after another. A box is ignored while it stays
+ * in view, and each read flashes the guide (green when added, amber when already in the list)
+ * and shows its code for a moment.
  */
-export default function CameraScanner({ paused, searching = '', onCode }: { paused: boolean; searching?: string; onCode: (code: string) => void }) {
+export default function CameraScanner({ onCode }: { onCode: (code: string) => 'added' | 'repeat' | 'invalid' }) {
   const { t } = useTranslation();
   const video = useRef<HTMLVideoElement>(null);
   const onCodeRef = useRef(onCode);
   onCodeRef.current = onCode;
-  const pausedRef = useRef(paused);
-  pausedRef.current = paused;
   const [error, setError] = useState('');
   const [mirrored, setMirrored] = useState(false);
+  // The last read, shown for a moment over the picture.
+  const [flash, setFlash] = useState<{ kind: 'added' | 'repeat'; code: string; n: number } | null>(null);
+
+  useEffect(() => {
+    if (!flash) return;
+    const timer = window.setTimeout(() => setFlash(null), 1200);
+    return () => window.clearTimeout(timer);
+  }, [flash]);
 
   useEffect(() => {
     if (!window.isSecureContext || !navigator.mediaDevices) {
@@ -69,8 +76,8 @@ export default function CameraScanner({ paused, searching = '', onCode }: { paus
     let controls: IScannerControls | undefined;
     let timer: number | undefined;
     let last = '';
-    // The box just reported is usually still in front of the camera after you confirm it: its code
-    // is ignored until it has been out of sight for a moment, so it is not looked up again.
+    // The box just reported is usually still in front of the camera: its code is ignored until it
+    // has been out of sight for a moment, so it is not reported again.
     let reported = '';
     let reportedSeenAt = 0;
 
@@ -81,13 +88,12 @@ export default function CameraScanner({ paused, searching = '', onCode }: { paus
         reportedSeenAt = now;
         return;
       }
-      if (pausedRef.current) return;
       if (code === last) {
         last = '';
         reported = code;
         reportedSeenAt = now;
-        navigator.vibrate?.(80);
-        onCodeRef.current(code);
+        const outcome = onCodeRef.current(code);
+        if (outcome !== 'invalid') setFlash((f) => ({ kind: outcome, code, n: (f?.n ?? 0) + 1 }));
       } else {
         last = code;
       }
@@ -111,7 +117,7 @@ export default function CameraScanner({ paused, searching = '', onCode }: { paus
         await v.play();
         const scan = async () => {
           if (cancelled) return;
-          if (!pausedRef.current && v.readyState >= 2) {
+          if (v.readyState >= 2) {
             try {
               for (const c of await detector.detect(v)) handle(c.rawValue);
             } catch {
@@ -141,26 +147,17 @@ export default function CameraScanner({ paused, searching = '', onCode }: { paus
     };
   }, [t]);
 
-  // Freeze the picture on the box that was read; frames are ignored while paused anyway.
-  useEffect(() => {
-    const v = video.current;
-    if (!v || !v.srcObject) return;
-    if (paused) v.pause();
-    else v.play().catch(() => undefined);
-  }, [paused]);
-
   if (error) return <div className="alert warn">{error}</div>;
   return (
-    <div className={`camera ${paused ? 'paused' : ''} ${searching ? 'found' : ''} ${mirrored ? 'mirrored' : ''}`}>
+    <div className={`camera ${flash ? `flash-${flash.kind}` : ''} ${mirrored ? 'mirrored' : ''}`}>
       <video ref={video} muted playsInline />
       <div className="camera-guide" aria-hidden="true" />
-      {searching ? (
-        <p className="camera-found" role="status">
-          <span className="spinner" aria-hidden="true" />
-          <span><code>{searching}</code> · {t('scan.searching')}</span>
+      {flash ? (
+        <p key={flash.n} className="camera-toast" role="status">
+          <code>{flash.code}</code> · {t(flash.kind === 'added' ? 'scan.list.toastAdded' : 'scan.list.toastRepeat')}
         </p>
       ) : (
-        <p className="camera-hint">{paused ? t('scan.camera.paused') : t(mirrored ? 'scan.camera.hintLaptop' : 'scan.camera.hint')}</p>
+        <p className="camera-hint">{t(mirrored ? 'scan.camera.hintLaptop' : 'scan.camera.hint')}</p>
       )}
     </div>
   );

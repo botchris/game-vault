@@ -370,6 +370,35 @@ message SetCoverPhotoResponse {
   Game game = 1;
 }
 
+// ScannedCopy is one box of a scanning session (see AddScannedCopies).
+message ScannedCopy {
+  // The row's id on the scanning device, echoed in its result.
+  string client_id = 1;
+  // The game to add the copy to; empty: a new game.
+  string game_id = 2;
+  // For a new game: its title and the chosen cover.
+  string title = 3;
+  string cover_url = 4;
+  // The copy, barcode and batch defaults included.
+  CopyDetails details = 5;
+}
+message AddScannedCopiesRequest {
+  // At most 200.
+  repeated ScannedCopy items = 1;
+}
+message ScannedCopyResult {
+  string client_id = 1;
+  string game_id = 2;
+  string copy_id = 3;
+  // Empty when saved; otherwise what happened and what to do.
+  string error = 4;
+}
+message AddScannedCopiesResponse {
+  repeated ScannedCopyResult results = 1;
+  // Every game created or changed.
+  repeated Game games = 2;
+}
+
 // GameService manages the catalog of games and their copies.
 service GameService {
   rpc ListGames(ListGamesRequest) returns (ListGamesResponse);
@@ -382,6 +411,9 @@ service GameService {
   rpc UpdateCopy(UpdateCopyRequest) returns (UpdateCopyResponse);
   rpc DeleteCopy(DeleteCopyRequest) returns (DeleteCopyResponse);
   rpc MoveCopy(MoveCopyRequest) returns (MoveCopyResponse);
+  // Saves the boxes of a scanning session in one transaction: copies of the same new game (by
+  // title) become one game; a copy that cannot be saved fails alone, with its error.
+  rpc AddScannedCopies(AddScannedCopiesRequest) returns (AddScannedCopiesResponse);
   // Key sources (Humble Bundle, Fanatical…) cannot tell whether a revealed key was redeemed. If
   // the game is already in the library of the key's platform it almost certainly was: mark those
   // keys as redeemed.

@@ -805,7 +805,6 @@ td.title { font-weight: 500; min-width: 220px; }
 .scan-intro { margin: 0 0 18px; max-width: 60ch; }
 .scanner { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 16px; }
 .scanner > * { min-width: 0; }
-.scanner, .scan-outcome { scroll-margin-top: 12px; }
 .scanner .alert { margin: 0; }
 .scanner-form { display: flex; gap: 8px; align-items: stretch; }
 .barcode-input { flex: 1 1 auto; min-width: 0; width: 100%; font-size: 20px; font-family: var(--mono); letter-spacing: .06em; padding: 10px 14px; }
@@ -813,25 +812,23 @@ td.title { font-weight: 500; min-width: 220px; }
 .camera-toggle.active { background: var(--surface-2); }
 .camera { position: relative; border-radius: 12px; overflow: hidden; background: #000; aspect-ratio: 16 / 9; max-height: 55vh; }
 .camera video { width: 100%; height: 100%; display: block; object-fit: cover; transition: opacity 150ms ease; }
-.camera.paused video { opacity: .35; }
 /* Front and laptop cameras are mirrored, so the box moves on screen the way it moves in your hand. */
 .camera.mirrored video { transform: scaleX(-1); }
-/* A code was read: the frozen picture stays bright and the guide turns amber around it. */
-.camera.found video { opacity: 1; }
 .camera-guide { transition: border-color 120ms ease-out, box-shadow 120ms ease-out; }
-.camera.found .camera-guide { border-color: var(--accent); box-shadow: 0 0 0 9999px rgb(0 0 0 / .45), 0 0 0 4px rgb(255 176 32 / .35); }
-.camera-found {
-  position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); margin: 0; display: inline-flex; align-items: center; gap: 8px;
-  padding: 7px 12px; border-radius: 999px; background: rgb(24 28 44 / .86); color: #fff; font-size: 13px; white-space: nowrap;
+/* Each read flashes the guide: green for a new box, amber for one already in the list. */
+.camera.flash-added .camera-guide { border-color: var(--ok); box-shadow: 0 0 0 9999px rgb(0 0 0 / .3), 0 0 0 4px rgb(23 128 61 / .45); }
+.camera.flash-repeat .camera-guide { border-color: var(--accent); box-shadow: 0 0 0 9999px rgb(0 0 0 / .3), 0 0 0 4px rgb(255 176 32 / .45); }
+.camera-toast {
+  position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); margin: 0; padding: 7px 12px; border-radius: 999px;
+  background: rgb(24 28 44 / .86); color: #fff; font-size: 13px; white-space: nowrap; animation: toast-in 160ms ease-out;
 }
-.camera-found code { color: var(--accent); letter-spacing: .03em; }
+.camera-toast code { color: var(--accent); letter-spacing: .03em; }
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 4px); } }
+@media (prefers-reduced-motion: reduce) { .camera-toast { animation: none; } }
 .spinner {
   display: inline-block; width: 14px; height: 14px; flex: none; border-radius: 50%; vertical-align: -2px;
   border: 2px solid currentColor; border-right-color: transparent; animation: source-spin 700ms linear infinite;
 }
-.scan-pending .scan-title { display: inline-flex; align-items: center; gap: 12px; color: var(--muted); }
-.scan-pending .scan-title .spinner { width: 20px; height: 20px; border-width: 3px; color: var(--accent-strong); }
-.scan-pending .cover { background: var(--surface-2); }
 .camera-guide { position: absolute; left: 12%; right: 12%; top: 32%; bottom: 32%; border: 2px solid rgb(255 255 255 / .85); border-radius: 10px; box-shadow: 0 0 0 9999px rgb(0 0 0 / .3); }
 .camera-hint { position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; color: #fff; font-size: 13px; margin: 0; text-shadow: 0 1px 2px #000; }
 
@@ -853,34 +850,14 @@ td.title { font-weight: 500; min-width: 220px; }
 .batch-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 12px; margin-top: 12px; }
 .batch-hint { grid-column: 1 / -1; margin: 0; }
 
-/* The result: cover on the left, what was found and one decision on the right. */
-.scan-card {
-  display: grid; grid-template-columns: 168px minmax(0, 1fr); grid-template-areas: "cover info" "cover body" "covers covers";
-  grid-template-rows: auto 1fr auto; gap: 10px 22px; margin-top: 14px; padding: 18px; align-items: start;
-}
-.scan-cover { grid-area: cover; }
-.scan-info { grid-area: info; }
-.scan-body { grid-area: body; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; min-width: 0; }
-.scan-cover .cover { box-shadow: var(--shadow-sm), 0 0 0 1px color-mix(in srgb, var(--text) 6%, transparent); }
-.scan-cover .cover-placeholder { color: var(--muted); }
-.scan-info { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; }
-.scan-state { margin: 0; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
-.scan-state code { color: var(--text); letter-spacing: .03em; }
-.scan-title { margin: 0; font-size: 26px; line-height: 1.15; font-weight: 800; font-stretch: 118%; letter-spacing: -.015em; overflow-wrap: anywhere; }
-.scan-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.scan-edition { font-size: 13px; color: var(--muted); background: var(--surface-2); border-radius: 999px; padding: 3px 10px; }
 .scan-fix { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px 10px; align-items: end; width: 100%; }
 .scan-fix label { min-width: 0; }
 .scan-fix input { width: 100%; }
 .scan-fix-title { grid-column: 1 / -1; }
-.scan-explain { margin: 0; max-width: 56ch; }
 .scan-target { margin-top: 2px; }
 .scan-target button { white-space: normal; text-align: left; }
 .scan-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; }
-.scan-actions .primary { order: -1; }
-.scan-fix-toggle { margin-left: auto; font-size: 14px; }
-.scan-enter { margin: 0; }
-.scan-covers { grid-area: covers; margin-top: 2px; padding-top: 12px; border-top: 1px solid var(--border); }
+.scan-covers { margin-top: 2px; padding-top: 12px; border-top: 1px solid var(--border); }
 .scan-covers p { margin: 0 0 8px; }
 .scan-cover-strip { display: flex; gap: 10px; overflow-x: auto; padding: 3px 3px 6px; scrollbar-width: thin; }
 .scan-thumb {
@@ -889,6 +866,51 @@ td.title { font-weight: 500; min-width: 220px; }
 }
 .scan-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .scan-thumb.selected { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent-strong); }
+
+/* The scanned list: one compact row per box; a row opens in place to fix it. */
+.scan-list-section { margin-top: 22px; padding-bottom: 84px; }
+.scan-list-title { font-size: 15px; font-weight: 650; margin: 0 0 10px; }
+.scan-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+/* A long product name is cut with an ellipsis; without these it would widen the page on phones. */
+.scan-list-section, .scan-list, .scan-row, .scan-row-line { min-width: 0; }
+.scan-row { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
+.scan-row.is-review { border-color: color-mix(in srgb, var(--accent-strong) 55%, var(--border)); }
+.scan-row.is-error { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
+.scan-row-line { display: flex; align-items: center; gap: 8px; padding: 8px 10px; }
+.scan-row-main {
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; justify-content: flex-start; gap: 12px; padding: 0; border: none; background: none;
+  min-height: 0; text-align: left; white-space: normal; font-weight: 500;
+}
+.scan-row-main:hover:not(:disabled) { background: none; }
+.scan-row-main:disabled { opacity: 1; cursor: default; }
+.scan-row-thumb { flex: none; width: 40px; }
+.scan-row-thumb img, .scan-row-thumb .cover, .scan-row-thumb .thumb-placeholder { width: 40px; aspect-ratio: 2 / 3; border-radius: 4px; object-fit: cover; display: block; }
+.scan-row-text { min-width: 0; overflow: hidden; display: flex; flex-direction: column; gap: 4px; }
+.scan-row-title { font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scan-row-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.scan-row-state { display: inline-flex; align-items: center; gap: 6px; }
+.state-ready { color: var(--ok); }
+.state-review { color: var(--warn); font-weight: 600; }
+.state-error { color: var(--danger); }
+.scan-row-count { font-weight: 650; color: var(--text); }
+.scan-row-error { font-size: 13px; color: var(--danger); }
+.scan-row-actions { display: flex; align-items: center; gap: 6px; flex: none; }
+.scan-row-detail { display: flex; flex-direction: column; gap: 12px; padding: 4px 12px 14px; border-top: 1px solid var(--border); }
+.scan-row-found { margin: 8px 0 0; overflow-wrap: anywhere; }
+.scan-clear { margin-top: 12px; font-size: 14px; }
+
+/* Send bar: always in reach of the thumb while there is a list. */
+.scan-sendbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; align-items: center; gap: 12px;
+  padding: 10px max(16px, env(safe-area-inset-left)) calc(10px + env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(8px);
+  border-top: 1px solid var(--border); box-shadow: 0 -6px 20px rgb(24 28 44 / .08);
+}
+.scan-sendbar p { margin: 0; flex: 1 1 auto; min-width: 0; font-size: 14px; color: var(--muted); }
+.scan-sendbar .primary { flex: none; }
+/* Desktop: beside the sidebar. Phones: above the bottom tabs (the shell's breakpoint is 860px). */
+@media (min-width: 861px) { .scan-sendbar { left: var(--sidebar); } }
+@media (max-width: 860px) { .scan-sendbar { bottom: calc(65px + env(safe-area-inset-bottom)); padding-bottom: 10px; } }
 
 /* Added in this session: a strip of small covers. */
 .scan-added { margin-top: 26px; }
@@ -905,13 +927,8 @@ td.title { font-weight: 500; min-width: 220px; }
   .camera { aspect-ratio: 4 / 3; }
   .camera-toggle-label { display: none; }
   .batch-fields { grid-template-columns: 1fr; }
-  .scan-card { grid-template-columns: 88px minmax(0, 1fr); grid-template-areas: "cover info" "body body" "covers covers"; grid-template-rows: auto; gap: 14px; padding: 14px; }
-  .scan-title { font-size: 21px; }
   .scan-fix { grid-template-columns: 1fr 1fr; }
   .scan-fix > button { grid-column: 1 / -1; }
-}
-@media (max-width: 520px) {
-  .scan-actions .primary { flex: 1 1 100%; }
 }
 
 /* ---------- Auth ---------- */
