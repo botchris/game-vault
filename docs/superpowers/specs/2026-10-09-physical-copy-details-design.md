@@ -55,20 +55,28 @@ const (
 	ContentExtras Content = "extras" // map, poster, figure, art book…
 )
 
-type Contents []Content
+type Contents uint8 // a bit set
 ```
 
-Normalized as a set: no duplicates, always in the order box, manual, media, extras, so two copies
-with the same contents compare equal. Unknown values are a validation error. Empty means "not stated".
+A set: no duplicates, always listed in the order box, manual, media, extras, so two copies with the
+same contents compare equal (`Contents` is a bit set, which also keeps `CopyDetails` comparable with
+`==`). Unknown values are a validation error. Empty means "not stated".
 
 ### Money
 
 ```go
-// Money is an amount in minor units (cents) of an ISO 4217 currency. The zero value means no price.
+// Money is an amount of an ISO 4217 currency in that currency's minor unit (cents for EUR, yen for
+// JPY, fils for BHD). The zero value means no price.
 type Money struct {
-	Amount   int64  // 2995 for 29.95
+	Amount   int64  // 2995 for €29.95, 1500 for ¥1500
 	Currency string // "EUR"
 }
+```
+
+`CurrencyDigits(code)` gives a currency's number of decimals from ISO 4217 (2 unless listed: 0 for
+JPY, KRW, CLP…, 3 for BHD, KWD, JOD…); the CSV and the UI read and write amounts with those decimals.
+
+```go
 ```
 
 Normalization: the currency is trimmed and upper-cased. With `Amount == 0` the currency is cleared
@@ -162,9 +170,11 @@ English only, no backwards compatibility:
 - Invalid values (grade, content, price, currency) are a warning for that row and are ignored; the
   row is still imported.
 - A row with a price and no currency gets the default currency. The codec leaves the currency empty;
-  `transfer.Service.Import` fills it from the preference before consolidating (and warns once when no
-  default currency is set, dropping those prices).
-- Export writes the four columns; the price with a dot and two decimals (`29.95`).
+  `transfer.Service.Import` fills it from the preference before consolidating, rescaling the amount if
+  that currency does not have two decimals (and warns once when no default currency is set, dropping
+  those prices).
+- Export writes the four columns; the price with a dot and the currency's decimals (`29.95`, `1500`
+  for JPY).
 
 ## Web UI
 
@@ -182,6 +192,8 @@ English only, no backwards compatibility:
 - **System → Preferences:** a default-currency select listing `Intl.supportedValuesOf('currency')`,
   with the currency of the browser's region first. While nothing is saved that region's currency is
   preselected (`es-ES` → EUR, `en-US` → USD, `en-GB` → GBP); saving stores it.
+- **Scan → batch defaults:** the free-text condition becomes the same grade select and content
+  toggles, applied to every copy added from a scan; a stored old `condition` default is dropped.
 - Every new text goes through `t()` in `en.json` and `es.json`; the old `copy.condition*` keys go.
 
 ## Testing
