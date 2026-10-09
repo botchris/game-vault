@@ -25,7 +25,7 @@ Game Vault puts your whole collection in one catalog that runs on your own compu
 
 | | How it gets in |
 |---|---|
-| Steam, Epic Games Store, GOG, Battle.net, EA app, Ubisoft Connect, Xbox / Microsoft Store, PlayStation (PS4, PS5) | Imported from your account and rescanned automatically |
+| Steam, Epic Games Store, GOG, Battle.net, EA app, Ubisoft Connect, Xbox / Microsoft Store, PlayStation (PS4, PS5), Amazon Games (Prime Gaming) | Imported from your account and rescanned automatically |
 | Humble Bundle keys (Steam, Epic, GOG, Ubisoft, EA… keys) | Imported from your Humble Bundle account, with their redeem deadlines |
 | Physical games (Xbox 360, PS3, PS4, Switch…) | Barcode scan from the phone, or typed in |
 | Anything else (other launchers, older keys…) | Added by hand, or imported from a CSV file |

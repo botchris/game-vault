@@ -283,7 +283,13 @@
       "eaapp": "Games from EA's store, from your browser session",
       "ubisoft": "Your Ubisoft Connect PC games",
       "xbox": "Games bought on the Microsoft Store",
-      "playstation": "PS4 and PS5 games bought with your account"
+      "playstation": "PS4 and PS5 games bought with your account",
+      "amazon": "Games you bought or claimed with Prime Gaming"
+    },
+    "amazon": {
+      "description": "Imports the games in your Amazon Games library: the ones you bought and the ones you claimed with Prime Gaming. It signs in like the Amazon Games launcher does (the way Heroic and nile work) and only reads your library. Prime Gaming codes for other stores (GOG, Epic…) are not part of it: those games appear when you scan that store.",
+      "code": "Address after signing in",
+      "codeHelp": "1. Open the page above and sign in to Amazon.\n2. You land on amazon.com: copy the whole address from the browser's address bar (it contains `openid.oa2.authorization_code=`) and paste it here.\n3. Press Test connection or Save right away: the address works once and expires within minutes.\nThe link is new every time Game Vault starts: if it fails, reload this page and open it again.\nGame Vault appears as an Amazon Games device in your Amazon account; removing it there signs Game Vault out."
     }
   },
   "system": {

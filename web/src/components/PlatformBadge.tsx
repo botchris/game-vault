@@ -176,6 +176,7 @@ const SOURCE_LOOKS: Record<string, PlatformLook> = {
   ubisoft: platformLook('Ubisoft Connect'),
   xbox: platformLook('Microsoft Store / Xbox'),
   playstation: { glyph: PS, bg: PS_BG },
+  amazon: { glyph: STORE, bg: '#232f3e' },
 };
 
 /** A source's store logo in its brand colour, as a rounded tile. */

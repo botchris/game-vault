@@ -283,7 +283,13 @@
       "eaapp": "Juegos de la tienda de EA, con la sesión de tu navegador",
       "ubisoft": "Tus juegos de PC de Ubisoft Connect",
       "xbox": "Juegos comprados en Microsoft Store",
-      "playstation": "Juegos de PS4 y PS5 comprados con tu cuenta"
+      "playstation": "Juegos de PS4 y PS5 comprados con tu cuenta",
+      "amazon": "Juegos comprados o reclamados con Prime Gaming"
+    },
+    "amazon": {
+      "description": "Importa los juegos de tu biblioteca de Amazon Games: los que compraste y los que reclamaste con Prime Gaming. Inicia sesión como el launcher de Amazon Games (como Heroic y nile) y solo lee tu biblioteca. Los códigos de Prime Gaming para otras tiendas (GOG, Epic…) no están aquí: esos juegos aparecen al escanear esa tienda.",
+      "code": "Dirección tras iniciar sesión",
+      "codeHelp": "1. Abre la página de arriba e inicia sesión en Amazon.\n2. Acabarás en amazon.com: copia la dirección completa de la barra del navegador (contiene `openid.oa2.authorization_code=`) y pégala aquí.\n3. Pulsa Probar conexión o Guardar enseguida: la dirección solo sirve una vez y caduca en unos minutos.\nEl enlace cambia cada vez que Game Vault arranca: si falla, recarga esta página y ábrelo de nuevo.\nGame Vault aparece como un dispositivo de Amazon Games en tu cuenta de Amazon; si lo quitas allí, Game Vault pierde la sesión."
     }
   },
   "system": {
