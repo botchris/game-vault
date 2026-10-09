@@ -159,10 +159,12 @@ tasks:
       - '{{.IN_TOOLCHAIN}} gofmt -w internal cmd'
 
   lint:
-    desc: Lint the Go code (golangci-lint, formatting included) and the protobuf definitions
+    desc: Lint the Go code (golangci-lint, formatting included, and the doc-comment layout) and the protobuf definitions
     deps: [toolchain]
     cmds:
-      - '{{.IN_TOOLCHAIN}} sh -c "golangci-lint run ./... && buf lint"'
+      # tools/docspacing checks a house rule no linter has: blank lines around member doc comments
+      # and a doc comment on every interface method.
+      - '{{.IN_TOOLCHAIN}} sh -c "golangci-lint run ./... && go run ./tools/docspacing internal cmd tools && buf lint"'
 
   lint:fix:
     desc: Apply the safe automatic lint fixes (blank lines, comment periods, spelling, formatting)
@@ -171,6 +173,7 @@ tasks:
       # Only linters whose fixes cannot change behavior: staticcheck's would, for example, type
       # constants in a mixed const block and break the build.
       - '{{.IN_TOOLCHAIN}} golangci-lint run --fix --enable-only wsl_v5,godot,misspell ./...'
+      - '{{.IN_TOOLCHAIN}} go run ./tools/docspacing -fix internal cmd tools'
       - '{{.IN_TOOLCHAIN}} golangci-lint fmt ./...'
 
   i18n:

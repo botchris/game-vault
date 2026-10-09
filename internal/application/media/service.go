@@ -44,25 +44,41 @@ type Image struct {
 // game, Plex-style): its cover, the "no cover found" marker, and the images of its details sheet,
 // with a record of where each one came from so it can be downloaded again if it goes missing.
 type AssetStore interface {
+	// GetCover returns the stored cover of a game, and whether there is one.
 	GetCover(id game.ID) (Image, bool, error)
+
+	// PutCover stores the cover of a game, replacing the previous one.
 	PutCover(g GameRef, img Image) error
+
 	// MarkCoverMissing remembers that no cover was found, so the lookup is not repeated on every request.
 	MarkCoverMissing(g GameRef, at time.Time) error
+
+	// CoverMissingSince returns when no cover was last found for the game, and whether that was recorded.
 	CoverMissingSince(id game.ID) (time.Time, bool)
+
+	// DeleteCover removes the stored cover and the "no cover found" marker.
 	DeleteCover(id game.ID) error
 
+	// GetAsset returns a stored sheet image of a game, and whether there is one.
 	GetAsset(id game.ID, name string) (Image, bool, error)
+
+	// PutAsset stores a sheet image of a game under the given name.
 	PutAsset(g GameRef, name string, img Image) error
+
 	// SetAssetSources records name → remote URL for the game's sheet images, replacing the previous
 	// set; images no longer referenced are deleted.
 	SetAssetSources(g GameRef, sources map[string]string) error
+
+	// AssetSource returns the remote URL a sheet image was downloaded from, and whether it is known.
 	AssetSource(id game.ID, name string) (string, bool)
+
 	// DeleteAll removes everything stored for the game.
 	DeleteAll(id game.ID) error
 }
 
 // ImageFetcher is the port that downloads an image from a URL.
 type ImageFetcher interface {
+	// Fetch downloads the image at url.
 	Fetch(ctx context.Context, url string) (Image, error)
 }
 
@@ -70,13 +86,17 @@ type ImageFetcher interface {
 type CoverQuery struct {
 	Title      string
 	SteamAppID int64
+
 	// PhysicalPlatforms lists the platforms of the game's physical copies ("PS3", "Xbox 360"...).
 	PhysicalPlatforms []string
+
 	// Platforms lists the platforms of every copy.
 	Platforms []string
+
 	// ExternalIDs are the ids of the copies imported from sources ("epic:…", "gog:…"), which
 	// store cover providers use to find the game's own art.
 	ExternalIDs []string
+
 	// Fallback is set on the second pass, after no store had art for a game it knows: providers
 	// that keep their quota for games without store art may then help too.
 	Fallback bool
@@ -144,6 +164,7 @@ type CoverCandidate struct {
 	URL      string
 	ThumbURL string
 	Label    string
+
 	// Title is the provider's canonical title for the game the image belongs to, when it knows it.
 	Title    string
 	Provider provider.ID
@@ -151,10 +172,12 @@ type CoverCandidate struct {
 
 // CoverProvider is the port each cover source implements (TheGamesDB, Steam...).
 type CoverProvider interface {
-	Descriptor() provider.Descriptor
+	Provider
+
 	// Applies reports, without any network call, whether the provider can have a cover for q.
 	// It keeps quota-limited providers away from games they cannot help with.
 	Applies(q CoverQuery) bool
+
 	// Covers returns candidate images, best first. No candidates is not an error.
 	Covers(ctx context.Context, q CoverQuery, settings schema.Settings) ([]CoverCandidate, error)
 }
@@ -163,6 +186,7 @@ type CoverProvider interface {
 type BarcodeMatch struct {
 	// Raw is the product name as the database has it, e.g. "Assassin's Creed Iii Ed. Special Ps3(sp)".
 	Raw string
+
 	// Title, Platform and Edition are extracted from Raw (see CleanProductTitle).
 	Title    string
 	Platform string
@@ -173,7 +197,8 @@ type BarcodeMatch struct {
 
 // BarcodeProvider is the port each barcode database implements (UPCitemdb, EAN-Search...).
 type BarcodeProvider interface {
-	Descriptor() provider.Descriptor
+	Provider
+
 	// Lookup returns the products registered under the code, best first. No match is not an error.
 	Lookup(ctx context.Context, code game.Barcode, settings schema.Settings) ([]BarcodeMatch, error)
 }
@@ -181,21 +206,22 @@ type BarcodeProvider interface {
 // ImageHoster is an optional port for providers whose images the browser may load through the
 // image proxy. Many CDNs refuse hotlinked images, so the UI never loads them directly.
 type ImageHoster interface {
+	// ImageHosts returns the hosts whose images the proxy may fetch for this provider.
 	ImageHosts() []string
 }
 
 // ErrImageNotAllowed means the proxy was asked for an image outside the providers' hosts.
 var ErrImageNotAllowed = errors.New("image host not allowed")
 
-// TestResult is the outcome of a provider connection test.
-type TestResult struct {
-	// RemainingQuota is the provider's remaining request allowance, or -1 if it has no quota.
-	RemainingQuota int
-}
+// Provider is what every media provider implements, whatever it provides (covers, barcodes,
+// details).
+type Provider interface {
+	// Descriptor describes the provider: its id, kind, name and settings.
+	Descriptor() provider.Descriptor
 
-// Tester is an optional port for providers that can check their settings cheaply.
-type Tester interface {
-	Test(ctx context.Context, settings schema.Settings) (TestResult, error)
+	// Test checks, with one cheap request to the real service, that the provider works with these
+	// settings. A nil error means it does; an error says why not.
+	Test(ctx context.Context, settings schema.Settings) error
 }
 
 // AppMatch is a store search result.
@@ -207,6 +233,7 @@ type AppMatch struct {
 
 // AppSearcher is the port that searches a store catalog by title.
 type AppSearcher interface {
+	// SearchApps returns the store apps whose title matches the query, best first.
 	SearchApps(ctx context.Context, query string) ([]AppMatch, error)
 }
 
@@ -217,7 +244,7 @@ type Service struct {
 	store     AssetStore
 	fetch     ImageFetcher
 	search    AppSearcher
-	impls     map[provider.ID]interface{ Descriptor() provider.Descriptor }
+	impls     map[provider.ID]Provider
 	covers    map[provider.ID]CoverProvider
 	barcodes  map[provider.ID]BarcodeProvider
 	metadata  map[provider.ID]MetadataProvider
@@ -245,7 +272,7 @@ func NewService(games game.Repository, providers provider.Repository, store Asse
 	search AppSearcher, now port.Clock, log *slog.Logger, impls Providers) *Service {
 	s := &Service{
 		games: games, providers: providers, store: store, details: details, fetch: fetch, search: search, now: now, log: log,
-		impls:        map[provider.ID]interface{ Descriptor() provider.Descriptor }{},
+		impls:        map[provider.ID]Provider{},
 		covers:       map[provider.ID]CoverProvider{},
 		barcodes:     map[provider.ID]BarcodeProvider{},
 		metadata:     map[provider.ID]MetadataProvider{},
@@ -442,27 +469,23 @@ func (s *Service) ReorderProviders(ctx context.Context, kind provider.Kind, ids 
 }
 
 // TestProvider checks a provider's settings (stored ones, overridden by those given).
-func (s *Service) TestProvider(ctx context.Context, id provider.ID, settings schema.Settings) (TestResult, error) {
+func (s *Service) TestProvider(ctx context.Context, id provider.ID, settings schema.Settings) error {
 	v, err := s.find(ctx, id)
 	if err != nil {
-		return TestResult{}, err
+		return err
 	}
 
 	merged := v.Settings()
 	maps.Copy(merged, v.Descriptor.Fields.Merge(v.Settings(), settings))
 
 	if err := v.Descriptor.Fields.Validate(merged, v.Descriptor.Name); err != nil {
-		return TestResult{}, err
+		return err
 	}
 
-	if t, ok := s.impls[id].(Tester); ok {
-		ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
-		defer cancel()
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
 
-		return t.Test(ctx, merged)
-	}
-
-	return TestResult{RemainingQuota: -1}, nil
+	return s.impls[id].Test(ctx, merged)
 }
 
 // chain returns the enabled cover providers in priority order.
@@ -714,12 +737,16 @@ type OwnedCopy struct {
 // BarcodeResult is everything known about a scanned barcode, for the user to confirm.
 type BarcodeResult struct {
 	Code game.Barcode
+
 	// Owned lists copies that already carry this barcode: scanning a game you registered before.
 	Owned []OwnedCopy
+
 	// Match is the barcode databases' answer; nil when no provider knows the code.
 	Match *BarcodeMatch
+
 	// Suggestions are canonical games (with covers) for Match's title and platform.
 	Suggestions []Suggestion
+
 	// Existing lists catalog games with the same title, to add the disc as one more copy.
 	Existing []GameRef
 	Warnings []string

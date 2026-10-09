@@ -92,13 +92,12 @@ func (h *SourceHandler) TestSource(ctx context.Context, req *connect.Request[pb.
 		in = &pb.SourceInput{}
 	}
 
-	res, err := h.sync.Test(ctx, source.ID(req.Msg.Id), source.Type(in.Type), configFromPB(in))
-	if err != nil {
+	if err := h.sync.Test(ctx, source.ID(req.Msg.Id), source.Type(in.Type), configFromPB(in)); err != nil {
 		// A failed connection is a valid test result, not an RPC failure.
 		return connect.NewResponse(&pb.TestSourceResponse{Success: false, Message: err.Error()}), nil
 	}
 
-	return connect.NewResponse(&pb.TestSourceResponse{Success: true, Fetched: int32(res.Count), CountUnit: res.Unit}), nil
+	return connect.NewResponse(&pb.TestSourceResponse{Success: true}), nil
 }
 
 // SyncSource starts a scan of one source.

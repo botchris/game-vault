@@ -81,6 +81,50 @@ type appDetails struct {
 
 const maxVideos, maxScreenshots = 4, 12
 
+// fetch asks the store for one app. ok is false when the store answers but has no data for it.
+func (d *Details) fetch(ctx context.Context, appID int64, lang string) (app appDetails, ok bool, err error) {
+	id := strconv.FormatInt(appID, 10)
+	params := url.Values{"appids": {id}, "l": {lang}}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, d.store.StoreURL+"/api/appdetails?"+params.Encode(), nil)
+	if err != nil {
+		return appDetails{}, false, err
+	}
+
+	res, err := d.store.Client.Do(req)
+	if err != nil {
+		return appDetails{}, false, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode == http.StatusTooManyRequests {
+		return appDetails{}, false, fmt.Errorf("steam store: too many requests, try again in a few minutes")
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return appDetails{}, false, fmt.Errorf("steam store: HTTP %d", res.StatusCode)
+	}
+
+	var out map[string]appDetails
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+		return appDetails{}, false, err
+	}
+
+	app, ok = out[id]
+
+	return app, ok && app.Success, nil
+}
+
+// Test implements media.Provider: it asks the store for Portal 2 (app 620), so only transport
+// errors, rate limits and HTTP errors fail it; a store with no data for the app still works.
+func (d *Details) Test(ctx context.Context, _ schema.Settings) error {
+	if _, _, err := d.fetch(ctx, 620, "english"); err != nil {
+		return fmt.Errorf("could not reach the Steam store, check the connection and try again: %w", err)
+	}
+
+	return nil
+}
+
 // Details implements media.MetadataProvider.
 func (d *Details) Details(ctx context.Context, q media.CoverQuery, language string, _ schema.Settings) (*media.GameDetails, error) {
 	lang := steamLanguages[language]
@@ -88,34 +132,12 @@ func (d *Details) Details(ctx context.Context, q media.CoverQuery, language stri
 		lang = "english"
 	}
 
-	params := url.Values{"appids": {strconv.FormatInt(q.SteamAppID, 10)}, "l": {lang}}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, d.store.StoreURL+"/api/appdetails?"+params.Encode(), nil)
+	app, ok, err := d.fetch(ctx, q.SteamAppID, lang)
 	if err != nil {
 		return nil, err
 	}
 
-	res, err := d.store.Client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode == http.StatusTooManyRequests {
-		return nil, fmt.Errorf("steam store: too many requests, try again in a few minutes")
-	}
-
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("steam store: HTTP %d", res.StatusCode)
-	}
-
-	var out map[string]appDetails
-	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
-		return nil, err
-	}
-
-	app, ok := out[strconv.FormatInt(q.SteamAppID, 10)]
-	if !ok || !app.Success {
+	if !ok {
 		return nil, nil // removed from the store or region-locked
 	}
 

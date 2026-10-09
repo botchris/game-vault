@@ -26,7 +26,6 @@ import (
 	gosync "sync"
 	"time"
 
-	"gamevault/internal/application/sync"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/source"
 )
@@ -42,6 +41,7 @@ const (
 	settingSession   = "session"
 
 	defaultAPIURL = "https://public-ubiservices.ubi.com"
+
 	// webAppID is ubisoft.com's sign-in (its tickets are renewed with it); pcAppID is the Ubisoft
 	// Connect PC client. connect.ubisoft.com's own app (314d4fef…), used by Lutris and the GOG Galaxy
 	// plugin, is no longer allowed to sign in on the public gateway.
@@ -60,10 +60,12 @@ var appIDs = []string{webAppID, pcAppID}
 var (
 	// ErrNoLoginData means nothing usable was pasted.
 	ErrNoLoginData = errors.New("ubisoft: paste the login data of connect.ubisoft.com (see the help below the field)")
+
 	// ErrSignedOut means Ubisoft no longer accepts the ticket.
 	ErrSignedOut = errors.New("ubisoft did not accept the login data: its remember-me ticket is replaced every time it is used, so a value copied earlier stops working. Sign in again on connect.ubisoft.com (a private window is best) and paste the new PRODrememberMe value")
 
 	reField = regexp.MustCompile(`"(rememberMeTicket|ticket|sessionId)"\s*:\s*"([^"]+)"`)
+
 	// reBareTicket is a remember-me ticket pasted on its own, without the JSON around it.
 	reBareTicket = regexp.MustCompile(`^[A-Za-z0-9+/=_.\-]{40,}$`)
 )
@@ -135,7 +137,7 @@ func hash(s string) string {
 	return hex.EncodeToString(h[:])
 }
 
-// Provider implements sync.Provider and sync.Tester for Ubisoft accounts.
+// Provider implements sync.Provider for Ubisoft accounts.
 type Provider struct {
 	APIURL string
 	Client *http.Client
@@ -486,10 +488,10 @@ func mapNodes(nodes []node) []game.ImportedCopy {
 	return out
 }
 
-// Test implements sync.Tester.
-func (p *Provider) Test(ctx context.Context, settings source.Settings) (sync.TestResult, error) {
-	copies, _, err := p.Fetch(ctx, settings)
-	return sync.TestResult{Count: len(copies), Unit: "copies"}, err
+// Test implements sync.Provider.
+func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
+	_, _, err := p.Fetch(ctx, settings)
+	return err
 }
 
 // Fetch implements sync.Provider.

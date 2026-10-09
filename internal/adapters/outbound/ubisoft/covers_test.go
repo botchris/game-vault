@@ -6,6 +6,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/application/media"
 )
@@ -57,4 +61,45 @@ func TestCovers(t *testing.T) {
 	if fmt.Sprint(urls) != want {
 		t.Fatalf("candidates:\n got %v\nwant %s", urls, want)
 	}
+}
+
+func TestCovers_Test(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a store search that answers with hits", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprint(w, `{"hits":[{"title":"Assassin's Creed Origins","short_title":"Assassin's Creed Origins","Edition":"Standard Edition","product_type":"Games","dlcType":null,"image_groups":[]}]}`)
+		}))
+		defer srv.Close()
+
+		c := NewCovers()
+		c.StoreSearchURL = srv.URL
+
+		t.Run("WHEN the provider is tested", func(t *testing.T) {
+			t.Run("THEN it succeeds", func(t *testing.T) {
+				require.NoError(t, c.Test(ctx, nil))
+			})
+		})
+	})
+
+	t.Run("GIVEN a store search that is rate limited", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusTooManyRequests)
+		}))
+		defer srv.Close()
+
+		c := NewCovers()
+		c.StoreSearchURL = srv.URL
+
+		t.Run("WHEN the provider is tested", func(t *testing.T) {
+			err := c.Test(ctx, nil)
+
+			t.Run("THEN it fails and says what to do", func(t *testing.T) {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "HTTP 429")
+				assert.Contains(t, err.Error(), "try again later")
+			})
+		})
+	})
 }

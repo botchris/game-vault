@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"gamevault/internal/adapters/outbound/browsersession"
-	"gamevault/internal/application/sync"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/source"
 )
@@ -40,6 +39,7 @@ const (
 
 	defaultAccountsURL = "https://accounts.ea.com"
 	defaultGraphQLURL  = "https://service-aggregation-layer.juno.ea.com/graphql"
+
 	// tokenPath is the silent sign-in of EA's web SDK: with a signed-in browser session it answers
 	// {"access_token": …}, otherwise {"error": "login_required"}.
 	tokenPath = "/connect/auth?client_id=ORIGIN_JS_SDK&response_type=token&redirect_uri=nucleus:rest&prompt=none"
@@ -53,6 +53,7 @@ const LoginCheckURL = defaultAccountsURL + tokenPath
 var (
 	// ErrNoCookies means nothing usable was pasted.
 	ErrNoCookies = errors.New("ea: paste the cookies of accounts.ea.com (see the help below the field)")
+
 	// ErrSignedOut means EA no longer accepts the cookies.
 	ErrSignedOut = errors.New("EA did not accept the cookies: sign in again on ea.com and paste the cookies of accounts.ea.com again")
 )
@@ -77,7 +78,7 @@ const ownedGamesQuery = `query OwnedGames($next: String) {
   }
 }`
 
-// Provider implements sync.Provider and sync.Tester for EA accounts.
+// Provider implements sync.Provider for EA accounts.
 type Provider struct {
 	AccountsURL, GraphQLURL string
 	Timeout                 time.Duration
@@ -95,8 +96,14 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 		Name:           "EA app",
 		DescriptionKey: "sources.eaapp.description",
 		Fields: []source.Field{
-			{Key: settingCookies, LabelKey: "sources.eaapp.cookies", HelpKey: "sources.eaapp.cookiesHelp",
-				HelpURL: LoginCheckURL, Kind: source.FieldSecret, Required: true},
+			{
+				Key:      settingCookies,
+				LabelKey: "sources.eaapp.cookies",
+				HelpKey:  "sources.eaapp.cookiesHelp",
+				HelpURL:  LoginCheckURL,
+				Kind:     source.FieldSecret,
+				Required: true,
+			},
 			{Key: settingSession, Kind: source.FieldState},
 		},
 	}
@@ -320,10 +327,10 @@ func mapItems(items []item) []game.ImportedCopy {
 	return out
 }
 
-// Test implements sync.Tester: signs in and lists the library.
-func (p *Provider) Test(ctx context.Context, settings source.Settings) (sync.TestResult, error) {
-	copies, _, err := p.Fetch(ctx, settings)
-	return sync.TestResult{Count: len(copies), Unit: "copies"}, err
+// Test implements sync.Provider: signs in and lists the library.
+func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
+	_, _, err := p.Fetch(ctx, settings)
+	return err
 }
 
 // Fetch implements sync.Provider.

@@ -40,7 +40,7 @@ const (
 	listingsPerLookup   = 20
 )
 
-// Provider implements media.BarcodeProvider and media.Tester.
+// Provider implements media.BarcodeProvider.
 type Provider struct {
 	BaseURL string
 	Client  *http.Client
@@ -56,7 +56,6 @@ type token struct {
 
 var (
 	_ media.BarcodeProvider = (*Provider)(nil)
-	_ media.Tester          = (*Provider)(nil)
 )
 
 // New returns the eBay barcode provider with its production endpoints.
@@ -131,9 +130,9 @@ func (p *Provider) accessToken(ctx context.Context, s schema.Settings) (string, 
 }
 
 // Test checks the keys by getting a token.
-func (p *Provider) Test(ctx context.Context, s schema.Settings) (media.TestResult, error) {
+func (p *Provider) Test(ctx context.Context, s schema.Settings) error {
 	_, err := p.accessToken(ctx, s)
-	return media.TestResult{RemainingQuota: -1}, err
+	return err
 }
 
 func marketplaces(s schema.Settings) []string {

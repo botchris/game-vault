@@ -5,6 +5,7 @@ package eansearch
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -35,7 +36,6 @@ type Provider struct {
 
 var (
 	_ media.BarcodeProvider = (*Provider)(nil)
-	_ media.Tester          = (*Provider)(nil)
 )
 
 // New returns the EAN-Search barcode provider with its production endpoints.
@@ -142,18 +142,25 @@ func (p *Provider) Lookup(ctx context.Context, code game.Barcode, s schema.Setti
 
 // Test checks the token with the lightweight verify-checksum operation and reports the remaining
 // credits from the response header. It may count as one query on some plans.
-func (p *Provider) Test(ctx context.Context, s schema.Settings) (media.TestResult, error) {
+func (p *Provider) Test(ctx context.Context, s schema.Settings) error {
 	q := url.Values{"token": {s[settingToken]}, "op": {"verify-checksum"}, "ean": {"5030934110075"}, "format": {"json"}}
 
 	body, remaining, err := p.call(ctx, q)
 	if err != nil {
-		return media.TestResult{}, err
+		return err
 	}
 
 	var out []result
 	if json.Unmarshal(body, &out) == nil && len(out) > 0 && out[0].Error != "" {
-		return media.TestResult{}, fmt.Errorf("%s", out[0].Error)
+		return fmt.Errorf("%s", out[0].Error)
 	}
 
-	return media.TestResult{RemainingQuota: remaining}, nil
+	if remaining == 0 {
+		return ErrNoCredits
+	}
+
+	return nil
 }
+
+// ErrNoCredits means the token works but has no lookups left.
+var ErrNoCredits = errors.New("the EAN-Search token has no credits left: buy more or wait for the plan to renew")

@@ -17,6 +17,7 @@ import (
 
 // DatabaseBackup is the port that writes a consistent snapshot of the database to a file.
 type DatabaseBackup interface {
+	// BackupTo writes a consistent copy of the database to path.
 	BackupTo(ctx context.Context, path string) error
 }
 

@@ -21,13 +21,16 @@ type Config struct {
 	CORSOrigins    []string
 	BackupInterval time.Duration
 	BackupKeep     int
+
 	// TrustedNetworks replace "this computer" as the trusted networks until the security
 	// settings are saved from the UI. The Docker image sets them to the private networks, because
 	// inside a container requests never come from 127.0.0.1.
 	TrustedNetworks []string
+
 	// ResetAuth makes authentication not required on trusted networks again, for when the
 	// password is forgotten while it is required.
 	ResetAuth bool
+
 	// NoUnattended turns off scheduled scans and session keep-alives. A test server on a copy of
 	// the config needs it: renewing a credential that rotates (Ubisoft, Epic, GOG…) in the copy
 	// invalidates the one the real server holds.

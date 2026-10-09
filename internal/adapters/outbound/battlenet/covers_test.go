@@ -2,7 +2,12 @@ package battlenet
 
 import (
 	"context"
+	"errors"
 	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/provider"
@@ -15,8 +20,9 @@ func (f *fakeSteam) SearchApps(_ context.Context, q string) ([]media.AppMatch, e
 	f.asked = append(f.asked, q)
 	return []media.AppMatch{{AppID: 1, Name: "Call of Duty®: Modern Warfare® 2 Campaign Remastered"}, {AppID: 393080, Name: "Call of Duty®: Modern Warfare® Remastered"}}, nil
 }
-func (f *fakeSteam) Descriptor() provider.Descriptor { return provider.Descriptor{ID: "steam"} }
-func (f *fakeSteam) Applies(q media.CoverQuery) bool { return q.SteamAppID != 0 }
+func (f *fakeSteam) Descriptor() provider.Descriptor             { return provider.Descriptor{ID: "steam"} }
+func (f *fakeSteam) Test(context.Context, schema.Settings) error { return nil }
+func (f *fakeSteam) Applies(q media.CoverQuery) bool             { return q.SteamAppID != 0 }
 func (f *fakeSteam) Covers(_ context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	return []media.CoverCandidate{{URL: "https://steam/" + q.Title, Label: "Library art", Provider: "steam"}}, nil
 }
@@ -46,4 +52,42 @@ func TestCovers(t *testing.T) {
 	if got, _ := c.Covers(context.Background(), media.CoverQuery{Title: "World of Warcraft®", ExternalIDs: []string{"battlenet:5730135"}}, nil); len(got) != 0 {
 		t.Fatalf("got %+v", got)
 	}
+}
+
+type failingSearch struct{}
+
+func (failingSearch) SearchApps(context.Context, string) ([]media.AppMatch, error) {
+	return nil, errors.New("steam search: HTTP 429")
+}
+
+func TestCovers_Test(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a Steam search that answers", func(t *testing.T) {
+		steam := &fakeSteam{}
+		c := NewCovers(steam, steam)
+
+		t.Run("WHEN the provider is tested", func(t *testing.T) {
+			err := c.Test(ctx, nil)
+
+			t.Run("THEN it succeeds after one search", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.Len(t, steam.asked, 1)
+			})
+		})
+	})
+
+	t.Run("GIVEN a Steam search that is rate limited", func(t *testing.T) {
+		c := NewCovers(failingSearch{}, &fakeSteam{})
+
+		t.Run("WHEN the provider is tested", func(t *testing.T) {
+			err := c.Test(ctx, nil)
+
+			t.Run("THEN it fails and says what to do", func(t *testing.T) {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "try again later")
+			})
+		})
+	})
 }

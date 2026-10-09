@@ -52,11 +52,11 @@ func TestLookupAndTest(t *testing.T) {
 		t.Fatalf("unknown code must be no match: %+v %v", m, err)
 	}
 
-	if res, err := p.Test(context.Background(), good); err != nil || res.RemainingQuota != 99 {
-		t.Fatalf("test: %+v %v", res, err)
+	if err := p.Test(context.Background(), good); err != nil {
+		t.Fatalf("test: %v", err)
 	}
 
-	if _, err := p.Test(context.Background(), schema.Settings{settingToken: "bad"}); err == nil || err.Error() != "Invalid token" {
+	if err := p.Test(context.Background(), schema.Settings{settingToken: "bad"}); err == nil || err.Error() != "Invalid token" {
 		t.Fatalf("bad token must fail with the API message, got %v", err)
 	}
 }

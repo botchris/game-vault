@@ -479,13 +479,13 @@ func (x *TestProviderRequest) GetSettings() map[string]string {
 }
 
 type TestProviderResponse struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	Success bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	Message string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
-	// Remaining request allowance of the provider's API key; -1 when it has no quota.
-	RemainingQuota int32 `protobuf:"varint,3,opt,name=remaining_quota,json=remainingQuota,proto3" json:"remaining_quota,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whether the provider works with these settings.
+	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	// Why not, when success is false.
+	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *TestProviderResponse) Reset() {
@@ -530,13 +530,6 @@ func (x *TestProviderResponse) GetMessage() string {
 		return x.Message
 	}
 	return ""
-}
-
-func (x *TestProviderResponse) GetRemainingQuota() int32 {
-	if x != nil {
-		return x.RemainingQuota
-	}
-	return 0
 }
 
 // CoverCandidate is an image proposed by a cover provider.
@@ -844,11 +837,10 @@ const file_gamevault_v1_provider_proto_rawDesc = "" +
 	"\bsettings\x18\x02 \x03(\v2/.gamevault.v1.TestProviderRequest.SettingsEntryR\bsettings\x1a;\n" +
 	"\rSettingsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"s\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"a\n" +
 	"\x14TestProviderResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\x12'\n" +
-	"\x0fremaining_quota\x18\x03 \x01(\x05R\x0eremainingQuota\"\x9b\x01\n" +
+	"\amessage\x18\x02 \x01(\tR\amessageJ\x04\b\x03\x10\x04R\x0fremaining_quota\"\x9b\x01\n" +
 	"\x0eCoverCandidate\x12\x10\n" +
 	"\x03url\x18\x01 \x01(\tR\x03url\x12\x1b\n" +
 	"\tthumb_url\x18\x02 \x01(\tR\bthumbUrl\x12\x14\n" +

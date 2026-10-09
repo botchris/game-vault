@@ -162,7 +162,7 @@ Each provider declares which games it applies to. That keeps providers with a qu
 | Cover provider | Applies to | Notes |
 |---|---|---|
 | Chosen / custom cover | any game with a cover URL | Always first. Set with **Choose cover…** or by pasting a URL |
-| TheGamesDB | physical copies, games no store knows, and store games no store had art for | Platform-specific box art (Xbox 360 case, PS3 case…). Needs an API key, which has a monthly allowance. **Test** shows what is left without spending it |
+| TheGamesDB | physical copies, games no store knows, and store games no store had art for | Platform-specific box art (Xbox 360 case, PS3 case…). Needs an API key, which has a monthly allowance. **Test** checks the key without spending it, and says so when this month's allowance is used up |
 | Steam | games with a Steam AppID | No key, no quota |
 | Epic, GOG, Ubisoft, EA, Battle.net, Xbox | games imported from that store | Official box art, no key, no quota (see below) |
 

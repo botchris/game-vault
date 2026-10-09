@@ -21,6 +21,7 @@ type Video struct {
 	Thumbnail string
 	HLSURL    string
 	YouTubeID string
+
 	// ThumbAsset is the local name of the downloaded thumbnail (see Service.Asset).
 	ThumbAsset string
 }
@@ -49,6 +50,7 @@ type GameDetails struct {
 	StoreURL      string
 	Videos        []Video
 	Screenshots   []Screenshot
+
 	// Sources lists the providers that contributed, in chain order.
 	Sources   []provider.ID
 	Language  string
@@ -102,9 +104,11 @@ func (d *GameDetails) fill(o GameDetails) bool {
 
 // MetadataProvider is the port each details source implements (Steam store, TheGamesDB...).
 type MetadataProvider interface {
-	Descriptor() provider.Descriptor
+	Provider
+
 	// Applies reports, without any network call, whether the provider can know this game.
 	Applies(q CoverQuery) bool
+
 	// Details returns what the provider knows in the given UI language ("en", "es"...);
 	// nil when it does not know the game.
 	Details(ctx context.Context, q CoverQuery, language string, settings schema.Settings) (*GameDetails, error)
@@ -112,9 +116,15 @@ type MetadataProvider interface {
 
 // DetailsStore is the port that caches details per game and language.
 type DetailsStore interface {
+	// Get returns the cached details of a game in a language, and whether there are any.
 	Get(ctx context.Context, id game.ID, language string) (GameDetails, bool, error)
+
+	// Put caches the details of a game, replacing those in the same language.
 	Put(ctx context.Context, id game.ID, d GameDetails) error
+
+	// Delete forgets every cached sheet of a game, in all languages.
 	Delete(ctx context.Context, id game.ID) error
+
 	// Summaries returns the catalog-level facts (genres, release date) of every cached sheet
 	// in a language, with the time each sheet was fetched.
 	Summaries(ctx context.Context, language string) (map[game.ID]Summary, error)

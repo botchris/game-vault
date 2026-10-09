@@ -223,18 +223,12 @@
       "profileHelp": "Your SteamID64, custom URL name or full profile URL.\n\"Game details\" must be Public in your Steam privacy settings."
     },
     "testing": "Testing…",
-    "testOkCopies_one": "Connection works: {{count}} copy found.",
-    "testOkCopies_other": "Connection works: {{count}} copies found.",
-    "testOkOrders_one": "Signed in: {{count}} order found. Scan to import its keys.",
-    "testOkOrders_other": "Signed in: {{count}} orders found. Scan to import their keys.",
     "syncingHint": "Large accounts can take a few minutes; progress is written to the server log.",
     "epic": {
       "description": "Imports the games in your Epic Games Store library, including the free weekly games you claimed. It signs in like the Epic launcher does (the same way Heroic and Legendary work) and only reads your library.",
       "authCode": "Authorization code",
       "authCodeHelp": "1. Open the page above and sign in to Epic. If Epic emails you a sign-in code, it goes on Epic's page, not here.\n2. Epic then shows a short text. Copy the value of `authorizationCode` (32 letters and digits), or the whole text, and paste it here.\n3. Press Test connection or Save right away: codes work once and expire within minutes.\nOnly needed the first time, or if the session expires after a long time without scans."
     },
-    "testOkItems_one": "Signed in: {{count}} item in your library. Scan to import the games.",
-    "testOkItems_other": "Signed in: {{count}} items in your library. Scan to import the games.",
     "gog": {
       "description": "Imports the games in your GOG library. It signs in like the GOG Galaxy client does (the same way Heroic and Playnite work) and only reads your library.",
       "authCode": "Login code",
@@ -290,7 +284,8 @@
       "description": "Imports the games in your Amazon Games library: the ones you bought and the ones you claimed with Prime Gaming. It signs in like the Amazon Games launcher does (the way Heroic and nile work) and only reads your library. Prime Gaming codes for other stores (GOG, Epic…) are not part of it: those games appear when you scan that store.",
       "code": "Address after signing in",
       "codeHelp": "1. Open the page above and sign in to Amazon.\n2. You land on amazon.com: copy the whole address from the browser's address bar (it contains `openid.oa2.authorization_code=`) and paste it here.\n3. Press Test connection or Save right away: the address works once and expires within minutes.\nThe link is new every time Game Vault starts: if it fails, reload this page and open it again.\nGame Vault appears as an Amazon Games device in your Amazon account; removing it there signs Game Vault out."
-    }
+    },
+    "testOk": "Connection works."
   },
   "system": {
     "status": "Status",
@@ -381,13 +376,11 @@
     "retried_other": "{{count}} games will be looked up again.",
     "redownloaded_one": "{{count}} cover dropped; it will be downloaded again.",
     "redownloaded_other": "{{count}} covers dropped; they will be downloaded again.",
-    "testOk": "Settings look good.",
-    "testQuota_one": "API key valid: {{formatted}} request left this month.",
-    "testQuota_other": "API key valid: {{formatted}} requests left this month.",
+    "testOk": "Connection works.",
     "thegamesdb": {
       "description": "Platform-specific box art (the Xbox 360 case for an Xbox 360 disc). Used for games with a physical copy, games no store knows, and store games no store had art for. One request per game, then cached.",
       "apiKey": "API key",
-      "apiKeyHelp": "Request a free key on TheGamesDB forums (page above).\nKeys have a monthly request allowance; Test shows what is left without spending it."
+      "apiKeyHelp": "Request a free key on TheGamesDB forums (page above).\nKeys have a monthly request allowance; Test checks the key without spending it, and tells you when it is used up."
     },
     "steam": {
       "description": "Steam library art for games linked to a Steam AppID. No key and no quota."
@@ -405,7 +398,7 @@
       "userKeyHelp": "Only for a paid UPCitemdb plan with a higher limit. Leave empty to use the free endpoint."
     },
     "eansearch": {
-      "description": "European product database with good PAL coverage (it knows Xbox 360 boxes that free databases miss). Needs an API token: trial 1 € the first month (100 lookups), Pro 19 €/month (5,000). Test shows the credits left.",
+      "description": "European product database with good PAL coverage (it knows Xbox 360 boxes that free databases miss). Needs an API token: trial 1 € the first month (100 lookups), Pro 19 €/month (5,000). Test checks the token and tells you when it has no credits left.",
       "token": "API token",
       "tokenHelp": "1. Open the page above and create an EAN-Search.org account with API access.\n2. Copy your API token and paste it here.\nYou can cancel any time, for example after cataloguing your collection."
     },

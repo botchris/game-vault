@@ -32,7 +32,6 @@ import (
 	gosync "sync"
 	"time"
 
-	"gamevault/internal/application/sync"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/source"
 )
@@ -52,6 +51,7 @@ const (
 	appName    = "AGSLauncher for Windows"
 	appVersion = "1.0.0"
 	userAgent  = "com.amazon.agslauncher.win/3.0.9202.1"
+
 	// keyID is the launcher's fixed entitlements key (from nile).
 	keyID = "d5dc8b8b-86c8-4fc4-ae93-18c0def5314d"
 
@@ -67,8 +67,10 @@ const (
 var (
 	// ErrNoSession means there is neither a stored session nor a code to start one.
 	ErrNoSession = errors.New("amazon: open the sign-in link, sign in and paste the address of the amazon.com page you land on (see the help below the field)")
+
 	// ErrBadCode means Amazon rejected the code.
 	ErrBadCode = errors.New("amazon rejected the code: it works once, expires within minutes and only with the sign-in link of this Game Vault since it last started. Reload the page, open the sign-in link again and paste the new address")
+
 	// ErrSignedOut means the stored session can no longer be used.
 	ErrSignedOut = errors.New("the Amazon session is no longer valid (the Game Vault device may have been removed from your Amazon account): open the sign-in link and paste a new address")
 
@@ -93,7 +95,7 @@ type token struct {
 	expires time.Time
 }
 
-// Provider implements sync.Provider, sync.Preparer and sync.Tester for Amazon Games accounts.
+// Provider implements sync.Provider and sync.Preparer for Amazon Games accounts.
 type Provider struct {
 	SignInURL, APIURL, EntitlementsURL string
 	Client                             *http.Client
@@ -552,12 +554,10 @@ func mapEntitlements(items []entitlement) ([]game.ImportedCopy, []string) {
 	return copies, warnings
 }
 
-// Test implements sync.Tester: it reads the library once.
-func (p *Provider) Test(ctx context.Context, settings source.Settings) (sync.TestResult, error) {
-	items, err := p.owned(ctx, settings)
-	copies, _ := mapEntitlements(items)
-
-	return sync.TestResult{Count: len(copies), Unit: "copies"}, err
+// Test implements sync.Provider: it reads the library once.
+func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
+	_, err := p.owned(ctx, settings)
+	return err
 }
 
 // Fetch implements sync.Provider.

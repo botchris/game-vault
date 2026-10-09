@@ -51,6 +51,17 @@ func (p *Provider) Descriptor() provider.Descriptor {
 	}
 }
 
+// Test implements media.Provider: it looks up a well-known EAN with the configured endpoint (trial
+// or user key). An unknown code still counts as working; a rate limit, a rejected key or any other
+// HTTP error does not.
+func (p *Provider) Test(ctx context.Context, s schema.Settings) error {
+	if _, err := p.Lookup(ctx, "5030934110075", s); err != nil {
+		return fmt.Errorf("the UPCitemdb lookup failed, check the user key or try again later: %w", err)
+	}
+
+	return nil
+}
+
 // Lookup queries the trial endpoint, or the paid one when a user key is configured.
 func (p *Provider) Lookup(ctx context.Context, code game.Barcode, s schema.Settings) ([]media.BarcodeMatch, error) {
 	path := "/prod/trial/lookup"

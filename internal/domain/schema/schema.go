@@ -20,6 +20,7 @@ type FieldKind string
 const (
 	FieldText   FieldKind = "text"
 	FieldSecret FieldKind = "secret"
+
 	// FieldState is kept by the integration itself (e.g. a refresh token that rotates on every use).
 	// It is never shown to clients nor accepted from them.
 	FieldState FieldKind = "state"

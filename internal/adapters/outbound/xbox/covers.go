@@ -2,6 +2,7 @@ package xbox
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -86,4 +87,18 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 	}
 
 	return out, nil
+}
+
+// testProductID is a Microsoft Store product id used to probe the catalog; an unknown id would
+// work too, because the catalog answers 200 with no products.
+const testProductID = "9NBLGGH4R315"
+
+// Test implements media.Provider: it asks the public Store catalog for one product. An empty
+// answer still means the catalog works; transport errors, HTTP errors and rate limits fail.
+func (c *Covers) Test(ctx context.Context, _ schema.Settings) error {
+	if _, err := catalog(ctx, c.Client, c.CatalogURL, c.Market, c.Language, []string{testProductID}); err != nil {
+		return fmt.Errorf("the Microsoft Store catalog did not answer (%w): check your connection and try again later", err)
+	}
+
+	return nil
 }

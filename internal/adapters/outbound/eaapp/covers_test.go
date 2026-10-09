@@ -9,6 +9,10 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/application/media"
 )
@@ -65,4 +69,57 @@ func TestCovers(t *testing.T) {
 	if len(got) != 2 || got[0].URL != "https://app-images.ea.com/bf1-9x16.jpg" || got[1].URL != "https://app-images.ea.com/bf1-16x9.jpg" {
 		t.Fatalf("candidates: %+v", got)
 	}
+}
+
+func TestCovers_Test(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	run := func(h http.HandlerFunc) error {
+		srv := httptest.NewServer(h)
+		defer srv.Close()
+
+		c := NewCovers()
+		c.GraphQLURL = srv.URL
+
+		return c.Test(ctx, nil)
+	}
+
+	t.Run("GIVEN a catalog that knows the game", func(t *testing.T) {
+		err := run(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprint(w, `{"data":{"g0":{"slug":"battlefield-1","title":"Battlefield 1"}}}`)
+		})
+
+		t.Run("THEN the test passes", func(t *testing.T) { require.NoError(t, err) })
+	})
+
+	t.Run("GIVEN a catalog that answers null for the slug", func(t *testing.T) {
+		err := run(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprint(w, `{"data":{"g0":null}}`)
+		})
+
+		t.Run("THEN the test still passes", func(t *testing.T) { require.NoError(t, err) })
+	})
+
+	t.Run("GIVEN a catalog that fails with HTTP 503", func(t *testing.T) {
+		err := run(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusServiceUnavailable)
+		})
+
+		t.Run("THEN the test fails", func(t *testing.T) {
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "HTTP 503")
+		})
+	})
+
+	t.Run("GIVEN a catalog that rejects the query with HTTP 200", func(t *testing.T) {
+		err := run(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprint(w, `{"errors":[{"message":"PersistedQueryNotFound"}]}`)
+		})
+
+		t.Run("THEN the test fails", func(t *testing.T) {
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "PersistedQueryNotFound")
+		})
+	})
 }

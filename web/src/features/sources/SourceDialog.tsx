@@ -15,8 +15,6 @@ interface Props {
 }
 
 /** Create or edit a source. Secret settings come back masked; leaving the mask keeps the stored value. */
-const TEST_MESSAGES: Record<string, string> = { orders: 'sources.testOkOrders', items: 'sources.testOkItems', copies: 'sources.testOkCopies' };
-
 export default function SourceDialog({ type, source, onClose, onSaved, onDeleted }: Props) {
   const { t } = useTranslation();
   const fmt = useFormatters();
@@ -37,7 +35,7 @@ export default function SourceDialog({ type, source, onClose, onSaved, onDeleted
     try {
       const res = await sourceClient.testSource({ id: source?.id ?? '', source: input() });
       setResult(res.success
-        ? { tone: 'ok', text: t(TEST_MESSAGES[res.countUnit] ?? 'sources.testOkCopies', { count: res.fetched }) }
+        ? { tone: 'ok', text: t('sources.testOk') }
         : { tone: 'error', text: res.message });
     } catch (e) {
       setResult({ tone: 'error', text: errorMessage(e) });

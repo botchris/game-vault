@@ -126,3 +126,14 @@ func (c *Covers) appToken(ctx context.Context) (string, error) {
 
 	return c.token, nil
 }
+
+// Test implements media.Provider: it requests a fresh application token (client credentials
+// grant), which proves the launcher credentials and the sign-in endpoint work. Any HTTP or
+// transport failure is reported.
+func (c *Covers) Test(ctx context.Context, _ schema.Settings) error {
+	if _, err := c.p.oauthRaw(ctx, url.Values{"grant_type": {"client_credentials"}, "token_type": {"eg1"}}); err != nil {
+		return fmt.Errorf("epic did not give an application token (%w): check your connection and try again later", err)
+	}
+
+	return nil
+}

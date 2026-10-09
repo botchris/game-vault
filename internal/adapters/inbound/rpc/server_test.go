@@ -52,6 +52,15 @@ func (f *fakeProvider) Fetch(context.Context, source.Settings) ([]game.ImportedC
 	return f.copies, nil, nil
 }
 
+// Test checks the token the way a real source would check its credentials.
+func (f *fakeProvider) Test(_ context.Context, s source.Settings) error {
+	if s["token"] == "" {
+		return errors.New("no token")
+	}
+
+	return nil
+}
+
 // fakeImages serves a 1×1 PNG for any URL ending in ".png" and fails otherwise.
 type fakeImages struct{ fetched int }
 
@@ -73,6 +82,8 @@ func (fakeSteamStore) Descriptor() provider.Descriptor {
 	return provider.Descriptor{ID: "steam", Kind: provider.KindCover, Name: "Steam", EnabledByDefault: true}
 }
 
+func (fakeSteamStore) Test(context.Context, schema.Settings) error { return nil }
+
 func (fakeSteamStore) Applies(q media.CoverQuery) bool { return q.SteamAppID != 0 }
 
 func (fakeSteamStore) Covers(_ context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
@@ -88,6 +99,8 @@ type fakeBarcodes struct{}
 func (*fakeBarcodes) Descriptor() provider.Descriptor {
 	return provider.Descriptor{ID: "barcodes", Kind: provider.KindBarcode, Name: "Barcodes", EnabledByDefault: true}
 }
+
+func (*fakeBarcodes) Test(context.Context, schema.Settings) error { return nil }
 
 func (*fakeBarcodes) Lookup(_ context.Context, code game.Barcode, _ schema.Settings) ([]media.BarcodeMatch, error) {
 	if code == "3307215643006" {
@@ -106,12 +119,16 @@ func (*fakeBoxArt) Descriptor() provider.Descriptor {
 		Fields: schema.Fields{{Key: "api_key", Kind: schema.FieldSecret, Required: true}}}
 }
 
+func (*fakeBoxArt) Test(context.Context, schema.Settings) error { return nil }
+
 // fakeStoreDetails is a localized store sheet for Steam games (like the Steam store).
 type fakeStoreDetails struct{}
 
 func (fakeStoreDetails) Descriptor() provider.Descriptor {
 	return provider.Descriptor{ID: "store-details", Kind: provider.KindMetadata, Name: "Store", EnabledByDefault: true}
 }
+
+func (fakeStoreDetails) Test(context.Context, schema.Settings) error { return nil }
 
 func (fakeStoreDetails) Applies(q media.CoverQuery) bool { return q.SteamAppID != 0 }
 
@@ -133,6 +150,8 @@ func (*fakeBoxDetails) Descriptor() provider.Descriptor {
 	return provider.Descriptor{ID: "boxart-details", Kind: provider.KindMetadata, Name: "Box art details", SettingsGroup: "boxart",
 		Fields: schema.Fields{{Key: "api_key", Kind: schema.FieldSecret, Required: true}}}
 }
+
+func (*fakeBoxDetails) Test(context.Context, schema.Settings) error { return nil }
 
 func (*fakeBoxDetails) Applies(q media.CoverQuery) bool { return q.HasPhysical() }
 
@@ -461,7 +480,7 @@ func TestCoverProviderChain(t *testing.T) {
 	}
 
 	test, err := c.providers.TestProvider(ctx, connect.NewRequest(&pb.TestProviderRequest{Id: "boxart"}))
-	if err != nil || !test.Msg.Success || test.Msg.RemainingQuota != -1 {
+	if err != nil || !test.Msg.Success {
 		t.Fatalf("test: %+v %v", test, err)
 	}
 

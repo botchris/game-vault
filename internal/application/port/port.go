@@ -9,6 +9,7 @@ import (
 // TxManager runs a function inside a single storage transaction. Repositories called with
 // the context passed to fn take part in that transaction.
 type TxManager interface {
+	// WithinTx runs fn in a transaction, committed when fn returns nil and rolled back otherwise.
 	WithinTx(ctx context.Context, fn func(ctx context.Context) error) error
 }
 

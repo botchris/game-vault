@@ -25,14 +25,18 @@ type File struct {
 
 // Sink is the port to the running logger: it applies level and rotation settings live.
 type Sink interface {
+	// Apply changes the level and the rotation of the running logger.
 	Apply(settings.Logging) error
 }
 
 // Files is the port to the log files on disk.
 type Files interface {
+	// List returns the log files, the current one included.
 	List() ([]File, error)
+
 	// Read returns a file's content; with tailLines > 0 only the last lines.
 	Read(name string, tailLines int) (content string, truncated bool, err error)
+
 	// ClearArchived deletes every rotated file, keeping the current one.
 	ClearArchived() (int, error)
 }

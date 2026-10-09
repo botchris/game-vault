@@ -22,6 +22,7 @@ const CoverProviderID provider.ID = "ubisoft-covers"
 
 const (
 	defaultCDNURL = "https://ubiservices.cdn.ubi.com"
+
 	// The Ubisoft Store's product search (Algolia). The key is the public, search-only key the store
 	// gives every visitor's browser.
 	defaultStoreSearchURL = "https://xely3u4lod-dsn.algolia.net/1/indexes/production__us_ubisoft__products__en_US__best_sellers/query"
@@ -195,4 +196,14 @@ func pickStoreCovers(title string, hits []storeHit) []media.CoverCandidate {
 	}
 
 	return append(standard, others...)
+}
+
+// Test implements media.Provider: it runs one search on the Ubisoft Store's public product index and
+// fails if the store answers with an error or something that is not a search result.
+func (c *Covers) Test(ctx context.Context, _ schema.Settings) error {
+	if _, err := c.storeCovers(ctx, "Assassin's Creed"); err != nil {
+		return fmt.Errorf("the Ubisoft Store search is not answering (%w); try again later", err)
+	}
+
+	return nil
 }

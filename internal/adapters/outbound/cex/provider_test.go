@@ -152,11 +152,10 @@ func TestTest_asksTheFirstCountry(t *testing.T) {
 		p := &Provider{BaseURL: srv.URL + "/%s", Client: srv.Client()}
 
 		t.Run("WHEN the connection is tested", func(t *testing.T) {
-			res, err := p.Test(ctx, schema.Settings{settingHits: "es:3"})
+			err := p.Test(ctx, schema.Settings{settingHits: "es:3"})
 
-			t.Run("THEN one request goes to Spain and there is no quota", func(t *testing.T) {
+			t.Run("THEN it works with one request to Spain", func(t *testing.T) {
 				require.NoError(t, err)
-				assert.Equal(t, -1, res.RemainingQuota)
 				assert.Equal(t, []string{"es"}, fake.asked)
 			})
 		})
@@ -191,7 +190,7 @@ func TestLookup_failures(t *testing.T) {
 		p := &Provider{BaseURL: srv.URL + "/%s", Client: srv.Client()}
 
 		t.Run("WHEN the connection is tested", func(t *testing.T) {
-			_, err := p.Test(ctx, schema.Settings{})
+			err := p.Test(ctx, schema.Settings{})
 
 			t.Run("THEN it reports ErrBlocked", func(t *testing.T) {
 				require.ErrorIs(t, err, ErrBlocked)

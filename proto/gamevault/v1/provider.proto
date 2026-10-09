@@ -56,10 +56,12 @@ message TestProviderRequest {
   map<string, string> settings = 2;
 }
 message TestProviderResponse {
+  // Whether the provider works with these settings.
   bool success = 1;
+  // Why not, when success is false.
   string message = 2;
-  // Remaining request allowance of the provider's API key; -1 when it has no quota.
-  int32 remaining_quota = 3;
+  reserved 3;
+  reserved "remaining_quota";
 }
 
 // ProviderService configures the metadata provider chains.

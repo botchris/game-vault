@@ -240,8 +240,15 @@ func (s *Source) RecordSync(r SyncReport) {
 
 // Repository is the persistence port for sources.
 type Repository interface {
+	// List returns every source.
 	List(ctx context.Context) ([]*Source, error)
+
+	// Get returns one source, or ErrNotFound.
 	Get(ctx context.Context, id ID) (*Source, error)
+
+	// Save creates or updates a source.
 	Save(ctx context.Context, s *Source) error
+
+	// Delete removes a source (its copies are handled by the caller).
 	Delete(ctx context.Context, id ID) error
 }

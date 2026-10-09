@@ -51,42 +51,65 @@ constant into its own declaration instead.
   media.CoverProvider.` A grouped `const`/`var` block can share one comment above the block
   (`// Values of Kind.`).
 
-- **Blank line BETWEEN documented members** of a grouped declaration — interface methods,
-  `const`/`var` groups, struct fields — but **never between the opening `{`/`(` and the first
-  member's doc comment**. An opening brace is not a preceding member, so there is nothing there to
-  separate from; a gap only detaches the first comment from the declaration it documents.
+- **Documented members are separated by a blank line.** In every grouped declaration — interface
+  methods, struct fields, parenthesised `const` / `var` / `type` blocks — a member's doc comment has
+  a blank line above it, separating it from the previous member. The only exception is the first
+  member: its doc comment follows the opening `{` / `(` directly.
 
   ```go
-  type (
-      // Settings is a source's configuration (see schema.Settings).
-      Settings = schema.Settings
+  // WRONG: doc comments cuddled to the previous member
+  var (
+      // ErrNoSession means there is neither a stored session nor a code to start one.
+      ErrNoSession = errors.New("amazon: open the sign-in link…")
+      // ErrBadCode means Amazon rejected the code.
+      ErrBadCode = errors.New("amazon rejected the code…")
+  )
 
-      // Field describes one setting a source asks for (see schema.Field).
-      Field = schema.Field
+  // RIGHT
+  var (
+      // ErrNoSession means there is neither a stored session nor a code to start one.
+      ErrNoSession = errors.New("amazon: open the sign-in link…")
+
+      // ErrBadCode means Amazon rejected the code.
+      ErrBadCode = errors.New("amazon rejected the code…")
   )
   ```
 
-  Getting the between-members blank right and the after-brace one wrong is the common mistake,
-  because it looks consistent:
-
   ```go
   type Output struct {
-                                 // ← WRONG: no blank line belongs here
+                                 // ← WRONG: no blank line after the opening brace
       // Text is what the program printed.
       Text string
-
-      // Failed reports that it raised.
-      Failed bool
   }
   ```
 
   Members without doc comments may stay cuddled, and short trailing comments on enum values
   (`KindKey Kind = "key" // a redeemable CD key`) are fine.
 
-  **No linter enforces either half of this** — not `wsl_v5`, not `godot`. Code that violates it
-  passes `task lint` with zero issues, so it has to be right when written. To sweep for the
-  after-brace case: look for a line ending in `{` or `(` followed by a blank line followed by a
-  `//` line.
+- **Every method of a named interface has a doc comment**, `Descriptor()` included — interfaces
+  are the ports other layers code against, so each method says what it promises:
+
+  ```go
+  // Provider is the port each source type implements (Humble, Steam...).
+  type Provider interface {
+      // Descriptor describes the source type: its id, name and settings.
+      Descriptor() source.TypeDescriptor
+
+      // Fetch returns every copy the account currently holds. Warnings are non-fatal issues.
+      Fetch(ctx context.Context, settings source.Settings) (copies []game.ImportedCopy, warnings []string, err error)
+
+      // Test checks the settings against the real service as cheaply as it can. A nil error means
+      // they work; an error says why not.
+      Test(ctx context.Context, settings source.Settings) error
+  }
+  ```
+
+  Field and member docs start with the member's name and read as a sentence
+  (`// Forwarded reports that…`), never `// Forwarded: …`.
+
+  These rules are checked by `tools/docspacing`, which `task lint` runs (golangci-lint has no rule
+  for them) and `task lint:fix` applies (`-fix` inserts and removes the blank lines; missing
+  interface docs must be written by hand).
 
 - **Error strings**: lowercase, no trailing punctuation (`revive:error-strings`). Sentinel errors
   are `ErrX` (exported) / `errX` (`error-naming`) and callers match them with `errors.Is`. Wrap with
@@ -125,7 +148,8 @@ Dependencies point inward; the compiler won't stop a violation, so watch it:
   `cmd/gamevault/main.go` wires them by hand (no DI framework; registration order = default chain
   order).
 - **Optional capabilities are separate small interfaces** checked with a type assertion
-  (`sync.Tester`, `sync.Preparer`, `sync.KeepAliver`, `media.ImageHoster`), never boolean flags.
+  (`sync.Preparer`, `sync.KeepAliver`, `media.ImageHoster`), never boolean flags. `Test(ctx,
+  settings) error` is not optional: it is part of `sync.Provider` and `media.Provider`.
 - `internal/adapters/inbound/rpc` maps Connect requests onto application calls and back
   (`mapper.go`); it must not leak domain aggregates or adapter types into the API, nor generated
   `pb` types into the application.
@@ -198,6 +222,5 @@ Dependencies point inward; the compiler won't stop a violation, so watch it:
 1. `task lint` — 0 issues.
 2. `task test` — green.
 3. If a `.proto` changed, `task generate` ran and the generated code is committed with it.
-4. The after-brace blank-line sweep above found nothing in the files you touched.
-5. For UI-visible or external-service changes, the rest of "How to verify a change" in
+4. For UI-visible or external-service changes, the rest of "How to verify a change" in
    `CLAUDE.md` (test server on :8093, bogus-credential probe of the real endpoint).

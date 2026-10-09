@@ -15,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"gamevault/internal/application/sync"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/source"
 )
@@ -36,8 +35,10 @@ var ErrUnauthorized = errors.New("humble bundle rejected the session cookie; cop
 type Provider struct {
 	BaseURL string
 	Client  *http.Client
+
 	// Pause between batched requests, to be gentle with Humble.
 	Pause time.Duration
+
 	// Log receives progress messages during long scans. Optional.
 	Log *slog.Logger
 }
@@ -57,15 +58,11 @@ func cleanCookie(v string) string {
 	return strings.Trim(strings.TrimSpace(v), `"`)
 }
 
-// Test implements sync.Tester: one request that checks the session and counts orders, instead of
+// Test implements sync.Provider: one request that checks the session by listing the orders, instead of
 // downloading every order like Fetch does.
-func (p *Provider) Test(ctx context.Context, settings source.Settings) (sync.TestResult, error) {
-	gamekeys, err := p.listGamekeys(ctx, cleanCookie(settings[settingSession]))
-	if err != nil {
-		return sync.TestResult{}, err
-	}
-
-	return sync.TestResult{Count: len(gamekeys), Unit: "orders"}, nil
+func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
+	_, err := p.listGamekeys(ctx, cleanCookie(settings[settingSession]))
+	return err
 }
 
 // Descriptor implements sync.Provider.

@@ -20,28 +20,22 @@ import (
 
 // Provider is the port each source type implements (Humble, Steam...).
 type Provider interface {
+	// Descriptor describes the source type: its id, name and settings.
 	Descriptor() source.TypeDescriptor
+
 	// Fetch returns every copy the account currently holds. Warnings are non-fatal issues.
 	Fetch(ctx context.Context, settings source.Settings) (copies []game.ImportedCopy, warnings []string, err error)
-}
 
-// Tester is an optional port a Provider can implement when checking credentials is much cheaper
-// than a full Fetch (e.g. Humble: one request instead of downloading every order).
-type Tester interface {
-	Test(ctx context.Context, settings source.Settings) (TestResult, error)
-}
-
-// TestResult is the outcome of a successful connection test.
-type TestResult struct {
-	Count int
-	// Unit says what Count counts: "copies" or "orders".
-	Unit string
+	// Test checks the settings against the real service as cheaply as it can (e.g. Humble lists
+	// the orders without downloading them). A nil error means they work; an error says why not.
+	Test(ctx context.Context, settings source.Settings) error
 }
 
 // Preparer is an optional port for providers that turn what the user typed into stored
 // credentials before saving, e.g. Epic: a one-time authorization code becomes a session.
 // It returns the settings to store.
 type Preparer interface {
+	// Prepare turns what the user typed into the settings to store.
 	Prepare(ctx context.Context, settings source.Settings) (source.Settings, error)
 }
 
@@ -49,7 +43,10 @@ type Preparer interface {
 // browser (Battle.net, EA, Ubisoft). Such sessions expire when idle, so the service calls KeepAlive
 // every KeepAliveInterval, like an open browser tab would, and persists what it renews.
 type KeepAliver interface {
+	// KeepAliveInterval is how often KeepAlive should run, before the service adds jitter.
 	KeepAliveInterval() time.Duration
+
+	// KeepAlive renews the session, writing anything renewed into settings for the service to persist.
 	KeepAlive(ctx context.Context, settings source.Settings) error
 }
 
@@ -262,10 +259,9 @@ func (s *Service) Delete(ctx context.Context, id source.ID, deleteCopies bool) e
 	})
 }
 
-// Test checks a source's settings without saving anything. Providers implementing Tester do a cheap
-// check; others do a full Fetch. If id is set, cfg settings are merged over the stored ones (so
-// unchanged secrets can be sent as placeholders).
-func (s *Service) Test(ctx context.Context, id source.ID, t source.Type, cfg source.Config) (TestResult, error) {
+// Test checks a source's settings without saving anything. If id is set, cfg settings are merged
+// over the stored ones (so unchanged secrets can be sent as placeholders).
+func (s *Service) Test(ctx context.Context, id source.ID, t source.Type, cfg source.Config) error {
 	var (
 		stored source.Settings
 		src    *source.Source
@@ -274,7 +270,7 @@ func (s *Service) Test(ctx context.Context, id source.ID, t source.Type, cfg sou
 	if id != "" {
 		var err error
 		if src, err = s.sources.Get(ctx, id); err != nil {
-			return TestResult{}, err
+			return err
 		}
 
 		t, stored = src.Type(), src.Settings()
@@ -282,7 +278,7 @@ func (s *Service) Test(ctx context.Context, id source.ID, t source.Type, cfg sou
 
 	d, err := s.Descriptor(t)
 	if err != nil {
-		return TestResult{}, err
+		return err
 	}
 	// Stored values first, overridden by whatever the client sent (placeholders keep the stored secret).
 	settings := source.Settings{}
@@ -290,7 +286,7 @@ func (s *Service) Test(ctx context.Context, id source.ID, t source.Type, cfg sou
 	maps.Copy(settings, d.MergeSettings(stored, cfg.Settings))
 
 	if err := d.Validate(settings); err != nil {
-		return TestResult{}, err
+		return err
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, testTimeout)
@@ -298,25 +294,17 @@ func (s *Service) Test(ctx context.Context, id source.ID, t source.Type, cfg sou
 
 	if p, ok := s.providers[t].(Preparer); ok {
 		if settings, err = p.Prepare(ctx, settings); err != nil {
-			return TestResult{}, err
+			return err
 		}
 	}
 
-	var res TestResult
-	if tester, ok := s.providers[t].(Tester); ok {
-		res, err = tester.Test(ctx, settings)
-	} else {
-		var copies []game.ImportedCopy
-
-		copies, _, err = s.providers[t].Fetch(ctx, settings)
-		res = TestResult{Count: len(copies), Unit: "copies"}
-	}
+	err = s.providers[t].Test(ctx, settings)
 	// A saved source keeps any credentials the test rotated; nothing else of the test is stored.
 	if src != nil && src.UpdateState(d, settings, s.now()) {
 		err = errors.Join(err, s.sources.Save(ctx, src))
 	}
 
-	return res, err
+	return err
 }
 
 // Sync scans one source and consolidates its copies into the catalog. A failed fetch is recorded

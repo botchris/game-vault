@@ -25,7 +25,6 @@ import (
 	gosync "sync"
 	"time"
 
-	"gamevault/internal/application/sync"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/source"
 )
@@ -62,8 +61,10 @@ var LoginURL = defaultAuthURL + "/auth?" + url.Values{
 var (
 	// ErrNoSession means there is neither a stored session nor a code to start one.
 	ErrNoSession = errors.New("gog: paste the code (open the login link, sign in and copy the address of the page GOG opens)")
+
 	// ErrBadCode means GOG rejected the code.
 	ErrBadCode = errors.New("gog rejected the code: codes work once and expire quickly, open the login link again and paste the new address")
+
 	// ErrSessionExpired means the stored session can no longer be refreshed.
 	ErrSessionExpired = errors.New("the GOG session expired: open the login link and paste a new code")
 
@@ -86,7 +87,7 @@ type pendingSession struct {
 	expires time.Time
 }
 
-// Provider implements sync.Provider, sync.Preparer and sync.Tester for GOG accounts.
+// Provider implements sync.Provider and sync.Preparer for GOG accounts.
 type Provider struct {
 	AuthURL, EmbedURL string
 	Client            *http.Client
@@ -190,21 +191,18 @@ func (p *Provider) Prepare(ctx context.Context, settings source.Settings) (sourc
 	return out, nil
 }
 
-// Test implements sync.Tester: one request for the list of owned product ids.
-func (p *Provider) Test(ctx context.Context, settings source.Settings) (sync.TestResult, error) {
+// Test implements sync.Provider: one request for the list of owned product ids.
+func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
 	token, err := p.accessToken(ctx, settings)
 	if err != nil {
-		return sync.TestResult{}, err
+		return err
 	}
 
 	var owned struct {
 		Owned []int64 `json:"owned"`
 	}
-	if err := p.get(ctx, token, p.EmbedURL+"/user/data/games", &owned); err != nil {
-		return sync.TestResult{}, err
-	}
 
-	return sync.TestResult{Count: len(owned.Owned), Unit: "items"}, nil
+	return p.get(ctx, token, p.EmbedURL+"/user/data/games", &owned)
 }
 
 type product struct {

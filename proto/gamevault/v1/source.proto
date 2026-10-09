@@ -116,13 +116,12 @@ message TestSourceRequest {
   SourceInput source = 2;
 }
 message TestSourceResponse {
+  // Whether the settings work against the real service.
   bool success = 1;
-  // Error message when success is false.
+  // Why not, when success is false.
   string message = 2;
-  // Number of items found; see count_unit.
-  int32 fetched = 3;
-  // What fetched counts: "copies" or "orders".
-  string count_unit = 4;
+  reserved 3, 4;
+  reserved "fetched", "count_unit";
 }
 
 message SyncSourceRequest {

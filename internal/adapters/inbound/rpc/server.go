@@ -24,10 +24,12 @@ type Handlers struct {
 	Sources *SourceHandler
 	System  *SystemHandler
 	Logs    *LogHandler
+
 	// MediaRPC serves the provider and cover services; Media serves the cover images.
 	MediaRPC *MediaHandler
 	Media    *media.Service
 	Auth     *AuthHandler
+
 	// AuthService identifies callers for every request (see authMiddleware).
 	AuthService *appauth.Service
 }
@@ -36,8 +38,10 @@ type Handlers struct {
 type Options struct {
 	// UIDir is a directory with the built web app (web/dist). Empty disables serving it.
 	UIDir string
+
 	// CORSOrigins lists origins allowed to call the API from a browser, for a UI hosted elsewhere.
 	CORSOrigins []string
+
 	// Log receives RPC logs. Optional.
 	Log *slog.Logger
 }

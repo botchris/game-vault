@@ -12,6 +12,7 @@ import (
 
 // CoverCache is the port used to drop a game's cached cover image when it may have changed.
 type CoverCache interface {
+	// Invalidate drops the cached cover, so the next request resolves it again.
 	Invalidate(ctx context.Context, id game.ID) error
 }
 

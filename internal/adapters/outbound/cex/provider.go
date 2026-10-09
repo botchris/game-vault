@@ -33,11 +33,14 @@ const ID provider.ID = "cex"
 
 const (
 	settingCountries = "countries"
+
 	// settingHits is learned, never shown: how many lookups each country answered ("es:12,uk:1").
 	settingHits = "country_hits"
+
 	// defaultBaseURL has the country code in place of %s.
 	defaultBaseURL = "https://wss2.cex.%s.webuy.io/v3"
 	userAgent      = "GameVault/1.0 (+https://github.com/botchris/game-vault)"
+
 	// gamingSuperCat is CeX's top category for games in every country (its name is translated).
 	gamingSuperCat = 1
 )
@@ -57,10 +60,7 @@ type Provider struct {
 	Client  *http.Client
 }
 
-var (
-	_ media.BarcodeProvider = (*Provider)(nil)
-	_ media.Tester          = (*Provider)(nil)
-)
+var _ media.BarcodeProvider = (*Provider)(nil)
 
 // New returns the CeX barcode provider with its production endpoints.
 func New() *Provider {
@@ -110,14 +110,14 @@ func (p *Provider) Lookup(ctx context.Context, code game.Barcode, s schema.Setti
 	return nil, nil
 }
 
-// Test implements media.Tester with one light request (the list of top categories) to the first
+// Test implements media.Provider with one light request (the list of top categories) to the first
 // country that would be asked, which shows whether CeX answers its API at all.
-func (p *Provider) Test(ctx context.Context, s schema.Settings) (media.TestResult, error) {
+func (p *Provider) Test(ctx context.Context, s schema.Settings) error {
 	country := order(allowed(s[settingCountries]), parseHits(s[settingHits]))[0]
 
 	var out struct{}
 
-	return media.TestResult{RemainingQuota: -1}, p.get(ctx, country, "/supercats", &out)
+	return p.get(ctx, country, "/supercats", &out)
 }
 
 // box is the part of CeX's box detail that is used.

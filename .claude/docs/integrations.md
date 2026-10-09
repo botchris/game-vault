@@ -32,10 +32,11 @@ file under `.claude/memory/` (create `<store>.md` and add a line to `.claude/MEM
      the ExternalID format later: it would duplicate copies.
    - Only import what the user owns: skip subscriptions (Game Pass, PS Plus, EA Play…), trials,
      DLC/add-ons, revoked entitlements. Decode leniently: a missing field must not drop a game.
+   - `Test(ctx, settings) error` checks the settings for "Test connection" as cheaply as possible
+     (e.g. list orders without downloading them). Nil means it works; the error says what failed
+     and what to do. No counts or other details on success.
    - Fields with base URLs (`AuthURL`, `LibraryURL`…) so tests can use `httptest`.
 2. Optional ports, as needed:
-   - `sync.Tester` — a cheap check for "Test connection" (`TestResult.Unit`: `copies`, `orders`,
-     `items`; add a `sources.testOk<Unit>` translation for a new unit).
    - `sync.Preparer` — turn a one-time code into a stored session when the source is saved. Cache
      the exchanged session by `sha256(code)` for ~15 min: "Test" and "Save" both call it.
    - Rotating credentials: write the new value into the settings map passed to `Fetch`/`Test`;

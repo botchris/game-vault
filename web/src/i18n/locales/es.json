@@ -223,18 +223,12 @@
       "profileHelp": "Tu SteamID64, el nombre de tu URL personalizada o la URL completa del perfil.\n\"Detalles de juego\" debe ser Público en la privacidad de tu perfil de Steam."
     },
     "testing": "Probando…",
-    "testOkCopies_one": "La conexión funciona: {{count}} copia encontrada.",
-    "testOkCopies_other": "La conexión funciona: {{count}} copias encontradas.",
-    "testOkOrders_one": "Sesión válida: {{count}} pedido encontrado. Escanea para importar sus claves.",
-    "testOkOrders_other": "Sesión válida: {{count}} pedidos encontrados. Escanea para importar sus claves.",
     "syncingHint": "Las cuentas grandes pueden tardar unos minutos; el progreso se escribe en el log del servidor.",
     "epic": {
       "description": "Importa los juegos de tu biblioteca de Epic Games Store, incluidos los gratuitos semanales que hayas reclamado. Inicia sesión igual que el launcher de Epic (como hacen Heroic y Legendary) y solo lee tu biblioteca.",
       "authCode": "Código de autorización",
       "authCodeHelp": "1. Abre la página de arriba e inicia sesión en Epic. Si Epic te manda un código por email, ese va en la página de Epic, no aquí.\n2. Epic muestra entonces un texto corto. Copia el valor de `authorizationCode` (32 letras y números), o el texto entero, y pégalo aquí.\n3. Pulsa Probar conexión o Guardar enseguida: los códigos sirven una vez y caducan en minutos.\nSolo hace falta la primera vez, o si la sesión caduca tras mucho tiempo sin escanear."
     },
-    "testOkItems_one": "Sesión iniciada: {{count}} elemento en tu biblioteca. Escanea para importar los juegos.",
-    "testOkItems_other": "Sesión iniciada: {{count}} elementos en tu biblioteca. Escanea para importar los juegos.",
     "gog": {
       "description": "Importa los juegos de tu biblioteca de GOG. Inicia sesión igual que el cliente GOG Galaxy (como hacen Heroic y Playnite) y solo lee tu biblioteca.",
       "authCode": "Código de inicio de sesión",
@@ -290,7 +284,8 @@
       "description": "Importa los juegos de tu biblioteca de Amazon Games: los que compraste y los que reclamaste con Prime Gaming. Inicia sesión como el launcher de Amazon Games (como Heroic y nile) y solo lee tu biblioteca. Los códigos de Prime Gaming para otras tiendas (GOG, Epic…) no están aquí: esos juegos aparecen al escanear esa tienda.",
       "code": "Dirección tras iniciar sesión",
       "codeHelp": "1. Abre la página de arriba e inicia sesión en Amazon.\n2. Acabarás en amazon.com: copia la dirección completa de la barra del navegador (contiene `openid.oa2.authorization_code=`) y pégala aquí.\n3. Pulsa Probar conexión o Guardar enseguida: la dirección solo sirve una vez y caduca en unos minutos.\nEl enlace cambia cada vez que Game Vault arranca: si falla, recarga esta página y ábrelo de nuevo.\nGame Vault aparece como un dispositivo de Amazon Games en tu cuenta de Amazon; si lo quitas allí, Game Vault pierde la sesión."
-    }
+    },
+    "testOk": "La conexión funciona."
   },
   "system": {
     "status": "Estado",
@@ -381,13 +376,11 @@
     "retried_other": "Se volverán a buscar {{count}} juegos.",
     "redownloaded_one": "{{count}} carátula borrada; se descargará de nuevo.",
     "redownloaded_other": "{{count}} carátulas borradas; se descargarán de nuevo.",
-    "testOk": "La configuración parece correcta.",
-    "testQuota_one": "API key válida: queda {{formatted}} petición este mes.",
-    "testQuota_other": "API key válida: quedan {{formatted}} peticiones este mes.",
+    "testOk": "La conexión funciona.",
     "thegamesdb": {
       "description": "Carátulas de la caja según la plataforma (la caja de Xbox 360 para un disco de Xbox 360). Se usa para juegos con copia física, juegos que ninguna tienda conoce y juegos de tienda sin carátula en ninguna tienda. Una petición por juego y luego se guarda.",
       "apiKey": "API key",
-      "apiKeyHelp": "Pide una clave gratuita en los foros de TheGamesDB (página de arriba).\nLas claves tienen un cupo mensual de peticiones; Probar muestra lo que queda sin gastarlo."
+      "apiKeyHelp": "Pide una clave gratuita en los foros de TheGamesDB (página de arriba).\nLas claves tienen un cupo mensual de peticiones; Probar comprueba la clave sin gastarlo y te avisa si se ha agotado."
     },
     "steam": {
       "description": "Carátulas de la biblioteca de Steam para juegos con Steam AppID. Sin key ni cuota."
@@ -405,7 +398,7 @@
       "userKeyHelp": "Solo para un plan de pago de UPCitemdb con más límite. Déjalo vacío para usar el acceso gratuito."
     },
     "eansearch": {
-      "description": "Base de datos de productos europea con buena cobertura PAL (conoce cajas de Xbox 360 que las gratuitas no tienen). Necesita un token: prueba a 1 € el primer mes (100 consultas), Pro 19 €/mes (5.000). \"Probar\" muestra las consultas que quedan.",
+      "description": "Base de datos de productos europea con buena cobertura PAL (conoce cajas de Xbox 360 que las gratuitas no tienen). Necesita un token: prueba a 1 € el primer mes (100 consultas), Pro 19 €/mes (5.000). \"Probar\" comprueba el token y te avisa si no le quedan consultas.",
       "token": "Token de la API",
       "tokenHelp": "1. Abre la página de arriba y crea una cuenta en EAN-Search.org con acceso a la API.\n2. Copia tu token de la API y pégalo aquí.\nPuedes darte de baja cuando quieras, por ejemplo después de catalogar tu colección."
     },

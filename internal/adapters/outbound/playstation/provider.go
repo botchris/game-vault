@@ -24,7 +24,6 @@ import (
 	gosync "sync"
 	"time"
 
-	"gamevault/internal/application/sync"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/source"
 )
@@ -63,6 +62,7 @@ var purchasedQueryHashes = []string{
 var (
 	// ErrNoNPSSO means nothing usable was pasted.
 	ErrNoNPSSO = errors.New("playstation: paste the NPSSO token (sign in on playstation.com, then open the page in the help)")
+
 	// ErrSignedOut means Sony no longer accepts the NPSSO token.
 	ErrSignedOut = errors.New("playstation did not accept the NPSSO token: sign in again on playstation.com and paste a new one")
 
@@ -88,7 +88,7 @@ type accessToken struct {
 	expires time.Time
 }
 
-// Provider implements sync.Provider and sync.Tester for PlayStation accounts.
+// Provider implements sync.Provider for PlayStation accounts.
 type Provider struct {
 	AuthURL, LibraryURL string
 	Client              *http.Client
@@ -454,10 +454,10 @@ func mapTitles(titles []title) []game.ImportedCopy {
 	return out
 }
 
-// Test implements sync.Tester.
-func (p *Provider) Test(ctx context.Context, settings source.Settings) (sync.TestResult, error) {
-	copies, _, err := p.Fetch(ctx, settings)
-	return sync.TestResult{Count: len(copies), Unit: "copies"}, err
+// Test implements sync.Provider.
+func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
+	_, _, err := p.Fetch(ctx, settings)
+	return err
 }
 
 // Fetch implements sync.Provider.

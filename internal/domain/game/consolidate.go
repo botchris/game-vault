@@ -9,10 +9,12 @@ import (
 type ImportedCopy struct {
 	// ExternalID must be stable across scans of the same source, e.g. "steam:620".
 	ExternalID string
+
 	// PreviousExternalID is the id an older version of the source gave this copy, when the format
 	// changed. A copy saved under it is adopted (renamed) if it belongs to the same game, instead
 	// of a duplicate being created.
 	PreviousExternalID string
+
 	// Withdrawn means the source no longer counts this item as a copy (e.g. a key that turned out
 	// not to be a game): a copy it imported earlier under ExternalID is removed, and its game too
 	// if nothing else is left in it.
@@ -30,6 +32,7 @@ type ConsolidationResult struct {
 	CopiesUnchanged int
 	GamesCreated    int
 	CopiesRemoved   int
+
 	// Emptied are games whose only copies were withdrawn: the caller deletes them.
 	Emptied  []ID
 	Warnings []string

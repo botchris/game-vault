@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"gamevault/internal/adapters/outbound/browsersession"
-	"gamevault/internal/application/sync"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/source"
 )
@@ -36,6 +35,7 @@ const (
 	settingSession = "session"
 
 	defaultAccountURL = "https://account.battle.net"
+
 	// renewPath starts the single sign-on that gives account.battle.net a fresh session.
 	renewPath = "/oauth2/authorization/account-settings"
 	userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128 Safari/537.36"
@@ -44,11 +44,12 @@ const (
 var (
 	// ErrNoCookies means nothing usable was pasted.
 	ErrNoCookies = errors.New("battle.net: paste the cookies of account.battle.net (see the help below the field)")
+
 	// ErrSignedOut means Battle.net no longer accepts the cookies.
 	ErrSignedOut = errors.New("battle.net did not accept the cookies: sign in again on account.battle.net and paste them again")
 )
 
-// Provider implements sync.Provider and sync.Tester for Battle.net accounts.
+// Provider implements sync.Provider for Battle.net accounts.
 type Provider struct {
 	AccountURL string
 	Timeout    time.Duration
@@ -233,14 +234,10 @@ func (p *Provider) titles(ctx context.Context, settings source.Settings) (map[st
 	return found, nil
 }
 
-// Test implements sync.Tester.
-func (p *Provider) Test(ctx context.Context, settings source.Settings) (sync.TestResult, error) {
-	found, err := p.titles(ctx, settings)
-	if err != nil {
-		return sync.TestResult{}, err
-	}
-
-	return sync.TestResult{Count: len(found), Unit: "copies"}, nil
+// Test implements sync.Provider.
+func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
+	_, err := p.titles(ctx, settings)
+	return err
 }
 
 // Fetch implements sync.Provider.

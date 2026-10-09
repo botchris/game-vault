@@ -138,8 +138,8 @@ func TestPrepareTestAndFetch(t *testing.T) {
 		t.Fatalf("exchanges=%d settings=%v", f.exchanges, settings)
 	}
 
-	if res, err := p.Test(ctx, settings); err != nil || res.Count != 3 {
-		t.Fatalf("test: %+v %v", res, err)
+	if err := p.Test(ctx, settings); err != nil {
+		t.Fatalf("test: %v", err)
 	}
 
 	copies, _, err := p.Fetch(ctx, settings)
@@ -160,7 +160,7 @@ func TestPrepareTestAndFetch(t *testing.T) {
 	p2 := NewProvider()
 
 	p2.AuthURL, p2.EmbedURL = p.AuthURL, p.EmbedURL
-	if _, err := p2.Test(ctx, settings); err != nil {
+	if err := p2.Test(ctx, settings); err != nil {
 		t.Fatal(err)
 	}
 
@@ -181,7 +181,7 @@ func TestErrors(t *testing.T) {
 		t.Errorf("wrong code: %v", err)
 	}
 
-	if _, err := p.Test(ctx, source.Settings{settingSession: `{"refresh_token":"stale","user_id":"u9"}`}); !errors.Is(err, ErrSessionExpired) {
+	if err := p.Test(ctx, source.Settings{settingSession: `{"refresh_token":"stale","user_id":"u9"}`}); !errors.Is(err, ErrSessionExpired) {
 		t.Errorf("stale session: %v", err)
 	}
 	// A token GOG no longer accepts makes it redirect to the login page.

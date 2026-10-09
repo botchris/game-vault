@@ -29,8 +29,10 @@ const CoverProviderID provider.ID = "steam"
 type Store struct {
 	StoreURL string
 	CDNURL   string
+
 	// APIURL serves IStoreBrowseService, which knows the real (hashed) image paths.
 	APIURL string
+
 	// AssetsURL is the CDN prefix those paths are relative to.
 	AssetsURL string
 	Client    *http.Client
@@ -83,6 +85,16 @@ func (s *Store) Covers(ctx context.Context, q media.CoverQuery, _ schema.Setting
 	}
 
 	return out, nil
+}
+
+// Test implements media.Provider: it asks Steam's store browse API for the art of Portal 2 (app
+// 620), so only transport errors and HTTP errors (including rate limits) fail it.
+func (s *Store) Test(ctx context.Context, _ schema.Settings) error {
+	if _, _, err := s.assetURLs(ctx, 620); err != nil {
+		return fmt.Errorf("could not reach Steam, check the connection and try again: %w", err)
+	}
+
+	return nil
 }
 
 // assetURLs resolves the library (portrait) and header images of an app.

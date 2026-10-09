@@ -28,6 +28,8 @@ func (r *rotating) Fetch(context.Context, source.Settings) ([]game.ImportedCopy,
 	return nil, nil, nil
 }
 
+func (r *rotating) Test(context.Context, source.Settings) error { return nil }
+
 func (r *rotating) KeepAliveInterval() time.Duration { return time.Hour }
 
 func (r *rotating) KeepAlive(_ context.Context, s source.Settings) error {
@@ -107,6 +109,8 @@ func (c *counting) Fetch(context.Context, source.Settings) ([]game.ImportedCopy,
 	c.scans++
 	return nil, nil, nil
 }
+
+func (c *counting) Test(context.Context, source.Settings) error { return nil }
 
 func TestSchedulerScansOnceAndWaitsForTheVariedInterval(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())

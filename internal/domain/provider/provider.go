@@ -38,9 +38,11 @@ type Descriptor struct {
 	Name           string
 	DescriptionKey string // translation key: what it does and which games it applies to
 	Fields         schema.Fields
+
 	// EnabledByDefault is used the first time the provider is seen. Providers that need
 	// credentials should start disabled.
 	EnabledByDefault bool
+
 	// SettingsGroup links providers of different kinds backed by the same service (e.g.
 	// TheGamesDB covers and TheGamesDB details): they share their settings, so a key is entered once.
 	SettingsGroup string
@@ -165,6 +167,9 @@ func Sort(providers []*Provider) {
 
 // Repository is the persistence port for provider configurations.
 type Repository interface {
+	// List returns the saved configurations of a kind of provider, in priority order.
 	List(ctx context.Context, kind Kind) ([]*Provider, error)
+
+	// Save creates or updates a provider configuration.
 	Save(ctx context.Context, p *Provider) error
 }

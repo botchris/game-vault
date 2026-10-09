@@ -6,6 +6,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/application/media"
 )
@@ -63,4 +67,51 @@ func TestCovers(t *testing.T) {
 	if tokens != 1 {
 		t.Fatalf("the app token should be reused, got %d", tokens)
 	}
+}
+
+func TestCovers_Test(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN Epic's sign-in endpoint grants application tokens", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/account/api/oauth/token" || r.FormValue("grant_type") != "client_credentials" {
+				http.Error(w, "unexpected request", http.StatusBadRequest)
+				return
+			}
+
+			fmt.Fprint(w, `{"access_token":"app","expires_at":"2099-01-01T00:00:00.000Z"}`)
+		}))
+		defer srv.Close()
+
+		c := NewCovers()
+		c.p.OAuthURL = srv.URL
+
+		t.Run("WHEN the provider is tested", func(t *testing.T) {
+			err := c.Test(ctx, nil)
+
+			t.Run("THEN it works", func(t *testing.T) {
+				require.NoError(t, err)
+			})
+		})
+	})
+
+	t.Run("GIVEN Epic's sign-in endpoint fails with HTTP 503", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusServiceUnavailable)
+		}))
+		defer srv.Close()
+
+		c := NewCovers()
+		c.p.OAuthURL = srv.URL
+
+		t.Run("WHEN the provider is tested", func(t *testing.T) {
+			err := c.Test(ctx, nil)
+
+			t.Run("THEN it reports what happened", func(t *testing.T) {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "HTTP 503")
+			})
+		})
+	})
 }

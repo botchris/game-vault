@@ -63,7 +63,9 @@ Rules of the architecture:
 - Domain packages import nothing from application or adapters. Application defines ports
   (interfaces); adapters implement them; `cmd/gamevault/main.go` wires them.
 - Optional capabilities are separate small interfaces checked with a type assertion
-  (`sync.Tester`, `sync.Preparer`, `sync.KeepAliver`, `media.ImageHoster`, …), not flags.
+  (`sync.Preparer`, `sync.KeepAliver`, `media.ImageHoster`, …), not flags. Checking the
+  settings is not optional: every source and media provider implements `Test(ctx, settings) error`
+  (one cheap request to the real service; nil means it works, the error says why not).
 - Adapters talk to external services through a base URL field so tests point them at `httptest`.
 - SQLite: one writer (`MaxOpenConns 1`), transactions via `TxManager.WithinTx`; schema changes
   are new numbered files in `internal/adapters/outbound/sqlite/migrations/`, never edits to old ones.

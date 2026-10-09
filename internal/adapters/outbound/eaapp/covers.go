@@ -209,3 +209,42 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 
 	return cands, nil
 }
+
+// Test implements media.Provider: it asks EA's public catalog for one well-known game by slug and
+// fails on a transport error, an HTTP error or a GraphQL rejection. An unknown slug is not a failure.
+func (c *Covers) Test(ctx context.Context, _ schema.Settings) error {
+	body, _ := json.Marshal(map[string]string{"query": `{ g0: game(slug: "battlefield-1") { slug title } }`})
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.GraphQLURL, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", userAgent)
+
+	res, err := c.Client.Do(req)
+	if err != nil {
+		return fmt.Errorf("EA's catalog is not reachable (%w); check the connection and try again", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("EA's catalog answered HTTP %d; try again later", res.StatusCode)
+	}
+
+	var out struct {
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+	if err := json.NewDecoder(io.LimitReader(res.Body, 1<<20)).Decode(&out); err != nil {
+		return fmt.Errorf("EA's catalog sent an unexpected answer (%w); try again later", err)
+	}
+
+	if len(out.Errors) > 0 {
+		return fmt.Errorf("EA's catalog rejected the request (%s); try again later", out.Errors[0].Message)
+	}
+
+	return nil
+}

@@ -14,8 +14,10 @@ var LogLevels = []string{"debug", "info", "warn", "error"}
 // Logging controls the server log and the rotation of its files.
 type Logging struct {
 	Level string
+
 	// MaxFileSizeMB is the size at which the current log file is rotated.
 	MaxFileSizeMB int
+
 	// MaxFiles is the total number of log files kept, the current one included.
 	MaxFiles int
 }
@@ -47,5 +49,7 @@ func (l Logging) Validate() (Logging, error) {
 type Repository interface {
 	// Logging returns the saved logging settings, or DefaultLogging when none were saved.
 	Logging(ctx context.Context) (Logging, error)
+
+	// SaveLogging stores the logging settings.
 	SaveLogging(ctx context.Context, l Logging) error
 }

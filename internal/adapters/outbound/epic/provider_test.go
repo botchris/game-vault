@@ -149,9 +149,8 @@ func TestPrepareTestAndFetch(t *testing.T) {
 		t.Fatalf("exchanges=%d settings=%v", f.exchanges, settings)
 	}
 
-	res, err := p.Test(ctx, settings)
-	if err != nil || res.Count != 4 || res.Unit != "items" {
-		t.Fatalf("test: %+v %v", res, err)
+	if err := p.Test(ctx, settings); err != nil {
+		t.Fatalf("test: %v", err)
 	}
 
 	copies, warnings, err := p.Fetch(ctx, settings)

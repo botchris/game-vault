@@ -37,6 +37,7 @@ type Info struct {
 	Title      string
 	SteamAppID int64
 	Notes      string
+
 	// CoverURL is a custom cover image. Empty means "use the Steam cover" when SteamAppID is set.
 	CoverURL string
 }
@@ -291,8 +292,15 @@ func (g *Game) indexOf(id ID) int {
 
 // Repository is the persistence port for games. Save stores the whole aggregate, copies included.
 type Repository interface {
+	// List returns every game with its copies.
 	List(ctx context.Context) ([]*Game, error)
+
+	// Get returns one game with its copies, or ErrGameNotFound.
 	Get(ctx context.Context, id ID) (*Game, error)
+
+	// Save creates or updates a game and replaces its copies.
 	Save(ctx context.Context, g *Game) error
+
+	// Delete removes a game and its copies.
 	Delete(ctx context.Context, id ID) error
 }

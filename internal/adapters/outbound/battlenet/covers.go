@@ -2,6 +2,7 @@ package battlenet
 
 import (
 	"context"
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -75,4 +76,14 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, settings schema
 	}
 
 	return nil, nil
+}
+
+// Test implements media.Provider: it searches the Steam store for one well-known title, since that
+// search is the only service this provider depends on, and fails if the search errors. No match is not a failure.
+func (c *Covers) Test(ctx context.Context, _ schema.Settings) error {
+	if _, err := c.Search.SearchApps(ctx, "Portal"); err != nil {
+		return fmt.Errorf("the Steam store search is not answering (%w); try again later", err)
+	}
+
+	return nil
 }

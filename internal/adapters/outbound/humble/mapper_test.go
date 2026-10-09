@@ -165,9 +165,8 @@ func TestFetchAgainstFakeServer(t *testing.T) {
 	// Test only lists orders, and tolerates the cookie pasted as "_simpleauth_sess=...;" with quotes.
 	ordersRequests = 0
 
-	res, err := p.Test(ctx, source.Settings{settingSession: ` _simpleauth_sess="good"; `})
-	if err != nil || res.Count != 1 || res.Unit != "orders" || ordersRequests != 0 {
-		t.Fatalf("test: %+v err=%v ordersRequests=%d", res, err, ordersRequests)
+	if err := p.Test(ctx, source.Settings{settingSession: ` _simpleauth_sess="good"; `}); err != nil || ordersRequests != 0 {
+		t.Fatalf("test: err=%v ordersRequests=%d", err, ordersRequests)
 	}
 }
 

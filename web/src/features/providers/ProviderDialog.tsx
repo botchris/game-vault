@@ -13,7 +13,7 @@ export default function ProviderDialog({ provider, placeholder, onClose, onSaved
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [settings, setSettings] = useState<Record<string, string>>(() => ({ ...provider.settings }));
   const [enabled, setEnabled] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -24,9 +24,7 @@ export default function ProviderDialog({ provider, placeholder, onClose, onSaved
     setResult(null);
     try {
       const res = await providerClient.testProvider({ id: provider.id, settings });
-      if (!res.success) setResult({ tone: 'error', text: res.message });
-      else if (res.remainingQuota >= 0) setResult({ tone: 'ok', text: t('providers.testQuota', { count: res.remainingQuota, formatted: res.remainingQuota.toLocaleString(i18n.language) }) });
-      else setResult({ tone: 'ok', text: t('providers.testOk') });
+      setResult(res.success ? { tone: 'ok', text: t('providers.testOk') } : { tone: 'error', text: res.message });
     } catch (e) {
       setResult({ tone: 'error', text: errorMessage(e) });
     } finally {

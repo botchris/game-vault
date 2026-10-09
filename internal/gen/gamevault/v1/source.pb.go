@@ -1042,14 +1042,11 @@ func (x *TestSourceRequest) GetSource() *SourceInput {
 }
 
 type TestSourceResponse struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	Success bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	// Error message when success is false.
-	Message string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
-	// Number of items found; see count_unit.
-	Fetched int32 `protobuf:"varint,3,opt,name=fetched,proto3" json:"fetched,omitempty"`
-	// What fetched counts: "copies" or "orders".
-	CountUnit     string `protobuf:"bytes,4,opt,name=count_unit,json=countUnit,proto3" json:"count_unit,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whether the settings work against the real service.
+	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	// Why not, when success is false.
+	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1094,20 +1091,6 @@ func (x *TestSourceResponse) GetSuccess() bool {
 func (x *TestSourceResponse) GetMessage() string {
 	if x != nil {
 		return x.Message
-	}
-	return ""
-}
-
-func (x *TestSourceResponse) GetFetched() int32 {
-	if x != nil {
-		return x.Fetched
-	}
-	return 0
-}
-
-func (x *TestSourceResponse) GetCountUnit() string {
-	if x != nil {
-		return x.CountUnit
 	}
 	return ""
 }
@@ -1366,13 +1349,11 @@ const file_gamevault_v1_source_proto_rawDesc = "" +
 	"\x14DeleteSourceResponse\"V\n" +
 	"\x11TestSourceRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x121\n" +
-	"\x06source\x18\x02 \x01(\v2\x19.gamevault.v1.SourceInputR\x06source\"\x81\x01\n" +
+	"\x06source\x18\x02 \x01(\v2\x19.gamevault.v1.SourceInputR\x06source\"i\n" +
 	"\x12TestSourceResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\x12\x18\n" +
-	"\afetched\x18\x03 \x01(\x05R\afetched\x12\x1d\n" +
-	"\n" +
-	"count_unit\x18\x04 \x01(\tR\tcountUnit\"#\n" +
+	"\amessage\x18\x02 \x01(\tR\amessageJ\x04\b\x03\x10\x04J\x04\b\x04\x10\x05R\afetchedR\n" +
+	"count_unit\"#\n" +
 	"\x11SyncSourceRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"B\n" +
 	"\x12SyncSourceResponse\x12,\n" +

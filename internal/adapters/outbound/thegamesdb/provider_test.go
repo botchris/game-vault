@@ -102,20 +102,19 @@ func TestCoversPlatformFilterAndRanking(t *testing.T) {
 	}
 }
 
-func TestTestReportsQuota(t *testing.T) {
+func TestTestChecksTheKey(t *testing.T) {
 	srv, _ := fakeServer(t)
 	p := &Provider{BaseURL: srv.URL, Client: srv.Client()}
 
-	res, err := p.Test(context.Background(), schema.Settings{settingAPIKey: "good"})
-	if err != nil || res.RemainingQuota != 3000 {
-		t.Fatalf("quota: %+v %v", res, err)
+	if err := p.Test(context.Background(), schema.Settings{settingAPIKey: "good"}); err != nil {
+		t.Fatalf("a key with allowance must work: %v", err)
 	}
 
-	if _, err := p.Test(context.Background(), schema.Settings{settingAPIKey: "bad"}); err != ErrUnknownKey {
+	if err := p.Test(context.Background(), schema.Settings{settingAPIKey: "bad"}); err != ErrUnknownKey {
 		t.Fatalf("a bad key must fail with ErrUnknownKey, got %v", err)
 	}
 
-	_, err = p.Covers(context.Background(), media.CoverQuery{Title: "Halo 3"}, schema.Settings{settingAPIKey: "bad"})
+	_, err := p.Covers(context.Background(), media.CoverQuery{Title: "Halo 3"}, schema.Settings{settingAPIKey: "bad"})
 	if err == nil || !strings.Contains(err.Error(), "Invalid API key was provided.") {
 		t.Fatalf("search errors must carry TheGamesDB's message, got %v", err)
 	}

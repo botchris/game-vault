@@ -25,8 +25,13 @@ type DB struct {
 
 // querier is satisfied by both *sql.DB and *sql.Tx.
 type querier interface {
+	// ExecContext runs a statement that returns no rows.
 	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+
+	// QueryContext runs a query that returns rows.
 	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+
+	// QueryRowContext runs a query that returns at most one row.
 	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
 }
 

@@ -28,7 +28,6 @@ import (
 	gosync "sync"
 	"time"
 
-	"gamevault/internal/application/sync"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/source"
 )
@@ -67,8 +66,10 @@ var LoginURL = defaultLiveURL + "/oauth20_authorize.srf?" + url.Values{
 var (
 	// ErrNoSession means there is neither a stored session nor a code to start one.
 	ErrNoSession = errors.New("xbox: paste the address of the page Microsoft opens after signing in (see the help below the field)")
+
 	// ErrBadCode means Microsoft rejected the code.
 	ErrBadCode = errors.New("microsoft rejected the code: codes work once and expire within minutes, open the login link again and paste the new address")
+
 	// ErrSessionExpired means the stored session can no longer be refreshed.
 	ErrSessionExpired = errors.New("the Microsoft session expired: open the login link and paste a new address")
 
@@ -86,7 +87,7 @@ type pending struct {
 	expires time.Time
 }
 
-// Provider implements sync.Provider, sync.Preparer and sync.Tester for Xbox accounts.
+// Provider implements sync.Provider and sync.Preparer for Xbox accounts.
 type Provider struct {
 	LiveURL, UserAuthURL, XSTSURL, CollectionsURL, CatalogURL string
 	Client                                                    *http.Client
@@ -510,10 +511,10 @@ func (p *Provider) owned(ctx context.Context, settings source.Settings) ([]game.
 	return out, nil
 }
 
-// Test implements sync.Tester.
-func (p *Provider) Test(ctx context.Context, settings source.Settings) (sync.TestResult, error) {
-	copies, err := p.owned(ctx, settings)
-	return sync.TestResult{Count: len(copies), Unit: "copies"}, err
+// Test implements sync.Provider.
+func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
+	_, err := p.owned(ctx, settings)
+	return err
 }
 
 // Fetch implements sync.Provider.

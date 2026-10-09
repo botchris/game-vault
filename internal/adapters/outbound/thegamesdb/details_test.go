@@ -2,9 +2,12 @@ package thegamesdb
 
 import (
 	"context"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/schema"
@@ -63,4 +66,30 @@ func TestDetailsResolvesNames(t *testing.T) {
 		got.Players != "4 · co-op" || got.Videos[0].YouTubeID != "-o7rES_3ymA" || len(got.Screenshots) != 1 {
 		t.Fatalf("details: %+v", got)
 	}
+}
+
+func TestDetailsTestChecksTheSharedKey(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a details provider on a TheGamesDB that knows one key", func(t *testing.T) {
+		srv, _ := fakeServer(t)
+		d := NewDetails(&Provider{BaseURL: srv.URL, Client: srv.Client()})
+
+		t.Run("WHEN it is tested with the good key", func(t *testing.T) {
+			err := d.Test(ctx, schema.Settings{settingAPIKey: "good"})
+
+			t.Run("THEN it passes", func(t *testing.T) {
+				require.NoError(t, err)
+			})
+		})
+
+		t.Run("WHEN it is tested with a rejected key", func(t *testing.T) {
+			err := d.Test(ctx, schema.Settings{settingAPIKey: "bad"})
+
+			t.Run("THEN it fails with ErrUnknownKey", func(t *testing.T) {
+				assert.ErrorIs(t, err, ErrUnknownKey)
+			})
+		})
+	})
 }

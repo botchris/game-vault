@@ -97,6 +97,7 @@ func gtinChecksumOK(d string) bool {
 var (
 	ErrGameNotFound = errors.New("game not found")
 	ErrCopyNotFound = errors.New("copy not found")
+
 	// ErrInvalidBarcode wraps barcode input errors that are not ValidationErrors.
 	ErrInvalidBarcode = errors.New("invalid barcode")
 )

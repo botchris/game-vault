@@ -99,12 +99,12 @@ func TestSignedOut(t *testing.T) {
 	p := NewProvider()
 	p.AccountURL = srv.URL
 
-	_, err := p.Test(context.Background(), source.Settings{settingCookies: "SESSION=expired; BA-tassadar=revoked"})
+	err := p.Test(context.Background(), source.Settings{settingCookies: "SESSION=expired; BA-tassadar=revoked"})
 	if !errors.Is(err, ErrSignedOut) {
 		t.Fatalf("got %v", err)
 	}
 
-	if _, err := p.Test(context.Background(), source.Settings{settingCookies: " "}); !errors.Is(err, ErrNoCookies) {
+	if err := p.Test(context.Background(), source.Settings{settingCookies: " "}); !errors.Is(err, ErrNoCookies) {
 		t.Fatalf("no cookies: %v", err)
 	}
 }

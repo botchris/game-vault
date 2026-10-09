@@ -65,7 +65,7 @@ var reNonAlnum = regexp.MustCompile(`[^a-z0-9]+`)
 
 func norm(s string) string { return reNonAlnum.ReplaceAllString(strings.ToLower(s), "") }
 
-// Provider implements media.CoverProvider and media.Tester.
+// Provider implements media.CoverProvider.
 type Provider struct {
 	BaseURL string
 	Client  *http.Client
@@ -76,7 +76,6 @@ type Provider struct {
 
 var (
 	_ media.CoverProvider = (*Provider)(nil)
-	_ media.Tester        = (*Provider)(nil)
 )
 
 // New returns the TheGamesDB cover provider with its production endpoints.
@@ -146,25 +145,32 @@ func (p *Provider) get(ctx context.Context, path string, q url.Values, out any) 
 // ErrUnknownKey means TheGamesDB does not know the API key.
 var ErrUnknownKey = errors.New("TheGamesDB did not recognize the API key")
 
-// Test reports the remaining allowance; that endpoint does not consume it. It answers 200 even
-// for unknown keys, with no allowance and no refresh timer, which is how those are detected.
-// A valid key that used up its allowance still has a refresh timer.
-func (p *Provider) Test(ctx context.Context, s schema.Settings) (media.TestResult, error) {
+// Test implements media.Provider by reading the remaining allowance; that endpoint does not consume
+// it. It answers 200 even for unknown keys, with no allowance and no refresh timer, which is how
+// those are detected. A valid key that used up its allowance still has a refresh timer.
+func (p *Provider) Test(ctx context.Context, s schema.Settings) error {
 	var out struct {
 		Remaining *int `json:"remaining_monthly_allowance"`
 		Extra     int  `json:"extra_allowance"`
 		Refresh   int  `json:"allowance_refresh_timer"`
 	}
 	if err := p.get(ctx, "/v1/API/Limit", url.Values{"apikey": {s[settingAPIKey]}}, &out); err != nil {
-		return media.TestResult{}, err
+		return err
 	}
 
 	if out.Remaining == nil || (*out.Remaining+out.Extra == 0 && out.Refresh == 0) {
-		return media.TestResult{}, ErrUnknownKey
+		return ErrUnknownKey
 	}
 
-	return media.TestResult{RemainingQuota: *out.Remaining + out.Extra}, nil
+	if *out.Remaining+out.Extra == 0 {
+		return ErrNoAllowance
+	}
+
+	return nil
 }
+
+// ErrNoAllowance means the key works but this month's requests are used up.
+var ErrNoAllowance = errors.New("TheGamesDB key has used this month's allowance: covers from it resume when the month renews")
 
 // platformIDs resolves Game Vault platform names to TheGamesDB ids, fetching the platform list
 // once per process.

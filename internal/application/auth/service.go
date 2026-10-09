@@ -20,13 +20,17 @@ import (
 
 // Hasher is the port that hashes and verifies passwords.
 type Hasher interface {
+	// Hash returns the stored form of a password.
 	Hash(password string) (string, error)
+
+	// Verify reports whether password matches a hash made by Hash.
 	Verify(hash, password string) bool
 }
 
 // CertificatePolicy is the port that applies the certificate validation setting to Game Vault's
 // outgoing HTTPS connections (stores, providers).
 type CertificatePolicy interface {
+	// SetCertificateValidation applies the setting to every outgoing connection from now on.
 	SetCertificateValidation(auth.CertificateValidation)
 }
 
@@ -40,11 +44,14 @@ const (
 // Status describes the caller's situation, for the UI to decide what to show.
 type Status struct {
 	Principal *auth.Principal
-	// SetupRequired: no user exists yet.
+
+	// SetupRequired reports that no user exists yet.
 	SetupRequired bool
-	// CanSetup: no user exists and the caller is on a trusted network.
+
+	// CanSetup reports that no user exists and the caller is on a trusted network.
 	CanSetup bool
-	// Trusted: the request comes straight from a trusted network.
+
+	// Trusted reports that the request comes straight from a trusted network.
 	Trusted bool
 }
 

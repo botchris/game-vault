@@ -73,13 +73,12 @@ func (h *MediaHandler) ReorderProviders(ctx context.Context, req *connect.Reques
 
 // TestProvider checks that a provider works with its current settings.
 func (h *MediaHandler) TestProvider(ctx context.Context, req *connect.Request[pb.TestProviderRequest]) (*connect.Response[pb.TestProviderResponse], error) {
-	res, err := h.media.TestProvider(ctx, provider.ID(req.Msg.Id), schema.Settings(req.Msg.Settings))
-	if err != nil {
+	if err := h.media.TestProvider(ctx, provider.ID(req.Msg.Id), schema.Settings(req.Msg.Settings)); err != nil {
 		// A failed check is a valid test result, not an RPC failure.
-		return connect.NewResponse(&pb.TestProviderResponse{Success: false, Message: err.Error(), RemainingQuota: -1}), nil
+		return connect.NewResponse(&pb.TestProviderResponse{Success: false, Message: err.Error()}), nil
 	}
 
-	return connect.NewResponse(&pb.TestProviderResponse{Success: true, RemainingQuota: int32(res.RemainingQuota)}), nil
+	return connect.NewResponse(&pb.TestProviderResponse{Success: true}), nil
 }
 
 // ListCoverCandidates returns the covers the providers propose for a game.

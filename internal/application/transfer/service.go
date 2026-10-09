@@ -13,8 +13,12 @@ import (
 
 // Codec is the port that converts between a file format and the domain.
 type Codec interface {
+	// Decode reads copies from r. Warnings are rows that could not be read.
 	Decode(r io.Reader) (copies []game.ImportedCopy, warnings []string, err error)
+
+	// Encode writes every copy of the games to w.
 	Encode(w io.Writer, games []*game.Game) error
+
 	// Extension is the file extension, without dot, e.g. "csv".
 	Extension() string
 }

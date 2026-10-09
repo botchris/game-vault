@@ -43,11 +43,13 @@ func invalid(format string, args ...any) error {
 type Request struct {
 	// ClientIP is the TCP peer's address.
 	ClientIP netip.Addr
-	// HostIsAddress: the Host header is an IP address or "localhost", not a name. A trusted
+
+	// HostIsAddress reports that the Host header is an IP address or "localhost", not a name. A trusted
 	// network only counts in that case, so a malicious website cannot reach Game Vault through
 	// DNS rebinding (its own name pointing at this machine) and use the network's trust.
 	HostIsAddress bool
-	// Forwarded: the request carries proxy headers (X-Forwarded-For, Forwarded, X-Real-IP).
+
+	// Forwarded reports that the request carries proxy headers (X-Forwarded-For, Forwarded, X-Real-IP).
 	// Behind a proxy the peer is the proxy, not the caller, so the network is not trusted.
 	Forwarded    bool
 	SessionToken string
@@ -61,6 +63,7 @@ type Authentication string
 const (
 	// AuthRequired means everyone signs in.
 	AuthRequired Authentication = "required"
+
 	// AuthTrustedNetworks lets requests from trusted networks get in without signing in.
 	AuthTrustedNetworks Authentication = "trusted_networks"
 )
@@ -79,6 +82,7 @@ const (
 // Settings controls access to Game Vault and its outgoing connections.
 type Settings struct {
 	Authentication Authentication
+
 	// TrustedNetworks are CIDR prefixes ("192.168.1.0/24") or single addresses.
 	TrustedNetworks       []string
 	CertificateValidation CertificateValidation
@@ -190,6 +194,7 @@ const (
 // Principal is an authenticated caller.
 type Principal struct {
 	Method Method
+
 	// Name is the username (session) or "trusted network".
 	Name   string
 	UserID string // session only
@@ -248,21 +253,42 @@ func (s Session) Expired(now time.Time) bool { return !now.Before(s.ExpiresAt) }
 
 // Repository is the persistence port for users and sessions.
 type Repository interface {
+	// CountUsers returns how many users exist.
 	CountUsers(ctx context.Context) (int, error)
+
+	// UserByUsername returns the user with that username, or ErrNotFound.
 	UserByUsername(ctx context.Context, username string) (User, error)
+
+	// UserByID returns the user with that id, or ErrNotFound.
 	UserByID(ctx context.Context, id string) (User, error)
+
+	// FirstUser returns the only user, or ErrNotFound when none was created yet.
 	FirstUser(ctx context.Context) (User, error)
+
+	// SaveUser creates or updates a user.
 	SaveUser(ctx context.Context, u User) error
 
+	// Session returns the session with that token hash, or ErrNotFound.
 	Session(ctx context.Context, tokenHash string) (Session, error)
+
+	// SaveSession creates or updates a session.
 	SaveSession(ctx context.Context, s Session) error
+
+	// DeleteSession removes one session (signing out).
 	DeleteSession(ctx context.Context, tokenHash string) error
+
+	// DeleteUserSessions removes every session of a user, e.g. after a password change.
 	DeleteUserSessions(ctx context.Context, userID string) error
+
+	// DeleteExpiredSessions removes the sessions that expired before now.
 	DeleteExpiredSessions(ctx context.Context, now time.Time) error
 }
 
 // SettingsRepository is the persistence port for the security settings.
 type SettingsRepository interface {
-	Auth(ctx context.Context) (Settings, error) // DefaultSettings when none saved
+	// Auth returns the saved security settings, or DefaultSettings when none were saved.
+	Auth(ctx context.Context) (Settings, error)
+
+	// SaveAuth stores the security settings.
 	SaveAuth(ctx context.Context, s Settings) error
 }

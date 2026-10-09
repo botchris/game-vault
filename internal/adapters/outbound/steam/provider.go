@@ -107,6 +107,32 @@ func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.
 	return copies, nil, nil
 }
 
+// Test implements sync.Provider with one light request: the number of owned games, without their
+// details. It checks the key, the profile and that "Game details" are public.
+func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
+	key := strings.TrimSpace(settings[settingAPIKey])
+
+	id, err := p.resolveSteamID(ctx, key, settings[settingProfile])
+	if err != nil {
+		return err
+	}
+
+	var out struct {
+		Response struct {
+			GameCount int `json:"game_count"`
+		} `json:"response"`
+	}
+	if err := p.get(ctx, "/IPlayerService/GetOwnedGames/v1/", url.Values{"key": {key}, "steamid": {id}, "format": {"json"}}, &out); err != nil {
+		return err
+	}
+
+	if out.Response.GameCount == 0 {
+		return ErrPrivateProfile
+	}
+
+	return nil
+}
+
 // resolveSteamID accepts a SteamID64, a vanity name or a profile URL.
 func (p *Provider) resolveSteamID(ctx context.Context, key, profile string) (string, error) {
 	profile = strings.TrimRight(strings.TrimSpace(profile), "/")

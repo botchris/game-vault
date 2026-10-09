@@ -25,8 +25,10 @@ import (
 
 const (
 	currentName = "gamevault.log"
+
 	// readCap bounds how much of a file is returned to the UI.
 	readCap = 10 << 20
+
 	// tailWindow is how far from the end we look when only the last lines are requested.
 	tailWindow = 4 << 20
 )
@@ -36,6 +38,7 @@ var (
 
 	// ErrInvalidName is re-exported from the logs package so callers and tests can match it.
 	ErrInvalidName = logs.ErrInvalidName
+
 	// ErrNotFound is re-exported from the logs package so callers and tests can match it.
 	ErrNotFound = logs.ErrNotFound
 )

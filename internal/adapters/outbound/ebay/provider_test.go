@@ -63,7 +63,7 @@ func TestLookupConsensusAndMarketplaceFallback(t *testing.T) {
 		t.Fatalf("token must be cached, fetched %d times", tokens)
 	}
 
-	if _, err := p.Test(context.Background(), schema.Settings{settingClientID: "id", settingClientSecret: "wrong"}); err == nil {
+	if err := p.Test(context.Background(), schema.Settings{settingClientID: "id", settingClientSecret: "wrong"}); err == nil {
 		t.Fatal("bad keys must fail the test")
 	}
 }

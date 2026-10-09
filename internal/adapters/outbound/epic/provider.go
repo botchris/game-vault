@@ -24,7 +24,6 @@ import (
 	gosync "sync"
 	"time"
 
-	"gamevault/internal/application/sync"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/source"
 )
@@ -62,8 +61,10 @@ const LoginURL = "https://www.epicgames.com/id/login?redirectUrl=" +
 var (
 	// ErrNoSession means there is neither a stored session nor a code to start one.
 	ErrNoSession = errors.New("epic: paste an authorization code (open the login link, sign in and copy \"authorizationCode\")")
+
 	// ErrBadCode means Epic rejected the authorization code.
 	ErrBadCode = errors.New("epic rejected the authorization code: codes work once and expire within minutes, get a new one from the login link")
+
 	// ErrSessionExpired means the stored session can no longer be refreshed.
 	ErrSessionExpired = errors.New("the Epic session expired: open the login link and paste a new authorization code")
 
@@ -87,7 +88,7 @@ type accessToken struct {
 	expires time.Time
 }
 
-// Provider implements sync.Provider, sync.Preparer and sync.Tester for Epic accounts.
+// Provider implements sync.Provider and sync.Preparer for Epic accounts.
 type Provider struct {
 	OAuthURL, LibraryURL, CatalogURL string
 	Client                           *http.Client
@@ -202,19 +203,16 @@ func (p *Provider) Prepare(ctx context.Context, settings source.Settings) (sourc
 	return out, nil
 }
 
-// Test implements sync.Tester: it lists the library without reading the catalog.
-func (p *Provider) Test(ctx context.Context, settings source.Settings) (sync.TestResult, error) {
+// Test implements sync.Provider: it lists the library without reading the catalog.
+func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
 	token, err := p.accessToken(ctx, settings)
 	if err != nil {
-		return sync.TestResult{}, err
+		return err
 	}
 
-	records, err := p.library(ctx, token)
-	if err != nil {
-		return sync.TestResult{}, err
-	}
+	_, err = p.library(ctx, token)
 
-	return sync.TestResult{Count: len(records), Unit: "items"}, nil
+	return err
 }
 
 // Fetch implements sync.Provider.
