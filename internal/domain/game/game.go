@@ -203,7 +203,7 @@ func (g *Game) UpdateCopy(id ID, d CopyDetails, now time.Time) (Copy, error) {
 	g.copies[i].UpdatedAt = now
 	g.updatedAt = now
 
-	return g.copies[i], nil
+	return g.copies[i].clone(), nil
 }
 
 // RemoveCopy detaches a copy from the game and returns it.

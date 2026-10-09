@@ -74,6 +74,7 @@ type copyDoc struct {
 	Photos        []photoDoc    `json:"photos,omitempty"`
 	Estimates     []estimateDoc `json:"estimates,omitempty"`
 	NextValuation string        `json:"nextValuation,omitempty"`
+	ValuedAt      string        `json:"valuedAt,omitempty"`
 	SourceID      string        `json:"sourceId,omitempty"`
 	ExternalID    string        `json:"externalId,omitempty"`
 	CreatedAt     string        `json:"createdAt"`
@@ -179,6 +180,7 @@ func encodeGame(g *game.Game) (string, error) {
 			Photos:        photoDocs(c.Photos),
 			Estimates:     estimateDocs(c.Estimates),
 			NextValuation: optionalTime(c.NextValuation),
+			ValuedAt:      optionalTime(c.ValuedAt),
 			SourceID:      c.SourceID,
 			ExternalID:    c.ExternalID,
 			CreatedAt:     formatTime(c.CreatedAt),
@@ -230,6 +232,7 @@ func decodeGame(id game.ID, raw string) (*game.Game, error) {
 			Photos:        photosOf(c.Photos),
 			Estimates:     estimatesOf(c.Estimates),
 			NextValuation: parseTime(c.NextValuation),
+			ValuedAt:      parseTime(c.ValuedAt),
 			SourceID:      c.SourceID,
 			ExternalID:    c.ExternalID,
 			CreatedAt:     parseTime(c.CreatedAt),

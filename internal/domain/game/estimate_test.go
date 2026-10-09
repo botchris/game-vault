@@ -219,3 +219,56 @@ func TestEstimates(t *testing.T) {
 		})
 	})
 }
+
+func TestEstimates_details(t *testing.T) {
+	next := t0.Add(30 * 24 * time.Hour)
+	later := t0.Add(time.Hour)
+
+	t.Run("GIVEN a physical copy with a barcode", func(t *testing.T) {
+		g, id := valuableGame(t)
+		before := g.UpdatedAt()
+
+		t.Run("WHEN it is checked and no source lists it", func(t *testing.T) {
+			c, err := g.SetEstimates(id, nil, next, later)
+			require.NoError(t, err)
+
+			t.Run("THEN it remembers when it was checked, and the game itself is not changed (its cover stays cached)", func(t *testing.T) {
+				assert.Equal(t, later, c.ValuedAt)
+				assert.Equal(t, later, c.UpdatedAt)
+				assert.Equal(t, before, g.UpdatedAt())
+			})
+		})
+
+		t.Run("WHEN its barcode changes", func(t *testing.T) {
+			_, err := g.UpdateCopy(id, CopyDetails{
+				Kind:    KindPhysical,
+				Barcode: "5030930112256",
+			}, t0)
+			require.NoError(t, err)
+
+			t.Run("THEN when it was checked is forgotten too", func(t *testing.T) {
+				assert.True(t, g.Copies()[0].ValuedAt.IsZero())
+			})
+		})
+	})
+
+	t.Run("GIVEN a copy with a photo", func(t *testing.T) {
+		g, id := valuableGame(t)
+		_, err := g.AddPhotos(id, []Photo{{ID: pid(1)}}, t0)
+		require.NoError(t, err)
+
+		t.Run("WHEN a caller changes the copy UpdateCopy returned", func(t *testing.T) {
+			c, err := g.UpdateCopy(id, CopyDetails{
+				Kind:    KindPhysical,
+				Barcode: "5030934110075",
+			}, t0)
+			require.NoError(t, err)
+
+			c.Photos[0].Caption = "hacked"
+
+			t.Run("THEN the game is not changed", func(t *testing.T) {
+				assert.Empty(t, g.Copies()[0].Photos[0].Caption)
+			})
+		})
+	})
+}

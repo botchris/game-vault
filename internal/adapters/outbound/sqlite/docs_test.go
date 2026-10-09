@@ -351,6 +351,7 @@ func TestDocuments_estimates(t *testing.T) {
 				},
 			},
 			NextValuation: next,
+			ValuedAt:      docTime,
 			CreatedAt:     docTime,
 			UpdatedAt:     docTime,
 		}}, docTime, docTime)

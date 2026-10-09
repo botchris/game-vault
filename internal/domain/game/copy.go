@@ -124,10 +124,13 @@ type Copy struct {
 
 	// NextValuation is when the prices are next estimated; zero when none is planned.
 	NextValuation time.Time
-	SourceID      string // source that manages this copy; empty for manual copies
-	ExternalID    string // stable identifier inside the source
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+
+	// ValuedAt is when the prices were last asked, whatever the sources answered; zero when never.
+	ValuedAt   time.Time
+	SourceID   string // source that manages this copy; empty for manual copies
+	ExternalID string // stable identifier inside the source
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 // IsPendingKey reports whether the copy is a key you still have to do something with.

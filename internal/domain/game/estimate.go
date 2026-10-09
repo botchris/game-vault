@@ -75,10 +75,11 @@ func (c Copy) Valuable() bool { return c.Kind == KindPhysical && c.Barcode != ""
 
 // clearValuation drops the estimates and the next date (they were for another product).
 func (c *Copy) clearValuation() {
-	c.Estimates, c.NextValuation = nil, time.Time{}
+	c.Estimates, c.NextValuation, c.ValuedAt = nil, time.Time{}, time.Time{}
 }
 
-// SetEstimates replaces a copy's price estimates (one per provider) and plans the next valuation.
+// SetEstimates replaces a copy's price estimates (one per provider), records when they were asked
+// and plans the next valuation.
 func (g *Game) SetEstimates(copyID ID, estimates []Estimate, next, now time.Time) (Copy, error) {
 	i, err := g.valuable(copyID)
 	if err != nil {
@@ -106,9 +107,12 @@ func (g *Game) SetEstimates(copyID ID, estimates []Estimate, next, now time.Time
 		out = nil
 	}
 
-	g.copies[i].Estimates, g.copies[i].NextValuation = out, next.UTC()
+	g.copies[i].Estimates, g.copies[i].NextValuation, g.copies[i].ValuedAt = out, next.UTC(), now
+	// Only the copy changes: the game's own update time drives its cached cover and details,
+	// which an estimate does not affect.
+	g.copies[i].UpdatedAt = now
 
-	return g.touchCopy(i, now), nil
+	return g.copies[i].clone(), nil
 }
 
 // PlanValuation sets when a copy's prices are next estimated. It does not count as a change of the
