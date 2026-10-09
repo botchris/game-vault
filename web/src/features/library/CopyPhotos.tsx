@@ -27,7 +27,9 @@ export default function CopyPhotos({ game, copy }: { game: Game; copy: Copy }) {
   // One file at a time: each is reduced in memory first, and attaching one by one shows each photo
   // as soon as it is ready.
   const add = async (files: File[]) => {
-    const room = MAX_PHOTOS - photos.length;
+    // Uploads still in flight will take room too.
+    const pending = uploads.filter((u) => !u.error).length;
+    const room = MAX_PHOTOS - photos.length - pending;
     const taken = files.slice(0, Math.max(0, room));
     const skipped = files.length - taken.length;
     const batch = taken.map((f, i) => ({ key: `${Date.now()}-${i}`, name: f.name, progress: 0 }));

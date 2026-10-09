@@ -39,13 +39,20 @@ export default function Lightbox({ images, index, onIndex, onClose, label, foote
     if (many) onIndex((index + delta + images.length) % images.length);
   }, [many, index, images.length, onIndex]);
 
+  // Closing runs once: a second Esc or click during the fade does nothing, and the fade's timer
+  // never fires after the viewer is gone.
+  const closingRef = useRef(false);
+  const closeTimer = useRef(0);
   const close = useCallback(() => {
+    if (closingRef.current) return;
+    closingRef.current = true;
     if (document.fullscreenElement) void document.exitFullscreen();
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduce) { onClose(); return; }
     setClosing(true);
-    window.setTimeout(onClose, 160);
+    closeTimer.current = window.setTimeout(onClose, 160);
   }, [onClose]);
+  useEffect(() => () => window.clearTimeout(closeTimer.current), []);
 
   // Keeps the image inside the stage: it can only be dragged as far as its zoomed edges.
   const clamp = useCallback((v: View): View => {
@@ -71,14 +78,17 @@ export default function Lightbox({ images, index, onIndex, onClose, label, foote
     else void root.current?.requestFullscreen();
   }, []);
 
-  // A new image starts fitted.
-  useEffect(() => setView(FIT), [index]);
+  // A new image starts fitted, also when the index stays but the image changes (a photo deleted).
+  const current = images[index];
+  useEffect(() => setView(FIT), [index, current]);
 
   // Neighbouring images are loaded ahead, so moving through the gallery feels instant.
+  // Keyed by the URLs, not the array, which callers rebuild on every render.
+  const prev = many ? images[(index - 1 + images.length) % images.length]! : '';
+  const next = many ? images[(index + 1) % images.length]! : '';
   useEffect(() => {
-    if (!many) return;
-    for (const d of [-1, 1]) new Image().src = images[(index + d + images.length) % images.length]!;
-  }, [index, images, many]);
+    for (const src of [prev, next]) if (src) new Image().src = src;
+  }, [prev, next]);
 
   // Focus goes into the viewer and back where it was on close.
   useEffect(() => {
@@ -98,6 +108,8 @@ export default function Lightbox({ images, index, onIndex, onClose, label, foote
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
+      // While fading out the viewer still owns the keys: a second Esc must not close the sheet.
+      if (closingRef.current) { e.stopPropagation(); return; }
       if (target?.closest('input, textarea, [contenteditable="true"]')) return;
       const actions: Record<string, () => void> = {
         Escape: close,
