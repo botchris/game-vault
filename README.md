@@ -11,7 +11,8 @@ Game Vault puts your whole collection in one catalog that runs on your own compu
 
 - **One entry per game**, whatever the format. Each game lists every copy you own: the game in a
   store library, a CD key, a physical disc.
-- **Your store libraries are imported automatically** and kept up to date.
+- **Your store libraries are imported automatically** and kept up to date. Connecting most stores
+  takes one click with the Game Vault Connector browser extension (`extension/`).
 - **Physical games are added by scanning their barcode** with your phone's camera.
 - **What your physical games are worth:** second-hand prices from CeX and eBay for each copy with a
   barcode, kept up to date, and the value of the whole collection.

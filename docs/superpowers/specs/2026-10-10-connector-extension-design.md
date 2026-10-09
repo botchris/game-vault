@@ -48,6 +48,18 @@ Steam needs only an API key and a profile, nothing from the browser.
   otherwise in a normal tab, with a warning that Game Vault's use of the ticket will sign that
   browser out of Ubisoft.
 
+## Decisions made while planning
+
+- **Readiness (`when`):** recipes gain an optional condition (`urlPrefix`, `contains`, `fetch`).
+  Cookies and storage can exist before sign-in; without it the extension would capture anonymous
+  values and close the tab first.
+- **Enabling from the popup:** a page cannot make the extension ask the browser for a permission,
+  so "Enable on this address" lives in the extension's popup; the dialog explains it.
+- **Timeout:** `timeoutSeconds` (int) in the recipe's JSON.
+- **Ports:** the bridge talks to the background over a port, so a long sign-in keeps the service
+  worker alive; if it drops, the page gets an error instead of hanging.
+- **Packing:** `task extension:pack` uses a small Go tool (`tools/zipdir`); the toolchain has no zip.
+
 ## Recipes
 
 ### Shape (`internal/domain/schema`)
