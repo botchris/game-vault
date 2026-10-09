@@ -24,6 +24,7 @@ import (
 
 	"gamevault/internal/adapters/outbound/browsersession"
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
 )
 
@@ -116,6 +117,22 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 				LabelKey: "sources.eaapp.cookies",
 				HelpKey:  "sources.eaapp.cookiesHelp",
 				HelpURL:  LoginCheckURL,
+				SignIn: &schema.SignInRecipe{
+					Version: schema.RecipeVersion,
+					Open:    "https://www.ea.com/",
+					Hosts:   []string{"accounts.ea.com"},
+					When: &schema.When{
+						Fetch: &schema.FetchCapture{
+							URL:   LoginCheckURL,
+							Field: "access_token",
+						},
+					},
+					Capture: schema.Capture{
+						Cookies: &schema.CookiesCapture{
+							URL: LoginCheckURL,
+						},
+					},
+				},
 				Kind:     source.FieldSecret,
 				Required: true,
 			},

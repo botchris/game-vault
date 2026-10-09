@@ -89,7 +89,10 @@ type SettingField struct {
 	// Translation key for the help text.
 	HelpKey string `protobuf:"bytes,5,opt,name=help_key,json=helpKey,proto3" json:"help_key,omitempty"`
 	// Optional link where the user can get the value.
-	HelpUrl       string `protobuf:"bytes,6,opt,name=help_url,json=helpUrl,proto3" json:"help_url,omitempty"`
+	HelpUrl string `protobuf:"bytes,6,opt,name=help_url,json=helpUrl,proto3" json:"help_url,omitempty"`
+	// How the Game Vault Connector browser extension fills this field from the store's own
+	// sign-in, as JSON (schema.SignInRecipe); empty when it cannot.
+	SignIn        string `protobuf:"bytes,7,opt,name=sign_in,json=signIn,proto3" json:"sign_in,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -162,6 +165,13 @@ func (x *SettingField) GetHelpKey() string {
 func (x *SettingField) GetHelpUrl() string {
 	if x != nil {
 		return x.HelpUrl
+	}
+	return ""
+}
+
+func (x *SettingField) GetSignIn() string {
+	if x != nil {
+		return x.SignIn
 	}
 	return ""
 }
@@ -1281,14 +1291,15 @@ var File_gamevault_v1_source_proto protoreflect.FileDescriptor
 
 const file_gamevault_v1_source_proto_rawDesc = "" +
 	"\n" +
-	"\x19gamevault/v1/source.proto\x12\fgamevault.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x94\x02\n" +
+	"\x19gamevault/v1/source.proto\x12\fgamevault.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xad\x02\n" +
 	"\fSettingField\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x1b\n" +
 	"\tlabel_key\x18\x02 \x01(\tR\blabelKey\x123\n" +
 	"\x04kind\x18\x03 \x01(\x0e2\x1f.gamevault.v1.SettingField.KindR\x04kind\x12\x1a\n" +
 	"\brequired\x18\x04 \x01(\bR\brequired\x12\x19\n" +
 	"\bhelp_key\x18\x05 \x01(\tR\ahelpKey\x12\x19\n" +
-	"\bhelp_url\x18\x06 \x01(\tR\ahelpUrl\"N\n" +
+	"\bhelp_url\x18\x06 \x01(\tR\ahelpUrl\x12\x17\n" +
+	"\asign_in\x18\a \x01(\tR\x06signIn\"N\n" +
 	"\x04Kind\x12\x14\n" +
 	"\x10KIND_UNSPECIFIED\x10\x00\x12\r\n" +
 	"\tKIND_TEXT\x10\x01\x12\x0f\n" +

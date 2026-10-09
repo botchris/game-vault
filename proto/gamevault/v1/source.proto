@@ -27,6 +27,9 @@ message SettingField {
   string help_key = 5;
   // Optional link where the user can get the value.
   string help_url = 6;
+  // How the Game Vault Connector browser extension fills this field from the store's own
+  // sign-in, as JSON (schema.SignInRecipe); empty when it cannot.
+  string sign_in = 7;
 }
 
 // SourceType is a kind of account that can be scanned (Humble Bundle, Steam...).

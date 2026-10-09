@@ -85,6 +85,18 @@ The Fanatical plugin is a real, small one: one source, `apiclient`, a fake-serve
 - Optional interfaces, implemented only when needed: `sync.Preparer` (turn a one-time code into
   a stored session on save) and `sync.KeepAliver` (renew a browser session that expires when idle).
 
+### Letting the browser extension fill a credential
+
+Give the credential field a `SignIn` recipe (`schema.SignInRecipe`) so the Game Vault Connector
+extension can fill it from the store's own sign-in: what to open, and one capture (`Cookie`,
+`Cookies`, `Storage`, `Redirect` or `Fetch`). Cookies and storage can exist before the user signs
+in, so give those a readiness condition (`When`: the signed-in page's `URLPrefix`, a value that
+`Contains` something, or a `Fetch` that only answers when signed in); a storage `Path` reached only
+after sign-in also counts. A `Redirect` takes no `When`, and a `Private` recipe cannot fetch.
+Prefixes match only up to a `/`, `?` or `#`. List any other host the capture reads in `Hosts`. `plugintest` validates
+every recipe. A capture the five primitives cannot express needs a new recipe version and an
+extension update: discuss it first.
+
 ## Rules for media providers
 
 - `Descriptor()` sets the provider's `ID`, `Kind`, `Name`, `DescriptionKey` and `DefaultOrder`:

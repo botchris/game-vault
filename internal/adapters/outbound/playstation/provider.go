@@ -24,7 +24,9 @@ import (
 	gosync "sync"
 	"time"
 
+	"gamevault/internal/adapters/outbound/browsersession"
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
 )
 
@@ -74,6 +76,12 @@ func cleanNPSSO(v string) string {
 	v = strings.TrimSpace(v)
 	if m := reNPSSO.FindStringSubmatch(v); m != nil {
 		return m[1]
+	}
+
+	if strings.Contains(v, "npsso=") {
+		if s, ok := browsersession.Parse(v)["npsso"]; ok {
+			return strings.Trim(s, `"' `)
+		}
 	}
 
 	return strings.Trim(v, `"' `)
@@ -135,6 +143,17 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 				LabelKey: "sources.playstation.npsso",
 				HelpKey:  "sources.playstation.npssoHelp",
 				HelpURL:  NPSSOURL,
+				SignIn: &schema.SignInRecipe{
+					Version: schema.RecipeVersion,
+					Open:    "https://www.playstation.com/",
+					Hosts:   []string{"ca.account.sony.com"},
+					Capture: schema.Capture{
+						Fetch: &schema.FetchCapture{
+							URL:   NPSSOURL,
+							Field: "npsso",
+						},
+					},
+				},
 				Kind:     source.FieldSecret,
 				Required: true,
 			},

@@ -150,7 +150,7 @@ tasks:
     desc: Go vet + tests, TypeScript type check and the translation check
     deps: [deps:web]
     cmds:
-      - '{{.IN_TOOLCHAIN}} sh -c "go vet ./... && go test ./... && cd web && npm run typecheck && node --test tests/*.test.mjs && node ../.claude/scripts/check-i18n.mjs"'
+      - '{{.IN_TOOLCHAIN}} sh -c "go vet ./... && go test ./... && cd web && npm run typecheck && node --test --test-timeout=10000 tests/*.test.mjs ../extension/tests/*.test.mjs && for f in ../extension/*.js; do [ -e \$f ] || continue; node --check \$f || exit 1; done && node ../.claude/scripts/check-i18n.mjs"'
 
   go:
     desc: 'Run one go command in the toolchain, e.g. task go -- test ./internal/adapters/outbound/sqlite/ -run TestDocuments -v'
@@ -184,6 +184,12 @@ tasks:
       - '{{.IN_TOOLCHAIN}} golangci-lint run --fix --enable-only wsl_v5,godot,misspell ./...'
       - '{{.IN_TOOLCHAIN}} go run ./tools/docspacing -fix internal cmd tools'
       - '{{.IN_TOOLCHAIN}} golangci-lint fmt ./...'
+
+  extension:pack:
+    desc: Zip the browser extension (extension/) for the Chrome Web Store / Firefox Add-ons into dist/
+    deps: [toolchain]
+    cmds:
+      - '{{.IN_TOOLCHAIN}} sh -c "mkdir -p dist && v=\$(node -p require\(process.argv[1]\).version \$PWD/extension/manifest.json) && go run ./tools/zipdir extension dist/game-vault-connector-\$v.zip tests package.json && echo dist/game-vault-connector-\$v.zip"'
 
   i18n:
     desc: Check that every UI language has the same translation keys as English

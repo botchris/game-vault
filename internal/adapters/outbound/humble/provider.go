@@ -15,7 +15,9 @@ import (
 	"strings"
 	"time"
 
+	"gamevault/internal/adapters/outbound/browsersession"
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
 )
 
@@ -53,11 +55,16 @@ func NewProvider(log *slog.Logger) *Provider {
 	}
 }
 
-// cleanCookie accepts the value as copied from the browser, tolerating a "_simpleauth_sess=" prefix,
-// surrounding quotes and a trailing ";".
+// cleanCookie accepts the value as copied from the browser: the bare value, "_simpleauth_sess=…",
+// a whole Cookie header, surrounding quotes and a trailing ";".
 func cleanCookie(v string) string {
 	v = strings.TrimSpace(v)
-	v = strings.TrimPrefix(v, "_simpleauth_sess=")
+	if strings.Contains(v, "=") {
+		if s, ok := browsersession.Parse(v)["_simpleauth_sess"]; ok {
+			v = s
+		}
+	}
+
 	v = strings.TrimSuffix(v, ";")
 
 	return strings.Trim(strings.TrimSpace(v), `"`)
@@ -81,6 +88,19 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 			LabelKey: "sources.humble.sessionCookie",
 			HelpKey:  "sources.humble.sessionCookieHelp",
 			HelpURL:  "https://www.humblebundle.com/home/keys",
+			SignIn: &schema.SignInRecipe{
+				Version: schema.RecipeVersion,
+				Open:    "https://www.humblebundle.com/home/keys",
+				When: &schema.When{
+					URLPrefix: "https://www.humblebundle.com/home/keys",
+				},
+				Capture: schema.Capture{
+					Cookie: &schema.CookieCapture{
+						URL:  "https://www.humblebundle.com",
+						Name: "_simpleauth_sess",
+					},
+				},
+			},
 			Kind:     source.FieldSecret,
 			Required: true,
 		}},

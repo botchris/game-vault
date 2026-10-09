@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "type": "module",
+  "description": "Lets Node run the extension's ES modules in tests; not part of the packed extension."
+}

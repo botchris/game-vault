@@ -8,10 +8,12 @@ import (
 
 	"gamevault/internal/application/media"
 	"gamevault/internal/application/plugin"
+	"gamevault/internal/application/sync"
 	"gamevault/internal/application/valuation"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
+	"gamevault/internal/domain/source"
 )
 
 // halfDone is a cover provider written in a hurry: listed as covers but described as barcodes,
@@ -104,5 +106,75 @@ func TestProblems_valuations(t *testing.T) {
 			assert.Len(t, problems, 2)
 			assert.Contains(t, problems[0]+problems[1], "valuation")
 		})
+	})
+}
+
+type recipeSource struct{ recipe schema.SignInRecipe }
+
+func (r recipeSource) Descriptor() source.TypeDescriptor {
+	return source.TypeDescriptor{
+		Type:           "recipe",
+		Name:           "Recipe",
+		DescriptionKey: "sources.recipe.description",
+		Fields: schema.Fields{{
+			Key:      "session",
+			LabelKey: "sources.recipe.session",
+			Kind:     schema.FieldSecret,
+			Required: true,
+			SignIn:   &r.recipe,
+		}},
+	}
+}
+func (recipeSource) Fetch(context.Context, source.Settings) ([]game.ImportedCopy, []string, error) {
+	return nil, nil, nil
+}
+func (recipeSource) Test(context.Context, source.Settings) error { return nil }
+
+func TestProblems_recipes(t *testing.T) {
+	tr := Translations{"en": {"sources.recipe.description": true, "sources.recipe.session": true}}
+	check := func(r schema.SignInRecipe) []string {
+		return Problems(plugin.Plugin{
+			ID:      "recipe",
+			Name:    "Recipe",
+			Sources: []sync.Provider{recipeSource{r}},
+		}, tr)
+	}
+
+	t.Run("GIVEN a recipe reading another host THEN it is reported", func(t *testing.T) {
+		r := schema.SignInRecipe{
+			Version: 1,
+			Open:    "https://a.example.com/",
+			When:    &schema.When{URLPrefix: "https://a.example.com/"},
+			Capture: schema.Capture{Cookie: &schema.CookieCapture{
+				URL:  "https://b.example.com/",
+				Name: "s",
+			}},
+		}
+		assert.NotEmpty(t, check(r))
+	})
+
+	t.Run("GIVEN a cookie recipe with no readiness condition THEN it is reported", func(t *testing.T) {
+		r := schema.SignInRecipe{
+			Version: 1,
+			Open:    "https://a.example.com/",
+			Capture: schema.Capture{Cookie: &schema.CookieCapture{
+				URL:  "https://a.example.com/",
+				Name: "s",
+			}},
+		}
+		assert.NotEmpty(t, check(r))
+	})
+
+	t.Run("GIVEN a sound recipe THEN nothing is reported", func(t *testing.T) {
+		r := schema.SignInRecipe{
+			Version: 1,
+			Open:    "https://a.example.com/",
+			When:    &schema.When{URLPrefix: "https://a.example.com/"},
+			Capture: schema.Capture{Cookie: &schema.CookieCapture{
+				URL:  "https://a.example.com/",
+				Name: "s",
+			}},
+		}
+		assert.Empty(t, check(r))
 	})
 }

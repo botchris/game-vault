@@ -21,6 +21,7 @@ import (
 
 	"gamevault/internal/adapters/outbound/browsersession"
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
 )
 
@@ -85,6 +86,18 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 				LabelKey: "sources.battlenet.cookies",
 				HelpKey:  "sources.battlenet.cookiesHelp",
 				HelpURL:  defaultAccountURL + "/overview",
+				SignIn: &schema.SignInRecipe{
+					Version: schema.RecipeVersion,
+					Open:    defaultAccountURL + "/overview",
+					When: &schema.When{
+						URLPrefix: defaultAccountURL + "/overview",
+					},
+					Capture: schema.Capture{
+						Cookies: &schema.CookiesCapture{
+							URL: defaultAccountURL + "/overview",
+						},
+					},
+				},
 				Kind:     source.FieldSecret,
 				Required: true,
 			},

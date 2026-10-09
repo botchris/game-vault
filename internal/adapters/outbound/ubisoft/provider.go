@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
 )
 
@@ -189,6 +190,18 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 				LabelKey: "sources.ubisoft.loginData",
 				HelpKey:  "sources.ubisoft.loginDataHelp",
 				HelpURL:  LoginURL,
+				SignIn: &schema.SignInRecipe{
+					Version: schema.RecipeVersion,
+					Open:    LoginURL,
+					Private: true,
+					Capture: schema.Capture{
+						Storage: &schema.StorageCapture{
+							Origin: "https://connect.ubisoft.com",
+							Key:    "PRODrememberMe",
+							Path:   "/ready",
+						},
+					},
+				},
 				Kind:     source.FieldSecret,
 				Required: true,
 			},

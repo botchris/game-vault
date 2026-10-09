@@ -33,6 +33,7 @@ import (
 	"time"
 
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
 )
 
@@ -146,7 +147,18 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 				LabelKey: "sources.amazon.code",
 				HelpKey:  "sources.amazon.codeHelp",
 				HelpURL:  p.currentLogin().url,
-				Kind:     source.FieldSecret,
+				// No Open: the sign-in link changes with every run and is the field's HelpURL.
+				SignIn: &schema.SignInRecipe{
+					Version: schema.RecipeVersion,
+					Hosts:   []string{"www.amazon.com"}, // the link opens on amazon.com and lands on www
+					Capture: schema.Capture{
+						Redirect: &schema.RedirectCapture{
+							Prefix: "https://www.amazon.com/",
+							Param:  "openid.oa2.authorization_code",
+						},
+					},
+				},
+				Kind: source.FieldSecret,
 			},
 			{
 				Key:  settingSession,

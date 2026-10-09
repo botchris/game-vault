@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
 )
 
@@ -140,7 +141,17 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 				LabelKey: "sources.xbox.code",
 				HelpKey:  "sources.xbox.codeHelp",
 				HelpURL:  LoginURL,
-				Kind:     source.FieldSecret,
+				SignIn: &schema.SignInRecipe{
+					Version: schema.RecipeVersion,
+					Open:    LoginURL,
+					Capture: schema.Capture{
+						Redirect: &schema.RedirectCapture{
+							Prefix: redirectURI,
+							Param:  "code",
+						},
+					},
+				},
+				Kind: source.FieldSecret,
 			},
 			{
 				Key:  settingSession,

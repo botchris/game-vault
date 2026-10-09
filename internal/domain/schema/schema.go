@@ -40,6 +40,10 @@ type Field struct {
 	LabelKey string // translation key for the UI
 	HelpKey  string // translation key for the UI
 	HelpURL  string
+
+	// SignIn lets the browser extension fill this setting from the store's own sign-in; nil when
+	// the value cannot be captured that way.
+	SignIn   *SignInRecipe
 	Kind     FieldKind
 	Required bool
 }

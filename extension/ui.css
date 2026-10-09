@@ -1,0 +1,12 @@
+/* Shared by the popup and the confirmation window. */
+:root { color-scheme: light dark; --amber: #ffb020; --ink: #181c2c; --muted: #6b7388; }
+body { margin: 0; font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; min-width: 320px; }
+main { padding: 12px 14px; }
+h1 { font-size: 15px; margin: 0 0 8px; }
+h2 { font-size: 13px; margin: 14px 0 6px; }
+ul { margin: 0; padding-left: 18px; }
+li { margin: 3px 0; }
+.muted { color: var(--muted); }
+button { font: inherit; padding: 4px 10px; border-radius: 6px; border: 1px solid #c8cdd8; background: transparent; cursor: pointer; }
+button.primary, #current > button { background: var(--amber); color: var(--ink); border-color: var(--amber); font-weight: 600; }
+.actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }

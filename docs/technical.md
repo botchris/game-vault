@@ -185,6 +185,52 @@ How each source reads your library.
 - **Ubisoft Connect:** no public library API and a captcha on sign-in, so Game Vault reuses the session of connect.ubisoft.com, the way Lutris and the GOG Galaxy plugin do. Sign in with "Remember me" ticked and paste the login data the site keeps in Local Storage (the `PRODrememberMe` entry, which holds `rememberMeTicket`). The login link uses ubisoft.com's own app id: connect.ubisoft.com's app (`314d4fef…`, used by Lutris and the GOG Galaxy plugin) is no longer allowed to sign in on Ubisoft's public gateway. Ubisoft replaces the remember-me ticket every time it is used, so Game Vault spends it as little as possible: it reuses a session opened in the last hour, then the ticket and session id pasted, and only then renews the remember-me ticket, keeping the new one in memory (so "Test" before "Save" does not burn the pasted value) and as an internal setting. Copy it from a private window, so the renewals do not sign your normal browser out. Each renewal exchanges the remember-me ticket for a session (`POST /v3/profiles/sessions`, trying ubisoft.com's app and then the Ubisoft Connect PC client, remembering which works) and keeps the rotated ticket as an internal setting, then reads `viewer.games(filterBy: {isOwned: true})` from the Ubisoft Connect GraphQL API. PC games only: console games linked to the account are skipped; if Ubisoft renames the platform fields, a minimal query without them is used. Copies use the platform "Ubisoft Connect", the same as Humble's Uplay keys.
 - **Tarkov and other launchers** have no public library API. Add those games by hand or with a CSV import.
 
+## Connecting sources with the browser extension
+
+Most sources need a credential from the browser (a session cookie, a value a site keeps, or the
+code a store redirects with). The **Game Vault Connector** extension (`extension/`, plain JavaScript,
+Manifest V3, Chrome and Firefox; loaded unpacked for now, `task extension:pack` zips it for the
+stores) collects it from the store's own sign-in, in the user's own browser, and hands it to the
+Game Vault tab that asked. It never signs in for the user and never works around bot protection.
+
+- **Recipes.** The extension knows no store. Each credential field declares a `schema.SignInRecipe`
+  (data, never code), sent to the page as `SettingField.sign_in` (JSON; an empty `open` becomes the
+  field's help link, which is how Amazon's per-run link is used). A recipe has a version (1), the
+  address to open, optional extra `hosts`, `private` (prefer a private window: Ubisoft), a timeout
+  (`timeoutSeconds`, default 300, at most 600), an optional readiness condition `when`
+  (`urlPrefix`, `contains`, `fetch`) and exactly one capture: `cookie`, `cookies` (as a Cookie
+  header), `storage` (a localStorage value, optionally only on a `path`), `redirect` (a query
+  parameter of the address the store redirects to) or `fetch` (a JSON field fetched with the
+  session). Every address is https and on the opened host or a listed one; Go
+  (`SignInRecipe.Validate`, run by `plugintest` for every source) and the extension check it.
+  Cookie and storage captures need a readiness condition (anonymous values exist before sign-in).
+  A redirect recipe takes no condition (the redirect is one), and a private recipe cannot fetch
+  (the extension's requests carry the normal window's session). Prefixes (`urlPrefix`, a storage
+  `origin` + `path`, a redirect `prefix`) match only up to a `/`, `?` or `#`: `/ready` does not
+  match `/readyX`.
+- **Protocol.** A bridge content script, registered only on Game Vault addresses the user enabled,
+  relays `window.postMessage` requests (`type: "gamevault-connector"`, `dir: "request"`, ops
+  `hello`, `connect`, `cancel`) to the background over a port, and the answers back (`hello` says
+  the version, the recipe version and whether private windows are allowed; `result` with
+  the value, or `error` with a code: `denied`, `busy`, `invalid`, `unsupported`, `cancelled`,
+  `timeout`, `failed`). It checks the message's window and origin; the background checks the
+  sender's exact origin (port included) against the enabled list. Only the tab that started a
+  sign-in can cancel it. The bridge pings the port every 20 seconds so a long sign-in keeps the
+  service worker alive; closing the dialog or the page cancels the sign-in and closes its tab. The
+  page gives up a minute after the recipe's own timeout.
+- **Permissions.** No host permissions at install. A Game Vault address is enabled from the
+  extension's popup (the browser's prompt). The first time an address asks for a store host, the
+  extension's own window asks Allow / Deny (and remembers it); Allow also requests the browser's
+  permission for that host. The popup lists and revokes both. The extension stores only the enabled
+  addresses and confirmed hosts, never credentials.
+- **Dialog.** With the extension enabled, each field with a recipe shows **Connect**: the value
+  fills the field, Test connection runs, and the source is saved when it passes (otherwise the
+  error is shown and the value kept); Test, Save and Delete wait while it runs. A private recipe
+  says whether it will open in a private window or, when the extension is not allowed in
+  incognito, that the browser will be signed out of the store. Every field has **Open the sign-in page**; without the
+  extension, a hint links to `extension/README.md`. Every credential field also accepts what is
+  naturally copied (a whole address, the JSON a page shows, a whole `Cookie` header…).
+
 ## Metadata providers and covers
 
 For each kind of data, the enabled providers are tried in the order you set on the **Providers** page, and the first one with an answer wins.
