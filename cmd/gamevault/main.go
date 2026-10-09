@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -115,6 +116,11 @@ func run() error {
 		return fmt.Errorf("migrating covers: %w", err)
 	}
 
+	backupPhotos, err := photostore.Open(filepath.Join(cfg.BackupDir(), "photos"))
+	if err != nil {
+		return err
+	}
+
 	plugins, err := newPlugins(log)
 	if err != nil {
 		return err
@@ -133,7 +139,7 @@ func run() error {
 	catalogSvc := catalog.NewService(games, db, now, mediaSvc, photos)
 	syncSvc := sync.NewService(sources, games, db, now, log, plugins.Sources()...)
 	transferSvc := transfer.NewService(games, db, settingsRepo, now, csvfile.Codec{})
-	systemSvc := system.NewService(games, db, settingsRepo, now, log, system.Status{
+	systemSvc := system.NewService(games, db, settingsRepo, photostore.NewArchive(photos, backupPhotos), now, log, system.Status{
 		Version:      version,
 		ConfigDir:    cfg.ConfigDir,
 		DatabasePath: cfg.DatabasePath(),

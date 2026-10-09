@@ -343,7 +343,7 @@ func newServer(t *testing.T, p sync.Provider) clients {
 		Games:       rpc.NewGameHandler(catalog.NewService(games, db, time.Now, mediaSvc, photos), mediaSvc, syncSvc),
 		Sources:     rpc.NewSourceHandler(syncSvc),
 		System: rpc.NewSystemHandler(
-			system.NewService(games, db, sqlite.NewSettingsRepository(db), time.Now, log, system.Status{Version: "test"}, filepath.Join(dir, "backups"), 3),
+			system.NewService(games, db, sqlite.NewSettingsRepository(db), nil, time.Now, log, system.Status{Version: "test"}, filepath.Join(dir, "backups"), 3),
 			transfer.NewService(games, db, sqlite.NewSettingsRepository(db), time.Now, csvfile.Codec{})),
 	}, rpc.Options{Log: log})
 	srv := httptest.NewServer(h)

@@ -21,11 +21,15 @@ message Backup {
   string name = 1;
   int64 size_bytes = 2;
   google.protobuf.Timestamp created_at = 3;
+  // How many photos the backup's list names (0 for older backups).
+  int32 photo_count = 4;
 }
 
 message ListBackupsRequest {}
 message ListBackupsResponse {
   repeated Backup backups = 1;
+  // Size of the photo store all backups share (each photo stored once).
+  int64 photo_store_bytes = 2;
 }
 
 message CreateBackupRequest {}
