@@ -179,7 +179,13 @@ func groupScanned(items []ScannedCopy) [][]int {
 	for i, it := range items {
 		key := "id:" + string(it.GameID)
 		if it.GameID == "" {
-			key = "new:" + game.MatchKey(it.Title)
+			// A title made only of symbols has an empty match key: such titles must not all merge.
+			match := game.MatchKey(it.Title)
+			if match == "" {
+				match = "title:" + strings.TrimSpace(it.Title)
+			}
+
+			key = "new:" + match
 		}
 
 		n, ok := index[key]

@@ -394,6 +394,7 @@ message ScannedCopyResult {
   string error = 4;
 }
 message AddScannedCopiesResponse {
+  // One per item, in the order of the request.
   repeated ScannedCopyResult results = 1;
   // Every game created or changed.
   repeated Game games = 2;

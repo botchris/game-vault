@@ -184,19 +184,23 @@ func (h *GameHandler) AddScannedCopies(ctx context.Context, req *connect.Request
 		return nil, connect.NewError(connect.CodeInvalidArgument, catalog.ErrInvalidScannedCopies)
 	}
 
-	out := &pb.AddScannedCopiesResponse{}
+	// Results come back in the order of the request; at[i] is where the catalog's i-th item was.
+	out := &pb.AddScannedCopiesResponse{Results: make([]*pb.ScannedCopyResult, len(req.Msg.Items))}
 	items := make([]catalog.ScannedCopy, 0, len(req.Msg.Items))
+	at := make([]int, 0, len(req.Msg.Items))
 
-	for _, it := range req.Msg.Items {
+	for i, it := range req.Msg.Items {
 		d, err := detailsFromPB(it.Details)
 		if err != nil {
-			out.Results = append(out.Results, &pb.ScannedCopyResult{
+			out.Results[i] = &pb.ScannedCopyResult{
 				ClientId: it.ClientId,
 				Error:    itemError(err),
-			})
+			}
 
 			continue
 		}
+
+		at = append(at, i)
 
 		items = append(items, catalog.ScannedCopy{
 			Ref:      it.ClientId,
@@ -216,7 +220,7 @@ func (h *GameHandler) AddScannedCopies(ctx context.Context, req *connect.Request
 		return nil, toConnectError(err)
 	}
 
-	for _, r := range results {
+	for n, r := range results {
 		res := &pb.ScannedCopyResult{
 			ClientId: r.Ref,
 			GameId:   string(r.GameID),
@@ -226,7 +230,7 @@ func (h *GameHandler) AddScannedCopies(ctx context.Context, req *connect.Request
 			res.Error = itemError(r.Err)
 		}
 
-		out.Results = append(out.Results, res)
+		out.Results[at[n]] = res
 	}
 
 	for _, g := range games {

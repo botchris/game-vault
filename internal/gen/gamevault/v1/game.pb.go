@@ -3120,8 +3120,9 @@ func (x *ScannedCopyResult) GetError() string {
 }
 
 type AddScannedCopiesResponse struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	Results []*ScannedCopyResult   `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// One per item, in the order of the request.
+	Results []*ScannedCopyResult `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
 	// Every game created or changed.
 	Games         []*Game `protobuf:"bytes,2,rep,name=games,proto3" json:"games,omitempty"`
 	unknownFields protoimpl.UnknownFields

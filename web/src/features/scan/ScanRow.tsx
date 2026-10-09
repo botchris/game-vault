@@ -40,7 +40,9 @@ export function ScanRow({ row, platform, open, locked = false, onToggle, onPlus,
   return (
     <li className={`scan-row is-${st} ${open ? 'open' : ''}`}>
       <div className="scan-row-line">
-        <button type="button" className="scan-row-main" onClick={onToggle} disabled={!canOpen} aria-expanded={canOpen ? open : undefined}>
+        {/* aria-disabled, not disabled: rows that cannot open stay reachable with the keyboard. */}
+        <button type="button" className="scan-row-main" onClick={canOpen ? onToggle : undefined} aria-disabled={!canOpen}
+          aria-expanded={canOpen ? open : undefined}>
           <span className="scan-row-thumb">
             {target ? <Cover game={target} /> : thumb ? <img src={proxiedImage(thumb)} alt="" /> : <span className="thumb-placeholder" />}
           </span>
@@ -131,7 +133,7 @@ function RowDetail({ answer, choice, batchPlatform, onAmend, onDone }: {
         <button type="submit" disabled={busy || !choice.title.trim()}>{busy ? t('common.working') : t('scan.list.search')}</button>
       </form>
 
-      {existing.length > 0 && (
+      {(existing.length > 0 || choice.gameId) && (
         <div className="segmented scan-target" role="radiogroup" aria-label={t('scan.list.addTo')}>
           {existing.map((g) => (
             <button key={g.id} type="button" role="radio" aria-checked={choice.gameId === g.id} className={choice.gameId === g.id ? 'active' : ''}

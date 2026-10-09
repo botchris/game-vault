@@ -882,7 +882,7 @@ td.title { font-weight: 500; min-width: 220px; }
   min-height: 0; text-align: left; white-space: normal; font-weight: 500;
 }
 .scan-row-main:hover:not(:disabled) { background: none; }
-.scan-row-main:disabled { opacity: 1; cursor: default; }
+.scan-row-main[aria-disabled="true"] { cursor: default; }
 .scan-row-thumb { flex: none; width: 40px; }
 .scan-row-thumb img, .scan-row-thumb .cover, .scan-row-thumb .thumb-placeholder { width: 40px; aspect-ratio: 2 / 3; border-radius: 4px; object-fit: cover; display: block; }
 .scan-row-text { min-width: 0; overflow: hidden; display: flex; flex-direction: column; gap: 4px; }

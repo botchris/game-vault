@@ -182,3 +182,13 @@ test('send items are split into requests at row boundaries, keeping one new game
   assert.equal(new Set(chunks[where('r1')].map((i) => i.rowId)).size, 1, 'a row is never split');
   assert.equal(where('r0'), where('r2'), 'rows for the same new game go together');
 });
+
+test('a box you have whose game was deleted can be sent as a new game instead', () => {
+  let rows = settle(scanned(), 'r1', answer({ owned: [{ gameId: 'g1', title: 'Dead Space 3', platform: 'Xbox 360' }] }));
+  rows = plusOne(rows, 'r1');
+  rows = applyResults(rows, [{ clientId: 'r1:0', gameId: '', error: 'the game no longer exists; choose another one' }]).rows;
+  assert.equal(status(rows[0], ''), 'review', 'it can be opened and fixed');
+  rows = amend(rows, 'r1', { gameId: '' });
+  assert.equal(status(rows[0], ''), 'ready');
+  assert.deepEqual(sendItems(rows, '').map((i) => [i.gameId, i.title]), [['', 'Dead Space 3']]);
+});
