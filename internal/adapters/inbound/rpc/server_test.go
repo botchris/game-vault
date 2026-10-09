@@ -22,6 +22,7 @@ import (
 	"gamevault/internal/adapters/outbound/gamedata"
 	"gamevault/internal/adapters/outbound/logfile"
 	"gamevault/internal/adapters/outbound/passwordhash"
+	"gamevault/internal/adapters/outbound/photostore"
 	"gamevault/internal/adapters/outbound/sqlite"
 	appauth "gamevault/internal/application/auth"
 	"gamevault/internal/application/catalog"
@@ -283,6 +284,7 @@ type clients struct {
 	baseURL   string
 	images    *fakeImages
 	dataDir   string
+	photosDir string
 }
 
 func newServer(t *testing.T, p sync.Provider) clients {
@@ -315,10 +317,15 @@ func newServer(t *testing.T, p sync.Provider) clients {
 		t.Fatal(err)
 	}
 
+	photos, err := photostore.Open(filepath.Join(dir, "photos"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	images := &fakeImages{}
 	boxart := &fakeBoxArt{}
 	boxDet := &fakeBoxDetails{}
-	mediaSvc := media.NewService(games, sqlite.NewProviderRepository(db), covers, sqlite.NewDetailsStore(db), images, time.Now, log,
+	mediaSvc := media.NewService(games, sqlite.NewProviderRepository(db), covers, photos, sqlite.NewDetailsStore(db), images, time.Now, log,
 		media.Providers{
 			Covers:   []media.CoverProvider{fakeSteamStore{}, boxart},
 			Barcodes: []media.BarcodeProvider{&fakeBarcodes{}},
@@ -356,6 +363,7 @@ func newServer(t *testing.T, p sync.Provider) clients {
 		boxDet:    boxDet,
 		images:    images,
 		dataDir:   filepath.Join(dir, "game-data"),
+		photosDir: filepath.Join(dir, "photos"),
 	}
 }
 
