@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 	"time"
 
@@ -58,6 +59,7 @@ func (p *Prices) Descriptor() provider.Descriptor {
 		Kind:             provider.KindValuation,
 		Name:             "CeX",
 		DescriptionKey:   "providers.cexPrices.description",
+		SettingsGroup:    settingsGroup,
 		EnabledByDefault: true,
 		Fields: schema.Fields{
 			{
@@ -71,13 +73,23 @@ func (p *Prices) Descriptor() provider.Descriptor {
 	}
 }
 
-// priceCountries are the countries to ask, in the user's order; Spain when none is set.
+// priceCountries are the valid countries of the setting (shared with the barcode lookups), in the
+// user's order; Spain when none is set or valid. Unlike barcode lookups, prices never fall back to
+// every CeX store: a product unknown in the user's market is simply not priced.
 func priceCountries(s schema.Settings) []string {
-	if strings.TrimSpace(s[settingCountries]) == "" {
+	var out []string
+
+	for c := range strings.SplitSeq(strings.ToLower(s[settingCountries]), ",") {
+		if c = strings.TrimSpace(c); slices.Contains(Countries, c) && !slices.Contains(out, c) {
+			out = append(out, c)
+		}
+	}
+
+	if len(out) == 0 {
 		return []string{"es"}
 	}
 
-	return allowed(s[settingCountries])
+	return out
 }
 
 // Estimate implements valuation.Provider: the first country whose catalog has the barcode answers.

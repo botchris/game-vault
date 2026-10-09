@@ -410,7 +410,7 @@
     "cex": {
       "description": "El catálogo de la tienda de juegos de segunda mano: gratis, sin clave, y conoce muchas ediciones europeas (PAL) que otras bases de datos no tienen. Cada país tiene su propio catálogo; se consultan uno a uno, y los países que encontraron tus juegos se consultan primero la próxima vez. Solo se usan el nombre y la plataforma.",
       "countries": "Países (opcional)",
-      "countriesHelp": "Déjalo vacío para buscar en todos los países. Para limitarlo, escribe los códigos de país separados por comas: uk, es, ie, pt, au, in, mx, it, pl."
+      "countriesHelp": "Déjalo vacío para buscar códigos de barras en todos los países. Para limitarlo, escribe los códigos de país separados por comas: uk, es, ie, pt, au, in, mx, it, pl. Los precios de CeX usan los mismos países, en este orden (España si está vacío)."
     },
     "upcitemdb": {
       "description": "Gratis y sin key (unas 100 consultas al día). Conoce la mayoría de cajas americanas y aproximadamente la mitad de las europeas.",
@@ -463,7 +463,7 @@
     "cexPrices": {
       "description": "Lo que CeX pide por tus juegos físicos y lo que paga por ellos en efectivo o en vale. Solo se consultan tus copias con código de barras, de una en una.",
       "countries": "Países",
-      "countriesHelp": "Tiendas de CeX a consultar, en orden y separadas por comas: es, uk, ie, pt, it… La primera que venda el producto da su precio, en su moneda. Vacío: es."
+      "countriesHelp": "Compartido con la búsqueda de códigos de barras de CeX. Tiendas de CeX a consultar, en orden y separadas por comas: es, uk, ie, pt, it… La primera que venda el producto da su precio, en su moneda. Vacío: es."
     },
     "ebayPrices": {
       "description": "El precio mediano que piden los anuncios de segunda mano con el código de barras de la copia en tu primer mercado de eBay. Usa las mismas claves de desarrollador que la búsqueda de códigos de barras de eBay."

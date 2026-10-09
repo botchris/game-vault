@@ -136,3 +136,25 @@ func TestPrices(t *testing.T) {
 		})
 	})
 }
+
+func TestPrices_countries(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN both CeX providers", func(t *testing.T) {
+		t.Run("THEN they share one settings group, so the countries are set once", func(t *testing.T) {
+			assert.Equal(t, "cex", NewPrices().Descriptor().SettingsGroup)
+			assert.Equal(t, "cex", New().Descriptor().SettingsGroup)
+		})
+	})
+
+	t.Run("GIVEN a countries setting with no valid country", func(t *testing.T) {
+		p, asked := pricesServer(t, nil)
+		_, err := p.Estimate(ctx, schema.Settings{"countries": "xx, zz"}, "5030934110075")
+
+		t.Run("THEN only Spain is asked, not every CeX store", func(t *testing.T) {
+			assert.ErrorIs(t, err, valuation.ErrNotListed)
+			assert.Equal(t, []string{"es"}, *asked)
+		})
+	})
+}

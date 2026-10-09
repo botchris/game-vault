@@ -42,6 +42,9 @@ const (
 
 	// gamingSuperCat is CeX's top category for games in every country (its name is translated).
 	gamingSuperCat = 1
+
+	// settingsGroup puts both CeX providers in one group: the countries are set once.
+	settingsGroup = "cex"
 )
 
 // Countries are the CeX stores with a box detail API (2026-10), in the order tried when nothing
@@ -76,6 +79,7 @@ func (p *Provider) Descriptor() provider.Descriptor {
 		Kind:             provider.KindBarcode,
 		Name:             "CeX",
 		DescriptionKey:   "providers.cex.description",
+		SettingsGroup:    settingsGroup,
 		EnabledByDefault: true,
 		Fields: schema.Fields{
 			{
