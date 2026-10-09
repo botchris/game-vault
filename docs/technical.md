@@ -15,7 +15,7 @@ for working on the code (with or without an AI agent), see [CLAUDE.md](../CLAUDE
 
 ```
 cmd/gamevault/        Entry point and composition root (wires adapters into use cases)
-config/               Runtime data: database, backups, logs, per-game images (game-data). Back this up. Git-ignored.
+config/               Runtime data: database, backups, logs, per-game images (game-data), photos of copies (photos). Back this up. Git-ignored.
 proto/gamevault/v1/   API contracts (Protocol Buffers). Source of truth for client and server.
 internal/
   domain/             Pure business model, no infrastructure imports
@@ -30,8 +30,8 @@ internal/
     catalog/          Browse/edit games and copies, merge, move, mark redeemed
     sync/             Configure sources, scan them, scheduler. Declares the Provider port
     transfer/         CSV import/export. Declares the Codec port
-    system/           Status and backups. Declares the DatabaseBackup port
-    media/            Provider chains, covers (resolve + cache), store link search. Declares CoverProvider & co.
+    system/           Status and backups. Declares the DatabaseBackup and PhotoArchive ports
+    media/            Provider chains, covers (resolve + cache), store link search, photo uploads. Declares CoverProvider, PhotoStore & co.
     plugin/           The Plugin type (one external service's source and providers) and its registry;
                       plugintest/ checks every registered plugin
     logs/             Log viewer and rotation settings. Declares the Sink and Files ports
@@ -47,6 +47,7 @@ internal/
     outbound/thegamesdb/ TheGamesDB plugin: cover and details providers (platform box art, overview, trailer)
     outbound/cex/, ebay/, upcitemdb/, eansearch/  Barcode database plugins
     outbound/gamedata/ Per-game asset folders (cover, sheet images, assets.json)
+    outbound/photostore/ Content-addressed photos of copies, and the backups' shared photo store
     outbound/sqlite/  Repositories, transactions, migrations, backups
     outbound/logfile/ Size-rotated log files with retention
     outbound/passwordhash/ bcrypt Hasher
@@ -232,6 +233,65 @@ The image proxy is only used when exploring new options (choose cover, scan sugg
 Covers from the old flat `config/covers/` layout are moved into `game-data` on first start.
 Changing a game's store links or cover drops its cached sheet. Descriptions are converted to plain text, so third-party HTML is never rendered.
 
+## Photos of copies
+
+Any copy (key, library or physical) can have up to 50 photos, in the order the user chooses, each
+with an optional caption (at most 200 characters), the date it was taken and the date it was added.
+One of them can be the game's cover: a cover photo wins over the custom cover URL and the providers.
+Editing the game keeps it; choosing another custom cover URL replaces it; removing the photo (or
+the copy) clears it when no other copy of the game has that photo.
+
+- **Files.** `config/photos/<first two hex>/<sha256>.jpg` and `<sha256>-thumb.jpg`. A photo is named
+  after the SHA-256 of its stored JPEG, so the same image is stored once and a file never changes
+  (writes go to a temporary file renamed into place). Moving or merging copies keeps their photos.
+- **In the browser.** Picked images (the file picker offers the camera on phones) are decoded with
+  their orientation applied, reduced to at most 2560 px (JPEG quality 0.85) and given a 400 px
+  thumbnail. The original's EXIF segment is copied into the reduced JPEG with the orientation reset
+  to upright, so the date, camera and **location** are kept: they are the user's own record. A photo
+  file copied out of `config/photos` therefore carries where it was taken. Formats the browser
+  cannot decode (HEIC outside Safari) are refused with a message. The pure EXIF helpers
+  (`web/src/lib/exif.ts`) have Node tests in `web/tests/`.
+- **Upload.** `POST /media/photos`, a multipart form with `photo` and `thumb`, behind the same access
+  control as `/media/`, plus a required `X-Gamevault-Upload` header: a page on another site cannot
+  add it without a CORS preflight the server never grants, so it cannot upload through the browser
+  of someone on a trusted network (where no session cookie is needed and SameSite cookies do not
+  help). Both parts must be JPEG; the photo at most 8000 px and 15 MB, the thumbnail at most 512 px.
+  The server computes the id, reads `DateTimeOriginal` (or `DateTime`) from the EXIF metadata and
+  answers `{"id", "takenAt"}`. EXIF dates have no zone, so `takenAt` is the camera's clock reading
+  stored as UTC and shown as a date in UTC. The photo is then attached with `AddCopyPhotos`;
+  `UpdateCopyPhoto`, `ReorderCopyPhotos`, `RemoveCopyPhoto` and `SetCoverPhoto` edit them.
+- **Serving.** `GET /media/photos/{id}` and `/media/photos/{id}/thumb`, cached as immutable.
+- **Cleanup.** An hour after start and then daily, photo files no copy references are deleted once
+  they are a day old, so a photo being attached, or removed by mistake and uploaded again, survives.
+  Uploading a stored photo again marks its files as just written for the same reason.
+
+The image viewer (`web/src/components/Lightbox.tsx`) serves screenshots and copy photos: previous /
+next buttons, a counter, zoom (buttons, double click or tap, Ctrl/⌘ + wheel, trackpad or touch
+pinch, drag to pan), full screen where the browser supports it, swipe on touch screens and the keys
+← → Esc + − 0 F. Copy photos add a footer: caption edited in place, date taken, move left / right,
+use as cover, delete.
+
+## Backups
+
+A backup is `config/backups/gamevault-<timestamp>.db` (a `VACUUM INTO` snapshot) plus
+`gamevault-<timestamp>.photos`, the ids of the photos that catalog references, one per line. The
+photos themselves go to one store shared by every backup, `config/backups/photos/` (same layout as
+`config/photos`), as hard links: a photo costs no extra space while it is still in use, and it is
+stored once however many backups list it. Where hard links are not possible (another file system)
+it is copied. Rotation (`-backup-keep`) deletes a backup's `.db` and `.photos` together, then the
+store's photos no remaining list names. Backups without a list (older ones, `pre-migration-*.db`)
+count as having no photos. System → Backups shows the photos of each backup and the store's size.
+
+To restore:
+
+```bash
+# Stop Game Vault first.
+cp config/backups/gamevault-YYYYMMDD-HHMMSS.db config/gamevault.db
+rm -f config/gamevault.db-wal config/gamevault.db-shm
+cp -R config/backups/photos/. config/photos/
+# Start Game Vault again; the daily cleanup removes photos the restored catalog does not use.
+```
+
 ## Scanning physical games
 
 The **Scan** page registers discs quickly. You scan the barcode with the camera, a USB or Bluetooth reader, or by typing it. Then you confirm the game and move on to the next box.
@@ -321,6 +381,6 @@ Logs never contain keys or credentials.
   `config/gamevault.db-shm` (a stale WAL next to a restored file corrupts it), then start the older
   version or image.
 - `task go -- test ./internal/…/ -run TestName -v` runs one package's tests in the toolchain.
-- `task test` runs the Go tests, the TypeScript type check and the translation check, in the toolchain container. The Go tests cover the domain, SQLite, the providers (against fake servers), CSV, and an end-to-end Connect test.
+- `task test` runs the Go tests, the TypeScript type check, the Node tests of the web's pure helpers (`web/tests/`) and the translation check, in the toolchain container. The Go tests cover the domain, SQLite, the providers (against fake servers), CSV, and an end-to-end Connect test.
 - GitHub Actions (`.github/workflows/ci.yml`) runs `task lint`, checks that `task generate` changes nothing, and runs `task test` on every push to `main` and every pull request, inside the same toolchain image (its layers cached in GitHub Actions, rebuilt only when `build/toolchain.Dockerfile` changes).
 - Pushing a version tag (`v1.2.3`) runs `.github/workflows/release.yml`: the same checks, then `task docker:publish` for linux/amd64 and linux/arm64 with the Docker Hub credentials in the repository secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`.

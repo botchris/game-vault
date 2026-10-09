@@ -35,3 +35,8 @@ metadata:
   JPY/BHD…). Game docs are v2 (old `condition` converted on read). Default currency in
   `settings.Preferences`. CSV is English only by the user's decision. Next: part 2 photos, part 3
   second-hand valuation (CeX), each with its own spec.
+- **Photos (2026-10-09, part 2):** `Copy.Photos` (`PhotoID` = SHA-256 of the stored JPEG, never
+  renamed: it is the file name in `config/photos` and in the backups' shared store) and
+  `Info.CoverPhoto`; document fields `photos` / `coverPhoto`, game docs still v2. Backups list
+  their photos in `.photos` files; prune by reference, one-day grace. Metadata (GPS included) is
+  kept on purpose (user's decision). Next: part 3 second-hand valuation (CeX).
