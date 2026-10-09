@@ -27,6 +27,7 @@ import (
 	"gamevault/internal/adapters/outbound/eansearch"
 	"gamevault/internal/adapters/outbound/ebay"
 	"gamevault/internal/adapters/outbound/epic"
+	"gamevault/internal/adapters/outbound/fanatical"
 	"gamevault/internal/adapters/outbound/gamedata"
 	"gamevault/internal/adapters/outbound/gog"
 	"gamevault/internal/adapters/outbound/humble"
@@ -141,7 +142,7 @@ func run() error {
 			Metadata: []media.MetadataProvider{steam.NewDetails(steamStore), thegamesdb.NewDetails(tgdb)},
 		})
 	catalogSvc := catalog.NewService(games, db, now, mediaSvc)
-	syncSvc := sync.NewService(sources, games, db, now, log, humble.NewProvider(log), steam.NewProvider(), epic.NewProvider(), gog.NewProvider(), battlenet.NewProvider(), eaapp.NewProvider(), ubisoft.NewProvider(), xbox.NewProvider(), playstation.NewProvider(), amazon.NewProvider())
+	syncSvc := sync.NewService(sources, games, db, now, log, humble.NewProvider(log), steam.NewProvider(), epic.NewProvider(), gog.NewProvider(), battlenet.NewProvider(), eaapp.NewProvider(), ubisoft.NewProvider(), xbox.NewProvider(), playstation.NewProvider(), amazon.NewProvider(), fanatical.NewProvider())
 	transferSvc := transfer.NewService(games, db, now, csvfile.Codec{})
 	systemSvc := system.NewService(games, db, now, log, system.Status{
 		Version: version, ConfigDir: cfg.ConfigDir, DatabasePath: cfg.DatabasePath(), StartedAt: now(),

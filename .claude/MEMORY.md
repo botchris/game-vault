@@ -38,6 +38,7 @@ one line here. Update a file instead of adding a duplicate; date facts about ext
 - [Xbox](memory/xbox.md) — Xbox app client; collections need `"beneficiaries": []`; public display catalog
 - [PlayStation](memory/playstation.md) — NPSSO; registered GraphQL hashes; CSRF header
 - [Amazon Games](memory/amazon.md) — launcher device sign-in (nile), refresh token does not rotate, entitlements API, no portrait art
+- [Fanatical](memory/fanatical.md) — `/api/user/keys` with the `bsauth` token; terms forbid it, built only behind a required risk consent (user's decision)
 - [CeX](memory/cex.md) — free EAN box-detail API with PAL coverage; one lookup per scan, name and platform only, no images
 - [EAN-Search](memory/ean-search.md) — never scrape the public site
 

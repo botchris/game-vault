@@ -113,6 +113,10 @@ Rules of the architecture:
 - Never scrape a site whose terms forbid automated access, never bypass captchas or bot
   protection. Store integrations reuse the user's own session the way open-source launchers do
   (Heroic, Legendary, Playnite, Lutris…), and only read.
+  The one exception, decided by the user on 2026-10-09, is Fanatical (its terms forbid taking
+  site data into databases): it requires a ticked risk consent (`schema.FieldConsent`), warns in
+  the UI and the README, scans manually by default and only reads. Any other store like it needs
+  the user's explicit decision first; never add one on your own.
 - Requests that run unattended (keep-alives, scheduled scans) are jittered so they never follow a
   fixed rhythm (see `internal/application/sync`).
 - The server listens on 127.0.0.1 by default. Requests through a proxy or with a host name in `Host`

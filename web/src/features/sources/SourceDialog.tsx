@@ -20,13 +20,17 @@ export default function SourceDialog({ type, source, onClose, onSaved, onDeleted
   const fmt = useFormatters();
   const [name, setName] = useState(source?.name ?? type.name);
   const [enabled, setEnabled] = useState(source?.enabled ?? true);
-  const [syncHours, setSyncHours] = useState(source?.syncIntervalHours ?? 24);
+  // Some stores (Fanatical) start with manual scans: every request is one the user chose to make.
+  const [syncHours, setSyncHours] = useState(source?.syncIntervalHours ?? (type.manualScans ? 0 : 24));
   const [settings, setSettings] = useState<Record<string, string>>(() => ({ ...(source?.settings ?? {}) }));
   const [busy, setBusy] = useState(false);
   const [testing, setTesting] = useState(false);
   const [result, setResult] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
 
   const input = () => ({ type: type.id, name, enabled, syncIntervalHours: syncHours, settings });
+  // A required risk not accepted yet blocks testing and saving (the server refuses it too).
+  const consents = type.fields.filter((f) => f.kind === SettingField_Kind.CONSENT);
+  const consentMissing = consents.some((f) => f.required && settings[f.key] !== 'yes');
 
   const test = async () => {
     setBusy(true);
@@ -78,13 +82,24 @@ export default function SourceDialog({ type, source, onClose, onSaved, onDeleted
     <Modal title={source ? t('sources.editTitle', { name: source.name }) : t('sources.addTitle', { type: type.name })} onClose={onClose}
       footer={<>
         {source && <button type="button" className="danger" onClick={remove} disabled={busy}>{t('common.delete')}</button>}
-        <button type="button" onClick={test} disabled={busy}>{testing ? t('sources.testing') : t('sources.test')}</button>
+        <button type="button" onClick={test} disabled={busy || consentMissing}>{testing ? t('sources.testing') : t('sources.test')}</button>
         <span className="spacer" />
         <button type="button" onClick={onClose}>{t('common.cancel')}</button>
-        {!source && <button type="button" onClick={(e) => save(e, true)} disabled={busy}>{t('sources.saveAndSync')}</button>}
-        <button type="submit" form="source-form" className="primary" disabled={busy}>{t('common.save')}</button>
+        {!source && <button type="button" onClick={(e) => save(e, true)} disabled={busy || consentMissing}>{t('sources.saveAndSync')}</button>}
+        <button type="submit" form="source-form" className="primary" disabled={busy || consentMissing}>{t('common.save')}</button>
       </>}>
       <form id="source-form" onSubmit={(e) => save(e)}>
+        {consents.map((f) => (
+          <section key={f.key} className="risk-notice" role="alert">
+            <h3 className="risk-title">{t('sources.riskTitle')}</h3>
+            {f.helpKey && <FieldHelp text={t(f.helpKey)} url={f.helpUrl} linkLabel={t('sources.readTerms')} />}
+            <label className="check risk-accept">
+              <input type="checkbox" checked={settings[f.key] === 'yes'}
+                onChange={(e) => setSettings({ ...settings, [f.key]: e.target.checked ? 'yes' : '' })} />
+              {t(f.labelKey)}
+            </label>
+          </section>
+        ))}
         <p className="muted">{t(type.descriptionKey)}</p>
         {r && (
           <section className={`source-report ${r.success ? '' : 'failed'}`}>
@@ -107,7 +122,7 @@ export default function SourceDialog({ type, source, onClose, onSaved, onDeleted
             {t('sources.name')}
             <input value={name} onChange={(e) => setName(e.target.value)} />
           </label>
-          {type.fields.map((f) => (
+          {type.fields.filter((f) => f.kind !== SettingField_Kind.CONSENT).map((f) => (
             <div key={f.key} className="span2 field">
               <label htmlFor={`source-${f.key}`}>{t(f.labelKey)}{f.required && ' *'}</label>
               <input

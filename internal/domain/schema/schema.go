@@ -24,7 +24,15 @@ const (
 	// FieldState is kept by the integration itself (e.g. a refresh token that rotates on every use).
 	// It is never shown to clients nor accepted from them.
 	FieldState FieldKind = "state"
+
+	// FieldConsent is a checkbox the user ticks to accept a risk the help text explains (e.g. a
+	// store whose terms do not allow the integration). Its value is ConsentGiven when ticked; a
+	// required one blocks testing and saving until then.
+	FieldConsent FieldKind = "consent"
 )
+
+// ConsentGiven is the value of a ticked FieldConsent.
+const ConsentGiven = "yes"
 
 // Field describes one setting.
 type Field struct {
@@ -47,6 +55,10 @@ func (e *ValidationError) Error() string { return e.msg }
 // Validate checks that every required setting is present. owner names the integration in errors.
 func (fs Fields) Validate(s Settings, owner string) error {
 	for _, f := range fs {
+		if f.Kind == FieldConsent && f.Required && s[f.Key] != ConsentGiven {
+			return &ValidationError{fmt.Sprintf("%s needs you to accept the risk explained in its settings first", owner)}
+		}
+
 		if f.Kind != FieldState && f.Required && strings.TrimSpace(s[f.Key]) == "" {
 			return &ValidationError{fmt.Sprintf("setting %q is required for %s", f.Key, owner)}
 		}

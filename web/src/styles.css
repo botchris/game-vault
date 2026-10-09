@@ -551,6 +551,16 @@ td.title { font-weight: 500; min-width: 220px; }
   .source-tile:hover .source-tile-plus { color: var(--text); }
 }
 
+/* A store whose terms do not allow the integration: the risk comes first, and must be accepted. */
+.risk-notice {
+  background: var(--warn-bg); border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
+  border-radius: var(--radius); padding: 12px 14px; margin: 0 0 16px; color: var(--text);
+}
+.risk-title { margin: 0 0 6px; font-size: 15px; color: var(--warn); }
+.risk-notice .field-help { color: var(--text); }
+.risk-accept { margin-top: 10px; font-weight: 600; align-items: flex-start; }
+.risk-accept input { margin-top: 3px; }
+
 /* The last scan in the settings dialog. */
 .source-report { background: var(--surface-2); border-radius: var(--radius); padding: 10px 14px; margin: 4px 0 14px; }
 .source-report h3 { font-size: 13px; margin: 0 0 4px; color: var(--muted); font-weight: 600; }

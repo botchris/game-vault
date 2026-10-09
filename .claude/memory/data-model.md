@@ -13,7 +13,7 @@ metadata:
   earlier by returning it `Withdrawn`; games left empty are deleted by the sync.
 - Prefixes: `steam:<appId>`, `humble:<gamekey>:<machine_name>:<keyindex>` (was `humble:<gamekey>:<keyindex>`, see [[humble]]), `epic:<catalogItemId>`,
   `gog:<productId>`, `battlenet:<titleId>`, `ea:<productId>`, `ubisoft:<spaceId>`,
-  `xbox:<productId>`, `psn:<entitlementId>`, `amazon:<productId>`. Cover providers find a game's own art through them
+  `xbox:<productId>`, `psn:<entitlementId>`, `amazon:<productId>`, `fanatical:<keyId>`. Cover providers find a game's own art through them
   (`CoverQuery.ExternalIDsWithPrefix`). See [[provider-chains]].
 - Platform names are shared between sources so Humble keys are flagged as redundant when the
   game is already in that store: "Steam", "Epic Games", "GOG", "Battle.net", "EA App",

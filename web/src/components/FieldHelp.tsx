@@ -12,7 +12,7 @@ function inline(text: string): ReactNode[] {
  * Help under a settings field. The text is plain lines: lines starting with "1." / "2)" become a
  * numbered list of steps, the others paragraphs. The help link is shown as a button above them.
  */
-export function FieldHelp({ text, url }: { text: string; url?: string }) {
+export function FieldHelp({ text, url, linkLabel }: { text: string; url?: string; linkLabel?: string }) {
   const { t } = useTranslation();
   const blocks: ReactNode[] = [];
   let steps: string[] = [];
@@ -38,7 +38,7 @@ export function FieldHelp({ text, url }: { text: string; url?: string }) {
     <span className="field-help">
       {url && (
         <a className="button small-button help-link" href={url} target="_blank" rel="noreferrer">
-          {t('sources.openLink')}<Icon name="external" size={14} />
+          {linkLabel ?? t('sources.openLink')}<Icon name="external" size={14} />
         </a>
       )}
       {blocks}

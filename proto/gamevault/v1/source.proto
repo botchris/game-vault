@@ -14,6 +14,9 @@ message SettingField {
     // Secret value. It is never sent back to clients: they get SECRET_PLACEHOLDER instead,
     // and sending the placeholder back on update keeps the stored value.
     KIND_SECRET = 2;
+    // A checkbox accepting a risk the help text explains; its value is "yes" when ticked.
+    // A required one must be ticked before the source can be tested or saved.
+    KIND_CONSENT = 3;
   }
   string key = 1;
   // Translation key for the label, e.g. "sources.humble.sessionCookie".
@@ -32,6 +35,8 @@ message SourceType {
   string name = 2;
   string description_key = 3;
   repeated SettingField fields = 4;
+  // New sources of this type default to manual scans (no schedule).
+  bool manual_scans = 5;
 }
 
 // SyncReport is the outcome of scanning a source and consolidating its copies.

@@ -133,8 +133,12 @@ func fieldsToPB(fields schema.Fields) []*pb.SettingField {
 
 	for _, f := range public {
 		kind := pb.SettingField_KIND_TEXT
-		if f.Kind == schema.FieldSecret {
+
+		switch f.Kind {
+		case schema.FieldSecret:
 			kind = pb.SettingField_KIND_SECRET
+		case schema.FieldConsent:
+			kind = pb.SettingField_KIND_CONSENT
 		}
 
 		out = append(out, &pb.SettingField{
@@ -146,7 +150,7 @@ func fieldsToPB(fields schema.Fields) []*pb.SettingField {
 }
 
 func descriptorToPB(d source.TypeDescriptor) *pb.SourceType {
-	return &pb.SourceType{Id: string(d.Type), Name: d.Name, DescriptionKey: d.DescriptionKey, Fields: fieldsToPB(d.Fields)}
+	return &pb.SourceType{Id: string(d.Type), Name: d.Name, DescriptionKey: d.DescriptionKey, Fields: fieldsToPB(d.Fields), ManualScans: d.ManualScans}
 }
 
 func providerToPB(v media.ProviderView) *pb.Provider {

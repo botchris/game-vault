@@ -177,6 +177,7 @@ const SOURCE_LOOKS: Record<string, PlatformLook> = {
   xbox: platformLook('Microsoft Store / Xbox'),
   playstation: { glyph: PS, bg: PS_BG },
   amazon: { glyph: STORE, bg: '#232f3e' },
+  fanatical: { glyph: STORE, bg: '#ff9800', fg: '#111' },
 };
 
 /** A source's store logo in its brand colour, as a rounded tile. */

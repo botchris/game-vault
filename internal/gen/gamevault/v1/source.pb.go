@@ -30,6 +30,9 @@ const (
 	// Secret value. It is never sent back to clients: they get SECRET_PLACEHOLDER instead,
 	// and sending the placeholder back on update keeps the stored value.
 	SettingField_KIND_SECRET SettingField_Kind = 2
+	// A checkbox accepting a risk the help text explains; its value is "yes" when ticked.
+	// A required one must be ticked before the source can be tested or saved.
+	SettingField_KIND_CONSENT SettingField_Kind = 3
 )
 
 // Enum value maps for SettingField_Kind.
@@ -38,11 +41,13 @@ var (
 		0: "KIND_UNSPECIFIED",
 		1: "KIND_TEXT",
 		2: "KIND_SECRET",
+		3: "KIND_CONSENT",
 	}
 	SettingField_Kind_value = map[string]int32{
 		"KIND_UNSPECIFIED": 0,
 		"KIND_TEXT":        1,
 		"KIND_SECRET":      2,
+		"KIND_CONSENT":     3,
 	}
 )
 
@@ -168,8 +173,10 @@ type SourceType struct {
 	Name           string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	DescriptionKey string                 `protobuf:"bytes,3,opt,name=description_key,json=descriptionKey,proto3" json:"description_key,omitempty"`
 	Fields         []*SettingField        `protobuf:"bytes,4,rep,name=fields,proto3" json:"fields,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// New sources of this type default to manual scans (no schedule).
+	ManualScans   bool `protobuf:"varint,5,opt,name=manual_scans,json=manualScans,proto3" json:"manual_scans,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SourceType) Reset() {
@@ -228,6 +235,13 @@ func (x *SourceType) GetFields() []*SettingField {
 		return x.Fields
 	}
 	return nil
+}
+
+func (x *SourceType) GetManualScans() bool {
+	if x != nil {
+		return x.ManualScans
+	}
+	return false
 }
 
 // SyncReport is the outcome of scanning a source and consolidating its copies.
@@ -1267,24 +1281,26 @@ var File_gamevault_v1_source_proto protoreflect.FileDescriptor
 
 const file_gamevault_v1_source_proto_rawDesc = "" +
 	"\n" +
-	"\x19gamevault/v1/source.proto\x12\fgamevault.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x82\x02\n" +
+	"\x19gamevault/v1/source.proto\x12\fgamevault.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x94\x02\n" +
 	"\fSettingField\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x1b\n" +
 	"\tlabel_key\x18\x02 \x01(\tR\blabelKey\x123\n" +
 	"\x04kind\x18\x03 \x01(\x0e2\x1f.gamevault.v1.SettingField.KindR\x04kind\x12\x1a\n" +
 	"\brequired\x18\x04 \x01(\bR\brequired\x12\x19\n" +
 	"\bhelp_key\x18\x05 \x01(\tR\ahelpKey\x12\x19\n" +
-	"\bhelp_url\x18\x06 \x01(\tR\ahelpUrl\"<\n" +
+	"\bhelp_url\x18\x06 \x01(\tR\ahelpUrl\"N\n" +
 	"\x04Kind\x12\x14\n" +
 	"\x10KIND_UNSPECIFIED\x10\x00\x12\r\n" +
 	"\tKIND_TEXT\x10\x01\x12\x0f\n" +
-	"\vKIND_SECRET\x10\x02\"\x8d\x01\n" +
+	"\vKIND_SECRET\x10\x02\x12\x10\n" +
+	"\fKIND_CONSENT\x10\x03\"\xb0\x01\n" +
 	"\n" +
 	"SourceType\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12'\n" +
 	"\x0fdescription_key\x18\x03 \x01(\tR\x0edescriptionKey\x122\n" +
-	"\x06fields\x18\x04 \x03(\v2\x1a.gamevault.v1.SettingFieldR\x06fields\"\x84\x03\n" +
+	"\x06fields\x18\x04 \x03(\v2\x1a.gamevault.v1.SettingFieldR\x06fields\x12!\n" +
+	"\fmanual_scans\x18\x05 \x01(\bR\vmanualScans\"\x84\x03\n" +
 	"\n" +
 	"SyncReport\x129\n" +
 	"\n" +

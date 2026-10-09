@@ -65,6 +65,10 @@ type TypeDescriptor struct {
 	Name           string
 	DescriptionKey string
 	Fields         schema.Fields
+
+	// ManualScans makes new sources of this type scan only when asked (no schedule by default),
+	// for stores where every request should be one the user chose to make.
+	ManualScans bool
 }
 
 // Validate checks that every required setting is present.
