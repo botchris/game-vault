@@ -8,6 +8,7 @@ import (
 
 	"gamevault/internal/application/media"
 	"gamevault/internal/application/plugin"
+	"gamevault/internal/application/valuation"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
@@ -70,6 +71,38 @@ func TestProblems(t *testing.T) {
 				ID:   "empty",
 				Name: "Empty",
 			}, tr))
+		})
+	})
+}
+
+// misfiledPrices is a price provider described as a barcode provider, without a default place.
+type misfiledPrices struct{}
+
+func (misfiledPrices) Descriptor() provider.Descriptor {
+	return provider.Descriptor{
+		ID:             "misfiled",
+		Kind:           provider.KindBarcode,
+		Name:           "Misfiled",
+		DescriptionKey: "providers.misfiled.description",
+	}
+}
+func (misfiledPrices) Test(context.Context, schema.Settings) error { return nil }
+func (misfiledPrices) Estimate(context.Context, schema.Settings, game.Barcode) (game.Estimate, error) {
+	return game.Estimate{}, valuation.ErrNotListed
+}
+
+func TestProblems_valuations(t *testing.T) {
+	t.Run("GIVEN a plugin whose price provider is misfiled", func(t *testing.T) {
+		tr := Translations{"en": {"providers.misfiled.description": true}}
+		problems := Problems(plugin.Plugin{
+			ID:         "misfiled",
+			Name:       "Misfiled",
+			Valuations: []valuation.Provider{misfiledPrices{}},
+		}, tr)
+
+		t.Run("THEN the wrong kind and the missing default place are reported", func(t *testing.T) {
+			assert.Len(t, problems, 2)
+			assert.Contains(t, problems[0]+problems[1], "valuation")
 		})
 	})
 }
