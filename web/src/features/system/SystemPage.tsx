@@ -29,6 +29,7 @@ export default function SystemPage() {
   const [currencySaved, setCurrencySaved] = useState(true);
   const [status, setStatus] = useState<GetStatusResponse | null>(null);
   const [backups, setBackups] = useState<Backup[]>([]);
+  const [photoStore, setPhotoStore] = useState(0n);
   const [busy, setBusy] = useState('');
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string; report?: SyncReport } | null>(null);
 
@@ -36,6 +37,7 @@ export default function SystemPage() {
     const [st, bk, prefs] = await Promise.all([systemClient.getStatus({}), systemClient.listBackups({}), systemClient.getPreferences({})]);
     setStatus(st);
     setBackups(bk.backups);
+    setPhotoStore(bk.photoStoreBytes);
     if (prefs.preferences?.currency) setCurrency(prefs.preferences.currency);
     setCurrencySaved(!!prefs.preferences?.currency);
   }, []);
@@ -124,14 +126,15 @@ export default function SystemPage() {
         </div>
         {backups.length === 0 ? <p className="muted">{t('system.noBackups')}</p> : (
           <table>
-            <thead><tr><th>{t('system.backupName')}</th><th>{t('system.backupDate')}</th><th>{t('system.backupSize')}</th></tr></thead>
+            <thead><tr><th>{t('system.backupName')}</th><th>{t('system.backupDate')}</th><th>{t('system.backupSize')}</th><th>{t('system.backupPhotos')}</th></tr></thead>
             <tbody>
               {backups.map((b) => (
-                <tr key={b.name} className="static"><td><code>{b.name}</code></td><td>{fmt.dateTime(toDate(b.createdAt))}</td><td>{fmt.bytes(b.sizeBytes)}</td></tr>
+                <tr key={b.name} className="static"><td><code>{b.name}</code></td><td>{fmt.dateTime(toDate(b.createdAt))}</td><td>{fmt.bytes(b.sizeBytes)}</td><td>{b.photoCount}</td></tr>
               ))}
             </tbody>
           </table>
         )}
+        {photoStore > 0n && <p className="muted small">{t('system.photoStore', { size: fmt.bytes(photoStore) })}</p>}
         <p className="muted small">{t('system.backupsHint')}</p>
       </section>
 

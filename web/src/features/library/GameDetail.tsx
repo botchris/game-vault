@@ -12,6 +12,7 @@ import {
 import type { LinkStore } from '../../gen/gamevault/v1/game_pb';
 import { useAppData } from '../../state/AppData';
 import CopyForm from './CopyForm';
+import CopyPhotos from './CopyPhotos';
 import CoverPicker from './CoverPicker';
 import GamePicker from './GamePicker';
 import { SheetFacts, SheetOverview, useGameDetails } from './GameSheet';
@@ -263,6 +264,7 @@ function CopiesTab({ game, busy, run, setDialog }: {
               )}
               {extra.length > 0 && <p className="muted small">{extra.join(' · ')}</p>}
               {d.notes && <p className="small">{d.notes}</p>}
+              <CopyPhotos game={game} copy={c} />
               {source && <p className="muted small">{t('copy.syncedFrom', { source })}</p>}
             </li>
           );

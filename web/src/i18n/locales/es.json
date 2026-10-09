@@ -313,7 +313,7 @@
     "backupName": "Fichero",
     "backupDate": "Fecha",
     "backupSize": "Tamaño",
-    "backupsHint": "Las copias se guardan en config/backups. Se hace una automática al día y se conservan las 14 más recientes (configurable). Para restaurar, para el servidor y sustituye config/gamevault.db por una copia.",
+    "backupsHint": "Las copias se guardan en config/backups. Se hace una automática al día y se conservan las 14 más recientes (configurable). Para restaurar, para el servidor, sustituye config/gamevault.db por una copia y copia config/backups/photos en config/photos.",
     "csv": "Importar / exportar CSV",
     "csvIntro": "Para juegos físicos y tiendas sin API. Reimportar el mismo fichero actualiza las filas en vez de duplicarlas.",
     "importCsv": "Importar CSV",
@@ -324,7 +324,9 @@
     "preferences": "Preferencias",
     "currency": "Moneda por defecto",
     "currencyHelp": "Se usa en los precios nuevos y en las filas de CSV sin moneda.",
-    "currencyNotSaved": "Propuesta según la región de tu navegador, aún sin guardar: guárdala para que las filas de CSV sin moneda la usen."
+    "currencyNotSaved": "Propuesta según la región de tu navegador, aún sin guardar: guárdala para que las filas de CSV sin moneda la usen.",
+    "backupPhotos": "Fotos",
+    "photoStore": "Fotos en las copias de seguridad: {{size}} en total; cada foto se guarda una sola vez, la tengan las copias que la tengan."
   },
   "logs": {
     "settings": "Logs y rotación",
@@ -628,5 +630,26 @@
     "resetZoom": "Ajustar a la pantalla",
     "fullscreen": "Pantalla completa",
     "exitFullscreen": "Salir de pantalla completa"
+  },
+  "photos": {
+    "title": "Fotos de la copia",
+    "add": "Añadir fotos",
+    "open": "Foto {{n}}",
+    "more": "+{{count}}",
+    "uploading": "Subiendo {{name}}",
+    "failed": "{{name}}: {{error}}",
+    "dismiss": "Descartar",
+    "unreadable": "Este navegador no puede leer esa imagen. Elige un JPEG o PNG (en un iPhone, Ajustes → Cámara → Formatos → Más compatible).",
+    "tooMany_one": "Una copia puede tener como mucho {{max}} fotos: {{count}} foto no se ha añadido.",
+    "tooMany_other": "Una copia puede tener como mucho {{max}} fotos: {{count}} fotos no se han añadido.",
+    "caption": "Pie de foto",
+    "captionPlaceholder": "Añade un pie de foto",
+    "takenOn": "Tomada el {{date}}",
+    "moveLeft": "Mover a la izquierda",
+    "moveRight": "Mover a la derecha",
+    "useAsCover": "Usar como portada",
+    "stopCover": "Dejar de usar como portada",
+    "isCover": "La portada del juego",
+    "confirmDelete": "¿Borrar esta foto de la copia?"
   }
 }

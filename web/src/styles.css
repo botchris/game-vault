@@ -707,8 +707,11 @@ td.title { font-weight: 500; min-width: 220px; }
 .lightbox-button:disabled { opacity: .35; }
 .lightbox-zoom { font-size: 13px; font-variant-numeric: tabular-nums; }
 @media (hover: hover) and (pointer: fine) { .lightbox-button:not(:disabled):hover, .lightbox-nav:hover { background: rgb(255 255 255 / .12); } }
-.lightbox-stage { position: relative; overflow: hidden; display: grid; place-items: center; touch-action: none; user-select: none; }
+.lightbox-stage { position: relative; min-height: 0; overflow: hidden; touch-action: none; user-select: none; }
+/* Absolute and centred with margin: auto, so max-height has a definite box to refer to and a tall
+   photo fits instead of being cut. */
 .lightbox-stage img {
+  position: absolute; inset: 0; margin: auto;
   max-width: calc(100% - 32px); max-height: 100%; border-radius: 4px; transform-origin: center;
   cursor: zoom-in; will-change: transform;
 }
@@ -1030,3 +1033,28 @@ button.pbadge:active:not(:disabled) { transform: scale(0.94); }
 .toggle.on { background: var(--accent); border-color: var(--accent-strong); color: var(--accent-text); }
 select.currency { flex: 0 0 auto; width: auto; }
 .help.error { color: var(--danger); }
+
+/* Copy photos (features/library/CopyPhotos.tsx) */
+.copy-photos { display: grid; gap: 8px; margin-top: 8px; justify-items: start; }
+.photo-strip { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.photo-strip button {
+  position: relative; display: block; width: 64px; height: 64px; padding: 0; border: 0; border-radius: 8px; overflow: hidden;
+  background: var(--surface-2); transition: transform 160ms var(--ease-out);
+}
+.photo-strip button:active { transform: scale(0.97); }
+.photo-strip img { width: 100%; height: 100%; object-fit: cover; }
+.photo-more { font-weight: 700; font-size: 14px; color: var(--text); }
+.photo-cover { position: absolute; top: 4px; right: 4px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--accent-text); }
+.photo-uploads { display: grid; gap: 4px; list-style: none; margin: 0; padding: 0; width: 100%; }
+.photo-uploads li { display: flex; align-items: center; gap: 8px; }
+.photo-uploads progress { flex: 1; max-width: 220px; height: 6px; accent-color: var(--accent); }
+.photo-uploads .failed { color: var(--danger); }
+.photo-footer { display: grid; gap: 8px; max-width: 960px; margin: 0 auto; }
+.photo-caption {
+  width: 100%; font-size: 16px; padding: 8px 10px; border-radius: 8px; border: 1px solid rgb(255 255 255 / .2);
+  background: rgb(255 255 255 / .06); color: #fff;
+}
+.photo-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.photo-actions .lightbox-button { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
+.lightbox-button.active { color: var(--accent); }
+.photo-error { color: #ff8a80; }
