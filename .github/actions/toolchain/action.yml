@@ -19,10 +19,12 @@ runs:
       run: echo "hash=$(sha256sum build/toolchain.Dockerfile | cut -c1-12)" >> "$GITHUB_OUTPUT"
 
     # Docker Hub limits anonymous pulls per IP, and runners share IPs: even with the layers cached,
-    # resolving the base images (node, golang) can fail with 429 Too Many Requests. BuildKit asks
-    # Google's public Docker Hub mirror first, and Docker Hub only if the mirror lacks an image.
+    # resolving the base images (node, golang) can fail with 429 Too Many Requests or time out.
+    # Both BuildKit itself and the images it resolves come from Google's public Docker Hub
+    # mirror; the base images fall back to Docker Hub if the mirror lacks one.
     - uses: docker/setup-buildx-action@v3
       with:
+        driver-opts: image=mirror.gcr.io/moby/buildkit:buildx-stable-1
         buildkitd-config-inline: |
           [registry."docker.io"]
             mirrors = ["mirror.gcr.io"]
