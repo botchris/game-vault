@@ -65,10 +65,43 @@ func (r *SettingsRepository) SaveLogging(ctx context.Context, l settings.Logging
 	return err
 }
 
-// Preferences returns the saved preferences (stored in a later step).
-func (r *SettingsRepository) Preferences(context.Context) (settings.Preferences, error) {
-	return settings.Preferences{}, nil
+const keyPreferences = "preferences"
+
+type preferencesJSON struct {
+	Currency string `json:"currency,omitempty"`
 }
 
-// SavePreferences stores the preferences (stored in a later step).
-func (r *SettingsRepository) SavePreferences(context.Context, settings.Preferences) error { return nil }
+// Preferences returns the saved preferences, empty when none were saved.
+func (r *SettingsRepository) Preferences(ctx context.Context) (settings.Preferences, error) {
+	var raw string
+
+	err := r.db.conn(ctx).QueryRowContext(ctx, `SELECT value FROM settings WHERE key = ?`, keyPreferences).Scan(&raw)
+	if errors.Is(err, sql.ErrNoRows) {
+		return settings.Preferences{}, nil
+	}
+
+	if err != nil {
+		return settings.Preferences{}, err
+	}
+
+	var v preferencesJSON
+	if err := json.Unmarshal([]byte(raw), &v); err != nil {
+		return settings.Preferences{}, err
+	}
+
+	return settings.Preferences(v), nil
+}
+
+// SavePreferences stores the preferences.
+func (r *SettingsRepository) SavePreferences(ctx context.Context, p settings.Preferences) error {
+	b, err := json.Marshal(preferencesJSON(p))
+	if err != nil {
+		return err
+	}
+
+	_, err = r.db.conn(ctx).ExecContext(ctx, `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
+		ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+		keyPreferences, string(b), formatTime(time.Now()))
+
+	return err
+}

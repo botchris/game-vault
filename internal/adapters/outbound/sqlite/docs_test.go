@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"encoding/json"
+	"strconv"
 	"testing"
 	"time"
 
@@ -79,7 +80,7 @@ func TestDocuments_game(t *testing.T) {
 			t.Run("AND the document has a version and no empty fields", func(t *testing.T) {
 				var doc map[string]any
 				require.NoError(t, json.Unmarshal([]byte(raw), &doc))
-				assert.InDelta(t, 1, doc["v"], 0)
+				assert.InDelta(t, 2, doc["v"], 0)
 
 				physical := doc["copies"].([]any)[1].(map[string]any)
 				assert.NotContains(t, physical, "key")
@@ -108,7 +109,7 @@ func TestDocuments_game(t *testing.T) {
 
 	t.Run("GIVEN a document written by a newer Game Vault", func(t *testing.T) {
 		t.Run("THEN it is refused, saying to update", func(t *testing.T) {
-			_, err := decodeGame("g3", `{"v":2,"title":"x"}`)
+			_, err := decodeGame("g3", `{"v":3,"title":"x"}`)
 			assert.ErrorIs(t, err, errNewerDocument)
 		})
 	})
@@ -175,4 +176,84 @@ func TestDocuments_sourceAndProvider(t *testing.T) {
 			})
 		})
 	})
+}
+
+func TestDocuments_physicalFields(t *testing.T) {
+	t.Run("GIVEN a physical copy with grade, contents and price", func(t *testing.T) {
+		contents, _ := game.ContentsOf(game.ContentBox, game.ContentMedia)
+		g := game.Rehydrate("g1", game.Info{Title: "Halo 3"}, []game.Copy{{
+			ID: "c1",
+			CopyDetails: game.CopyDetails{
+				Kind:     game.KindPhysical,
+				Platform: "Xbox 360",
+				Status:   game.StatusOwned,
+				Grade:    game.GradeGood,
+				Contents: contents,
+				Price: game.Money{
+					Amount:   1500,
+					Currency: "JPY",
+				},
+			},
+			CreatedAt: docTime,
+			UpdatedAt: docTime,
+		}}, docTime, docTime)
+
+		t.Run("WHEN it is encoded and decoded", func(t *testing.T) {
+			raw, err := encodeGame(g)
+			require.NoError(t, err)
+
+			got, err := decodeGame(g.ID(), raw)
+			require.NoError(t, err)
+
+			t.Run("THEN the new fields come back, as version 2", func(t *testing.T) {
+				assert.Equal(t, g.Copies(), got.Copies())
+				assert.Contains(t, raw, `"v":2`)
+				assert.Contains(t, raw, `"contents":["box","media"]`)
+			})
+		})
+	})
+}
+
+func TestDocuments_conditionConversion(t *testing.T) {
+	cases := []struct {
+		condition string
+		grade     game.Grade
+		contents  []game.Content
+		note      string
+	}{
+		{"Sealed", game.GradeSealed, []game.Content{game.ContentBox, game.ContentManual, game.ContentMedia}, ""},
+		{"precintado", game.GradeSealed, []game.Content{game.ContentBox, game.ContentManual, game.ContentMedia}, ""},
+		{"Complete (case + manual)", "", []game.Content{game.ContentBox, game.ContentManual, game.ContentMedia}, ""},
+		{"Completo (caja + manual)", "", []game.Content{game.ContentBox, game.ContentManual, game.ContentMedia}, ""},
+		{" Case and disc ", "", []game.Content{game.ContentBox, game.ContentMedia}, ""},
+		{"Caja y disco", "", []game.Content{game.ContentBox, game.ContentMedia}, ""},
+		{"Disc only", "", []game.Content{game.ContentMedia}, ""},
+		{"Sólo disco", "", []game.Content{game.ContentMedia}, ""},
+		{"Damaged", game.GradeDamaged, nil, ""},
+		{"Dañado", game.GradeDamaged, nil, ""},
+		{"Like new, no slip cover", "", nil, "signed\nCondition: Like new, no slip cover"},
+	}
+
+	for _, c := range cases {
+		t.Run("GIVEN a version-1 copy whose condition is "+c.condition, func(t *testing.T) {
+			raw := `{"v":1,"title":"Halo 3","createdAt":"2026-10-01T10:00:00Z","updatedAt":"2026-10-01T10:00:00Z",
+				"copies":[{"id":"c1","kind":"physical","status":"owned","notes":"signed","condition":` + strconv.Quote(c.condition) + `}]}`
+
+			got, err := decodeGame("g1", raw)
+			require.NoError(t, err)
+
+			t.Run("THEN it becomes a grade and contents, or a note", func(t *testing.T) {
+				cp := got.Copies()[0]
+				assert.Equal(t, c.grade, cp.Grade)
+				assert.Equal(t, c.contents, cp.Contents.List())
+
+				want := c.note
+				if want == "" {
+					want = "signed"
+				}
+
+				assert.Equal(t, want, cp.Notes)
+			})
+		})
+	}
 }
