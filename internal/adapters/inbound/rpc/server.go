@@ -80,7 +80,8 @@ func NewHTTPHandler(h Handlers, opts Options) http.Handler {
 		handler = cors.New(cors.Options{
 			AllowedOrigins: opts.CORSOrigins,
 			AllowedMethods: connectcors.AllowedMethods(),
-			AllowedHeaders: connectcors.AllowedHeaders(),
+			// Only the configured origins may send the photo upload header (see photoUploadHeader).
+			AllowedHeaders: append(connectcors.AllowedHeaders(), photoUploadHeader),
 			ExposedHeaders: connectcors.ExposedHeaders(),
 		}).Handler(handler)
 	}

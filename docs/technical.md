@@ -288,7 +288,7 @@ To restore:
 # Stop Game Vault first.
 cp config/backups/gamevault-YYYYMMDD-HHMMSS.db config/gamevault.db
 rm -f config/gamevault.db-wal config/gamevault.db-shm
-cp -R config/backups/photos/. config/photos/
+cp -Rn config/backups/photos/. config/photos/   # -n: photos still in place are the same files
 # Start Game Vault again; the daily cleanup removes photos the restored catalog does not use.
 ```
 
