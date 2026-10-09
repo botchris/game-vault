@@ -54,7 +54,7 @@ func TestKeepAliveSavesRenewedSessions(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "gamevault.db"))
+	db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "gamevault.db"), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +133,7 @@ func TestSchedulerScansOnceAndWaitsForTheVariedInterval(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "gamevault.db"))
+	db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "gamevault.db"), "")
 	if err != nil {
 		t.Fatal(err)
 	}

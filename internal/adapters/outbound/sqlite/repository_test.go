@@ -14,7 +14,7 @@ import (
 func openTest(t *testing.T) *DB {
 	t.Helper()
 
-	db, err := Open(context.Background(), filepath.Join(t.TempDir(), "test.db"))
+	db, err := Open(context.Background(), filepath.Join(t.TempDir(), "test.db"), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +135,7 @@ func TestSourceRepositoryAndBackup(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	restored, err := Open(ctx, path)
+	restored, err := Open(ctx, path, "")
 	if err != nil {
 		t.Fatal(err)
 	}

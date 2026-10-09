@@ -76,7 +76,7 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	db, err := sqlite.Open(ctx, cfg.DatabasePath())
+	db, err := sqlite.Open(ctx, cfg.DatabasePath(), cfg.BackupDir())
 	if err != nil {
 		return err
 	}
