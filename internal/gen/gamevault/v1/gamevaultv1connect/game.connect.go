@@ -53,6 +53,9 @@ const (
 	GameServiceDeleteCopyProcedure = "/gamevault.v1.GameService/DeleteCopy"
 	// GameServiceMoveCopyProcedure is the fully-qualified name of the GameService's MoveCopy RPC.
 	GameServiceMoveCopyProcedure = "/gamevault.v1.GameService/MoveCopy"
+	// GameServiceAddScannedCopiesProcedure is the fully-qualified name of the GameService's
+	// AddScannedCopies RPC.
+	GameServiceAddScannedCopiesProcedure = "/gamevault.v1.GameService/AddScannedCopies"
 	// GameServiceMarkRedeemedKeysProcedure is the fully-qualified name of the GameService's
 	// MarkRedeemedKeys RPC.
 	GameServiceMarkRedeemedKeysProcedure = "/gamevault.v1.GameService/MarkRedeemedKeys"
@@ -90,6 +93,9 @@ type GameServiceClient interface {
 	UpdateCopy(context.Context, *connect.Request[v1.UpdateCopyRequest]) (*connect.Response[v1.UpdateCopyResponse], error)
 	DeleteCopy(context.Context, *connect.Request[v1.DeleteCopyRequest]) (*connect.Response[v1.DeleteCopyResponse], error)
 	MoveCopy(context.Context, *connect.Request[v1.MoveCopyRequest]) (*connect.Response[v1.MoveCopyResponse], error)
+	// Saves the boxes of a scanning session in one transaction: copies of the same new game (by
+	// title) become one game; a copy that cannot be saved fails alone, with its error.
+	AddScannedCopies(context.Context, *connect.Request[v1.AddScannedCopiesRequest]) (*connect.Response[v1.AddScannedCopiesResponse], error)
 	// Key sources (Humble Bundle, Fanatical…) cannot tell whether a revealed key was redeemed. If
 	// the game is already in the library of the key's platform it almost certainly was: mark those
 	// keys as redeemed.
@@ -178,6 +184,12 @@ func NewGameServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(gameServiceMethods.ByName("MoveCopy")),
 			connect.WithClientOptions(opts...),
 		),
+		addScannedCopies: connect.NewClient[v1.AddScannedCopiesRequest, v1.AddScannedCopiesResponse](
+			httpClient,
+			baseURL+GameServiceAddScannedCopiesProcedure,
+			connect.WithSchema(gameServiceMethods.ByName("AddScannedCopies")),
+			connect.WithClientOptions(opts...),
+		),
 		markRedeemedKeys: connect.NewClient[v1.MarkRedeemedKeysRequest, v1.MarkRedeemedKeysResponse](
 			httpClient,
 			baseURL+GameServiceMarkRedeemedKeysProcedure,
@@ -241,6 +253,7 @@ type gameServiceClient struct {
 	updateCopy        *connect.Client[v1.UpdateCopyRequest, v1.UpdateCopyResponse]
 	deleteCopy        *connect.Client[v1.DeleteCopyRequest, v1.DeleteCopyResponse]
 	moveCopy          *connect.Client[v1.MoveCopyRequest, v1.MoveCopyResponse]
+	addScannedCopies  *connect.Client[v1.AddScannedCopiesRequest, v1.AddScannedCopiesResponse]
 	markRedeemedKeys  *connect.Client[v1.MarkRedeemedKeysRequest, v1.MarkRedeemedKeysResponse]
 	listLinkStores    *connect.Client[v1.ListLinkStoresRequest, v1.ListLinkStoresResponse]
 	searchLinks       *connect.Client[v1.SearchLinksRequest, v1.SearchLinksResponse]
@@ -301,6 +314,11 @@ func (c *gameServiceClient) MoveCopy(ctx context.Context, req *connect.Request[v
 	return c.moveCopy.CallUnary(ctx, req)
 }
 
+// AddScannedCopies calls gamevault.v1.GameService.AddScannedCopies.
+func (c *gameServiceClient) AddScannedCopies(ctx context.Context, req *connect.Request[v1.AddScannedCopiesRequest]) (*connect.Response[v1.AddScannedCopiesResponse], error) {
+	return c.addScannedCopies.CallUnary(ctx, req)
+}
+
 // MarkRedeemedKeys calls gamevault.v1.GameService.MarkRedeemedKeys.
 func (c *gameServiceClient) MarkRedeemedKeys(ctx context.Context, req *connect.Request[v1.MarkRedeemedKeysRequest]) (*connect.Response[v1.MarkRedeemedKeysResponse], error) {
 	return c.markRedeemedKeys.CallUnary(ctx, req)
@@ -353,6 +371,9 @@ type GameServiceHandler interface {
 	UpdateCopy(context.Context, *connect.Request[v1.UpdateCopyRequest]) (*connect.Response[v1.UpdateCopyResponse], error)
 	DeleteCopy(context.Context, *connect.Request[v1.DeleteCopyRequest]) (*connect.Response[v1.DeleteCopyResponse], error)
 	MoveCopy(context.Context, *connect.Request[v1.MoveCopyRequest]) (*connect.Response[v1.MoveCopyResponse], error)
+	// Saves the boxes of a scanning session in one transaction: copies of the same new game (by
+	// title) become one game; a copy that cannot be saved fails alone, with its error.
+	AddScannedCopies(context.Context, *connect.Request[v1.AddScannedCopiesRequest]) (*connect.Response[v1.AddScannedCopiesResponse], error)
 	// Key sources (Humble Bundle, Fanatical…) cannot tell whether a revealed key was redeemed. If
 	// the game is already in the library of the key's platform it almost certainly was: mark those
 	// keys as redeemed.
@@ -437,6 +458,12 @@ func NewGameServiceHandler(svc GameServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(gameServiceMethods.ByName("MoveCopy")),
 		connect.WithHandlerOptions(opts...),
 	)
+	gameServiceAddScannedCopiesHandler := connect.NewUnaryHandler(
+		GameServiceAddScannedCopiesProcedure,
+		svc.AddScannedCopies,
+		connect.WithSchema(gameServiceMethods.ByName("AddScannedCopies")),
+		connect.WithHandlerOptions(opts...),
+	)
 	gameServiceMarkRedeemedKeysHandler := connect.NewUnaryHandler(
 		GameServiceMarkRedeemedKeysProcedure,
 		svc.MarkRedeemedKeys,
@@ -507,6 +534,8 @@ func NewGameServiceHandler(svc GameServiceHandler, opts ...connect.HandlerOption
 			gameServiceDeleteCopyHandler.ServeHTTP(w, r)
 		case GameServiceMoveCopyProcedure:
 			gameServiceMoveCopyHandler.ServeHTTP(w, r)
+		case GameServiceAddScannedCopiesProcedure:
+			gameServiceAddScannedCopiesHandler.ServeHTTP(w, r)
 		case GameServiceMarkRedeemedKeysProcedure:
 			gameServiceMarkRedeemedKeysHandler.ServeHTTP(w, r)
 		case GameServiceListLinkStoresProcedure:
@@ -570,6 +599,10 @@ func (UnimplementedGameServiceHandler) DeleteCopy(context.Context, *connect.Requ
 
 func (UnimplementedGameServiceHandler) MoveCopy(context.Context, *connect.Request[v1.MoveCopyRequest]) (*connect.Response[v1.MoveCopyResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gamevault.v1.GameService.MoveCopy is not implemented"))
+}
+
+func (UnimplementedGameServiceHandler) AddScannedCopies(context.Context, *connect.Request[v1.AddScannedCopiesRequest]) (*connect.Response[v1.AddScannedCopiesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gamevault.v1.GameService.AddScannedCopies is not implemented"))
 }
 
 func (UnimplementedGameServiceHandler) MarkRedeemedKeys(context.Context, *connect.Request[v1.MarkRedeemedKeysRequest]) (*connect.Response[v1.MarkRedeemedKeysResponse], error) {

@@ -2924,6 +2924,254 @@ func (x *SetCoverPhotoResponse) GetGame() *Game {
 	return nil
 }
 
+// ScannedCopy is one box of a scanning session (see AddScannedCopies).
+type ScannedCopy struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The row's id on the scanning device, echoed in its result.
+	ClientId string `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	// The game to add the copy to; empty: a new game.
+	GameId string `protobuf:"bytes,2,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`
+	// For a new game: its title and the chosen cover.
+	Title    string `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
+	CoverUrl string `protobuf:"bytes,4,opt,name=cover_url,json=coverUrl,proto3" json:"cover_url,omitempty"`
+	// The copy, barcode and batch defaults included.
+	Details       *CopyDetails `protobuf:"bytes,5,opt,name=details,proto3" json:"details,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ScannedCopy) Reset() {
+	*x = ScannedCopy{}
+	mi := &file_gamevault_v1_game_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ScannedCopy) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ScannedCopy) ProtoMessage() {}
+
+func (x *ScannedCopy) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_game_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ScannedCopy.ProtoReflect.Descriptor instead.
+func (*ScannedCopy) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *ScannedCopy) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *ScannedCopy) GetGameId() string {
+	if x != nil {
+		return x.GameId
+	}
+	return ""
+}
+
+func (x *ScannedCopy) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *ScannedCopy) GetCoverUrl() string {
+	if x != nil {
+		return x.CoverUrl
+	}
+	return ""
+}
+
+func (x *ScannedCopy) GetDetails() *CopyDetails {
+	if x != nil {
+		return x.Details
+	}
+	return nil
+}
+
+type AddScannedCopiesRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// At most 200.
+	Items         []*ScannedCopy `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AddScannedCopiesRequest) Reset() {
+	*x = AddScannedCopiesRequest{}
+	mi := &file_gamevault_v1_game_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddScannedCopiesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddScannedCopiesRequest) ProtoMessage() {}
+
+func (x *AddScannedCopiesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_game_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddScannedCopiesRequest.ProtoReflect.Descriptor instead.
+func (*AddScannedCopiesRequest) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *AddScannedCopiesRequest) GetItems() []*ScannedCopy {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+type ScannedCopyResult struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	ClientId string                 `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	GameId   string                 `protobuf:"bytes,2,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`
+	CopyId   string                 `protobuf:"bytes,3,opt,name=copy_id,json=copyId,proto3" json:"copy_id,omitempty"`
+	// Empty when saved; otherwise what happened and what to do.
+	Error         string `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ScannedCopyResult) Reset() {
+	*x = ScannedCopyResult{}
+	mi := &file_gamevault_v1_game_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ScannedCopyResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ScannedCopyResult) ProtoMessage() {}
+
+func (x *ScannedCopyResult) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_game_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ScannedCopyResult.ProtoReflect.Descriptor instead.
+func (*ScannedCopyResult) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *ScannedCopyResult) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *ScannedCopyResult) GetGameId() string {
+	if x != nil {
+		return x.GameId
+	}
+	return ""
+}
+
+func (x *ScannedCopyResult) GetCopyId() string {
+	if x != nil {
+		return x.CopyId
+	}
+	return ""
+}
+
+func (x *ScannedCopyResult) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+type AddScannedCopiesResponse struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Results []*ScannedCopyResult   `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
+	// Every game created or changed.
+	Games         []*Game `protobuf:"bytes,2,rep,name=games,proto3" json:"games,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AddScannedCopiesResponse) Reset() {
+	*x = AddScannedCopiesResponse{}
+	mi := &file_gamevault_v1_game_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddScannedCopiesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddScannedCopiesResponse) ProtoMessage() {}
+
+func (x *AddScannedCopiesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_game_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddScannedCopiesResponse.ProtoReflect.Descriptor instead.
+func (*AddScannedCopiesResponse) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *AddScannedCopiesResponse) GetResults() []*ScannedCopyResult {
+	if x != nil {
+		return x.Results
+	}
+	return nil
+}
+
+func (x *AddScannedCopiesResponse) GetGames() []*Game {
+	if x != nil {
+		return x.Games
+	}
+	return nil
+}
+
 var File_gamevault_v1_game_proto protoreflect.FileDescriptor
 
 const file_gamevault_v1_game_proto_rawDesc = "" +
@@ -3123,7 +3371,23 @@ const file_gamevault_v1_game_proto_rawDesc = "" +
 	"\agame_id\x18\x01 \x01(\tR\x06gameId\x12\x19\n" +
 	"\bphoto_id\x18\x02 \x01(\tR\aphotoId\"?\n" +
 	"\x15SetCoverPhotoResponse\x12&\n" +
-	"\x04game\x18\x01 \x01(\v2\x12.gamevault.v1.GameR\x04game*g\n" +
+	"\x04game\x18\x01 \x01(\v2\x12.gamevault.v1.GameR\x04game\"\xab\x01\n" +
+	"\vScannedCopy\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x17\n" +
+	"\agame_id\x18\x02 \x01(\tR\x06gameId\x12\x14\n" +
+	"\x05title\x18\x03 \x01(\tR\x05title\x12\x1b\n" +
+	"\tcover_url\x18\x04 \x01(\tR\bcoverUrl\x123\n" +
+	"\adetails\x18\x05 \x01(\v2\x19.gamevault.v1.CopyDetailsR\adetails\"J\n" +
+	"\x17AddScannedCopiesRequest\x12/\n" +
+	"\x05items\x18\x01 \x03(\v2\x19.gamevault.v1.ScannedCopyR\x05items\"x\n" +
+	"\x11ScannedCopyResult\x12\x1b\n" +
+	"\tclient_id\x18\x01 \x01(\tR\bclientId\x12\x17\n" +
+	"\agame_id\x18\x02 \x01(\tR\x06gameId\x12\x17\n" +
+	"\acopy_id\x18\x03 \x01(\tR\x06copyId\x12\x14\n" +
+	"\x05error\x18\x04 \x01(\tR\x05error\"\x7f\n" +
+	"\x18AddScannedCopiesResponse\x129\n" +
+	"\aresults\x18\x01 \x03(\v2\x1f.gamevault.v1.ScannedCopyResultR\aresults\x12(\n" +
+	"\x05games\x18\x02 \x03(\v2\x12.gamevault.v1.GameR\x05games*g\n" +
 	"\bCopyKind\x12\x19\n" +
 	"\x15COPY_KIND_UNSPECIFIED\x10\x00\x12\x11\n" +
 	"\rCOPY_KIND_KEY\x10\x01\x12\x15\n" +
@@ -3153,7 +3417,7 @@ const file_gamevault_v1_game_proto_rawDesc = "" +
 	"\x10COPY_CONTENT_BOX\x10\x01\x12\x17\n" +
 	"\x13COPY_CONTENT_MANUAL\x10\x02\x12\x16\n" +
 	"\x12COPY_CONTENT_MEDIA\x10\x03\x12\x17\n" +
-	"\x13COPY_CONTENT_EXTRAS\x10\x042\x8a\f\n" +
+	"\x13COPY_CONTENT_EXTRAS\x10\x042\xed\f\n" +
 	"\vGameService\x12L\n" +
 	"\tListGames\x12\x1e.gamevault.v1.ListGamesRequest\x1a\x1f.gamevault.v1.ListGamesResponse\x12F\n" +
 	"\aGetGame\x12\x1c.gamevault.v1.GetGameRequest\x1a\x1d.gamevault.v1.GetGameResponse\x12O\n" +
@@ -3171,6 +3435,7 @@ const file_gamevault_v1_game_proto_rawDesc = "" +
 	"\n" +
 	"DeleteCopy\x12\x1f.gamevault.v1.DeleteCopyRequest\x1a .gamevault.v1.DeleteCopyResponse\x12I\n" +
 	"\bMoveCopy\x12\x1d.gamevault.v1.MoveCopyRequest\x1a\x1e.gamevault.v1.MoveCopyResponse\x12a\n" +
+	"\x10AddScannedCopies\x12%.gamevault.v1.AddScannedCopiesRequest\x1a&.gamevault.v1.AddScannedCopiesResponse\x12a\n" +
 	"\x10MarkRedeemedKeys\x12%.gamevault.v1.MarkRedeemedKeysRequest\x1a&.gamevault.v1.MarkRedeemedKeysResponse\x12[\n" +
 	"\x0eListLinkStores\x12#.gamevault.v1.ListLinkStoresRequest\x1a$.gamevault.v1.ListLinkStoresResponse\x12R\n" +
 	"\vSearchLinks\x12 .gamevault.v1.SearchLinksRequest\x1a!.gamevault.v1.SearchLinksResponse\x12X\n" +
@@ -3193,7 +3458,7 @@ func file_gamevault_v1_game_proto_rawDescGZIP() []byte {
 }
 
 var file_gamevault_v1_game_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_gamevault_v1_game_proto_msgTypes = make([]protoimpl.MessageInfo, 48)
+var file_gamevault_v1_game_proto_msgTypes = make([]protoimpl.MessageInfo, 52)
 var file_gamevault_v1_game_proto_goTypes = []any{
 	(CopyKind)(0),                     // 0: gamevault.v1.CopyKind
 	(CopyStatus)(0),                   // 1: gamevault.v1.CopyStatus
@@ -3244,10 +3509,14 @@ var file_gamevault_v1_game_proto_goTypes = []any{
 	(*ReorderCopyPhotosResponse)(nil), // 46: gamevault.v1.ReorderCopyPhotosResponse
 	(*SetCoverPhotoRequest)(nil),      // 47: gamevault.v1.SetCoverPhotoRequest
 	(*SetCoverPhotoResponse)(nil),     // 48: gamevault.v1.SetCoverPhotoResponse
-	nil,                               // 49: gamevault.v1.Game.LinksEntry
-	nil,                               // 50: gamevault.v1.CreateGameRequest.LinksEntry
-	nil,                               // 51: gamevault.v1.UpdateGameRequest.LinksEntry
-	(*timestamppb.Timestamp)(nil),     // 52: google.protobuf.Timestamp
+	(*ScannedCopy)(nil),               // 49: gamevault.v1.ScannedCopy
+	(*AddScannedCopiesRequest)(nil),   // 50: gamevault.v1.AddScannedCopiesRequest
+	(*ScannedCopyResult)(nil),         // 51: gamevault.v1.ScannedCopyResult
+	(*AddScannedCopiesResponse)(nil),  // 52: gamevault.v1.AddScannedCopiesResponse
+	nil,                               // 53: gamevault.v1.Game.LinksEntry
+	nil,                               // 54: gamevault.v1.CreateGameRequest.LinksEntry
+	nil,                               // 55: gamevault.v1.UpdateGameRequest.LinksEntry
+	(*timestamppb.Timestamp)(nil),     // 56: google.protobuf.Timestamp
 }
 var file_gamevault_v1_game_proto_depIdxs = []int32{
 	0,  // 0: gamevault.v1.CopyDetails.kind:type_name -> gamevault.v1.CopyKind
@@ -3255,29 +3524,29 @@ var file_gamevault_v1_game_proto_depIdxs = []int32{
 	2,  // 2: gamevault.v1.CopyDetails.grade:type_name -> gamevault.v1.CopyGrade
 	3,  // 3: gamevault.v1.CopyDetails.contents:type_name -> gamevault.v1.CopyContent
 	4,  // 4: gamevault.v1.CopyDetails.price:type_name -> gamevault.v1.Money
-	52, // 5: gamevault.v1.Photo.taken_at:type_name -> google.protobuf.Timestamp
-	52, // 6: gamevault.v1.Photo.added_at:type_name -> google.protobuf.Timestamp
+	56, // 5: gamevault.v1.Photo.taken_at:type_name -> google.protobuf.Timestamp
+	56, // 6: gamevault.v1.Photo.added_at:type_name -> google.protobuf.Timestamp
 	4,  // 7: gamevault.v1.Estimate.sell:type_name -> gamevault.v1.Money
 	4,  // 8: gamevault.v1.Estimate.buy_cash:type_name -> gamevault.v1.Money
 	4,  // 9: gamevault.v1.Estimate.buy_credit:type_name -> gamevault.v1.Money
-	52, // 10: gamevault.v1.Estimate.fetched_at:type_name -> google.protobuf.Timestamp
+	56, // 10: gamevault.v1.Estimate.fetched_at:type_name -> google.protobuf.Timestamp
 	5,  // 11: gamevault.v1.Copy.details:type_name -> gamevault.v1.CopyDetails
-	52, // 12: gamevault.v1.Copy.created_at:type_name -> google.protobuf.Timestamp
-	52, // 13: gamevault.v1.Copy.updated_at:type_name -> google.protobuf.Timestamp
+	56, // 12: gamevault.v1.Copy.created_at:type_name -> google.protobuf.Timestamp
+	56, // 13: gamevault.v1.Copy.updated_at:type_name -> google.protobuf.Timestamp
 	6,  // 14: gamevault.v1.Copy.photos:type_name -> gamevault.v1.Photo
 	7,  // 15: gamevault.v1.Copy.estimates:type_name -> gamevault.v1.Estimate
-	52, // 16: gamevault.v1.Copy.next_valuation:type_name -> google.protobuf.Timestamp
-	52, // 17: gamevault.v1.Copy.valued_at:type_name -> google.protobuf.Timestamp
+	56, // 16: gamevault.v1.Copy.next_valuation:type_name -> google.protobuf.Timestamp
+	56, // 17: gamevault.v1.Copy.valued_at:type_name -> google.protobuf.Timestamp
 	8,  // 18: gamevault.v1.Game.copies:type_name -> gamevault.v1.Copy
-	52, // 19: gamevault.v1.Game.created_at:type_name -> google.protobuf.Timestamp
-	52, // 20: gamevault.v1.Game.updated_at:type_name -> google.protobuf.Timestamp
-	49, // 21: gamevault.v1.Game.links:type_name -> gamevault.v1.Game.LinksEntry
+	56, // 19: gamevault.v1.Game.created_at:type_name -> google.protobuf.Timestamp
+	56, // 20: gamevault.v1.Game.updated_at:type_name -> google.protobuf.Timestamp
+	53, // 21: gamevault.v1.Game.links:type_name -> gamevault.v1.Game.LinksEntry
 	9,  // 22: gamevault.v1.ListGamesResponse.games:type_name -> gamevault.v1.Game
 	9,  // 23: gamevault.v1.GetGameResponse.game:type_name -> gamevault.v1.Game
 	5,  // 24: gamevault.v1.CreateGameRequest.copies:type_name -> gamevault.v1.CopyDetails
-	50, // 25: gamevault.v1.CreateGameRequest.links:type_name -> gamevault.v1.CreateGameRequest.LinksEntry
+	54, // 25: gamevault.v1.CreateGameRequest.links:type_name -> gamevault.v1.CreateGameRequest.LinksEntry
 	9,  // 26: gamevault.v1.CreateGameResponse.game:type_name -> gamevault.v1.Game
-	51, // 27: gamevault.v1.UpdateGameRequest.links:type_name -> gamevault.v1.UpdateGameRequest.LinksEntry
+	55, // 27: gamevault.v1.UpdateGameRequest.links:type_name -> gamevault.v1.UpdateGameRequest.LinksEntry
 	9,  // 28: gamevault.v1.UpdateGameResponse.game:type_name -> gamevault.v1.Game
 	9,  // 29: gamevault.v1.MergeGamesResponse.game:type_name -> gamevault.v1.Game
 	5,  // 30: gamevault.v1.AddCopyRequest.details:type_name -> gamevault.v1.CopyDetails
@@ -3289,54 +3558,60 @@ var file_gamevault_v1_game_proto_depIdxs = []int32{
 	9,  // 36: gamevault.v1.MoveCopyResponse.target_game:type_name -> gamevault.v1.Game
 	33, // 37: gamevault.v1.ListLinkStoresResponse.stores:type_name -> gamevault.v1.LinkStore
 	36, // 38: gamevault.v1.SearchLinksResponse.matches:type_name -> gamevault.v1.LinkMatch
-	52, // 39: gamevault.v1.NewPhoto.taken_at:type_name -> google.protobuf.Timestamp
+	56, // 39: gamevault.v1.NewPhoto.taken_at:type_name -> google.protobuf.Timestamp
 	38, // 40: gamevault.v1.AddCopyPhotosRequest.photos:type_name -> gamevault.v1.NewPhoto
 	9,  // 41: gamevault.v1.AddCopyPhotosResponse.game:type_name -> gamevault.v1.Game
 	9,  // 42: gamevault.v1.UpdateCopyPhotoResponse.game:type_name -> gamevault.v1.Game
 	9,  // 43: gamevault.v1.RemoveCopyPhotoResponse.game:type_name -> gamevault.v1.Game
 	9,  // 44: gamevault.v1.ReorderCopyPhotosResponse.game:type_name -> gamevault.v1.Game
 	9,  // 45: gamevault.v1.SetCoverPhotoResponse.game:type_name -> gamevault.v1.Game
-	10, // 46: gamevault.v1.GameService.ListGames:input_type -> gamevault.v1.ListGamesRequest
-	12, // 47: gamevault.v1.GameService.GetGame:input_type -> gamevault.v1.GetGameRequest
-	14, // 48: gamevault.v1.GameService.CreateGame:input_type -> gamevault.v1.CreateGameRequest
-	16, // 49: gamevault.v1.GameService.UpdateGame:input_type -> gamevault.v1.UpdateGameRequest
-	18, // 50: gamevault.v1.GameService.DeleteGame:input_type -> gamevault.v1.DeleteGameRequest
-	20, // 51: gamevault.v1.GameService.MergeGames:input_type -> gamevault.v1.MergeGamesRequest
-	22, // 52: gamevault.v1.GameService.AddCopy:input_type -> gamevault.v1.AddCopyRequest
-	24, // 53: gamevault.v1.GameService.UpdateCopy:input_type -> gamevault.v1.UpdateCopyRequest
-	26, // 54: gamevault.v1.GameService.DeleteCopy:input_type -> gamevault.v1.DeleteCopyRequest
-	28, // 55: gamevault.v1.GameService.MoveCopy:input_type -> gamevault.v1.MoveCopyRequest
-	30, // 56: gamevault.v1.GameService.MarkRedeemedKeys:input_type -> gamevault.v1.MarkRedeemedKeysRequest
-	32, // 57: gamevault.v1.GameService.ListLinkStores:input_type -> gamevault.v1.ListLinkStoresRequest
-	35, // 58: gamevault.v1.GameService.SearchLinks:input_type -> gamevault.v1.SearchLinksRequest
-	39, // 59: gamevault.v1.GameService.AddCopyPhotos:input_type -> gamevault.v1.AddCopyPhotosRequest
-	41, // 60: gamevault.v1.GameService.UpdateCopyPhoto:input_type -> gamevault.v1.UpdateCopyPhotoRequest
-	43, // 61: gamevault.v1.GameService.RemoveCopyPhoto:input_type -> gamevault.v1.RemoveCopyPhotoRequest
-	45, // 62: gamevault.v1.GameService.ReorderCopyPhotos:input_type -> gamevault.v1.ReorderCopyPhotosRequest
-	47, // 63: gamevault.v1.GameService.SetCoverPhoto:input_type -> gamevault.v1.SetCoverPhotoRequest
-	11, // 64: gamevault.v1.GameService.ListGames:output_type -> gamevault.v1.ListGamesResponse
-	13, // 65: gamevault.v1.GameService.GetGame:output_type -> gamevault.v1.GetGameResponse
-	15, // 66: gamevault.v1.GameService.CreateGame:output_type -> gamevault.v1.CreateGameResponse
-	17, // 67: gamevault.v1.GameService.UpdateGame:output_type -> gamevault.v1.UpdateGameResponse
-	19, // 68: gamevault.v1.GameService.DeleteGame:output_type -> gamevault.v1.DeleteGameResponse
-	21, // 69: gamevault.v1.GameService.MergeGames:output_type -> gamevault.v1.MergeGamesResponse
-	23, // 70: gamevault.v1.GameService.AddCopy:output_type -> gamevault.v1.AddCopyResponse
-	25, // 71: gamevault.v1.GameService.UpdateCopy:output_type -> gamevault.v1.UpdateCopyResponse
-	27, // 72: gamevault.v1.GameService.DeleteCopy:output_type -> gamevault.v1.DeleteCopyResponse
-	29, // 73: gamevault.v1.GameService.MoveCopy:output_type -> gamevault.v1.MoveCopyResponse
-	31, // 74: gamevault.v1.GameService.MarkRedeemedKeys:output_type -> gamevault.v1.MarkRedeemedKeysResponse
-	34, // 75: gamevault.v1.GameService.ListLinkStores:output_type -> gamevault.v1.ListLinkStoresResponse
-	37, // 76: gamevault.v1.GameService.SearchLinks:output_type -> gamevault.v1.SearchLinksResponse
-	40, // 77: gamevault.v1.GameService.AddCopyPhotos:output_type -> gamevault.v1.AddCopyPhotosResponse
-	42, // 78: gamevault.v1.GameService.UpdateCopyPhoto:output_type -> gamevault.v1.UpdateCopyPhotoResponse
-	44, // 79: gamevault.v1.GameService.RemoveCopyPhoto:output_type -> gamevault.v1.RemoveCopyPhotoResponse
-	46, // 80: gamevault.v1.GameService.ReorderCopyPhotos:output_type -> gamevault.v1.ReorderCopyPhotosResponse
-	48, // 81: gamevault.v1.GameService.SetCoverPhoto:output_type -> gamevault.v1.SetCoverPhotoResponse
-	64, // [64:82] is the sub-list for method output_type
-	46, // [46:64] is the sub-list for method input_type
-	46, // [46:46] is the sub-list for extension type_name
-	46, // [46:46] is the sub-list for extension extendee
-	0,  // [0:46] is the sub-list for field type_name
+	5,  // 46: gamevault.v1.ScannedCopy.details:type_name -> gamevault.v1.CopyDetails
+	49, // 47: gamevault.v1.AddScannedCopiesRequest.items:type_name -> gamevault.v1.ScannedCopy
+	51, // 48: gamevault.v1.AddScannedCopiesResponse.results:type_name -> gamevault.v1.ScannedCopyResult
+	9,  // 49: gamevault.v1.AddScannedCopiesResponse.games:type_name -> gamevault.v1.Game
+	10, // 50: gamevault.v1.GameService.ListGames:input_type -> gamevault.v1.ListGamesRequest
+	12, // 51: gamevault.v1.GameService.GetGame:input_type -> gamevault.v1.GetGameRequest
+	14, // 52: gamevault.v1.GameService.CreateGame:input_type -> gamevault.v1.CreateGameRequest
+	16, // 53: gamevault.v1.GameService.UpdateGame:input_type -> gamevault.v1.UpdateGameRequest
+	18, // 54: gamevault.v1.GameService.DeleteGame:input_type -> gamevault.v1.DeleteGameRequest
+	20, // 55: gamevault.v1.GameService.MergeGames:input_type -> gamevault.v1.MergeGamesRequest
+	22, // 56: gamevault.v1.GameService.AddCopy:input_type -> gamevault.v1.AddCopyRequest
+	24, // 57: gamevault.v1.GameService.UpdateCopy:input_type -> gamevault.v1.UpdateCopyRequest
+	26, // 58: gamevault.v1.GameService.DeleteCopy:input_type -> gamevault.v1.DeleteCopyRequest
+	28, // 59: gamevault.v1.GameService.MoveCopy:input_type -> gamevault.v1.MoveCopyRequest
+	50, // 60: gamevault.v1.GameService.AddScannedCopies:input_type -> gamevault.v1.AddScannedCopiesRequest
+	30, // 61: gamevault.v1.GameService.MarkRedeemedKeys:input_type -> gamevault.v1.MarkRedeemedKeysRequest
+	32, // 62: gamevault.v1.GameService.ListLinkStores:input_type -> gamevault.v1.ListLinkStoresRequest
+	35, // 63: gamevault.v1.GameService.SearchLinks:input_type -> gamevault.v1.SearchLinksRequest
+	39, // 64: gamevault.v1.GameService.AddCopyPhotos:input_type -> gamevault.v1.AddCopyPhotosRequest
+	41, // 65: gamevault.v1.GameService.UpdateCopyPhoto:input_type -> gamevault.v1.UpdateCopyPhotoRequest
+	43, // 66: gamevault.v1.GameService.RemoveCopyPhoto:input_type -> gamevault.v1.RemoveCopyPhotoRequest
+	45, // 67: gamevault.v1.GameService.ReorderCopyPhotos:input_type -> gamevault.v1.ReorderCopyPhotosRequest
+	47, // 68: gamevault.v1.GameService.SetCoverPhoto:input_type -> gamevault.v1.SetCoverPhotoRequest
+	11, // 69: gamevault.v1.GameService.ListGames:output_type -> gamevault.v1.ListGamesResponse
+	13, // 70: gamevault.v1.GameService.GetGame:output_type -> gamevault.v1.GetGameResponse
+	15, // 71: gamevault.v1.GameService.CreateGame:output_type -> gamevault.v1.CreateGameResponse
+	17, // 72: gamevault.v1.GameService.UpdateGame:output_type -> gamevault.v1.UpdateGameResponse
+	19, // 73: gamevault.v1.GameService.DeleteGame:output_type -> gamevault.v1.DeleteGameResponse
+	21, // 74: gamevault.v1.GameService.MergeGames:output_type -> gamevault.v1.MergeGamesResponse
+	23, // 75: gamevault.v1.GameService.AddCopy:output_type -> gamevault.v1.AddCopyResponse
+	25, // 76: gamevault.v1.GameService.UpdateCopy:output_type -> gamevault.v1.UpdateCopyResponse
+	27, // 77: gamevault.v1.GameService.DeleteCopy:output_type -> gamevault.v1.DeleteCopyResponse
+	29, // 78: gamevault.v1.GameService.MoveCopy:output_type -> gamevault.v1.MoveCopyResponse
+	52, // 79: gamevault.v1.GameService.AddScannedCopies:output_type -> gamevault.v1.AddScannedCopiesResponse
+	31, // 80: gamevault.v1.GameService.MarkRedeemedKeys:output_type -> gamevault.v1.MarkRedeemedKeysResponse
+	34, // 81: gamevault.v1.GameService.ListLinkStores:output_type -> gamevault.v1.ListLinkStoresResponse
+	37, // 82: gamevault.v1.GameService.SearchLinks:output_type -> gamevault.v1.SearchLinksResponse
+	40, // 83: gamevault.v1.GameService.AddCopyPhotos:output_type -> gamevault.v1.AddCopyPhotosResponse
+	42, // 84: gamevault.v1.GameService.UpdateCopyPhoto:output_type -> gamevault.v1.UpdateCopyPhotoResponse
+	44, // 85: gamevault.v1.GameService.RemoveCopyPhoto:output_type -> gamevault.v1.RemoveCopyPhotoResponse
+	46, // 86: gamevault.v1.GameService.ReorderCopyPhotos:output_type -> gamevault.v1.ReorderCopyPhotosResponse
+	48, // 87: gamevault.v1.GameService.SetCoverPhoto:output_type -> gamevault.v1.SetCoverPhotoResponse
+	69, // [69:88] is the sub-list for method output_type
+	50, // [50:69] is the sub-list for method input_type
+	50, // [50:50] is the sub-list for extension type_name
+	50, // [50:50] is the sub-list for extension extendee
+	0,  // [0:50] is the sub-list for field type_name
 }
 
 func init() { file_gamevault_v1_game_proto_init() }
@@ -3350,7 +3625,7 @@ func file_gamevault_v1_game_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gamevault_v1_game_proto_rawDesc), len(file_gamevault_v1_game_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   48,
+			NumMessages:   52,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -177,6 +177,75 @@ func (h *GameHandler) MoveCopy(ctx context.Context, req *connect.Request[pb.Move
 	}), nil
 }
 
+// AddScannedCopies saves the boxes of a scanning session at once, with a result per box. A box
+// whose details cannot be read (a broken barcode…) fails alone, like the ones the catalog refuses.
+func (h *GameHandler) AddScannedCopies(ctx context.Context, req *connect.Request[pb.AddScannedCopiesRequest]) (*connect.Response[pb.AddScannedCopiesResponse], error) {
+	if len(req.Msg.Items) > catalog.MaxScannedCopies {
+		return nil, connect.NewError(connect.CodeInvalidArgument, catalog.ErrInvalidScannedCopies)
+	}
+
+	out := &pb.AddScannedCopiesResponse{}
+	items := make([]catalog.ScannedCopy, 0, len(req.Msg.Items))
+
+	for _, it := range req.Msg.Items {
+		d, err := detailsFromPB(it.Details)
+		if err != nil {
+			out.Results = append(out.Results, &pb.ScannedCopyResult{
+				ClientId: it.ClientId,
+				Error:    itemError(err),
+			})
+
+			continue
+		}
+
+		items = append(items, catalog.ScannedCopy{
+			Ref:      it.ClientId,
+			GameID:   game.ID(it.GameId),
+			Title:    it.Title,
+			CoverURL: it.CoverUrl,
+			Details:  d,
+		})
+	}
+
+	results, games, err := h.catalog.AddScannedCopies(ctx, items)
+	if errors.Is(err, catalog.ErrInvalidScannedCopies) {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	if err != nil {
+		return nil, toConnectError(err)
+	}
+
+	for _, r := range results {
+		res := &pb.ScannedCopyResult{
+			ClientId: r.Ref,
+			GameId:   string(r.GameID),
+			CopyId:   string(r.CopyID),
+		}
+		if r.Err != nil {
+			res.Error = itemError(r.Err)
+		}
+
+		out.Results = append(out.Results, res)
+	}
+
+	for _, g := range games {
+		out.Games = append(out.Games, gameToPB(g))
+	}
+
+	return connect.NewResponse(out), nil
+}
+
+// itemError is the text of one item's error, without a Connect code in front.
+func itemError(err error) string {
+	var ce *connect.Error
+	if errors.As(err, &ce) {
+		return ce.Message()
+	}
+
+	return err.Error()
+}
+
 // MarkRedeemedKeys marks as redeemed the unredeemed keys whose game is already in the
 // library of the key's platform.
 func (h *GameHandler) MarkRedeemedKeys(ctx context.Context, _ *connect.Request[pb.MarkRedeemedKeysRequest]) (*connect.Response[pb.MarkRedeemedKeysResponse], error) {
