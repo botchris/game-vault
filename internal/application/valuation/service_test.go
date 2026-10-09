@@ -380,7 +380,7 @@ func TestScheduler_failingSource(t *testing.T) {
 		w := newWorld(ctx, t)
 		w.cex.fail = errors.New("CeX is asking for a browser check")
 
-		var ids []game.ID
+		ids := make([]game.ID, 0, 3)
 
 		for _, title := range []string{"A", "B", "C"} {
 			gid, _ := w.physical(ctx, t, title, deadSpace)
