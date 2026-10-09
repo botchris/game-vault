@@ -245,3 +245,44 @@ func TestConsolidator_withdrawn(t *testing.T) {
 		})
 	})
 }
+
+func TestConsolidator_keepsWhatTheUserSet(t *testing.T) {
+	t.Run("GIVEN a library copy the user priced", func(t *testing.T) {
+		r := NewConsolidator(nil).Apply("s", []ImportedCopy{{
+			ExternalID: "steam:1",
+			Title:      "Portal",
+			Details: CopyDetails{
+				Kind:     KindLibrary,
+				Platform: "Steam",
+			},
+		}}, t0)
+		g := r.Changed[0]
+		_, err := g.UpdateCopy(g.Copies()[0].ID, CopyDetails{
+			Kind:     KindLibrary,
+			Platform: "Steam",
+			Price: Money{
+				Amount:   999,
+				Currency: "EUR",
+			},
+		}, t0)
+		require.NoError(t, err)
+
+		t.Run("WHEN the library is scanned again", func(t *testing.T) {
+			NewConsolidator([]*Game{g}).Apply("s", []ImportedCopy{{
+				ExternalID: "steam:1",
+				Title:      "Portal",
+				Details: CopyDetails{
+					Kind:     KindLibrary,
+					Platform: "Steam",
+				},
+			}}, t0)
+
+			t.Run("THEN the price is still there", func(t *testing.T) {
+				assert.Equal(t, Money{
+					Amount:   999,
+					Currency: "EUR",
+				}, g.Copies()[0].Price)
+			})
+		})
+	})
+}

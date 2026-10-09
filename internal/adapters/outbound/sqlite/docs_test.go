@@ -48,7 +48,6 @@ func sampleGame(t *testing.T) *game.Game {
 				Status:     game.StatusOwned,
 				AcquiredOn: "2021-07-11",
 				Edition:    "Collector's",
-				Condition:  "Complete",
 				Location:   "Shelf",
 				Barcode:    "5026555255042",
 				Notes:      "signed",

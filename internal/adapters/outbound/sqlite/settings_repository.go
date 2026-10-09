@@ -64,3 +64,11 @@ func (r *SettingsRepository) SaveLogging(ctx context.Context, l settings.Logging
 
 	return err
 }
+
+// Preferences returns the saved preferences (stored in a later step).
+func (r *SettingsRepository) Preferences(context.Context) (settings.Preferences, error) {
+	return settings.Preferences{}, nil
+}
+
+// SavePreferences stores the preferences (stored in a later step).
+func (r *SettingsRepository) SavePreferences(context.Context, settings.Preferences) error { return nil }

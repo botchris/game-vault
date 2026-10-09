@@ -137,14 +137,13 @@ func (Codec) Decode(r io.Reader) ([]game.ImportedCopy, []string, error) {
 		}
 
 		d := game.CopyDetails{
-			Platform:  get("platform"),
-			Status:    game.Status(strings.ToLower(get("status"))),
-			Key:       get("key"),
-			Origin:    get("origin"),
-			Edition:   get("edition"),
-			Condition: get("condition"),
-			Location:  get("location"),
-			Notes:     get("notes"),
+			Platform: get("platform"),
+			Status:   game.Status(strings.ToLower(get("status"))),
+			Key:      get("key"),
+			Origin:   get("origin"),
+			Edition:  get("edition"),
+			Location: get("location"),
+			Notes:    get("notes"),
 		}
 
 		var ok bool
@@ -272,7 +271,7 @@ func (Codec) Encode(w io.Writer, games []*game.Game) error {
 
 			if err := cw.Write([]string{
 				g.Title(), c.Platform, string(c.Kind), string(c.Status), c.Key, string(c.RedeemBy), c.Origin,
-				string(c.AcquiredOn), c.Edition, c.Condition, c.Location, c.Notes, links, ext, string(c.Barcode),
+				string(c.AcquiredOn), c.Edition, "", c.Location, c.Notes, links, ext, string(c.Barcode),
 			}); err != nil {
 				return err
 			}
