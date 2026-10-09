@@ -7,6 +7,7 @@ one line here. Update a file instead of adding a duplicate; date facts about ext
 
 ## User
 - [User profile](memory/user-profile.md) — Spanish chat / English code, runs `task run`, no host deps, anti-bot jitter, Emil design taste, no VPN dependency in the product
+- [Go style feedback](memory/go-style-feedback.md) — always load `write-go` before Go; blank line between documented members; every interface method documented
 
 ## Status (update when the user reports results)
 - [Integration status](memory/status-integrations.md) — confirmed: Humble, Steam, Epic, GOG, EA, Ubisoft, Xbox; watch Battle.net keep-alive; PlayStation and the security redesign untested by the user
