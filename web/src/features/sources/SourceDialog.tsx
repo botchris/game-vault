@@ -1,9 +1,11 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { errorMessage, sourceClient } from '../../api/client';
 import { FieldHelp } from '../../components/FieldHelp';
+import { Icon } from '../../components/Icon';
 import { Alert, Modal, useFormatters } from '../../components/ui';
-import { SettingField_Kind, type Source, type SourceType } from '../../gen/gamevault/v1/source_pb';
+import { SettingField_Kind, type SettingField, type Source, type SourceType } from '../../gen/gamevault/v1/source_pb';
+import { connect, ConnectorError, detect, type Recipe } from '../../lib/connector';
 import { toDate } from '../../lib/model';
 
 interface Props {
@@ -26,42 +28,76 @@ export default function SourceDialog({ type, source, onClose, onSaved, onDeleted
   const [busy, setBusy] = useState(false);
   const [testing, setTesting] = useState(false);
   const [result, setResult] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
+  // The Game Vault Connector extension, when installed and enabled on this address.
+  const [connector, setConnector] = useState<{ version: string; recipeVersion: number } | null>(null);
+  const [connecting, setConnecting] = useState<{ key: string; cancel: () => void } | null>(null);
+  useEffect(() => { detect().then(setConnector); }, []);
 
-  const input = () => ({ type: type.id, name, enabled, syncIntervalHours: syncHours, settings });
+  const input = (with_ = settings) => ({ type: type.id, name, enabled, syncIntervalHours: syncHours, settings: with_ });
+  const recipeOf = (f: SettingField): Recipe | null => {
+    try { return f.signIn ? JSON.parse(f.signIn) as Recipe : null; } catch { return null; }
+  };
   // A required risk not accepted yet blocks testing and saving (the server refuses it too).
   const consents = type.fields.filter((f) => f.kind === SettingField_Kind.CONSENT);
   const consentMissing = consents.some((f) => f.required && settings[f.key] !== 'yes');
 
-  const test = async () => {
+  // Tests the given settings (the form's by default) and reports whether they work.
+  const test = async (with_ = settings) => {
     setBusy(true);
     setTesting(true);
     setResult(null);
     try {
-      const res = await sourceClient.testSource({ id: source?.id ?? '', source: input() });
+      const res = await sourceClient.testSource({ id: source?.id ?? '', source: input(with_) });
       setResult(res.success
         ? { tone: 'ok', text: t('sources.testOk') }
         : { tone: 'error', text: res.message });
+      return res.success;
     } catch (e) {
       setResult({ tone: 'error', text: errorMessage(e) });
+      return false;
     } finally {
       setBusy(false);
       setTesting(false);
     }
   };
 
-  const save = async (e: FormEvent, syncNow = false) => {
-    e.preventDefault();
+  const saveWith = async (with_: Record<string, string>, syncNow = false) => {
     setBusy(true);
     try {
       const res = source
-        ? await sourceClient.updateSource({ id: source.id, source: input() })
-        : await sourceClient.createSource({ source: input() });
+        ? await sourceClient.updateSource({ id: source.id, source: input(with_) })
+        : await sourceClient.createSource({ source: input(with_) });
       onSaved(res.source!.id, syncNow);
     } catch (err) {
       setResult({ tone: 'error', text: errorMessage(err) });
       setBusy(false);
     }
   };
+
+  const save = async (e: FormEvent, syncNow = false) => {
+    e.preventDefault();
+    await saveWith(settings, syncNow);
+  };
+
+  // Connect: the extension opens the store's sign-in and returns the credential; it is tested and,
+  // when it works, saved. A failing test keeps the value in the field, with the error.
+const connectField = async (f: SettingField, recipe: Recipe) => {
+    const run = connect(type.id, f.key, recipe);
+    setConnecting({ key: f.key, cancel: run.cancel });
+    setResult(null);
+    try {
+      const value = await run.result;
+      const next = { ...settings, [f.key]: value };
+      setSettings(next);
+      if (await test(next)) await saveWith(next);
+    } catch (e) {
+      const code = e instanceof ConnectorError ? e.code : 'failed';
+      setResult({ tone: 'error', text: t(`connector.error.${code}`, { defaultValue: errorMessage(e) }) });
+    } finally {
+      setConnecting(null);
+    }
+  };
+
 
   const remove = async () => {
     if (!source || !confirm(t('sources.confirmDelete', { name: source.name }))) return;
@@ -82,7 +118,7 @@ export default function SourceDialog({ type, source, onClose, onSaved, onDeleted
     <Modal title={source ? t('sources.editTitle', { name: source.name }) : t('sources.addTitle', { type: type.name })} onClose={onClose}
       footer={<>
         {source && <button type="button" className="danger" onClick={remove} disabled={busy}>{t('common.delete')}</button>}
-        <button type="button" onClick={test} disabled={busy || consentMissing}>{testing ? t('sources.testing') : t('sources.test')}</button>
+        <button type="button" onClick={() => test()} disabled={busy || consentMissing}>{testing ? t('sources.testing') : t('sources.test')}</button>
         <span className="spacer" />
         <button type="button" onClick={onClose}>{t('common.cancel')}</button>
         {!source && <button type="button" onClick={(e) => save(e, true)} disabled={busy || consentMissing}>{t('sources.saveAndSync')}</button>}
@@ -122,7 +158,7 @@ export default function SourceDialog({ type, source, onClose, onSaved, onDeleted
             {t('sources.name')}
             <input value={name} onChange={(e) => setName(e.target.value)} />
           </label>
-          {type.fields.filter((f) => f.kind !== SettingField_Kind.CONSENT).map((f) => (
+          {type.fields.filter((f) => f.kind !== SettingField_Kind.CONSENT).map((f) => { const recipe = recipeOf(f); return (
             <div key={f.key} className="span2 field">
               <label htmlFor={`source-${f.key}`}>{t(f.labelKey)}{f.required && ' *'}</label>
               <input
@@ -134,9 +170,25 @@ export default function SourceDialog({ type, source, onClose, onSaved, onDeleted
                 onFocus={(e) => f.kind === SettingField_Kind.SECRET && e.target.select()}
                 onChange={(e) => setSettings({ ...settings, [f.key]: e.target.value })}
               />
-              {f.helpKey && <FieldHelp text={t(f.helpKey)} url={f.helpUrl} />}
+              {(f.helpUrl || recipe) && (
+                <div className="connector-row">
+                  <a className="button small-button" href={recipe?.open || f.helpUrl} target="_blank" rel="noreferrer">
+                    {t('connector.openSignIn')}<Icon name="external" size={14} />
+                  </a>
+                  {recipe && connector && recipe.version <= connector.recipeVersion && (
+                    connecting?.key === f.key
+                      ? <><span className="muted small">{t('connector.waiting')}</span><button type="button" className="small-button" onClick={connecting.cancel}>{t('common.cancel')}</button></>
+                      : <button type="button" className="small-button primary" disabled={busy || !!connecting || consentMissing} onClick={() => connectField(f, recipe)}>{t('connector.connect')}</button>
+                  )}
+                  {recipe && connector && recipe.version > connector.recipeVersion && <span className="muted small">{t('connector.update')}</span>}
+                  {recipe && !connector && <span className="muted small">{t('connector.install')} <a href="https://github.com/botchris/game-vault/tree/main/extension" target="_blank" rel="noreferrer">{t('connector.howTo')}</a></span>}
+                </div>
+              )}
+              {recipe?.private && connector && <p className="muted small">{t('connector.private')}</p>}
+              {/* The sign-in link is the button above, not repeated in the help. */}
+              {f.helpKey && <FieldHelp text={t(f.helpKey)} />}
             </div>
-          ))}
+          ); })}
           <label>
             {t('sources.interval')}
             <select value={syncHours} onChange={(e) => setSyncHours(Number(e.target.value))}>

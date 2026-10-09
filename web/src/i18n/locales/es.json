@@ -685,5 +685,23 @@
     "planned": "Precio pendiente (previsto el {{date}})",
     "addBarcode": "Añade el código de barras para estimar su precio",
     "notListed": "Ninguna fuente lo tiene a la venta · {{date}}"
+  },
+  "connector": {
+    "openSignIn": "Abrir la página de inicio de sesión",
+    "connect": "Conectar",
+    "waiting": "Inicia sesión en la pestaña que se ha abierto…",
+    "install": "En un clic con la extensión Game Vault Connector.",
+    "howTo": "Cómo instalarla",
+    "update": "Actualiza la extensión Game Vault Connector para conectar esta tienda.",
+    "private": "Ubisoft se abre en una ventana privada si permitiste la extensión en incógnito; si no, el uso que Game Vault hace de la sesión cerrará la sesión de Ubisoft en ese navegador.",
+    "error": {
+      "denied": "No se permitió a la extensión leer esa tienda, o esta dirección no está activada: abre el icono de la extensión y pulsa Activar en esta dirección.",
+      "busy": "Ya hay un inicio de sesión en marcha.",
+      "invalid": "La receta de inicio de sesión de esta tienda no es válida; actualiza Game Vault.",
+      "unsupported": "Actualiza la extensión Game Vault Connector.",
+      "cancelled": "Inicio de sesión cancelado.",
+      "timeout": "El inicio de sesión ha tardado demasiado; inténtalo de nuevo.",
+      "failed": "La extensión no pudo terminar el inicio de sesión; inténtalo de nuevo o pega el valor a mano."
+    }
   }
 }

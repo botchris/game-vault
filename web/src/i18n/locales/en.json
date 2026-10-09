@@ -685,5 +685,23 @@
     "planned": "Price pending (planned for {{date}})",
     "addBarcode": "Add the barcode to estimate its price",
     "notListed": "Not listed by any source · {{date}}"
+  },
+  "connector": {
+    "openSignIn": "Open the sign-in page",
+    "connect": "Connect",
+    "waiting": "Sign in in the tab that opened…",
+    "install": "One click with the Game Vault Connector browser extension.",
+    "howTo": "How to install it",
+    "update": "Update the Game Vault Connector extension to connect this store.",
+    "private": "Ubisoft opens in a private window if you allowed the extension in incognito; otherwise Game Vault's use of the session will sign that browser out of Ubisoft.",
+    "error": {
+      "denied": "The extension was not allowed to read that store, or this address is not enabled: open the extension's icon and press Enable on this address.",
+      "busy": "A sign-in is already running.",
+      "invalid": "This store's sign-in recipe is not valid; update Game Vault.",
+      "unsupported": "Update the Game Vault Connector extension.",
+      "cancelled": "Sign-in cancelled.",
+      "timeout": "The sign-in took too long; try again.",
+      "failed": "The extension could not finish the sign-in; try again or paste the value by hand."
+    }
   }
 }
