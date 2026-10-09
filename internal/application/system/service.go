@@ -13,6 +13,7 @@ import (
 
 	"gamevault/internal/application/port"
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/settings"
 )
 
 // DatabaseBackup is the port that writes a consistent snapshot of the database to a file.
@@ -42,6 +43,7 @@ type Backup struct {
 type Service struct {
 	games     game.Repository
 	db        DatabaseBackup
+	prefs     settings.Repository
 	now       port.Clock
 	log       *slog.Logger
 	status    Status
@@ -50,10 +52,12 @@ type Service struct {
 }
 
 // NewService builds the service. Backups are written to backupDir and only the newest keep are kept.
-func NewService(games game.Repository, db DatabaseBackup, now port.Clock, log *slog.Logger, status Status, backupDir string, keep int) *Service {
+func NewService(games game.Repository, db DatabaseBackup, prefs settings.Repository, now port.Clock, log *slog.Logger,
+	status Status, backupDir string, keep int) *Service {
 	return &Service{
 		games:     games,
 		db:        db,
+		prefs:     prefs,
 		now:       now,
 		log:       log,
 		status:    status,
@@ -183,4 +187,19 @@ func (s *Service) RunScheduledBackups(ctx context.Context, interval time.Duratio
 			}
 		}
 	}
+}
+
+// Preferences returns the user's preferences.
+func (s *Service) Preferences(ctx context.Context) (settings.Preferences, error) {
+	return s.prefs.Preferences(ctx)
+}
+
+// UpdatePreferences validates and stores the user's preferences.
+func (s *Service) UpdatePreferences(ctx context.Context, p settings.Preferences) (settings.Preferences, error) {
+	p, err := p.Validate()
+	if err != nil {
+		return p, err
+	}
+
+	return p, s.prefs.SavePreferences(ctx, p)
 }

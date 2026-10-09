@@ -34,9 +34,27 @@ var statusToPB = map[game.Status]pb.CopyStatus{
 	game.StatusSold:       pb.CopyStatus_COPY_STATUS_SOLD,
 }
 
+var gradeToPB = map[game.Grade]pb.CopyGrade{
+	game.GradeSealed:     pb.CopyGrade_COPY_GRADE_SEALED,
+	game.GradeMint:       pb.CopyGrade_COPY_GRADE_MINT,
+	game.GradeVeryGood:   pb.CopyGrade_COPY_GRADE_VERY_GOOD,
+	game.GradeGood:       pb.CopyGrade_COPY_GRADE_GOOD,
+	game.GradeAcceptable: pb.CopyGrade_COPY_GRADE_ACCEPTABLE,
+	game.GradeDamaged:    pb.CopyGrade_COPY_GRADE_DAMAGED,
+}
+
+var contentToPB = map[game.Content]pb.CopyContent{
+	game.ContentBox:    pb.CopyContent_COPY_CONTENT_BOX,
+	game.ContentManual: pb.CopyContent_COPY_CONTENT_MANUAL,
+	game.ContentMedia:  pb.CopyContent_COPY_CONTENT_MEDIA,
+	game.ContentExtras: pb.CopyContent_COPY_CONTENT_EXTRAS,
+}
+
 var (
-	kindFromPB   = invert(kindToPB)
-	statusFromPB = invert(statusToPB)
+	kindFromPB    = invert(kindToPB)
+	statusFromPB  = invert(statusToPB)
+	gradeFromPB   = invert(gradeToPB)
+	contentFromPB = invert(contentToPB)
 )
 
 func invert[K, V comparable](m map[K]V) map[V]K {
@@ -95,8 +113,10 @@ func detailsToPB(d game.CopyDetails) *pb.CopyDetails {
 		Origin:     d.Origin,
 		AcquiredOn: string(d.AcquiredOn),
 		Edition:    d.Edition,
-		Condition:  d.Condition,
+		Grade:      gradeToPB[d.Grade],
+		Contents:   contentsToPB(d.Contents),
 		Location:   d.Location,
+		Price:      moneyToPB(d.Price),
 		Notes:      d.Notes,
 		Barcode:    string(d.Barcode),
 	}
@@ -122,6 +142,11 @@ func detailsFromPB(d *pb.CopyDetails) (game.CopyDetails, error) {
 		return game.CopyDetails{}, err
 	}
 
+	contents, err := contentsFromPB(d.Contents)
+	if err != nil {
+		return game.CopyDetails{}, err
+	}
+
 	return game.CopyDetails{
 		Kind:       kindFromPB[d.Kind],
 		Platform:   d.Platform,
@@ -131,11 +156,49 @@ func detailsFromPB(d *pb.CopyDetails) (game.CopyDetails, error) {
 		Origin:     d.Origin,
 		AcquiredOn: acquired,
 		Edition:    d.Edition,
-		Condition:  d.Condition,
+		Grade:      gradeFromPB[d.Grade],
+		Contents:   contents,
 		Location:   d.Location,
-		Notes:      d.Notes,
-		Barcode:    barcode,
+		Price: game.Money{
+			Amount:   d.GetPrice().GetAmountMinor(),
+			Currency: d.GetPrice().GetCurrency(),
+		},
+		Notes:   d.Notes,
+		Barcode: barcode,
 	}, nil
+}
+
+func contentsToPB(c game.Contents) []pb.CopyContent {
+	list := c.List()
+	out := make([]pb.CopyContent, 0, len(list))
+
+	for _, x := range list {
+		out = append(out, contentToPB[x])
+	}
+
+	return out
+}
+
+func contentsFromPB(in []pb.CopyContent) (game.Contents, error) {
+	parts := make([]game.Content, 0, len(in))
+	for _, x := range in {
+		if c, ok := contentFromPB[x]; ok {
+			parts = append(parts, c)
+		}
+	}
+
+	return game.ContentsOf(parts...)
+}
+
+func moneyToPB(m game.Money) *pb.Money {
+	if m.IsZero() {
+		return nil
+	}
+
+	return &pb.Money{
+		AmountMinor: m.Amount,
+		Currency:    m.Currency,
+	}
 }
 
 func reportToPB(r *source.SyncReport) *pb.SyncReport {

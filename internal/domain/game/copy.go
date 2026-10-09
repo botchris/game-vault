@@ -57,15 +57,17 @@ type CopyDetails struct {
 	Origin     string // bundle, shop, gift...
 	AcquiredOn Date
 	Edition    string
-	Condition  string  // physical only
-	Location   string  // physical only
-	Barcode    Barcode // physical only: EAN/UPC printed on the box
+	Grade      Grade    // physical only
+	Contents   Contents // physical only
+	Location   string   // physical only
+	Barcode    Barcode  // physical only: EAN/UPC printed on the box
+	Price      Money    // what was paid, any kind
 	Notes      string
 }
 
 // normalize trims values, fills defaults and enforces the kind/status invariants.
 func (d CopyDetails) normalize() (CopyDetails, error) {
-	for _, s := range []*string{&d.Platform, &d.Key, &d.Origin, &d.Edition, &d.Condition, &d.Location, &d.Notes} {
+	for _, s := range []*string{&d.Platform, &d.Key, &d.Origin, &d.Edition, &d.Location, &d.Notes} {
 		*s = strings.TrimSpace(*s)
 	}
 
@@ -86,8 +88,23 @@ func (d CopyDetails) normalize() (CopyDetails, error) {
 		d.Key, d.RedeemBy = "", ""
 	}
 
+	if !d.Grade.Valid() {
+		return d, invalid("grade %q is not valid", d.Grade)
+	}
+
+	if !d.Contents.valid() {
+		return d, invalid("the copy's contents are not valid")
+	}
+
+	price, err := d.Price.normalize()
+	if err != nil {
+		return d, err
+	}
+
+	d.Price = price
+
 	if d.Kind != KindPhysical {
-		d.Barcode = ""
+		d.Barcode, d.Grade, d.Contents, d.Location = "", "", 0, ""
 	}
 
 	return d, nil
@@ -122,11 +139,22 @@ func (c *Copy) applyImport(in CopyDetails) bool {
 	set(&c.Key, in.Key)
 	set(&c.Origin, in.Origin)
 	set(&c.Edition, in.Edition)
-	set(&c.Condition, in.Condition)
 	set(&c.Location, in.Location)
 
 	if in.Barcode != "" {
 		c.Barcode = in.Barcode
+	}
+
+	if in.Grade != "" {
+		c.Grade = in.Grade
+	}
+
+	if in.Contents != 0 {
+		c.Contents = in.Contents
+	}
+
+	if !in.Price.IsZero() {
+		c.Price = in.Price
 	}
 
 	set(&c.Notes, in.Notes)

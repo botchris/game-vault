@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"gamevault/internal/domain/game"
@@ -12,17 +13,22 @@ import (
 	"gamevault/internal/domain/source"
 )
 
-// docVersion is the format version written into every document. Adding a field keeps it; changing
-// the meaning of one bumps it, and the decoders convert older versions when they read them (see
+// Format versions of each document kind. Adding a field keeps a version; changing the meaning of
+// one bumps it, and the decoder converts older documents when it reads them (see
 // docs/superpowers/specs/2026-10-09-json-documents-design.md).
-const docVersion = 1
+const (
+	// gameDocVersion 2 replaced the copies' free-text condition with grade and contents.
+	gameDocVersion     = 2
+	sourceDocVersion   = 1
+	providerDocVersion = 1
+)
 
 // errNewerDocument means a document was written by a newer Game Vault, whose fields this version
 // would silently drop if it read and saved it again.
 var errNewerDocument = errors.New("written by a newer version of Game Vault: update Game Vault to open this database")
 
-func checkVersion(v int) error {
-	if v > docVersion {
+func checkVersion(v, current int) error {
+	if v > current {
 		return fmt.Errorf("document version %d: %w", v, errNewerDocument)
 	}
 
@@ -53,14 +59,21 @@ type copyDoc struct {
 	Origin     string `json:"origin,omitempty"`
 	AcquiredOn string `json:"acquiredOn,omitempty"`
 	Edition    string `json:"edition,omitempty"`
-	Condition  string `json:"condition,omitempty"`
-	Location   string `json:"location,omitempty"`
-	Barcode    string `json:"barcode,omitempty"`
-	Notes      string `json:"notes,omitempty"`
-	SourceID   string `json:"sourceId,omitempty"`
-	ExternalID string `json:"externalId,omitempty"`
-	CreatedAt  string `json:"createdAt"`
-	UpdatedAt  string `json:"updatedAt"`
+
+	// Condition is the free-text condition of version-1 documents, converted when read; never
+	// written.
+	Condition     string   `json:"condition,omitempty"`
+	Grade         string   `json:"grade,omitempty"`
+	Contents      []string `json:"contents,omitempty"`
+	Location      string   `json:"location,omitempty"`
+	Barcode       string   `json:"barcode,omitempty"`
+	PriceAmount   int64    `json:"priceAmount,omitempty"`
+	PriceCurrency string   `json:"priceCurrency,omitempty"`
+	Notes         string   `json:"notes,omitempty"`
+	SourceID      string   `json:"sourceId,omitempty"`
+	ExternalID    string   `json:"externalId,omitempty"`
+	CreatedAt     string   `json:"createdAt"`
+	UpdatedAt     string   `json:"updatedAt"`
 }
 
 // sourceDoc is the stored form of a source.Source.
@@ -111,7 +124,7 @@ func encode(doc any) (string, error) {
 func encodeGame(g *game.Game) (string, error) {
 	info := g.Info()
 	doc := gameDoc{
-		V:         docVersion,
+		V:         gameDocVersion,
 		Title:     info.Title,
 		Links:     info.Links,
 		Notes:     info.Notes,
@@ -122,23 +135,26 @@ func encodeGame(g *game.Game) (string, error) {
 
 	for _, c := range g.Copies() {
 		doc.Copies = append(doc.Copies, copyDoc{
-			ID:         string(c.ID),
-			Kind:       string(c.Kind),
-			Platform:   c.Platform,
-			Status:     string(c.Status),
-			Key:        c.Key,
-			RedeemBy:   string(c.RedeemBy),
-			Origin:     c.Origin,
-			AcquiredOn: string(c.AcquiredOn),
-			Edition:    c.Edition,
-			Condition:  c.Condition,
-			Location:   c.Location,
-			Barcode:    string(c.Barcode),
-			Notes:      c.Notes,
-			SourceID:   c.SourceID,
-			ExternalID: c.ExternalID,
-			CreatedAt:  formatTime(c.CreatedAt),
-			UpdatedAt:  formatTime(c.UpdatedAt),
+			ID:            string(c.ID),
+			Kind:          string(c.Kind),
+			Platform:      c.Platform,
+			Status:        string(c.Status),
+			Key:           c.Key,
+			RedeemBy:      string(c.RedeemBy),
+			Origin:        c.Origin,
+			AcquiredOn:    string(c.AcquiredOn),
+			Edition:       c.Edition,
+			Grade:         string(c.Grade),
+			Contents:      contentStrings(c.Contents),
+			Location:      c.Location,
+			Barcode:       string(c.Barcode),
+			PriceAmount:   c.Price.Amount,
+			PriceCurrency: c.Price.Currency,
+			Notes:         c.Notes,
+			SourceID:      c.SourceID,
+			ExternalID:    c.ExternalID,
+			CreatedAt:     formatTime(c.CreatedAt),
+			UpdatedAt:     formatTime(c.UpdatedAt),
 		})
 	}
 
@@ -151,13 +167,18 @@ func decodeGame(id game.ID, raw string) (*game.Game, error) {
 		return nil, err
 	}
 
-	if err := checkVersion(doc.V); err != nil {
+	if err := checkVersion(doc.V, gameDocVersion); err != nil {
 		return nil, err
 	}
 
 	copies := make([]game.Copy, 0, len(doc.Copies))
 	for _, c := range doc.Copies {
-		copies = append(copies, game.Copy{
+		contents, err := contentsOf(c.Contents)
+		if err != nil {
+			return nil, err
+		}
+
+		cp := game.Copy{
 			ID: game.ID(c.ID),
 			CopyDetails: game.CopyDetails{
 				Kind:       game.Kind(c.Kind),
@@ -168,16 +189,31 @@ func decodeGame(id game.ID, raw string) (*game.Game, error) {
 				Origin:     c.Origin,
 				AcquiredOn: game.Date(c.AcquiredOn),
 				Edition:    c.Edition,
-				Condition:  c.Condition,
+				Grade:      game.Grade(c.Grade),
+				Contents:   contents,
 				Location:   c.Location,
 				Barcode:    game.Barcode(c.Barcode),
-				Notes:      c.Notes,
+				Price: game.Money{
+					Amount:   c.PriceAmount,
+					Currency: c.PriceCurrency,
+				},
+				Notes: c.Notes,
 			},
 			SourceID:   c.SourceID,
 			ExternalID: c.ExternalID,
 			CreatedAt:  parseTime(c.CreatedAt),
 			UpdatedAt:  parseTime(c.UpdatedAt),
-		})
+		}
+
+		if doc.V < 2 && strings.TrimSpace(c.Condition) != "" {
+			if grade, contents, ok := convertCondition(c.Condition); ok {
+				cp.Grade, cp.Contents = grade, contents
+			} else {
+				cp.Notes = strings.TrimSpace(cp.Notes + "\nCondition: " + strings.TrimSpace(c.Condition))
+			}
+		}
+
+		copies = append(copies, cp)
 	}
 
 	info := game.Info{
@@ -192,7 +228,7 @@ func decodeGame(id game.ID, raw string) (*game.Game, error) {
 
 func encodeSource(s *source.Source) (string, error) {
 	doc := sourceDoc{
-		V:                   docVersion,
+		V:                   sourceDocVersion,
 		Type:                string(s.Type()),
 		Name:                s.Name(),
 		Enabled:             s.Enabled(),
@@ -216,7 +252,7 @@ func decodeSource(id source.ID, raw string) (*source.Source, error) {
 		return nil, err
 	}
 
-	if err := checkVersion(doc.V); err != nil {
+	if err := checkVersion(doc.V, sourceDocVersion); err != nil {
 		return nil, err
 	}
 
@@ -238,7 +274,7 @@ func decodeSource(id source.ID, raw string) (*source.Source, error) {
 
 func encodeProvider(p *provider.Provider) (string, error) {
 	return encode(providerDoc{
-		V:         docVersion,
+		V:         providerDocVersion,
 		Kind:      string(p.Kind()),
 		Enabled:   p.Enabled(),
 		Priority:  p.Priority(),
@@ -253,7 +289,7 @@ func decodeProvider(id provider.ID, raw string) (*provider.Provider, error) {
 		return nil, err
 	}
 
-	if err := checkVersion(doc.V); err != nil {
+	if err := checkVersion(doc.V, providerDocVersion); err != nil {
 		return nil, err
 	}
 
@@ -262,4 +298,52 @@ func decodeProvider(id provider.ID, raw string) (*provider.Provider, error) {
 	}
 
 	return provider.Rehydrate(id, provider.Kind(doc.Kind), doc.Enabled, doc.Priority, doc.Settings, parseTime(doc.UpdatedAt)), nil
+}
+
+func contentStrings(c game.Contents) []string {
+	out := make([]string, 0, len(game.AllContents))
+	for _, x := range c.List() {
+		out = append(out, string(x))
+	}
+
+	return out
+}
+
+func contentsOf(raw []string) (game.Contents, error) {
+	parts := make([]game.Content, 0, len(raw))
+	for _, s := range raw {
+		parts = append(parts, game.Content(s))
+	}
+
+	return game.ContentsOf(parts...)
+}
+
+// oldConditions maps the texts the copy form suggested before version 2 (in the UI language of the
+// time: English or Spanish) to a grade and contents.
+var oldConditions = map[string]struct {
+	grade    game.Grade
+	contents []game.Content
+}{
+	"sealed":                   {game.GradeSealed, []game.Content{game.ContentBox, game.ContentManual, game.ContentMedia}},
+	"precintado":               {game.GradeSealed, []game.Content{game.ContentBox, game.ContentManual, game.ContentMedia}},
+	"complete (case + manual)": {"", []game.Content{game.ContentBox, game.ContentManual, game.ContentMedia}},
+	"completo (caja + manual)": {"", []game.Content{game.ContentBox, game.ContentManual, game.ContentMedia}},
+	"case and disc":            {"", []game.Content{game.ContentBox, game.ContentMedia}},
+	"caja y disco":             {"", []game.Content{game.ContentBox, game.ContentMedia}},
+	"disc only":                {"", []game.Content{game.ContentMedia}},
+	"sólo disco":               {"", []game.Content{game.ContentMedia}},
+	"damaged":                  {game.GradeDamaged, nil},
+	"dañado":                   {game.GradeDamaged, nil},
+}
+
+// convertCondition reads a version-1 condition; ok is false for text that is not one of them.
+func convertCondition(text string) (game.Grade, game.Contents, bool) {
+	old, ok := oldConditions[strings.ToLower(strings.TrimSpace(text))]
+	if !ok {
+		return "", 0, false
+	}
+
+	contents, _ := game.ContentsOf(old.contents...) // the table only holds known contents
+
+	return old.grade, contents, true
 }

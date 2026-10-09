@@ -75,12 +75,28 @@ it once saved. How to write one: [`docs/plugins.md`](plugins.md).
 | Concept          | Kind                  | Notes |
 |------------------|-----------------------|-------|
 | `Game`           | Aggregate root        | Title, links to stores (`{"steam": "620"}`), notes, and its copies. Every copy change goes through the game. |
-| `Copy`           | Entity inside `Game`  | `kind` is `key`, `library` or `physical`. `status` must be valid for the kind. Holds platform, key, redeem-by date, origin, edition, condition, location. |
+| `Copy`           | Entity inside `Game`  | `kind` is `key`, `library` or `physical`. `status` must be valid for the kind. Holds platform, key, redeem-by date, origin, edition, purchase date and price (any kind), and for physical copies grade, contents and location. |
 | `Source`         | Aggregate root        | A scanned account: type, settings (secrets masked towards clients), interval, last sync report. |
 | `Consolidator`   | Domain service        | Merges imported copies into the catalog. It matches by external id, then by any store link the copy shares with a game, then by normalised title (no trademarks, brackets, edition words or "<store> key", so "Hades - GOG Key" is "hades"); if nothing matches it creates a new game. |
 
 A key is **redundant** when it is pending (unrevealed or revealed) and the same game already has a `library` copy on the same platform. It is a key you can gift.
 Re-scans never move a key you marked as `redeemed` back to pending.
+
+**Physical copies** have a **grade** (sealed, mint, very good, good, acceptable, damaged, or not
+stated) and **contents** (box, manual, disc or cartridge, extras), stored as a set. Any copy can have
+a **purchase price**: an amount in the currency's minor unit (cents for EUR, yen for JPY, fils for
+BHD) and its ISO 4217 code; Game Vault never converts currencies. The **default currency** (System →
+Preferences, stored in the `settings` table) fills new prices and CSV rows without a currency; until
+it is saved the UI proposes the browser region's currency. Scans never set or clear grade, contents
+or price. Game documents are version 2: the free-text `condition` of version-1 documents is
+converted when read (the five texts the form used to suggest, in English or Spanish, become a grade
+and contents; anything else is appended to the notes as `Condition: …`).
+
+**CSV** (System → import / export) is English only: `title, platform, kind, status, key, redeemBy,
+origin, acquiredOn, edition, grade, contents, location, price, currency, notes, links, externalId,
+barcode`. `grade` and `contents` take the values above (`very_good`, `box manual media`), `price` a
+dot or comma decimal with at most the currency's decimals. Unknown columns and invalid values are
+reported per row; the row is still imported.
 
 ## Configuration
 

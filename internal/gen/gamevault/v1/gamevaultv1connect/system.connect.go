@@ -45,6 +45,12 @@ const (
 	SystemServiceImportCsvProcedure = "/gamevault.v1.SystemService/ImportCsv"
 	// SystemServiceExportCsvProcedure is the fully-qualified name of the SystemService's ExportCsv RPC.
 	SystemServiceExportCsvProcedure = "/gamevault.v1.SystemService/ExportCsv"
+	// SystemServiceGetPreferencesProcedure is the fully-qualified name of the SystemService's
+	// GetPreferences RPC.
+	SystemServiceGetPreferencesProcedure = "/gamevault.v1.SystemService/GetPreferences"
+	// SystemServiceUpdatePreferencesProcedure is the fully-qualified name of the SystemService's
+	// UpdatePreferences RPC.
+	SystemServiceUpdatePreferencesProcedure = "/gamevault.v1.SystemService/UpdatePreferences"
 )
 
 // SystemServiceClient is a client for the gamevault.v1.SystemService service.
@@ -54,6 +60,8 @@ type SystemServiceClient interface {
 	CreateBackup(context.Context, *connect.Request[v1.CreateBackupRequest]) (*connect.Response[v1.CreateBackupResponse], error)
 	ImportCsv(context.Context, *connect.Request[v1.ImportCsvRequest]) (*connect.Response[v1.ImportCsvResponse], error)
 	ExportCsv(context.Context, *connect.Request[v1.ExportCsvRequest]) (*connect.Response[v1.ExportCsvResponse], error)
+	GetPreferences(context.Context, *connect.Request[v1.GetPreferencesRequest]) (*connect.Response[v1.GetPreferencesResponse], error)
+	UpdatePreferences(context.Context, *connect.Request[v1.UpdatePreferencesRequest]) (*connect.Response[v1.UpdatePreferencesResponse], error)
 }
 
 // NewSystemServiceClient constructs a client for the gamevault.v1.SystemService service. By
@@ -97,16 +105,30 @@ func NewSystemServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(systemServiceMethods.ByName("ExportCsv")),
 			connect.WithClientOptions(opts...),
 		),
+		getPreferences: connect.NewClient[v1.GetPreferencesRequest, v1.GetPreferencesResponse](
+			httpClient,
+			baseURL+SystemServiceGetPreferencesProcedure,
+			connect.WithSchema(systemServiceMethods.ByName("GetPreferences")),
+			connect.WithClientOptions(opts...),
+		),
+		updatePreferences: connect.NewClient[v1.UpdatePreferencesRequest, v1.UpdatePreferencesResponse](
+			httpClient,
+			baseURL+SystemServiceUpdatePreferencesProcedure,
+			connect.WithSchema(systemServiceMethods.ByName("UpdatePreferences")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // systemServiceClient implements SystemServiceClient.
 type systemServiceClient struct {
-	getStatus    *connect.Client[v1.GetStatusRequest, v1.GetStatusResponse]
-	listBackups  *connect.Client[v1.ListBackupsRequest, v1.ListBackupsResponse]
-	createBackup *connect.Client[v1.CreateBackupRequest, v1.CreateBackupResponse]
-	importCsv    *connect.Client[v1.ImportCsvRequest, v1.ImportCsvResponse]
-	exportCsv    *connect.Client[v1.ExportCsvRequest, v1.ExportCsvResponse]
+	getStatus         *connect.Client[v1.GetStatusRequest, v1.GetStatusResponse]
+	listBackups       *connect.Client[v1.ListBackupsRequest, v1.ListBackupsResponse]
+	createBackup      *connect.Client[v1.CreateBackupRequest, v1.CreateBackupResponse]
+	importCsv         *connect.Client[v1.ImportCsvRequest, v1.ImportCsvResponse]
+	exportCsv         *connect.Client[v1.ExportCsvRequest, v1.ExportCsvResponse]
+	getPreferences    *connect.Client[v1.GetPreferencesRequest, v1.GetPreferencesResponse]
+	updatePreferences *connect.Client[v1.UpdatePreferencesRequest, v1.UpdatePreferencesResponse]
 }
 
 // GetStatus calls gamevault.v1.SystemService.GetStatus.
@@ -134,6 +156,16 @@ func (c *systemServiceClient) ExportCsv(ctx context.Context, req *connect.Reques
 	return c.exportCsv.CallUnary(ctx, req)
 }
 
+// GetPreferences calls gamevault.v1.SystemService.GetPreferences.
+func (c *systemServiceClient) GetPreferences(ctx context.Context, req *connect.Request[v1.GetPreferencesRequest]) (*connect.Response[v1.GetPreferencesResponse], error) {
+	return c.getPreferences.CallUnary(ctx, req)
+}
+
+// UpdatePreferences calls gamevault.v1.SystemService.UpdatePreferences.
+func (c *systemServiceClient) UpdatePreferences(ctx context.Context, req *connect.Request[v1.UpdatePreferencesRequest]) (*connect.Response[v1.UpdatePreferencesResponse], error) {
+	return c.updatePreferences.CallUnary(ctx, req)
+}
+
 // SystemServiceHandler is an implementation of the gamevault.v1.SystemService service.
 type SystemServiceHandler interface {
 	GetStatus(context.Context, *connect.Request[v1.GetStatusRequest]) (*connect.Response[v1.GetStatusResponse], error)
@@ -141,6 +173,8 @@ type SystemServiceHandler interface {
 	CreateBackup(context.Context, *connect.Request[v1.CreateBackupRequest]) (*connect.Response[v1.CreateBackupResponse], error)
 	ImportCsv(context.Context, *connect.Request[v1.ImportCsvRequest]) (*connect.Response[v1.ImportCsvResponse], error)
 	ExportCsv(context.Context, *connect.Request[v1.ExportCsvRequest]) (*connect.Response[v1.ExportCsvResponse], error)
+	GetPreferences(context.Context, *connect.Request[v1.GetPreferencesRequest]) (*connect.Response[v1.GetPreferencesResponse], error)
+	UpdatePreferences(context.Context, *connect.Request[v1.UpdatePreferencesRequest]) (*connect.Response[v1.UpdatePreferencesResponse], error)
 }
 
 // NewSystemServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -180,6 +214,18 @@ func NewSystemServiceHandler(svc SystemServiceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(systemServiceMethods.ByName("ExportCsv")),
 		connect.WithHandlerOptions(opts...),
 	)
+	systemServiceGetPreferencesHandler := connect.NewUnaryHandler(
+		SystemServiceGetPreferencesProcedure,
+		svc.GetPreferences,
+		connect.WithSchema(systemServiceMethods.ByName("GetPreferences")),
+		connect.WithHandlerOptions(opts...),
+	)
+	systemServiceUpdatePreferencesHandler := connect.NewUnaryHandler(
+		SystemServiceUpdatePreferencesProcedure,
+		svc.UpdatePreferences,
+		connect.WithSchema(systemServiceMethods.ByName("UpdatePreferences")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/gamevault.v1.SystemService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case SystemServiceGetStatusProcedure:
@@ -192,6 +238,10 @@ func NewSystemServiceHandler(svc SystemServiceHandler, opts ...connect.HandlerOp
 			systemServiceImportCsvHandler.ServeHTTP(w, r)
 		case SystemServiceExportCsvProcedure:
 			systemServiceExportCsvHandler.ServeHTTP(w, r)
+		case SystemServiceGetPreferencesProcedure:
+			systemServiceGetPreferencesHandler.ServeHTTP(w, r)
+		case SystemServiceUpdatePreferencesProcedure:
+			systemServiceUpdatePreferencesHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -219,4 +269,12 @@ func (UnimplementedSystemServiceHandler) ImportCsv(context.Context, *connect.Req
 
 func (UnimplementedSystemServiceHandler) ExportCsv(context.Context, *connect.Request[v1.ExportCsvRequest]) (*connect.Response[v1.ExportCsvResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gamevault.v1.SystemService.ExportCsv is not implemented"))
+}
+
+func (UnimplementedSystemServiceHandler) GetPreferences(context.Context, *connect.Request[v1.GetPreferencesRequest]) (*connect.Response[v1.GetPreferencesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gamevault.v1.SystemService.GetPreferences is not implemented"))
+}
+
+func (UnimplementedSystemServiceHandler) UpdatePreferences(context.Context, *connect.Request[v1.UpdatePreferencesRequest]) (*connect.Response[v1.UpdatePreferencesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gamevault.v1.SystemService.UpdatePreferences is not implemented"))
 }

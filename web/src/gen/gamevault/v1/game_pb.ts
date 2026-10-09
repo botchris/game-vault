@@ -12,7 +12,32 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file gamevault/v1/game.proto.
  */
 export const file_gamevault_v1_game: GenFile = /*@__PURE__*/
-  fileDesc("ChdnYW1ldmF1bHQvdjEvZ2FtZS5wcm90bxIMZ2FtZXZhdWx0LnYxIooCCgtDb3B5RGV0YWlscxIkCgRraW5kGAEgASgOMhYuZ2FtZXZhdWx0LnYxLkNvcHlLaW5kEhAKCHBsYXRmb3JtGAIgASgJEigKBnN0YXR1cxgDIAEoDjIYLmdhbWV2YXVsdC52MS5Db3B5U3RhdHVzEgsKA2tleRgEIAEoCRIRCglyZWRlZW1fYnkYBSABKAkSDgoGb3JpZ2luGAYgASgJEhMKC2FjcXVpcmVkX29uGAcgASgJEg8KB2VkaXRpb24YCCABKAkSEQoJY29uZGl0aW9uGAkgASgJEhAKCGxvY2F0aW9uGAogASgJEg0KBW5vdGVzGAsgASgJEg8KB2JhcmNvZGUYDCABKAki2QEKBENvcHkSCgoCaWQYASABKAkSKgoHZGV0YWlscxgCIAEoCzIZLmdhbWV2YXVsdC52MS5Db3B5RGV0YWlscxIRCglzb3VyY2VfaWQYAyABKAkSEwoLZXh0ZXJuYWxfaWQYBCABKAkSEQoJcmVkdW5kYW50GAUgASgIEi4KCmNyZWF0ZWRfYXQYBiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIt0CCgRHYW1lEgoKAmlkGAEgASgJEg0KBXRpdGxlGAIgASgJEg0KBW5vdGVzGAQgASgJEiIKBmNvcGllcxgFIAMoCzISLmdhbWV2YXVsdC52MS5Db3B5Ei4KCmNyZWF0ZWRfYXQYBiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhEKCWNvdmVyX3VybBgIIAEoCRIOCgZnZW5yZXMYCSADKAkSFAoMcmVsZWFzZV95ZWFyGAogASgFEiwKBWxpbmtzGAsgAygLMh0uZ2FtZXZhdWx0LnYxLkdhbWUuTGlua3NFbnRyeRosCgpMaW5rc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAFKBAgDEARSDHN0ZWFtX2FwcF9pZCIkChBMaXN0R2FtZXNSZXF1ZXN0EhAKCGxhbmd1YWdlGAEgASgJIk4KEUxpc3RHYW1lc1Jlc3BvbnNlEiEKBWdhbWVzGAEgAygLMhIuZ2FtZXZhdWx0LnYxLkdhbWUSFgoOZGV0YWlsc19jYWNoZWQYAiABKAUiHAoOR2V0R2FtZVJlcXVlc3QSCgoCaWQYASABKAkiMwoPR2V0R2FtZVJlc3BvbnNlEiAKBGdhbWUYASABKAsyEi5nYW1ldmF1bHQudjEuR2FtZSLsAQoRQ3JlYXRlR2FtZVJlcXVlc3QSDQoFdGl0bGUYASABKAkSDQoFbm90ZXMYAyABKAkSKQoGY29waWVzGAQgAygLMhkuZ2FtZXZhdWx0LnYxLkNvcHlEZXRhaWxzEhEKCWNvdmVyX3VybBgFIAEoCRI5CgVsaW5rcxgGIAMoCzIqLmdhbWV2YXVsdC52MS5DcmVhdGVHYW1lUmVxdWVzdC5MaW5rc0VudHJ5GiwKCkxpbmtzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4AUoECAIQA1IMc3RlYW1fYXBwX2lkIjYKEkNyZWF0ZUdhbWVSZXNwb25zZRIgCgRnYW1lGAEgASgLMhIuZ2FtZXZhdWx0LnYxLkdhbWUizQEKEVVwZGF0ZUdhbWVSZXF1ZXN0EgoKAmlkGAEgASgJEg0KBXRpdGxlGAIgASgJEg0KBW5vdGVzGAQgASgJEhEKCWNvdmVyX3VybBgFIAEoCRI5CgVsaW5rcxgGIAMoCzIqLmdhbWV2YXVsdC52MS5VcGRhdGVHYW1lUmVxdWVzdC5MaW5rc0VudHJ5GiwKCkxpbmtzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4AUoECAMQBFIMc3RlYW1fYXBwX2lkIjYKElVwZGF0ZUdhbWVSZXNwb25zZRIgCgRnYW1lGAEgASgLMhIuZ2FtZXZhdWx0LnYxLkdhbWUiHwoRRGVsZXRlR2FtZVJlcXVlc3QSCgoCaWQYASABKAkiFAoSRGVsZXRlR2FtZVJlc3BvbnNlIjoKEU1lcmdlR2FtZXNSZXF1ZXN0EhEKCXRhcmdldF9pZBgBIAEoCRISCgpzb3VyY2VfaWRzGAIgAygJIjYKEk1lcmdlR2FtZXNSZXNwb25zZRIgCgRnYW1lGAEgASgLMhIuZ2FtZXZhdWx0LnYxLkdhbWUiTQoOQWRkQ29weVJlcXVlc3QSDwoHZ2FtZV9pZBgBIAEoCRIqCgdkZXRhaWxzGAIgASgLMhkuZ2FtZXZhdWx0LnYxLkNvcHlEZXRhaWxzIjMKD0FkZENvcHlSZXNwb25zZRIgCgRnYW1lGAEgASgLMhIuZ2FtZXZhdWx0LnYxLkdhbWUiYQoRVXBkYXRlQ29weVJlcXVlc3QSDwoHZ2FtZV9pZBgBIAEoCRIPCgdjb3B5X2lkGAIgASgJEioKB2RldGFpbHMYAyABKAsyGS5nYW1ldmF1bHQudjEuQ29weURldGFpbHMiNgoSVXBkYXRlQ29weVJlc3BvbnNlEiAKBGdhbWUYASABKAsyEi5nYW1ldmF1bHQudjEuR2FtZSI1ChFEZWxldGVDb3B5UmVxdWVzdBIPCgdnYW1lX2lkGAEgASgJEg8KB2NvcHlfaWQYAiABKAkiNgoSRGVsZXRlQ29weVJlc3BvbnNlEiAKBGdhbWUYASABKAsyEi5nYW1ldmF1bHQudjEuR2FtZSJjCg9Nb3ZlQ29weVJlcXVlc3QSDwoHZ2FtZV9pZBgBIAEoCRIPCgdjb3B5X2lkGAIgASgJEhYKDnRhcmdldF9nYW1lX2lkGAMgASgJEhYKDm5ld19nYW1lX3RpdGxlGAQgASgJImQKEE1vdmVDb3B5UmVzcG9uc2USJwoLc291cmNlX2dhbWUYASABKAsyEi5nYW1ldmF1bHQudjEuR2FtZRInCgt0YXJnZXRfZ2FtZRgCIAEoCzISLmdhbWV2YXVsdC52MS5HYW1lIhkKF01hcmtSZWRlZW1lZEtleXNSZXF1ZXN0IisKGE1hcmtSZWRlZW1lZEtleXNSZXNwb25zZRIPCgd1cGRhdGVkGAEgASgFIhcKFUxpc3RMaW5rU3RvcmVzUmVxdWVzdCJMCglMaW5rU3RvcmUSCwoDa2V5GAEgASgJEgwKBG5hbWUYAiABKAkSEAoIcGFnZV91cmwYAyABKAkSEgoKc2VhcmNoYWJsZRgEIAEoCCJBChZMaXN0TGlua1N0b3Jlc1Jlc3BvbnNlEicKBnN0b3JlcxgBIAMoCzIXLmdhbWV2YXVsdC52MS5MaW5rU3RvcmUiMgoSU2VhcmNoTGlua3NSZXF1ZXN0Eg0KBXN0b3JlGAEgASgJEg0KBXF1ZXJ5GAIgASgJIjgKCUxpbmtNYXRjaBIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhEKCWltYWdlX3VybBgDIAEoCSI/ChNTZWFyY2hMaW5rc1Jlc3BvbnNlEigKB21hdGNoZXMYASADKAsyFy5nYW1ldmF1bHQudjEuTGlua01hdGNoKmcKCENvcHlLaW5kEhkKFUNPUFlfS0lORF9VTlNQRUNJRklFRBAAEhEKDUNPUFlfS0lORF9LRVkQARIVChFDT1BZX0tJTkRfTElCUkFSWRACEhYKEkNPUFlfS0lORF9QSFlTSUNBTBADKu0BCgpDb3B5U3RhdHVzEhsKF0NPUFlfU1RBVFVTX1VOU1BFQ0lGSUVEEAASGgoWQ09QWV9TVEFUVVNfVU5SRVZFQUxFRBABEhgKFENPUFlfU1RBVFVTX1JFVkVBTEVEEAISGAoUQ09QWV9TVEFUVVNfUkVERUVNRUQQAxIWChJDT1BZX1NUQVRVU19HSUZURUQQBBIXChNDT1BZX1NUQVRVU19FWFBJUkVEEAUSFQoRQ09QWV9TVEFUVVNfT1dORUQQBhIUChBDT1BZX1NUQVRVU19MRU5UEAcSFAoQQ09QWV9TVEFUVVNfU09MRBAIMrAICgtHYW1lU2VydmljZRJMCglMaXN0R2FtZXMSHi5nYW1ldmF1bHQudjEuTGlzdEdhbWVzUmVxdWVzdBofLmdhbWV2YXVsdC52MS5MaXN0R2FtZXNSZXNwb25zZRJGCgdHZXRHYW1lEhwuZ2FtZXZhdWx0LnYxLkdldEdhbWVSZXF1ZXN0Gh0uZ2FtZXZhdWx0LnYxLkdldEdhbWVSZXNwb25zZRJPCgpDcmVhdGVHYW1lEh8uZ2FtZXZhdWx0LnYxLkNyZWF0ZUdhbWVSZXF1ZXN0GiAuZ2FtZXZhdWx0LnYxLkNyZWF0ZUdhbWVSZXNwb25zZRJPCgpVcGRhdGVHYW1lEh8uZ2FtZXZhdWx0LnYxLlVwZGF0ZUdhbWVSZXF1ZXN0GiAuZ2FtZXZhdWx0LnYxLlVwZGF0ZUdhbWVSZXNwb25zZRJPCgpEZWxldGVHYW1lEh8uZ2FtZXZhdWx0LnYxLkRlbGV0ZUdhbWVSZXF1ZXN0GiAuZ2FtZXZhdWx0LnYxLkRlbGV0ZUdhbWVSZXNwb25zZRJPCgpNZXJnZUdhbWVzEh8uZ2FtZXZhdWx0LnYxLk1lcmdlR2FtZXNSZXF1ZXN0GiAuZ2FtZXZhdWx0LnYxLk1lcmdlR2FtZXNSZXNwb25zZRJGCgdBZGRDb3B5EhwuZ2FtZXZhdWx0LnYxLkFkZENvcHlSZXF1ZXN0Gh0uZ2FtZXZhdWx0LnYxLkFkZENvcHlSZXNwb25zZRJPCgpVcGRhdGVDb3B5Eh8uZ2FtZXZhdWx0LnYxLlVwZGF0ZUNvcHlSZXF1ZXN0GiAuZ2FtZXZhdWx0LnYxLlVwZGF0ZUNvcHlSZXNwb25zZRJPCgpEZWxldGVDb3B5Eh8uZ2FtZXZhdWx0LnYxLkRlbGV0ZUNvcHlSZXF1ZXN0GiAuZ2FtZXZhdWx0LnYxLkRlbGV0ZUNvcHlSZXNwb25zZRJJCghNb3ZlQ29weRIdLmdhbWV2YXVsdC52MS5Nb3ZlQ29weVJlcXVlc3QaHi5nYW1ldmF1bHQudjEuTW92ZUNvcHlSZXNwb25zZRJhChBNYXJrUmVkZWVtZWRLZXlzEiUuZ2FtZXZhdWx0LnYxLk1hcmtSZWRlZW1lZEtleXNSZXF1ZXN0GiYuZ2FtZXZhdWx0LnYxLk1hcmtSZWRlZW1lZEtleXNSZXNwb25zZRJbCg5MaXN0TGlua1N0b3JlcxIjLmdhbWV2YXVsdC52MS5MaXN0TGlua1N0b3Jlc1JlcXVlc3QaJC5nYW1ldmF1bHQudjEuTGlzdExpbmtTdG9yZXNSZXNwb25zZRJSCgtTZWFyY2hMaW5rcxIgLmdhbWV2YXVsdC52MS5TZWFyY2hMaW5rc1JlcXVlc3QaIS5nYW1ldmF1bHQudjEuU2VhcmNoTGlua3NSZXNwb25zZUIxWi9nYW1ldmF1bHQvaW50ZXJuYWwvZ2VuL2dhbWV2YXVsdC92MTtnYW1ldmF1bHR2MWIGcHJvdG8z", [file_google_protobuf_timestamp]);
+  fileDesc("ChdnYW1ldmF1bHQvdjEvZ2FtZS5wcm90bxIMZ2FtZXZhdWx0LnYxIi8KBU1vbmV5EhQKDGFtb3VudF9taW5vchgBIAEoAxIQCghjdXJyZW5jeRgCIAEoCSKBAwoLQ29weURldGFpbHMSJAoEa2luZBgBIAEoDjIWLmdhbWV2YXVsdC52MS5Db3B5S2luZBIQCghwbGF0Zm9ybRgCIAEoCRIoCgZzdGF0dXMYAyABKA4yGC5nYW1ldmF1bHQudjEuQ29weVN0YXR1cxILCgNrZXkYBCABKAkSEQoJcmVkZWVtX2J5GAUgASgJEg4KBm9yaWdpbhgGIAEoCRITCgthY3F1aXJlZF9vbhgHIAEoCRIPCgdlZGl0aW9uGAggASgJEhAKCGxvY2F0aW9uGAogASgJEg0KBW5vdGVzGAsgASgJEg8KB2JhcmNvZGUYDCABKAkSJgoFZ3JhZGUYDSABKA4yFy5nYW1ldmF1bHQudjEuQ29weUdyYWRlEisKCGNvbnRlbnRzGA4gAygOMhkuZ2FtZXZhdWx0LnYxLkNvcHlDb250ZW50EiIKBXByaWNlGA8gASgLMhMuZ2FtZXZhdWx0LnYxLk1vbmV5SgQICRAKUgljb25kaXRpb24i2QEKBENvcHkSCgoCaWQYASABKAkSKgoHZGV0YWlscxgCIAEoCzIZLmdhbWV2YXVsdC52MS5Db3B5RGV0YWlscxIRCglzb3VyY2VfaWQYAyABKAkSEwoLZXh0ZXJuYWxfaWQYBCABKAkSEQoJcmVkdW5kYW50GAUgASgIEi4KCmNyZWF0ZWRfYXQYBiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIt0CCgRHYW1lEgoKAmlkGAEgASgJEg0KBXRpdGxlGAIgASgJEg0KBW5vdGVzGAQgASgJEiIKBmNvcGllcxgFIAMoCzISLmdhbWV2YXVsdC52MS5Db3B5Ei4KCmNyZWF0ZWRfYXQYBiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhEKCWNvdmVyX3VybBgIIAEoCRIOCgZnZW5yZXMYCSADKAkSFAoMcmVsZWFzZV95ZWFyGAogASgFEiwKBWxpbmtzGAsgAygLMh0uZ2FtZXZhdWx0LnYxLkdhbWUuTGlua3NFbnRyeRosCgpMaW5rc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAFKBAgDEARSDHN0ZWFtX2FwcF9pZCIkChBMaXN0R2FtZXNSZXF1ZXN0EhAKCGxhbmd1YWdlGAEgASgJIk4KEUxpc3RHYW1lc1Jlc3BvbnNlEiEKBWdhbWVzGAEgAygLMhIuZ2FtZXZhdWx0LnYxLkdhbWUSFgoOZGV0YWlsc19jYWNoZWQYAiABKAUiHAoOR2V0R2FtZVJlcXVlc3QSCgoCaWQYASABKAkiMwoPR2V0R2FtZVJlc3BvbnNlEiAKBGdhbWUYASABKAsyEi5nYW1ldmF1bHQudjEuR2FtZSLsAQoRQ3JlYXRlR2FtZVJlcXVlc3QSDQoFdGl0bGUYASABKAkSDQoFbm90ZXMYAyABKAkSKQoGY29waWVzGAQgAygLMhkuZ2FtZXZhdWx0LnYxLkNvcHlEZXRhaWxzEhEKCWNvdmVyX3VybBgFIAEoCRI5CgVsaW5rcxgGIAMoCzIqLmdhbWV2YXVsdC52MS5DcmVhdGVHYW1lUmVxdWVzdC5MaW5rc0VudHJ5GiwKCkxpbmtzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4AUoECAIQA1IMc3RlYW1fYXBwX2lkIjYKEkNyZWF0ZUdhbWVSZXNwb25zZRIgCgRnYW1lGAEgASgLMhIuZ2FtZXZhdWx0LnYxLkdhbWUizQEKEVVwZGF0ZUdhbWVSZXF1ZXN0EgoKAmlkGAEgASgJEg0KBXRpdGxlGAIgASgJEg0KBW5vdGVzGAQgASgJEhEKCWNvdmVyX3VybBgFIAEoCRI5CgVsaW5rcxgGIAMoCzIqLmdhbWV2YXVsdC52MS5VcGRhdGVHYW1lUmVxdWVzdC5MaW5rc0VudHJ5GiwKCkxpbmtzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4AUoECAMQBFIMc3RlYW1fYXBwX2lkIjYKElVwZGF0ZUdhbWVSZXNwb25zZRIgCgRnYW1lGAEgASgLMhIuZ2FtZXZhdWx0LnYxLkdhbWUiHwoRRGVsZXRlR2FtZVJlcXVlc3QSCgoCaWQYASABKAkiFAoSRGVsZXRlR2FtZVJlc3BvbnNlIjoKEU1lcmdlR2FtZXNSZXF1ZXN0EhEKCXRhcmdldF9pZBgBIAEoCRISCgpzb3VyY2VfaWRzGAIgAygJIjYKEk1lcmdlR2FtZXNSZXNwb25zZRIgCgRnYW1lGAEgASgLMhIuZ2FtZXZhdWx0LnYxLkdhbWUiTQoOQWRkQ29weVJlcXVlc3QSDwoHZ2FtZV9pZBgBIAEoCRIqCgdkZXRhaWxzGAIgASgLMhkuZ2FtZXZhdWx0LnYxLkNvcHlEZXRhaWxzIjMKD0FkZENvcHlSZXNwb25zZRIgCgRnYW1lGAEgASgLMhIuZ2FtZXZhdWx0LnYxLkdhbWUiYQoRVXBkYXRlQ29weVJlcXVlc3QSDwoHZ2FtZV9pZBgBIAEoCRIPCgdjb3B5X2lkGAIgASgJEioKB2RldGFpbHMYAyABKAsyGS5nYW1ldmF1bHQudjEuQ29weURldGFpbHMiNgoSVXBkYXRlQ29weVJlc3BvbnNlEiAKBGdhbWUYASABKAsyEi5nYW1ldmF1bHQudjEuR2FtZSI1ChFEZWxldGVDb3B5UmVxdWVzdBIPCgdnYW1lX2lkGAEgASgJEg8KB2NvcHlfaWQYAiABKAkiNgoSRGVsZXRlQ29weVJlc3BvbnNlEiAKBGdhbWUYASABKAsyEi5nYW1ldmF1bHQudjEuR2FtZSJjCg9Nb3ZlQ29weVJlcXVlc3QSDwoHZ2FtZV9pZBgBIAEoCRIPCgdjb3B5X2lkGAIgASgJEhYKDnRhcmdldF9nYW1lX2lkGAMgASgJEhYKDm5ld19nYW1lX3RpdGxlGAQgASgJImQKEE1vdmVDb3B5UmVzcG9uc2USJwoLc291cmNlX2dhbWUYASABKAsyEi5nYW1ldmF1bHQudjEuR2FtZRInCgt0YXJnZXRfZ2FtZRgCIAEoCzISLmdhbWV2YXVsdC52MS5HYW1lIhkKF01hcmtSZWRlZW1lZEtleXNSZXF1ZXN0IisKGE1hcmtSZWRlZW1lZEtleXNSZXNwb25zZRIPCgd1cGRhdGVkGAEgASgFIhcKFUxpc3RMaW5rU3RvcmVzUmVxdWVzdCJMCglMaW5rU3RvcmUSCwoDa2V5GAEgASgJEgwKBG5hbWUYAiABKAkSEAoIcGFnZV91cmwYAyABKAkSEgoKc2VhcmNoYWJsZRgEIAEoCCJBChZMaXN0TGlua1N0b3Jlc1Jlc3BvbnNlEicKBnN0b3JlcxgBIAMoCzIXLmdhbWV2YXVsdC52MS5MaW5rU3RvcmUiMgoSU2VhcmNoTGlua3NSZXF1ZXN0Eg0KBXN0b3JlGAEgASgJEg0KBXF1ZXJ5GAIgASgJIjgKCUxpbmtNYXRjaBIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhEKCWltYWdlX3VybBgDIAEoCSI/ChNTZWFyY2hMaW5rc1Jlc3BvbnNlEigKB21hdGNoZXMYASADKAsyFy5nYW1ldmF1bHQudjEuTGlua01hdGNoKmcKCENvcHlLaW5kEhkKFUNPUFlfS0lORF9VTlNQRUNJRklFRBAAEhEKDUNPUFlfS0lORF9LRVkQARIVChFDT1BZX0tJTkRfTElCUkFSWRACEhYKEkNPUFlfS0lORF9QSFlTSUNBTBADKu0BCgpDb3B5U3RhdHVzEhsKF0NPUFlfU1RBVFVTX1VOU1BFQ0lGSUVEEAASGgoWQ09QWV9TVEFUVVNfVU5SRVZFQUxFRBABEhgKFENPUFlfU1RBVFVTX1JFVkVBTEVEEAISGAoUQ09QWV9TVEFUVVNfUkVERUVNRUQQAxIWChJDT1BZX1NUQVRVU19HSUZURUQQBBIXChNDT1BZX1NUQVRVU19FWFBJUkVEEAUSFQoRQ09QWV9TVEFUVVNfT1dORUQQBhIUChBDT1BZX1NUQVRVU19MRU5UEAcSFAoQQ09QWV9TVEFUVVNfU09MRBAIKrUBCglDb3B5R3JhZGUSGgoWQ09QWV9HUkFERV9VTlNQRUNJRklFRBAAEhUKEUNPUFlfR1JBREVfU0VBTEVEEAESEwoPQ09QWV9HUkFERV9NSU5UEAISGAoUQ09QWV9HUkFERV9WRVJZX0dPT0QQAxITCg9DT1BZX0dSQURFX0dPT0QQBBIZChVDT1BZX0dSQURFX0FDQ0VQVEFCTEUQBRIWChJDT1BZX0dSQURFX0RBTUFHRUQQBiqLAQoLQ29weUNvbnRlbnQSHAoYQ09QWV9DT05URU5UX1VOU1BFQ0lGSUVEEAASFAoQQ09QWV9DT05URU5UX0JPWBABEhcKE0NPUFlfQ09OVEVOVF9NQU5VQUwQAhIWChJDT1BZX0NPTlRFTlRfTUVESUEQAxIXChNDT1BZX0NPTlRFTlRfRVhUUkFTEAQysAgKC0dhbWVTZXJ2aWNlEkwKCUxpc3RHYW1lcxIeLmdhbWV2YXVsdC52MS5MaXN0R2FtZXNSZXF1ZXN0Gh8uZ2FtZXZhdWx0LnYxLkxpc3RHYW1lc1Jlc3BvbnNlEkYKB0dldEdhbWUSHC5nYW1ldmF1bHQudjEuR2V0R2FtZVJlcXVlc3QaHS5nYW1ldmF1bHQudjEuR2V0R2FtZVJlc3BvbnNlEk8KCkNyZWF0ZUdhbWUSHy5nYW1ldmF1bHQudjEuQ3JlYXRlR2FtZVJlcXVlc3QaIC5nYW1ldmF1bHQudjEuQ3JlYXRlR2FtZVJlc3BvbnNlEk8KClVwZGF0ZUdhbWUSHy5nYW1ldmF1bHQudjEuVXBkYXRlR2FtZVJlcXVlc3QaIC5nYW1ldmF1bHQudjEuVXBkYXRlR2FtZVJlc3BvbnNlEk8KCkRlbGV0ZUdhbWUSHy5nYW1ldmF1bHQudjEuRGVsZXRlR2FtZVJlcXVlc3QaIC5nYW1ldmF1bHQudjEuRGVsZXRlR2FtZVJlc3BvbnNlEk8KCk1lcmdlR2FtZXMSHy5nYW1ldmF1bHQudjEuTWVyZ2VHYW1lc1JlcXVlc3QaIC5nYW1ldmF1bHQudjEuTWVyZ2VHYW1lc1Jlc3BvbnNlEkYKB0FkZENvcHkSHC5nYW1ldmF1bHQudjEuQWRkQ29weVJlcXVlc3QaHS5nYW1ldmF1bHQudjEuQWRkQ29weVJlc3BvbnNlEk8KClVwZGF0ZUNvcHkSHy5nYW1ldmF1bHQudjEuVXBkYXRlQ29weVJlcXVlc3QaIC5nYW1ldmF1bHQudjEuVXBkYXRlQ29weVJlc3BvbnNlEk8KCkRlbGV0ZUNvcHkSHy5nYW1ldmF1bHQudjEuRGVsZXRlQ29weVJlcXVlc3QaIC5nYW1ldmF1bHQudjEuRGVsZXRlQ29weVJlc3BvbnNlEkkKCE1vdmVDb3B5Eh0uZ2FtZXZhdWx0LnYxLk1vdmVDb3B5UmVxdWVzdBoeLmdhbWV2YXVsdC52MS5Nb3ZlQ29weVJlc3BvbnNlEmEKEE1hcmtSZWRlZW1lZEtleXMSJS5nYW1ldmF1bHQudjEuTWFya1JlZGVlbWVkS2V5c1JlcXVlc3QaJi5nYW1ldmF1bHQudjEuTWFya1JlZGVlbWVkS2V5c1Jlc3BvbnNlElsKDkxpc3RMaW5rU3RvcmVzEiMuZ2FtZXZhdWx0LnYxLkxpc3RMaW5rU3RvcmVzUmVxdWVzdBokLmdhbWV2YXVsdC52MS5MaXN0TGlua1N0b3Jlc1Jlc3BvbnNlElIKC1NlYXJjaExpbmtzEiAuZ2FtZXZhdWx0LnYxLlNlYXJjaExpbmtzUmVxdWVzdBohLmdhbWV2YXVsdC52MS5TZWFyY2hMaW5rc1Jlc3BvbnNlQjFaL2dhbWV2YXVsdC9pbnRlcm5hbC9nZW4vZ2FtZXZhdWx0L3YxO2dhbWV2YXVsdHYxYgZwcm90bzM", [file_google_protobuf_timestamp]);
+
+/**
+ * Money is an amount of an ISO 4217 currency in that currency's minor unit (cents for EUR, yen for
+ * JPY); absent or a zero amount when there is no price.
+ *
+ * @generated from message gamevault.v1.Money
+ */
+export type Money = Message<"gamevault.v1.Money"> & {
+  /**
+   * @generated from field: int64 amount_minor = 1;
+   */
+  amountMinor: bigint;
+
+  /**
+   * @generated from field: string currency = 2;
+   */
+  currency: string;
+};
+
+/**
+ * Describes the message gamevault.v1.Money.
+ * Use `create(MoneySchema)` to create a new message.
+ */
+export const MoneySchema: GenMessage<Money> = /*@__PURE__*/
+  messageDesc(file_gamevault_v1_game, 0);
 
 /**
  * CopyDetails holds the editable attributes of a copy.
@@ -71,13 +96,6 @@ export type CopyDetails = Message<"gamevault.v1.CopyDetails"> & {
   edition: string;
 
   /**
-   * Physical only: "Complete", "Disc only"...
-   *
-   * @generated from field: string condition = 9;
-   */
-  condition: string;
-
-  /**
    * Physical only: where it is stored.
    *
    * @generated from field: string location = 10;
@@ -95,6 +113,27 @@ export type CopyDetails = Message<"gamevault.v1.CopyDetails"> & {
    * @generated from field: string barcode = 12;
    */
   barcode: string;
+
+  /**
+   * Physical only: how good it looks. Unspecified: not stated.
+   *
+   * @generated from field: gamevault.v1.CopyGrade grade = 13;
+   */
+  grade: CopyGrade;
+
+  /**
+   * Physical only: what it comes with, without duplicates. Empty: not stated.
+   *
+   * @generated from field: repeated gamevault.v1.CopyContent contents = 14;
+   */
+  contents: CopyContent[];
+
+  /**
+   * What was paid; absent or zero amount: no price.
+   *
+   * @generated from field: gamevault.v1.Money price = 15;
+   */
+  price?: Money | undefined;
 };
 
 /**
@@ -102,7 +141,7 @@ export type CopyDetails = Message<"gamevault.v1.CopyDetails"> & {
  * Use `create(CopyDetailsSchema)` to create a new message.
  */
 export const CopyDetailsSchema: GenMessage<CopyDetails> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 0);
+  messageDesc(file_gamevault_v1_game, 1);
 
 /**
  * Copy is one owned instance of a game.
@@ -158,7 +197,7 @@ export type Copy = Message<"gamevault.v1.Copy"> & {
  * Use `create(CopySchema)` to create a new message.
  */
 export const CopySchema: GenMessage<Copy> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 1);
+  messageDesc(file_gamevault_v1_game, 2);
 
 /**
  * Game is the aggregate root: a title plus every copy you own of it.
@@ -233,7 +272,7 @@ export type Game = Message<"gamevault.v1.Game"> & {
  * Use `create(GameSchema)` to create a new message.
  */
 export const GameSchema: GenMessage<Game> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 2);
+  messageDesc(file_gamevault_v1_game, 3);
 
 /**
  * @generated from message gamevault.v1.ListGamesRequest
@@ -252,7 +291,7 @@ export type ListGamesRequest = Message<"gamevault.v1.ListGamesRequest"> & {
  * Use `create(ListGamesRequestSchema)` to create a new message.
  */
 export const ListGamesRequestSchema: GenMessage<ListGamesRequest> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 3);
+  messageDesc(file_gamevault_v1_game, 4);
 
 /**
  * @generated from message gamevault.v1.ListGamesResponse
@@ -276,7 +315,7 @@ export type ListGamesResponse = Message<"gamevault.v1.ListGamesResponse"> & {
  * Use `create(ListGamesResponseSchema)` to create a new message.
  */
 export const ListGamesResponseSchema: GenMessage<ListGamesResponse> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 4);
+  messageDesc(file_gamevault_v1_game, 5);
 
 /**
  * @generated from message gamevault.v1.GetGameRequest
@@ -293,7 +332,7 @@ export type GetGameRequest = Message<"gamevault.v1.GetGameRequest"> & {
  * Use `create(GetGameRequestSchema)` to create a new message.
  */
 export const GetGameRequestSchema: GenMessage<GetGameRequest> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 5);
+  messageDesc(file_gamevault_v1_game, 6);
 
 /**
  * @generated from message gamevault.v1.GetGameResponse
@@ -310,7 +349,7 @@ export type GetGameResponse = Message<"gamevault.v1.GetGameResponse"> & {
  * Use `create(GetGameResponseSchema)` to create a new message.
  */
 export const GetGameResponseSchema: GenMessage<GetGameResponse> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 6);
+  messageDesc(file_gamevault_v1_game, 7);
 
 /**
  * @generated from message gamevault.v1.CreateGameRequest
@@ -349,7 +388,7 @@ export type CreateGameRequest = Message<"gamevault.v1.CreateGameRequest"> & {
  * Use `create(CreateGameRequestSchema)` to create a new message.
  */
 export const CreateGameRequestSchema: GenMessage<CreateGameRequest> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 7);
+  messageDesc(file_gamevault_v1_game, 8);
 
 /**
  * @generated from message gamevault.v1.CreateGameResponse
@@ -366,7 +405,7 @@ export type CreateGameResponse = Message<"gamevault.v1.CreateGameResponse"> & {
  * Use `create(CreateGameResponseSchema)` to create a new message.
  */
 export const CreateGameResponseSchema: GenMessage<CreateGameResponse> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 8);
+  messageDesc(file_gamevault_v1_game, 9);
 
 /**
  * @generated from message gamevault.v1.UpdateGameRequest
@@ -405,7 +444,7 @@ export type UpdateGameRequest = Message<"gamevault.v1.UpdateGameRequest"> & {
  * Use `create(UpdateGameRequestSchema)` to create a new message.
  */
 export const UpdateGameRequestSchema: GenMessage<UpdateGameRequest> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 9);
+  messageDesc(file_gamevault_v1_game, 10);
 
 /**
  * @generated from message gamevault.v1.UpdateGameResponse
@@ -422,7 +461,7 @@ export type UpdateGameResponse = Message<"gamevault.v1.UpdateGameResponse"> & {
  * Use `create(UpdateGameResponseSchema)` to create a new message.
  */
 export const UpdateGameResponseSchema: GenMessage<UpdateGameResponse> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 10);
+  messageDesc(file_gamevault_v1_game, 11);
 
 /**
  * @generated from message gamevault.v1.DeleteGameRequest
@@ -439,7 +478,7 @@ export type DeleteGameRequest = Message<"gamevault.v1.DeleteGameRequest"> & {
  * Use `create(DeleteGameRequestSchema)` to create a new message.
  */
 export const DeleteGameRequestSchema: GenMessage<DeleteGameRequest> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 11);
+  messageDesc(file_gamevault_v1_game, 12);
 
 /**
  * @generated from message gamevault.v1.DeleteGameResponse
@@ -452,7 +491,7 @@ export type DeleteGameResponse = Message<"gamevault.v1.DeleteGameResponse"> & {
  * Use `create(DeleteGameResponseSchema)` to create a new message.
  */
 export const DeleteGameResponseSchema: GenMessage<DeleteGameResponse> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 12);
+  messageDesc(file_gamevault_v1_game, 13);
 
 /**
  * MergeGamesRequest moves every copy of source_ids into target_id and deletes the sources.
@@ -477,7 +516,7 @@ export type MergeGamesRequest = Message<"gamevault.v1.MergeGamesRequest"> & {
  * Use `create(MergeGamesRequestSchema)` to create a new message.
  */
 export const MergeGamesRequestSchema: GenMessage<MergeGamesRequest> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 13);
+  messageDesc(file_gamevault_v1_game, 14);
 
 /**
  * @generated from message gamevault.v1.MergeGamesResponse
@@ -494,7 +533,7 @@ export type MergeGamesResponse = Message<"gamevault.v1.MergeGamesResponse"> & {
  * Use `create(MergeGamesResponseSchema)` to create a new message.
  */
 export const MergeGamesResponseSchema: GenMessage<MergeGamesResponse> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 14);
+  messageDesc(file_gamevault_v1_game, 15);
 
 /**
  * @generated from message gamevault.v1.AddCopyRequest
@@ -516,7 +555,7 @@ export type AddCopyRequest = Message<"gamevault.v1.AddCopyRequest"> & {
  * Use `create(AddCopyRequestSchema)` to create a new message.
  */
 export const AddCopyRequestSchema: GenMessage<AddCopyRequest> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 15);
+  messageDesc(file_gamevault_v1_game, 16);
 
 /**
  * @generated from message gamevault.v1.AddCopyResponse
@@ -533,7 +572,7 @@ export type AddCopyResponse = Message<"gamevault.v1.AddCopyResponse"> & {
  * Use `create(AddCopyResponseSchema)` to create a new message.
  */
 export const AddCopyResponseSchema: GenMessage<AddCopyResponse> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 16);
+  messageDesc(file_gamevault_v1_game, 17);
 
 /**
  * @generated from message gamevault.v1.UpdateCopyRequest
@@ -560,7 +599,7 @@ export type UpdateCopyRequest = Message<"gamevault.v1.UpdateCopyRequest"> & {
  * Use `create(UpdateCopyRequestSchema)` to create a new message.
  */
 export const UpdateCopyRequestSchema: GenMessage<UpdateCopyRequest> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 17);
+  messageDesc(file_gamevault_v1_game, 18);
 
 /**
  * @generated from message gamevault.v1.UpdateCopyResponse
@@ -577,7 +616,7 @@ export type UpdateCopyResponse = Message<"gamevault.v1.UpdateCopyResponse"> & {
  * Use `create(UpdateCopyResponseSchema)` to create a new message.
  */
 export const UpdateCopyResponseSchema: GenMessage<UpdateCopyResponse> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 18);
+  messageDesc(file_gamevault_v1_game, 19);
 
 /**
  * @generated from message gamevault.v1.DeleteCopyRequest
@@ -599,7 +638,7 @@ export type DeleteCopyRequest = Message<"gamevault.v1.DeleteCopyRequest"> & {
  * Use `create(DeleteCopyRequestSchema)` to create a new message.
  */
 export const DeleteCopyRequestSchema: GenMessage<DeleteCopyRequest> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 19);
+  messageDesc(file_gamevault_v1_game, 20);
 
 /**
  * @generated from message gamevault.v1.DeleteCopyResponse
@@ -616,7 +655,7 @@ export type DeleteCopyResponse = Message<"gamevault.v1.DeleteCopyResponse"> & {
  * Use `create(DeleteCopyResponseSchema)` to create a new message.
  */
 export const DeleteCopyResponseSchema: GenMessage<DeleteCopyResponse> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 20);
+  messageDesc(file_gamevault_v1_game, 21);
 
 /**
  * MoveCopyRequest moves a copy to another game, or to a new game when target_game_id is empty.
@@ -652,7 +691,7 @@ export type MoveCopyRequest = Message<"gamevault.v1.MoveCopyRequest"> & {
  * Use `create(MoveCopyRequestSchema)` to create a new message.
  */
 export const MoveCopyRequestSchema: GenMessage<MoveCopyRequest> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 21);
+  messageDesc(file_gamevault_v1_game, 22);
 
 /**
  * @generated from message gamevault.v1.MoveCopyResponse
@@ -676,7 +715,7 @@ export type MoveCopyResponse = Message<"gamevault.v1.MoveCopyResponse"> & {
  * Use `create(MoveCopyResponseSchema)` to create a new message.
  */
 export const MoveCopyResponseSchema: GenMessage<MoveCopyResponse> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 22);
+  messageDesc(file_gamevault_v1_game, 23);
 
 /**
  * @generated from message gamevault.v1.MarkRedeemedKeysRequest
@@ -689,7 +728,7 @@ export type MarkRedeemedKeysRequest = Message<"gamevault.v1.MarkRedeemedKeysRequ
  * Use `create(MarkRedeemedKeysRequestSchema)` to create a new message.
  */
 export const MarkRedeemedKeysRequestSchema: GenMessage<MarkRedeemedKeysRequest> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 23);
+  messageDesc(file_gamevault_v1_game, 24);
 
 /**
  * @generated from message gamevault.v1.MarkRedeemedKeysResponse
@@ -708,7 +747,7 @@ export type MarkRedeemedKeysResponse = Message<"gamevault.v1.MarkRedeemedKeysRes
  * Use `create(MarkRedeemedKeysResponseSchema)` to create a new message.
  */
 export const MarkRedeemedKeysResponseSchema: GenMessage<MarkRedeemedKeysResponse> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 24);
+  messageDesc(file_gamevault_v1_game, 25);
 
 /**
  * @generated from message gamevault.v1.ListLinkStoresRequest
@@ -721,7 +760,7 @@ export type ListLinkStoresRequest = Message<"gamevault.v1.ListLinkStoresRequest"
  * Use `create(ListLinkStoresRequestSchema)` to create a new message.
  */
 export const ListLinkStoresRequestSchema: GenMessage<ListLinkStoresRequest> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 25);
+  messageDesc(file_gamevault_v1_game, 26);
 
 /**
  * LinkStore is a store games can be linked to.
@@ -762,7 +801,7 @@ export type LinkStore = Message<"gamevault.v1.LinkStore"> & {
  * Use `create(LinkStoreSchema)` to create a new message.
  */
 export const LinkStoreSchema: GenMessage<LinkStore> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 26);
+  messageDesc(file_gamevault_v1_game, 27);
 
 /**
  * @generated from message gamevault.v1.ListLinkStoresResponse
@@ -779,7 +818,7 @@ export type ListLinkStoresResponse = Message<"gamevault.v1.ListLinkStoresRespons
  * Use `create(ListLinkStoresResponseSchema)` to create a new message.
  */
 export const ListLinkStoresResponseSchema: GenMessage<ListLinkStoresResponse> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 27);
+  messageDesc(file_gamevault_v1_game, 28);
 
 /**
  * @generated from message gamevault.v1.SearchLinksRequest
@@ -803,7 +842,7 @@ export type SearchLinksRequest = Message<"gamevault.v1.SearchLinksRequest"> & {
  * Use `create(SearchLinksRequestSchema)` to create a new message.
  */
 export const SearchLinksRequestSchema: GenMessage<SearchLinksRequest> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 28);
+  messageDesc(file_gamevault_v1_game, 29);
 
 /**
  * LinkMatch is a game found in a store's catalog.
@@ -834,7 +873,7 @@ export type LinkMatch = Message<"gamevault.v1.LinkMatch"> & {
  * Use `create(LinkMatchSchema)` to create a new message.
  */
 export const LinkMatchSchema: GenMessage<LinkMatch> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 29);
+  messageDesc(file_gamevault_v1_game, 30);
 
 /**
  * @generated from message gamevault.v1.SearchLinksResponse
@@ -851,7 +890,7 @@ export type SearchLinksResponse = Message<"gamevault.v1.SearchLinksResponse"> & 
  * Use `create(SearchLinksResponseSchema)` to create a new message.
  */
 export const SearchLinksResponseSchema: GenMessage<SearchLinksResponse> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 30);
+  messageDesc(file_gamevault_v1_game, 31);
 
 /**
  * CopyKind describes how a copy of a game is owned.
@@ -952,6 +991,96 @@ export enum CopyStatus {
  */
 export const CopyStatusSchema: GenEnum<CopyStatus> = /*@__PURE__*/
   enumDesc(file_gamevault_v1_game, 1);
+
+/**
+ * CopyGrade is how good a physical copy looks, as collectors grade it.
+ *
+ * @generated from enum gamevault.v1.CopyGrade
+ */
+export enum CopyGrade {
+  /**
+   * @generated from enum value: COPY_GRADE_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: COPY_GRADE_SEALED = 1;
+   */
+  SEALED = 1,
+
+  /**
+   * @generated from enum value: COPY_GRADE_MINT = 2;
+   */
+  MINT = 2,
+
+  /**
+   * @generated from enum value: COPY_GRADE_VERY_GOOD = 3;
+   */
+  VERY_GOOD = 3,
+
+  /**
+   * @generated from enum value: COPY_GRADE_GOOD = 4;
+   */
+  GOOD = 4,
+
+  /**
+   * @generated from enum value: COPY_GRADE_ACCEPTABLE = 5;
+   */
+  ACCEPTABLE = 5,
+
+  /**
+   * @generated from enum value: COPY_GRADE_DAMAGED = 6;
+   */
+  DAMAGED = 6,
+}
+
+/**
+ * Describes the enum gamevault.v1.CopyGrade.
+ */
+export const CopyGradeSchema: GenEnum<CopyGrade> = /*@__PURE__*/
+  enumDesc(file_gamevault_v1_game, 2);
+
+/**
+ * CopyContent is one part of what a physical copy comes with.
+ *
+ * @generated from enum gamevault.v1.CopyContent
+ */
+export enum CopyContent {
+  /**
+   * @generated from enum value: COPY_CONTENT_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: COPY_CONTENT_BOX = 1;
+   */
+  BOX = 1,
+
+  /**
+   * @generated from enum value: COPY_CONTENT_MANUAL = 2;
+   */
+  MANUAL = 2,
+
+  /**
+   * The disc or cartridge.
+   *
+   * @generated from enum value: COPY_CONTENT_MEDIA = 3;
+   */
+  MEDIA = 3,
+
+  /**
+   * Map, poster, figure, art book…
+   *
+   * @generated from enum value: COPY_CONTENT_EXTRAS = 4;
+   */
+  EXTRAS = 4,
+}
+
+/**
+ * Describes the enum gamevault.v1.CopyContent.
+ */
+export const CopyContentSchema: GenEnum<CopyContent> = /*@__PURE__*/
+  enumDesc(file_gamevault_v1_game, 3);
 
 /**
  * GameService manages the catalog of games and their copies.

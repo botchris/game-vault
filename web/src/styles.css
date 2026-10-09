@@ -990,3 +990,12 @@ button.pbadge:active:not(:disabled) { transform: scale(0.94); }
 /* Security settings */
 .security-form textarea { font-family: var(--mono); font-size: 14px; resize: vertical; }
 .security-form .help { font-size: 13px; color: var(--muted); }
+
+/* ---------- Copy grade, contents and price ---------- */
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field-label { font-size: 13px; color: var(--muted); font-weight: 550; }
+.toggles { display: flex; flex-wrap: wrap; gap: 6px; }
+.toggle { border-radius: 999px; padding: 6px 12px; font-size: 14px; }
+.toggle.on { background: var(--accent); border-color: var(--accent-strong); color: var(--accent-text); }
+select.currency { flex: 0 0 auto; width: auto; }
+.help.error { color: var(--danger); }

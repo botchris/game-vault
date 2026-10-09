@@ -1,5 +1,5 @@
 import { timestampDate, type Timestamp } from '@bufbuild/protobuf/wkt';
-import { CopyKind, CopyStatus, type Copy, type CopyDetails, type Game } from '../gen/gamevault/v1/game_pb';
+import { CopyContent, CopyGrade, CopyKind, CopyStatus, type Copy, type CopyDetails, type Game } from '../gen/gamevault/v1/game_pb';
 
 export { CopyKind, CopyStatus };
 export type { Copy, CopyDetails, Game };
@@ -39,8 +39,22 @@ export const PHYSICAL_PLATFORMS = [
 export function emptyDetails(kind: CopyKind = CopyKind.PHYSICAL): CopyDetailsInput {
   return {
     kind, platform: '', status: STATUSES_BY_KIND[kind][0], key: '', redeemBy: '', origin: '',
-    acquiredOn: '', edition: '', condition: '', location: '', notes: '', barcode: '',
+    acquiredOn: '', edition: '', grade: CopyGrade.UNSPECIFIED, contents: [], location: '', notes: '', barcode: '',
   };
+}
+
+export const GRADES = [CopyGrade.SEALED, CopyGrade.MINT, CopyGrade.VERY_GOOD, CopyGrade.GOOD, CopyGrade.ACCEPTABLE, CopyGrade.DAMAGED] as const;
+export const CONTENTS = [CopyContent.BOX, CopyContent.MANUAL, CopyContent.MEDIA, CopyContent.EXTRAS] as const;
+
+/** Translation key suffixes: t(`grade.${gradeKey(g)}`), t(`content.${contentKey(c)}`). */
+export const gradeKey = (g: CopyGrade) => CopyGrade[g].toLowerCase();
+export const contentKey = (c: CopyContent) => CopyContent[c].toLowerCase();
+
+/** The distinct places copies are kept in, sorted, for the location suggestions. */
+export function usedLocations(games: Game[]): string[] {
+  const set = new Set<string>();
+  for (const g of games) for (const c of g.copies) if (c.details?.location) set.add(c.details.location);
+  return [...set].sort((a, b) => a.localeCompare(b));
 }
 
 /** Pending = a key you still have to reveal or redeem. */

@@ -540,6 +540,220 @@ func (x *ExportCsvResponse) GetContent() []byte {
 	return nil
 }
 
+// Preferences are the user's choices that shape the UI and the imports.
+type Preferences struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Default currency of new prices (ISO 4217); empty until chosen.
+	Currency      string `protobuf:"bytes,1,opt,name=currency,proto3" json:"currency,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Preferences) Reset() {
+	*x = Preferences{}
+	mi := &file_gamevault_v1_system_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Preferences) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Preferences) ProtoMessage() {}
+
+func (x *Preferences) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_system_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Preferences.ProtoReflect.Descriptor instead.
+func (*Preferences) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_system_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *Preferences) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
+}
+
+type GetPreferencesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPreferencesRequest) Reset() {
+	*x = GetPreferencesRequest{}
+	mi := &file_gamevault_v1_system_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPreferencesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPreferencesRequest) ProtoMessage() {}
+
+func (x *GetPreferencesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_system_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPreferencesRequest.ProtoReflect.Descriptor instead.
+func (*GetPreferencesRequest) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_system_proto_rawDescGZIP(), []int{12}
+}
+
+type GetPreferencesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Preferences   *Preferences           `protobuf:"bytes,1,opt,name=preferences,proto3" json:"preferences,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPreferencesResponse) Reset() {
+	*x = GetPreferencesResponse{}
+	mi := &file_gamevault_v1_system_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPreferencesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPreferencesResponse) ProtoMessage() {}
+
+func (x *GetPreferencesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_system_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPreferencesResponse.ProtoReflect.Descriptor instead.
+func (*GetPreferencesResponse) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_system_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *GetPreferencesResponse) GetPreferences() *Preferences {
+	if x != nil {
+		return x.Preferences
+	}
+	return nil
+}
+
+type UpdatePreferencesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Preferences   *Preferences           `protobuf:"bytes,1,opt,name=preferences,proto3" json:"preferences,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdatePreferencesRequest) Reset() {
+	*x = UpdatePreferencesRequest{}
+	mi := &file_gamevault_v1_system_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdatePreferencesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdatePreferencesRequest) ProtoMessage() {}
+
+func (x *UpdatePreferencesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_system_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdatePreferencesRequest.ProtoReflect.Descriptor instead.
+func (*UpdatePreferencesRequest) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_system_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *UpdatePreferencesRequest) GetPreferences() *Preferences {
+	if x != nil {
+		return x.Preferences
+	}
+	return nil
+}
+
+type UpdatePreferencesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Preferences   *Preferences           `protobuf:"bytes,1,opt,name=preferences,proto3" json:"preferences,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdatePreferencesResponse) Reset() {
+	*x = UpdatePreferencesResponse{}
+	mi := &file_gamevault_v1_system_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdatePreferencesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdatePreferencesResponse) ProtoMessage() {}
+
+func (x *UpdatePreferencesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_system_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdatePreferencesResponse.ProtoReflect.Descriptor instead.
+func (*UpdatePreferencesResponse) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_system_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *UpdatePreferencesResponse) GetPreferences() *Preferences {
+	if x != nil {
+		return x.Preferences
+	}
+	return nil
+}
+
 var File_gamevault_v1_system_proto protoreflect.FileDescriptor
 
 const file_gamevault_v1_system_proto_rawDesc = "" +
@@ -576,13 +790,24 @@ const file_gamevault_v1_system_proto_rawDesc = "" +
 	"\x10ExportCsvRequest\"I\n" +
 	"\x11ExportCsvResponse\x12\x1a\n" +
 	"\bfilename\x18\x01 \x01(\tR\bfilename\x12\x18\n" +
-	"\acontent\x18\x02 \x01(\fR\acontent2\xa4\x03\n" +
+	"\acontent\x18\x02 \x01(\fR\acontent\")\n" +
+	"\vPreferences\x12\x1a\n" +
+	"\bcurrency\x18\x01 \x01(\tR\bcurrency\"\x17\n" +
+	"\x15GetPreferencesRequest\"U\n" +
+	"\x16GetPreferencesResponse\x12;\n" +
+	"\vpreferences\x18\x01 \x01(\v2\x19.gamevault.v1.PreferencesR\vpreferences\"W\n" +
+	"\x18UpdatePreferencesRequest\x12;\n" +
+	"\vpreferences\x18\x01 \x01(\v2\x19.gamevault.v1.PreferencesR\vpreferences\"X\n" +
+	"\x19UpdatePreferencesResponse\x12;\n" +
+	"\vpreferences\x18\x01 \x01(\v2\x19.gamevault.v1.PreferencesR\vpreferences2\xe7\x04\n" +
 	"\rSystemService\x12L\n" +
 	"\tGetStatus\x12\x1e.gamevault.v1.GetStatusRequest\x1a\x1f.gamevault.v1.GetStatusResponse\x12R\n" +
 	"\vListBackups\x12 .gamevault.v1.ListBackupsRequest\x1a!.gamevault.v1.ListBackupsResponse\x12U\n" +
 	"\fCreateBackup\x12!.gamevault.v1.CreateBackupRequest\x1a\".gamevault.v1.CreateBackupResponse\x12L\n" +
 	"\tImportCsv\x12\x1e.gamevault.v1.ImportCsvRequest\x1a\x1f.gamevault.v1.ImportCsvResponse\x12L\n" +
-	"\tExportCsv\x12\x1e.gamevault.v1.ExportCsvRequest\x1a\x1f.gamevault.v1.ExportCsvResponseB1Z/gamevault/internal/gen/gamevault/v1;gamevaultv1b\x06proto3"
+	"\tExportCsv\x12\x1e.gamevault.v1.ExportCsvRequest\x1a\x1f.gamevault.v1.ExportCsvResponse\x12[\n" +
+	"\x0eGetPreferences\x12#.gamevault.v1.GetPreferencesRequest\x1a$.gamevault.v1.GetPreferencesResponse\x12d\n" +
+	"\x11UpdatePreferences\x12&.gamevault.v1.UpdatePreferencesRequest\x1a'.gamevault.v1.UpdatePreferencesResponseB1Z/gamevault/internal/gen/gamevault/v1;gamevaultv1b\x06proto3"
 
 var (
 	file_gamevault_v1_system_proto_rawDescOnce sync.Once
@@ -596,43 +821,55 @@ func file_gamevault_v1_system_proto_rawDescGZIP() []byte {
 	return file_gamevault_v1_system_proto_rawDescData
 }
 
-var file_gamevault_v1_system_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_gamevault_v1_system_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_gamevault_v1_system_proto_goTypes = []any{
-	(*GetStatusRequest)(nil),      // 0: gamevault.v1.GetStatusRequest
-	(*GetStatusResponse)(nil),     // 1: gamevault.v1.GetStatusResponse
-	(*Backup)(nil),                // 2: gamevault.v1.Backup
-	(*ListBackupsRequest)(nil),    // 3: gamevault.v1.ListBackupsRequest
-	(*ListBackupsResponse)(nil),   // 4: gamevault.v1.ListBackupsResponse
-	(*CreateBackupRequest)(nil),   // 5: gamevault.v1.CreateBackupRequest
-	(*CreateBackupResponse)(nil),  // 6: gamevault.v1.CreateBackupResponse
-	(*ImportCsvRequest)(nil),      // 7: gamevault.v1.ImportCsvRequest
-	(*ImportCsvResponse)(nil),     // 8: gamevault.v1.ImportCsvResponse
-	(*ExportCsvRequest)(nil),      // 9: gamevault.v1.ExportCsvRequest
-	(*ExportCsvResponse)(nil),     // 10: gamevault.v1.ExportCsvResponse
-	(*timestamppb.Timestamp)(nil), // 11: google.protobuf.Timestamp
-	(*SyncReport)(nil),            // 12: gamevault.v1.SyncReport
+	(*GetStatusRequest)(nil),          // 0: gamevault.v1.GetStatusRequest
+	(*GetStatusResponse)(nil),         // 1: gamevault.v1.GetStatusResponse
+	(*Backup)(nil),                    // 2: gamevault.v1.Backup
+	(*ListBackupsRequest)(nil),        // 3: gamevault.v1.ListBackupsRequest
+	(*ListBackupsResponse)(nil),       // 4: gamevault.v1.ListBackupsResponse
+	(*CreateBackupRequest)(nil),       // 5: gamevault.v1.CreateBackupRequest
+	(*CreateBackupResponse)(nil),      // 6: gamevault.v1.CreateBackupResponse
+	(*ImportCsvRequest)(nil),          // 7: gamevault.v1.ImportCsvRequest
+	(*ImportCsvResponse)(nil),         // 8: gamevault.v1.ImportCsvResponse
+	(*ExportCsvRequest)(nil),          // 9: gamevault.v1.ExportCsvRequest
+	(*ExportCsvResponse)(nil),         // 10: gamevault.v1.ExportCsvResponse
+	(*Preferences)(nil),               // 11: gamevault.v1.Preferences
+	(*GetPreferencesRequest)(nil),     // 12: gamevault.v1.GetPreferencesRequest
+	(*GetPreferencesResponse)(nil),    // 13: gamevault.v1.GetPreferencesResponse
+	(*UpdatePreferencesRequest)(nil),  // 14: gamevault.v1.UpdatePreferencesRequest
+	(*UpdatePreferencesResponse)(nil), // 15: gamevault.v1.UpdatePreferencesResponse
+	(*timestamppb.Timestamp)(nil),     // 16: google.protobuf.Timestamp
+	(*SyncReport)(nil),                // 17: gamevault.v1.SyncReport
 }
 var file_gamevault_v1_system_proto_depIdxs = []int32{
-	11, // 0: gamevault.v1.GetStatusResponse.started_at:type_name -> google.protobuf.Timestamp
-	11, // 1: gamevault.v1.Backup.created_at:type_name -> google.protobuf.Timestamp
+	16, // 0: gamevault.v1.GetStatusResponse.started_at:type_name -> google.protobuf.Timestamp
+	16, // 1: gamevault.v1.Backup.created_at:type_name -> google.protobuf.Timestamp
 	2,  // 2: gamevault.v1.ListBackupsResponse.backups:type_name -> gamevault.v1.Backup
 	2,  // 3: gamevault.v1.CreateBackupResponse.backup:type_name -> gamevault.v1.Backup
-	12, // 4: gamevault.v1.ImportCsvResponse.report:type_name -> gamevault.v1.SyncReport
-	0,  // 5: gamevault.v1.SystemService.GetStatus:input_type -> gamevault.v1.GetStatusRequest
-	3,  // 6: gamevault.v1.SystemService.ListBackups:input_type -> gamevault.v1.ListBackupsRequest
-	5,  // 7: gamevault.v1.SystemService.CreateBackup:input_type -> gamevault.v1.CreateBackupRequest
-	7,  // 8: gamevault.v1.SystemService.ImportCsv:input_type -> gamevault.v1.ImportCsvRequest
-	9,  // 9: gamevault.v1.SystemService.ExportCsv:input_type -> gamevault.v1.ExportCsvRequest
-	1,  // 10: gamevault.v1.SystemService.GetStatus:output_type -> gamevault.v1.GetStatusResponse
-	4,  // 11: gamevault.v1.SystemService.ListBackups:output_type -> gamevault.v1.ListBackupsResponse
-	6,  // 12: gamevault.v1.SystemService.CreateBackup:output_type -> gamevault.v1.CreateBackupResponse
-	8,  // 13: gamevault.v1.SystemService.ImportCsv:output_type -> gamevault.v1.ImportCsvResponse
-	10, // 14: gamevault.v1.SystemService.ExportCsv:output_type -> gamevault.v1.ExportCsvResponse
-	10, // [10:15] is the sub-list for method output_type
-	5,  // [5:10] is the sub-list for method input_type
-	5,  // [5:5] is the sub-list for extension type_name
-	5,  // [5:5] is the sub-list for extension extendee
-	0,  // [0:5] is the sub-list for field type_name
+	17, // 4: gamevault.v1.ImportCsvResponse.report:type_name -> gamevault.v1.SyncReport
+	11, // 5: gamevault.v1.GetPreferencesResponse.preferences:type_name -> gamevault.v1.Preferences
+	11, // 6: gamevault.v1.UpdatePreferencesRequest.preferences:type_name -> gamevault.v1.Preferences
+	11, // 7: gamevault.v1.UpdatePreferencesResponse.preferences:type_name -> gamevault.v1.Preferences
+	0,  // 8: gamevault.v1.SystemService.GetStatus:input_type -> gamevault.v1.GetStatusRequest
+	3,  // 9: gamevault.v1.SystemService.ListBackups:input_type -> gamevault.v1.ListBackupsRequest
+	5,  // 10: gamevault.v1.SystemService.CreateBackup:input_type -> gamevault.v1.CreateBackupRequest
+	7,  // 11: gamevault.v1.SystemService.ImportCsv:input_type -> gamevault.v1.ImportCsvRequest
+	9,  // 12: gamevault.v1.SystemService.ExportCsv:input_type -> gamevault.v1.ExportCsvRequest
+	12, // 13: gamevault.v1.SystemService.GetPreferences:input_type -> gamevault.v1.GetPreferencesRequest
+	14, // 14: gamevault.v1.SystemService.UpdatePreferences:input_type -> gamevault.v1.UpdatePreferencesRequest
+	1,  // 15: gamevault.v1.SystemService.GetStatus:output_type -> gamevault.v1.GetStatusResponse
+	4,  // 16: gamevault.v1.SystemService.ListBackups:output_type -> gamevault.v1.ListBackupsResponse
+	6,  // 17: gamevault.v1.SystemService.CreateBackup:output_type -> gamevault.v1.CreateBackupResponse
+	8,  // 18: gamevault.v1.SystemService.ImportCsv:output_type -> gamevault.v1.ImportCsvResponse
+	10, // 19: gamevault.v1.SystemService.ExportCsv:output_type -> gamevault.v1.ExportCsvResponse
+	13, // 20: gamevault.v1.SystemService.GetPreferences:output_type -> gamevault.v1.GetPreferencesResponse
+	15, // 21: gamevault.v1.SystemService.UpdatePreferences:output_type -> gamevault.v1.UpdatePreferencesResponse
+	15, // [15:22] is the sub-list for method output_type
+	8,  // [8:15] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_gamevault_v1_system_proto_init() }
@@ -647,7 +884,7 @@ func file_gamevault_v1_system_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gamevault_v1_system_proto_rawDesc), len(file_gamevault_v1_system_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   11,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

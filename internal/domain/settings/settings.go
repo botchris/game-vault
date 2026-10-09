@@ -51,6 +51,38 @@ func (l Logging) Validate() (Logging, error) {
 	return l, nil
 }
 
+// Preferences are the user's choices that shape the UI and the imports.
+type Preferences struct {
+	// Currency is the default currency of new prices (ISO 4217); empty until the user picks one.
+	Currency string
+}
+
+// Validate normalizes the currency and checks it is a three-letter code (or empty).
+func (p Preferences) Validate() (Preferences, error) {
+	p.Currency = strings.ToUpper(strings.TrimSpace(p.Currency))
+	if p.Currency != "" && !isCurrencyCode(p.Currency) {
+		return p, &ValidationError{"the default currency must be a three-letter code (EUR, USD…)"}
+	}
+
+	return p, nil
+}
+
+// isCurrencyCode reports whether s is three letters A–Z. It repeats game's check: settings does
+// not import the catalog domain.
+func isCurrencyCode(s string) bool {
+	if len(s) != 3 {
+		return false
+	}
+
+	for _, r := range s {
+		if r < 'A' || r > 'Z' {
+			return false
+		}
+	}
+
+	return true
+}
+
 // Repository is the persistence port for settings.
 type Repository interface {
 	// Logging returns the saved logging settings, or DefaultLogging when none were saved.
@@ -58,4 +90,10 @@ type Repository interface {
 
 	// SaveLogging stores the logging settings.
 	SaveLogging(ctx context.Context, l Logging) error
+
+	// Preferences returns the saved preferences, empty when none were saved.
+	Preferences(ctx context.Context) (Preferences, error)
+
+	// SavePreferences stores the preferences.
+	SavePreferences(ctx context.Context, p Preferences) error
 }

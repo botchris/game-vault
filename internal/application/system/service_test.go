@@ -44,7 +44,7 @@ func TestBackups_rotation(t *testing.T) {
 		writeBackup(t, dir, "gamevault-20261018-120000.db", now.Add(-48*time.Hour))
 		writeBackup(t, dir, "gamevault-20261019-120000.db", now.Add(-24*time.Hour))
 
-		svc := system.NewService(nil, fileBackup{}, func() time.Time { return now },
+		svc := system.NewService(nil, fileBackup{}, nil, func() time.Time { return now },
 			slog.New(slog.NewTextHandler(io.Discard, nil)), system.Status{}, dir, 3)
 
 		t.Run("WHEN the backups are listed", func(t *testing.T) {

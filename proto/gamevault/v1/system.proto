@@ -48,11 +48,29 @@ message ExportCsvResponse {
   bytes content = 2;
 }
 
-// SystemService exposes status, backups and CSV import/export.
+// Preferences are the user's choices that shape the UI and the imports.
+message Preferences {
+  // Default currency of new prices (ISO 4217); empty until chosen.
+  string currency = 1;
+}
+message GetPreferencesRequest {}
+message GetPreferencesResponse {
+  Preferences preferences = 1;
+}
+message UpdatePreferencesRequest {
+  Preferences preferences = 1;
+}
+message UpdatePreferencesResponse {
+  Preferences preferences = 1;
+}
+
+// SystemService exposes status, backups, preferences and CSV import/export.
 service SystemService {
   rpc GetStatus(GetStatusRequest) returns (GetStatusResponse);
   rpc ListBackups(ListBackupsRequest) returns (ListBackupsResponse);
   rpc CreateBackup(CreateBackupRequest) returns (CreateBackupResponse);
   rpc ImportCsv(ImportCsvRequest) returns (ImportCsvResponse);
   rpc ExportCsv(ExportCsvRequest) returns (ExportCsvResponse);
+  rpc GetPreferences(GetPreferencesRequest) returns (GetPreferencesResponse);
+  rpc UpdatePreferences(UpdatePreferencesRequest) returns (UpdatePreferencesResponse);
 }

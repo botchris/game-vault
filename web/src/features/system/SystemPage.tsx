@@ -4,32 +4,40 @@ import { errorMessage, systemClient } from '../../api/client';
 import { Alert, useFormatters } from '../../components/ui';
 import type { Backup, GetStatusResponse } from '../../gen/gamevault/v1/system_pb';
 import type { SyncReport } from '../../gen/gamevault/v1/source_pb';
+import { currencyList, regionCurrency } from '../../lib/money';
 import { downloadBytes, toDate } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
 import SecurityCard from './SecurityCard';
 
 const CSV_TEMPLATE =
-  'title;platform;kind;status;edition;condition;location;acquiredOn;origin;notes\n' +
-  'Halo 3;Xbox 360;physical;owned;;Complete;Living room shelf;2007-09-26;GAME;\n' +
-  'The Last of Us;PS3;physical;owned;GOTY;Case and disc;Box 2;;;\n' +
-  'Diablo IV;Battle.net;library;owned;;;;;;\n' +
-  'Escape from Tarkov;Battlestate (Tarkov);library;owned;Edge of Darkness;;;;;\n' +
-  "Assassin's Creed Unity;Ubisoft Connect;library;owned;;;;;;\n";
+  'title;platform;kind;status;edition;grade;contents;location;acquiredOn;price;currency;origin;notes\n' +
+  'Halo 3;Xbox 360;physical;owned;;very_good;box manual media;Living room shelf;2007-09-26;29.95;EUR;GAME;\n' +
+  'The Last of Us;PS3;physical;owned;GOTY;good;box media;Box 2;;;;;\n' +
+  'Diablo IV;Battle.net;library;owned;;;;;;;;;\n' +
+  'Escape from Tarkov;Battlestate (Tarkov);library;owned;Edge of Darkness;;;;;;;;\n' +
+  "Assassin's Creed Unity;Ubisoft Connect;library;owned;;;;;;;;;\n";
 
 /** Status, backups of the /config data and CSV import/export. */
 export default function SystemPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const fmt = useFormatters();
   const { reloadGames } = useAppData();
+  const region = regionCurrency(i18n.language);
+  const [currency, setCurrency] = useState(region);
+  // Until the user saves one, the region's currency is only proposed: CSV prices without a
+  // currency are not imported, so the proposal must be easy to save as it is.
+  const [currencySaved, setCurrencySaved] = useState(true);
   const [status, setStatus] = useState<GetStatusResponse | null>(null);
   const [backups, setBackups] = useState<Backup[]>([]);
   const [busy, setBusy] = useState('');
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string; report?: SyncReport } | null>(null);
 
   const load = useCallback(async () => {
-    const [st, bk] = await Promise.all([systemClient.getStatus({}), systemClient.listBackups({})]);
+    const [st, bk, prefs] = await Promise.all([systemClient.getStatus({}), systemClient.listBackups({}), systemClient.getPreferences({})]);
     setStatus(st);
     setBackups(bk.backups);
+    if (prefs.preferences?.currency) setCurrency(prefs.preferences.currency);
+    setCurrencySaved(!!prefs.preferences?.currency);
   }, []);
 
   useEffect(() => {
@@ -47,6 +55,12 @@ export default function SystemPage() {
       setBusy('');
     }
   };
+
+  const saveCurrency = (c: string) => run('currency', async () => {
+    const res = await systemClient.updatePreferences({ preferences: { currency: c } });
+    setCurrency(res.preferences?.currency || c);
+    setCurrencySaved(true);
+  });
 
   const importCsv = (file: File) => run('import', async () => {
     const res = await systemClient.importCsv({ content: new Uint8Array(await file.arrayBuffer()) });
@@ -79,6 +93,22 @@ export default function SystemPage() {
           </dl>
         )}
         <p className="muted small">{t('system.configHint')}</p>
+      </section>
+
+      <section className="card">
+        <h2>{t('system.preferences')}</h2>
+        <label className="field">
+          {t('system.currency')}
+          <span className="row tight">
+            <select value={currency} disabled={!!busy} onChange={(e) => saveCurrency(e.target.value)}>
+              {[region, ...currencyList().filter((c) => c !== region)].map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            {!currencySaved && (
+              <button type="button" className="primary" disabled={!!busy} onClick={() => saveCurrency(currency)}>{t('common.save')}</button>
+            )}
+          </span>
+          <span className="help">{currencySaved ? t('system.currencyHelp') : t('system.currencyNotSaved')}</span>
+        </label>
       </section>
 
       <SecurityCard />
