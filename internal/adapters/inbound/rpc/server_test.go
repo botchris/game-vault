@@ -3,7 +3,6 @@ package rpc_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -84,12 +83,12 @@ func (fakeSteamStore) Descriptor() provider.Descriptor {
 
 func (fakeSteamStore) Test(context.Context, schema.Settings) error { return nil }
 
-func (fakeSteamStore) Applies(q media.CoverQuery) bool { return q.SteamAppID != 0 }
+func (fakeSteamStore) Applies(q media.CoverQuery) bool { return q.Links[game.LinkSteam] != "" }
 
 func (fakeSteamStore) Covers(_ context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	return []media.CoverCandidate{
-		{URL: fmt.Sprintf("https://steam.test/%d/library.jpg", q.SteamAppID), Provider: "steam"},
-		{URL: fmt.Sprintf("https://steam.test/%d/header.png", q.SteamAppID), Provider: "steam"},
+		{URL: "https://steam.test/" + q.Links[game.LinkSteam] + "/library.jpg", Provider: "steam"},
+		{URL: "https://steam.test/" + q.Links[game.LinkSteam] + "/header.png", Provider: "steam"},
 	}, nil
 }
 
@@ -130,7 +129,7 @@ func (fakeStoreDetails) Descriptor() provider.Descriptor {
 
 func (fakeStoreDetails) Test(context.Context, schema.Settings) error { return nil }
 
-func (fakeStoreDetails) Applies(q media.CoverQuery) bool { return q.SteamAppID != 0 }
+func (fakeStoreDetails) Applies(q media.CoverQuery) bool { return q.Links[game.LinkSteam] != "" }
 
 func (fakeStoreDetails) Details(_ context.Context, q media.CoverQuery, lang string, _ schema.Settings) (*media.GameDetails, error) {
 	summary := "A puzzle game."
@@ -179,8 +178,12 @@ func (f *fakeBoxArt) Covers(_ context.Context, q media.CoverQuery, s schema.Sett
 	return []media.CoverCandidate{{URL: "https://boxart.test/" + q.PhysicalPlatforms[0] + ".png", Label: q.Title, Provider: "boxart"}}, nil
 }
 
-func (fakeSteamStore) SearchApps(_ context.Context, q string) ([]media.AppMatch, error) {
-	return []media.AppMatch{{AppID: 1064271, Name: "Halo 3"}}, nil
+func (fakeSteamStore) LinkStore() media.LinkStore {
+	return media.LinkStore{Key: game.LinkSteam, Name: "Steam", PageURL: "https://steam.test/app/{id}"}
+}
+
+func (fakeSteamStore) SearchLinks(context.Context, string) ([]media.LinkMatch, error) {
+	return []media.LinkMatch{{ID: "1064271", Name: "Halo 3"}}, nil
 }
 
 type clients struct {
@@ -232,7 +235,7 @@ func newServer(t *testing.T, p sync.Provider) clients {
 	images := &fakeImages{}
 	boxart := &fakeBoxArt{}
 	boxDet := &fakeBoxDetails{}
-	mediaSvc := media.NewService(games, sqlite.NewProviderRepository(db), covers, sqlite.NewDetailsStore(db), images, fakeSteamStore{}, time.Now, log,
+	mediaSvc := media.NewService(games, sqlite.NewProviderRepository(db), covers, sqlite.NewDetailsStore(db), images, time.Now, log,
 		media.Providers{
 			Covers:   []media.CoverProvider{fakeSteamStore{}, boxart},
 			Barcodes: []media.BarcodeProvider{&fakeBarcodes{}},
@@ -275,13 +278,13 @@ func newServer(t *testing.T, p sync.Provider) clients {
 func TestEndToEnd(t *testing.T) {
 	ctx := context.Background()
 	fake := &fakeProvider{copies: []game.ImportedCopy{
-		{ExternalID: "fake:1", Title: "Hades", SteamAppID: 1145360, Details: game.CopyDetails{Kind: game.KindLibrary, Platform: "Steam"}},
+		{ExternalID: "fake:1", Title: "Hades", Links: game.Links{game.LinkSteam: "1145360"}, Details: game.CopyDetails{Kind: game.KindLibrary, Platform: "Steam"}},
 	}}
 	c := newServer(t, fake)
 
 	// A manual game with a key, then a source scan that brings the same game in the library.
 	created, err := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{
-		Title: "Hades", SteamAppId: 1145360,
+		Title: "Hades", Links: map[string]string{"steam": "1145360"},
 		Copies: []*pb.CopyDetails{{Kind: pb.CopyKind_COPY_KIND_KEY, Platform: "Steam", Status: pb.CopyStatus_COPY_STATUS_REVEALED, Key: "AAAA-BBBB"}},
 	}))
 	if err != nil {
@@ -397,12 +400,22 @@ func TestCoversAndLogs(t *testing.T) {
 	}
 
 	// Link it to Steam via search: the portrait art "404s", the header fallback works and is cached.
-	found, err := c.games.SearchSteamApps(ctx, connect.NewRequest(&pb.SearchSteamAppsRequest{Query: "halo 3"}))
-	if err != nil || len(found.Msg.Apps) != 1 {
+	stores, err := c.games.ListLinkStores(ctx, connect.NewRequest(&pb.ListLinkStoresRequest{}))
+	if err != nil || len(stores.Msg.Stores) != 1 || stores.Msg.Stores[0].Key != game.LinkSteam {
+		t.Fatalf("link stores: %+v %v", stores, err)
+	}
+
+	found, err := c.games.SearchLinks(ctx, connect.NewRequest(&pb.SearchLinksRequest{Store: game.LinkSteam, Query: "halo 3"}))
+	if err != nil || len(found.Msg.Matches) != 1 {
 		t.Fatalf("search: %+v %v", found, err)
 	}
 
-	if _, err := c.games.UpdateGame(ctx, connect.NewRequest(&pb.UpdateGameRequest{Id: id, Title: "Halo 3", SteamAppId: found.Msg.Apps[0].AppId})); err != nil {
+	if _, err := c.games.SearchLinks(ctx, connect.NewRequest(&pb.SearchLinksRequest{Store: "nowhere", Query: "halo 3"})); connect.CodeOf(err) != connect.CodeNotFound {
+		t.Fatalf("a store nobody searches: want NotFound, got %v", err)
+	}
+
+	links := map[string]string{game.LinkSteam: found.Msg.Matches[0].Id}
+	if _, err := c.games.UpdateGame(ctx, connect.NewRequest(&pb.UpdateGameRequest{Id: id, Title: "Halo 3", Links: links})); err != nil {
 		t.Fatal(err)
 	}
 
@@ -486,7 +499,7 @@ func TestCoverProviderChain(t *testing.T) {
 
 	// A PS3 disc of a Steam game: box art first after reordering, Steam as fallback.
 	g, _ := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{
-		Title: "Portal 2", SteamAppId: 620,
+		Title: "Portal 2", Links: map[string]string{"steam": "620"},
 		Copies: []*pb.CopyDetails{{Kind: pb.CopyKind_COPY_KIND_PHYSICAL, Platform: "PS3"}},
 	}))
 
@@ -509,7 +522,7 @@ func TestCoverProviderChain(t *testing.T) {
 
 	// A Steam-only game never asks the keyed provider.
 	asked := c.boxart.asked
-	s, _ := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{Title: "Hades", SteamAppId: 1145360}))
+	s, _ := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{Title: "Hades", Links: map[string]string{"steam": "1145360"}}))
 	http.Get(c.baseURL + "/media/covers/" + s.Msg.Game.Id)
 
 	if c.boxart.asked != asked {
@@ -517,7 +530,7 @@ func TestCoverProviderChain(t *testing.T) {
 	}
 
 	// Pinning a candidate = setting it as the custom cover.
-	if _, err := c.games.UpdateGame(ctx, connect.NewRequest(&pb.UpdateGameRequest{Id: g.Msg.Game.Id, Title: "Portal 2", SteamAppId: 620, CoverUrl: cands.Msg.Candidates[1].Url})); err != nil {
+	if _, err := c.games.UpdateGame(ctx, connect.NewRequest(&pb.UpdateGameRequest{Id: g.Msg.Game.Id, Title: "Portal 2", Links: map[string]string{"steam": "620"}, CoverUrl: cands.Msg.Candidates[1].Url})); err != nil {
 		t.Fatal(err)
 	}
 
@@ -629,7 +642,7 @@ func TestGameDetailsChain(t *testing.T) {
 	// A PS3 disc of a Steam game: the store sheet wins (localized), box art fills the publisher,
 	// and both trailers are kept.
 	g, _ := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{
-		Title: "Portal 2", SteamAppId: 620, Copies: []*pb.CopyDetails{{Kind: pb.CopyKind_COPY_KIND_PHYSICAL, Platform: "PS3"}},
+		Title: "Portal 2", Links: map[string]string{"steam": "620"}, Copies: []*pb.CopyDetails{{Kind: pb.CopyKind_COPY_KIND_PHYSICAL, Platform: "PS3"}},
 	}))
 
 	res, err := c.metadata.GetGameDetails(ctx, connect.NewRequest(&pb.GetGameDetailsRequest{GameId: g.Msg.Game.Id, Language: "es"}))
@@ -658,7 +671,7 @@ func TestGameDetailsChain(t *testing.T) {
 	}
 
 	// Changing the Steam AppID invalidates the cached sheet.
-	c.games.UpdateGame(ctx, connect.NewRequest(&pb.UpdateGameRequest{Id: g.Msg.Game.Id, Title: "Portal 2", SteamAppId: 0}))
+	c.games.UpdateGame(ctx, connect.NewRequest(&pb.UpdateGameRequest{Id: g.Msg.Game.Id, Title: "Portal 2", Links: nil}))
 
 	res, _ = c.metadata.GetGameDetails(ctx, connect.NewRequest(&pb.GetGameDetailsRequest{GameId: g.Msg.Game.Id, Language: "es"}))
 	if res.Msg.Details.Summary != "English overview." {
@@ -669,7 +682,7 @@ func TestGameDetailsChain(t *testing.T) {
 func TestSheetImagesAreStoredPerGame(t *testing.T) {
 	ctx := context.Background()
 	c := newServer(t, &fakeProvider{})
-	g, _ := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{Title: "Portal 2", SteamAppId: 620}))
+	g, _ := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{Title: "Portal 2", Links: map[string]string{"steam": "620"}}))
 	id := g.Msg.Game.Id
 
 	res, err := c.metadata.GetGameDetails(ctx, connect.NewRequest(&pb.GetGameDetailsRequest{GameId: id, Language: "en"}))
@@ -728,7 +741,7 @@ func TestSheetImagesAreStoredPerGame(t *testing.T) {
 func TestCatalogIncludesGenres(t *testing.T) {
 	ctx := context.Background()
 	c := newServer(t, &fakeProvider{})
-	g, _ := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{Title: "Portal 2", SteamAppId: 620}))
+	g, _ := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{Title: "Portal 2", Links: map[string]string{"steam": "620"}}))
 	c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{Title: "Halo 3"}))
 
 	list, _ := c.games.ListGames(ctx, connect.NewRequest(&pb.ListGamesRequest{Language: "es"}))

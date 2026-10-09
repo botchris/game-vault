@@ -40,7 +40,7 @@ func (d *Details) Descriptor() provider.Descriptor {
 }
 
 // Applies implements media.MetadataProvider.
-func (d *Details) Applies(q media.CoverQuery) bool { return q.SteamAppID != 0 }
+func (d *Details) Applies(q media.CoverQuery) bool { return AppIDOf(q) != 0 }
 
 type appDetails struct {
 	Success bool `json:"success"`
@@ -132,7 +132,12 @@ func (d *Details) Details(ctx context.Context, q media.CoverQuery, language stri
 		lang = "english"
 	}
 
-	app, ok, err := d.fetch(ctx, q.SteamAppID, lang)
+	appID := AppIDOf(q)
+	if appID == 0 {
+		return nil, nil
+	}
+
+	app, ok, err := d.fetch(ctx, appID, lang)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +156,7 @@ func (d *Details) Details(ctx context.Context, q media.CoverQuery, language stri
 		Metacritic:    a.Metacritic.Score,
 		MetacriticURL: a.Metacritic.URL,
 		Website:       a.Website,
-		StoreURL:      fmt.Sprintf("https://store.steampowered.com/app/%d", q.SteamAppID),
+		StoreURL:      StorePageURL + strconv.FormatInt(appID, 10),
 	}
 	if det.Summary == "" {
 		det.Summary = HTMLToText(a.ShortDescription)

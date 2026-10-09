@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"errors"
 
 	"connectrpc.com/connect"
 
@@ -78,7 +79,7 @@ func (h *GameHandler) CreateGame(ctx context.Context, req *connect.Request[pb.Cr
 		copies = append(copies, cd)
 	}
 
-	info := game.Info{Title: req.Msg.Title, SteamAppID: req.Msg.SteamAppId, Notes: req.Msg.Notes, CoverURL: req.Msg.CoverUrl}
+	info := game.Info{Title: req.Msg.Title, Links: req.Msg.Links, Notes: req.Msg.Notes, CoverURL: req.Msg.CoverUrl}
 	g, err := h.catalog.CreateGame(ctx, info, copies)
 
 	return gameResp(g, err, func(g *pb.Game) *pb.CreateGameResponse { return &pb.CreateGameResponse{Game: g} })
@@ -86,7 +87,7 @@ func (h *GameHandler) CreateGame(ctx context.Context, req *connect.Request[pb.Cr
 
 // UpdateGame changes the editable fields of a game.
 func (h *GameHandler) UpdateGame(ctx context.Context, req *connect.Request[pb.UpdateGameRequest]) (*connect.Response[pb.UpdateGameResponse], error) {
-	info := game.Info{Title: req.Msg.Title, SteamAppID: req.Msg.SteamAppId, Notes: req.Msg.Notes, CoverURL: req.Msg.CoverUrl}
+	info := game.Info{Title: req.Msg.Title, Links: req.Msg.Links, Notes: req.Msg.Notes, CoverURL: req.Msg.CoverUrl}
 	g, err := h.catalog.UpdateGame(ctx, game.ID(req.Msg.Id), info)
 
 	return gameResp(g, err, func(g *pb.Game) *pb.UpdateGameResponse { return &pb.UpdateGameResponse{Game: g} })
@@ -164,16 +165,30 @@ func (h *GameHandler) MarkRedeemedKeys(ctx context.Context, _ *connect.Request[p
 	return connect.NewResponse(&pb.MarkRedeemedKeysResponse{Updated: int32(n)}), nil
 }
 
-// SearchSteamApps searches the Steam store by title, to link a game to its Steam AppID.
-func (h *GameHandler) SearchSteamApps(ctx context.Context, req *connect.Request[pb.SearchSteamAppsRequest]) (*connect.Response[pb.SearchSteamAppsResponse], error) {
-	matches, err := h.media.SearchSteamApps(ctx, req.Msg.Query)
+// ListLinkStores lists the stores whose catalog can be searched to link a game to them.
+func (h *GameHandler) ListLinkStores(context.Context, *connect.Request[pb.ListLinkStoresRequest]) (*connect.Response[pb.ListLinkStoresResponse], error) {
+	out := &pb.ListLinkStoresResponse{}
+	for _, s := range h.media.LinkStores() {
+		out.Stores = append(out.Stores, &pb.LinkStore{Key: s.Key, Name: s.Name, PageUrl: s.PageURL})
+	}
+
+	return connect.NewResponse(out), nil
+}
+
+// SearchLinks searches a store's catalog by title, to link a game to it.
+func (h *GameHandler) SearchLinks(ctx context.Context, req *connect.Request[pb.SearchLinksRequest]) (*connect.Response[pb.SearchLinksResponse], error) {
+	matches, err := h.media.SearchLinks(ctx, req.Msg.Store, req.Msg.Query)
+	if errors.Is(err, media.ErrUnknownStore) {
+		return nil, connect.NewError(connect.CodeNotFound, err)
+	}
+
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnavailable, err)
 	}
 
-	out := &pb.SearchSteamAppsResponse{}
+	out := &pb.SearchLinksResponse{}
 	for _, m := range matches {
-		out.Apps = append(out.Apps, &pb.SteamApp{AppId: m.AppID, Name: m.Name, ImageUrl: m.ImageURL})
+		out.Matches = append(out.Matches, &pb.LinkMatch{Id: m.ID, Name: m.Name, ImageUrl: m.ImageURL})
 	}
 
 	return connect.NewResponse(out), nil

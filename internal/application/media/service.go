@@ -84,8 +84,11 @@ type ImageFetcher interface {
 
 // CoverQuery is what cover providers know about a game.
 type CoverQuery struct {
-	Title      string
-	SteamAppID int64
+	Title string
+
+	// Links are the stores the game is linked to ({"steam": "620"}); a provider that knows a
+	// store reads its link.
+	Links game.Links
 
 	// PhysicalPlatforms lists the platforms of the game's physical copies ("PS3", "Xbox 360"...).
 	PhysicalPlatforms []string
@@ -116,10 +119,11 @@ func (q CoverQuery) ExternalIDsWithPrefix(prefix string) []string {
 	return out
 }
 
-// HasStoreLink reports whether a digital store with its own art knows the game: a Steam AppID or
-// a copy imported from Epic, GOG, Ubisoft, EA, Battle.net or Xbox. Quota-limited providers skip those games.
+// HasStoreLink reports whether a digital store with its own art knows the game: a link to a store
+// or a copy imported from Epic, GOG, Ubisoft, EA, Battle.net or Xbox. Quota-limited providers skip
+// those games.
 func (q CoverQuery) HasStoreLink() bool {
-	if q.SteamAppID != 0 {
+	if len(q.Links) > 0 {
 		return true
 	}
 
@@ -137,7 +141,7 @@ func (q CoverQuery) HasPhysical() bool { return len(q.PhysicalPlatforms) > 0 }
 
 // QueryFor builds the cover query of a game.
 func QueryFor(g *game.Game) CoverQuery {
-	q := CoverQuery{Title: g.Title(), SteamAppID: g.SteamAppID()}
+	q := CoverQuery{Title: g.Title(), Links: g.Links()}
 	for _, c := range g.Copies() {
 		if c.ExternalID != "" {
 			q.ExternalIDs = append(q.ExternalIDs, c.ExternalID)
@@ -224,18 +228,38 @@ type Provider interface {
 	Test(ctx context.Context, settings schema.Settings) error
 }
 
-// AppMatch is a store search result.
-type AppMatch struct {
-	AppID    int64
+// LinkStore describes a store games can be linked to.
+type LinkStore struct {
+	// Key is the link key the store's ids are saved under (game.LinkSteam).
+	Key string
+
+	// Name is the store's display name.
+	Name string
+
+	// PageURL is the address of a game's page in the store, with "{id}" where its id goes.
+	PageURL string
+}
+
+// LinkMatch is a game found in a store's catalog.
+type LinkMatch struct {
+	// ID is the game's id in the store, the value of its link.
+	ID       string
 	Name     string
 	ImageURL string
 }
 
-// AppSearcher is the port that searches a store catalog by title.
-type AppSearcher interface {
-	// SearchApps returns the store apps whose title matches the query, best first.
-	SearchApps(ctx context.Context, query string) ([]AppMatch, error)
+// LinkSearcher is an optional port for providers that can search their store's catalog by title,
+// so the user (and the add-on cover lookup) can link a game to it.
+type LinkSearcher interface {
+	// LinkStore describes the store the provider searches.
+	LinkStore() LinkStore
+
+	// SearchLinks returns the store's games whose title matches the query, best first.
+	SearchLinks(ctx context.Context, query string) ([]LinkMatch, error)
 }
+
+// ErrUnknownStore means a search named a store no provider can search.
+var ErrUnknownStore = errors.New("no provider can search that store")
 
 // Service exposes the media use cases.
 type Service struct {
@@ -243,7 +267,7 @@ type Service struct {
 	providers provider.Repository
 	store     AssetStore
 	fetch     ImageFetcher
-	search    AppSearcher
+	searchers []LinkSearcher // registration order
 	impls     map[provider.ID]Provider
 	covers    map[provider.ID]CoverProvider
 	barcodes  map[provider.ID]BarcodeProvider
@@ -269,9 +293,9 @@ type Providers struct {
 
 // NewService builds the service.
 func NewService(games game.Repository, providers provider.Repository, store AssetStore, details DetailsStore, fetch ImageFetcher,
-	search AppSearcher, now port.Clock, log *slog.Logger, impls Providers) *Service {
+	now port.Clock, log *slog.Logger, impls Providers) *Service {
 	s := &Service{
-		games: games, providers: providers, store: store, details: details, fetch: fetch, search: search, now: now, log: log,
+		games: games, providers: providers, store: store, details: details, fetch: fetch, now: now, log: log,
 		impls:        map[provider.ID]Provider{},
 		covers:       map[provider.ID]CoverProvider{},
 		barcodes:     map[provider.ID]BarcodeProvider{},
@@ -294,6 +318,15 @@ func NewService(games game.Repository, providers provider.Repository, store Asse
 		id := p.Descriptor().ID
 		s.metadata[id], s.impls[id] = p, p
 		s.order = append(s.order, id)
+	}
+
+	seen := map[string]bool{}
+
+	for _, id := range s.order {
+		if ls, ok := s.impls[id].(LinkSearcher); ok && !seen[ls.LinkStore().Key] {
+			seen[ls.LinkStore().Key] = true
+			s.searchers = append(s.searchers, ls)
+		}
 	}
 
 	return s
@@ -691,7 +724,7 @@ func (s *Service) RefreshCovers(ctx context.Context, missingOnly bool) (int, err
 }
 
 // Invalidate drops the game's cover, details and downloaded images (implements catalog.CoverCache):
-// they depend on the custom cover URL and the Steam AppID, and must go when the game is deleted.
+// they depend on the custom cover URL and the game's links, and must go when the game is deleted.
 func (s *Service) Invalidate(ctx context.Context, id game.ID) error {
 	if s.details != nil {
 		if err := s.details.Delete(ctx, id); err != nil {
@@ -702,13 +735,41 @@ func (s *Service) Invalidate(ctx context.Context, id game.ID) error {
 	return s.store.DeleteAll(id)
 }
 
-// SearchSteamApps searches the Steam store by title.
-func (s *Service) SearchSteamApps(ctx context.Context, query string) ([]AppMatch, error) {
-	if len(query) < 2 {
-		return nil, nil
+// ProviderName returns a registered provider's display name, or its id when it is not registered
+// (details cached by a provider that was removed since).
+func (s *Service) ProviderName(id provider.ID) string {
+	if p, ok := s.impls[id]; ok {
+		return p.Descriptor().Name
 	}
 
-	return s.search.SearchApps(ctx, query)
+	return string(id)
+}
+
+// LinkStores returns the stores a game can be linked to by searching them, in chain order.
+func (s *Service) LinkStores() []LinkStore {
+	out := make([]LinkStore, 0, len(s.searchers))
+	for _, ls := range s.searchers {
+		out = append(out, ls.LinkStore())
+	}
+
+	return out
+}
+
+// SearchLinks searches a store's catalog by title, to link a game to it.
+func (s *Service) SearchLinks(ctx context.Context, store, query string) ([]LinkMatch, error) {
+	for _, ls := range s.searchers {
+		if ls.LinkStore().Key != store {
+			continue
+		}
+
+		if len(strings.TrimSpace(query)) < 2 {
+			return nil, nil
+		}
+
+		return ls.SearchLinks(ctx, query)
+	}
+
+	return nil, ErrUnknownStore
 }
 
 // Suggestion is a canonical game proposed for a title, with its cover.

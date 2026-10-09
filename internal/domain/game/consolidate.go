@@ -18,10 +18,13 @@ type ImportedCopy struct {
 	// Withdrawn means the source no longer counts this item as a copy (e.g. a key that turned out
 	// not to be a game): a copy it imported earlier under ExternalID is removed, and its game too
 	// if nothing else is left in it.
-	Withdrawn  bool
-	Title      string
-	SteamAppID int64
-	Details    CopyDetails
+	Withdrawn bool
+	Title     string
+
+	// Links are the stores the source knows the game by (a Humble key reports its Steam AppID).
+	// They are added to the game where it has no link to that store yet.
+	Links   Links
+	Details CopyDetails
 }
 
 // ConsolidationResult summarizes what a consolidation changed.
@@ -43,12 +46,12 @@ type ConsolidationResult struct {
 //
 // Matching order:
 //  1. a copy with the same ExternalID (the copy was imported before) → update it in place;
-//  2. a game with the same Steam AppID;
+//  2. a game linked to the same id in one of the copy's stores (Links);
 //  3. a game whose title has the same MatchKey;
 //  4. otherwise a new game is created.
 type Consolidator struct {
 	byExternalID map[string]*Game
-	bySteamID    map[int64]*Game
+	byLink       map[string]*Game
 	byMatchKey   map[string]*Game
 	changed      map[ID]*Game
 	order        []*Game
@@ -58,7 +61,7 @@ type Consolidator struct {
 func NewConsolidator(games []*Game) *Consolidator {
 	c := &Consolidator{
 		byExternalID: map[string]*Game{},
-		bySteamID:    map[int64]*Game{},
+		byLink:       map[string]*Game{},
 		byMatchKey:   map[string]*Game{},
 		changed:      map[ID]*Game{},
 	}
@@ -76,11 +79,7 @@ func (c *Consolidator) index(g *Game) {
 		}
 	}
 
-	if g.steamAppID != 0 {
-		if _, ok := c.bySteamID[g.steamAppID]; !ok {
-			c.bySteamID[g.steamAppID] = g
-		}
-	}
+	c.indexLinks(g, g.links)
 
 	if k := g.MatchKey(); k != "" {
 		if _, ok := c.byMatchKey[k]; !ok {
@@ -117,6 +116,11 @@ func (c *Consolidator) Apply(sourceID string, imported []ImportedCopy, now time.
 			continue
 		}
 
+		if in.Links, err = in.Links.normalize(); err != nil {
+			r.Warnings = append(r.Warnings, in.Title+": "+err.Error())
+			in.Links = nil
+		}
+
 		c.adoptPrevious(in)
 
 		if g, ok := c.byExternalID[in.ExternalID]; ok {
@@ -129,9 +133,9 @@ func (c *Consolidator) Apply(sourceID string, imported []ImportedCopy, now time.
 				changed = true
 			}
 
-			if g.steamAppID == 0 && in.SteamAppID != 0 {
-				g.steamAppID = in.SteamAppID
-				c.bySteamID[in.SteamAppID] = g
+			if added := g.links.fill(in.Links); len(added) > 0 {
+				c.indexLinks(g, added)
+
 				changed = true
 			}
 
@@ -155,12 +159,11 @@ func (c *Consolidator) Apply(sourceID string, imported []ImportedCopy, now time.
 				continue
 			}
 
-			ng.steamAppID = in.SteamAppID
 			g = ng
 			r.GamesCreated++
-		} else if g.steamAppID == 0 && in.SteamAppID != 0 {
-			g.steamAppID = in.SteamAppID
 		}
+
+		g.links.fill(in.Links)
 
 		if _, err := g.addCopy(details, sourceID, in.ExternalID, now); err != nil {
 			r.Warnings = append(r.Warnings, in.Title+": "+err.Error())
@@ -249,9 +252,21 @@ func (c *Consolidator) adoptPrevious(in ImportedCopy) {
 	c.byExternalID[in.ExternalID] = g
 }
 
+// indexLinks indexes g under links, unless another game already holds one of them: the first game
+// linked to a store id keeps it, as with titles.
+func (c *Consolidator) indexLinks(g *Game, links Links) {
+	for k, v := range links {
+		if _, ok := c.byLink[linkIndex(k, v)]; !ok {
+			c.byLink[linkIndex(k, v)] = g
+		}
+	}
+}
+
+func linkIndex(store, id string) string { return store + "\x00" + id }
+
 func (c *Consolidator) findGame(in ImportedCopy) *Game {
-	if in.SteamAppID != 0 {
-		if g, ok := c.bySteamID[in.SteamAppID]; ok {
+	for _, k := range in.Links.Keys() {
+		if g, ok := c.byLink[linkIndex(k, in.Links[k])]; ok {
 			return g
 		}
 	}

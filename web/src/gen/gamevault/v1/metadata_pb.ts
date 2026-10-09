@@ -156,7 +156,7 @@ export type GameDetails = Message<"gamevault.v1.GameDetails"> & {
   screenshots: Screenshot[];
 
   /**
-   * Providers that contributed, in chain order.
+   * Names of the providers that contributed, in chain order ("Steam", "TheGamesDB").
    *
    * @generated from field: repeated string sources = 14;
    */

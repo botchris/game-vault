@@ -65,7 +65,8 @@ file under `.claude/memory/` (create `<store>.md` and add a line to `.claude/MEM
 1. `covers.go` in the store's package (or a new package): `CoverProviderID`, `Descriptor()` with
    `Kind: provider.KindCover`, `EnabledByDefault: true` when it is free.
 2. `Applies(q)` must not touch the network: decide from `q.ExternalIDsWithPrefix("<name>:")`,
-   `q.SteamAppID`, `q.Platforms`, `q.PhysicalPlatforms`. Quota-limited providers also check
+   `q.Links["<store>"]` (the game's link to a store, e.g. `game.LinkSteam`), `q.Platforms`,
+   `q.PhysicalPlatforms`. Quota-limited providers also check
    `q.HasStoreLink()` / `q.Fallback`.
 3. `Covers(ctx, q, settings)` returns candidates best first (portrait art before landscape), each
    with `URL`, `ThumbURL`, a `Label` saying where it comes from, and `Provider`. Return `nil, nil`
@@ -73,6 +74,9 @@ file under `.claude/memory/` (create `<store>.md` and add a line to `.claude/MEM
 4. `ImageHosts()` (`media.ImageHoster`) lists the image hosts so the browser can show candidates
    through `/media/proxy`.
 5. Register in `main.go` in `media.Providers.Covers` (order = default chain order for new users).
+6. If the store's catalog can be searched by title, implement `media.LinkSearcher` (`LinkStore()`,
+   `SearchLinks`): the game page then offers it under "Store links", and the add-on cover lookup
+   searches it too. A source that knows a game's id in a store sets `ImportedCopy.Links`.
 6. Bump `coverLogicChanged` in `internal/application/media/service.go` to the current UTC time so
    games previously marked "no cover" are retried.
 7. Translation `providers.<id>.description` (en/es), test against a fake server, and the covers

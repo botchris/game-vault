@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
 	"gamevault/internal/application/media"
+	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
 )
@@ -21,11 +23,25 @@ const (
 	defaultAssetsURL = "https://shared.akamai.steamstatic.com/store_item_assets/"
 )
 
+// StorePageURL is the address of a Steam store page, without the AppID.
+const StorePageURL = "https://store.steampowered.com/app/"
+
+// AppIDOf returns the Steam AppID the game is linked to, or 0 when it is not (or the link is not a
+// valid AppID).
+func AppIDOf(q media.CoverQuery) int64 {
+	id, err := strconv.ParseInt(q.Links[game.LinkSteam], 10, 64)
+	if err != nil || id <= 0 {
+		return 0
+	}
+
+	return id
+}
+
 // CoverProviderID identifies Steam in the cover provider chain.
 const CoverProviderID provider.ID = "steam"
 
 // Store uses Steam's public store endpoints (no API key needed). It implements
-// media.CoverProvider and media.AppSearcher.
+// media.CoverProvider and media.LinkSearcher.
 type Store struct {
 	StoreURL string
 	CDNURL   string
@@ -40,7 +56,7 @@ type Store struct {
 
 var (
 	_ media.CoverProvider = (*Store)(nil)
-	_ media.AppSearcher   = (*Store)(nil)
+	_ media.LinkSearcher  = (*Store)(nil)
 )
 
 // Descriptor implements media.CoverProvider.
@@ -58,14 +74,19 @@ func (s *Store) ImageHosts() []string {
 }
 
 // Applies reports whether Steam knows the game: only those linked to a Steam AppID.
-func (s *Store) Applies(q media.CoverQuery) bool { return q.SteamAppID != 0 }
+func (s *Store) Applies(q media.CoverQuery) bool { return AppIDOf(q) != 0 }
 
 // Covers returns the portrait library art first, then the landscape header. Recent apps keep
 // their images under hashed paths (…/apps/<id>/<hash>/library_600x900.jpg), so the real paths are
 // asked to IStoreBrowseService (one free request); the legacy predictable URLs are the fallback.
 func (s *Store) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
-	urls := s.CoverURLs(q.SteamAppID)
-	if library, header, err := s.assetURLs(ctx, q.SteamAppID); err == nil && (library != "" || header != "") {
+	appID := AppIDOf(q)
+	if appID == 0 {
+		return nil, nil
+	}
+
+	urls := s.CoverURLs(appID)
+	if library, header, err := s.assetURLs(ctx, appID); err == nil && (library != "" || header != "") {
 		urls = []string{library, header}
 	}
 
@@ -165,8 +186,13 @@ func (s *Store) CoverURLs(appID int64) []string {
 	}
 }
 
-// SearchApps searches the Steam store by title.
-func (s *Store) SearchApps(ctx context.Context, query string) ([]media.AppMatch, error) {
+// LinkStore implements media.LinkSearcher.
+func (s *Store) LinkStore() media.LinkStore {
+	return media.LinkStore{Key: game.LinkSteam, Name: "Steam", PageURL: StorePageURL + "{id}"}
+}
+
+// SearchLinks implements media.LinkSearcher: it searches the Steam store by title.
+func (s *Store) SearchLinks(ctx context.Context, query string) ([]media.LinkMatch, error) {
 	q := url.Values{"term": {query}, "l": {"english"}, "cc": {"US"}}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.StoreURL+"/api/storesearch/?"+q.Encode(), nil)
@@ -196,10 +222,10 @@ func (s *Store) SearchApps(ctx context.Context, query string) ([]media.AppMatch,
 		return nil, err
 	}
 
-	matches := make([]media.AppMatch, 0, len(out.Items))
+	matches := make([]media.LinkMatch, 0, len(out.Items))
 	for _, it := range out.Items {
 		if it.Type == "app" {
-			matches = append(matches, media.AppMatch{AppID: it.ID, Name: it.Name, ImageURL: it.TinyImage})
+			matches = append(matches, media.LinkMatch{ID: strconv.FormatInt(it.ID, 10), Name: it.Name, ImageURL: it.TinyImage})
 		}
 	}
 

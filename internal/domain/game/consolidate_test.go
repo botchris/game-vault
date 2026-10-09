@@ -1,22 +1,32 @@
 package game
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+// steamLink links to a Steam AppID; 0 means no link.
+func steamLink(appID int64) Links {
+	if appID == 0 {
+		return nil
+	}
+
+	return Links{LinkSteam: strconv.FormatInt(appID, 10)}
+}
+
 func key(ext, title string, appID int64, status Status) ImportedCopy {
-	return ImportedCopy{ExternalID: ext, Title: title, SteamAppID: appID,
+	return ImportedCopy{ExternalID: ext, Title: title, Links: steamLink(appID),
 		Details: CopyDetails{Kind: KindKey, Platform: "Steam", Status: status, Key: "KEY-" + ext}}
 }
 
 func TestConsolidatorMatchesAndDedupes(t *testing.T) {
 	// The Steam library already has Hades and Celeste.
 	lib := NewConsolidator(nil).Apply("steam-src", []ImportedCopy{
-		{ExternalID: "steam:1145360", Title: "Hades", SteamAppID: 1145360, Details: CopyDetails{Kind: KindLibrary, Platform: "Steam"}},
-		{ExternalID: "steam:504230", Title: "Celeste", SteamAppID: 504230, Details: CopyDetails{Kind: KindLibrary, Platform: "Steam"}},
+		{ExternalID: "steam:1145360", Title: "Hades", Links: steamLink(1145360), Details: CopyDetails{Kind: KindLibrary, Platform: "Steam"}},
+		{ExternalID: "steam:504230", Title: "Celeste", Links: steamLink(504230), Details: CopyDetails{Kind: KindLibrary, Platform: "Steam"}},
 	}, t0)
 	if lib.GamesCreated != 2 || lib.CopiesAdded != 2 {
 		t.Fatalf("library import: %+v", lib)
@@ -123,7 +133,7 @@ func TestConsolidator_adoptsPreviousExternalID(t *testing.T) {
 func TestConsolidator_withdrawn(t *testing.T) {
 	t.Run("GIVEN a source that imported a coupon as a game and a spare key of a game", func(t *testing.T) {
 		lib := NewConsolidator(nil).Apply("steam-src", []ImportedCopy{
-			{ExternalID: "steam:100", Title: "Teleglitch", SteamAppID: 100, Details: CopyDetails{Kind: KindLibrary, Platform: "Steam"}},
+			{ExternalID: "steam:100", Title: "Teleglitch", Links: steamLink(100), Details: CopyDetails{Kind: KindLibrary, Platform: "Steam"}},
 		}, t0)
 		old := NewConsolidator(lib.Changed).Apply("humble-src", []ImportedCopy{
 			key("humble:C:coupon:0", "45% off Coupon", 0, StatusRevealed),
@@ -136,7 +146,7 @@ func TestConsolidator_withdrawn(t *testing.T) {
 		t.Run("WHEN the source withdraws both", func(t *testing.T) {
 			res := NewConsolidator(games).Apply("humble-src", []ImportedCopy{
 				{ExternalID: "humble:C:coupon:0", Title: "45% off Coupon", Withdrawn: true},
-				{ExternalID: "humble:C:teleglitch_deadline:0", Title: "Teleglitch", SteamAppID: 100, Withdrawn: true},
+				{ExternalID: "humble:C:teleglitch_deadline:0", Title: "Teleglitch", Links: steamLink(100), Withdrawn: true},
 			}, t0)
 
 			t.Run("THEN both copies are removed", func(t *testing.T) {

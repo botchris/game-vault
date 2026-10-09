@@ -158,7 +158,7 @@ func (s *Service) MergeGames(ctx context.Context, target game.ID, sources []game
 		return nil
 	})
 	if err == nil {
-		s.invalidateCover(ctx, target) // the target may have adopted a Steam AppID or cover
+		s.invalidateCover(ctx, target) // the target may have adopted links or a cover
 
 		for _, id := range sources {
 			s.invalidateCover(ctx, id)

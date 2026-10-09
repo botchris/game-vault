@@ -62,7 +62,7 @@ func gameToPB(g *game.Game) *pb.Game {
 	}
 
 	out := &pb.Game{
-		Id: string(g.ID()), Title: g.Title(), SteamAppId: g.SteamAppID(), Notes: g.Notes(), CoverUrl: g.CoverURL(),
+		Id: string(g.ID()), Title: g.Title(), Links: g.Links(), Notes: g.Notes(), CoverUrl: g.CoverURL(),
 		CreatedAt: ts(g.CreatedAt()), UpdatedAt: ts(g.UpdatedAt()),
 	}
 	for _, c := range g.Copies() {

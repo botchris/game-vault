@@ -56,9 +56,11 @@ const (
 	// GameServiceMarkRedeemedKeysProcedure is the fully-qualified name of the GameService's
 	// MarkRedeemedKeys RPC.
 	GameServiceMarkRedeemedKeysProcedure = "/gamevault.v1.GameService/MarkRedeemedKeys"
-	// GameServiceSearchSteamAppsProcedure is the fully-qualified name of the GameService's
-	// SearchSteamApps RPC.
-	GameServiceSearchSteamAppsProcedure = "/gamevault.v1.GameService/SearchSteamApps"
+	// GameServiceListLinkStoresProcedure is the fully-qualified name of the GameService's
+	// ListLinkStores RPC.
+	GameServiceListLinkStoresProcedure = "/gamevault.v1.GameService/ListLinkStores"
+	// GameServiceSearchLinksProcedure is the fully-qualified name of the GameService's SearchLinks RPC.
+	GameServiceSearchLinksProcedure = "/gamevault.v1.GameService/SearchLinks"
 )
 
 // GameServiceClient is a client for the gamevault.v1.GameService service.
@@ -73,12 +75,15 @@ type GameServiceClient interface {
 	UpdateCopy(context.Context, *connect.Request[v1.UpdateCopyRequest]) (*connect.Response[v1.UpdateCopyResponse], error)
 	DeleteCopy(context.Context, *connect.Request[v1.DeleteCopyRequest]) (*connect.Response[v1.DeleteCopyResponse], error)
 	MoveCopy(context.Context, *connect.Request[v1.MoveCopyRequest]) (*connect.Response[v1.MoveCopyResponse], error)
-	// Humble cannot tell whether a revealed key was redeemed. If the game is already in the
-	// library of the key's platform it almost certainly was: mark those keys as redeemed.
+	// Key sources (Humble Bundle, Fanatical…) cannot tell whether a revealed key was redeemed. If
+	// the game is already in the library of the key's platform it almost certainly was: mark those
+	// keys as redeemed.
 	MarkRedeemedKeys(context.Context, *connect.Request[v1.MarkRedeemedKeysRequest]) (*connect.Response[v1.MarkRedeemedKeysResponse], error)
-	// Searches the Steam store by title, to link a game (e.g. a physical one) to its Steam AppID
-	// and get its cover.
-	SearchSteamApps(context.Context, *connect.Request[v1.SearchSteamAppsRequest]) (*connect.Response[v1.SearchSteamAppsResponse], error)
+	// Lists the stores whose catalog can be searched to link a game to them.
+	ListLinkStores(context.Context, *connect.Request[v1.ListLinkStoresRequest]) (*connect.Response[v1.ListLinkStoresResponse], error)
+	// Searches a store's catalog by title, to link a game (e.g. a physical one) to it and get its
+	// cover and details.
+	SearchLinks(context.Context, *connect.Request[v1.SearchLinksRequest]) (*connect.Response[v1.SearchLinksResponse], error)
 }
 
 // NewGameServiceClient constructs a client for the gamevault.v1.GameService service. By default, it
@@ -158,10 +163,16 @@ func NewGameServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(gameServiceMethods.ByName("MarkRedeemedKeys")),
 			connect.WithClientOptions(opts...),
 		),
-		searchSteamApps: connect.NewClient[v1.SearchSteamAppsRequest, v1.SearchSteamAppsResponse](
+		listLinkStores: connect.NewClient[v1.ListLinkStoresRequest, v1.ListLinkStoresResponse](
 			httpClient,
-			baseURL+GameServiceSearchSteamAppsProcedure,
-			connect.WithSchema(gameServiceMethods.ByName("SearchSteamApps")),
+			baseURL+GameServiceListLinkStoresProcedure,
+			connect.WithSchema(gameServiceMethods.ByName("ListLinkStores")),
+			connect.WithClientOptions(opts...),
+		),
+		searchLinks: connect.NewClient[v1.SearchLinksRequest, v1.SearchLinksResponse](
+			httpClient,
+			baseURL+GameServiceSearchLinksProcedure,
+			connect.WithSchema(gameServiceMethods.ByName("SearchLinks")),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -180,7 +191,8 @@ type gameServiceClient struct {
 	deleteCopy       *connect.Client[v1.DeleteCopyRequest, v1.DeleteCopyResponse]
 	moveCopy         *connect.Client[v1.MoveCopyRequest, v1.MoveCopyResponse]
 	markRedeemedKeys *connect.Client[v1.MarkRedeemedKeysRequest, v1.MarkRedeemedKeysResponse]
-	searchSteamApps  *connect.Client[v1.SearchSteamAppsRequest, v1.SearchSteamAppsResponse]
+	listLinkStores   *connect.Client[v1.ListLinkStoresRequest, v1.ListLinkStoresResponse]
+	searchLinks      *connect.Client[v1.SearchLinksRequest, v1.SearchLinksResponse]
 }
 
 // ListGames calls gamevault.v1.GameService.ListGames.
@@ -238,9 +250,14 @@ func (c *gameServiceClient) MarkRedeemedKeys(ctx context.Context, req *connect.R
 	return c.markRedeemedKeys.CallUnary(ctx, req)
 }
 
-// SearchSteamApps calls gamevault.v1.GameService.SearchSteamApps.
-func (c *gameServiceClient) SearchSteamApps(ctx context.Context, req *connect.Request[v1.SearchSteamAppsRequest]) (*connect.Response[v1.SearchSteamAppsResponse], error) {
-	return c.searchSteamApps.CallUnary(ctx, req)
+// ListLinkStores calls gamevault.v1.GameService.ListLinkStores.
+func (c *gameServiceClient) ListLinkStores(ctx context.Context, req *connect.Request[v1.ListLinkStoresRequest]) (*connect.Response[v1.ListLinkStoresResponse], error) {
+	return c.listLinkStores.CallUnary(ctx, req)
+}
+
+// SearchLinks calls gamevault.v1.GameService.SearchLinks.
+func (c *gameServiceClient) SearchLinks(ctx context.Context, req *connect.Request[v1.SearchLinksRequest]) (*connect.Response[v1.SearchLinksResponse], error) {
+	return c.searchLinks.CallUnary(ctx, req)
 }
 
 // GameServiceHandler is an implementation of the gamevault.v1.GameService service.
@@ -255,12 +272,15 @@ type GameServiceHandler interface {
 	UpdateCopy(context.Context, *connect.Request[v1.UpdateCopyRequest]) (*connect.Response[v1.UpdateCopyResponse], error)
 	DeleteCopy(context.Context, *connect.Request[v1.DeleteCopyRequest]) (*connect.Response[v1.DeleteCopyResponse], error)
 	MoveCopy(context.Context, *connect.Request[v1.MoveCopyRequest]) (*connect.Response[v1.MoveCopyResponse], error)
-	// Humble cannot tell whether a revealed key was redeemed. If the game is already in the
-	// library of the key's platform it almost certainly was: mark those keys as redeemed.
+	// Key sources (Humble Bundle, Fanatical…) cannot tell whether a revealed key was redeemed. If
+	// the game is already in the library of the key's platform it almost certainly was: mark those
+	// keys as redeemed.
 	MarkRedeemedKeys(context.Context, *connect.Request[v1.MarkRedeemedKeysRequest]) (*connect.Response[v1.MarkRedeemedKeysResponse], error)
-	// Searches the Steam store by title, to link a game (e.g. a physical one) to its Steam AppID
-	// and get its cover.
-	SearchSteamApps(context.Context, *connect.Request[v1.SearchSteamAppsRequest]) (*connect.Response[v1.SearchSteamAppsResponse], error)
+	// Lists the stores whose catalog can be searched to link a game to them.
+	ListLinkStores(context.Context, *connect.Request[v1.ListLinkStoresRequest]) (*connect.Response[v1.ListLinkStoresResponse], error)
+	// Searches a store's catalog by title, to link a game (e.g. a physical one) to it and get its
+	// cover and details.
+	SearchLinks(context.Context, *connect.Request[v1.SearchLinksRequest]) (*connect.Response[v1.SearchLinksResponse], error)
 }
 
 // NewGameServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -336,10 +356,16 @@ func NewGameServiceHandler(svc GameServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(gameServiceMethods.ByName("MarkRedeemedKeys")),
 		connect.WithHandlerOptions(opts...),
 	)
-	gameServiceSearchSteamAppsHandler := connect.NewUnaryHandler(
-		GameServiceSearchSteamAppsProcedure,
-		svc.SearchSteamApps,
-		connect.WithSchema(gameServiceMethods.ByName("SearchSteamApps")),
+	gameServiceListLinkStoresHandler := connect.NewUnaryHandler(
+		GameServiceListLinkStoresProcedure,
+		svc.ListLinkStores,
+		connect.WithSchema(gameServiceMethods.ByName("ListLinkStores")),
+		connect.WithHandlerOptions(opts...),
+	)
+	gameServiceSearchLinksHandler := connect.NewUnaryHandler(
+		GameServiceSearchLinksProcedure,
+		svc.SearchLinks,
+		connect.WithSchema(gameServiceMethods.ByName("SearchLinks")),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/gamevault.v1.GameService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -366,8 +392,10 @@ func NewGameServiceHandler(svc GameServiceHandler, opts ...connect.HandlerOption
 			gameServiceMoveCopyHandler.ServeHTTP(w, r)
 		case GameServiceMarkRedeemedKeysProcedure:
 			gameServiceMarkRedeemedKeysHandler.ServeHTTP(w, r)
-		case GameServiceSearchSteamAppsProcedure:
-			gameServiceSearchSteamAppsHandler.ServeHTTP(w, r)
+		case GameServiceListLinkStoresProcedure:
+			gameServiceListLinkStoresHandler.ServeHTTP(w, r)
+		case GameServiceSearchLinksProcedure:
+			gameServiceSearchLinksHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -421,6 +449,10 @@ func (UnimplementedGameServiceHandler) MarkRedeemedKeys(context.Context, *connec
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gamevault.v1.GameService.MarkRedeemedKeys is not implemented"))
 }
 
-func (UnimplementedGameServiceHandler) SearchSteamApps(context.Context, *connect.Request[v1.SearchSteamAppsRequest]) (*connect.Response[v1.SearchSteamAppsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gamevault.v1.GameService.SearchSteamApps is not implemented"))
+func (UnimplementedGameServiceHandler) ListLinkStores(context.Context, *connect.Request[v1.ListLinkStoresRequest]) (*connect.Response[v1.ListLinkStoresResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gamevault.v1.GameService.ListLinkStores is not implemented"))
+}
+
+func (UnimplementedGameServiceHandler) SearchLinks(context.Context, *connect.Request[v1.SearchLinksRequest]) (*connect.Response[v1.SearchLinksResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gamevault.v1.GameService.SearchLinks is not implemented"))
 }

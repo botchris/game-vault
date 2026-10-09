@@ -74,14 +74,16 @@ message Copy {
 
 // Game is the aggregate root: a title plus every copy you own of it.
 message Game {
+  reserved 3;
+  reserved "steam_app_id";
+
   string id = 1;
   string title = 2;
-  int64 steam_app_id = 3;
   string notes = 4;
   repeated Copy copies = 5;
   google.protobuf.Timestamp created_at = 6;
   google.protobuf.Timestamp updated_at = 7;
-  // Custom cover image URL. When empty the cover comes from Steam (if steam_app_id is set).
+  // Custom cover image URL. When empty the cover providers choose one.
   // The image itself is served over plain HTTP at GET /media/covers/{id}.
   string cover_url = 8;
   // From the cached game details (see MetadataService), in ListGamesRequest.language.
@@ -89,6 +91,9 @@ message Game {
   repeated string genres = 9;
   // 0 when unknown.
   int32 release_year = 10;
+  // Stores the game is linked to: link key ("steam") → the game's id there ("620"). Providers
+  // that know a store use its link for covers and details; imports use links to match games.
+  map<string, string> links = 11;
 }
 
 message ListGamesRequest {
@@ -109,23 +114,30 @@ message GetGameResponse {
 }
 
 message CreateGameRequest {
+  reserved 2;
+  reserved "steam_app_id";
+
   string title = 1;
-  int64 steam_app_id = 2;
   string notes = 3;
   // Optional copies to add right away.
   repeated CopyDetails copies = 4;
   string cover_url = 5;
+  map<string, string> links = 6;
 }
 message CreateGameResponse {
   Game game = 1;
 }
 
 message UpdateGameRequest {
+  reserved 3;
+  reserved "steam_app_id";
+
   string id = 1;
   string title = 2;
-  int64 steam_app_id = 3;
   string notes = 4;
   string cover_url = 5;
+  // The game's links, replacing the current ones (an empty map unlinks every store).
+  map<string, string> links = 6;
 }
 message UpdateGameResponse {
   Game game = 1;
@@ -191,19 +203,37 @@ message MarkRedeemedKeysResponse {
   int32 updated = 1;
 }
 
-message SearchSteamAppsRequest {
-  string query = 1;
+message ListLinkStoresRequest {}
+
+// LinkStore is a store whose catalog can be searched to link a game to it.
+message LinkStore {
+  // Link key the store's ids are saved under in Game.links ("steam").
+  string key = 1;
+  string name = 2;
+  // Address of a game's page in the store, with "{id}" where the link goes.
+  string page_url = 3;
 }
 
-// SteamApp is a match from the Steam store search.
-message SteamApp {
-  int64 app_id = 1;
+message ListLinkStoresResponse {
+  repeated LinkStore stores = 1;
+}
+
+message SearchLinksRequest {
+  // LinkStore.key of the store to search.
+  string store = 1;
+  string query = 2;
+}
+
+// LinkMatch is a game found in a store's catalog.
+message LinkMatch {
+  // The game's id in the store: the value of its link.
+  string id = 1;
   string name = 2;
   string image_url = 3;
 }
 
-message SearchSteamAppsResponse {
-  repeated SteamApp apps = 1;
+message SearchLinksResponse {
+  repeated LinkMatch matches = 1;
 }
 
 // GameService manages the catalog of games and their copies.
@@ -218,10 +248,13 @@ service GameService {
   rpc UpdateCopy(UpdateCopyRequest) returns (UpdateCopyResponse);
   rpc DeleteCopy(DeleteCopyRequest) returns (DeleteCopyResponse);
   rpc MoveCopy(MoveCopyRequest) returns (MoveCopyResponse);
-  // Humble cannot tell whether a revealed key was redeemed. If the game is already in the
-  // library of the key's platform it almost certainly was: mark those keys as redeemed.
+  // Key sources (Humble Bundle, Fanatical…) cannot tell whether a revealed key was redeemed. If
+  // the game is already in the library of the key's platform it almost certainly was: mark those
+  // keys as redeemed.
   rpc MarkRedeemedKeys(MarkRedeemedKeysRequest) returns (MarkRedeemedKeysResponse);
-  // Searches the Steam store by title, to link a game (e.g. a physical one) to its Steam AppID
-  // and get its cover.
-  rpc SearchSteamApps(SearchSteamAppsRequest) returns (SearchSteamAppsResponse);
+  // Lists the stores whose catalog can be searched to link a game to them.
+  rpc ListLinkStores(ListLinkStoresRequest) returns (ListLinkStoresResponse);
+  // Searches a store's catalog by title, to link a game (e.g. a physical one) to it and get its
+  // cover and details.
+  rpc SearchLinks(SearchLinksRequest) returns (SearchLinksResponse);
 }

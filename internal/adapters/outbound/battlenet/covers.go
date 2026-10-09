@@ -20,14 +20,14 @@ const CoverProviderID provider.ID = "battlenet-covers"
 // title (many Blizzard and Activision games are sold there too) and uses Steam's library art.
 // Games only on Battle.net (World of Warcraft, StarCraft II…) are left to the next providers.
 type Covers struct {
-	Search media.AppSearcher   // the Steam store search
-	Steam  media.CoverProvider // Steam's library art, by AppID
+	Search media.LinkSearcher  // the Steam store search
+	Steam  media.CoverProvider // Steam's library art, for games linked to Steam
 }
 
 var _ media.CoverProvider = (*Covers)(nil)
 
 // NewCovers returns the Battle.net cover provider with its production endpoints.
-func NewCovers(search media.AppSearcher, steam media.CoverProvider) *Covers {
+func NewCovers(search media.LinkSearcher, steam media.CoverProvider) *Covers {
 	return &Covers{Search: search, Steam: steam}
 }
 
@@ -51,18 +51,20 @@ var reYear = regexp.MustCompile(`\s*\(\d{4}\)\s*$`)
 func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, settings schema.Settings) ([]media.CoverCandidate, error) {
 	title := strings.TrimSpace(reYear.ReplaceAllString(q.Title, ""))
 
-	apps, err := c.Search.SearchApps(ctx, title)
+	matches, err := c.Search.SearchLinks(ctx, title)
 	if err != nil {
 		return nil, err
 	}
 
+	store := c.Search.LinkStore().Key
 	key := game.MatchKey(title)
-	for _, a := range apps {
-		if game.MatchKey(a.Name) != key {
+
+	for _, m := range matches {
+		if game.MatchKey(m.Name) != key {
 			continue
 		}
 
-		cands, err := c.Steam.Covers(ctx, media.CoverQuery{Title: a.Name, SteamAppID: a.AppID}, settings)
+		cands, err := c.Steam.Covers(ctx, media.CoverQuery{Title: m.Name, Links: game.Links{store: m.ID}}, settings)
 		if err != nil {
 			return nil, err
 		}
@@ -81,7 +83,7 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, settings schema
 // Test implements media.Provider: it searches the Steam store for one well-known title, since that
 // search is the only service this provider depends on, and fails if the search errors. No match is not a failure.
 func (c *Covers) Test(ctx context.Context, _ schema.Settings) error {
-	if _, err := c.Search.SearchApps(ctx, "Portal"); err != nil {
+	if _, err := c.Search.SearchLinks(ctx, "Portal"); err != nil {
 		return fmt.Errorf("the Steam store search is not answering (%w); try again later", err)
 	}
 

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -99,7 +100,7 @@ func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.
 		copies = append(copies, game.ImportedCopy{
 			ExternalID: fmt.Sprintf("steam:%d", g.AppID),
 			Title:      name,
-			SteamAppID: g.AppID,
+			Links:      game.Links{game.LinkSteam: strconv.FormatInt(g.AppID, 10)},
 			Details:    game.CopyDetails{Kind: game.KindLibrary, Platform: "Steam", Status: game.StatusOwned, Origin: "Steam"},
 		})
 	}

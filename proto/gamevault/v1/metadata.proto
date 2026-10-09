@@ -42,7 +42,7 @@ message GameDetails {
   string store_url = 11;
   repeated Video videos = 12;
   repeated Screenshot screenshots = 13;
-  // Providers that contributed, in chain order.
+  // Names of the providers that contributed, in chain order ("Steam", "TheGamesDB").
   repeated string sources = 14;
   string language = 15;
   google.protobuf.Timestamp fetched_at = 16;

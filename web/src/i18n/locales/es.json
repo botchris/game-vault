@@ -84,7 +84,7 @@
     "markedRedeemed_other": "{{count}} claves marcadas como canjeadas.",
     "addGame": "Añadir juego",
     "showing": "{{shown}} de {{total}} juegos",
-    "empty": "Aún no hay nada. Añade un juego a mano, conecta tus cuentas de Humble Bundle y Steam en Fuentes, o importa un CSV en Sistema.",
+    "empty": "Aún no hay nada. Añade un juego a mano, conecta tus cuentas de tiendas en Fuentes, o importa un CSV en Sistema.",
     "columns": {
       "copies": "Copias",
       "pending": "Claves pendientes",
@@ -117,8 +117,6 @@
   },
   "game": {
     "title": "Título",
-    "steamAppId": "Steam AppID",
-    "steamStore": "Ficha en la tienda",
     "delete": "Borrar juego",
     "confirmDelete_one": "¿Borrar \"{{title}}\" y su copia? No se puede deshacer.",
     "confirmDelete_other": "¿Borrar \"{{title}}\" y sus {{count}} copias? No se puede deshacer.",
@@ -129,9 +127,13 @@
     "copies_one": "{{count}} copia",
     "copies_other": "{{count}} copias",
     "noCopies": "Todavía no hay copias.",
-    "findOnSteam": "Buscar en Steam…",
     "coverUrl": "URL de la carátula",
-    "coverUrlPlaceholder": "Vacío = carátula de Steam"
+    "coverUrlPlaceholder": "Vacío = la eligen los proveedores",
+    "links": "Vínculos con tiendas",
+    "linkPlaceholder": "Id en la tienda",
+    "storePage": "Abrir",
+    "searchStore": "Buscar…",
+    "linksHelp": "Vincular el juego con una tienda le da carátula y ficha, y permite reconocerlo al importar aunque su título sea distinto. Deja el id vacío para desvincularlo."
   },
   "copy": {
     "add": "Añadir copia",
@@ -167,7 +169,7 @@
     "move": "Mover a otro juego",
     "moveTitle": "Mover copia a…",
     "confirmDelete": "¿Borrar esta copia?",
-    "redeemOnSteam": "Canjear en Steam",
+    "redeemOn": "Canjear en {{platform}}",
     "markRedeemed": "Marcar como canjeada",
     "barcode": "Código de barras (EAN/UPC)"
   },
@@ -320,11 +322,7 @@
     "downloadTemplate": "Descargar plantilla",
     "exportCsv": "Exportar todo",
     "importDone": "{{added}} copias añadidas, {{updated}} actualizadas, {{unchanged}} sin cambios, {{games}} juegos nuevos.",
-    "csvColumns": "Columnas: title (obligatoria), platform, kind (key / library / physical), status, key, redeemBy, origin, acquiredOn, edition, condition, location, notes, steamAppId, externalId. También se aceptan en español (titulo, plataforma, tipo…). Separador coma o punto y coma; fechas AAAA-MM-DD."
-  },
-  "steamSearch": {
-    "title": "Buscar en Steam",
-    "placeholder": "Título del juego…"
+    "csvColumns": "Columnas: title (obligatoria), platform, kind (key / library / physical), status, key, redeemBy, origin, acquiredOn, edition, condition, location, notes, links (pares tienda:id separados por espacios, p. ej. steam:620), externalId, barcode. También se aceptan en español (titulo, plataforma, tipo…). Separador coma o punto y coma; fechas AAAA-MM-DD."
   },
   "logs": {
     "settings": "Logs y rotación",
@@ -393,7 +391,7 @@
       "apiKeyHelp": "Pide una clave gratuita en los foros de TheGamesDB (página de arriba).\nLas claves tienen un cupo mensual de peticiones; Probar comprueba la clave sin gastarlo y te avisa si se ha agotado."
     },
     "steam": {
-      "description": "Carátulas de la biblioteca de Steam para juegos con Steam AppID. Sin key ni cuota."
+      "description": "Carátulas de la biblioteca de Steam para juegos vinculados con Steam. Sin key ni cuota."
     },
     "barcodes": "Códigos de barras",
     "barcodesIntro": "Los usa Escanear para identificar un disco por el código de barras de la caja. Los códigos desconocidos se identifican una vez por título y quedan recordados.",
@@ -427,10 +425,10 @@
     "metadata": "Ficha del juego",
     "metadataIntro": "Sinopsis, géneros, compañías, tráilers y capturas que se muestran en cada juego. El primer proveedor da la ficha principal y los siguientes completan lo que falta. Se descarga al abrir el juego y se guarda 30 días.",
     "steamDetails": {
-      "description": "Ficha de la tienda de Steam para juegos con Steam AppID: sinopsis en tu idioma, géneros, compañías, Metacritic, tráilers y capturas. Gratis, sin key."
+      "description": "Ficha de la tienda de Steam para juegos vinculados con Steam: sinopsis en tu idioma, géneros, compañías, Metacritic, tráilers y capturas. Gratis, sin key."
     },
     "thegamesdbDetails": {
-      "description": "Descripción por plataforma (en inglés), géneros, compañías, clasificación por edades, jugadores y tráiler de YouTube, para juegos con copia física o sin Steam AppID. Usa la key de TheGamesDB de Carátulas; unas 2 peticiones por juego y luego se guarda."
+      "description": "Descripción por plataforma (en inglés), géneros, compañías, clasificación por edades, jugadores y tráiler de YouTube, para juegos con copia física o sin vínculo con ninguna tienda. Usa la key de TheGamesDB de Carátulas; unas 2 peticiones por juego y luego se guarda."
     },
     "epicCovers": {
       "description": "Carátula oficial de Epic Games Store, para los juegos importados de tu biblioteca de Epic. Gratis, sin clave."
@@ -457,7 +455,7 @@
     "intro": "Imágenes que proponen tus proveedores de carátulas activos. La que elijas se mantiene aunque cambies el orden de los proveedores.",
     "automatic": "Automática",
     "automaticHint": "Que decida la cadena de proveedores",
-    "none": "Ningún proveedor tiene carátula para este juego. Vincúlalo a Steam o pega la URL de una imagen."
+    "none": "Ningún proveedor tiene carátula para este juego. Vincúlalo con una tienda (Editar → Vínculos con tiendas) o pega la URL de una imagen."
   },
   "scan": {
     "title": "Escanear",
@@ -590,14 +588,17 @@
     "updated": "actualizado {{date}}",
     "refresh": "Actualizar ficha",
     "empty": "Ningún proveedor tiene todavía datos de este juego.",
-    "emptyNoSteam": "No se han encontrado datos. Vincula el juego a Steam (Editar → Buscar en Steam) o activa TheGamesDB en Proveedores.",
-    "steamHint": "Vincular un juego a Steam le da carátula y ficha completa.",
     "readMore": "Leer más",
-    "readLess": "Ver menos"
+    "readLess": "Ver menos",
+    "emptyNoLinks": "No se han encontrado detalles. Vincula el juego con una tienda (Editar → Vínculos con tiendas) o activa TheGamesDB en Proveedores."
   },
   "platform": {
     "pendingKey": "clave sin canjear",
     "filterBy": "Ver solo juegos de {{platform}}",
     "clearFilter": "Ver todas las plataformas"
+  },
+  "linkSearch": {
+    "title": "Buscar en {{store}}",
+    "placeholder": "Título del juego…"
   }
 }

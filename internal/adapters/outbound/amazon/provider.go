@@ -538,15 +538,15 @@ func mapEntitlements(items []entitlement) ([]game.ImportedCopy, []string) {
 			continue
 		}
 
-		var appID int64
+		var links game.Links
 		if m := reSteam.FindStringSubmatch(e.Product.ProductDetail.Details.Websites.Steam); m != nil {
-			appID, _ = strconv.ParseInt(m[1], 10, 64)
+			links = game.Links{game.LinkSteam: m[1]}
 		}
 
 		copies = append(copies, game.ImportedCopy{
 			ExternalID: "amazon:" + id,
 			Title:      title,
-			SteamAppID: appID,
+			Links:      links,
 			Details:    game.CopyDetails{Kind: game.KindLibrary, Platform: Platform, Status: game.StatusOwned},
 		})
 	}

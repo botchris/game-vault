@@ -12,14 +12,14 @@ import (
 // instance of it (a Humble key, a Steam library entry, a PS4 disc...) is a Copy inside it.
 // All changes to copies go through the Game so its invariants hold.
 type Game struct {
-	id         ID
-	title      string
-	steamAppID int64
-	notes      string
-	coverURL   string
-	copies     []Copy
-	createdAt  time.Time
-	updatedAt  time.Time
+	id        ID
+	title     string
+	links     Links
+	notes     string
+	coverURL  string
+	copies    []Copy
+	createdAt time.Time
+	updatedAt time.Time
 }
 
 // New creates a game with no copies.
@@ -34,11 +34,13 @@ func New(title string, now time.Time) (*Game, error) {
 
 // Info holds a game's own editable attributes.
 type Info struct {
-	Title      string
-	SteamAppID int64
-	Notes      string
+	Title string
 
-	// CoverURL is a custom cover image. Empty means "use the Steam cover" when SteamAppID is set.
+	// Links are the stores the game is linked to (see Links).
+	Links Links
+	Notes string
+
+	// CoverURL is a custom cover image. Empty means the cover providers choose one.
 	CoverURL string
 }
 
@@ -48,9 +50,12 @@ func (i Info) normalize() (Info, error) {
 		return i, invalid("title is required")
 	}
 
-	if i.SteamAppID < 0 {
-		return i, invalid("steam app id cannot be negative")
+	links, err := i.Links.normalize()
+	if err != nil {
+		return i, err
 	}
+
+	i.Links = links.clone()
 
 	if i.CoverURL != "" {
 		u, err := url.Parse(i.CoverURL)
@@ -64,7 +69,7 @@ func (i Info) normalize() (Info, error) {
 
 // Rehydrate rebuilds a game from storage. Only repositories should call it.
 func Rehydrate(id ID, info Info, copies []Copy, createdAt, updatedAt time.Time) *Game {
-	return &Game{id: id, title: info.Title, steamAppID: info.SteamAppID, notes: info.Notes, coverURL: info.CoverURL,
+	return &Game{id: id, title: info.Title, links: info.Links.clone(), notes: info.Notes, coverURL: info.CoverURL,
 		copies: copies, createdAt: createdAt, updatedAt: updatedAt}
 }
 
@@ -74,8 +79,8 @@ func (g *Game) ID() ID { return g.id }
 // Title returns the game's title.
 func (g *Game) Title() string { return g.title }
 
-// SteamAppID returns the Steam app id used for covers and details, or 0 when unknown.
-func (g *Game) SteamAppID() int64 { return g.steamAppID }
+// Links returns the stores the game is linked to. The map is a copy.
+func (g *Game) Links() Links { return g.links.clone() }
 
 // Notes returns the user's free-form notes about the game.
 func (g *Game) Notes() string { return g.notes }
@@ -97,19 +102,19 @@ func (g *Game) Copies() []Copy { return append([]Copy(nil), g.copies...) }
 
 // Info returns the game's own attributes.
 func (g *Game) Info() Info {
-	return Info{Title: g.title, SteamAppID: g.steamAppID, Notes: g.notes, CoverURL: g.coverURL}
+	return Info{Title: g.title, Links: g.links.clone(), Notes: g.notes, CoverURL: g.coverURL}
 }
 
 // UpdateInfo changes the game's own attributes. It reports whether the cover may have changed
-// (custom URL or Steam AppID), so cached cover images can be refreshed.
+// (custom URL or links), so cached cover images and details can be refreshed.
 func (g *Game) UpdateInfo(i Info, now time.Time) (coverChanged bool, err error) {
 	i, err = i.normalize()
 	if err != nil {
 		return false, err
 	}
 
-	coverChanged = i.CoverURL != g.coverURL || i.SteamAppID != g.steamAppID
-	g.title, g.steamAppID, g.notes, g.coverURL = i.Title, i.SteamAppID, i.Notes, i.CoverURL
+	coverChanged = i.CoverURL != g.coverURL || !i.Links.Equal(g.links)
+	g.title, g.links, g.notes, g.coverURL = i.Title, i.Links, i.Notes, i.CoverURL
 	g.updatedAt = now
 
 	return coverChanged, nil
@@ -180,9 +185,7 @@ func (g *Game) Absorb(other *Game, now time.Time) {
 	}
 
 	other.copies = nil
-	if g.steamAppID == 0 {
-		g.steamAppID = other.steamAppID
-	}
+	g.links.fill(other.links)
 
 	if g.coverURL == "" {
 		g.coverURL = other.coverURL

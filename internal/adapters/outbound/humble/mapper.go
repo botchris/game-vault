@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -84,7 +85,7 @@ func MapOrders(orders []json.RawMessage, now time.Time) (copies []game.ImportedC
 				ExternalID:         id,
 				PreviousExternalID: previous,
 				Title:              title,
-				SteamAppID:         int64(num(t, "steam_app_id")),
+				Links:              steamLink(t),
 				Details: game.CopyDetails{
 					Kind:       game.KindKey,
 					Platform:   platform,
@@ -215,4 +216,13 @@ func num(m map[string]any, k string) float64 {
 	}
 
 	return 0
+}
+
+// steamLink is the Steam AppID Humble gives a Steam key, as a link (nil for other keys).
+func steamLink(t map[string]any) game.Links {
+	if id := int64(num(t, "steam_app_id")); id > 0 {
+		return game.Links{game.LinkSteam: strconv.FormatInt(id, 10)}
+	}
+
+	return nil
 }

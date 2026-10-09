@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/application/media"
+	"gamevault/internal/domain/game"
 )
 
 func TestCovers(t *testing.T) {
@@ -30,7 +31,7 @@ func TestCovers(t *testing.T) {
 	c.APIURL = srv.URL
 
 	q := media.CoverQuery{Title: "Gwent", ExternalIDs: []string{"gog:42", "gog:7"}}
-	if !c.Applies(q) || c.Applies(media.CoverQuery{Title: "x", SteamAppID: 1}) {
+	if !c.Applies(q) || c.Applies(media.CoverQuery{Title: "x", Links: game.Links{game.LinkSteam: "1"}}) {
 		t.Fatal("applies only to games imported from GOG")
 	}
 

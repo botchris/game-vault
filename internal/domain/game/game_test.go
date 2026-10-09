@@ -59,12 +59,12 @@ func TestAbsorb(t *testing.T) {
 	a, _ := New("Witcher 3", t0)
 	a.AddCopy(CopyDetails{Kind: KindLibrary, Platform: "GOG"}, t0)
 	b, _ := New("The Witcher 3: Wild Hunt", t0)
-	b.UpdateInfo(Info{Title: b.Title(), SteamAppID: 292030, Notes: "GOTY"}, t0)
+	b.UpdateInfo(Info{Title: b.Title(), Links: Links{LinkSteam: "292030"}, Notes: "GOTY"}, t0)
 	b.AddCopy(CopyDetails{Kind: KindPhysical, Platform: "PS4"}, t0)
 	a.Absorb(b, t0)
 
-	if len(a.Copies()) != 2 || len(b.Copies()) != 0 || a.SteamAppID() != 292030 || a.Notes() != "GOTY" {
-		t.Fatalf("unexpected merge result: copies=%d appid=%d notes=%q", len(a.Copies()), a.SteamAppID(), a.Notes())
+	if len(a.Copies()) != 2 || len(b.Copies()) != 0 || a.Links()[LinkSteam] != "292030" || a.Notes() != "GOTY" {
+		t.Fatalf("unexpected merge result: copies=%d links=%v notes=%q", len(a.Copies()), a.Links(), a.Notes())
 	}
 }
 

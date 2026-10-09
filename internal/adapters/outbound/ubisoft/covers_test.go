@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/application/media"
+	"gamevault/internal/domain/game"
 )
 
 func TestCovers(t *testing.T) {
@@ -42,7 +43,7 @@ func TestCovers(t *testing.T) {
 	c := NewCovers()
 	c.CDNURL, c.StoreSearchURL = srv.URL, srv.URL+"/search"
 
-	if !c.Applies(media.CoverQuery{Title: "x", Platforms: []string{"Ubisoft Connect"}}) || c.Applies(media.CoverQuery{Title: "x", SteamAppID: 1}) {
+	if !c.Applies(media.CoverQuery{Title: "x", Platforms: []string{"Ubisoft Connect"}}) || c.Applies(media.CoverQuery{Title: "x", Links: game.Links{game.LinkSteam: "1"}}) {
 		t.Fatal("applies to games imported from Ubisoft or with a Ubisoft Connect copy")
 	}
 

@@ -84,7 +84,7 @@
     "markedRedeemed_other": "{{count}} keys marked as redeemed.",
     "addGame": "Add game",
     "showing": "{{shown}} of {{total}} games",
-    "empty": "Nothing here yet. Add a game by hand, connect your Humble Bundle and Steam accounts in Sources, or import a CSV in System.",
+    "empty": "Nothing here yet. Add a game by hand, connect your store accounts in Sources, or import a CSV in System.",
     "columns": {
       "copies": "Copies",
       "pending": "Pending keys",
@@ -117,8 +117,6 @@
   },
   "game": {
     "title": "Title",
-    "steamAppId": "Steam AppID",
-    "steamStore": "Store page",
     "delete": "Delete game",
     "confirmDelete_one": "Delete \"{{title}}\" and its copy? This cannot be undone.",
     "confirmDelete_other": "Delete \"{{title}}\" and its {{count}} copies? This cannot be undone.",
@@ -129,9 +127,13 @@
     "copies_one": "{{count}} copy",
     "copies_other": "{{count}} copies",
     "noCopies": "No copies yet.",
-    "findOnSteam": "Find on Steam…",
     "coverUrl": "Cover image URL",
-    "coverUrlPlaceholder": "Empty = Steam cover"
+    "coverUrlPlaceholder": "Empty = chosen by the providers",
+    "links": "Store links",
+    "linkPlaceholder": "Id in the store",
+    "storePage": "Open",
+    "searchStore": "Search…",
+    "linksHelp": "Linking the game to a store gives it a cover and a full sheet, and lets imports recognize it under another title. Clear the id to unlink it."
   },
   "copy": {
     "add": "Add copy",
@@ -167,7 +169,7 @@
     "move": "Move to another game",
     "moveTitle": "Move copy to…",
     "confirmDelete": "Delete this copy?",
-    "redeemOnSteam": "Redeem on Steam",
+    "redeemOn": "Redeem on {{platform}}",
     "markRedeemed": "Mark as redeemed",
     "barcode": "Barcode (EAN/UPC)"
   },
@@ -320,11 +322,7 @@
     "downloadTemplate": "Download template",
     "exportCsv": "Export everything",
     "importDone": "{{added}} copies added, {{updated}} updated, {{unchanged}} unchanged, {{games}} new games.",
-    "csvColumns": "Columns: title (required), platform, kind (key / library / physical), status, key, redeemBy, origin, acquiredOn, edition, condition, location, notes, steamAppId, externalId. Comma or semicolon separated; dates as YYYY-MM-DD."
-  },
-  "steamSearch": {
-    "title": "Find on Steam",
-    "placeholder": "Game title…"
+    "csvColumns": "Columns: title (required), platform, kind (key / library / physical), status, key, redeemBy, origin, acquiredOn, edition, condition, location, notes, links (store:id pairs separated by spaces, e.g. steam:620), externalId, barcode. Comma or semicolon separated; dates as YYYY-MM-DD."
   },
   "logs": {
     "settings": "Logging and rotation",
@@ -393,7 +391,7 @@
       "apiKeyHelp": "Request a free key on TheGamesDB forums (page above).\nKeys have a monthly request allowance; Test checks the key without spending it, and tells you when it is used up."
     },
     "steam": {
-      "description": "Steam library art for games linked to a Steam AppID. No key and no quota."
+      "description": "Steam library art for games linked to Steam. No key and no quota."
     },
     "barcodes": "Barcodes",
     "barcodesIntro": "Used by Scan to identify a disc from the barcode on its box. Unknown codes are identified once by title and then remembered.",
@@ -427,10 +425,10 @@
     "metadata": "Game details",
     "metadataIntro": "Summary, genres, companies, trailers and screenshots shown in each game. The first provider gives the main sheet; the next ones fill what is missing. Downloaded when you open a game, then cached for 30 days.",
     "steamDetails": {
-      "description": "Steam store page of games linked to a Steam AppID: summary in your language, genres, companies, Metacritic, trailers and screenshots. Free, no key."
+      "description": "Steam store page of games linked to Steam: summary in your language, genres, companies, Metacritic, trailers and screenshots. Free, no key."
     },
     "thegamesdbDetails": {
-      "description": "Platform-specific overview (English), genres, companies, age rating, players and YouTube trailer, for games with a physical copy or without a Steam AppID. Uses the TheGamesDB key from Covers; about 2 requests per game, then cached."
+      "description": "Platform-specific overview (English), genres, companies, age rating, players and YouTube trailer, for games with a physical copy or not linked to any store. Uses the TheGamesDB key from Covers; about 2 requests per game, then cached."
     },
     "epicCovers": {
       "description": "Official box art from the Epic Games Store, for games imported from your Epic library. Free, no key needed."
@@ -457,7 +455,7 @@
     "intro": "Images proposed by your enabled cover providers. The one you pick is kept even if the provider order changes.",
     "automatic": "Automatic",
     "automaticHint": "Let the provider chain decide",
-    "none": "No provider has a cover for this game. Link it to Steam or paste an image URL."
+    "none": "No provider has a cover for this game. Link it to a store (Edit → Store links) or paste an image URL."
   },
   "scan": {
     "title": "Scan",
@@ -590,14 +588,17 @@
     "updated": "updated {{date}}",
     "refresh": "Refresh details",
     "empty": "No provider has details for this game yet.",
-    "emptyNoSteam": "No details found. Link the game to Steam (Edit → Find on Steam) or enable TheGamesDB in Providers.",
-    "steamHint": "Linking a game to Steam gives it a cover and a full sheet.",
     "readMore": "Read more",
-    "readLess": "Show less"
+    "readLess": "Show less",
+    "emptyNoLinks": "No details found. Link the game to a store (Edit → Store links) or enable TheGamesDB in Providers."
   },
   "platform": {
     "pendingKey": "key not redeemed yet",
     "filterBy": "Show only {{platform}} games",
     "clearFilter": "Show every platform"
+  },
+  "linkSearch": {
+    "title": "Find on {{store}}",
+    "placeholder": "Game title…"
   }
 }

@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"gamevault/internal/application/media"
+	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/source"
 )
 
@@ -218,7 +219,7 @@ func TestCovers(t *testing.T) {
 	c.CatalogURL = p.CatalogURL
 
 	q := media.CoverQuery{Title: "Halo Infinite", ExternalIDs: []string{"xbox:9HALO"}}
-	if !c.Applies(q) || c.Applies(media.CoverQuery{Title: "x", SteamAppID: 1}) {
+	if !c.Applies(q) || c.Applies(media.CoverQuery{Title: "x", Links: game.Links{game.LinkSteam: "1"}}) {
 		t.Fatal("applies only to games imported from a Microsoft account")
 	}
 

@@ -69,7 +69,7 @@ func TestMapOrders_eachKeyIsOneCopy(t *testing.T) {
 				}
 
 				t.Run("AND the order's date and the Steam app id are kept", func(t *testing.T) {
-					assert.Equal(t, int64(1145360), copies[0].SteamAppID)
+					assert.Equal(t, game.Links{game.LinkSteam: "1145360"}, copies[0].Links)
 					assert.Equal(t, game.Date("2023-05-01"), copies[0].Details.AcquiredOn)
 				})
 			})

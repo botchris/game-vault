@@ -5,8 +5,10 @@ metadata:
   type: project
 ---
 - A **Game** owns **Copies** (kind key / library / physical). Sources import copies with a stable
-  `ExternalID`; the consolidator matches by ExternalID, then Steam AppID, then
-  `game.MatchKey(title)`.
+  `ExternalID`; the consolidator matches by ExternalID, then any shared store link
+  (`Game.Links`, `{"steam": "620"}`; imports only fill stores the game has no link to), then
+  `game.MatchKey(title)`. No store is special in the domain: Steam's AppID became the `steam`
+  link on 2026-10-09 (migration 0007, CSV column `links`, no backwards compatibility).
 - **Changing an ExternalID format duplicates copies on the next scan**: don't, or set
   `ImportedCopy.PreviousExternalID` so the consolidator adopts the old copy (only when it is in the
   same game; source details are cleared, user notes kept). A source drops a copy it imported

@@ -167,7 +167,7 @@ type GameDetails struct {
 	StoreUrl    string        `protobuf:"bytes,11,opt,name=store_url,json=storeUrl,proto3" json:"store_url,omitempty"`
 	Videos      []*Video      `protobuf:"bytes,12,rep,name=videos,proto3" json:"videos,omitempty"`
 	Screenshots []*Screenshot `protobuf:"bytes,13,rep,name=screenshots,proto3" json:"screenshots,omitempty"`
-	// Providers that contributed, in chain order.
+	// Names of the providers that contributed, in chain order ("Steam", "TheGamesDB").
 	Sources       []string               `protobuf:"bytes,14,rep,name=sources,proto3" json:"sources,omitempty"`
 	Language      string                 `protobuf:"bytes,15,opt,name=language,proto3" json:"language,omitempty"`
 	FetchedAt     *timestamppb.Timestamp `protobuf:"bytes,16,opt,name=fetched_at,json=fetchedAt,proto3" json:"fetched_at,omitempty"`

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"gamevault/internal/application/media"
+	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
 )
 
@@ -65,7 +66,7 @@ func TestCoversPlatformFilterAndRanking(t *testing.T) {
 		t.Fatal("on the fallback pass (no store had art) TheGamesDB helps")
 	}
 
-	if !p.Applies(q) || p.Applies(media.CoverQuery{Title: "Hades", SteamAppID: 1145360}) {
+	if !p.Applies(q) || p.Applies(media.CoverQuery{Title: "Hades", Links: game.Links{game.LinkSteam: "1145360"}}) {
 		t.Fatal("must apply to physical copies and skip Steam-only games")
 	}
 

@@ -135,7 +135,7 @@ func run() error {
 	}
 	// Available providers, in default chain order. Order and enablement are then user settings.
 	tgdb := thegamesdb.New()
-	mediaSvc := media.NewService(games, sqlite.NewProviderRepository(db), assets, sqlite.NewDetailsStore(db), imagefetch.New(), steamStore, now, log,
+	mediaSvc := media.NewService(games, sqlite.NewProviderRepository(db), assets, sqlite.NewDetailsStore(db), imagefetch.New(), now, log,
 		media.Providers{
 			Covers:   []media.CoverProvider{tgdb, steamStore, epic.NewCovers(), gog.NewCovers(), ubisoft.NewCovers(), eaapp.NewCovers(), battlenet.NewCovers(steamStore, steamStore), xbox.NewCovers()},
 			Barcodes: []media.BarcodeProvider{cex.New(), ebay.New(), upcitemdb.New(), eansearch.New()},
@@ -156,7 +156,7 @@ func run() error {
 		go syncSvc.RunKeepAlive(ctx, time.Minute, 10*time.Minute)
 	}
 
-	go mediaSvc.RunDetailsScanner(ctx, 2*time.Second) // Steam store allows ~200 requests / 5 min
+	go mediaSvc.RunDetailsScanner(ctx, 2*time.Second) // gentle enough for the strictest store API (Steam: ~200 requests / 5 min)
 
 	if cfg.BackupInterval > 0 {
 		go systemSvc.RunScheduledBackups(ctx, cfg.BackupInterval)

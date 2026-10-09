@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"gamevault/internal/domain/game"
 )
@@ -27,7 +28,7 @@ func (r *GameRepository) List(ctx context.Context) ([]*game.Game, error) {
 		return nil, err
 	}
 
-	rows, err := q.QueryContext(ctx, `SELECT id, title, steam_app_id, notes, cover_url, created_at, updated_at FROM games ORDER BY title COLLATE NOCASE, id`)
+	rows, err := q.QueryContext(ctx, `SELECT id, title, links, notes, cover_url, created_at, updated_at FROM games ORDER BY title COLLATE NOCASE, id`)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +57,7 @@ func (r *GameRepository) Get(ctx context.Context, id game.ID) (*game.Game, error
 		return nil, err
 	}
 
-	row := q.QueryRowContext(ctx, `SELECT id, title, steam_app_id, notes, cover_url, created_at, updated_at FROM games WHERE id = ?`, id)
+	row := q.QueryRowContext(ctx, `SELECT id, title, links, notes, cover_url, created_at, updated_at FROM games WHERE id = ?`, id)
 
 	g, err := scanGame(row, copies)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -72,11 +73,11 @@ func (r *GameRepository) Save(ctx context.Context, g *game.Game) error {
 	return r.db.WithinTx(ctx, func(ctx context.Context) error {
 		q := r.db.conn(ctx)
 
-		_, err := q.ExecContext(ctx, `INSERT INTO games (id, title, steam_app_id, notes, cover_url, created_at, updated_at)
+		_, err := q.ExecContext(ctx, `INSERT INTO games (id, title, links, notes, cover_url, created_at, updated_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?)
-			ON CONFLICT(id) DO UPDATE SET title = excluded.title, steam_app_id = excluded.steam_app_id,
+			ON CONFLICT(id) DO UPDATE SET title = excluded.title, links = excluded.links,
 			  notes = excluded.notes, cover_url = excluded.cover_url, updated_at = excluded.updated_at`,
-			g.ID(), g.Title(), g.SteamAppID(), g.Notes(), g.CoverURL(), formatTime(g.CreatedAt()), formatTime(g.UpdatedAt()))
+			g.ID(), g.Title(), encodeLinks(g.Links()), g.Notes(), g.CoverURL(), formatTime(g.CreatedAt()), formatTime(g.UpdatedAt()))
 		if err != nil {
 			return err
 		}
@@ -157,11 +158,27 @@ func scanGame(sc interface{ Scan(...any) error }, copies map[game.ID][]game.Copy
 	var (
 		id               game.ID
 		info             game.Info
+		links            string
 		created, updated string
 	)
-	if err := sc.Scan(&id, &info.Title, &info.SteamAppID, &info.Notes, &info.CoverURL, &created, &updated); err != nil {
+	if err := sc.Scan(&id, &info.Title, &links, &info.Notes, &info.CoverURL, &created, &updated); err != nil {
 		return nil, err
 	}
 
+	if err := json.Unmarshal([]byte(links), &info.Links); err != nil {
+		return nil, fmt.Errorf("game %s: reading links: %w", id, err)
+	}
+
 	return game.Rehydrate(id, info, copies[id], parseTime(created), parseTime(updated)), nil
+}
+
+// encodeLinks stores links as a JSON object; nil links are "{}" (the column's default).
+func encodeLinks(l game.Links) string {
+	if len(l) == 0 {
+		return "{}"
+	}
+
+	b, _ := json.Marshal(l) // a map of strings always marshals
+
+	return string(b)
 }

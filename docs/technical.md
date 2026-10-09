@@ -63,10 +63,10 @@ Only `cmd/gamevault` knows the concrete adapters.
 
 | Concept          | Kind                  | Notes |
 |------------------|-----------------------|-------|
-| `Game`           | Aggregate root        | Title, Steam AppID, notes, and its copies. Every copy change goes through the game. |
+| `Game`           | Aggregate root        | Title, links to stores (`{"steam": "620"}`), notes, and its copies. Every copy change goes through the game. |
 | `Copy`           | Entity inside `Game`  | `kind` is `key`, `library` or `physical`. `status` must be valid for the kind. Holds platform, key, redeem-by date, origin, edition, condition, location. |
 | `Source`         | Aggregate root        | A scanned account: type, settings (secrets masked towards clients), interval, last sync report. |
-| `Consolidator`   | Domain service        | Merges imported copies into the catalog. It matches by external id, then by Steam AppID, then by normalised title; if nothing matches it creates a new game. |
+| `Consolidator`   | Domain service        | Merges imported copies into the catalog. It matches by external id, then by any store link the copy shares with a game, then by normalised title; if nothing matches it creates a new game. |
 
 A key is **redundant** when it is pending (unrevealed or revealed) and the same game already has a `library` copy on the same platform. It is a key you can gift.
 Re-scans never move a key you marked as `redeemed` back to pending.
@@ -164,14 +164,14 @@ Each provider declares which games it applies to. That keeps providers with a qu
 |---|---|---|
 | Chosen / custom cover | any game with a cover URL | Always first. Set with **Choose cover…** or by pasting a URL |
 | TheGamesDB | physical copies, games no store knows, and store games no store had art for | Platform-specific box art (Xbox 360 case, PS3 case…). Needs an API key, which has a monthly allowance. **Test** checks the key without spending it, and says so when this month's allowance is used up |
-| Steam | games with a Steam AppID | No key, no quota |
+| Steam | games linked to Steam | No key, no quota |
 | Epic, GOG, Ubisoft, EA, Battle.net, Xbox | games imported from that store | Official box art, no key, no quota (see below) |
 
 `GET /media/covers/{gameId}` returns the cover. The first image found is stored in the game's folder in `config/game-data/`. A miss is remembered for 7 days so quotas are not spent again.
 Changing, enabling or reordering a cover provider forgets those misses.
 **Choose cover…** in the game page shows every enabled provider's proposals, and pins the one you pick.
 Images are plain HTTP rather than RPC so browsers can load and cache them with `<img>`. Everything else goes through Connect.
-For games without a Steam AppID (physical games, for example), use **Find on Steam** in the game page, or paste any image URL.
+For games no store knows (physical games, for example), link them under **Edit → Store links** (each provider that can search its store offers **Search…**), or paste any image URL.
 
 Store covers: **Epic Games Store** and **GOG** give the official box art of games imported from those libraries, with no key and no quota. Epic's comes from its catalog, read with an application token (client credentials, no user session); GOG's from its public product API. **Ubisoft** gives the box art Ubisoft Connect shows (by space id, on Ubisoft's CDN, which has art for most but not all games), else the Ubisoft Store packshot found by title through the store's public search (the search-only key every store visitor's browser gets); it also covers games with a Ubisoft Connect key. **EA** gives the official pack art from EA's catalog (public in the EA app API), looking the game up by slug guessed from its title and product id. **Battle.net**: Blizzard publishes no box art outside its signed-in shop, so games imported from Battle.net are looked up on the Steam store by exact title. TheGamesDB is only asked for physical copies, games no store knows, and, on a second pass, store games no store had art for (World of Warcraft, StarCraft II…), so its monthly allowance is not spent on games stores cover. When the way covers are found improves, "no cover found" markers written before the change are ignored, so those games are retried (see `coverLogicChanged` in `internal/application/media`).
 
@@ -191,8 +191,8 @@ It comes from the **game details** provider chain. The first provider gives the 
 
 | Details provider | Applies to | Notes |
 |---|---|---|
-| Steam store | games with a Steam AppID | In the UI language, free. Trailers are HLS streams, played natively in Safari or with hls.js (loaded on demand) elsewhere |
-| TheGamesDB | physical copies or games without a Steam AppID | Platform-specific, in English. Shares the key with TheGamesDB covers. About 2 requests per game; genre and company lists are fetched once per run |
+| Steam store | games linked to Steam | In the UI language, free. Trailers are HLS streams, played natively in Safari or with hls.js (loaded on demand) elsewhere |
+| TheGamesDB | physical copies or games without store links | Platform-specific, in English. Shares the key with TheGamesDB covers. About 2 requests per game; genre and company lists are fetched once per run |
 
 Sheets are fetched when a game is opened and cached in `game_details` for 30 days, per language. **Refresh details** fetches them again.
 
@@ -202,7 +202,7 @@ Names are derived from the source URL, so a changed image gets a new file and im
 Only trailers stream from the provider; they are hundreds of MB each.
 The image proxy is only used when exploring new options (choose cover, scan suggestions). Folders are renamed when a game is renamed and deleted with the game.
 Covers from the old flat `config/covers/` layout are moved into `game-data` on first start.
-Changing a game's Steam AppID or cover drops its cached sheet. Descriptions are converted to plain text, so third-party HTML is never rendered.
+Changing a game's store links or cover drops its cached sheet. Descriptions are converted to plain text, so third-party HTML is never rendered.
 
 ## Scanning physical games
 

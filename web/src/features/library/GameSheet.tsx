@@ -8,8 +8,6 @@ import VideoPlayer from '../../components/VideoPlayer';
 import type { GameDetails } from '../../gen/gamevault/v1/metadata_pb';
 import { toDate, type Game } from '../../lib/model';
 
-const SOURCE_NAMES: Record<string, string> = { 'steam-details': 'Steam', 'thegamesdb-details': 'TheGamesDB' };
-
 /** Loads the game's details from the metadata providers (cached server-side). */
 export function useGameDetails(game: Game) {
   const { i18n } = useTranslation();
@@ -17,6 +15,7 @@ export function useGameDetails(game: Game) {
   const [warnings, setWarnings] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const linksKey = JSON.stringify(Object.entries(game.links).sort());
 
   const load = useCallback(async (refresh = false) => {
     setLoading(true);
@@ -30,8 +29,8 @@ export function useGameDetails(game: Game) {
     } finally {
       setLoading(false);
     }
-    // Reload when the AppID or cover change (the server invalidates its cache then too).
-  }, [game.id, game.steamAppId, game.coverUrl, i18n.resolvedLanguage]);
+    // Reload when the links or cover change (the server invalidates its cache then too).
+  }, [game.id, linksKey, game.coverUrl, i18n.resolvedLanguage]);
 
   useEffect(() => {
     load();
@@ -89,7 +88,7 @@ export function SheetOverview({ game, details, warnings, loading, error, onRefre
       {error && <Alert tone="error">{error}</Alert>}
       {warnings.map((w) => <Alert key={w} tone="warn">{w}</Alert>)}
       {loading && !details && <p className="muted">{t('details.loading')}</p>}
-      {empty && <p className="muted">{t(game.steamAppId > 0n ? 'details.empty' : 'details.emptyNoSteam')}</p>}
+      {empty && <p className="muted">{t(Object.keys(game.links).length > 0 ? 'details.empty' : 'details.emptyNoLinks')}</p>}
 
       {details?.summary && (
         <section>
@@ -125,7 +124,7 @@ export function SheetOverview({ game, details, warnings, loading, error, onRefre
 
       {details && (
         <p className="muted small sheet-footer">
-          {details.sources.length > 0 && t('details.sources', { sources: details.sources.map((s) => SOURCE_NAMES[s] ?? s).join(' + ') })}
+          {details.sources.length > 0 && t('details.sources', { sources: details.sources.join(' + ') })}
           {details.fetchedAt && ` · ${t('details.updated', { date: fmt.dateTime(toDate(details.fetchedAt)) })}`}
           {' · '}<button className="link" onClick={onRefresh} disabled={loading}>{loading ? t('common.loading') : t('details.refresh')}</button>
         </p>

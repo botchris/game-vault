@@ -65,10 +65,10 @@ func (s *Service) CatalogSummaries(ctx context.Context, language string) (map[ga
 	return s.details.Summaries(ctx, language)
 }
 
-// RunDetailsScanner downloads, in the background and slowly, the details of games linked to Steam
+// RunDetailsScanner downloads, in the background and slowly, the details of games linked to a store
 // that have none yet, so the catalog can filter by genre and sort by year without opening each
-// game. Only the Steam store is free of quotas, so only Steam games are scanned; the rest get
-// their details when opened. Sheet images are not downloaded here (they come when a sheet is
+// game. Store providers answer linked games without a quota; games without links would reach
+// quota-limited providers, so they get their details when opened. Sheet images are not downloaded here (they come when a sheet is
 // opened). pause is the delay between two games.
 func (s *Service) RunDetailsScanner(ctx context.Context, pause time.Duration) {
 	wait := func(d time.Duration) bool {
@@ -121,7 +121,8 @@ func (s *Service) scanOnce(ctx context.Context, lang string, pause time.Duration
 	fetched := 0
 
 	for _, g := range games {
-		if g.SteamAppID() == 0 {
+		// Only linked games: the others would spend quota-limited providers' requests in the background.
+		if len(g.Links()) == 0 {
 			continue
 		}
 

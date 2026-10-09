@@ -6,12 +6,13 @@ import { Icon } from '../../components/Icon';
 import { PlatformBadge, platformHoldings } from '../../components/PlatformBadge';
 import { Alert, KeyCell, useFormatters } from '../../components/ui';
 import { CopyKind, CopyStatus, daysUntil, kindKey, redeemUrl, statusKey, type Copy, type CopyDetailsInput, type Game } from '../../lib/model';
+import type { LinkStore } from '../../gen/gamevault/v1/game_pb';
 import { useAppData } from '../../state/AppData';
 import CopyForm from './CopyForm';
 import CoverPicker from './CoverPicker';
 import GamePicker from './GamePicker';
 import { SheetFacts, SheetOverview, useGameDetails } from './GameSheet';
-import SteamSearchDialog from './SteamSearchDialog';
+import LinkSearchDialog from './LinkSearchDialog';
 
 interface Props {
   gameId: string;
@@ -66,9 +67,9 @@ function GameDetailBody({ game, onClose, onOpenGame, onPlatform }: {
     }
   };
 
-  const updateGame = (patch: Partial<Pick<Game, 'title' | 'steamAppId' | 'notes' | 'coverUrl'>>) => run(async () => {
+  const updateGame = (patch: Partial<Pick<Game, 'title' | 'links' | 'notes' | 'coverUrl'>>) => run(async () => {
     const res = await gameClient.updateGame({
-      id: game.id, title: game.title, steamAppId: game.steamAppId, notes: game.notes, coverUrl: game.coverUrl, ...patch,
+      id: game.id, title: game.title, links: game.links, notes: game.notes, coverUrl: game.coverUrl, ...patch,
     });
     putGame(res.game!);
   });
@@ -238,7 +239,7 @@ function CopiesTab({ game, busy, run, setDialog }: {
                   <KeyCell value={d.key} />
                   {redeemUrl(c) && (
                     <a className="button small-button" href={redeemUrl(c)!} target="_blank" rel="noreferrer" onClick={() => setRedeeming(c.id)}>
-                      {t('copy.redeemOnSteam')}<Icon name="external" size={14} />
+                      {t('copy.redeemOn', { platform: d.platform })}<Icon name="external" size={14} />
                     </a>
                   )}
                   {redeeming === c.id && (
@@ -265,21 +266,35 @@ function CopiesTab({ game, busy, run, setDialog }: {
 function EditTab({ game, busy, onSave, setDialog, run, onDeleted }: {
   game: Game;
   busy: boolean;
-  onSave: (patch: Partial<Pick<Game, 'title' | 'steamAppId' | 'notes' | 'coverUrl'>>) => Promise<void>;
+  onSave: (patch: Partial<Pick<Game, 'title' | 'links' | 'notes' | 'coverUrl'>>) => Promise<void>;
   setDialog: (d: Dialog) => void;
   run: (fn: () => Promise<void>) => Promise<void>;
   onDeleted: () => void;
 }) {
   const { t } = useTranslation();
   const { dropGame } = useAppData();
-  const infoOf = (g: Game) => ({ title: g.title, steamAppId: g.steamAppId, notes: g.notes, coverUrl: g.coverUrl });
+  const infoOf = (g: Game) => ({ title: g.title, links: { ...g.links }, notes: g.notes, coverUrl: g.coverUrl });
   const [info, setInfo] = useState(() => infoOf(game));
-  const [steamSearch, setSteamSearch] = useState(false);
-  const dirty = info.title !== game.title || info.steamAppId !== game.steamAppId || info.notes !== game.notes || info.coverUrl !== game.coverUrl;
+  const [stores, setStores] = useState<LinkStore[]>([]);
+  const [searching, setSearching] = useState<LinkStore | null>(null);
+  const dirty = info.title !== game.title || !sameLinks(info.links, game.links) || info.notes !== game.notes || info.coverUrl !== game.coverUrl;
+
+  useEffect(() => {
+    gameClient.listLinkStores({}).then((res) => setStores(res.stores), () => setStores([]));
+  }, []);
+
+  // Searchable stores first, in chain order, then any other store the game is linked to (from an import).
+  const rows = [
+    ...stores,
+    ...Object.keys(info.links).sort()
+      .filter((key) => !stores.some((s) => s.key === key))
+      .map((key) => ({ key, name: key, pageUrl: '' }) as LinkStore),
+  ];
+  const setLink = (key: string, id: string) => setInfo({ ...info, links: { ...info.links, [key]: id } });
 
   const save = (e: FormEvent) => {
     e.preventDefault();
-    onSave(info);
+    onSave({ ...info, links: cleanLinks(info.links) });
   };
 
   const deleteGame = () => {
@@ -298,16 +313,31 @@ function EditTab({ game, busy, onSave, setDialog, run, onDeleted }: {
           {t('game.title')}
           <input value={info.title} onChange={(e) => setInfo({ ...info, title: e.target.value })} required />
         </label>
-        <label>
-          {t('game.steamAppId')}
-          <span className="row tight">
-            <input type="number" min={0} value={info.steamAppId ? info.steamAppId.toString() : ''}
-              onChange={(e) => setInfo({ ...info, steamAppId: BigInt(e.target.value || 0) })} />
-            <button type="button" onClick={() => setSteamSearch(true)}>{t('game.findOnSteam')}</button>
-          </span>
-          <span className="help">{t('details.steamHint')}</span>
-        </label>
-        <label>
+        <div className="span2 store-links">
+          <span className="store-links-title">{t('game.links')}</span>
+          {rows.map((store) => {
+            const id = (info.links[store.key] ?? '').trim();
+            return (
+              <label key={store.key} className="store-link">
+                <span>{store.name}</span>
+                <span className="row tight">
+                  <input value={info.links[store.key] ?? ''} placeholder={t('game.linkPlaceholder')} spellCheck={false}
+                    onChange={(e) => setLink(store.key, e.target.value)} />
+                  {store.pageUrl && id && (
+                    <a className="button" href={store.pageUrl.replace('{id}', encodeURIComponent(id))} target="_blank" rel="noreferrer">
+                      {t('game.storePage')}
+                    </a>
+                  )}
+                  {stores.includes(store) && (
+                    <button type="button" onClick={() => setSearching(store)}>{t('game.searchStore')}</button>
+                  )}
+                </span>
+              </label>
+            );
+          })}
+          <span className="help">{t('game.linksHelp')}</span>
+        </div>
+        <label className="span2">
           {t('game.coverUrl')}
           <input type="url" value={info.coverUrl} placeholder={t('game.coverUrlPlaceholder')}
             onChange={(e) => setInfo({ ...info, coverUrl: e.target.value })} />
@@ -327,10 +357,21 @@ function EditTab({ game, busy, onSave, setDialog, run, onDeleted }: {
         <span className="spacer" />
         <button className="danger" onClick={deleteGame} disabled={busy}>{t('game.delete')}</button>
       </div>
-      {steamSearch && (
-        <SteamSearchDialog initialQuery={info.title} onClose={() => setSteamSearch(false)}
-          onPick={(app) => { setInfo({ ...info, steamAppId: app.appId }); setSteamSearch(false); }} />
+      {searching && (
+        <LinkSearchDialog store={searching} initialQuery={info.title} onClose={() => setSearching(null)}
+          onPick={(match) => { setLink(searching.key, match.id); setSearching(null); }} />
       )}
     </>
   );
+}
+
+/** Links without the cleared stores (an empty id unlinks). */
+function cleanLinks(links: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(Object.entries(links).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v !== ''));
+}
+
+function sameLinks(a: Record<string, string>, b: Record<string, string>): boolean {
+  const ca = cleanLinks(a), cb = cleanLinks(b);
+  const keys = Object.keys(ca);
+  return keys.length === Object.keys(cb).length && keys.every((k) => ca[k] === cb[k]);
 }

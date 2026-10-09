@@ -83,9 +83,15 @@ export function downloadBytes(name: string, bytes: Uint8Array, type: string) {
 export function redeemUrl(c: Copy): string | null {
   const d = c.details;
   if (!d || d.kind !== CopyKind.KEY || d.status !== CopyStatus.REVEALED || !d.key || d.key.startsWith('http')) return null;
-  if (d.platform === 'Steam') return `https://store.steampowered.com/account/registerkey?key=${encodeURIComponent(d.key)}`;
-  return null;
+  const page = REDEEM_PAGES[d.platform];
+  return page ? page + encodeURIComponent(d.key) : null;
 }
+
+/** Stores whose redeem page takes the key in its URL, by platform name. */
+const REDEEM_PAGES: Record<string, string> = {
+  'Steam': 'https://store.steampowered.com/account/registerkey?key=',
+  'GOG': 'https://www.gog.com/redeem/',
+};
 
 /** Validates an EAN-13 / UPC-A / EAN-8 check digit, to drop camera misreads before asking the server. */
 export function validBarcode(code: string): boolean {

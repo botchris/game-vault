@@ -43,7 +43,7 @@ func baseGameOf(add *game.Game, catalog []*game.Game) *game.Game {
 	return best
 }
 
-// baseQueries are titles to search the base game by on Steam, most specific first: the words
+// baseQueries are titles to search the base game by in a store, most specific first: the words
 // before the add-on marker, then with trailing words dropped, then the title cut at a separator.
 func baseQueries(title string) []string {
 	var out []string
@@ -73,7 +73,7 @@ func baseQueries(title string) []string {
 }
 
 // addOnCover finds a cover for an add-on nobody has art for: the base game's cover, from the
-// catalog when you own it, else from Steam after finding the base game by title.
+// catalog when you own it, else from a store after finding the base game in its catalog by title.
 func (s *Service) addOnCover(ctx context.Context, g *game.Game) (Image, bool) {
 	if !IsAddOn(g.Title()) {
 		return Image{}, false
@@ -91,24 +91,34 @@ func (s *Service) addOnCover(ctx context.Context, g *game.Game) (Image, bool) {
 		}
 	}
 
-	if s.search == nil {
-		return Image{}, false
+	for _, ls := range s.searchers {
+		if img, ok := s.baseCoverIn(ctx, ls, g, ref); ok {
+			return img, true
+		}
 	}
 
+	return Image{}, false
+}
+
+// baseCoverIn looks for the base game of the add-on g in one store's catalog.
+func (s *Service) baseCoverIn(ctx context.Context, ls LinkSearcher, g *game.Game, ref GameRef) (Image, bool) {
+	store := ls.LinkStore()
 	key := game.MatchKey(g.Title())
+
 	for _, q := range baseQueries(g.Title()) {
-		apps, err := s.search.SearchApps(ctx, q)
+		matches, err := ls.SearchLinks(ctx, q)
 		if err != nil {
 			return Image{}, false
 		}
 
-		for _, a := range apps {
-			if a.AppID == g.SteamAppID() || !isWordPrefix(game.MatchKey(a.Name), key) {
+		for _, m := range matches {
+			if m.ID == g.Links()[store.Key] || !isWordPrefix(game.MatchKey(m.Name), key) {
 				continue
 			}
-			// Linked to a Steam AppID, the query only reaches providers that know it (no quota spent).
-			if img, err := s.coverFromChain(ctx, ref, CoverQuery{Title: a.Name, SteamAppID: a.AppID}, map[provider.ID]bool{}); err == nil {
-				s.log.Info("add-on cover taken from its base game on Steam", "game", g.Title(), "base", a.Name)
+			// Linked to the store, the query only reaches providers that know it (no quota spent).
+			cq := CoverQuery{Title: m.Name, Links: game.Links{store.Key: m.ID}}
+			if img, err := s.coverFromChain(ctx, ref, cq, map[provider.ID]bool{}); err == nil {
+				s.log.Info("add-on cover taken from its base game", "game", g.Title(), "base", m.Name, "store", store.Name)
 				return img, true
 			}
 		}

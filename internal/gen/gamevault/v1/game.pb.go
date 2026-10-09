@@ -390,22 +390,24 @@ func (x *Copy) GetUpdatedAt() *timestamppb.Timestamp {
 
 // Game is the aggregate root: a title plus every copy you own of it.
 type Game struct {
-	state      protoimpl.MessageState `protogen:"open.v1"`
-	Id         string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Title      string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
-	SteamAppId int64                  `protobuf:"varint,3,opt,name=steam_app_id,json=steamAppId,proto3" json:"steam_app_id,omitempty"`
-	Notes      string                 `protobuf:"bytes,4,opt,name=notes,proto3" json:"notes,omitempty"`
-	Copies     []*Copy                `protobuf:"bytes,5,rep,name=copies,proto3" json:"copies,omitempty"`
-	CreatedAt  *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt  *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	// Custom cover image URL. When empty the cover comes from Steam (if steam_app_id is set).
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Id        string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Title     string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	Notes     string                 `protobuf:"bytes,4,opt,name=notes,proto3" json:"notes,omitempty"`
+	Copies    []*Copy                `protobuf:"bytes,5,rep,name=copies,proto3" json:"copies,omitempty"`
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// Custom cover image URL. When empty the cover providers choose one.
 	// The image itself is served over plain HTTP at GET /media/covers/{id}.
 	CoverUrl string `protobuf:"bytes,8,opt,name=cover_url,json=coverUrl,proto3" json:"cover_url,omitempty"`
 	// From the cached game details (see MetadataService), in ListGamesRequest.language.
 	// Empty until the game's details have been downloaded.
 	Genres []string `protobuf:"bytes,9,rep,name=genres,proto3" json:"genres,omitempty"`
 	// 0 when unknown.
-	ReleaseYear   int32 `protobuf:"varint,10,opt,name=release_year,json=releaseYear,proto3" json:"release_year,omitempty"`
+	ReleaseYear int32 `protobuf:"varint,10,opt,name=release_year,json=releaseYear,proto3" json:"release_year,omitempty"`
+	// Stores the game is linked to: link key ("steam") → the game's id there ("620"). Providers
+	// that know a store use its link for covers and details; imports use links to match games.
+	Links         map[string]string `protobuf:"bytes,11,rep,name=links,proto3" json:"links,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -452,13 +454,6 @@ func (x *Game) GetTitle() string {
 		return x.Title
 	}
 	return ""
-}
-
-func (x *Game) GetSteamAppId() int64 {
-	if x != nil {
-		return x.SteamAppId
-	}
-	return 0
 }
 
 func (x *Game) GetNotes() string {
@@ -508,6 +503,13 @@ func (x *Game) GetReleaseYear() int32 {
 		return x.ReleaseYear
 	}
 	return 0
+}
+
+func (x *Game) GetLinks() map[string]string {
+	if x != nil {
+		return x.Links
+	}
+	return nil
 }
 
 type ListGamesRequest struct {
@@ -697,13 +699,13 @@ func (x *GetGameResponse) GetGame() *Game {
 }
 
 type CreateGameRequest struct {
-	state      protoimpl.MessageState `protogen:"open.v1"`
-	Title      string                 `protobuf:"bytes,1,opt,name=title,proto3" json:"title,omitempty"`
-	SteamAppId int64                  `protobuf:"varint,2,opt,name=steam_app_id,json=steamAppId,proto3" json:"steam_app_id,omitempty"`
-	Notes      string                 `protobuf:"bytes,3,opt,name=notes,proto3" json:"notes,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Title string                 `protobuf:"bytes,1,opt,name=title,proto3" json:"title,omitempty"`
+	Notes string                 `protobuf:"bytes,3,opt,name=notes,proto3" json:"notes,omitempty"`
 	// Optional copies to add right away.
-	Copies        []*CopyDetails `protobuf:"bytes,4,rep,name=copies,proto3" json:"copies,omitempty"`
-	CoverUrl      string         `protobuf:"bytes,5,opt,name=cover_url,json=coverUrl,proto3" json:"cover_url,omitempty"`
+	Copies        []*CopyDetails    `protobuf:"bytes,4,rep,name=copies,proto3" json:"copies,omitempty"`
+	CoverUrl      string            `protobuf:"bytes,5,opt,name=cover_url,json=coverUrl,proto3" json:"cover_url,omitempty"`
+	Links         map[string]string `protobuf:"bytes,6,rep,name=links,proto3" json:"links,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -745,13 +747,6 @@ func (x *CreateGameRequest) GetTitle() string {
 	return ""
 }
 
-func (x *CreateGameRequest) GetSteamAppId() int64 {
-	if x != nil {
-		return x.SteamAppId
-	}
-	return 0
-}
-
 func (x *CreateGameRequest) GetNotes() string {
 	if x != nil {
 		return x.Notes
@@ -771,6 +766,13 @@ func (x *CreateGameRequest) GetCoverUrl() string {
 		return x.CoverUrl
 	}
 	return ""
+}
+
+func (x *CreateGameRequest) GetLinks() map[string]string {
+	if x != nil {
+		return x.Links
+	}
+	return nil
 }
 
 type CreateGameResponse struct {
@@ -818,12 +820,13 @@ func (x *CreateGameResponse) GetGame() *Game {
 }
 
 type UpdateGameRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Title         string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
-	SteamAppId    int64                  `protobuf:"varint,3,opt,name=steam_app_id,json=steamAppId,proto3" json:"steam_app_id,omitempty"`
-	Notes         string                 `protobuf:"bytes,4,opt,name=notes,proto3" json:"notes,omitempty"`
-	CoverUrl      string                 `protobuf:"bytes,5,opt,name=cover_url,json=coverUrl,proto3" json:"cover_url,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Id       string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Title    string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	Notes    string                 `protobuf:"bytes,4,opt,name=notes,proto3" json:"notes,omitempty"`
+	CoverUrl string                 `protobuf:"bytes,5,opt,name=cover_url,json=coverUrl,proto3" json:"cover_url,omitempty"`
+	// The game's links, replacing the current ones (an empty map unlinks every store).
+	Links         map[string]string `protobuf:"bytes,6,rep,name=links,proto3" json:"links,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -872,13 +875,6 @@ func (x *UpdateGameRequest) GetTitle() string {
 	return ""
 }
 
-func (x *UpdateGameRequest) GetSteamAppId() int64 {
-	if x != nil {
-		return x.SteamAppId
-	}
-	return 0
-}
-
 func (x *UpdateGameRequest) GetNotes() string {
 	if x != nil {
 		return x.Notes
@@ -891,6 +887,13 @@ func (x *UpdateGameRequest) GetCoverUrl() string {
 		return x.CoverUrl
 	}
 	return ""
+}
+
+func (x *UpdateGameRequest) GetLinks() map[string]string {
+	if x != nil {
+		return x.Links
+	}
+	return nil
 }
 
 type UpdateGameResponse struct {
@@ -1615,27 +1618,26 @@ func (x *MarkRedeemedKeysResponse) GetUpdated() int32 {
 	return 0
 }
 
-type SearchSteamAppsRequest struct {
+type ListLinkStoresRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Query         string                 `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *SearchSteamAppsRequest) Reset() {
-	*x = SearchSteamAppsRequest{}
+func (x *ListLinkStoresRequest) Reset() {
+	*x = ListLinkStoresRequest{}
 	mi := &file_gamevault_v1_game_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *SearchSteamAppsRequest) String() string {
+func (x *ListLinkStoresRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SearchSteamAppsRequest) ProtoMessage() {}
+func (*ListLinkStoresRequest) ProtoMessage() {}
 
-func (x *SearchSteamAppsRequest) ProtoReflect() protoreflect.Message {
+func (x *ListLinkStoresRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_gamevault_v1_game_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1647,100 +1649,95 @@ func (x *SearchSteamAppsRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SearchSteamAppsRequest.ProtoReflect.Descriptor instead.
-func (*SearchSteamAppsRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use ListLinkStoresRequest.ProtoReflect.Descriptor instead.
+func (*ListLinkStoresRequest) Descriptor() ([]byte, []int) {
 	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{25}
 }
 
-func (x *SearchSteamAppsRequest) GetQuery() string {
+// LinkStore is a store whose catalog can be searched to link a game to it.
+type LinkStore struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Link key the store's ids are saved under in Game.links ("steam").
+	Key  string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// Address of a game's page in the store, with "{id}" where the link goes.
+	PageUrl       string `protobuf:"bytes,3,opt,name=page_url,json=pageUrl,proto3" json:"page_url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LinkStore) Reset() {
+	*x = LinkStore{}
+	mi := &file_gamevault_v1_game_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LinkStore) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LinkStore) ProtoMessage() {}
+
+func (x *LinkStore) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_game_proto_msgTypes[26]
 	if x != nil {
-		return x.Query
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LinkStore.ProtoReflect.Descriptor instead.
+func (*LinkStore) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *LinkStore) GetKey() string {
+	if x != nil {
+		return x.Key
 	}
 	return ""
 }
 
-// SteamApp is a match from the Steam store search.
-type SteamApp struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	AppId         int64                  `protobuf:"varint,1,opt,name=app_id,json=appId,proto3" json:"app_id,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	ImageUrl      string                 `protobuf:"bytes,3,opt,name=image_url,json=imageUrl,proto3" json:"image_url,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *SteamApp) Reset() {
-	*x = SteamApp{}
-	mi := &file_gamevault_v1_game_proto_msgTypes[26]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SteamApp) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SteamApp) ProtoMessage() {}
-
-func (x *SteamApp) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_game_proto_msgTypes[26]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use SteamApp.ProtoReflect.Descriptor instead.
-func (*SteamApp) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{26}
-}
-
-func (x *SteamApp) GetAppId() int64 {
-	if x != nil {
-		return x.AppId
-	}
-	return 0
-}
-
-func (x *SteamApp) GetName() string {
+func (x *LinkStore) GetName() string {
 	if x != nil {
 		return x.Name
 	}
 	return ""
 }
 
-func (x *SteamApp) GetImageUrl() string {
+func (x *LinkStore) GetPageUrl() string {
 	if x != nil {
-		return x.ImageUrl
+		return x.PageUrl
 	}
 	return ""
 }
 
-type SearchSteamAppsResponse struct {
+type ListLinkStoresResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Apps          []*SteamApp            `protobuf:"bytes,1,rep,name=apps,proto3" json:"apps,omitempty"`
+	Stores        []*LinkStore           `protobuf:"bytes,1,rep,name=stores,proto3" json:"stores,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *SearchSteamAppsResponse) Reset() {
-	*x = SearchSteamAppsResponse{}
+func (x *ListLinkStoresResponse) Reset() {
+	*x = ListLinkStoresResponse{}
 	mi := &file_gamevault_v1_game_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *SearchSteamAppsResponse) String() string {
+func (x *ListLinkStoresResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SearchSteamAppsResponse) ProtoMessage() {}
+func (*ListLinkStoresResponse) ProtoMessage() {}
 
-func (x *SearchSteamAppsResponse) ProtoReflect() protoreflect.Message {
+func (x *ListLinkStoresResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_gamevault_v1_game_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1752,14 +1749,173 @@ func (x *SearchSteamAppsResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SearchSteamAppsResponse.ProtoReflect.Descriptor instead.
-func (*SearchSteamAppsResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use ListLinkStoresResponse.ProtoReflect.Descriptor instead.
+func (*ListLinkStoresResponse) Descriptor() ([]byte, []int) {
 	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{27}
 }
 
-func (x *SearchSteamAppsResponse) GetApps() []*SteamApp {
+func (x *ListLinkStoresResponse) GetStores() []*LinkStore {
 	if x != nil {
-		return x.Apps
+		return x.Stores
+	}
+	return nil
+}
+
+type SearchLinksRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// LinkStore.key of the store to search.
+	Store         string `protobuf:"bytes,1,opt,name=store,proto3" json:"store,omitempty"`
+	Query         string `protobuf:"bytes,2,opt,name=query,proto3" json:"query,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SearchLinksRequest) Reset() {
+	*x = SearchLinksRequest{}
+	mi := &file_gamevault_v1_game_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SearchLinksRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SearchLinksRequest) ProtoMessage() {}
+
+func (x *SearchLinksRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_game_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SearchLinksRequest.ProtoReflect.Descriptor instead.
+func (*SearchLinksRequest) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *SearchLinksRequest) GetStore() string {
+	if x != nil {
+		return x.Store
+	}
+	return ""
+}
+
+func (x *SearchLinksRequest) GetQuery() string {
+	if x != nil {
+		return x.Query
+	}
+	return ""
+}
+
+// LinkMatch is a game found in a store's catalog.
+type LinkMatch struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The game's id in the store: the value of its link.
+	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	ImageUrl      string `protobuf:"bytes,3,opt,name=image_url,json=imageUrl,proto3" json:"image_url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LinkMatch) Reset() {
+	*x = LinkMatch{}
+	mi := &file_gamevault_v1_game_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LinkMatch) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LinkMatch) ProtoMessage() {}
+
+func (x *LinkMatch) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_game_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LinkMatch.ProtoReflect.Descriptor instead.
+func (*LinkMatch) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *LinkMatch) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *LinkMatch) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *LinkMatch) GetImageUrl() string {
+	if x != nil {
+		return x.ImageUrl
+	}
+	return ""
+}
+
+type SearchLinksResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Matches       []*LinkMatch           `protobuf:"bytes,1,rep,name=matches,proto3" json:"matches,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SearchLinksResponse) Reset() {
+	*x = SearchLinksResponse{}
+	mi := &file_gamevault_v1_game_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SearchLinksResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SearchLinksResponse) ProtoMessage() {}
+
+func (x *SearchLinksResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_game_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SearchLinksResponse.ProtoReflect.Descriptor instead.
+func (*SearchLinksResponse) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_game_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *SearchLinksResponse) GetMatches() []*LinkMatch {
+	if x != nil {
+		return x.Matches
 	}
 	return nil
 }
@@ -1794,12 +1950,10 @@ const file_gamevault_v1_game_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xde\x02\n" +
+	"updated_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xbf\x03\n" +
 	"\x04Game\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
-	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
-	"\fsteam_app_id\x18\x03 \x01(\x03R\n" +
-	"steamAppId\x12\x14\n" +
+	"\x05title\x18\x02 \x01(\tR\x05title\x12\x14\n" +
 	"\x05notes\x18\x04 \x01(\tR\x05notes\x12*\n" +
 	"\x06copies\x18\x05 \x03(\v2\x12.gamevault.v1.CopyR\x06copies\x129\n" +
 	"\n" +
@@ -1809,7 +1963,12 @@ const file_gamevault_v1_game_proto_rawDesc = "" +
 	"\tcover_url\x18\b \x01(\tR\bcoverUrl\x12\x16\n" +
 	"\x06genres\x18\t \x03(\tR\x06genres\x12!\n" +
 	"\frelease_year\x18\n" +
-	" \x01(\x05R\vreleaseYear\".\n" +
+	" \x01(\x05R\vreleaseYear\x123\n" +
+	"\x05links\x18\v \x03(\v2\x1d.gamevault.v1.Game.LinksEntryR\x05links\x1a8\n" +
+	"\n" +
+	"LinksEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01J\x04\b\x03\x10\x04R\fsteam_app_id\".\n" +
 	"\x10ListGamesRequest\x12\x1a\n" +
 	"\blanguage\x18\x01 \x01(\tR\blanguage\"d\n" +
 	"\x11ListGamesResponse\x12(\n" +
@@ -1818,23 +1977,29 @@ const file_gamevault_v1_game_proto_rawDesc = "" +
 	"\x0eGetGameRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"9\n" +
 	"\x0fGetGameResponse\x12&\n" +
-	"\x04game\x18\x01 \x01(\v2\x12.gamevault.v1.GameR\x04game\"\xb1\x01\n" +
+	"\x04game\x18\x01 \x01(\v2\x12.gamevault.v1.GameR\x04game\"\x9f\x02\n" +
 	"\x11CreateGameRequest\x12\x14\n" +
-	"\x05title\x18\x01 \x01(\tR\x05title\x12 \n" +
-	"\fsteam_app_id\x18\x02 \x01(\x03R\n" +
-	"steamAppId\x12\x14\n" +
+	"\x05title\x18\x01 \x01(\tR\x05title\x12\x14\n" +
 	"\x05notes\x18\x03 \x01(\tR\x05notes\x121\n" +
 	"\x06copies\x18\x04 \x03(\v2\x19.gamevault.v1.CopyDetailsR\x06copies\x12\x1b\n" +
-	"\tcover_url\x18\x05 \x01(\tR\bcoverUrl\"<\n" +
+	"\tcover_url\x18\x05 \x01(\tR\bcoverUrl\x12@\n" +
+	"\x05links\x18\x06 \x03(\v2*.gamevault.v1.CreateGameRequest.LinksEntryR\x05links\x1a8\n" +
+	"\n" +
+	"LinksEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01J\x04\b\x02\x10\x03R\fsteam_app_id\"<\n" +
 	"\x12CreateGameResponse\x12&\n" +
-	"\x04game\x18\x01 \x01(\v2\x12.gamevault.v1.GameR\x04game\"\x8e\x01\n" +
+	"\x04game\x18\x01 \x01(\v2\x12.gamevault.v1.GameR\x04game\"\xfc\x01\n" +
 	"\x11UpdateGameRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
-	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
-	"\fsteam_app_id\x18\x03 \x01(\x03R\n" +
-	"steamAppId\x12\x14\n" +
+	"\x05title\x18\x02 \x01(\tR\x05title\x12\x14\n" +
 	"\x05notes\x18\x04 \x01(\tR\x05notes\x12\x1b\n" +
-	"\tcover_url\x18\x05 \x01(\tR\bcoverUrl\"<\n" +
+	"\tcover_url\x18\x05 \x01(\tR\bcoverUrl\x12@\n" +
+	"\x05links\x18\x06 \x03(\v2*.gamevault.v1.UpdateGameRequest.LinksEntryR\x05links\x1a8\n" +
+	"\n" +
+	"LinksEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01J\x04\b\x03\x10\x04R\fsteam_app_id\"<\n" +
 	"\x12UpdateGameResponse\x12&\n" +
 	"\x04game\x18\x01 \x01(\v2\x12.gamevault.v1.GameR\x04game\"#\n" +
 	"\x11DeleteGameRequest\x12\x0e\n" +
@@ -1874,15 +2039,23 @@ const file_gamevault_v1_game_proto_rawDesc = "" +
 	"targetGame\"\x19\n" +
 	"\x17MarkRedeemedKeysRequest\"4\n" +
 	"\x18MarkRedeemedKeysResponse\x12\x18\n" +
-	"\aupdated\x18\x01 \x01(\x05R\aupdated\".\n" +
-	"\x16SearchSteamAppsRequest\x12\x14\n" +
-	"\x05query\x18\x01 \x01(\tR\x05query\"R\n" +
-	"\bSteamApp\x12\x15\n" +
-	"\x06app_id\x18\x01 \x01(\x03R\x05appId\x12\x12\n" +
+	"\aupdated\x18\x01 \x01(\x05R\aupdated\"\x17\n" +
+	"\x15ListLinkStoresRequest\"L\n" +
+	"\tLinkStore\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x19\n" +
+	"\bpage_url\x18\x03 \x01(\tR\apageUrl\"I\n" +
+	"\x16ListLinkStoresResponse\x12/\n" +
+	"\x06stores\x18\x01 \x03(\v2\x17.gamevault.v1.LinkStoreR\x06stores\"@\n" +
+	"\x12SearchLinksRequest\x12\x14\n" +
+	"\x05store\x18\x01 \x01(\tR\x05store\x12\x14\n" +
+	"\x05query\x18\x02 \x01(\tR\x05query\"L\n" +
+	"\tLinkMatch\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1b\n" +
-	"\timage_url\x18\x03 \x01(\tR\bimageUrl\"E\n" +
-	"\x17SearchSteamAppsResponse\x12*\n" +
-	"\x04apps\x18\x01 \x03(\v2\x16.gamevault.v1.SteamAppR\x04apps*g\n" +
+	"\timage_url\x18\x03 \x01(\tR\bimageUrl\"H\n" +
+	"\x13SearchLinksResponse\x121\n" +
+	"\amatches\x18\x01 \x03(\v2\x17.gamevault.v1.LinkMatchR\amatches*g\n" +
 	"\bCopyKind\x12\x19\n" +
 	"\x15COPY_KIND_UNSPECIFIED\x10\x00\x12\x11\n" +
 	"\rCOPY_KIND_KEY\x10\x01\x12\x15\n" +
@@ -1898,7 +2071,7 @@ const file_gamevault_v1_game_proto_rawDesc = "" +
 	"\x13COPY_STATUS_EXPIRED\x10\x05\x12\x15\n" +
 	"\x11COPY_STATUS_OWNED\x10\x06\x12\x14\n" +
 	"\x10COPY_STATUS_LENT\x10\a\x12\x14\n" +
-	"\x10COPY_STATUS_SOLD\x10\b2\xdf\a\n" +
+	"\x10COPY_STATUS_SOLD\x10\b2\xb0\b\n" +
 	"\vGameService\x12L\n" +
 	"\tListGames\x12\x1e.gamevault.v1.ListGamesRequest\x1a\x1f.gamevault.v1.ListGamesResponse\x12F\n" +
 	"\aGetGame\x12\x1c.gamevault.v1.GetGameRequest\x1a\x1d.gamevault.v1.GetGameResponse\x12O\n" +
@@ -1916,8 +2089,9 @@ const file_gamevault_v1_game_proto_rawDesc = "" +
 	"\n" +
 	"DeleteCopy\x12\x1f.gamevault.v1.DeleteCopyRequest\x1a .gamevault.v1.DeleteCopyResponse\x12I\n" +
 	"\bMoveCopy\x12\x1d.gamevault.v1.MoveCopyRequest\x1a\x1e.gamevault.v1.MoveCopyResponse\x12a\n" +
-	"\x10MarkRedeemedKeys\x12%.gamevault.v1.MarkRedeemedKeysRequest\x1a&.gamevault.v1.MarkRedeemedKeysResponse\x12^\n" +
-	"\x0fSearchSteamApps\x12$.gamevault.v1.SearchSteamAppsRequest\x1a%.gamevault.v1.SearchSteamAppsResponseB1Z/gamevault/internal/gen/gamevault/v1;gamevaultv1b\x06proto3"
+	"\x10MarkRedeemedKeys\x12%.gamevault.v1.MarkRedeemedKeysRequest\x1a&.gamevault.v1.MarkRedeemedKeysResponse\x12[\n" +
+	"\x0eListLinkStores\x12#.gamevault.v1.ListLinkStoresRequest\x1a$.gamevault.v1.ListLinkStoresResponse\x12R\n" +
+	"\vSearchLinks\x12 .gamevault.v1.SearchLinksRequest\x1a!.gamevault.v1.SearchLinksResponseB1Z/gamevault/internal/gen/gamevault/v1;gamevaultv1b\x06proto3"
 
 var (
 	file_gamevault_v1_game_proto_rawDescOnce sync.Once
@@ -1932,7 +2106,7 @@ func file_gamevault_v1_game_proto_rawDescGZIP() []byte {
 }
 
 var file_gamevault_v1_game_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_gamevault_v1_game_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
+var file_gamevault_v1_game_proto_msgTypes = make([]protoimpl.MessageInfo, 34)
 var file_gamevault_v1_game_proto_goTypes = []any{
 	(CopyKind)(0),                    // 0: gamevault.v1.CopyKind
 	(CopyStatus)(0),                  // 1: gamevault.v1.CopyStatus
@@ -1961,63 +2135,75 @@ var file_gamevault_v1_game_proto_goTypes = []any{
 	(*MoveCopyResponse)(nil),         // 24: gamevault.v1.MoveCopyResponse
 	(*MarkRedeemedKeysRequest)(nil),  // 25: gamevault.v1.MarkRedeemedKeysRequest
 	(*MarkRedeemedKeysResponse)(nil), // 26: gamevault.v1.MarkRedeemedKeysResponse
-	(*SearchSteamAppsRequest)(nil),   // 27: gamevault.v1.SearchSteamAppsRequest
-	(*SteamApp)(nil),                 // 28: gamevault.v1.SteamApp
-	(*SearchSteamAppsResponse)(nil),  // 29: gamevault.v1.SearchSteamAppsResponse
-	(*timestamppb.Timestamp)(nil),    // 30: google.protobuf.Timestamp
+	(*ListLinkStoresRequest)(nil),    // 27: gamevault.v1.ListLinkStoresRequest
+	(*LinkStore)(nil),                // 28: gamevault.v1.LinkStore
+	(*ListLinkStoresResponse)(nil),   // 29: gamevault.v1.ListLinkStoresResponse
+	(*SearchLinksRequest)(nil),       // 30: gamevault.v1.SearchLinksRequest
+	(*LinkMatch)(nil),                // 31: gamevault.v1.LinkMatch
+	(*SearchLinksResponse)(nil),      // 32: gamevault.v1.SearchLinksResponse
+	nil,                              // 33: gamevault.v1.Game.LinksEntry
+	nil,                              // 34: gamevault.v1.CreateGameRequest.LinksEntry
+	nil,                              // 35: gamevault.v1.UpdateGameRequest.LinksEntry
+	(*timestamppb.Timestamp)(nil),    // 36: google.protobuf.Timestamp
 }
 var file_gamevault_v1_game_proto_depIdxs = []int32{
 	0,  // 0: gamevault.v1.CopyDetails.kind:type_name -> gamevault.v1.CopyKind
 	1,  // 1: gamevault.v1.CopyDetails.status:type_name -> gamevault.v1.CopyStatus
 	2,  // 2: gamevault.v1.Copy.details:type_name -> gamevault.v1.CopyDetails
-	30, // 3: gamevault.v1.Copy.created_at:type_name -> google.protobuf.Timestamp
-	30, // 4: gamevault.v1.Copy.updated_at:type_name -> google.protobuf.Timestamp
+	36, // 3: gamevault.v1.Copy.created_at:type_name -> google.protobuf.Timestamp
+	36, // 4: gamevault.v1.Copy.updated_at:type_name -> google.protobuf.Timestamp
 	3,  // 5: gamevault.v1.Game.copies:type_name -> gamevault.v1.Copy
-	30, // 6: gamevault.v1.Game.created_at:type_name -> google.protobuf.Timestamp
-	30, // 7: gamevault.v1.Game.updated_at:type_name -> google.protobuf.Timestamp
-	4,  // 8: gamevault.v1.ListGamesResponse.games:type_name -> gamevault.v1.Game
-	4,  // 9: gamevault.v1.GetGameResponse.game:type_name -> gamevault.v1.Game
-	2,  // 10: gamevault.v1.CreateGameRequest.copies:type_name -> gamevault.v1.CopyDetails
-	4,  // 11: gamevault.v1.CreateGameResponse.game:type_name -> gamevault.v1.Game
-	4,  // 12: gamevault.v1.UpdateGameResponse.game:type_name -> gamevault.v1.Game
-	4,  // 13: gamevault.v1.MergeGamesResponse.game:type_name -> gamevault.v1.Game
-	2,  // 14: gamevault.v1.AddCopyRequest.details:type_name -> gamevault.v1.CopyDetails
-	4,  // 15: gamevault.v1.AddCopyResponse.game:type_name -> gamevault.v1.Game
-	2,  // 16: gamevault.v1.UpdateCopyRequest.details:type_name -> gamevault.v1.CopyDetails
-	4,  // 17: gamevault.v1.UpdateCopyResponse.game:type_name -> gamevault.v1.Game
-	4,  // 18: gamevault.v1.DeleteCopyResponse.game:type_name -> gamevault.v1.Game
-	4,  // 19: gamevault.v1.MoveCopyResponse.source_game:type_name -> gamevault.v1.Game
-	4,  // 20: gamevault.v1.MoveCopyResponse.target_game:type_name -> gamevault.v1.Game
-	28, // 21: gamevault.v1.SearchSteamAppsResponse.apps:type_name -> gamevault.v1.SteamApp
-	5,  // 22: gamevault.v1.GameService.ListGames:input_type -> gamevault.v1.ListGamesRequest
-	7,  // 23: gamevault.v1.GameService.GetGame:input_type -> gamevault.v1.GetGameRequest
-	9,  // 24: gamevault.v1.GameService.CreateGame:input_type -> gamevault.v1.CreateGameRequest
-	11, // 25: gamevault.v1.GameService.UpdateGame:input_type -> gamevault.v1.UpdateGameRequest
-	13, // 26: gamevault.v1.GameService.DeleteGame:input_type -> gamevault.v1.DeleteGameRequest
-	15, // 27: gamevault.v1.GameService.MergeGames:input_type -> gamevault.v1.MergeGamesRequest
-	17, // 28: gamevault.v1.GameService.AddCopy:input_type -> gamevault.v1.AddCopyRequest
-	19, // 29: gamevault.v1.GameService.UpdateCopy:input_type -> gamevault.v1.UpdateCopyRequest
-	21, // 30: gamevault.v1.GameService.DeleteCopy:input_type -> gamevault.v1.DeleteCopyRequest
-	23, // 31: gamevault.v1.GameService.MoveCopy:input_type -> gamevault.v1.MoveCopyRequest
-	25, // 32: gamevault.v1.GameService.MarkRedeemedKeys:input_type -> gamevault.v1.MarkRedeemedKeysRequest
-	27, // 33: gamevault.v1.GameService.SearchSteamApps:input_type -> gamevault.v1.SearchSteamAppsRequest
-	6,  // 34: gamevault.v1.GameService.ListGames:output_type -> gamevault.v1.ListGamesResponse
-	8,  // 35: gamevault.v1.GameService.GetGame:output_type -> gamevault.v1.GetGameResponse
-	10, // 36: gamevault.v1.GameService.CreateGame:output_type -> gamevault.v1.CreateGameResponse
-	12, // 37: gamevault.v1.GameService.UpdateGame:output_type -> gamevault.v1.UpdateGameResponse
-	14, // 38: gamevault.v1.GameService.DeleteGame:output_type -> gamevault.v1.DeleteGameResponse
-	16, // 39: gamevault.v1.GameService.MergeGames:output_type -> gamevault.v1.MergeGamesResponse
-	18, // 40: gamevault.v1.GameService.AddCopy:output_type -> gamevault.v1.AddCopyResponse
-	20, // 41: gamevault.v1.GameService.UpdateCopy:output_type -> gamevault.v1.UpdateCopyResponse
-	22, // 42: gamevault.v1.GameService.DeleteCopy:output_type -> gamevault.v1.DeleteCopyResponse
-	24, // 43: gamevault.v1.GameService.MoveCopy:output_type -> gamevault.v1.MoveCopyResponse
-	26, // 44: gamevault.v1.GameService.MarkRedeemedKeys:output_type -> gamevault.v1.MarkRedeemedKeysResponse
-	29, // 45: gamevault.v1.GameService.SearchSteamApps:output_type -> gamevault.v1.SearchSteamAppsResponse
-	34, // [34:46] is the sub-list for method output_type
-	22, // [22:34] is the sub-list for method input_type
-	22, // [22:22] is the sub-list for extension type_name
-	22, // [22:22] is the sub-list for extension extendee
-	0,  // [0:22] is the sub-list for field type_name
+	36, // 6: gamevault.v1.Game.created_at:type_name -> google.protobuf.Timestamp
+	36, // 7: gamevault.v1.Game.updated_at:type_name -> google.protobuf.Timestamp
+	33, // 8: gamevault.v1.Game.links:type_name -> gamevault.v1.Game.LinksEntry
+	4,  // 9: gamevault.v1.ListGamesResponse.games:type_name -> gamevault.v1.Game
+	4,  // 10: gamevault.v1.GetGameResponse.game:type_name -> gamevault.v1.Game
+	2,  // 11: gamevault.v1.CreateGameRequest.copies:type_name -> gamevault.v1.CopyDetails
+	34, // 12: gamevault.v1.CreateGameRequest.links:type_name -> gamevault.v1.CreateGameRequest.LinksEntry
+	4,  // 13: gamevault.v1.CreateGameResponse.game:type_name -> gamevault.v1.Game
+	35, // 14: gamevault.v1.UpdateGameRequest.links:type_name -> gamevault.v1.UpdateGameRequest.LinksEntry
+	4,  // 15: gamevault.v1.UpdateGameResponse.game:type_name -> gamevault.v1.Game
+	4,  // 16: gamevault.v1.MergeGamesResponse.game:type_name -> gamevault.v1.Game
+	2,  // 17: gamevault.v1.AddCopyRequest.details:type_name -> gamevault.v1.CopyDetails
+	4,  // 18: gamevault.v1.AddCopyResponse.game:type_name -> gamevault.v1.Game
+	2,  // 19: gamevault.v1.UpdateCopyRequest.details:type_name -> gamevault.v1.CopyDetails
+	4,  // 20: gamevault.v1.UpdateCopyResponse.game:type_name -> gamevault.v1.Game
+	4,  // 21: gamevault.v1.DeleteCopyResponse.game:type_name -> gamevault.v1.Game
+	4,  // 22: gamevault.v1.MoveCopyResponse.source_game:type_name -> gamevault.v1.Game
+	4,  // 23: gamevault.v1.MoveCopyResponse.target_game:type_name -> gamevault.v1.Game
+	28, // 24: gamevault.v1.ListLinkStoresResponse.stores:type_name -> gamevault.v1.LinkStore
+	31, // 25: gamevault.v1.SearchLinksResponse.matches:type_name -> gamevault.v1.LinkMatch
+	5,  // 26: gamevault.v1.GameService.ListGames:input_type -> gamevault.v1.ListGamesRequest
+	7,  // 27: gamevault.v1.GameService.GetGame:input_type -> gamevault.v1.GetGameRequest
+	9,  // 28: gamevault.v1.GameService.CreateGame:input_type -> gamevault.v1.CreateGameRequest
+	11, // 29: gamevault.v1.GameService.UpdateGame:input_type -> gamevault.v1.UpdateGameRequest
+	13, // 30: gamevault.v1.GameService.DeleteGame:input_type -> gamevault.v1.DeleteGameRequest
+	15, // 31: gamevault.v1.GameService.MergeGames:input_type -> gamevault.v1.MergeGamesRequest
+	17, // 32: gamevault.v1.GameService.AddCopy:input_type -> gamevault.v1.AddCopyRequest
+	19, // 33: gamevault.v1.GameService.UpdateCopy:input_type -> gamevault.v1.UpdateCopyRequest
+	21, // 34: gamevault.v1.GameService.DeleteCopy:input_type -> gamevault.v1.DeleteCopyRequest
+	23, // 35: gamevault.v1.GameService.MoveCopy:input_type -> gamevault.v1.MoveCopyRequest
+	25, // 36: gamevault.v1.GameService.MarkRedeemedKeys:input_type -> gamevault.v1.MarkRedeemedKeysRequest
+	27, // 37: gamevault.v1.GameService.ListLinkStores:input_type -> gamevault.v1.ListLinkStoresRequest
+	30, // 38: gamevault.v1.GameService.SearchLinks:input_type -> gamevault.v1.SearchLinksRequest
+	6,  // 39: gamevault.v1.GameService.ListGames:output_type -> gamevault.v1.ListGamesResponse
+	8,  // 40: gamevault.v1.GameService.GetGame:output_type -> gamevault.v1.GetGameResponse
+	10, // 41: gamevault.v1.GameService.CreateGame:output_type -> gamevault.v1.CreateGameResponse
+	12, // 42: gamevault.v1.GameService.UpdateGame:output_type -> gamevault.v1.UpdateGameResponse
+	14, // 43: gamevault.v1.GameService.DeleteGame:output_type -> gamevault.v1.DeleteGameResponse
+	16, // 44: gamevault.v1.GameService.MergeGames:output_type -> gamevault.v1.MergeGamesResponse
+	18, // 45: gamevault.v1.GameService.AddCopy:output_type -> gamevault.v1.AddCopyResponse
+	20, // 46: gamevault.v1.GameService.UpdateCopy:output_type -> gamevault.v1.UpdateCopyResponse
+	22, // 47: gamevault.v1.GameService.DeleteCopy:output_type -> gamevault.v1.DeleteCopyResponse
+	24, // 48: gamevault.v1.GameService.MoveCopy:output_type -> gamevault.v1.MoveCopyResponse
+	26, // 49: gamevault.v1.GameService.MarkRedeemedKeys:output_type -> gamevault.v1.MarkRedeemedKeysResponse
+	29, // 50: gamevault.v1.GameService.ListLinkStores:output_type -> gamevault.v1.ListLinkStoresResponse
+	32, // 51: gamevault.v1.GameService.SearchLinks:output_type -> gamevault.v1.SearchLinksResponse
+	39, // [39:52] is the sub-list for method output_type
+	26, // [26:39] is the sub-list for method input_type
+	26, // [26:26] is the sub-list for extension type_name
+	26, // [26:26] is the sub-list for extension extendee
+	0,  // [0:26] is the sub-list for field type_name
 }
 
 func init() { file_gamevault_v1_game_proto_init() }
@@ -2031,7 +2217,7 @@ func file_gamevault_v1_game_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gamevault_v1_game_proto_rawDesc), len(file_gamevault_v1_game_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   28,
+			NumMessages:   34,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

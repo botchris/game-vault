@@ -3,7 +3,10 @@
 // Columns (header names are case-insensitive; Spanish aliases and the legacy Game Vault export are accepted):
 //
 //	title, platform, kind, status, key, redeemBy, origin, acquiredOn, edition, condition,
-//	location, notes, steamAppId, externalId, barcode
+//	location, notes, links, externalId, barcode
+//
+// links lists the stores the game is linked to as space-separated store:id pairs
+// ("steam:620 gog:1207658924"); every row of a game carries the game's links.
 //
 // Rows without externalId get a stable one derived from kind, platform, title and key, so the
 // same file can be imported again to update rows instead of duplicating them.
@@ -13,7 +16,6 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
-	"strconv"
 	"strings"
 	"time"
 
@@ -22,7 +24,7 @@ import (
 
 var columns = []string{
 	"title", "platform", "kind", "status", "key", "redeemBy", "origin", "acquiredOn",
-	"edition", "condition", "location", "notes", "steamAppId", "externalId", "barcode",
+	"edition", "condition", "location", "notes", "links", "externalId", "barcode",
 }
 
 var aliases = map[string]string{
@@ -38,8 +40,8 @@ var aliases = map[string]string{
 	"condicion": "condition", "estadofisico": "condition",
 	"ubicacion": "location",
 	"notas":     "notes",
-	"appid":     "steamAppId",
-	"ean":       "barcode", "upc": "barcode", "codigobarras": "barcode", "codigo": "barcode",
+	"enlaces":   "links", "vinculos": "links",
+	"ean": "barcode", "upc": "barcode", "codigobarras": "barcode", "codigo": "barcode",
 }
 
 var kindAliases = map[string]game.Kind{
@@ -171,9 +173,9 @@ func (Codec) Decode(r io.Reader) ([]game.ImportedCopy, []string, error) {
 			}
 		}
 
-		var appID int64
-		if v := get("steamAppId"); v != "" {
-			appID, _ = strconv.ParseInt(v, 10, 64)
+		links, bad := parseLinks(get("links"))
+		for _, b := range bad {
+			warnings = append(warnings, fmt.Sprintf("row %d: link %q is not store:id (e.g. steam:620), ignored", row, b))
 		}
 
 		ext := get("externalId")
@@ -181,10 +183,44 @@ func (Codec) Decode(r io.Reader) ([]game.ImportedCopy, []string, error) {
 			ext = fmt.Sprintf("csv:%s|%s|%s|%s", d.Kind, strings.ToLower(d.Platform), game.MatchKey(title), d.Key)
 		}
 
-		out = append(out, game.ImportedCopy{ExternalID: ext, Title: title, SteamAppID: appID, Details: d})
+		out = append(out, game.ImportedCopy{ExternalID: ext, Title: title, Links: links, Details: d})
 	}
 
 	return out, warnings, nil
+}
+
+// parseLinks reads "steam:620 gog:1207658924" and returns the links and the pairs it could not read.
+func parseLinks(s string) (game.Links, []string) {
+	var (
+		links game.Links
+		bad   []string
+	)
+
+	for _, pair := range strings.Fields(s) {
+		store, id, ok := strings.Cut(pair, ":")
+		if !ok || store == "" || id == "" {
+			bad = append(bad, pair)
+			continue
+		}
+
+		if links == nil {
+			links = game.Links{}
+		}
+
+		links[strings.ToLower(store)] = id
+	}
+
+	return links, bad
+}
+
+// formatLinks writes links as parseLinks reads them, sorted by store.
+func formatLinks(l game.Links) string {
+	pairs := make([]string, 0, len(l))
+	for _, k := range l.Keys() {
+		pairs = append(pairs, k+":"+l[k])
+	}
+
+	return strings.Join(pairs, " ")
 }
 
 func parseDate(s string) (game.Date, bool) {
@@ -209,10 +245,7 @@ func (Codec) Encode(w io.Writer, games []*game.Game) error {
 	}
 
 	for _, g := range games {
-		appID := ""
-		if g.SteamAppID() != 0 {
-			appID = strconv.FormatInt(g.SteamAppID(), 10)
-		}
+		links := formatLinks(g.Links())
 
 		for _, c := range g.Copies() {
 			ext := c.ExternalID
@@ -222,7 +255,7 @@ func (Codec) Encode(w io.Writer, games []*game.Game) error {
 
 			if err := cw.Write([]string{
 				g.Title(), c.Platform, string(c.Kind), string(c.Status), c.Key, string(c.RedeemBy), c.Origin,
-				string(c.AcquiredOn), c.Edition, c.Condition, c.Location, c.Notes, appID, ext, string(c.Barcode),
+				string(c.AcquiredOn), c.Edition, c.Condition, c.Location, c.Notes, links, ext, string(c.Barcode),
 			}); err != nil {
 				return err
 			}

@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file gamevault/v1/game.proto.
  */
 export const file_gamevault_v1_game: GenFile = /*@__PURE__*/
-  fileDesc("ChdnYW1ldmF1bHQvdjEvZ2FtZS5wcm90bxIMZ2FtZXZhdWx0LnYxIooCCgtDb3B5RGV0YWlscxIkCgRraW5kGAEgASgOMhYuZ2FtZXZhdWx0LnYxLkNvcHlLaW5kEhAKCHBsYXRmb3JtGAIgASgJEigKBnN0YXR1cxgDIAEoDjIYLmdhbWV2YXVsdC52MS5Db3B5U3RhdHVzEgsKA2tleRgEIAEoCRIRCglyZWRlZW1fYnkYBSABKAkSDgoGb3JpZ2luGAYgASgJEhMKC2FjcXVpcmVkX29uGAcgASgJEg8KB2VkaXRpb24YCCABKAkSEQoJY29uZGl0aW9uGAkgASgJEhAKCGxvY2F0aW9uGAogASgJEg0KBW5vdGVzGAsgASgJEg8KB2JhcmNvZGUYDCABKAki2QEKBENvcHkSCgoCaWQYASABKAkSKgoHZGV0YWlscxgCIAEoCzIZLmdhbWV2YXVsdC52MS5Db3B5RGV0YWlscxIRCglzb3VyY2VfaWQYAyABKAkSEwoLZXh0ZXJuYWxfaWQYBCABKAkSEQoJcmVkdW5kYW50GAUgASgIEi4KCmNyZWF0ZWRfYXQYBiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIoMCCgRHYW1lEgoKAmlkGAEgASgJEg0KBXRpdGxlGAIgASgJEhQKDHN0ZWFtX2FwcF9pZBgDIAEoAxINCgVub3RlcxgEIAEoCRIiCgZjb3BpZXMYBSADKAsyEi5nYW1ldmF1bHQudjEuQ29weRIuCgpjcmVhdGVkX2F0GAYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1cGRhdGVkX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIRCgljb3Zlcl91cmwYCCABKAkSDgoGZ2VucmVzGAkgAygJEhQKDHJlbGVhc2VfeWVhchgKIAEoBSIkChBMaXN0R2FtZXNSZXF1ZXN0EhAKCGxhbmd1YWdlGAEgASgJIk4KEUxpc3RHYW1lc1Jlc3BvbnNlEiEKBWdhbWVzGAEgAygLMhIuZ2FtZXZhdWx0LnYxLkdhbWUSFgoOZGV0YWlsc19jYWNoZWQYAiABKAUiHAoOR2V0R2FtZVJlcXVlc3QSCgoCaWQYASABKAkiMwoPR2V0R2FtZVJlc3BvbnNlEiAKBGdhbWUYASABKAsyEi5nYW1ldmF1bHQudjEuR2FtZSKFAQoRQ3JlYXRlR2FtZVJlcXVlc3QSDQoFdGl0bGUYASABKAkSFAoMc3RlYW1fYXBwX2lkGAIgASgDEg0KBW5vdGVzGAMgASgJEikKBmNvcGllcxgEIAMoCzIZLmdhbWV2YXVsdC52MS5Db3B5RGV0YWlscxIRCgljb3Zlcl91cmwYBSABKAkiNgoSQ3JlYXRlR2FtZVJlc3BvbnNlEiAKBGdhbWUYASABKAsyEi5nYW1ldmF1bHQudjEuR2FtZSJmChFVcGRhdGVHYW1lUmVxdWVzdBIKCgJpZBgBIAEoCRINCgV0aXRsZRgCIAEoCRIUCgxzdGVhbV9hcHBfaWQYAyABKAMSDQoFbm90ZXMYBCABKAkSEQoJY292ZXJfdXJsGAUgASgJIjYKElVwZGF0ZUdhbWVSZXNwb25zZRIgCgRnYW1lGAEgASgLMhIuZ2FtZXZhdWx0LnYxLkdhbWUiHwoRRGVsZXRlR2FtZVJlcXVlc3QSCgoCaWQYASABKAkiFAoSRGVsZXRlR2FtZVJlc3BvbnNlIjoKEU1lcmdlR2FtZXNSZXF1ZXN0EhEKCXRhcmdldF9pZBgBIAEoCRISCgpzb3VyY2VfaWRzGAIgAygJIjYKEk1lcmdlR2FtZXNSZXNwb25zZRIgCgRnYW1lGAEgASgLMhIuZ2FtZXZhdWx0LnYxLkdhbWUiTQoOQWRkQ29weVJlcXVlc3QSDwoHZ2FtZV9pZBgBIAEoCRIqCgdkZXRhaWxzGAIgASgLMhkuZ2FtZXZhdWx0LnYxLkNvcHlEZXRhaWxzIjMKD0FkZENvcHlSZXNwb25zZRIgCgRnYW1lGAEgASgLMhIuZ2FtZXZhdWx0LnYxLkdhbWUiYQoRVXBkYXRlQ29weVJlcXVlc3QSDwoHZ2FtZV9pZBgBIAEoCRIPCgdjb3B5X2lkGAIgASgJEioKB2RldGFpbHMYAyABKAsyGS5nYW1ldmF1bHQudjEuQ29weURldGFpbHMiNgoSVXBkYXRlQ29weVJlc3BvbnNlEiAKBGdhbWUYASABKAsyEi5nYW1ldmF1bHQudjEuR2FtZSI1ChFEZWxldGVDb3B5UmVxdWVzdBIPCgdnYW1lX2lkGAEgASgJEg8KB2NvcHlfaWQYAiABKAkiNgoSRGVsZXRlQ29weVJlc3BvbnNlEiAKBGdhbWUYASABKAsyEi5nYW1ldmF1bHQudjEuR2FtZSJjCg9Nb3ZlQ29weVJlcXVlc3QSDwoHZ2FtZV9pZBgBIAEoCRIPCgdjb3B5X2lkGAIgASgJEhYKDnRhcmdldF9nYW1lX2lkGAMgASgJEhYKDm5ld19nYW1lX3RpdGxlGAQgASgJImQKEE1vdmVDb3B5UmVzcG9uc2USJwoLc291cmNlX2dhbWUYASABKAsyEi5nYW1ldmF1bHQudjEuR2FtZRInCgt0YXJnZXRfZ2FtZRgCIAEoCzISLmdhbWV2YXVsdC52MS5HYW1lIhkKF01hcmtSZWRlZW1lZEtleXNSZXF1ZXN0IisKGE1hcmtSZWRlZW1lZEtleXNSZXNwb25zZRIPCgd1cGRhdGVkGAEgASgFIicKFlNlYXJjaFN0ZWFtQXBwc1JlcXVlc3QSDQoFcXVlcnkYASABKAkiOwoIU3RlYW1BcHASDgoGYXBwX2lkGAEgASgDEgwKBG5hbWUYAiABKAkSEQoJaW1hZ2VfdXJsGAMgASgJIj8KF1NlYXJjaFN0ZWFtQXBwc1Jlc3BvbnNlEiQKBGFwcHMYASADKAsyFi5nYW1ldmF1bHQudjEuU3RlYW1BcHAqZwoIQ29weUtpbmQSGQoVQ09QWV9LSU5EX1VOU1BFQ0lGSUVEEAASEQoNQ09QWV9LSU5EX0tFWRABEhUKEUNPUFlfS0lORF9MSUJSQVJZEAISFgoSQ09QWV9LSU5EX1BIWVNJQ0FMEAMq7QEKCkNvcHlTdGF0dXMSGwoXQ09QWV9TVEFUVVNfVU5TUEVDSUZJRUQQABIaChZDT1BZX1NUQVRVU19VTlJFVkVBTEVEEAESGAoUQ09QWV9TVEFUVVNfUkVWRUFMRUQQAhIYChRDT1BZX1NUQVRVU19SRURFRU1FRBADEhYKEkNPUFlfU1RBVFVTX0dJRlRFRBAEEhcKE0NPUFlfU1RBVFVTX0VYUElSRUQQBRIVChFDT1BZX1NUQVRVU19PV05FRBAGEhQKEENPUFlfU1RBVFVTX0xFTlQQBxIUChBDT1BZX1NUQVRVU19TT0xEEAgy3wcKC0dhbWVTZXJ2aWNlEkwKCUxpc3RHYW1lcxIeLmdhbWV2YXVsdC52MS5MaXN0R2FtZXNSZXF1ZXN0Gh8uZ2FtZXZhdWx0LnYxLkxpc3RHYW1lc1Jlc3BvbnNlEkYKB0dldEdhbWUSHC5nYW1ldmF1bHQudjEuR2V0R2FtZVJlcXVlc3QaHS5nYW1ldmF1bHQudjEuR2V0R2FtZVJlc3BvbnNlEk8KCkNyZWF0ZUdhbWUSHy5nYW1ldmF1bHQudjEuQ3JlYXRlR2FtZVJlcXVlc3QaIC5nYW1ldmF1bHQudjEuQ3JlYXRlR2FtZVJlc3BvbnNlEk8KClVwZGF0ZUdhbWUSHy5nYW1ldmF1bHQudjEuVXBkYXRlR2FtZVJlcXVlc3QaIC5nYW1ldmF1bHQudjEuVXBkYXRlR2FtZVJlc3BvbnNlEk8KCkRlbGV0ZUdhbWUSHy5nYW1ldmF1bHQudjEuRGVsZXRlR2FtZVJlcXVlc3QaIC5nYW1ldmF1bHQudjEuRGVsZXRlR2FtZVJlc3BvbnNlEk8KCk1lcmdlR2FtZXMSHy5nYW1ldmF1bHQudjEuTWVyZ2VHYW1lc1JlcXVlc3QaIC5nYW1ldmF1bHQudjEuTWVyZ2VHYW1lc1Jlc3BvbnNlEkYKB0FkZENvcHkSHC5nYW1ldmF1bHQudjEuQWRkQ29weVJlcXVlc3QaHS5nYW1ldmF1bHQudjEuQWRkQ29weVJlc3BvbnNlEk8KClVwZGF0ZUNvcHkSHy5nYW1ldmF1bHQudjEuVXBkYXRlQ29weVJlcXVlc3QaIC5nYW1ldmF1bHQudjEuVXBkYXRlQ29weVJlc3BvbnNlEk8KCkRlbGV0ZUNvcHkSHy5nYW1ldmF1bHQudjEuRGVsZXRlQ29weVJlcXVlc3QaIC5nYW1ldmF1bHQudjEuRGVsZXRlQ29weVJlc3BvbnNlEkkKCE1vdmVDb3B5Eh0uZ2FtZXZhdWx0LnYxLk1vdmVDb3B5UmVxdWVzdBoeLmdhbWV2YXVsdC52MS5Nb3ZlQ29weVJlc3BvbnNlEmEKEE1hcmtSZWRlZW1lZEtleXMSJS5nYW1ldmF1bHQudjEuTWFya1JlZGVlbWVkS2V5c1JlcXVlc3QaJi5nYW1ldmF1bHQudjEuTWFya1JlZGVlbWVkS2V5c1Jlc3BvbnNlEl4KD1NlYXJjaFN0ZWFtQXBwcxIkLmdhbWV2YXVsdC52MS5TZWFyY2hTdGVhbUFwcHNSZXF1ZXN0GiUuZ2FtZXZhdWx0LnYxLlNlYXJjaFN0ZWFtQXBwc1Jlc3BvbnNlQjFaL2dhbWV2YXVsdC9pbnRlcm5hbC9nZW4vZ2FtZXZhdWx0L3YxO2dhbWV2YXVsdHYxYgZwcm90bzM", [file_google_protobuf_timestamp]);
+  fileDesc("ChdnYW1ldmF1bHQvdjEvZ2FtZS5wcm90bxIMZ2FtZXZhdWx0LnYxIooCCgtDb3B5RGV0YWlscxIkCgRraW5kGAEgASgOMhYuZ2FtZXZhdWx0LnYxLkNvcHlLaW5kEhAKCHBsYXRmb3JtGAIgASgJEigKBnN0YXR1cxgDIAEoDjIYLmdhbWV2YXVsdC52MS5Db3B5U3RhdHVzEgsKA2tleRgEIAEoCRIRCglyZWRlZW1fYnkYBSABKAkSDgoGb3JpZ2luGAYgASgJEhMKC2FjcXVpcmVkX29uGAcgASgJEg8KB2VkaXRpb24YCCABKAkSEQoJY29uZGl0aW9uGAkgASgJEhAKCGxvY2F0aW9uGAogASgJEg0KBW5vdGVzGAsgASgJEg8KB2JhcmNvZGUYDCABKAki2QEKBENvcHkSCgoCaWQYASABKAkSKgoHZGV0YWlscxgCIAEoCzIZLmdhbWV2YXVsdC52MS5Db3B5RGV0YWlscxIRCglzb3VyY2VfaWQYAyABKAkSEwoLZXh0ZXJuYWxfaWQYBCABKAkSEQoJcmVkdW5kYW50GAUgASgIEi4KCmNyZWF0ZWRfYXQYBiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIt0CCgRHYW1lEgoKAmlkGAEgASgJEg0KBXRpdGxlGAIgASgJEg0KBW5vdGVzGAQgASgJEiIKBmNvcGllcxgFIAMoCzISLmdhbWV2YXVsdC52MS5Db3B5Ei4KCmNyZWF0ZWRfYXQYBiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhEKCWNvdmVyX3VybBgIIAEoCRIOCgZnZW5yZXMYCSADKAkSFAoMcmVsZWFzZV95ZWFyGAogASgFEiwKBWxpbmtzGAsgAygLMh0uZ2FtZXZhdWx0LnYxLkdhbWUuTGlua3NFbnRyeRosCgpMaW5rc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAFKBAgDEARSDHN0ZWFtX2FwcF9pZCIkChBMaXN0R2FtZXNSZXF1ZXN0EhAKCGxhbmd1YWdlGAEgASgJIk4KEUxpc3RHYW1lc1Jlc3BvbnNlEiEKBWdhbWVzGAEgAygLMhIuZ2FtZXZhdWx0LnYxLkdhbWUSFgoOZGV0YWlsc19jYWNoZWQYAiABKAUiHAoOR2V0R2FtZVJlcXVlc3QSCgoCaWQYASABKAkiMwoPR2V0R2FtZVJlc3BvbnNlEiAKBGdhbWUYASABKAsyEi5nYW1ldmF1bHQudjEuR2FtZSLsAQoRQ3JlYXRlR2FtZVJlcXVlc3QSDQoFdGl0bGUYASABKAkSDQoFbm90ZXMYAyABKAkSKQoGY29waWVzGAQgAygLMhkuZ2FtZXZhdWx0LnYxLkNvcHlEZXRhaWxzEhEKCWNvdmVyX3VybBgFIAEoCRI5CgVsaW5rcxgGIAMoCzIqLmdhbWV2YXVsdC52MS5DcmVhdGVHYW1lUmVxdWVzdC5MaW5rc0VudHJ5GiwKCkxpbmtzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4AUoECAIQA1IMc3RlYW1fYXBwX2lkIjYKEkNyZWF0ZUdhbWVSZXNwb25zZRIgCgRnYW1lGAEgASgLMhIuZ2FtZXZhdWx0LnYxLkdhbWUizQEKEVVwZGF0ZUdhbWVSZXF1ZXN0EgoKAmlkGAEgASgJEg0KBXRpdGxlGAIgASgJEg0KBW5vdGVzGAQgASgJEhEKCWNvdmVyX3VybBgFIAEoCRI5CgVsaW5rcxgGIAMoCzIqLmdhbWV2YXVsdC52MS5VcGRhdGVHYW1lUmVxdWVzdC5MaW5rc0VudHJ5GiwKCkxpbmtzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4AUoECAMQBFIMc3RlYW1fYXBwX2lkIjYKElVwZGF0ZUdhbWVSZXNwb25zZRIgCgRnYW1lGAEgASgLMhIuZ2FtZXZhdWx0LnYxLkdhbWUiHwoRRGVsZXRlR2FtZVJlcXVlc3QSCgoCaWQYASABKAkiFAoSRGVsZXRlR2FtZVJlc3BvbnNlIjoKEU1lcmdlR2FtZXNSZXF1ZXN0EhEKCXRhcmdldF9pZBgBIAEoCRISCgpzb3VyY2VfaWRzGAIgAygJIjYKEk1lcmdlR2FtZXNSZXNwb25zZRIgCgRnYW1lGAEgASgLMhIuZ2FtZXZhdWx0LnYxLkdhbWUiTQoOQWRkQ29weVJlcXVlc3QSDwoHZ2FtZV9pZBgBIAEoCRIqCgdkZXRhaWxzGAIgASgLMhkuZ2FtZXZhdWx0LnYxLkNvcHlEZXRhaWxzIjMKD0FkZENvcHlSZXNwb25zZRIgCgRnYW1lGAEgASgLMhIuZ2FtZXZhdWx0LnYxLkdhbWUiYQoRVXBkYXRlQ29weVJlcXVlc3QSDwoHZ2FtZV9pZBgBIAEoCRIPCgdjb3B5X2lkGAIgASgJEioKB2RldGFpbHMYAyABKAsyGS5nYW1ldmF1bHQudjEuQ29weURldGFpbHMiNgoSVXBkYXRlQ29weVJlc3BvbnNlEiAKBGdhbWUYASABKAsyEi5nYW1ldmF1bHQudjEuR2FtZSI1ChFEZWxldGVDb3B5UmVxdWVzdBIPCgdnYW1lX2lkGAEgASgJEg8KB2NvcHlfaWQYAiABKAkiNgoSRGVsZXRlQ29weVJlc3BvbnNlEiAKBGdhbWUYASABKAsyEi5nYW1ldmF1bHQudjEuR2FtZSJjCg9Nb3ZlQ29weVJlcXVlc3QSDwoHZ2FtZV9pZBgBIAEoCRIPCgdjb3B5X2lkGAIgASgJEhYKDnRhcmdldF9nYW1lX2lkGAMgASgJEhYKDm5ld19nYW1lX3RpdGxlGAQgASgJImQKEE1vdmVDb3B5UmVzcG9uc2USJwoLc291cmNlX2dhbWUYASABKAsyEi5nYW1ldmF1bHQudjEuR2FtZRInCgt0YXJnZXRfZ2FtZRgCIAEoCzISLmdhbWV2YXVsdC52MS5HYW1lIhkKF01hcmtSZWRlZW1lZEtleXNSZXF1ZXN0IisKGE1hcmtSZWRlZW1lZEtleXNSZXNwb25zZRIPCgd1cGRhdGVkGAEgASgFIhcKFUxpc3RMaW5rU3RvcmVzUmVxdWVzdCI4CglMaW5rU3RvcmUSCwoDa2V5GAEgASgJEgwKBG5hbWUYAiABKAkSEAoIcGFnZV91cmwYAyABKAkiQQoWTGlzdExpbmtTdG9yZXNSZXNwb25zZRInCgZzdG9yZXMYASADKAsyFy5nYW1ldmF1bHQudjEuTGlua1N0b3JlIjIKElNlYXJjaExpbmtzUmVxdWVzdBINCgVzdG9yZRgBIAEoCRINCgVxdWVyeRgCIAEoCSI4CglMaW5rTWF0Y2gSCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIRCglpbWFnZV91cmwYAyABKAkiPwoTU2VhcmNoTGlua3NSZXNwb25zZRIoCgdtYXRjaGVzGAEgAygLMhcuZ2FtZXZhdWx0LnYxLkxpbmtNYXRjaCpnCghDb3B5S2luZBIZChVDT1BZX0tJTkRfVU5TUEVDSUZJRUQQABIRCg1DT1BZX0tJTkRfS0VZEAESFQoRQ09QWV9LSU5EX0xJQlJBUlkQAhIWChJDT1BZX0tJTkRfUEhZU0lDQUwQAyrtAQoKQ29weVN0YXR1cxIbChdDT1BZX1NUQVRVU19VTlNQRUNJRklFRBAAEhoKFkNPUFlfU1RBVFVTX1VOUkVWRUFMRUQQARIYChRDT1BZX1NUQVRVU19SRVZFQUxFRBACEhgKFENPUFlfU1RBVFVTX1JFREVFTUVEEAMSFgoSQ09QWV9TVEFUVVNfR0lGVEVEEAQSFwoTQ09QWV9TVEFUVVNfRVhQSVJFRBAFEhUKEUNPUFlfU1RBVFVTX09XTkVEEAYSFAoQQ09QWV9TVEFUVVNfTEVOVBAHEhQKEENPUFlfU1RBVFVTX1NPTEQQCDKwCAoLR2FtZVNlcnZpY2USTAoJTGlzdEdhbWVzEh4uZ2FtZXZhdWx0LnYxLkxpc3RHYW1lc1JlcXVlc3QaHy5nYW1ldmF1bHQudjEuTGlzdEdhbWVzUmVzcG9uc2USRgoHR2V0R2FtZRIcLmdhbWV2YXVsdC52MS5HZXRHYW1lUmVxdWVzdBodLmdhbWV2YXVsdC52MS5HZXRHYW1lUmVzcG9uc2USTwoKQ3JlYXRlR2FtZRIfLmdhbWV2YXVsdC52MS5DcmVhdGVHYW1lUmVxdWVzdBogLmdhbWV2YXVsdC52MS5DcmVhdGVHYW1lUmVzcG9uc2USTwoKVXBkYXRlR2FtZRIfLmdhbWV2YXVsdC52MS5VcGRhdGVHYW1lUmVxdWVzdBogLmdhbWV2YXVsdC52MS5VcGRhdGVHYW1lUmVzcG9uc2USTwoKRGVsZXRlR2FtZRIfLmdhbWV2YXVsdC52MS5EZWxldGVHYW1lUmVxdWVzdBogLmdhbWV2YXVsdC52MS5EZWxldGVHYW1lUmVzcG9uc2USTwoKTWVyZ2VHYW1lcxIfLmdhbWV2YXVsdC52MS5NZXJnZUdhbWVzUmVxdWVzdBogLmdhbWV2YXVsdC52MS5NZXJnZUdhbWVzUmVzcG9uc2USRgoHQWRkQ29weRIcLmdhbWV2YXVsdC52MS5BZGRDb3B5UmVxdWVzdBodLmdhbWV2YXVsdC52MS5BZGRDb3B5UmVzcG9uc2USTwoKVXBkYXRlQ29weRIfLmdhbWV2YXVsdC52MS5VcGRhdGVDb3B5UmVxdWVzdBogLmdhbWV2YXVsdC52MS5VcGRhdGVDb3B5UmVzcG9uc2USTwoKRGVsZXRlQ29weRIfLmdhbWV2YXVsdC52MS5EZWxldGVDb3B5UmVxdWVzdBogLmdhbWV2YXVsdC52MS5EZWxldGVDb3B5UmVzcG9uc2USSQoITW92ZUNvcHkSHS5nYW1ldmF1bHQudjEuTW92ZUNvcHlSZXF1ZXN0Gh4uZ2FtZXZhdWx0LnYxLk1vdmVDb3B5UmVzcG9uc2USYQoQTWFya1JlZGVlbWVkS2V5cxIlLmdhbWV2YXVsdC52MS5NYXJrUmVkZWVtZWRLZXlzUmVxdWVzdBomLmdhbWV2YXVsdC52MS5NYXJrUmVkZWVtZWRLZXlzUmVzcG9uc2USWwoOTGlzdExpbmtTdG9yZXMSIy5nYW1ldmF1bHQudjEuTGlzdExpbmtTdG9yZXNSZXF1ZXN0GiQuZ2FtZXZhdWx0LnYxLkxpc3RMaW5rU3RvcmVzUmVzcG9uc2USUgoLU2VhcmNoTGlua3MSIC5nYW1ldmF1bHQudjEuU2VhcmNoTGlua3NSZXF1ZXN0GiEuZ2FtZXZhdWx0LnYxLlNlYXJjaExpbmtzUmVzcG9uc2VCMVovZ2FtZXZhdWx0L2ludGVybmFsL2dlbi9nYW1ldmF1bHQvdjE7Z2FtZXZhdWx0djFiBnByb3RvMw", [file_google_protobuf_timestamp]);
 
 /**
  * CopyDetails holds the editable attributes of a copy.
@@ -177,11 +177,6 @@ export type Game = Message<"gamevault.v1.Game"> & {
   title: string;
 
   /**
-   * @generated from field: int64 steam_app_id = 3;
-   */
-  steamAppId: bigint;
-
-  /**
    * @generated from field: string notes = 4;
    */
   notes: string;
@@ -202,7 +197,7 @@ export type Game = Message<"gamevault.v1.Game"> & {
   updatedAt?: Timestamp | undefined;
 
   /**
-   * Custom cover image URL. When empty the cover comes from Steam (if steam_app_id is set).
+   * Custom cover image URL. When empty the cover providers choose one.
    * The image itself is served over plain HTTP at GET /media/covers/{id}.
    *
    * @generated from field: string cover_url = 8;
@@ -223,6 +218,14 @@ export type Game = Message<"gamevault.v1.Game"> & {
    * @generated from field: int32 release_year = 10;
    */
   releaseYear: number;
+
+  /**
+   * Stores the game is linked to: link key ("steam") → the game's id there ("620"). Providers
+   * that know a store use its link for covers and details; imports use links to match games.
+   *
+   * @generated from field: map<string, string> links = 11;
+   */
+  links: { [key: string]: string };
 };
 
 /**
@@ -319,11 +322,6 @@ export type CreateGameRequest = Message<"gamevault.v1.CreateGameRequest"> & {
   title: string;
 
   /**
-   * @generated from field: int64 steam_app_id = 2;
-   */
-  steamAppId: bigint;
-
-  /**
    * @generated from field: string notes = 3;
    */
   notes: string;
@@ -339,6 +337,11 @@ export type CreateGameRequest = Message<"gamevault.v1.CreateGameRequest"> & {
    * @generated from field: string cover_url = 5;
    */
   coverUrl: string;
+
+  /**
+   * @generated from field: map<string, string> links = 6;
+   */
+  links: { [key: string]: string };
 };
 
 /**
@@ -380,11 +383,6 @@ export type UpdateGameRequest = Message<"gamevault.v1.UpdateGameRequest"> & {
   title: string;
 
   /**
-   * @generated from field: int64 steam_app_id = 3;
-   */
-  steamAppId: bigint;
-
-  /**
    * @generated from field: string notes = 4;
    */
   notes: string;
@@ -393,6 +391,13 @@ export type UpdateGameRequest = Message<"gamevault.v1.UpdateGameRequest"> & {
    * @generated from field: string cover_url = 5;
    */
   coverUrl: string;
+
+  /**
+   * The game's links, replacing the current ones (an empty map unlinks every store).
+   *
+   * @generated from field: map<string, string> links = 6;
+   */
+  links: { [key: string]: string };
 };
 
 /**
@@ -706,32 +711,104 @@ export const MarkRedeemedKeysResponseSchema: GenMessage<MarkRedeemedKeysResponse
   messageDesc(file_gamevault_v1_game, 24);
 
 /**
- * @generated from message gamevault.v1.SearchSteamAppsRequest
+ * @generated from message gamevault.v1.ListLinkStoresRequest
  */
-export type SearchSteamAppsRequest = Message<"gamevault.v1.SearchSteamAppsRequest"> & {
+export type ListLinkStoresRequest = Message<"gamevault.v1.ListLinkStoresRequest"> & {
+};
+
+/**
+ * Describes the message gamevault.v1.ListLinkStoresRequest.
+ * Use `create(ListLinkStoresRequestSchema)` to create a new message.
+ */
+export const ListLinkStoresRequestSchema: GenMessage<ListLinkStoresRequest> = /*@__PURE__*/
+  messageDesc(file_gamevault_v1_game, 25);
+
+/**
+ * LinkStore is a store whose catalog can be searched to link a game to it.
+ *
+ * @generated from message gamevault.v1.LinkStore
+ */
+export type LinkStore = Message<"gamevault.v1.LinkStore"> & {
   /**
-   * @generated from field: string query = 1;
+   * Link key the store's ids are saved under in Game.links ("steam").
+   *
+   * @generated from field: string key = 1;
+   */
+  key: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * Address of a game's page in the store, with "{id}" where the link goes.
+   *
+   * @generated from field: string page_url = 3;
+   */
+  pageUrl: string;
+};
+
+/**
+ * Describes the message gamevault.v1.LinkStore.
+ * Use `create(LinkStoreSchema)` to create a new message.
+ */
+export const LinkStoreSchema: GenMessage<LinkStore> = /*@__PURE__*/
+  messageDesc(file_gamevault_v1_game, 26);
+
+/**
+ * @generated from message gamevault.v1.ListLinkStoresResponse
+ */
+export type ListLinkStoresResponse = Message<"gamevault.v1.ListLinkStoresResponse"> & {
+  /**
+   * @generated from field: repeated gamevault.v1.LinkStore stores = 1;
+   */
+  stores: LinkStore[];
+};
+
+/**
+ * Describes the message gamevault.v1.ListLinkStoresResponse.
+ * Use `create(ListLinkStoresResponseSchema)` to create a new message.
+ */
+export const ListLinkStoresResponseSchema: GenMessage<ListLinkStoresResponse> = /*@__PURE__*/
+  messageDesc(file_gamevault_v1_game, 27);
+
+/**
+ * @generated from message gamevault.v1.SearchLinksRequest
+ */
+export type SearchLinksRequest = Message<"gamevault.v1.SearchLinksRequest"> & {
+  /**
+   * LinkStore.key of the store to search.
+   *
+   * @generated from field: string store = 1;
+   */
+  store: string;
+
+  /**
+   * @generated from field: string query = 2;
    */
   query: string;
 };
 
 /**
- * Describes the message gamevault.v1.SearchSteamAppsRequest.
- * Use `create(SearchSteamAppsRequestSchema)` to create a new message.
+ * Describes the message gamevault.v1.SearchLinksRequest.
+ * Use `create(SearchLinksRequestSchema)` to create a new message.
  */
-export const SearchSteamAppsRequestSchema: GenMessage<SearchSteamAppsRequest> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 25);
+export const SearchLinksRequestSchema: GenMessage<SearchLinksRequest> = /*@__PURE__*/
+  messageDesc(file_gamevault_v1_game, 28);
 
 /**
- * SteamApp is a match from the Steam store search.
+ * LinkMatch is a game found in a store's catalog.
  *
- * @generated from message gamevault.v1.SteamApp
+ * @generated from message gamevault.v1.LinkMatch
  */
-export type SteamApp = Message<"gamevault.v1.SteamApp"> & {
+export type LinkMatch = Message<"gamevault.v1.LinkMatch"> & {
   /**
-   * @generated from field: int64 app_id = 1;
+   * The game's id in the store: the value of its link.
+   *
+   * @generated from field: string id = 1;
    */
-  appId: bigint;
+  id: string;
 
   /**
    * @generated from field: string name = 2;
@@ -745,28 +822,28 @@ export type SteamApp = Message<"gamevault.v1.SteamApp"> & {
 };
 
 /**
- * Describes the message gamevault.v1.SteamApp.
- * Use `create(SteamAppSchema)` to create a new message.
+ * Describes the message gamevault.v1.LinkMatch.
+ * Use `create(LinkMatchSchema)` to create a new message.
  */
-export const SteamAppSchema: GenMessage<SteamApp> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 26);
+export const LinkMatchSchema: GenMessage<LinkMatch> = /*@__PURE__*/
+  messageDesc(file_gamevault_v1_game, 29);
 
 /**
- * @generated from message gamevault.v1.SearchSteamAppsResponse
+ * @generated from message gamevault.v1.SearchLinksResponse
  */
-export type SearchSteamAppsResponse = Message<"gamevault.v1.SearchSteamAppsResponse"> & {
+export type SearchLinksResponse = Message<"gamevault.v1.SearchLinksResponse"> & {
   /**
-   * @generated from field: repeated gamevault.v1.SteamApp apps = 1;
+   * @generated from field: repeated gamevault.v1.LinkMatch matches = 1;
    */
-  apps: SteamApp[];
+  matches: LinkMatch[];
 };
 
 /**
- * Describes the message gamevault.v1.SearchSteamAppsResponse.
- * Use `create(SearchSteamAppsResponseSchema)` to create a new message.
+ * Describes the message gamevault.v1.SearchLinksResponse.
+ * Use `create(SearchLinksResponseSchema)` to create a new message.
  */
-export const SearchSteamAppsResponseSchema: GenMessage<SearchSteamAppsResponse> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_game, 27);
+export const SearchLinksResponseSchema: GenMessage<SearchLinksResponse> = /*@__PURE__*/
+  messageDesc(file_gamevault_v1_game, 30);
 
 /**
  * CopyKind describes how a copy of a game is owned.
@@ -955,8 +1032,9 @@ export const GameService: GenService<{
     output: typeof MoveCopyResponseSchema;
   },
   /**
-   * Humble cannot tell whether a revealed key was redeemed. If the game is already in the
-   * library of the key's platform it almost certainly was: mark those keys as redeemed.
+   * Key sources (Humble Bundle, Fanatical…) cannot tell whether a revealed key was redeemed. If
+   * the game is already in the library of the key's platform it almost certainly was: mark those
+   * keys as redeemed.
    *
    * @generated from rpc gamevault.v1.GameService.MarkRedeemedKeys
    */
@@ -966,15 +1044,25 @@ export const GameService: GenService<{
     output: typeof MarkRedeemedKeysResponseSchema;
   },
   /**
-   * Searches the Steam store by title, to link a game (e.g. a physical one) to its Steam AppID
-   * and get its cover.
+   * Lists the stores whose catalog can be searched to link a game to them.
    *
-   * @generated from rpc gamevault.v1.GameService.SearchSteamApps
+   * @generated from rpc gamevault.v1.GameService.ListLinkStores
    */
-  searchSteamApps: {
+  listLinkStores: {
     methodKind: "unary";
-    input: typeof SearchSteamAppsRequestSchema;
-    output: typeof SearchSteamAppsResponseSchema;
+    input: typeof ListLinkStoresRequestSchema;
+    output: typeof ListLinkStoresResponseSchema;
+  },
+  /**
+   * Searches a store's catalog by title, to link a game (e.g. a physical one) to it and get its
+   * cover and details.
+   *
+   * @generated from rpc gamevault.v1.GameService.SearchLinks
+   */
+  searchLinks: {
+    methodKind: "unary";
+    input: typeof SearchLinksRequestSchema;
+    output: typeof SearchLinksResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_gamevault_v1_game, 0);

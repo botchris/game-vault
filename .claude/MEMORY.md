@@ -17,7 +17,7 @@ one line here. Update a file instead of adding a duplicate; date facts about ext
 ## Decisions
 - [License](memory/license.md) — PolyForm Noncommercial 1.0.0: source-available, no commercial use; never say "open source"
 - [Project name](memory/project-name.md) — stays "Game Vault" despite Phalcode's GameVault; no more rename proposals
-- [Data model](memory/data-model.md) — Game owns Copies; ExternalID prefixes must never change; shared platform names
+- [Data model](memory/data-model.md) — Game owns Copies and store Links (no store special); ExternalID prefixes must never change; shared platform names
 - [Provider chains](memory/provider-chains.md) — chain order, TheGamesDB quota rules + fallback pass, bump `coverLogicChanged`
 - [Credentials](memory/credentials.md) — `FieldState` for rotating secrets, `Preparer` code cache, always hand back the latest token; never two servers on one rotating credential (test copies: `-no-unattended`)
 - [Unattended requests](memory/unattended-requests.md) — keep-alive ±30%, scans ±10%, spread start-up

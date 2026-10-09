@@ -43,7 +43,7 @@ func (h *MediaHandler) GetGameDetails(ctx context.Context, req *connect.Request[
 	}
 
 	for _, s := range d.Sources {
-		out.Sources = append(out.Sources, string(s))
+		out.Sources = append(out.Sources, h.media.ProviderName(s))
 	}
 
 	return connect.NewResponse(&pb.GetGameDetailsResponse{Details: out, Warnings: warnings}), nil
