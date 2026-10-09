@@ -147,8 +147,13 @@ func run() error {
 	}, cfg.BackupDir(), cfg.BackupKeep)
 
 	// Background jobs
-	go syncSvc.RunScheduler(ctx, time.Minute, 30*time.Minute)
-	go syncSvc.RunKeepAlive(ctx, time.Minute, 10*time.Minute)
+	if cfg.NoUnattended {
+		log.Warn("scheduled scans and keep-alives are off (-no-unattended)")
+	} else {
+		go syncSvc.RunScheduler(ctx, time.Minute, 30*time.Minute)
+		go syncSvc.RunKeepAlive(ctx, time.Minute, 10*time.Minute)
+	}
+
 	go mediaSvc.RunDetailsScanner(ctx, 2*time.Second) // Steam store allows ~200 requests / 5 min
 
 	if cfg.BackupInterval > 0 {

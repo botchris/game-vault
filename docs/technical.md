@@ -83,6 +83,7 @@ Re-scans never move a key you marked as `redeemed` back to pending.
 | `-backup-keep`       | `GAMEVAULT_BACKUP_KEEP`     | `14`               |
 | `-trusted-networks`  | `GAMEVAULT_TRUSTED_NETWORKS`| this computer: comma-separated networks trusted until the security settings are saved from the UI |
 | `-reset-auth`        | —                           | off: on start, stop requiring sign-in on trusted networks (forgotten password) |
+| `-no-unattended`     | —                           | off: no scheduled scans or session keep-alives. For a server on a copy of the config: renewing a credential that rotates there kills the real server's |
 
 The log level and log rotation are set in the UI (**Logs** page) and stored in the database. The defaults are `info`, 10 MB per file, and 5 files kept.
 

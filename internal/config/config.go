@@ -28,6 +28,10 @@ type Config struct {
 	// ResetAuth makes authentication not required on trusted networks again, for when the
 	// password is forgotten while it is required.
 	ResetAuth bool
+	// NoUnattended turns off scheduled scans and session keep-alives. A test server on a copy of
+	// the config needs it: renewing a credential that rotates (Ubisoft, Epic, GOG…) in the copy
+	// invalidates the one the real server holds.
+	NoUnattended bool
 }
 
 // DatabasePath is the SQLite file inside ConfigDir.
@@ -78,6 +82,7 @@ func Load(args []string) (Config, error) {
 	fs.DurationVar(&c.BackupInterval, "backup-interval", interval, "automatic backup interval, 0 to disable (env GAMEVAULT_BACKUP_INTERVAL)")
 	fs.IntVar(&c.BackupKeep, "backup-keep", keep, "number of backups to keep (env GAMEVAULT_BACKUP_KEEP)")
 	fs.StringVar(&trusted, "trusted-networks", env("GAMEVAULT_TRUSTED_NETWORKS", ""), "comma-separated networks trusted until the security settings are saved; default this computer (env GAMEVAULT_TRUSTED_NETWORKS)")
+	fs.BoolVar(&c.NoUnattended, "no-unattended", false, "no scheduled scans or session keep-alives (for a test server on a copy of the config)")
 	fs.BoolVar(&c.ResetAuth, "reset-auth", false, "on start, stop requiring sign-in from trusted networks (forgotten password)")
 
 	if err := fs.Parse(args); err != nil {

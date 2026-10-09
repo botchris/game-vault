@@ -104,7 +104,10 @@ Rules of the architecture:
   in `config/gamevault.db`. Debug with a copy (`test-server.sh` makes one) and never echo secret
   values in output or chat.
 - Never modify `config/` or the user's server on port 8080. Test servers use port 8093 and a
-  copy of the config in the scratchpad.
+  copy of the config in the scratchpad, started with `-no-unattended` (`test-server.sh` does it).
+  On a copy, never scan or test sources whose credentials rotate on use (Ubisoft, Epic, GOG, Xbox,
+  PlayStation, Battle.net, EA): renewing them there invalidates the user's real ones. Humble and
+  Steam are safe.
 - Never scrape a site whose terms forbid automated access, never bypass captchas or bot
   protection. Store integrations reuse the user's own session the way open-source launchers do
   (Heroic, Legendary, Playnite, Lutris…), and only read.

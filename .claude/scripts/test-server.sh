@@ -38,7 +38,9 @@ if [[ "${1:-}" == "--full" && -d "$root/config/game-data" ]]; then
 fi
 
 cd "$root"
-nohup ./bin/gamevault -addr "$addr" -config-dir "$dir" -backup-interval 0 > "$dir/server.log" 2>&1 &
+# -no-unattended: a keep-alive or scheduled scan here would renew credentials that rotate on every
+# use (Ubisoft, Epic, GOG, Xbox…) in the copy, and the real server's would stop working.
+nohup ./bin/gamevault -addr "$addr" -config-dir "$dir" -backup-interval 0 -no-unattended > "$dir/server.log" 2>&1 &
 for _ in $(seq 1 30); do
   if grep -q "game vault started" "$dir/server.log" 2>/dev/null; then
     echo "test server on http://$addr (data: $dir, log: $dir/server.log)"

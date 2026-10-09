@@ -12,3 +12,8 @@ metadata:
 - If a provider also caches in memory, it must still hand the latest value back on every call:
   forgetting this lost Ubisoft's rotated ticket on 2026-10-08 (see [[ubisoft]]).
 - Pasted browser cookies go through `internal/adapters/outbound/browsersession`.
+- **Two servers must never share a rotating credential.** On 2026-10-08 test servers on copies
+  of the config ran Ubisoft's keep-alive, rotated the ticket in the copy and killed the real
+  server's (user had to paste a new one). Test servers now start with `-no-unattended`; on a
+  copy only scan Humble or Steam. The same applies to a user running two instances (e.g. local
+  `task run` and the Docker image) with one config.
