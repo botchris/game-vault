@@ -333,7 +333,7 @@ func newServer(t *testing.T, p sync.Provider) clients {
 		})
 	logsSvc := logs.NewService(sqlite.NewSettingsRepository(db), logFiles, logFiles)
 	authSvc := appauth.NewService(sqlite.NewAuthRepository(db), sqlite.NewSettingsRepository(db), passwordhash.Bcrypt{Cost: 4}, noCerts{}, time.Now, log)
-	syncSvc := sync.NewService(sources, games, db, time.Now, log, p)
+	syncSvc := sync.NewService(sources, games, db, nil, time.Now, log, p)
 	h := rpc.NewHTTPHandler(rpc.Handlers{
 		Auth:        rpc.NewAuthHandler(authSvc),
 		AuthService: authSvc,

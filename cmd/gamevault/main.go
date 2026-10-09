@@ -137,7 +137,7 @@ func run() error {
 	mediaSvc := media.NewService(games, sqlite.NewProviderRepository(db), assets, photos, sqlite.NewDetailsStore(db), imagefetch.New(), now, log,
 		plugins.Media())
 	catalogSvc := catalog.NewService(games, db, now, mediaSvc, photos)
-	syncSvc := sync.NewService(sources, games, db, now, log, plugins.Sources()...)
+	syncSvc := sync.NewService(sources, games, db, mediaSvc, now, log, plugins.Sources()...)
 	transferSvc := transfer.NewService(games, db, settingsRepo, now, csvfile.Codec{})
 	systemSvc := system.NewService(games, db, settingsRepo, photostore.NewArchive(photos, backupPhotos), now, log, system.Status{
 		Version:      version,

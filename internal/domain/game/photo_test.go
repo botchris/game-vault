@@ -273,3 +273,79 @@ func TestPhotos_aggregateIsolation(t *testing.T) {
 		})
 	})
 }
+
+func TestPhotos_scansAndMoves(t *testing.T) {
+	t.Run("GIVEN a game imported by a source, whose copy has a photo", func(t *testing.T) {
+		in := ImportedCopy{
+			ExternalID: "steam:620",
+			Title:      "Portal 2",
+			Details: CopyDetails{
+				Kind:     KindLibrary,
+				Platform: "Steam",
+			},
+		}
+		res := NewConsolidator(nil).Apply("src", []ImportedCopy{in}, t0)
+		require.Len(t, res.Changed, 1)
+
+		g := res.Changed[0]
+		copyID := g.Copies()[0].ID
+		_, err := g.AddPhotos(copyID, []Photo{{
+			ID:      pid(1),
+			Caption: "box",
+		}}, t0)
+		require.NoError(t, err)
+
+		t.Run("WHEN the source is scanned again with new details", func(t *testing.T) {
+			in.Details.Edition = "GOTY"
+			NewConsolidator([]*Game{g}).Apply("src", []ImportedCopy{in}, t0.Add(time.Hour))
+
+			t.Run("THEN the copy keeps its photos", func(t *testing.T) {
+				c := g.Copies()[0]
+				assert.Equal(t, "GOTY", c.Edition)
+				require.Len(t, c.Photos, 1)
+				assert.Equal(t, "box", c.Photos[0].Caption)
+			})
+		})
+
+		t.Run("WHEN the copy is moved to another game", func(t *testing.T) {
+			other, err := New("Portal 2 (2011)", t0)
+			require.NoError(t, err)
+
+			c, err := g.RemoveCopy(copyID, t0)
+			require.NoError(t, err)
+			other.AttachCopy(c, t0)
+
+			t.Run("THEN its photos go with it", func(t *testing.T) {
+				assert.Equal(t, []PhotoID{pid(1)}, other.PhotoIDs())
+				assert.Empty(t, g.PhotoIDs())
+			})
+		})
+	})
+
+	t.Run("GIVEN a target game with a custom cover URL, and another whose cover is a photo", func(t *testing.T) {
+		target, _, _ := gameWithTwoCopies(t)
+		info := target.Info()
+		info.CoverURL = "https://example.test/halo.jpg"
+		_, err := target.UpdateInfo(info, t0)
+		require.NoError(t, err)
+
+		other, c, _ := gameWithTwoCopies(t)
+		_, err = other.AddPhotos(c, []Photo{{ID: pid(5)}}, t0)
+		require.NoError(t, err)
+
+		oi := other.Info()
+		oi.CoverPhoto = pid(5)
+		_, err = other.UpdateInfo(oi, t0)
+		require.NoError(t, err)
+
+		t.Run("WHEN the target absorbs the other", func(t *testing.T) {
+			target.Absorb(other, t0)
+
+			t.Run("THEN the target keeps the cover the user chose for it", func(t *testing.T) {
+				assert.Empty(t, target.CoverPhoto())
+				assert.Equal(t, "https://example.test/halo.jpg", target.CoverURL())
+				assert.Equal(t, []PhotoID{pid(5)}, target.PhotoIDs())
+			})
+		})
+	})
+}

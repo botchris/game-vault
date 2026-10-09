@@ -92,10 +92,11 @@ func (s *Service) UpdateGame(ctx context.Context, id game.ID, info game.Info) (*
 	var coverChanged bool
 
 	g, err := s.mutate(ctx, id, func(g *game.Game) error {
-		// The request does not carry the cover photo: keep it, unless the user chose another
-		// custom cover.
-		if info.CoverURL == g.CoverURL() {
-			info.CoverPhoto = g.CoverPhoto()
+		// Editing the game keeps its cover photo (SetCoverPhoto changes it), unless the user chose
+		// another custom cover.
+		info.CoverPhoto = g.CoverPhoto()
+		if info.CoverURL != g.CoverURL() {
+			info.CoverPhoto = ""
 		}
 
 		var err error

@@ -61,7 +61,7 @@ func TestKeepAliveSavesRenewedSessions(t *testing.T) {
 
 	sources := sqlite.NewSourceRepository(db)
 	p := &rotating{}
-	svc := sync.NewService(sources, sqlite.NewGameRepository(db), db, time.Now, slog.New(slog.NewTextHandler(io.Discard, nil)), p)
+	svc := sync.NewService(sources, sqlite.NewGameRepository(db), db, nil, time.Now, slog.New(slog.NewTextHandler(io.Discard, nil)), p)
 
 	v, err := svc.Create(ctx, "rot", source.Config{
 		Enabled:  true,
@@ -140,7 +140,7 @@ func TestSchedulerScansOnceAndWaitsForTheVariedInterval(t *testing.T) {
 
 	p := &counting{}
 
-	svc := sync.NewService(sqlite.NewSourceRepository(db), sqlite.NewGameRepository(db), db, time.Now, slog.New(slog.NewTextHandler(io.Discard, nil)), p)
+	svc := sync.NewService(sqlite.NewSourceRepository(db), sqlite.NewGameRepository(db), db, nil, time.Now, slog.New(slog.NewTextHandler(io.Discard, nil)), p)
 
 	if _, err := svc.Create(ctx, "cnt", source.Config{
 		Enabled:      true,

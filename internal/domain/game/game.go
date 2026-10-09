@@ -233,12 +233,14 @@ func (g *Game) Absorb(other *Game, now time.Time) {
 	other.copies = nil
 	g.links.fill(other.links)
 
-	if g.coverURL == "" {
-		g.coverURL = other.coverURL
+	// The other game's cover photo comes along with its copies, unless the user already chose a
+	// cover for this game (a photo or a custom URL).
+	if g.coverPhoto == "" && g.coverURL == "" {
+		g.coverPhoto = other.coverPhoto
 	}
 
-	if g.coverPhoto == "" {
-		g.coverPhoto = other.coverPhoto
+	if g.coverURL == "" {
+		g.coverURL = other.coverURL
 	}
 
 	if other.notes != "" && !strings.Contains(g.notes, other.notes) {
