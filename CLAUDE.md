@@ -47,13 +47,14 @@ in `.claude/memory/shell-gotchas.md`).
 ## Layout (hexagonal + DDD)
 
 ```
-cmd/gamevault/            wiring: repositories, providers (registration order = default chain order), HTTP server
+cmd/gamevault/            wiring: repositories, services, HTTP server; plugins.go lists the plugins
 proto/gamevault/v1/       ConnectRPC API (buf); generated code in internal/gen and web/src/gen
 internal/domain/          game (Game, Copy, consolidation, MatchKey), source, provider, schema (settings), auth
 internal/application/     use cases: catalog, sync (sources, scheduler, keep-alive), media (covers, details,
                           barcodes, provider chains), transfer (CSV), system (backups), logs, auth; port/
 internal/adapters/inbound/rpc/      Connect handlers, media HTTP endpoints, auth middleware, SPA serving
-internal/adapters/outbound/<name>/  one package per external system (stores, providers, sqlite, files)
+internal/adapters/outbound/<name>/  one package per external system: plugins (stores, game databases,
+                          barcode lookups: Plugin()), sqlite, files; apiclient is the shared JSON client
 web/src/                  React app: features/<page>, components, state/AppData, i18n/locales/{en,es}.json
 build/                    toolchain.Dockerfile: the container every task builds in
 config/                   runtime data (DB, game-data images, logs, backups) — never commit, never edit
@@ -62,6 +63,11 @@ config/                   runtime data (DB, game-data images, logs, backups) —
 Rules of the architecture:
 - Domain packages import nothing from application or adapters. Application defines ports
   (interfaces); adapters implement them; `cmd/gamevault/main.go` wires them.
+- Every external service is a plugin (`internal/application/plugin`, guide in `docs/plugins.md`):
+  its package returns a `plugin.Plugin` with its source and media providers, listed in
+  `cmd/gamevault/plugins.go`. Pieces of a plugin do not depend on each other at run time (they
+  meet through the game's store links); a dependency on another plugin is a `Plugin()` parameter.
+  `plugintest` checks every registered plugin in `task test`.
 - Optional capabilities are separate small interfaces checked with a type assertion
   (`sync.Preparer`, `sync.KeepAliver`, `media.ImageHoster`, …), not flags. Checking the
   settings is not optional: every source and media provider implements `Test(ctx, settings) error`
@@ -126,5 +132,6 @@ Rules of the architecture:
 ## Detailed guides
 
 - Writing Go (style, lint rules, layering, tests): the `write-go` skill, `.claude/skills/write-go/SKILL.md`
-- Adding a source, a cover provider or a metadata provider: `.claude/docs/integrations.md`
+- Adding a plugin (source, cover, metadata or barcode provider): `docs/plugins.md` (contributor
+  guide), then `.claude/docs/integrations.md` (research, probing, memory, checklist)
 - Web UI, design system and motion rules: `.claude/docs/ui.md`

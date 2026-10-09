@@ -31,16 +31,20 @@ internal/
     sync/             Configure sources, scan them, scheduler. Declares the Provider port
     transfer/         CSV import/export. Declares the Codec port
     system/           Status and backups. Declares the DatabaseBackup port
-    media/            Provider chains, covers (resolve + cache), Steam store search. Declares CoverProvider & co.
+    media/            Provider chains, covers (resolve + cache), store link search. Declares CoverProvider & co.
+    plugin/           The Plugin type (one external service's source and providers) and its registry;
+                      plugintest/ checks every registered plugin
     logs/             Log viewer and rotation settings. Declares the Sink and Files ports
     auth/             Authenticate, setup, login, password, settings. Declares the Hasher port
   adapters/
     inbound/rpc/      Driving adapter: ConnectRPC handlers, proto↔domain mapping, static UI
-    outbound/humble/, steam/, epic/, gog/, battlenet/, eaapp/, ubisoft/, xbox/, playstation/
-                      Store sources (and their cover providers where the store has public art)
+    outbound/humble/, steam/, epic/, gog/, battlenet/, eaapp/, ubisoft/, xbox/, playstation/,
+             amazon/, fanatical/
+                      Store plugins: the source, and cover/details providers where the store has public art
+    outbound/apiclient/ Shared JSON API client for plugins (base URL, User-Agent, status errors)
     outbound/browsersession/ Reuse of a website session pasted from the browser (cookies)
-    outbound/thegamesdb/ TheGamesDB cover and details providers (platform box art, overview, trailer)
-    outbound/cex/, ebay/, upcitemdb/, eansearch/  Barcode databases
+    outbound/thegamesdb/ TheGamesDB plugin: cover and details providers (platform box art, overview, trailer)
+    outbound/cex/, ebay/, upcitemdb/, eansearch/  Barcode database plugins
     outbound/gamedata/ Per-game asset folders (cover, sheet images, assets.json)
     outbound/sqlite/  Repositories, transactions, migrations, backups
     outbound/logfile/ Size-rotated log files with retention
@@ -58,6 +62,12 @@ web/                  React client
 
 Dependencies only point inwards. `domain` imports nothing from the project, `application` imports `domain`, and adapters import both.
 Only `cmd/gamevault` knows the concrete adapters.
+
+Every external service is a **plugin**: its package returns a `plugin.Plugin` with the pieces it
+offers (a source, cover, details or barcode providers), and `cmd/gamevault/plugins.go` lists them.
+The registry checks that ids are unique and hands each piece to the sync or media service. Each
+media provider declares its default place in its chain (`DefaultOrder`); the user's order replaces
+it once saved. How to write one: [`docs/plugins.md`](plugins.md).
 
 ## Domain model
 

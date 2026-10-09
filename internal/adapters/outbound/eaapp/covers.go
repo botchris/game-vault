@@ -51,6 +51,7 @@ func (c *Covers) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
 		ID: CoverProviderID, Kind: provider.KindCover, Name: "EA",
 		DescriptionKey: "providers.eaCovers.description", EnabledByDefault: true,
+		DefaultOrder: 60,
 	}
 }
 

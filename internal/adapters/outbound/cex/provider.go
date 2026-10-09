@@ -79,6 +79,7 @@ func (p *Provider) Descriptor() provider.Descriptor {
 			},
 			{Key: settingHits, Kind: schema.FieldState},
 		},
+		DefaultOrder: 10,
 	}
 }
 

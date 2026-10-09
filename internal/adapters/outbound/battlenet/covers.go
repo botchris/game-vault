@@ -36,6 +36,7 @@ func (c *Covers) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
 		ID: CoverProviderID, Kind: provider.KindCover, Name: "Battle.net",
 		DescriptionKey: "providers.battlenetCovers.description", EnabledByDefault: true,
+		DefaultOrder: 70,
 	}
 }
 

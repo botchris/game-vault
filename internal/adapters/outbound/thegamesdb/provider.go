@@ -92,6 +92,7 @@ func (p *Provider) Descriptor() provider.Descriptor {
 			Key: settingAPIKey, LabelKey: "providers.thegamesdb.apiKey", HelpKey: "providers.thegamesdb.apiKeyHelp",
 			HelpURL: "https://forums.thegamesdb.net/viewforum.php?f=10", Kind: schema.FieldSecret, Required: true,
 		}},
+		DefaultOrder: 10,
 	}
 }
 

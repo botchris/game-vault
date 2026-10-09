@@ -13,11 +13,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"time"
 
+	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
@@ -46,13 +46,16 @@ var (
 
 // Provider implements sync.Provider for Fanatical accounts.
 type Provider struct {
-	BaseURL string
-	Client  *http.Client
+	// API calls fanatical.com; tests point it at a fake server.
+	API *apiclient.Client
 }
 
 // NewProvider returns the Fanatical source with its production endpoints.
 func NewProvider() *Provider {
-	return &Provider{BaseURL: defaultBaseURL, Client: &http.Client{Timeout: 60 * time.Second}}
+	api := apiclient.New(defaultBaseURL)
+	api.UserAgent = userAgent
+
+	return &Provider{API: api}
 }
 
 // Descriptor implements sync.Provider.
@@ -139,33 +142,15 @@ func (p *Provider) keys(ctx context.Context, settings source.Settings) ([]item, 
 		return nil, ErrNoSession
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.BaseURL+"/api/user/keys", nil)
-	if err != nil {
-		return nil, err
-	}
+	var items []item
 
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", tok)
-	req.Header.Set("User-Agent", userAgent)
-
-	res, err := p.Client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	body, _ := io.ReadAll(io.LimitReader(res.Body, 32<<20))
-	if res.StatusCode == http.StatusUnauthorized || res.StatusCode == http.StatusForbidden {
+	err := p.API.Do(ctx, apiclient.Request{Path: "/api/user/keys", Header: http.Header{"Authorization": {tok}}}, &items)
+	if apiclient.IsStatus(err, http.StatusUnauthorized, http.StatusForbidden) {
 		return nil, ErrSignedOut
 	}
 
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("fanatical keys: HTTP %d", res.StatusCode)
-	}
-
-	var items []item
-	if err := json.Unmarshal(body, &items); err != nil {
-		return nil, errors.New("fanatical keys: unexpected answer (the site may have changed)")
+	if err != nil {
+		return nil, fmt.Errorf("fanatical keys: %w", err)
 	}
 
 	return items, nil

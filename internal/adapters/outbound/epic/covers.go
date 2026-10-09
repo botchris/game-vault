@@ -42,6 +42,7 @@ func (c *Covers) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
 		ID: CoverProviderID, Kind: provider.KindCover, Name: "Epic Games Store",
 		DescriptionKey: "providers.epicCovers.description", EnabledByDefault: true,
+		DefaultOrder: 30,
 	}
 }
 

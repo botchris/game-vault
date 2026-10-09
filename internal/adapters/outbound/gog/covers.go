@@ -42,6 +42,7 @@ func (c *Covers) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
 		ID: CoverProviderID, Kind: provider.KindCover, Name: "GOG",
 		DescriptionKey: "providers.gogCovers.description", EnabledByDefault: true,
+		DefaultOrder: 40,
 	}
 }
 

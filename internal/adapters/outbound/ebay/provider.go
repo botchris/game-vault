@@ -74,6 +74,7 @@ func (p *Provider) Descriptor() provider.Descriptor {
 			{Key: settingClientSecret, LabelKey: "providers.ebay.clientSecret", Kind: schema.FieldSecret, Required: true},
 			{Key: settingMarketplaces, LabelKey: "providers.ebay.marketplaces", HelpKey: "providers.ebay.marketplacesHelp", Kind: schema.FieldText},
 		},
+		DefaultOrder: 20,
 	}
 }
 

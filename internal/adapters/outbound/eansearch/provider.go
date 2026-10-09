@@ -52,6 +52,7 @@ func (p *Provider) Descriptor() provider.Descriptor {
 			Key: settingToken, LabelKey: "providers.eansearch.token", HelpKey: "providers.eansearch.tokenHelp",
 			HelpURL: "https://www.ean-search.org/ean-database-api.html", Kind: schema.FieldSecret, Required: true,
 		}},
+		DefaultOrder: 40,
 	}
 }
 

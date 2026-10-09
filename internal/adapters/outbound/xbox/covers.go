@@ -38,6 +38,7 @@ func (c *Covers) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
 		ID: CoverProviderID, Kind: provider.KindCover, Name: "Xbox / Microsoft Store",
 		DescriptionKey: "providers.xboxCovers.description", EnabledByDefault: true,
+		DefaultOrder: 80,
 	}
 }
 

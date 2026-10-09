@@ -67,6 +67,7 @@ func (s *Store) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
 		ID: CoverProviderID, Kind: provider.KindCover, Name: "Steam",
 		DescriptionKey: "providers.steam.description", EnabledByDefault: true,
+		DefaultOrder: 20,
 	}
 }
 

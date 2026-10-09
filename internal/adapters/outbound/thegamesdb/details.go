@@ -40,6 +40,7 @@ func (d *Details) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
 		ID: DetailsID, Kind: provider.KindMetadata, Name: "TheGamesDB",
 		DescriptionKey: "providers.thegamesdbDetails.description", Fields: desc.Fields, SettingsGroup: string(ID),
+		DefaultOrder: 20,
 	}
 }
 

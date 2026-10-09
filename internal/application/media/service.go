@@ -5,6 +5,7 @@
 package media
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -240,7 +241,7 @@ type Service struct {
 	barcodes  map[provider.ID]BarcodeProvider
 	metadata  map[provider.ID]MetadataProvider
 	details   DetailsStore
-	order     []provider.ID // registration order = default chain order
+	order     []provider.ID // default chain order: DefaultOrder, then registration order
 	now       port.Clock
 	log       *slog.Logger
 
@@ -250,8 +251,9 @@ type Service struct {
 	slots        chan struct{} // limits concurrent downloads
 }
 
-// Providers groups the provider implementations available to the service. Their order is the
-// default chain order the first time each provider is seen; afterwards the user's order is used.
+// Providers groups the provider implementations available to the service. Their DefaultOrder (then
+// their order here) is the chain order the first time each provider is seen; afterwards the user's
+// order is used.
 type Providers struct {
 	Covers   []CoverProvider
 	Barcodes []BarcodeProvider
@@ -286,6 +288,10 @@ func NewService(games game.Repository, providers provider.Repository, store Asse
 		s.metadata[id], s.impls[id] = p, p
 		s.order = append(s.order, id)
 	}
+
+	slices.SortStableFunc(s.order, func(a, b provider.ID) int {
+		return cmp.Compare(s.impls[a].Descriptor().DefaultOrder, s.impls[b].Descriptor().DefaultOrder)
+	})
 
 	for _, id := range s.order {
 		s.addStore(s.impls[id])
@@ -363,7 +369,7 @@ func (s *Service) Providers(ctx context.Context, kind provider.Kind) ([]Provider
 	for _, c := range configs {
 		known[c.ID()] = true
 	}
-	// Register new implementations at the end of the chain, in registration order.
+	// Register new implementations at the end of the chain, in default order.
 	for _, id := range s.order {
 		d := s.impls[id].Descriptor()
 		if d.Kind != kind || known[id] {

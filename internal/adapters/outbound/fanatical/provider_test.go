@@ -63,7 +63,8 @@ func TestFetch_readsTheKeys(t *testing.T) {
 	defer cancel()
 
 	srv := fakeFanatical(t)
-	p := &Provider{BaseURL: srv.URL, Client: srv.Client()}
+	p := NewProvider()
+	p.API.BaseURL, p.API.HTTP = srv.URL, srv.Client()
 
 	t.Run("GIVEN the whole bsauth value pasted from Local Storage", func(t *testing.T) {
 		settings := source.Settings{

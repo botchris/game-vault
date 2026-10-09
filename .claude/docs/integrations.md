@@ -1,14 +1,8 @@
 # Adding integrations
 
-Game Vault talks to three kinds of external systems. Each lives in its own package under
-`internal/adapters/outbound/<name>/` and is registered in `cmd/gamevault/main.go`.
-
-| Kind | Port | Examples | Shows up in |
-| --- | --- | --- | --- |
-| Source (an account that is scanned) | `sync.Provider` | humble, steam, epic, gog, battlenet, eaapp, ubisoft, xbox, playstation | Sources page |
-| Cover provider | `media.CoverProvider` | steam (store), thegamesdb, epic, gog, ubisoft, eaapp, battlenet, xbox | Providers → Covers |
-| Metadata provider (game sheet) | `media.MetadataProvider` | steam (details), thegamesdb (details) | Providers → Game details |
-| Barcode database | `media.BarcodeProvider` | upcitemdb, eansearch, ebay | Providers → Barcodes |
+Integrations are **plugins**: read [`docs/plugins.md`](../../docs/plugins.md) first. It is the
+contributor guide (the plugin type, the shared code, a minimal plugin, the rules for sources and
+media providers, tests). This file adds what you, the agent, do around it.
 
 Probing endpoints with `curl` from the host is fine (it is not part of the build). Before writing
 code, research the service: what open-source tools (Heroic, Legendary, Playnite,
@@ -18,9 +12,13 @@ shape are right without needing the user's account. GraphQL APIs often validate 
 authenticating: use that to discover field names. Record what you learned in the store's
 file under `.claude/memory/` (create `<store>.md` and add a line to `.claude/MEMORY.md`).
 
+New code calls JSON APIs through `apiclient`. Older plugins still have their own `get` helpers:
+move one to `apiclient` when you change it substantially, not in passing (most of them hold
+rotating credentials you cannot re-test on a copy).
+
 ## A new source
 
-1. `internal/adapters/outbound/<name>/provider.go`:
+1. `internal/adapters/outbound/<name>/provider.go` (and `plugin.go` with `Plugin()`):
    - `const Type source.Type = "<name>"` and a `Platform` constant reusing an existing platform
      name when the store already appears in Humble keys (see `humble/mapper.go`) — this is what
      flags redundant keys.
@@ -52,7 +50,7 @@ file under `.claude/memory/` (create `<store>.md` and add a line to `.claude/MEM
 4. `provider_test.go` against a fake server: happy path with pagination, filtering (subscription,
    DLC…), rotation persisted across a "restart" (a new Provider value), and the signed-out / bad
    code errors.
-5. Register in `main.go` (`sync.NewService(…, <name>.NewProvider())`).
+5. Return it from the package's `Plugin()` and list that in `cmd/gamevault/plugins.go`.
 6. Translations in `en.json` and `es.json`: `sources.<name>.description`, field labels and help.
    Help text uses one step per line (`1. …`) and backticks for things to copy; it is rendered by
    `web/src/components/FieldHelp.tsx`. The link button above the steps opens `HelpURL`.
@@ -66,7 +64,7 @@ file under `.claude/memory/` (create `<store>.md` and add a line to `.claude/MEM
 ## A new cover provider
 
 1. `covers.go` in the store's package (or a new package): `CoverProviderID`, `Descriptor()` with
-   `Kind: provider.KindCover`, `EnabledByDefault: true` when it is free.
+   `Kind: provider.KindCover`, `EnabledByDefault: true` when it is free, and a `DefaultOrder`.
 2. `Applies(q)` must not touch the network: decide from `q.Links[LinkedStore.Key]` (the game's
    link to the store; implement `media.StoreLinker` too), `q.Platforms`, `q.PhysicalPlatforms`. Quota-limited providers also check
    `q.HasStoreLink()` / `q.Fallback`.
@@ -75,13 +73,13 @@ file under `.claude/memory/` (create `<store>.md` and add a line to `.claude/MEM
    when the game is unknown; errors only for real failures.
 4. `ImageHosts()` (`media.ImageHoster`) lists the image hosts so the browser can show candidates
    through `/media/proxy`.
-5. Register in `main.go` in `media.Providers.Covers` (order = default chain order for new users).
+5. Add it to the package's `Plugin()` (`Covers`); `DefaultOrder` sets its place for new users.
 6. If the store's catalog can be searched by title, implement `media.LinkSearcher` (`LinkStore()`,
    `SearchLinks`): the game page then offers it under "Store links", and the add-on cover lookup
    searches it too. A source that knows a game's id in a store sets `ImportedCopy.Links`.
-6. Bump `coverLogicChanged` in `internal/application/media/service.go` to the current UTC time so
+7. Bump `coverLogicChanged` in `internal/application/media/service.go` to the current UTC time so
    games previously marked "no cover" are retried.
-7. Translation `providers.<id>.description` (en/es), test against a fake server, and the covers
+8. Translation `providers.<id>.description` (en/es), test against a fake server, and the covers
    section of `docs/technical.md`.
 
 ## A new metadata provider

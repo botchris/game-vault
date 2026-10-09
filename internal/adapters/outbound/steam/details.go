@@ -37,6 +37,7 @@ func (d *Details) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
 		ID: DetailsProviderID, Kind: provider.KindMetadata, Name: "Steam",
 		DescriptionKey: "providers.steamDetails.description", EnabledByDefault: true,
+		DefaultOrder: 10,
 	}
 }
 

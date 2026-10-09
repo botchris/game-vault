@@ -48,6 +48,7 @@ func (p *Provider) Descriptor() provider.Descriptor {
 			Key: settingUserKey, LabelKey: "providers.upcitemdb.userKey", HelpKey: "providers.upcitemdb.userKeyHelp",
 			HelpURL: "https://www.upcitemdb.com/wp/docs/main/development/", Kind: schema.FieldSecret,
 		}},
+		DefaultOrder: 30,
 	}
 }
 

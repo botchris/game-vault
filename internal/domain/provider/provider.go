@@ -46,6 +46,10 @@ type Descriptor struct {
 	// SettingsGroup links providers of different kinds backed by the same service (e.g.
 	// TheGamesDB covers and TheGamesDB details): they share their settings, so a key is entered once.
 	SettingsGroup string
+
+	// DefaultOrder is the provider's place in its chain the first time it is seen (lower runs
+	// first; equal values keep the plugins' order). Afterwards the user's order is used.
+	DefaultOrder int
 }
 
 // Provider is the user's configuration of one provider.

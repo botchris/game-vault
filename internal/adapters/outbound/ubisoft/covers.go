@@ -53,6 +53,7 @@ func (c *Covers) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
 		ID: CoverProviderID, Kind: provider.KindCover, Name: "Ubisoft",
 		DescriptionKey: "providers.ubisoftCovers.description", EnabledByDefault: true,
+		DefaultOrder: 50,
 	}
 }
 

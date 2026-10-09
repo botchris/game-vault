@@ -19,29 +19,13 @@ import (
 	"time"
 
 	"gamevault/internal/adapters/inbound/rpc"
-	"gamevault/internal/adapters/outbound/amazon"
-	"gamevault/internal/adapters/outbound/battlenet"
-	"gamevault/internal/adapters/outbound/cex"
 	"gamevault/internal/adapters/outbound/csvfile"
-	"gamevault/internal/adapters/outbound/eaapp"
-	"gamevault/internal/adapters/outbound/eansearch"
-	"gamevault/internal/adapters/outbound/ebay"
-	"gamevault/internal/adapters/outbound/epic"
-	"gamevault/internal/adapters/outbound/fanatical"
 	"gamevault/internal/adapters/outbound/gamedata"
-	"gamevault/internal/adapters/outbound/gog"
-	"gamevault/internal/adapters/outbound/humble"
 	"gamevault/internal/adapters/outbound/imagefetch"
 	"gamevault/internal/adapters/outbound/logfile"
 	"gamevault/internal/adapters/outbound/passwordhash"
-	"gamevault/internal/adapters/outbound/playstation"
 	"gamevault/internal/adapters/outbound/sqlite"
-	"gamevault/internal/adapters/outbound/steam"
-	"gamevault/internal/adapters/outbound/thegamesdb"
 	"gamevault/internal/adapters/outbound/tlspolicy"
-	"gamevault/internal/adapters/outbound/ubisoft"
-	"gamevault/internal/adapters/outbound/upcitemdb"
-	"gamevault/internal/adapters/outbound/xbox"
 	"gamevault/internal/application/auth"
 	"gamevault/internal/application/catalog"
 	"gamevault/internal/application/logs"
@@ -125,7 +109,11 @@ func run() error {
 		return fmt.Errorf("migrating covers: %w", err)
 	}
 
-	steamStore := steam.NewStore()
+	plugins, err := newPlugins(log)
+	if err != nil {
+		return err
+	}
+
 	now := time.Now
 
 	// Application services
@@ -133,16 +121,11 @@ func run() error {
 	if err := logsSvc.Init(ctx); err != nil {
 		return fmt.Errorf("applying log settings: %w", err)
 	}
-	// Available providers, in default chain order. Order and enablement are then user settings.
-	tgdb := thegamesdb.New()
+
 	mediaSvc := media.NewService(games, sqlite.NewProviderRepository(db), assets, sqlite.NewDetailsStore(db), imagefetch.New(), now, log,
-		media.Providers{
-			Covers:   []media.CoverProvider{tgdb, steamStore, epic.NewCovers(), gog.NewCovers(), ubisoft.NewCovers(), eaapp.NewCovers(), battlenet.NewCovers(steamStore, steamStore), xbox.NewCovers()},
-			Barcodes: []media.BarcodeProvider{cex.New(), ebay.New(), upcitemdb.New(), eansearch.New()},
-			Metadata: []media.MetadataProvider{steam.NewDetails(steamStore), thegamesdb.NewDetails(tgdb)},
-		})
+		plugins.Media())
 	catalogSvc := catalog.NewService(games, db, now, mediaSvc)
-	syncSvc := sync.NewService(sources, games, db, now, log, humble.NewProvider(log), steam.NewProvider(), epic.NewProvider(), gog.NewProvider(), battlenet.NewProvider(), eaapp.NewProvider(), ubisoft.NewProvider(), xbox.NewProvider(), playstation.NewProvider(), amazon.NewProvider(), fanatical.NewProvider())
+	syncSvc := sync.NewService(sources, games, db, now, log, plugins.Sources()...)
 	transferSvc := transfer.NewService(games, db, now, csvfile.Codec{})
 	systemSvc := system.NewService(games, db, now, log, system.Status{
 		Version: version, ConfigDir: cfg.ConfigDir, DatabasePath: cfg.DatabasePath(), StartedAt: now(),
