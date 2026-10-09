@@ -150,7 +150,7 @@ tasks:
     desc: Go vet + tests, TypeScript type check and the translation check
     deps: [deps:web]
     cmds:
-      - '{{.IN_TOOLCHAIN}} sh -c "go vet ./... && go test ./... && cd web && npm run typecheck && node --test tests/*.test.mjs && node ../.claude/scripts/check-i18n.mjs"'
+      - '{{.IN_TOOLCHAIN}} sh -c "go vet ./... && go test ./... && cd web && npm run typecheck && node --test tests/*.test.mjs ../extension/tests/*.test.mjs && for f in ../extension/*.js; do [ -e \$f ] || continue; node --check \$f || exit 1; done && node ../.claude/scripts/check-i18n.mjs"'
 
   go:
     desc: 'Run one go command in the toolchain, e.g. task go -- test ./internal/adapters/outbound/sqlite/ -run TestDocuments -v'
