@@ -7,14 +7,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/provider"
+	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
 )
 
 func openTest(t *testing.T) *DB {
 	t.Helper()
 
-	db, err := Open(context.Background(), filepath.Join(t.TempDir(), "test.db"))
+	db, err := Open(context.Background(), filepath.Join(t.TempDir(), "test.db"), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +140,7 @@ func TestSourceRepositoryAndBackup(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	restored, err := Open(ctx, path)
+	restored, err := Open(ctx, path, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,4 +149,31 @@ func TestSourceRepositoryAndBackup(t *testing.T) {
 	if list, _ := NewSourceRepository(restored).List(ctx); len(list) != 1 {
 		t.Fatalf("backup should contain the source, got %d", len(list))
 	}
+}
+
+func TestProviderRepository_roundTrip(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	repo := NewProviderRepository(openTest(t))
+	now := time.Now().UTC()
+
+	t.Run("GIVEN two cover providers and a barcode provider saved out of order", func(t *testing.T) {
+		require.NoError(t, repo.Save(ctx, provider.Rehydrate("b", provider.KindCover, true, 1, schema.Settings{}, now)))
+		require.NoError(t, repo.Save(ctx, provider.Rehydrate("a", provider.KindCover, false, 0, schema.Settings{"api_key": "k"}, now)))
+		require.NoError(t, repo.Save(ctx, provider.Rehydrate("c", provider.KindBarcode, true, 0, schema.Settings{}, now)))
+
+		t.Run("WHEN the cover chain is listed", func(t *testing.T) {
+			got, err := repo.List(ctx, provider.KindCover)
+			require.NoError(t, err)
+
+			t.Run("THEN only covers come, by priority, with their state", func(t *testing.T) {
+				require.Len(t, got, 2)
+				assert.Equal(t, provider.ID("a"), got[0].ID())
+				assert.False(t, got[0].Enabled())
+				assert.Equal(t, "k", got[0].Settings()["api_key"])
+				assert.Equal(t, provider.ID("b"), got[1].ID())
+			})
+		})
+	})
 }

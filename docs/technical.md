@@ -290,7 +290,21 @@ Logs never contain keys or credentials.
 
 - Change the API: edit `proto/`, then run `task generate`. This regenerates `internal/gen` and `web/src/gen`.
 - Add a UI language: add `web/src/i18n/locales/<code>.json` and register it in `web/src/i18n/index.ts`.
-- Schema changes go in a new numbered file in `internal/adapters/outbound/sqlite/migrations/`, which is applied on start.
+- Games (with their copies), sources and providers are stored as JSON documents, one row `(id, doc)`
+  each, mapped to the domain by the sqlite adapter (`internal/adapters/outbound/sqlite/docs.go`).
+  Adding a field is a code change only: older documents read it as empty. Every document carries a
+  format version (`"v": 1`); changing the meaning of a field bumps it and the adapter converts older
+  documents when it reads them. Indexes are on JSON expressions (title, source name, provider kind
+  and priority). Users, sessions, settings and cached details keep their own tables.
+- Schema changes go in a new numbered file in `internal/adapters/outbound/sqlite/migrations/`, which
+  is applied on start. Before migrating an existing database, Game Vault writes a copy to
+  `config/backups/pre-migration-<first pending migration>.db` (listed in System → Backups, and
+  rotated with the scheduled backups by date). A migrated database cannot be opened by an older
+  version (it fails with errors such as `no such column: title`). To go back: stop the server,
+  replace `config/gamevault.db` with the pre-migration copy, delete `config/gamevault.db-wal` and
+  `config/gamevault.db-shm` (a stale WAL next to a restored file corrupts it), then start the older
+  version or image.
+- `task go -- test ./internal/…/ -run TestName -v` runs one package's tests in the toolchain.
 - `task test` runs the Go tests, the TypeScript type check and the translation check, in the toolchain container. The Go tests cover the domain, SQLite, the providers (against fake servers), CSV, and an end-to-end Connect test.
 - GitHub Actions (`.github/workflows/ci.yml`) runs `task lint`, checks that `task generate` changes nothing, and runs `task test` on every push to `main` and every pull request, inside the same toolchain image (its layers cached in GitHub Actions, rebuilt only when `build/toolchain.Dockerfile` changes).
 - Pushing a version tag (`v1.2.3`) runs `.github/workflows/release.yml`: the same checks, then `task docker:publish` for linux/amd64 and linux/arm64 with the Docker Hub credentials in the repository secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`.

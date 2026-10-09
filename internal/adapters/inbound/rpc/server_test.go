@@ -289,7 +289,7 @@ func newServer(t *testing.T, p sync.Provider) clients {
 	ctx := context.Background()
 	dir := t.TempDir()
 
-	db, err := sqlite.Open(ctx, filepath.Join(dir, "gamevault.db"))
+	db, err := sqlite.Open(ctx, filepath.Join(dir, "gamevault.db"), "")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -152,6 +152,12 @@ tasks:
     cmds:
       - '{{.IN_TOOLCHAIN}} sh -c "go vet ./... && go test ./... && cd web && npm run typecheck && node ../.claude/scripts/check-i18n.mjs"'
 
+  go:
+    desc: 'Run one go command in the toolchain, e.g. task go -- test ./internal/adapters/outbound/sqlite/ -run TestDocuments -v'
+    deps: [toolchain]
+    cmds:
+      - '{{.IN_TOOLCHAIN}} go {{.CLI_ARGS}}'
+
   fmt:
     desc: Format the Go code
     deps: [toolchain]

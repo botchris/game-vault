@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -37,8 +38,16 @@ type querier interface {
 
 type txKey struct{}
 
-// Open opens (creating if needed) the database at path and applies pending migrations.
-func Open(ctx context.Context, path string) (*DB, error) {
+// Open opens (creating if needed) the database at path and applies pending migrations. When an
+// existing database has pending migrations and backupDir is set, a copy is written there first
+// (pre-migration-<first pending>.db), so an upgrade that goes wrong can be undone.
+func Open(ctx context.Context, path, backupDir string) (*DB, error) {
+	return openUpTo(ctx, path, backupDir, "")
+}
+
+// openUpTo is Open applying only the migrations up to last (all when last is empty), so tests can
+// build a database as an older version left it.
+func openUpTo(ctx context.Context, path, backupDir, last string) (*DB, error) {
 	dsn := "file:" + path + "?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)"
 
 	db, err := sql.Open("sqlite", dsn)
@@ -49,7 +58,7 @@ func Open(ctx context.Context, path string) (*DB, error) {
 	db.SetMaxOpenConns(1)
 
 	d := &DB{sql: db}
-	if err := d.migrate(ctx); err != nil {
+	if err := d.migrate(ctx, backupDir, last); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("migrating database: %w", err)
 	}
@@ -99,7 +108,13 @@ func (d *DB) BackupTo(ctx context.Context, path string) error {
 	return err
 }
 
-func (d *DB) migrate(ctx context.Context) error {
+// migrationNumber is the number part of a migration version: "0009_documents" is "0009".
+func migrationNumber(version string) string {
+	n, _, _ := strings.Cut(version, "_")
+	return n
+}
+
+func (d *DB) migrate(ctx context.Context, backupDir, last string) error {
 	if _, err := d.sql.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL)`); err != nil {
 		return err
 	}
@@ -111,8 +126,18 @@ func (d *DB) migrate(ctx context.Context) error {
 
 	sort.Strings(files)
 
+	var applied int
+	if err := d.sql.QueryRowContext(ctx, `SELECT COUNT(*) FROM schema_migrations`).Scan(&applied); err != nil {
+		return err
+	}
+
+	backedUp := false
+
 	for _, f := range files {
 		version := strings.TrimSuffix(strings.TrimPrefix(f, "migrations/"), ".sql")
+		if last != "" && migrationNumber(version) > last {
+			break
+		}
 
 		var n int
 		if err := d.sql.QueryRowContext(ctx, `SELECT COUNT(*) FROM schema_migrations WHERE version = ?`, version).Scan(&n); err != nil {
@@ -121,6 +146,15 @@ func (d *DB) migrate(ctx context.Context) error {
 
 		if n > 0 {
 			continue
+		}
+
+		// An existing database is copied once, before its first pending migration.
+		if applied > 0 && backupDir != "" && !backedUp {
+			if err := d.backupBeforeMigrating(ctx, backupDir, migrationNumber(version)); err != nil {
+				return err
+			}
+
+			backedUp = true
 		}
 
 		body, err := migrations.ReadFile(f)
@@ -140,6 +174,25 @@ func (d *DB) migrate(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+// backupBeforeMigrating writes pre-migration-<number>.db into dir, or a timestamped name when that
+// file exists already (a pre-migration copy that was restored and is being migrated again).
+func (d *DB) backupBeforeMigrating(ctx context.Context, dir, number string) error {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("creating %s for the pre-migration backup: %w", dir, err)
+	}
+
+	path := filepath.Join(dir, "pre-migration-"+number+".db")
+	if _, err := os.Stat(path); err == nil {
+		path = filepath.Join(dir, fmt.Sprintf("pre-migration-%s-%s.db", number, time.Now().UTC().Format("20060102-150405")))
+	}
+
+	if err := d.BackupTo(ctx, path); err != nil {
+		return fmt.Errorf("backing up the database to %s before migrating it: %w", path, err)
 	}
 
 	return nil
