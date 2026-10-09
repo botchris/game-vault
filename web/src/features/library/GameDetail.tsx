@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { errorMessage, gameClient } from '../../api/client';
 import { Cover } from '../../components/Cover';
@@ -26,6 +26,15 @@ interface Props {
   onOpenGame: (id: string) => void;
   /** Close the sheet and show the library filtered by that platform. */
   onPlatform?: (platform: string) => void;
+  /** Move to the previous or next game of the list the sheet was opened from (← →, ‹ ›). Absent:
+   *  no list (the buttons are hidden); a missing direction: the end of the list. */
+  nav?: SheetNav;
+}
+
+/** Moves between the games of the list a sheet was opened from. */
+export interface SheetNav {
+  previous?: () => void;
+  next?: () => void;
 }
 
 type Dialog =
@@ -39,18 +48,19 @@ type Dialog =
 type Tab = 'overview' | 'copies' | 'edit';
 
 /** A game's sheet (like CLZ): details from the metadata providers, the copies you own, and editing. */
-export default function GameDetail({ gameId, onClose, onOpenGame, onPlatform }: Props) {
+export default function GameDetail({ gameId, onClose, onOpenGame, onPlatform, nav }: Props) {
   const { games } = useAppData();
   const game = games.find((g) => g.id === gameId);
   if (!game) return null;
-  return <GameDetailBody game={game} onClose={onClose} onOpenGame={onOpenGame} onPlatform={onPlatform} />;
+  return <GameDetailBody game={game} onClose={onClose} onOpenGame={onOpenGame} onPlatform={onPlatform} nav={nav} />;
 }
 
-function GameDetailBody({ game, onClose, onOpenGame, onPlatform }: {
+function GameDetailBody({ game, onClose, onOpenGame, onPlatform, nav }: {
   game: Game;
   onClose: () => void;
   onOpenGame: (id: string) => void;
   onPlatform?: (platform: string) => void;
+  nav?: SheetNav;
 }) {
   const { t } = useTranslation();
   const { games, putGame, dropGame } = useAppData();
@@ -83,12 +93,39 @@ function GameDetailBody({ game, onClose, onOpenGame, onPlatform }: {
   const release = details?.releaseDate.match(/\b(19|20)\d\d\b/)?.[0] ?? (game.releaseYear || '');
   const genres = details?.genres.length ? details.genres : game.genres;
 
-  // Escape closes the sheet only when no nested dialog is on top of it.
+  // Escape closes the sheet and ← → move to the previous / next game, only when no nested dialog is
+  // on top of it. The image viewer catches the arrows first (capture phase) and keeps them; arrows
+  // typed in a field, or with a modifier (Alt+← is the browser's Back), are left alone.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !dialog && onClose();
+    const onKey = (e: KeyboardEvent) => {
+      if (dialog) return;
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      if ((e.target as HTMLElement | null)?.closest('input, textarea, select, [contenteditable="true"]')) return;
+      const go = e.key === 'ArrowLeft' ? nav?.previous : e.key === 'ArrowRight' ? nav?.next : undefined;
+      if (!go) return;
+      e.preventDefault();
+      go();
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [dialog, onClose]);
+  }, [dialog, onClose, nav]);
+
+  // Another game in the same sheet: drop what belonged to the previous one and start at the top.
+  const overlay = useRef<HTMLDivElement>(null);
+  const sheetEl = useRef<HTMLElement>(null);
+  const shownId = useRef(game.id);
+  useEffect(() => {
+    if (shownId.current === game.id) return;
+    shownId.current = game.id;
+    setDialog(null);
+    setError('');
+    overlay.current?.scrollTo({ top: 0 });
+    sheetEl.current?.scrollTo({ top: 0 });
+  }, [game.id]);
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -96,11 +133,19 @@ function GameDetailBody({ game, onClose, onOpenGame, onPlatform }: {
   }, []);
 
   return (
-    <div className="overlay sheet-overlay" onMouseDown={onClose}>
-      <article className="game-sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" onMouseDown={(e) => e.stopPropagation()}>
+    <div ref={overlay} className="overlay sheet-overlay" onMouseDown={onClose}>
+      <article ref={sheetEl} className="game-sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" onMouseDown={(e) => e.stopPropagation()}>
         <header className="hero">
           <div className="hero-backdrop" aria-hidden="true"><Cover game={game} /></div>
-          <button className="icon-button hero-close" onClick={onClose} aria-label={t('common.close')}><Icon name="close" size={20} /></button>
+          <div className="hero-actions">
+            {nav && (
+              <>
+                <button className="icon-button" onClick={nav.previous} disabled={!nav.previous} aria-label={t('game.previousGame')} title={t('game.previousGameKey')}><Icon name="prev" size={20} /></button>
+                <button className="icon-button" onClick={nav.next} disabled={!nav.next} aria-label={t('game.nextGame')} title={t('game.nextGameKey')}><Icon name="next" size={20} /></button>
+              </>
+            )}
+            <button className="icon-button" onClick={onClose} aria-label={t('common.close')}><Icon name="close" size={20} /></button>
+          </div>
           <div className="hero-cover">
             <Cover game={game} />
             <button type="button" className="ghost small-button" onClick={() => setDialog({ type: 'coverPicker' })}>
@@ -126,7 +171,8 @@ function GameDetailBody({ game, onClose, onOpenGame, onPlatform }: {
           ))}
         </nav>
 
-        <div className="sheet-body">
+        {/* Keyed by game: each game's tab content (forms, viewer) starts fresh; the tab itself stays. */}
+        <div className="sheet-body" key={game.id}>
           {error && <Alert tone="error">{error}</Alert>}
           {tab === 'overview' && (
             <SheetOverview game={game} details={details} warnings={sheet.warnings} loading={sheet.loading} error={sheet.error} onRefresh={sheet.refresh} />

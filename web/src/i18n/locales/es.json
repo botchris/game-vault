@@ -134,7 +134,11 @@
     "storePage": "Abrir",
     "addLink": "Vincular con otra tienda…",
     "searchStore": "Buscar…",
-    "linksHelp": "Vincular el juego con una tienda le da carátula y ficha, y permite reconocerlo al importar aunque su título sea distinto. Deja el id vacío para desvincularlo."
+    "linksHelp": "Vincular el juego con una tienda le da carátula y ficha, y permite reconocerlo al importar aunque su título sea distinto. Deja el id vacío para desvincularlo.",
+    "previousGame": "Juego anterior",
+    "nextGame": "Juego siguiente",
+    "previousGameKey": "Juego anterior (←)",
+    "nextGameKey": "Juego siguiente (→)"
   },
   "copy": {
     "add": "Añadir copia",

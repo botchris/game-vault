@@ -12,7 +12,9 @@ because Simple Icons removed them).
   instead of refetching.
 - `features/library/`: `LibraryPage` (search, sort, A–Z rail, filters, posters/list, infinite
   scroll), `FilterPanel` (popover / bottom sheet), `PosterGrid`, `GameDetail` (the game sheet:
-  hero, Overview / Copies / Edit tabs), `GameSheet` (details from metadata providers),
+  hero, Overview / Copies / Edit tabs; ‹ › and ← → move through the library's current list, keeping the
+  tab, with no animation; the image viewer catches the arrows first; the sheet is not remounted per
+  game, only its body is keyed), `GameSheet` (details from metadata providers),
   `CopyPhotos` (a copy's thumbnail strip, uploads with progress, the viewer with its photo footer).
 - `components/Lightbox.tsx`: the one image viewer (screenshots, copy photos). Props: ready URLs,
   index, `onIndex`, `onClose`, optional `label` and `footer`. Buttons for previous / next, zoom,
