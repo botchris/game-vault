@@ -3,6 +3,7 @@ package sqlite
 import (
 	"encoding/json"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -256,4 +257,57 @@ func TestDocuments_conditionConversion(t *testing.T) {
 			})
 		})
 	}
+}
+
+func TestDocuments_photos(t *testing.T) {
+	t.Run("GIVEN a game with a photographed copy, one photo without a date, and a cover photo", func(t *testing.T) {
+		id1, id2 := game.PhotoID(strings.Repeat("a", 64)), game.PhotoID(strings.Repeat("b", 64))
+		g := game.Rehydrate("g1", game.Info{
+			Title:      "Halo 3",
+			CoverPhoto: id2,
+		}, []game.Copy{{
+			ID: "c1",
+			CopyDetails: game.CopyDetails{
+				Kind:   game.KindPhysical,
+				Status: game.StatusOwned,
+			},
+			Photos: []game.Photo{
+				{
+					ID:      id1,
+					Caption: "box",
+					TakenAt: docTime.Add(-time.Hour),
+					AddedAt: docTime,
+				},
+				{
+					ID:      id2,
+					AddedAt: docTime,
+				},
+			},
+			CreatedAt: docTime,
+			UpdatedAt: docTime,
+		}}, docTime, docTime)
+
+		t.Run("WHEN it is encoded and decoded", func(t *testing.T) {
+			raw, err := encodeGame(g)
+			require.NoError(t, err)
+
+			got, err := decodeGame(g.ID(), raw)
+			require.NoError(t, err)
+
+			t.Run("THEN the photos and the cover photo come back, as version 2", func(t *testing.T) {
+				assert.Equal(t, g.Copies(), got.Copies())
+				assert.Equal(t, id2, got.CoverPhoto())
+				assert.Contains(t, raw, `"v":2`)
+			})
+
+			t.Run("AND a photo without a date has no takenAt, and a copy without photos no photos field", func(t *testing.T) {
+				assert.Equal(t, 1, strings.Count(raw, `"takenAt"`))
+
+				plain, err := encodeGame(sampleGame(t))
+				require.NoError(t, err)
+				assert.NotContains(t, plain, `"photos"`)
+				assert.NotContains(t, plain, `"coverPhoto"`)
+			})
+		})
+	})
 }
