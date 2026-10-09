@@ -138,7 +138,15 @@ func (s *Service) ListBackups(context.Context) ([]Backup, error) {
 		})
 	}
 
-	sort.Slice(out, func(i, j int) bool { return out[i].Name > out[j].Name })
+	// By date, not by name: a pre-migration copy (pre-migration-0009.db) would otherwise always sort
+	// above the scheduled ones (gamevault-…), stay at the top and never be pruned.
+	sort.Slice(out, func(i, j int) bool {
+		if !out[i].CreatedAt.Equal(out[j].CreatedAt) {
+			return out[i].CreatedAt.After(out[j].CreatedAt)
+		}
+
+		return out[i].Name > out[j].Name
+	})
 
 	return out, nil
 }

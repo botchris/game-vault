@@ -298,7 +298,12 @@ Logs never contain keys or credentials.
   and priority). Users, sessions, settings and cached details keep their own tables.
 - Schema changes go in a new numbered file in `internal/adapters/outbound/sqlite/migrations/`, which
   is applied on start. Before migrating an existing database, Game Vault writes a copy to
-  `config/backups/pre-migration-<first pending migration>.db` (listed in System → Backups).
+  `config/backups/pre-migration-<first pending migration>.db` (listed in System → Backups, and
+  rotated with the scheduled backups by date). A migrated database cannot be opened by an older
+  version (it fails with errors such as `no such column: title`). To go back: stop the server,
+  replace `config/gamevault.db` with the pre-migration copy, delete `config/gamevault.db-wal` and
+  `config/gamevault.db-shm` (a stale WAL next to a restored file corrupts it), then start the older
+  version or image.
 - `task go -- test ./internal/…/ -run TestName -v` runs one package's tests in the toolchain.
 - `task test` runs the Go tests, the TypeScript type check and the translation check, in the toolchain container. The Go tests cover the domain, SQLite, the providers (against fake servers), CSV, and an end-to-end Connect test.
 - GitHub Actions (`.github/workflows/ci.yml`) runs `task lint`, checks that `task generate` changes nothing, and runs `task test` on every push to `main` and every pull request, inside the same toolchain image (its layers cached in GitHub Actions, rebuilt only when `build/toolchain.Dockerfile` changes).

@@ -133,7 +133,8 @@ was restored and is being migrated again), the new copy gets a timestamp
 caller (`cfg.BackupDir()`); a new, empty database is not backed up. A failed backup stops the start
 with an error that names the path. The backups page lists every `.db` in that directory, so the
 file shows up in System → Backups (where it can be downloaded) and is rotated with the scheduled
-backups: it is a safety net for the upgrade, not an archive.
+backups (the list and the rotation go by file date, not by name): it is a safety net for the
+upgrade, not an archive.
 
 ## Repositories
 
