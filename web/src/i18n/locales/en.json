@@ -134,7 +134,11 @@
     "storePage": "Open",
     "addLink": "Link to another store…",
     "searchStore": "Search…",
-    "linksHelp": "Linking the game to a store gives it a cover and a full sheet, and lets imports recognize it under another title. Clear the id to unlink it."
+    "linksHelp": "Linking the game to a store gives it a cover and a full sheet, and lets imports recognize it under another title. Clear the id to unlink it.",
+    "previousGame": "Previous game",
+    "nextGame": "Next game",
+    "previousGameKey": "Previous game (←)",
+    "nextGameKey": "Next game (→)"
   },
   "copy": {
     "add": "Add copy",

@@ -8,7 +8,7 @@ import { Alert, useFormatters } from '../../components/ui';
 import { CopyStatus, daysUntil, isPendingKey, nextDeadline, toDate, type Game } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
 import FilterPanel, { NO_FILTERS, activeFilterCount, matchesFilters, type Filters } from './FilterPanel';
-import GameDetail from './GameDetail';
+import GameDetail, { type SheetNav } from './GameDetail';
 import NewGameDialog from './NewGameDialog';
 import PosterGrid from './PosterGrid';
 
@@ -125,6 +125,18 @@ export default function LibraryPage() {
 
   const visible = filtered.slice(0, shown);
 
+  // The open sheet moves through the list as the library shows it (search, filters, sort), loading
+  // the grid down to that game so it is there when the sheet closes.
+  const openIndex = openId ? filtered.findIndex((g) => g.id === openId) : -1;
+  const openAt = (i: number) => {
+    setOpenId(filtered[i]!.id);
+    if (i >= shown) setShown(Math.ceil((i + 1) / CHUNK) * CHUNK);
+  };
+  const nav: SheetNav | undefined = openIndex < 0 ? undefined : {
+    previous: openIndex > 0 ? () => openAt(openIndex - 1) : undefined,
+    next: openIndex < filtered.length - 1 ? () => openAt(openIndex + 1) : undefined,
+  };
+
   // Clicking a platform badge shows only that platform; clicking it again clears the filter.
   const filterPlatform = (platform: string) => setFilters((f) => ({
     ...f, platforms: f.platforms.length === 1 && f.platforms[0] === platform ? [] : [platform],
@@ -226,7 +238,7 @@ export default function LibraryPage() {
         </div>
       </div>
 
-      {openId && <GameDetail key={openId} gameId={openId} onClose={() => setOpenId(null)} onOpenGame={setOpenId}
+      {openId && <GameDetail gameId={openId} onClose={() => setOpenId(null)} onOpenGame={setOpenId} nav={nav}
         onPlatform={(p) => { setOpenId(null); setFilters((f) => ({ ...f, platforms: [p] })); }} />}
       {creating && <NewGameDialog onClose={() => setCreating(false)} onCreated={(id) => { setCreating(false); setOpenId(id); }} />}
     </div>
