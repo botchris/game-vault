@@ -9,7 +9,10 @@ export function usePriceProviders(): Map<string, string> {
   useEffect(() => {
     cache ??= providerClient.listProviders({ kind: 'valuation' }).then(
       (res) => new Map(res.providers.filter((p) => p.enabled).map((p) => [p.id, p.name])),
-      () => new Map(),
+      () => {
+        cache = null; // a failed request is asked again by the next copy, not remembered
+        return new Map();
+      },
     );
     let live = true;
     cache.then((m) => { if (live) setProviders(m); });

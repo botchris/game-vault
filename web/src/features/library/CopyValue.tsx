@@ -41,16 +41,22 @@ export default function CopyValue({ game, copy, onAddBarcode }: { game: Game; co
       setBusy(false);
     }
   };
-  const fetched = copy.estimates.map((e) => toDate(e.fetchedAt)).filter((d): d is Date => !!d);
+  // Estimates of a provider disabled since are left out, as they are of the totals.
+  const estimates = copy.estimates.filter((e) => providers.has(e.provider));
+  const fetched = estimates.map((e) => toDate(e.fetchedAt)).filter((d): d is Date => !!d);
   const latest = fetched.length ? new Date(Math.max(...fetched.map((d) => d.getTime()))) : null;
   const planned = toDate(copy.nextValuation);
+  const checked = toDate(copy.valuedAt);
+  const status = latest ? fmt.date(latest)
+    : checked ? t('value.notListed', { date: fmt.date(checked) })
+      : planned ? t('value.planned', { date: fmt.date(planned) }) : t('value.pending');
 
   return (
     <div className="copy-value small">
-      {copy.estimates.map((e) => (
+      {estimates.map((e) => (
         <a key={e.provider} href={e.url || undefined} target="_blank" rel="noreferrer">{line(e)}</a>
       ))}
-      <span className="muted">{latest ? fmt.date(latest) : planned ? t('value.planned', { date: fmt.date(planned) }) : t('value.pending')}</span>
+      <span className="muted">{status}</span>
       <button className="link" onClick={update} disabled={busy}>{busy ? t('value.updating') : t('value.update')}</button>
       {error && <span className="copy-value-error">{error}</span>}
     </div>

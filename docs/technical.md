@@ -282,18 +282,21 @@ offers to add the barcode).
 
 | Price provider | What the figure is | Settings |
 |---|---|---|
-| CeX (`cex-prices`, on by default) | What CeX sells the product for, and what it pays in cash or store credit, from `boxes/{EAN}/detail` | Countries to ask, in order (default `es`); the first whose catalog has the EAN answers, in its currency |
+| CeX (`cex-prices`, on by default) | What CeX sells the product for, and what it pays in cash or store credit, from `boxes/{EAN}/detail` | Shared with CeX barcode lookups (settings group `cex`): countries to ask, in order (`es` when none is set or valid); the first whose catalog has the EAN answers, in its currency |
 | eBay (`ebay-prices`, off by default) | The median asking price of up to 50 used listings with the EAN on the first configured marketplace (shipping excluded; listings in other currencies ignored). eBay keeps sold prices for approved partners | Shares the developer keys and marketplaces of the eBay barcode provider (settings group `ebay`) |
 
 - **What is kept:** each copy keeps the latest estimate of each provider (amounts in the currency's
-  minor units, the product's page, the date) and its next valuation date, in the copy document.
+  minor units, the product's page, the date), when it was last checked and its next valuation date,
+  in the copy document (a copy no source lists says so). Estimating changes only the copy, not the
+  game, so the game's cached cover stays.
   Changing the barcode or the kind clears them; scans and CSV imports never set them (a CSV import
   that changes the barcode clears them too). There is no history.
 - **When:** each copy has its own date, 20–40 days (uniform) after its last estimate. A copy that
   becomes priceable without a date (first start, a barcode added) gets one within the next 30 days,
   so a collection is spread over the month instead of being asked at once. A background task wakes
-  every 3–7 minutes, estimates the due copies one at a time with 20–60 seconds between them, and is
-  off with `-no-unattended`. "Update price" on a copy asks now and gives it a new date.
+  every 3–7 minutes, estimates the due copies one at a time with 20–60 seconds between them (a copy
+  priced by hand meanwhile is skipped; the round stops if every provider is disabled), and is off
+  with `-no-unattended`. "Update price" on a copy asks now and gives it a new date.
 - **Failures:** a provider that fails keeps its previous estimate for that copy; one that no longer
   lists the product loses it; the copy's date always moves forward, so nothing is retried in a loop.
   A provider that is disabled drops out of the next estimate and of the totals. When CeX answers

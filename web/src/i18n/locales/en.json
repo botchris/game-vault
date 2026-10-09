@@ -679,6 +679,7 @@
     "updating": "Updating…",
     "pending": "Price pending",
     "planned": "Price pending (planned for {{date}})",
-    "addBarcode": "Add the barcode to estimate its price"
+    "addBarcode": "Add the barcode to estimate its price",
+    "notListed": "Not listed by any source · {{date}}"
   }
 }

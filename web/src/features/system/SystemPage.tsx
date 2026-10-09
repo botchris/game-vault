@@ -37,7 +37,10 @@ export default function SystemPage() {
 
   const load = useCallback(async () => {
     const [st, bk, prefs, val] = await Promise.all([systemClient.getStatus({}), systemClient.listBackups({}), systemClient.getPreferences({}),
-      valuationClient.getCollectionValue({}).catch(() => null)]);
+      valuationClient.getCollectionValue({}).catch((e) => {
+        setNotice({ tone: 'error', text: errorMessage(e) }); // the rest of the page still works
+        return null;
+      })]);
     setValue(val);
     setStatus(st);
     setBackups(bk.backups);

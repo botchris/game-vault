@@ -101,6 +101,7 @@ func gameToPB(g *game.Game) *pb.Game {
 			Photos:        photosToPB(c.Photos),
 			Estimates:     estimatesToPB(c.Estimates),
 			NextValuation: optionalTS(c.NextValuation),
+			ValuedAt:      optionalTS(c.ValuedAt),
 			CreatedAt:     ts(c.CreatedAt),
 			UpdatedAt:     ts(c.UpdatedAt),
 		})

@@ -136,13 +136,16 @@ var ErrNotListed = errors.New("not listed")
 
 ## API (`proto/gamevault/v1`)
 
-- `Copy` gains `repeated Estimate estimates` and `google.protobuf.Timestamp next_valuation`;
+- `Copy` gains `repeated Estimate estimates`, `google.protobuf.Timestamp next_valuation` and
+  `google.protobuf.Timestamp valued_at` (when the prices were last asked, so a copy no source lists
+  says so);
   `message Estimate { string provider; Money sell; Money buy_cash; Money buy_credit; int32 listings;
   string url; google.protobuf.Timestamp fetched_at; }`.
 - New `ValuationService`: `EstimateCopy(game_id, copy_id) → Game` and `GetCollectionValue() →
   {currency, repeated ProviderTotal{provider, name, sell, buy_cash, buy_credit, copies,
   other_currency}}`.
-- Provider kind `PROVIDER_KIND_VALUATION` on the existing provider service.
+- Provider kind `"valuation"` on the existing provider service (the kind is a string in the API,
+  so no enum value is added).
 
 ## UI
 

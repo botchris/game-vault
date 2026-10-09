@@ -674,6 +674,8 @@ type Copy struct {
 	Estimates []*Estimate `protobuf:"bytes,9,rep,name=estimates,proto3" json:"estimates,omitempty"`
 	// When the prices are next estimated; absent when none is planned.
 	NextValuation *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=next_valuation,json=nextValuation,proto3" json:"next_valuation,omitempty"`
+	// When the prices were last asked, whatever the sources answered; absent when never.
+	ValuedAt      *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=valued_at,json=valuedAt,proto3" json:"valued_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -774,6 +776,13 @@ func (x *Copy) GetEstimates() []*Estimate {
 func (x *Copy) GetNextValuation() *timestamppb.Timestamp {
 	if x != nil {
 		return x.NextValuation
+	}
+	return nil
+}
+
+func (x *Copy) GetValuedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ValuedAt
 	}
 	return nil
 }
@@ -2955,7 +2964,7 @@ const file_gamevault_v1_game_proto_rawDesc = "" +
 	"\blistings\x18\x05 \x01(\x05R\blistings\x12\x10\n" +
 	"\x03url\x18\x06 \x01(\tR\x03url\x129\n" +
 	"\n" +
-	"fetched_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tfetchedAt\"\xc3\x03\n" +
+	"fetched_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tfetchedAt\"\xfc\x03\n" +
 	"\x04Copy\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x123\n" +
 	"\adetails\x18\x02 \x01(\v2\x19.gamevault.v1.CopyDetailsR\adetails\x12\x1b\n" +
@@ -2970,7 +2979,8 @@ const file_gamevault_v1_game_proto_rawDesc = "" +
 	"\x06photos\x18\b \x03(\v2\x13.gamevault.v1.PhotoR\x06photos\x124\n" +
 	"\testimates\x18\t \x03(\v2\x16.gamevault.v1.EstimateR\testimates\x12A\n" +
 	"\x0enext_valuation\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampR\rnextValuation\"\xe5\x03\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\rnextValuation\x127\n" +
+	"\tvalued_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\bvaluedAt\"\xe5\x03\n" +
 	"\x04Game\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x14\n" +
@@ -3257,75 +3267,76 @@ var file_gamevault_v1_game_proto_depIdxs = []int32{
 	6,  // 14: gamevault.v1.Copy.photos:type_name -> gamevault.v1.Photo
 	7,  // 15: gamevault.v1.Copy.estimates:type_name -> gamevault.v1.Estimate
 	52, // 16: gamevault.v1.Copy.next_valuation:type_name -> google.protobuf.Timestamp
-	8,  // 17: gamevault.v1.Game.copies:type_name -> gamevault.v1.Copy
-	52, // 18: gamevault.v1.Game.created_at:type_name -> google.protobuf.Timestamp
-	52, // 19: gamevault.v1.Game.updated_at:type_name -> google.protobuf.Timestamp
-	49, // 20: gamevault.v1.Game.links:type_name -> gamevault.v1.Game.LinksEntry
-	9,  // 21: gamevault.v1.ListGamesResponse.games:type_name -> gamevault.v1.Game
-	9,  // 22: gamevault.v1.GetGameResponse.game:type_name -> gamevault.v1.Game
-	5,  // 23: gamevault.v1.CreateGameRequest.copies:type_name -> gamevault.v1.CopyDetails
-	50, // 24: gamevault.v1.CreateGameRequest.links:type_name -> gamevault.v1.CreateGameRequest.LinksEntry
-	9,  // 25: gamevault.v1.CreateGameResponse.game:type_name -> gamevault.v1.Game
-	51, // 26: gamevault.v1.UpdateGameRequest.links:type_name -> gamevault.v1.UpdateGameRequest.LinksEntry
-	9,  // 27: gamevault.v1.UpdateGameResponse.game:type_name -> gamevault.v1.Game
-	9,  // 28: gamevault.v1.MergeGamesResponse.game:type_name -> gamevault.v1.Game
-	5,  // 29: gamevault.v1.AddCopyRequest.details:type_name -> gamevault.v1.CopyDetails
-	9,  // 30: gamevault.v1.AddCopyResponse.game:type_name -> gamevault.v1.Game
-	5,  // 31: gamevault.v1.UpdateCopyRequest.details:type_name -> gamevault.v1.CopyDetails
-	9,  // 32: gamevault.v1.UpdateCopyResponse.game:type_name -> gamevault.v1.Game
-	9,  // 33: gamevault.v1.DeleteCopyResponse.game:type_name -> gamevault.v1.Game
-	9,  // 34: gamevault.v1.MoveCopyResponse.source_game:type_name -> gamevault.v1.Game
-	9,  // 35: gamevault.v1.MoveCopyResponse.target_game:type_name -> gamevault.v1.Game
-	33, // 36: gamevault.v1.ListLinkStoresResponse.stores:type_name -> gamevault.v1.LinkStore
-	36, // 37: gamevault.v1.SearchLinksResponse.matches:type_name -> gamevault.v1.LinkMatch
-	52, // 38: gamevault.v1.NewPhoto.taken_at:type_name -> google.protobuf.Timestamp
-	38, // 39: gamevault.v1.AddCopyPhotosRequest.photos:type_name -> gamevault.v1.NewPhoto
-	9,  // 40: gamevault.v1.AddCopyPhotosResponse.game:type_name -> gamevault.v1.Game
-	9,  // 41: gamevault.v1.UpdateCopyPhotoResponse.game:type_name -> gamevault.v1.Game
-	9,  // 42: gamevault.v1.RemoveCopyPhotoResponse.game:type_name -> gamevault.v1.Game
-	9,  // 43: gamevault.v1.ReorderCopyPhotosResponse.game:type_name -> gamevault.v1.Game
-	9,  // 44: gamevault.v1.SetCoverPhotoResponse.game:type_name -> gamevault.v1.Game
-	10, // 45: gamevault.v1.GameService.ListGames:input_type -> gamevault.v1.ListGamesRequest
-	12, // 46: gamevault.v1.GameService.GetGame:input_type -> gamevault.v1.GetGameRequest
-	14, // 47: gamevault.v1.GameService.CreateGame:input_type -> gamevault.v1.CreateGameRequest
-	16, // 48: gamevault.v1.GameService.UpdateGame:input_type -> gamevault.v1.UpdateGameRequest
-	18, // 49: gamevault.v1.GameService.DeleteGame:input_type -> gamevault.v1.DeleteGameRequest
-	20, // 50: gamevault.v1.GameService.MergeGames:input_type -> gamevault.v1.MergeGamesRequest
-	22, // 51: gamevault.v1.GameService.AddCopy:input_type -> gamevault.v1.AddCopyRequest
-	24, // 52: gamevault.v1.GameService.UpdateCopy:input_type -> gamevault.v1.UpdateCopyRequest
-	26, // 53: gamevault.v1.GameService.DeleteCopy:input_type -> gamevault.v1.DeleteCopyRequest
-	28, // 54: gamevault.v1.GameService.MoveCopy:input_type -> gamevault.v1.MoveCopyRequest
-	30, // 55: gamevault.v1.GameService.MarkRedeemedKeys:input_type -> gamevault.v1.MarkRedeemedKeysRequest
-	32, // 56: gamevault.v1.GameService.ListLinkStores:input_type -> gamevault.v1.ListLinkStoresRequest
-	35, // 57: gamevault.v1.GameService.SearchLinks:input_type -> gamevault.v1.SearchLinksRequest
-	39, // 58: gamevault.v1.GameService.AddCopyPhotos:input_type -> gamevault.v1.AddCopyPhotosRequest
-	41, // 59: gamevault.v1.GameService.UpdateCopyPhoto:input_type -> gamevault.v1.UpdateCopyPhotoRequest
-	43, // 60: gamevault.v1.GameService.RemoveCopyPhoto:input_type -> gamevault.v1.RemoveCopyPhotoRequest
-	45, // 61: gamevault.v1.GameService.ReorderCopyPhotos:input_type -> gamevault.v1.ReorderCopyPhotosRequest
-	47, // 62: gamevault.v1.GameService.SetCoverPhoto:input_type -> gamevault.v1.SetCoverPhotoRequest
-	11, // 63: gamevault.v1.GameService.ListGames:output_type -> gamevault.v1.ListGamesResponse
-	13, // 64: gamevault.v1.GameService.GetGame:output_type -> gamevault.v1.GetGameResponse
-	15, // 65: gamevault.v1.GameService.CreateGame:output_type -> gamevault.v1.CreateGameResponse
-	17, // 66: gamevault.v1.GameService.UpdateGame:output_type -> gamevault.v1.UpdateGameResponse
-	19, // 67: gamevault.v1.GameService.DeleteGame:output_type -> gamevault.v1.DeleteGameResponse
-	21, // 68: gamevault.v1.GameService.MergeGames:output_type -> gamevault.v1.MergeGamesResponse
-	23, // 69: gamevault.v1.GameService.AddCopy:output_type -> gamevault.v1.AddCopyResponse
-	25, // 70: gamevault.v1.GameService.UpdateCopy:output_type -> gamevault.v1.UpdateCopyResponse
-	27, // 71: gamevault.v1.GameService.DeleteCopy:output_type -> gamevault.v1.DeleteCopyResponse
-	29, // 72: gamevault.v1.GameService.MoveCopy:output_type -> gamevault.v1.MoveCopyResponse
-	31, // 73: gamevault.v1.GameService.MarkRedeemedKeys:output_type -> gamevault.v1.MarkRedeemedKeysResponse
-	34, // 74: gamevault.v1.GameService.ListLinkStores:output_type -> gamevault.v1.ListLinkStoresResponse
-	37, // 75: gamevault.v1.GameService.SearchLinks:output_type -> gamevault.v1.SearchLinksResponse
-	40, // 76: gamevault.v1.GameService.AddCopyPhotos:output_type -> gamevault.v1.AddCopyPhotosResponse
-	42, // 77: gamevault.v1.GameService.UpdateCopyPhoto:output_type -> gamevault.v1.UpdateCopyPhotoResponse
-	44, // 78: gamevault.v1.GameService.RemoveCopyPhoto:output_type -> gamevault.v1.RemoveCopyPhotoResponse
-	46, // 79: gamevault.v1.GameService.ReorderCopyPhotos:output_type -> gamevault.v1.ReorderCopyPhotosResponse
-	48, // 80: gamevault.v1.GameService.SetCoverPhoto:output_type -> gamevault.v1.SetCoverPhotoResponse
-	63, // [63:81] is the sub-list for method output_type
-	45, // [45:63] is the sub-list for method input_type
-	45, // [45:45] is the sub-list for extension type_name
-	45, // [45:45] is the sub-list for extension extendee
-	0,  // [0:45] is the sub-list for field type_name
+	52, // 17: gamevault.v1.Copy.valued_at:type_name -> google.protobuf.Timestamp
+	8,  // 18: gamevault.v1.Game.copies:type_name -> gamevault.v1.Copy
+	52, // 19: gamevault.v1.Game.created_at:type_name -> google.protobuf.Timestamp
+	52, // 20: gamevault.v1.Game.updated_at:type_name -> google.protobuf.Timestamp
+	49, // 21: gamevault.v1.Game.links:type_name -> gamevault.v1.Game.LinksEntry
+	9,  // 22: gamevault.v1.ListGamesResponse.games:type_name -> gamevault.v1.Game
+	9,  // 23: gamevault.v1.GetGameResponse.game:type_name -> gamevault.v1.Game
+	5,  // 24: gamevault.v1.CreateGameRequest.copies:type_name -> gamevault.v1.CopyDetails
+	50, // 25: gamevault.v1.CreateGameRequest.links:type_name -> gamevault.v1.CreateGameRequest.LinksEntry
+	9,  // 26: gamevault.v1.CreateGameResponse.game:type_name -> gamevault.v1.Game
+	51, // 27: gamevault.v1.UpdateGameRequest.links:type_name -> gamevault.v1.UpdateGameRequest.LinksEntry
+	9,  // 28: gamevault.v1.UpdateGameResponse.game:type_name -> gamevault.v1.Game
+	9,  // 29: gamevault.v1.MergeGamesResponse.game:type_name -> gamevault.v1.Game
+	5,  // 30: gamevault.v1.AddCopyRequest.details:type_name -> gamevault.v1.CopyDetails
+	9,  // 31: gamevault.v1.AddCopyResponse.game:type_name -> gamevault.v1.Game
+	5,  // 32: gamevault.v1.UpdateCopyRequest.details:type_name -> gamevault.v1.CopyDetails
+	9,  // 33: gamevault.v1.UpdateCopyResponse.game:type_name -> gamevault.v1.Game
+	9,  // 34: gamevault.v1.DeleteCopyResponse.game:type_name -> gamevault.v1.Game
+	9,  // 35: gamevault.v1.MoveCopyResponse.source_game:type_name -> gamevault.v1.Game
+	9,  // 36: gamevault.v1.MoveCopyResponse.target_game:type_name -> gamevault.v1.Game
+	33, // 37: gamevault.v1.ListLinkStoresResponse.stores:type_name -> gamevault.v1.LinkStore
+	36, // 38: gamevault.v1.SearchLinksResponse.matches:type_name -> gamevault.v1.LinkMatch
+	52, // 39: gamevault.v1.NewPhoto.taken_at:type_name -> google.protobuf.Timestamp
+	38, // 40: gamevault.v1.AddCopyPhotosRequest.photos:type_name -> gamevault.v1.NewPhoto
+	9,  // 41: gamevault.v1.AddCopyPhotosResponse.game:type_name -> gamevault.v1.Game
+	9,  // 42: gamevault.v1.UpdateCopyPhotoResponse.game:type_name -> gamevault.v1.Game
+	9,  // 43: gamevault.v1.RemoveCopyPhotoResponse.game:type_name -> gamevault.v1.Game
+	9,  // 44: gamevault.v1.ReorderCopyPhotosResponse.game:type_name -> gamevault.v1.Game
+	9,  // 45: gamevault.v1.SetCoverPhotoResponse.game:type_name -> gamevault.v1.Game
+	10, // 46: gamevault.v1.GameService.ListGames:input_type -> gamevault.v1.ListGamesRequest
+	12, // 47: gamevault.v1.GameService.GetGame:input_type -> gamevault.v1.GetGameRequest
+	14, // 48: gamevault.v1.GameService.CreateGame:input_type -> gamevault.v1.CreateGameRequest
+	16, // 49: gamevault.v1.GameService.UpdateGame:input_type -> gamevault.v1.UpdateGameRequest
+	18, // 50: gamevault.v1.GameService.DeleteGame:input_type -> gamevault.v1.DeleteGameRequest
+	20, // 51: gamevault.v1.GameService.MergeGames:input_type -> gamevault.v1.MergeGamesRequest
+	22, // 52: gamevault.v1.GameService.AddCopy:input_type -> gamevault.v1.AddCopyRequest
+	24, // 53: gamevault.v1.GameService.UpdateCopy:input_type -> gamevault.v1.UpdateCopyRequest
+	26, // 54: gamevault.v1.GameService.DeleteCopy:input_type -> gamevault.v1.DeleteCopyRequest
+	28, // 55: gamevault.v1.GameService.MoveCopy:input_type -> gamevault.v1.MoveCopyRequest
+	30, // 56: gamevault.v1.GameService.MarkRedeemedKeys:input_type -> gamevault.v1.MarkRedeemedKeysRequest
+	32, // 57: gamevault.v1.GameService.ListLinkStores:input_type -> gamevault.v1.ListLinkStoresRequest
+	35, // 58: gamevault.v1.GameService.SearchLinks:input_type -> gamevault.v1.SearchLinksRequest
+	39, // 59: gamevault.v1.GameService.AddCopyPhotos:input_type -> gamevault.v1.AddCopyPhotosRequest
+	41, // 60: gamevault.v1.GameService.UpdateCopyPhoto:input_type -> gamevault.v1.UpdateCopyPhotoRequest
+	43, // 61: gamevault.v1.GameService.RemoveCopyPhoto:input_type -> gamevault.v1.RemoveCopyPhotoRequest
+	45, // 62: gamevault.v1.GameService.ReorderCopyPhotos:input_type -> gamevault.v1.ReorderCopyPhotosRequest
+	47, // 63: gamevault.v1.GameService.SetCoverPhoto:input_type -> gamevault.v1.SetCoverPhotoRequest
+	11, // 64: gamevault.v1.GameService.ListGames:output_type -> gamevault.v1.ListGamesResponse
+	13, // 65: gamevault.v1.GameService.GetGame:output_type -> gamevault.v1.GetGameResponse
+	15, // 66: gamevault.v1.GameService.CreateGame:output_type -> gamevault.v1.CreateGameResponse
+	17, // 67: gamevault.v1.GameService.UpdateGame:output_type -> gamevault.v1.UpdateGameResponse
+	19, // 68: gamevault.v1.GameService.DeleteGame:output_type -> gamevault.v1.DeleteGameResponse
+	21, // 69: gamevault.v1.GameService.MergeGames:output_type -> gamevault.v1.MergeGamesResponse
+	23, // 70: gamevault.v1.GameService.AddCopy:output_type -> gamevault.v1.AddCopyResponse
+	25, // 71: gamevault.v1.GameService.UpdateCopy:output_type -> gamevault.v1.UpdateCopyResponse
+	27, // 72: gamevault.v1.GameService.DeleteCopy:output_type -> gamevault.v1.DeleteCopyResponse
+	29, // 73: gamevault.v1.GameService.MoveCopy:output_type -> gamevault.v1.MoveCopyResponse
+	31, // 74: gamevault.v1.GameService.MarkRedeemedKeys:output_type -> gamevault.v1.MarkRedeemedKeysResponse
+	34, // 75: gamevault.v1.GameService.ListLinkStores:output_type -> gamevault.v1.ListLinkStoresResponse
+	37, // 76: gamevault.v1.GameService.SearchLinks:output_type -> gamevault.v1.SearchLinksResponse
+	40, // 77: gamevault.v1.GameService.AddCopyPhotos:output_type -> gamevault.v1.AddCopyPhotosResponse
+	42, // 78: gamevault.v1.GameService.UpdateCopyPhoto:output_type -> gamevault.v1.UpdateCopyPhotoResponse
+	44, // 79: gamevault.v1.GameService.RemoveCopyPhoto:output_type -> gamevault.v1.RemoveCopyPhotoResponse
+	46, // 80: gamevault.v1.GameService.ReorderCopyPhotos:output_type -> gamevault.v1.ReorderCopyPhotosResponse
+	48, // 81: gamevault.v1.GameService.SetCoverPhoto:output_type -> gamevault.v1.SetCoverPhotoResponse
+	64, // [64:82] is the sub-list for method output_type
+	46, // [46:64] is the sub-list for method input_type
+	46, // [46:46] is the sub-list for extension type_name
+	46, // [46:46] is the sub-list for extension extendee
+	0,  // [0:46] is the sub-list for field type_name
 }
 
 func init() { file_gamevault_v1_game_proto_init() }

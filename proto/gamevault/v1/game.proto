@@ -140,6 +140,8 @@ message Copy {
   repeated Estimate estimates = 9;
   // When the prices are next estimated; absent when none is planned.
   google.protobuf.Timestamp next_valuation = 10;
+  // When the prices were last asked, whatever the sources answered; absent when never.
+  google.protobuf.Timestamp valued_at = 11;
 }
 
 // Game is the aggregate root: a title plus every copy you own of it.

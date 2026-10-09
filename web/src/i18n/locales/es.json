@@ -679,6 +679,7 @@
     "updating": "Actualizando…",
     "pending": "Precio pendiente",
     "planned": "Precio pendiente (previsto el {{date}})",
-    "addBarcode": "Añade el código de barras para estimar su precio"
+    "addBarcode": "Añade el código de barras para estimar su precio",
+    "notListed": "Ninguna fuente lo tiene a la venta · {{date}}"
   }
 }

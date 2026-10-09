@@ -47,6 +47,7 @@ func TestValuation_endToEnd(t *testing.T) {
 				assert.Equal(t, "fake-prices", cp.Estimates[0].Provider)
 				assert.Equal(t, int64(2000), cp.Estimates[0].Sell.AmountMinor)
 				assert.NotNil(t, cp.NextValuation)
+				assert.NotNil(t, cp.ValuedAt)
 			})
 
 			t.Run("AND the collection is worth it", func(t *testing.T) {
