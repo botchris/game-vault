@@ -10,6 +10,7 @@ import (
 	"gamevault/internal/application/catalog"
 	"gamevault/internal/application/media"
 	"gamevault/internal/application/sync"
+	"gamevault/internal/application/valuation"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
@@ -92,14 +93,17 @@ func gameToPB(g *game.Game) *pb.Game {
 	}
 	for _, c := range g.Copies() {
 		out.Copies = append(out.Copies, &pb.Copy{
-			Id:         string(c.ID),
-			Details:    detailsToPB(c.CopyDetails),
-			SourceId:   c.SourceID,
-			ExternalId: c.ExternalID,
-			Redundant:  g.IsRedundant(c),
-			Photos:     photosToPB(c.Photos),
-			CreatedAt:  ts(c.CreatedAt),
-			UpdatedAt:  ts(c.UpdatedAt),
+			Id:            string(c.ID),
+			Details:       detailsToPB(c.CopyDetails),
+			SourceId:      c.SourceID,
+			ExternalId:    c.ExternalID,
+			Redundant:     g.IsRedundant(c),
+			Photos:        photosToPB(c.Photos),
+			Estimates:     estimatesToPB(c.Estimates),
+			NextValuation: optionalTS(c.NextValuation),
+			ValuedAt:      optionalTS(c.ValuedAt),
+			CreatedAt:     ts(c.CreatedAt),
+			UpdatedAt:     ts(c.UpdatedAt),
 		})
 	}
 
@@ -222,6 +226,31 @@ func moneyToPB(m game.Money) *pb.Money {
 	}
 }
 
+func optionalTS(t time.Time) *timestamppb.Timestamp {
+	if t.IsZero() {
+		return nil
+	}
+
+	return ts(t)
+}
+
+func estimatesToPB(estimates []game.Estimate) []*pb.Estimate {
+	out := make([]*pb.Estimate, 0, len(estimates))
+	for _, e := range estimates {
+		out = append(out, &pb.Estimate{
+			Provider:  e.Provider,
+			Sell:      moneyToPB(e.Sell),
+			BuyCash:   moneyToPB(e.BuyCash),
+			BuyCredit: moneyToPB(e.BuyCredit),
+			Listings:  int32(e.Listings),
+			Url:       e.URL,
+			FetchedAt: ts(e.FetchedAt),
+		})
+	}
+
+	return out
+}
+
 func reportToPB(r *source.SyncReport) *pb.SyncReport {
 	if r == nil {
 		return nil
@@ -342,8 +371,10 @@ func toConnectError(err error) error {
 	case errors.As(err, &gv), errors.As(err, &sv), errors.As(err, &setv), errors.As(err, &schv), errors.Is(err, source.ErrUnknownType),
 		errors.Is(err, game.ErrInvalidBarcode):
 		return connect.NewError(connect.CodeInvalidArgument, err)
-	case errors.Is(err, catalog.ErrPhotoNotUploaded):
+	case errors.Is(err, catalog.ErrPhotoNotUploaded), errors.Is(err, valuation.ErrNotValuable), errors.Is(err, valuation.ErrNoProviders):
 		return connect.NewError(connect.CodeFailedPrecondition, err)
+	case errors.Is(err, valuation.ErrChanged):
+		return connect.NewError(connect.CodeAborted, err)
 	default:
 		return connect.NewError(connect.CodeInternal, err)
 	}

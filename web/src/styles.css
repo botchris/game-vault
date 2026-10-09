@@ -1058,3 +1058,8 @@ select.currency { flex: 0 0 auto; width: auto; }
 .photo-actions .lightbox-button { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
 .lightbox-button.active { color: var(--accent); }
 .photo-error { color: #ff8a80; }
+
+/* Second-hand prices on a physical copy (features/library/CopyValue.tsx) */
+.copy-value { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 4px 0 0; }
+.copy-value a { color: var(--text); text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 3px; }
+.copy-value-error { flex-basis: 100%; color: var(--danger); }

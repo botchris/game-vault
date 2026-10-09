@@ -25,6 +25,14 @@ Checked 2026-10-08, suggested by the user as a barcode source (CeX's product ids
   `provider.UpdateState` after each lookup); user setting `countries` limits them. A product's
   EAN is only in the catalog of the country that sells that edition, and GS1 prefixes do not
   tell the market (Spanish Dead Space 3: prefix 503 = UK, only in the ES catalog).
-- **How to apply:** one lookup per user scan, never crawling; keep only name and platform, do not
-  store or show CeX's images or prices. If Cloudflare starts challenging, fail with a clear error;
+- **How to apply:** one lookup per user scan, never crawling; keep only name and platform for barcode lookups;
+  never store or show CeX's images; prices only as below. If Cloudflare starts challenging, fail with a clear error;
   never work around it (CLAUDE.md safety rules). Related: [[ean-search]], [[provider-chains]].
+- **Prices allowed (user's decision, 2026-10-09):** the `cex-prices` provider stores CeX's
+  `sellPrice`, `cashPrice` and `exchangePrice` (decimal units of the country's currency: 20 / 6 / 10
+  EUR for Dead Space 3 in ES) **for the user's own copies only**: one query per copy, on its own
+  random date (20–40 days) or the "Update price" button, never crawling, no images. Product page:
+  `https://{country}.webuy.com/product-detail/?id={EAN}` (301 from the URL without the slash).
+- **Search is blocked:** `GET /v3/boxes?q=…` answered a Cloudflare challenge (403 "Attention
+  Required") on 2026-10-09 in ES and UK while `boxes/{EAN}/detail` kept answering JSON. Never work
+  around it; copies without a barcode are not priced.

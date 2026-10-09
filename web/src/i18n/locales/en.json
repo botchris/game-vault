@@ -326,7 +326,15 @@
     "currencyHelp": "Used for new prices and for CSV rows without a currency.",
     "currencyNotSaved": "Proposed from your browser region, not saved yet: save it so CSV rows without a currency use it.",
     "backupPhotos": "Photos",
-    "photoStore": "Photos in backups: {{size}} in all; each photo is stored once, however many backups have it."
+    "photoStore": "Photos in backups: {{size}} in all; each photo is stored once, however many backups have it.",
+    "collectionValue": "Collection value",
+    "valueShop": "{{name}} sells your collection for {{sell}} and would pay {{cash}} in cash ({{credit}} in credit)",
+    "valueListed": "On {{name}} it is listed at {{sell}}",
+    "valueCopies_one": "{{count}} copy",
+    "valueCopies_other": "{{count}} copies",
+    "valueOther_one": "{{count}} estimate in another currency is not included",
+    "valueOther_other": "{{count}} estimates in other currencies are not included",
+    "valueNoCurrency": "Choose a default currency in Preferences to add up the estimates."
   },
   "logs": {
     "settings": "Logging and rotation",
@@ -402,7 +410,7 @@
     "cex": {
       "description": "The second-hand game store's catalog: free, no key, and it knows many European (PAL) editions that other databases miss. Each country has its own catalog; they are asked one by one, and the countries that found your games are asked first next time. Only the name and platform are used.",
       "countries": "Countries (optional)",
-      "countriesHelp": "Leave empty to look in every country. To limit it, list country codes separated by commas: uk, es, ie, pt, au, in, mx, it, pl."
+      "countriesHelp": "Leave empty to look up barcodes in every country. To limit it, list country codes separated by commas: uk, es, ie, pt, au, in, mx, it, pl. CeX prices use the same countries, in this order (Spain when empty)."
     },
     "upcitemdb": {
       "description": "Free, no key needed (about 100 lookups a day). Knows most US boxes and about half of European ones.",
@@ -424,7 +432,7 @@
       "clientSecret": "Cert ID (Client Secret)",
       "keysHelp": "1. Open the page above and create a free eBay developer account.\n2. Go to Application Keys → Production keyset and copy the App ID and Cert ID.\n3. If asked about marketplace account deletion notifications, choose the exemption: Game Vault does not store eBay user data.",
       "marketplaces": "Marketplaces",
-      "marketplacesHelp": "Tried in order until one has listings. Default: EBAY_ES, EBAY_GB, EBAY_DE, EBAY_FR, EBAY_IT."
+      "marketplacesHelp": "Tried in order until one has listings; the first one is also used for prices. Default: EBAY_ES, EBAY_GB, EBAY_DE, EBAY_FR, EBAY_IT."
     },
     "metadata": "Game details",
     "metadataIntro": "Summary, genres, companies, trailers and screenshots shown in each game. The first provider gives the main sheet; the next ones fill what is missing. Downloaded when you open a game, then cached for 30 days.",
@@ -451,7 +459,17 @@
     },
     "xboxCovers": {
       "description": "Official poster from the Microsoft Store, for games imported from your Microsoft account. Free, no key needed."
-    }
+    },
+    "cexPrices": {
+      "description": "What CeX sells your physical games for, and what it pays for them in cash or store credit. Only your own copies with a barcode are asked, one at a time.",
+      "countries": "Countries",
+      "countriesHelp": "Shared with CeX barcode lookups. CeX stores to ask, in order, separated by commas: es, uk, ie, pt, it… The first that sells the product gives its price, in its currency. Empty: es."
+    },
+    "ebayPrices": {
+      "description": "The median asking price of used listings with the copy's barcode on your first eBay marketplace. Uses the same developer keys as eBay barcode lookups."
+    },
+    "valuations": "Prices",
+    "valuationsIntro": "Second-hand prices of your physical copies with a barcode. Every enabled source is asked, each copy on its own date about once a month; the order is only how they are listed."
   },
   "coverPicker": {
     "open": "Choose cover…",
@@ -651,5 +669,17 @@
     "stopCover": "Stop using as cover",
     "isCover": "The game's cover",
     "confirmDelete": "Delete this photo from the copy?"
+  },
+  "value": {
+    "sells": "{{name}}: sells {{price}}",
+    "pays": ", pays {{cash}} in cash / {{credit}} in credit",
+    "listed_one": "{{name}}: {{price}} ({{count}} listing)",
+    "listed_other": "{{name}}: {{price}} ({{count}} listings)",
+    "update": "Update price",
+    "updating": "Updating…",
+    "pending": "Price pending",
+    "planned": "Price pending (planned for {{date}})",
+    "addBarcode": "Add the barcode to estimate its price",
+    "notListed": "Not listed by any source · {{date}}"
   }
 }

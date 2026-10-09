@@ -262,6 +262,10 @@ type Providers struct {
 	Covers   []CoverProvider
 	Barcodes []BarcodeProvider
 	Metadata []MetadataProvider
+
+	// Valuations are price providers: configured here like the other kinds, run by the valuation
+	// service.
+	Valuations []Provider
 }
 
 // NewService builds the service.
@@ -301,6 +305,12 @@ func NewService(games game.Repository, providers provider.Repository, store Asse
 		s.order = append(s.order, id)
 	}
 
+	for _, p := range impls.Valuations {
+		id := p.Descriptor().ID
+		s.impls[id] = p
+		s.order = append(s.order, id)
+	}
+
 	slices.SortStableFunc(s.order, func(a, b provider.ID) int {
 		return cmp.Compare(s.impls[a].Descriptor().DefaultOrder, s.impls[b].Descriptor().DefaultOrder)
 	})
@@ -337,7 +347,7 @@ func (s *Service) addStore(p Provider) {
 	}
 }
 
-var allKinds = []provider.Kind{provider.KindCover, provider.KindBarcode, provider.KindMetadata}
+var allKinds = []provider.Kind{provider.KindCover, provider.KindBarcode, provider.KindMetadata, provider.KindValuation}
 
 // siblings returns the stored configurations sharing a settings group, other than except.
 func (s *Service) siblings(ctx context.Context, group string, except provider.ID) ([]*provider.Provider, error) {
@@ -394,7 +404,8 @@ func (s *Service) Providers(ctx context.Context, kind provider.Kind) ([]Provider
 		if sib, err := s.siblings(ctx, d.SettingsGroup, id); err == nil && len(sib) > 0 {
 			p.ShareSettings(sib[0].Settings(), s.now())
 
-			if sib[0].Enabled() {
+			// Price providers query on their own schedule, so the user turns them on explicitly.
+			if sib[0].Enabled() && d.Kind != provider.KindValuation {
 				_ = p.Configure(d, true, sib[0].Settings(), s.now()) // stays disabled if settings are incomplete
 			}
 		}

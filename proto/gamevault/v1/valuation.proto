@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package gamevault.v1;
+
+import "gamevault/v1/game.proto";
+
+option go_package = "gamevault/internal/gen/gamevault/v1;gamevaultv1";
+
+message EstimateCopyRequest {
+  string game_id = 1;
+  string copy_id = 2;
+}
+message EstimateCopyResponse {
+  Game game = 1;
+  // Sources that failed this time (their previous estimate is kept).
+  repeated string warnings = 2;
+}
+
+message GetCollectionValueRequest {}
+
+// ProviderTotal is one source's view of the collection's value, in minor units of the currency.
+message ProviderTotal {
+  string provider = 1;
+  string name = 2;
+  int64 sell_minor = 3;
+  int64 buy_cash_minor = 4;
+  int64 buy_credit_minor = 5;
+  // How many copies the totals cover.
+  int32 copies = 6;
+  // Estimates in another currency, left out.
+  int32 other_currency = 7;
+}
+message GetCollectionValueResponse {
+  // The default currency; empty when none is chosen (then nothing is added up).
+  string currency = 1;
+  repeated ProviderTotal totals = 2;
+}
+
+// ValuationService estimates second-hand prices of physical copies (CeX, eBay…).
+service ValuationService {
+  // Asks every enabled price provider now and plans the next estimate 20–40 days ahead.
+  rpc EstimateCopy(EstimateCopyRequest) returns (EstimateCopyResponse);
+  // The collection's value per source, in the default currency.
+  rpc GetCollectionValue(GetCollectionValueRequest) returns (GetCollectionValueResponse);
+}

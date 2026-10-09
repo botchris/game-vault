@@ -10,6 +10,7 @@ import (
 	"gamevault/internal/application/media"
 	"gamevault/internal/application/plugin"
 	"gamevault/internal/application/sync"
+	"gamevault/internal/application/valuation"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
@@ -84,6 +85,48 @@ func TestRegistry(t *testing.T) {
 		t.Run("THEN both are refused", func(t *testing.T) {
 			assert.ErrorIs(t, errType, plugin.ErrDuplicate)
 			assert.ErrorIs(t, errID, plugin.ErrDuplicate)
+		})
+	})
+}
+
+type fakePrices struct{ id provider.ID }
+
+func (f fakePrices) Descriptor() provider.Descriptor {
+	return provider.Descriptor{
+		ID:   f.id,
+		Kind: provider.KindValuation,
+	}
+}
+func (fakePrices) Test(context.Context, schema.Settings) error { return nil }
+func (fakePrices) Estimate(context.Context, schema.Settings, game.Barcode) (game.Estimate, error) {
+	return game.Estimate{}, valuation.ErrNotListed
+}
+
+func TestRegistry_valuations(t *testing.T) {
+	shop := plugin.Plugin{
+		ID:         "shop",
+		Valuations: []valuation.Provider{fakePrices{"shop-prices"}},
+	}
+
+	t.Run("GIVEN a plugin with a price provider", func(t *testing.T) {
+		r, err := plugin.NewRegistry(shop)
+		require.NoError(t, err)
+
+		t.Run("THEN the valuation service gets it, and the media service configures it", func(t *testing.T) {
+			require.Len(t, r.Valuations(), 1)
+			require.Len(t, r.Media().Valuations, 1)
+			assert.Equal(t, provider.ID("shop-prices"), r.Media().Valuations[0].Descriptor().ID)
+		})
+	})
+
+	t.Run("GIVEN two plugins with the same price provider id", func(t *testing.T) {
+		_, err := plugin.NewRegistry(shop, plugin.Plugin{
+			ID:         "other",
+			Valuations: []valuation.Provider{fakePrices{"shop-prices"}},
+		})
+
+		t.Run("THEN they are refused", func(t *testing.T) {
+			assert.ErrorIs(t, err, plugin.ErrDuplicate)
 		})
 	})
 }

@@ -1,6 +1,6 @@
 // Package plugin groups what each integration adds to Game Vault. A plugin is one external
 // system (a store, a game database, a barcode service) and brings all of its pieces at once: the
-// source that imports its library, and the cover, details and barcode providers it offers. The
+// source that imports its library, and the cover, details, barcode and price providers it offers. The
 // pieces stay independent at run time (a store's cover provider works without an account of that
 // store, through the game's link to it); the plugin only says they come together.
 //
@@ -14,6 +14,7 @@ import (
 
 	"gamevault/internal/application/media"
 	"gamevault/internal/application/sync"
+	"gamevault/internal/application/valuation"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/source"
 )
@@ -36,6 +37,9 @@ type Plugin struct {
 	Covers   []media.CoverProvider
 	Metadata []media.MetadataProvider
 	Barcodes []media.BarcodeProvider
+
+	// Valuations estimate second-hand prices of physical copies.
+	Valuations []valuation.Provider
 }
 
 // Registry holds the plugins compiled into Game Vault.
@@ -84,7 +88,7 @@ func NewRegistry(plugins ...Plugin) (*Registry, error) {
 }
 
 func (p Plugin) mediaDescriptors() []provider.Descriptor {
-	out := make([]provider.Descriptor, 0, len(p.Covers)+len(p.Metadata)+len(p.Barcodes))
+	out := make([]provider.Descriptor, 0, len(p.Covers)+len(p.Metadata)+len(p.Barcodes)+len(p.Valuations))
 	for _, c := range p.Covers {
 		out = append(out, c.Descriptor())
 	}
@@ -95,6 +99,10 @@ func (p Plugin) mediaDescriptors() []provider.Descriptor {
 
 	for _, b := range p.Barcodes {
 		out = append(out, b.Descriptor())
+	}
+
+	for _, v := range p.Valuations {
+		out = append(out, v.Descriptor())
 	}
 
 	return out
@@ -120,6 +128,20 @@ func (r *Registry) Media() media.Providers {
 		out.Covers = append(out.Covers, p.Covers...)
 		out.Metadata = append(out.Metadata, p.Metadata...)
 		out.Barcodes = append(out.Barcodes, p.Barcodes...)
+
+		for _, v := range p.Valuations {
+			out.Valuations = append(out.Valuations, v)
+		}
+	}
+
+	return out
+}
+
+// Valuations returns every plugin's price providers, for the valuation service.
+func (r *Registry) Valuations() []valuation.Provider {
+	var out []valuation.Provider
+	for _, p := range r.plugins {
+		out = append(out, p.Valuations...)
 	}
 
 	return out

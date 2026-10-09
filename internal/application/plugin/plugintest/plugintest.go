@@ -1,5 +1,5 @@
 // Package plugintest checks that a plugin is complete before it reaches the UI: ids and names set,
-// every text it shows translated, every media provider in the right chain with a default place,
+// every text it shows translated, every provider (media or price) in the right chain with a default place,
 // and every store it links games to named. cmd/gamevault runs it on every registered plugin, so a
 // new plugin is checked without writing anything.
 package plugintest
@@ -110,7 +110,7 @@ func Problems(p plugin.Plugin, tr Translations) []string {
 		c.add("plugin %q: needs an ID and a Name", p.ID)
 	}
 
-	if len(p.Sources)+len(p.Covers)+len(p.Metadata)+len(p.Barcodes) == 0 {
+	if len(p.Sources)+len(p.Covers)+len(p.Metadata)+len(p.Barcodes)+len(p.Valuations) == 0 {
 		c.add("plugin %q: adds nothing (no source and no provider)", p.ID)
 	}
 
@@ -128,6 +128,10 @@ func Problems(p plugin.Plugin, tr Translations) []string {
 
 	for _, b := range p.Barcodes {
 		c.provider(p.ID, b, provider.KindBarcode)
+	}
+
+	for _, v := range p.Valuations {
+		c.provider(p.ID, v, provider.KindValuation)
 	}
 
 	return c.problems

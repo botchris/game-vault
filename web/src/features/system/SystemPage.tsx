@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { errorMessage, systemClient } from '../../api/client';
+import { errorMessage, systemClient, valuationClient } from '../../api/client';
 import { Alert, useFormatters } from '../../components/ui';
 import type { Backup, GetStatusResponse } from '../../gen/gamevault/v1/system_pb';
 import type { SyncReport } from '../../gen/gamevault/v1/source_pb';
-import { currencyList, regionCurrency } from '../../lib/money';
+import type { GetCollectionValueResponse } from '../../gen/gamevault/v1/valuation_pb';
+import { currencyList, formatAmount, regionCurrency } from '../../lib/money';
 import { downloadBytes, toDate } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
 import SecurityCard from './SecurityCard';
@@ -30,11 +31,17 @@ export default function SystemPage() {
   const [status, setStatus] = useState<GetStatusResponse | null>(null);
   const [backups, setBackups] = useState<Backup[]>([]);
   const [photoStore, setPhotoStore] = useState(0n);
+  const [value, setValue] = useState<GetCollectionValueResponse | null>(null);
   const [busy, setBusy] = useState('');
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string; report?: SyncReport } | null>(null);
 
   const load = useCallback(async () => {
-    const [st, bk, prefs] = await Promise.all([systemClient.getStatus({}), systemClient.listBackups({}), systemClient.getPreferences({})]);
+    const [st, bk, prefs, val] = await Promise.all([systemClient.getStatus({}), systemClient.listBackups({}), systemClient.getPreferences({}),
+      valuationClient.getCollectionValue({}).catch((e) => {
+        setNotice({ tone: 'error', text: errorMessage(e) }); // the rest of the page still works
+        return null;
+      })]);
+    setValue(val);
     setStatus(st);
     setBackups(bk.backups);
     setPhotoStore(bk.photoStoreBytes);
@@ -114,6 +121,28 @@ export default function SystemPage() {
       </section>
 
       <SecurityCard />
+
+      {/* Only sources with something to add up: before the first estimates there is nothing to show. */}
+      {value && value.totals.some((v) => v.copies > 0 || v.otherCurrency > 0) && (
+        <section className="card">
+          <h2>{t('system.collectionValue')}</h2>
+          {!value.currency && <p className="muted">{t('system.valueNoCurrency')}</p>}
+          {value.currency && value.totals.filter((v) => v.copies > 0 || v.otherCurrency > 0).map((v) => {
+            const money = (minor: bigint) => formatAmount(minor, value.currency, i18n.language);
+            const other = v.otherCurrency > 0 && t('system.valueOther', { count: v.otherCurrency });
+            if (v.copies === 0) return <p key={v.provider} className="muted">{v.name}: {other}</p>;
+            return (
+              <p key={v.provider}>
+                {v.buyCashMinor > 0n || v.buyCreditMinor > 0n
+                  ? t('system.valueShop', { name: v.name, sell: money(v.sellMinor), cash: money(v.buyCashMinor), credit: money(v.buyCreditMinor) })
+                  : t('system.valueListed', { name: v.name, sell: money(v.sellMinor) })}
+                {' · '}<span className="muted">{t('system.valueCopies', { count: v.copies })}</span>
+                {other && <span className="muted"> · {other}</span>}
+              </p>
+            );
+          })}
+        </section>
+      )}
 
       <section className="card">
         <div className="section-head">

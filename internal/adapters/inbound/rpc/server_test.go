@@ -31,6 +31,7 @@ import (
 	"gamevault/internal/application/sync"
 	"gamevault/internal/application/system"
 	"gamevault/internal/application/transfer"
+	"gamevault/internal/application/valuation"
 	"gamevault/internal/domain/auth"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
@@ -278,6 +279,7 @@ type clients struct {
 	boxart    *fakeBoxArt
 	boxDet    *fakeBoxDetails
 	metadata  gamevaultv1connect.MetadataServiceClient
+	valuation gamevaultv1connect.ValuationServiceClient
 	sources   gamevaultv1connect.SourceServiceClient
 	system    gamevaultv1connect.SystemServiceClient
 	logs      gamevaultv1connect.LogServiceClient
@@ -327,10 +329,12 @@ func newServer(t *testing.T, p sync.Provider) clients {
 	boxDet := &fakeBoxDetails{}
 	mediaSvc := media.NewService(games, sqlite.NewProviderRepository(db), covers, photos, sqlite.NewDetailsStore(db), images, time.Now, log,
 		media.Providers{
-			Covers:   []media.CoverProvider{fakeSteamStore{}, boxart},
-			Barcodes: []media.BarcodeProvider{&fakeBarcodes{}},
-			Metadata: []media.MetadataProvider{fakeStoreDetails{}, boxDet},
+			Covers:     []media.CoverProvider{fakeSteamStore{}, boxart},
+			Barcodes:   []media.BarcodeProvider{&fakeBarcodes{}},
+			Metadata:   []media.MetadataProvider{fakeStoreDetails{}, boxDet},
+			Valuations: []media.Provider{fakePrices{}},
 		})
+	valuationSvc := valuation.NewService(games, db, mediaSvc, sqlite.NewSettingsRepository(db), time.Now, log, fakePrices{})
 	logsSvc := logs.NewService(sqlite.NewSettingsRepository(db), logFiles, logFiles)
 	authSvc := appauth.NewService(sqlite.NewAuthRepository(db), sqlite.NewSettingsRepository(db), passwordhash.Bcrypt{Cost: 4}, noCerts{}, time.Now, log)
 	syncSvc := sync.NewService(sources, games, db, nil, time.Now, log, p)
@@ -340,6 +344,7 @@ func newServer(t *testing.T, p sync.Provider) clients {
 		Logs:        rpc.NewLogHandler(logsSvc),
 		Media:       mediaSvc,
 		MediaRPC:    rpc.NewMediaHandler(mediaSvc),
+		Valuation:   rpc.NewValuationHandler(valuationSvc),
 		Games:       rpc.NewGameHandler(catalog.NewService(games, db, time.Now, mediaSvc, photos), mediaSvc, syncSvc),
 		Sources:     rpc.NewSourceHandler(syncSvc),
 		System: rpc.NewSystemHandler(
@@ -359,6 +364,7 @@ func newServer(t *testing.T, p sync.Provider) clients {
 		covers:    gamevaultv1connect.NewCoverServiceClient(http.DefaultClient, srv.URL),
 		lookup:    gamevaultv1connect.NewLookupServiceClient(http.DefaultClient, srv.URL),
 		metadata:  gamevaultv1connect.NewMetadataServiceClient(http.DefaultClient, srv.URL),
+		valuation: gamevaultv1connect.NewValuationServiceClient(http.DefaultClient, srv.URL),
 		boxart:    boxart,
 		boxDet:    boxDet,
 		images:    images,
@@ -1058,4 +1064,36 @@ func TestImportCsv_defaultCurrency(t *testing.T) {
 			assert.Equal(t, "GBP", list.Msg.Games[0].Copies[0].Details.Price.GetCurrency())
 		})
 	})
+}
+
+// fakePrices is a price provider that knows one barcode.
+type fakePrices struct{}
+
+func (fakePrices) Descriptor() provider.Descriptor {
+	return provider.Descriptor{
+		ID:               "fake-prices",
+		Kind:             provider.KindValuation,
+		Name:             "Fake prices",
+		EnabledByDefault: true,
+		DefaultOrder:     10,
+	}
+}
+
+func (fakePrices) Test(context.Context, schema.Settings) error { return nil }
+
+func (fakePrices) Estimate(_ context.Context, _ schema.Settings, code game.Barcode) (game.Estimate, error) {
+	if code != "5030934110075" {
+		return game.Estimate{}, valuation.ErrNotListed
+	}
+
+	return game.Estimate{
+		Sell: game.Money{
+			Amount:   2000,
+			Currency: "EUR",
+		},
+		BuyCash: game.Money{
+			Amount:   600,
+			Currency: "EUR",
+		},
+	}, nil
 }

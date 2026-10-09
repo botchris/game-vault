@@ -195,11 +195,15 @@ func (g *Game) UpdateCopy(id ID, d CopyDetails, now time.Time) (Copy, error) {
 		return Copy{}, err
 	}
 
+	if d.Kind != KindPhysical || d.Barcode != g.copies[i].Barcode {
+		g.copies[i].clearValuation() // estimates belong to the product the barcode names
+	}
+
 	g.copies[i].CopyDetails = d
 	g.copies[i].UpdatedAt = now
 	g.updatedAt = now
 
-	return g.copies[i], nil
+	return g.copies[i].clone(), nil
 }
 
 // RemoveCopy detaches a copy from the game and returns it.

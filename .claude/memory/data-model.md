@@ -40,3 +40,7 @@ metadata:
   `Info.CoverPhoto`; document fields `photos` / `coverPhoto`, game docs still v2. Backups list
   their photos in `.photos` files; prune by reference, one-day grace. Metadata (GPS included) is
   kept on purpose (user's decision). Next: part 3 second-hand valuation (CeX).
+- **Prices (2026-10-09, part 3):** physical copies with a barcode have `Estimates` (latest per price
+  provider, `provider.KindValuation`) and `NextValuation`; document fields `estimates` /
+  `nextValuation`, game docs still v2. Cleared when the barcode or kind changes. Next possible
+  source: PriceCharting (official, paid, sold prices, PAL sections, USD).

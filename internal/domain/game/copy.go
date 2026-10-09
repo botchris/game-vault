@@ -116,7 +116,17 @@ type Copy struct {
 	CopyDetails
 
 	// Photos are the user's pictures of the copy, in the order they chose.
-	Photos     []Photo
+	Photos []Photo
+
+	// Estimates are the latest second-hand prices, one per provider, sorted by provider. Only
+	// physical copies with a barcode have them.
+	Estimates []Estimate
+
+	// NextValuation is when the prices are next estimated; zero when none is planned.
+	NextValuation time.Time
+
+	// ValuedAt is when the prices were last asked, whatever the sources answered; zero when never.
+	ValuedAt   time.Time
 	SourceID   string // source that manages this copy; empty for manual copies
 	ExternalID string // stable identifier inside the source
 	CreatedAt  time.Time
@@ -177,6 +187,11 @@ func (c *Copy) applyImport(in CopyDetails) bool {
 
 	if !c.Kind.Allows(c.Status) {
 		c.Status = c.Kind.DefaultStatus()
+	}
+
+	// Estimates belong to the product the barcode names.
+	if c.Kind != KindPhysical || c.Barcode != before.Barcode {
+		c.clearValuation()
 	}
 
 	return c.CopyDetails != before
