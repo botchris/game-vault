@@ -34,3 +34,17 @@ export function originAllowed(origin, enabled) {
 export function hostsGranted(hosts, remembered) {
   return hosts.every((h) => remembered.includes(h));
 }
+
+/**
+ * Whether a confirmation may be remembered for a Game Vault address: on https, or on this computer.
+ * On plain http over a network, anyone on that network could inject a script into the page and
+ * reuse a remembered confirmation silently, so the user confirms each sign-in instead.
+ */
+export function rememberAllowed(origin) {
+  try {
+    const u = new URL(origin);
+    return u.protocol === 'https:' || ['localhost', '127.0.0.1', '[::1]'].includes(u.hostname);
+  } catch {
+    return false;
+  }
+}

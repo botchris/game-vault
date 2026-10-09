@@ -5,6 +5,9 @@
 import { validate } from './recipe.js';
 import { cookieHeader, jsonField, redirectValue } from './capture.js';
 
+// How often the engine checks for a capture between page loads.
+const POLL_MS = 3000;
+
 function failure(code, message) {
   const e = new Error(message ?? code);
   e.code = code;
@@ -19,6 +22,7 @@ export function startRun(recipe, api) {
   let done = false;
   let unsubscribe = () => {};
   let stopTimer = () => {};
+  let stopPoll = () => {};
   let resolve;
   let reject;
   const result = new Promise((res, rej) => { resolve = res; reject = rej; });
@@ -31,6 +35,7 @@ export function startRun(recipe, api) {
     done = true;
     unsubscribe();
     stopTimer();
+    stopPoll();
     if (tabId !== undefined && !tabGone) api.closeTab(tabId);
     if (error) reject(error);
     else resolve(value);
@@ -45,13 +50,18 @@ export function startRun(recipe, api) {
   };
 
   const attempt = async (url) => {
-    if (done || kind === 'redirect') return;
+    if (done) return;
+    if (kind === 'redirect') {
+      const value = redirectValue(url, capture.prefix, capture.param);
+      if (value) finish(null, value);
+      return;
+    }
     try {
       if (!(await ready(url))) return;
       let value = '';
       if (kind === 'cookie') value = await api.getCookie(capture.url, capture.name, tabId);
       if (kind === 'cookies') value = cookieHeader(await api.getCookies(capture.url, tabId));
-      if (kind === 'storage' && (url ?? '').startsWith(capture.origin + (capture.path ?? ''))) value = await api.readStorage(tabId, capture.key);
+      if (kind === 'storage' && (url ?? '').startsWith(capture.origin + (capture.path ?? ''))) value = await api.readStorage(tabId, capture.key, capture.origin);
       if (kind === 'fetch') value = jsonField(await api.fetchText(capture.url), capture.field);
       if (value && (!recipe.when?.contains || value.includes(recipe.when.contains))) finish(null, value);
     } catch {
@@ -62,6 +72,10 @@ export function startRun(recipe, api) {
   (async () => {
     try {
       tabId = await api.openTab(recipe.open, Boolean(recipe.private));
+      if (done) { // cancelled while the tab was opening
+        api.closeTab(tabId);
+        return;
+      }
       unsubscribe = api.watchTab(tabId, (event) => {
         if (event.kind === 'removed') finish(failure('cancelled', 'the sign-in tab was closed'), undefined, true);
         else if (event.kind === 'committed' && kind === 'redirect') {
@@ -70,7 +84,10 @@ export function startRun(recipe, api) {
         } else if (event.kind === 'loaded') attempt(event.url);
       });
       stopTimer = api.setTimer(timeoutMs, () => finish(failure('timeout', 'the sign-in took too long')));
-      await attempt(await api.tabURL(tabId)); // a user already signed in is captured at once
+      // Logins that finish without loading a page (a modal, a single-page app) are caught by
+      // checking every few seconds too.
+      stopPoll = api.setInterval(POLL_MS, async () => { if (!done) attempt(await api.tabURL(tabId)); });
+      await attempt(await api.tabURL(tabId)); // a user already signed in (or redirected already) is captured at once
     } catch (e) {
       finish(failure('failed', e?.message));
     }

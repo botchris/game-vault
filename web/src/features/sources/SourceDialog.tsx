@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { errorMessage, sourceClient } from '../../api/client';
 import { FieldHelp } from '../../components/FieldHelp';
@@ -32,6 +32,16 @@ export default function SourceDialog({ type, source, onClose, onSaved, onDeleted
   const [connector, setConnector] = useState<{ version: string; recipeVersion: number } | null>(null);
   const [connecting, setConnecting] = useState<{ key: string; cancel: () => void } | null>(null);
   useEffect(() => { detect().then(setConnector); }, []);
+  // Closing the dialog cancels a sign-in still running (its tab closes) and drops its value.
+  const mounted = useRef(true);
+  const running = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      running.current?.();
+    };
+  }, []);
 
   const input = (with_ = settings) => ({ type: type.id, name, enabled, syncIntervalHours: syncHours, settings: with_ });
   const recipeOf = (f: SettingField): Recipe | null => {
@@ -81,23 +91,26 @@ export default function SourceDialog({ type, source, onClose, onSaved, onDeleted
 
   // Connect: the extension opens the store's sign-in and returns the credential; it is tested and,
   // when it works, saved. A failing test keeps the value in the field, with the error.
-const connectField = async (f: SettingField, recipe: Recipe) => {
+  const connectField = async (f: SettingField, recipe: Recipe) => {
     const run = connect(type.id, f.key, recipe);
+    running.current = run.cancel;
     setConnecting({ key: f.key, cancel: run.cancel });
     setResult(null);
     try {
       const value = await run.result;
+      if (!mounted.current) return;
       const next = { ...settings, [f.key]: value };
       setSettings(next);
-      if (await test(next)) await saveWith(next);
+      if (await test(next) && mounted.current) await saveWith(next);
     } catch (e) {
+      if (!mounted.current) return;
       const code = e instanceof ConnectorError ? e.code : 'failed';
       setResult({ tone: 'error', text: t(`connector.error.${code}`, { defaultValue: errorMessage(e) }) });
     } finally {
-      setConnecting(null);
+      running.current = null;
+      if (mounted.current) setConnecting(null);
     }
   };
-
 
   const remove = async () => {
     if (!source || !confirm(t('sources.confirmDelete', { name: source.name }))) return;

@@ -690,7 +690,7 @@
     "openSignIn": "Abrir la página de inicio de sesión",
     "connect": "Conectar",
     "waiting": "Inicia sesión en la pestaña que se ha abierto…",
-    "install": "En un clic con la extensión Game Vault Connector.",
+    "install": "En un clic con la extensión Game Vault Connector. ¿Ya la tienes? Abre su icono en esta página y pulsa Enable.",
     "howTo": "Cómo instalarla",
     "update": "Actualiza la extensión Game Vault Connector para conectar esta tienda.",
     "private": "Ubisoft se abre en una ventana privada si permitiste la extensión en incógnito; si no, el uso que Game Vault hace de la sesión cerrará la sesión de Ubisoft en ese navegador.",

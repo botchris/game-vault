@@ -2,6 +2,7 @@
 // (window.postMessage): detect it, and run a source's sign-in recipe to get a credential.
 
 const TYPE = 'gamevault-connector';
+const HELLO_TIMEOUT_MS = 1500;
 const CONNECT_TIMEOUT_MS = 11 * 60 * 1000; // a little over the extension's own maximum (10 min)
 
 /** A sign-in recipe as Game Vault sends it (schema.SignInRecipe); the extension validates it. */
@@ -49,14 +50,20 @@ function request(body: Record<string, unknown>, timeoutMs: number): { reply: Pro
   return { reply, id };
 }
 
-/** The extension's version when it is installed and enabled on this address; null otherwise. */
+/**
+ * The extension's version when it is installed and enabled on this address; null otherwise. A
+ * busy browser may take a moment to wake the extension up, so it asks twice before giving up.
+ */
 export async function detect(): Promise<{ version: string; recipeVersion: number } | null> {
-  try {
-    const r = await request({ op: 'hello' }, 600).reply;
-    return r.op === 'hello' ? { version: r.version ?? '', recipeVersion: r.recipeVersion ?? 0 } : null;
-  } catch {
-    return null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const r = await request({ op: 'hello' }, HELLO_TIMEOUT_MS).reply;
+      return r.op === 'hello' ? { version: r.version ?? '', recipeVersion: r.recipeVersion ?? 0 } : null;
+    } catch {
+      // No answer yet: ask once more.
+    }
   }
+  return null;
 }
 
 /** Runs a recipe: the extension opens the store's sign-in and resolves with the captured value. */

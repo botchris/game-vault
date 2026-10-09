@@ -690,7 +690,7 @@
     "openSignIn": "Open the sign-in page",
     "connect": "Connect",
     "waiting": "Sign in in the tab that opened…",
-    "install": "One click with the Game Vault Connector browser extension.",
+    "install": "One click with the Game Vault Connector browser extension. Already installed? Open its icon on this page and press Enable.",
     "howTo": "How to install it",
     "update": "Update the Game Vault Connector extension to connect this store.",
     "private": "Ubisoft opens in a private window if you allowed the extension in incognito; otherwise Game Vault's use of the session will sign that browser out of Ubisoft.",

@@ -1,4 +1,4 @@
-import { registerBridge, bridgeId } from './lib/bridges.js';
+import { bridgeId, enableOrigin } from './lib/bridges.js';
 
 const $ = (id) => document.getElementById(id);
 const load = async (k, d) => (await chrome.storage.local.get(k))[k] ?? d;
@@ -16,10 +16,14 @@ async function render() {
     b.textContent = `Enable on ${here}`;
     b.onclick = async () => {
       const { protocol, hostname } = new URL(here);
-      if (!await chrome.permissions.request({ origins: [`${protocol}//${hostname}/*`] })) return;
-      await chrome.storage.local.set({ origins: [...origins, here] });
-      await registerBridge(here);
-      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['bridge.js'] });
+      // Firefox closes this popup for the permission prompt: the background finishes from here.
+      await chrome.storage.local.set({ pendingEnable: { origin: here, tabId: tab.id } });
+      if (!await chrome.permissions.request({ origins: [`${protocol}//${hostname}/*`] })) {
+        await chrome.storage.local.remove('pendingEnable');
+        return;
+      }
+      await chrome.storage.local.remove('pendingEnable');
+      await enableOrigin(here, tab.id).catch(() => {}); // the background may be finishing it too
       render();
     };
     const p = document.createElement('p');

@@ -14,7 +14,11 @@ function fakeBrowser({ url = 'about:blank' } = {}) {
     tabURL: async () => b.url,
     getCookie: async (u, name) => b.cookies[name] ?? '',
     getCookies: async () => Object.entries(b.cookies).map(([name, value]) => ({ name, value })),
-    readStorage: async (id, key) => b.storage[key] ?? '',
+    storageOrigins: [],
+    readStorage: async (id, key, origin) => { b.storageOrigins.push(origin); return b.storage[key] ?? ''; },
+    pollFn: null, polling: false,
+    setInterval: (ms, fn) => { b.pollFn = fn; b.polling = true; return () => { b.polling = false; b.pollFn = null; }; },
+    poll: async () => { b.pollFn?.(); await tick(); await tick(); },
     fetchText: async (u) => b.fetches[u] ?? '{}',
     closeTab: async (id) => { b.closed.push(id); },
     setTimer: (ms, fn) => { b.timeout = fn; return () => { b.timeout = null; }; },
@@ -124,4 +128,47 @@ test('an invalid recipe is refused before anything opens', () => {
   const b = fakeBrowser();
   assert.throws(() => startRun({ ...humble, open: 'http://x.com/' }, b), (e) => e.code === 'invalid');
   assert.deepEqual(b.opened, []);
+});
+
+test('a value that appears without a page load (an SPA login) is caught by polling', async () => {
+  const b = fakeBrowser();
+  const run = startRun({ version: 1, open: 'https://www.fanatical.com/en/', when: { contains: '"authenticated":true' },
+    capture: { storage: { origin: 'https://www.fanatical.com', key: 'bsauth' } } }, b);
+  await tick();
+  await b.fire('loaded', 'https://www.fanatical.com/en/');
+  b.storage.bsauth = '{"authenticated":true,"token":"t"}';
+  await b.poll();
+  assert.equal(await run.result, '{"authenticated":true,"token":"t"}');
+  assert.equal(b.polling, false, 'polling stops once captured');
+});
+
+test('a redirect that happened before watching started is caught from the tab address', async () => {
+  const b = fakeBrowser({ url: 'https://embed.gog.com/on_login_success?origin=client&code=early' });
+  const run = startRun({ version: 1, open: 'https://auth.gog.com/auth?x=1', hosts: ['embed.gog.com'],
+    capture: { redirect: { prefix: 'https://embed.gog.com/on_login_success', param: 'code' } } }, b);
+  assert.equal(await run.result, 'early');
+});
+
+test('storage is read only from the capture origin', async () => {
+  const b = fakeBrowser();
+  const run = startRun({ version: 1, open: 'https://connect.ubisoft.com/login?x=1',
+    capture: { storage: { origin: 'https://connect.ubisoft.com', key: 'PRODrememberMe', path: '/ready' } } }, b);
+  await tick();
+  b.storage.PRODrememberMe = 'ticket';
+  await b.fire('loaded', 'https://connect.ubisoft.com/ready');
+  assert.equal(await run.result, 'ticket');
+  assert.deepEqual(b.storageOrigins, ['https://connect.ubisoft.com']);
+});
+
+test('a cancel before the tab opened still closes it when it opens', async () => {
+  const b = fakeBrowser();
+  let open;
+  b.openTab = () => new Promise((r) => { open = r; });
+  const run = startRun(humble, b);
+  run.cancel();
+  open(9);
+  await tick(); await tick();
+  await assert.rejects(run.result, (e) => e.code === 'cancelled');
+  assert.deepEqual(b.closed, [9]);
+  assert.equal(b.handler, null, 'no listeners left behind');
 });
