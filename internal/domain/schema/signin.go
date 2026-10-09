@@ -126,6 +126,16 @@ func (r SignInRecipe) Validate(helpURL string) error {
 		return err
 	}
 
+	// A redirect is its own condition: a When on it would never be checked.
+	if r.When != nil && r.Capture.Redirect != nil {
+		return errors.New("a redirect sign-in recipe takes no condition")
+	}
+
+	// The extension's own requests carry the normal window's session, not the private one's.
+	if r.Private && (r.Capture.Fetch != nil || r.When != nil && r.When.Fetch != nil) {
+		return errors.New("a private sign-in recipe cannot fetch")
+	}
+
 	if r.When != nil {
 		if r.When.URLPrefix != "" {
 			addresses = append(addresses, r.When.URLPrefix)

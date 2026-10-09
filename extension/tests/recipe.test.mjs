@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { validate } from '../lib/recipe.js';
-import { cookieHeader, hostsGranted, jsonField, originAllowed, redirectValue } from '../lib/capture.js';
+import { cookieHeader, hostsGranted, jsonField, originAllowed, prefixMatch, redirectValue } from '../lib/capture.js';
 
 const humble = () => ({
   version: 1,
@@ -29,6 +29,11 @@ test('broken or hostile recipes are refused, newer ones as unsupported', () => {
       (r) => { r.hosts = ['https://x.com/']; },
       (r) => { r.timeoutSeconds = 601; },
       (r) => { r.capture.cookie.name = ''; },
+      // A condition on a redirect would never be checked: refused rather than silently ignored.
+      (r) => { r.capture = { redirect: { prefix: 'https://www.humblebundle.com/done', param: 'code' } }; },
+      // A private window's session is not the one an extension fetch sends.
+      (r) => { r.private = true; r.when = { fetch: { url: 'https://www.humblebundle.com/api', field: 'a' } }; },
+      (r) => { r.private = true; delete r.when; r.capture = { fetch: { url: 'https://www.humblebundle.com/api', field: 'a' } }; },
     ],
     unsupported: [(r) => { r.version = 2; }],
   };
@@ -55,4 +60,17 @@ test('capture helpers', () => {
   assert.equal(originAllowed('https://evil.example', []), false);
   assert.equal(hostsGranted(['a.com', 'b.com'], ['b.com', 'a.com']), true);
   assert.equal(hostsGranted(['a.com', 'c.com'], ['a.com']), false);
+});
+
+test('an address matches a prefix only up to a path, query or fragment boundary', () => {
+  assert.equal(prefixMatch('https://connect.ubisoft.com/ready', 'https://connect.ubisoft.com/ready'), true);
+  assert.equal(prefixMatch('https://connect.ubisoft.com/ready?x=1', 'https://connect.ubisoft.com/ready'), true);
+  assert.equal(prefixMatch('https://connect.ubisoft.com/ready/', 'https://connect.ubisoft.com/ready'), true);
+  assert.equal(prefixMatch('https://connect.ubisoft.com/ready#a', 'https://connect.ubisoft.com/ready'), true);
+  assert.equal(prefixMatch('https://connect.ubisoft.com/readyX', 'https://connect.ubisoft.com/ready'), false);
+  assert.equal(prefixMatch('https://www.fanatical.com.evil.example/', 'https://www.fanatical.com'), false);
+  assert.equal(prefixMatch('https://www.fanatical.com/en/', 'https://www.fanatical.com'), true);
+  assert.equal(prefixMatch('https://www.humblebundle.com/home/keys', 'https://www.humblebundle.com/home/'), true);
+  assert.equal(prefixMatch(undefined, 'https://x.com'), false);
+  assert.equal(redirectValue('https://embed.gog.com/on_login_successX?code=x', 'https://embed.gog.com/on_login_success', 'code'), '');
 });

@@ -693,7 +693,8 @@
     "install": "One click with the Game Vault Connector browser extension. Already installed? Open its icon on this page and press Enable.",
     "howTo": "How to install it",
     "update": "Update the Game Vault Connector extension to connect this store.",
-    "private": "Ubisoft opens in a private window if you allowed the extension in incognito; otherwise Game Vault's use of the session will sign that browser out of Ubisoft.",
+    "privateOn": "Opens in a private window, so this browser stays signed in to the store.",
+    "privateOff": "To keep this browser signed in, allow the extension in incognito (its details page in the browser's extensions). Otherwise it opens in a normal tab, and Game Vault's use of the session will sign this browser out of the store.",
     "error": {
       "denied": "The extension was not allowed to read that store, or this address is not enabled: open the extension's icon and press Enable on this address.",
       "busy": "A sign-in is already running.",

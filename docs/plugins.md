@@ -92,7 +92,8 @@ extension can fill it from the store's own sign-in: what to open, and one captur
 `Cookies`, `Storage`, `Redirect` or `Fetch`). Cookies and storage can exist before the user signs
 in, so give those a readiness condition (`When`: the signed-in page's `URLPrefix`, a value that
 `Contains` something, or a `Fetch` that only answers when signed in); a storage `Path` reached only
-after sign-in also counts. List any other host the capture reads in `Hosts`. `plugintest` validates
+after sign-in also counts. A `Redirect` takes no `When`, and a `Private` recipe cannot fetch.
+Prefixes match only up to a `/`, `?` or `#`. List any other host the capture reads in `Hosts`. `plugintest` validates
 every recipe. A capture the five primitives cannot express needs a new recipe version and an
 extension update: discuss it first.
 

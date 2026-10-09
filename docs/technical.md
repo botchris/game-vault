@@ -204,12 +204,20 @@ Game Vault tab that asked. It never signs in for the user and never works around
   session). Every address is https and on the opened host or a listed one; Go
   (`SignInRecipe.Validate`, run by `plugintest` for every source) and the extension check it.
   Cookie and storage captures need a readiness condition (anonymous values exist before sign-in).
+  A redirect recipe takes no condition (the redirect is one), and a private recipe cannot fetch
+  (the extension's requests carry the normal window's session). Prefixes (`urlPrefix`, a storage
+  `origin` + `path`, a redirect `prefix`) match only up to a `/`, `?` or `#`: `/ready` does not
+  match `/readyX`.
 - **Protocol.** A bridge content script, registered only on Game Vault addresses the user enabled,
   relays `window.postMessage` requests (`type: "gamevault-connector"`, `dir: "request"`, ops
-  `hello`, `connect`, `cancel`) to the background over a port, and the answers back (`result` with
+  `hello`, `connect`, `cancel`) to the background over a port, and the answers back (`hello` says
+  the version, the recipe version and whether private windows are allowed; `result` with
   the value, or `error` with a code: `denied`, `busy`, `invalid`, `unsupported`, `cancelled`,
   `timeout`, `failed`). It checks the message's window and origin; the background checks the
-  sender's exact origin (port included) against the enabled list.
+  sender's exact origin (port included) against the enabled list. Only the tab that started a
+  sign-in can cancel it. The bridge pings the port every 20 seconds so a long sign-in keeps the
+  service worker alive; closing the dialog or the page cancels the sign-in and closes its tab. The
+  page gives up a minute after the recipe's own timeout.
 - **Permissions.** No host permissions at install. A Game Vault address is enabled from the
   extension's popup (the browser's prompt). The first time an address asks for a store host, the
   extension's own window asks Allow / Deny (and remembers it); Allow also requests the browser's
@@ -217,7 +225,9 @@ Game Vault tab that asked. It never signs in for the user and never works around
   addresses and confirmed hosts, never credentials.
 - **Dialog.** With the extension enabled, each field with a recipe shows **Connect**: the value
   fills the field, Test connection runs, and the source is saved when it passes (otherwise the
-  error is shown and the value kept). Every field has **Open the sign-in page**; without the
+  error is shown and the value kept); Test, Save and Delete wait while it runs. A private recipe
+  says whether it will open in a private window or, when the extension is not allowed in
+  incognito, that the browser will be signed out of the store. Every field has **Open the sign-in page**; without the
   extension, a hint links to `extension/README.md`. Every credential field also accepts what is
   naturally copied (a whole address, the JSON a page shows, a whole `Cookie` header…).
 

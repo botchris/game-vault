@@ -3,13 +3,17 @@
 
 const TYPE = 'gamevault-connector';
 const HELLO_TIMEOUT_MS = 1500;
-const CONNECT_TIMEOUT_MS = 11 * 60 * 1000; // a little over the extension's own maximum (10 min)
+// The page gives up a minute after the extension would (its default is five minutes), so the
+// extension's own timeout error is the one the user sees.
+const DEFAULT_SIGN_IN_SECONDS = 300;
+const MARGIN_MS = 60 * 1000;
 
 /** A sign-in recipe as Game Vault sends it (schema.SignInRecipe); the extension validates it. */
 export interface Recipe {
   version: number;
   open: string;
   private?: boolean;
+  timeoutSeconds?: number;
   [key: string]: unknown;
 }
 
@@ -28,6 +32,7 @@ interface Reply {
   id: string;
   version?: string;
   recipeVersion?: number;
+  privateAllowed?: boolean;
   value?: string;
   code?: string;
   message?: string;
@@ -50,15 +55,23 @@ function request(body: Record<string, unknown>, timeoutMs: number): { reply: Pro
   return { reply, id };
 }
 
+/** The extension as it introduced itself: privateAllowed says whether it may open private windows. */
+export interface Connector {
+  version: string;
+  recipeVersion: number;
+  privateAllowed: boolean;
+}
+
 /**
  * The extension's version when it is installed and enabled on this address; null otherwise. A
  * busy browser may take a moment to wake the extension up, so it asks twice before giving up.
  */
-export async function detect(): Promise<{ version: string; recipeVersion: number } | null> {
+export async function detect(): Promise<Connector | null> {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const r = await request({ op: 'hello' }, HELLO_TIMEOUT_MS).reply;
-      return r.op === 'hello' ? { version: r.version ?? '', recipeVersion: r.recipeVersion ?? 0 } : null;
+      if (r.op !== 'hello') return null;
+      return { version: r.version ?? '', recipeVersion: r.recipeVersion ?? 0, privateAllowed: !!r.privateAllowed };
     } catch {
       // No answer yet: ask once more.
     }
@@ -68,7 +81,8 @@ export async function detect(): Promise<{ version: string; recipeVersion: number
 
 /** Runs a recipe: the extension opens the store's sign-in and resolves with the captured value. */
 export function connect(source: string, field: string, recipe: Recipe): { result: Promise<string>; cancel(): void } {
-  const { reply, id } = request({ op: 'connect', source, field, recipe }, CONNECT_TIMEOUT_MS);
+  const timeoutMs = (recipe.timeoutSeconds || DEFAULT_SIGN_IN_SECONDS) * 1000 + MARGIN_MS;
+  const { reply, id } = request({ op: 'connect', source, field, recipe }, timeoutMs);
   const result = reply.then((r) => {
     if (r.op === 'result' && r.value) return r.value;
     throw new ConnectorError(r.code ?? 'failed', r.message);

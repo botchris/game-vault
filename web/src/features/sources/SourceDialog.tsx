@@ -5,7 +5,7 @@ import { FieldHelp } from '../../components/FieldHelp';
 import { Icon } from '../../components/Icon';
 import { Alert, Modal, useFormatters } from '../../components/ui';
 import { SettingField_Kind, type SettingField, type Source, type SourceType } from '../../gen/gamevault/v1/source_pb';
-import { connect, ConnectorError, detect, type Recipe } from '../../lib/connector';
+import { connect, ConnectorError, detect, type Connector, type Recipe } from '../../lib/connector';
 import { toDate } from '../../lib/model';
 
 interface Props {
@@ -29,7 +29,7 @@ export default function SourceDialog({ type, source, onClose, onSaved, onDeleted
   const [testing, setTesting] = useState(false);
   const [result, setResult] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
   // The Game Vault Connector extension, when installed and enabled on this address.
-  const [connector, setConnector] = useState<{ version: string; recipeVersion: number } | null>(null);
+  const [connector, setConnector] = useState<Connector | null>(null);
   const [connecting, setConnecting] = useState<{ key: string; cancel: () => void } | null>(null);
   useEffect(() => { detect().then(setConnector); }, []);
   // Closing the dialog cancels a sign-in still running (its tab closes) and drops its value.
@@ -50,6 +50,8 @@ export default function SourceDialog({ type, source, onClose, onSaved, onDeleted
   // A required risk not accepted yet blocks testing and saving (the server refuses it too).
   const consents = type.fields.filter((f) => f.kind === SettingField_Kind.CONSENT);
   const consentMissing = consents.some((f) => f.required && settings[f.key] !== 'yes');
+  // While a sign-in runs the field is about to change: testing, saving and deleting wait for it.
+  const locked = busy || !!connecting;
 
   // Tests the given settings (the form's by default) and reports whether they work.
   const test = async (with_ = settings) => {
@@ -130,12 +132,12 @@ export default function SourceDialog({ type, source, onClose, onSaved, onDeleted
   return (
     <Modal title={source ? t('sources.editTitle', { name: source.name }) : t('sources.addTitle', { type: type.name })} onClose={onClose}
       footer={<>
-        {source && <button type="button" className="danger" onClick={remove} disabled={busy}>{t('common.delete')}</button>}
-        <button type="button" onClick={() => test()} disabled={busy || consentMissing}>{testing ? t('sources.testing') : t('sources.test')}</button>
+        {source && <button type="button" className="danger" onClick={remove} disabled={locked}>{t('common.delete')}</button>}
+        <button type="button" onClick={() => test()} disabled={locked || consentMissing}>{testing ? t('sources.testing') : t('sources.test')}</button>
         <span className="spacer" />
         <button type="button" onClick={onClose}>{t('common.cancel')}</button>
-        {!source && <button type="button" onClick={(e) => save(e, true)} disabled={busy || consentMissing}>{t('sources.saveAndSync')}</button>}
-        <button type="submit" form="source-form" className="primary" disabled={busy || consentMissing}>{t('common.save')}</button>
+        {!source && <button type="button" onClick={(e) => save(e, true)} disabled={locked || consentMissing}>{t('sources.saveAndSync')}</button>}
+        <button type="submit" form="source-form" className="primary" disabled={locked || consentMissing}>{t('common.save')}</button>
       </>}>
       <form id="source-form" onSubmit={(e) => save(e)}>
         {consents.map((f) => (
@@ -191,13 +193,13 @@ export default function SourceDialog({ type, source, onClose, onSaved, onDeleted
                   {recipe && connector && recipe.version <= connector.recipeVersion && (
                     connecting?.key === f.key
                       ? <><span className="muted small">{t('connector.waiting')}</span><button type="button" className="small-button" onClick={connecting.cancel}>{t('common.cancel')}</button></>
-                      : <button type="button" className="small-button primary" disabled={busy || !!connecting || consentMissing} onClick={() => connectField(f, recipe)}>{t('connector.connect')}</button>
+                      : <button type="button" className="small-button primary" disabled={locked || consentMissing} onClick={() => connectField(f, recipe)}>{t('connector.connect')}</button>
                   )}
                   {recipe && connector && recipe.version > connector.recipeVersion && <span className="muted small">{t('connector.update')}</span>}
                   {recipe && !connector && <span className="muted small">{t('connector.install')} <a href="https://github.com/botchris/game-vault/tree/main/extension" target="_blank" rel="noreferrer">{t('connector.howTo')}</a></span>}
                 </div>
               )}
-              {recipe?.private && connector && <p className="muted small">{t('connector.private')}</p>}
+              {recipe?.private && connector && <p className="muted small">{t(connector.privateAllowed ? 'connector.privateOn' : 'connector.privateOff')}</p>}
               {/* The sign-in link is the button above, not repeated in the help. */}
               {f.helpKey && <FieldHelp text={t(f.helpKey)} />}
             </div>

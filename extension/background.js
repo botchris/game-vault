@@ -102,10 +102,18 @@ async function handle(msg, port) {
   if (!sender.tab || !originAllowed(origin, await enabledOrigins())) throw coded('denied', 'this address is not enabled in the extension');
   switch (msg.op) {
     case 'hello':
-      return { op: 'hello', version: chrome.runtime.getManifest().version, recipeVersion: RECIPE_VERSION };
-    case 'cancel':
-      running.get(msg.cancelId ?? msg.id)?.cancel();
+      return {
+        op: 'hello',
+        version: chrome.runtime.getManifest().version,
+        recipeVersion: RECIPE_VERSION,
+        // Private recipes fall back to a normal tab without it: the page warns about that case.
+        privateAllowed: await chrome.extension.isAllowedIncognitoAccess(),
+      };
+    case 'cancel': {
+      const run = running.get(msg.cancelId ?? msg.id);
+      if (run?.tab === sender.tab.id) run.cancel(); // only the tab that started a sign-in may cancel it
       return { op: 'cancelled' };
+    }
     case 'connect': {
       if ([...running.values()].some((r) => r.tab === sender.tab.id)) throw coded('busy', 'a sign-in is already running in this tab');
       const { hosts } = validate(msg.recipe);

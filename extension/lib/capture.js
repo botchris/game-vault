@@ -1,8 +1,17 @@
 // Small pure helpers the engine and the background use.
 
-/** The value of param in url when url starts with prefix; '' otherwise. */
+/**
+ * Whether url starts with prefix at a boundary: the prefix ends with '/', or url continues with
+ * '/', '?' or '#' (or ends). So /ready does not match /readyX, nor a host match a longer host.
+ */
+export function prefixMatch(url, prefix) {
+  if (typeof url !== 'string' || !url.startsWith(prefix)) return false;
+  return prefix.endsWith('/') || url.length === prefix.length || '/?#'.includes(url[prefix.length]);
+}
+
+/** The value of param in url when url starts with prefix (see prefixMatch); '' otherwise. */
 export function redirectValue(url, prefix, param) {
-  if (typeof url !== 'string' || !url.startsWith(prefix)) return '';
+  if (!prefixMatch(url, prefix)) return '';
   try { return new URL(url).searchParams.get(param) ?? ''; } catch { return ''; }
 }
 

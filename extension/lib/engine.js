@@ -3,7 +3,7 @@
 // it with a fake one.
 
 import { validate } from './recipe.js';
-import { cookieHeader, jsonField, redirectValue } from './capture.js';
+import { cookieHeader, jsonField, prefixMatch, redirectValue } from './capture.js';
 
 // How often the engine checks for a capture between page loads.
 const POLL_MS = 3000;
@@ -44,7 +44,7 @@ export function startRun(recipe, api) {
   const ready = async (url) => {
     const w = recipe.when;
     if (!w) return true;
-    if (w.urlPrefix && !(url ?? '').startsWith(w.urlPrefix)) return false;
+    if (w.urlPrefix && !prefixMatch(url, w.urlPrefix)) return false;
     if (w.fetch && !jsonField(await api.fetchText(w.fetch.url), w.fetch.field)) return false;
     return true;
   };
@@ -61,7 +61,7 @@ export function startRun(recipe, api) {
       let value = '';
       if (kind === 'cookie') value = await api.getCookie(capture.url, capture.name, tabId);
       if (kind === 'cookies') value = cookieHeader(await api.getCookies(capture.url, tabId));
-      if (kind === 'storage' && (url ?? '').startsWith(capture.origin + (capture.path ?? ''))) value = await api.readStorage(tabId, capture.key, capture.origin);
+      if (kind === 'storage' && prefixMatch(url, capture.origin + (capture.path ?? ''))) value = await api.readStorage(tabId, capture.key, capture.origin);
       if (kind === 'fetch') value = jsonField(await api.fetchText(capture.url), capture.field);
       if (value && (!recipe.when?.contains || value.includes(recipe.when.contains))) finish(null, value);
     } catch {

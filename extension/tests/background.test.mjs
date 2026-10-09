@@ -18,7 +18,7 @@ function ev() {
 
 const GV = 'http://127.0.0.1:8093';
 
-function fakeChrome({ origins = [GV], grants = {}, granted = true, extra = {} } = {}) {
+function fakeChrome({ origins = [GV], grants = {}, granted = true, incognito = false, extra = {} } = {}) {
   const data = { origins, grants, ...extra };
   const page = { location: { origin: '' }, storage: {} };
   let nextWindow = 1;
@@ -75,7 +75,7 @@ function fakeChrome({ origins = [GV], grants = {}, granted = true, extra = {} } 
       get: async ({ name }) => (c.jar[name] ? { value: c.jar[name] } : null),
       getAll: async () => [],
     },
-    extension: { isAllowedIncognitoAccess: async () => false },
+    extension: { isAllowedIncognitoAccess: async () => incognito },
   };
   return c;
 }
@@ -231,4 +231,29 @@ test('a confirmation is not remembered for a plain-http address on the network',
   assert.deepEqual(chrome.data.grants, {});
   port.onMessage.fire({ op: 'cancel', id: 'c1', cancelId: 'r1' });
   await flush();
+});
+
+test('only the tab that started a sign-in can cancel it', async () => {
+  const chrome = await load(grantedFor('www.humblebundle.com'));
+  const port = connectPort(chrome, GV, 7);
+  port.onMessage.fire({ op: 'connect', id: 'r1', recipe: humble });
+  await flush();
+  const other = connectPort(chrome, GV, 8);
+  other.onMessage.fire({ op: 'cancel', id: 'c1', cancelId: 'r1' });
+  await flush();
+  assert.deepEqual(chrome.tabsRemoved, [], 'another tab cannot cancel it');
+  const same = connectPort(chrome, GV, 7);
+  same.onMessage.fire({ op: 'cancel', id: 'c2', cancelId: 'r1' });
+  await flush();
+  assert.equal(port.sent[0]?.code, 'cancelled');
+});
+
+test('hello says whether private windows are allowed, so the page can warn when they are not', async () => {
+  for (const incognito of [false, true]) {
+    const chrome = await load({ incognito });
+    const port = connectPort(chrome);
+    port.onMessage.fire({ op: 'hello' });
+    await flush();
+    assert.equal(port.sent[0]?.privateAllowed, incognito);
+  }
 });

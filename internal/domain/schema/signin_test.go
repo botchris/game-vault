@@ -108,6 +108,29 @@ func TestSignInRecipe_validate(t *testing.T) {
 			"a malformed host":            func(r *SignInRecipe) { r.Hosts = []string{"https://x.com/"} },
 			"a timeout over ten minutes":  func(r *SignInRecipe) { r.TimeoutSeconds = 601 },
 			"a negative timeout":          func(r *SignInRecipe) { r.TimeoutSeconds = -1 },
+			// A condition on a redirect would never be checked: refused rather than ignored.
+			"a condition on a redirect": func(r *SignInRecipe) {
+				r.Capture = Capture{Redirect: &RedirectCapture{
+					Prefix: "https://www.humblebundle.com/done",
+					Param:  "code",
+				}}
+			},
+			// The extension fetches with the normal window's session, not the private one.
+			"a private fetch condition": func(r *SignInRecipe) {
+				r.Private = true
+				r.When = &When{Fetch: &FetchCapture{
+					URL:   "https://www.humblebundle.com/api",
+					Field: "a",
+				}}
+			},
+			"a private fetch capture": func(r *SignInRecipe) {
+				r.Private = true
+				r.When = nil
+				r.Capture = Capture{Fetch: &FetchCapture{
+					URL:   "https://www.humblebundle.com/api",
+					Field: "a",
+				}}
+			},
 		}
 
 		t.Run("THEN each is refused", func(t *testing.T) {

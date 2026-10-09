@@ -43,6 +43,10 @@ export function validate(recipe) {
   const kind = kinds[0];
   const c = recipe.capture[kind];
   for (const f of REQUIRED[kind]) if (typeof c[f] !== 'string' || !c[f]) throw new RecipeError(`the ${kind} capture needs ${f}`);
+  // A redirect is its own condition: a `when` on it would never be checked.
+  if (kind === 'redirect' && recipe.when) throw new RecipeError('a redirect recipe takes no condition');
+  // The extension's own requests carry the normal window's session, not the private one's.
+  if (recipe.private && (kind === 'fetch' || recipe.when?.fetch)) throw new RecipeError('a private recipe cannot fetch');
 
   const addresses = [c[ADDRESS[kind]]];
   if (recipe.when?.urlPrefix) addresses.push(recipe.when.urlPrefix);

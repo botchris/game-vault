@@ -15,7 +15,7 @@ function page({ answerFrom }) {
       if (data.dir !== 'request' || data.op !== 'hello') return;
       hellos++;
       if (hellos < answerFrom) return;
-      const reply = { type: data.type, dir: 'response', id: data.id, op: 'hello', version: '1.0.0', recipeVersion: 1 };
+      const reply = { type: data.type, dir: 'response', id: data.id, op: 'hello', version: '1.0.0', recipeVersion: 1, privateAllowed: true };
       queueMicrotask(() => listeners.forEach((fn) => fn({ source: win, origin, data: reply })));
     },
   };
@@ -36,8 +36,43 @@ test('detect asks a second time when the extension does not answer the first', a
     mock.timers.tick(1500);
     await flush();
     mock.timers.tick(1500);
-    assert.deepEqual(await found, { version: '1.0.0', recipeVersion: 1 });
+    assert.deepEqual(await found, { version: '1.0.0', recipeVersion: 1, privateAllowed: true });
     assert.equal(p.hellos(), 2);
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+test('the page waits for a sign-in as long as the recipe allows, plus a minute', async () => {
+  mock.timers.enable({ apis: ['setTimeout'] });
+  try {
+    page({ answerFrom: Infinity }); // the extension never answers the connect
+    const { connect } = await import('../src/lib/connector.ts');
+    const run = connect('humble', 'cookie', { version: 1, open: 'https://www.humblebundle.com/', timeoutSeconds: 120 });
+    let outcome = 'pending';
+    run.result.catch((e) => { outcome = e.code; });
+    mock.timers.tick(180_000 - 1);
+    await flush();
+    assert.equal(outcome, 'pending');
+    mock.timers.tick(1);
+    await flush();
+    assert.equal(outcome, 'timeout');
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+test('without a timeout in the recipe the page uses the extension default of five minutes, plus a minute', async () => {
+  mock.timers.enable({ apis: ['setTimeout'] });
+  try {
+    page({ answerFrom: Infinity });
+    const { connect } = await import('../src/lib/connector.ts');
+    const run = connect('humble', 'cookie', { version: 1, open: 'https://www.humblebundle.com/' });
+    let outcome = 'pending';
+    run.result.catch((e) => { outcome = e.code; });
+    mock.timers.tick(360_000);
+    await flush();
+    assert.equal(outcome, 'timeout');
   } finally {
     mock.timers.reset();
   }

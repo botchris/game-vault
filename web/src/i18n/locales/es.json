@@ -693,7 +693,8 @@
     "install": "En un clic con la extensión Game Vault Connector. ¿Ya la tienes? Abre su icono en esta página y pulsa Enable.",
     "howTo": "Cómo instalarla",
     "update": "Actualiza la extensión Game Vault Connector para conectar esta tienda.",
-    "private": "Ubisoft se abre en una ventana privada si permitiste la extensión en incógnito; si no, el uso que Game Vault hace de la sesión cerrará la sesión de Ubisoft en ese navegador.",
+    "privateOn": "Se abre en una ventana privada, así que este navegador sigue con la sesión iniciada en la tienda.",
+    "privateOff": "Para que este navegador siga con la sesión iniciada, permite la extensión en incógnito (en su página de detalles, dentro de las extensiones del navegador). Si no, se abre en una pestaña normal y el uso que Game Vault hace de la sesión cerrará la sesión de la tienda en este navegador.",
     "error": {
       "denied": "No se permitió a la extensión leer esa tienda, o esta dirección no está activada: abre el icono de la extensión y pulsa Activar en esta dirección.",
       "busy": "Ya hay un inicio de sesión en marcha.",
