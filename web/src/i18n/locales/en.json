@@ -617,5 +617,16 @@
     "manual": "Manual",
     "media": "Disc or cartridge",
     "extras": "Extras"
+  },
+  "viewer": {
+    "label": "Image viewer",
+    "close": "Close",
+    "previous": "Previous image",
+    "next": "Next image",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "resetZoom": "Fit to screen",
+    "fullscreen": "Full screen",
+    "exitFullscreen": "Exit full screen"
   }
 }

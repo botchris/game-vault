@@ -119,7 +119,8 @@ export function SheetOverview({ game, details, warnings, loading, error, onRefre
         </section>
       )}
       {shot !== null && details && (
-        <Lightbox images={details.screenshots.map((s) => s.fullUrl)} index={shot} onIndex={setShot} onClose={() => setShot(null)} />
+        <Lightbox images={details.screenshots.map((s) => mediaUrl(s.fullUrl))} index={shot} onIndex={setShot}
+          onClose={() => setShot(null)} label={t('details.screenshots')} />
       )}
 
       {details && (

@@ -617,5 +617,16 @@
     "manual": "Manual",
     "media": "Disco o cartucho",
     "extras": "Extras"
+  },
+  "viewer": {
+    "label": "Visor de imágenes",
+    "close": "Cerrar",
+    "previous": "Imagen anterior",
+    "next": "Imagen siguiente",
+    "zoomIn": "Ampliar",
+    "zoomOut": "Reducir",
+    "resetZoom": "Ajustar a la pantalla",
+    "fullscreen": "Pantalla completa",
+    "exitFullscreen": "Salir de pantalla completa"
   }
 }
