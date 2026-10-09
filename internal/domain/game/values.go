@@ -98,6 +98,9 @@ var (
 	ErrGameNotFound = errors.New("game not found")
 	ErrCopyNotFound = errors.New("copy not found")
 
+	// ErrPhotoNotFound means the copy has no photo with that id.
+	ErrPhotoNotFound = errors.New("photo not found")
+
 	// ErrInvalidBarcode wraps barcode input errors that are not ValidationErrors.
 	ErrInvalidBarcode = errors.New("invalid barcode")
 )

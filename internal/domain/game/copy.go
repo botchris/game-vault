@@ -114,6 +114,9 @@ func (d CopyDetails) normalize() (CopyDetails, error) {
 type Copy struct {
 	ID ID
 	CopyDetails
+
+	// Photos are the user's pictures of the copy, in the order they chose.
+	Photos     []Photo
 	SourceID   string // source that manages this copy; empty for manual copies
 	ExternalID string // stable identifier inside the source
 	CreatedAt  time.Time
