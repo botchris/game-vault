@@ -18,19 +18,6 @@ func NewSourceRepository(db *DB) *SourceRepository { return &SourceRepository{db
 
 const sourceCols = `id, type, name, enabled, sync_interval_seconds, settings, last_sync, created_at, updated_at`
 
-// syncReportJSON is the stored form of source.SyncReport.
-type syncReportJSON struct {
-	StartedAt       time.Time `json:"startedAt"`
-	FinishedAt      time.Time `json:"finishedAt"`
-	Err             string    `json:"error,omitempty"`
-	Fetched         int       `json:"fetched"`
-	CopiesAdded     int       `json:"copiesAdded"`
-	CopiesUpdated   int       `json:"copiesUpdated"`
-	CopiesUnchanged int       `json:"copiesUnchanged"`
-	GamesCreated    int       `json:"gamesCreated"`
-	Warnings        []string  `json:"warnings,omitempty"`
-}
-
 // List returns every source.
 func (r *SourceRepository) List(ctx context.Context) ([]*source.Source, error) {
 	rows, err := r.db.conn(ctx).QueryContext(ctx, `SELECT `+sourceCols+` FROM sources ORDER BY name COLLATE NOCASE, id`)
@@ -73,7 +60,7 @@ func (r *SourceRepository) Save(ctx context.Context, s *source.Source) error {
 	var lastSync any
 
 	if rep := s.LastSync(); rep != nil {
-		b, err := json.Marshal(syncReportJSON(*rep))
+		b, err := json.Marshal(syncReportDoc(*rep))
 		if err != nil {
 			return err
 		}
@@ -127,7 +114,7 @@ func scanSource(sc interface{ Scan(...any) error }) (*source.Source, error) {
 	var lastSync *source.SyncReport
 
 	if lastSyncJSON.Valid {
-		var rep syncReportJSON
+		var rep syncReportDoc
 		if err := json.Unmarshal([]byte(lastSyncJSON.String), &rep); err != nil {
 			return nil, err
 		}
