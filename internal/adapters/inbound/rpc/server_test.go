@@ -337,7 +337,7 @@ func newServer(t *testing.T, p sync.Provider) clients {
 		Sources:     rpc.NewSourceHandler(syncSvc),
 		System: rpc.NewSystemHandler(
 			system.NewService(games, db, sqlite.NewSettingsRepository(db), time.Now, log, system.Status{Version: "test"}, filepath.Join(dir, "backups"), 3),
-			transfer.NewService(games, db, time.Now, csvfile.Codec{})),
+			transfer.NewService(games, db, sqlite.NewSettingsRepository(db), time.Now, csvfile.Codec{})),
 	}, rpc.Options{Log: log})
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
@@ -1027,6 +1027,27 @@ func TestPhysicalCopyDetails(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, "GBP", got.Msg.Preferences.GetCurrency())
 			})
+		})
+	})
+}
+
+func TestImportCsv_defaultCurrency(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	c := newServer(t, &fakeProvider{})
+	_, err := c.system.UpdatePreferences(ctx, connect.NewRequest(&pb.UpdatePreferencesRequest{Preferences: &pb.Preferences{Currency: "GBP"}}))
+	require.NoError(t, err)
+
+	t.Run("WHEN a CSV row has a price without currency", func(t *testing.T) {
+		_, err := c.system.ImportCsv(ctx, connect.NewRequest(&pb.ImportCsvRequest{Content: []byte("title,kind,price\nOkami,physical,12.50\n")}))
+		require.NoError(t, err)
+
+		t.Run("THEN it gets the default currency", func(t *testing.T) {
+			list, err := c.games.ListGames(ctx, connect.NewRequest(&pb.ListGamesRequest{}))
+			require.NoError(t, err)
+			require.Len(t, list.Msg.Games, 1)
+			assert.Equal(t, "GBP", list.Msg.Games[0].Copies[0].Details.Price.GetCurrency())
 		})
 	})
 }

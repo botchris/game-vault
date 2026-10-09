@@ -1,10 +1,15 @@
 // Package csvfile implements transfer.Codec for CSV files: one row per copy.
 //
-// Columns (header names are case-insensitive; Spanish aliases are accepted, unknown columns are
-// reported and ignored):
+// Columns, in English only (header names are case-insensitive; unknown columns are reported and
+// ignored):
 //
-//	title, platform, kind, status, key, redeemBy, origin, acquiredOn, edition, condition,
-//	location, notes, links, externalId, barcode
+//	title, platform, kind, status, key, redeemBy, origin, acquiredOn, edition, grade, contents,
+//	location, price, currency, notes, links, externalId, barcode
+//
+// grade is one of sealed, mint, very_good, good, acceptable, damaged; contents lists box, manual,
+// media and extras separated by spaces; price is an amount with a dot or a comma and at most the
+// currency's decimals (29.95, 1500 for JPY), and currency its ISO 4217 code. A price without
+// currency is left without one: the importer applies the default currency.
 //
 // links lists the stores the game is linked to as space-separated store:id pairs
 // ("steam:620 gog:1207658924"); every row of a game carries the game's links.
@@ -17,6 +22,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,31 +30,24 @@ import (
 )
 
 var columns = []string{
-	"title", "platform", "kind", "status", "key", "redeemBy", "origin", "acquiredOn",
-	"edition", "condition", "location", "notes", "links", "externalId", "barcode",
+	"title", "platform", "kind", "status", "key", "redeemBy", "origin", "acquiredOn", "edition",
+	"grade", "contents", "location", "price", "currency", "notes", "links", "externalId", "barcode",
 }
 
 var aliases = map[string]string{
-	"titulo": "title", "juego": "title", "nombre": "title", "game": "title",
-	"plataforma": "platform", "store": "platform",
-	"tipo": "kind", "type": "kind",
-	"estado":      "status",
-	"clave":       "key",
-	"fechalimite": "redeemBy", "caducidad": "redeemBy",
-	"origen": "origin", "tienda": "origin", "bundle": "origin",
-	"fechacompra": "acquiredOn",
-	"edicion":     "edition",
-	"condicion":   "condition", "estadofisico": "condition",
-	"ubicacion": "location",
-	"notas":     "notes",
-	"enlaces":   "links", "vinculos": "links",
-	"ean": "barcode", "upc": "barcode", "codigobarras": "barcode", "codigo": "barcode",
+	"game":   "title",
+	"store":  "platform",
+	"type":   "kind",
+	"bundle": "origin",
+	"ean":    "barcode",
+	"upc":    "barcode",
 }
 
 var kindAliases = map[string]game.Kind{
-	"key": game.KindKey, "clave": game.KindKey, "cdkey": game.KindKey,
-	"library": game.KindLibrary, "biblioteca": game.KindLibrary,
-	"physical": game.KindPhysical, "fisico": game.KindPhysical, "físico": game.KindPhysical, "disco": game.KindPhysical,
+	"key":      game.KindKey,
+	"cdkey":    game.KindKey,
+	"library":  game.KindLibrary,
+	"physical": game.KindPhysical,
 }
 
 var dateLayouts = []string{time.DateOnly, "02/01/2006", "2/1/2006", "2006/01/02"}
@@ -189,6 +188,44 @@ func (Codec) Decode(r io.Reader) ([]game.ImportedCopy, []string, error) {
 			warnings = append(warnings, fmt.Sprintf("row %d: link %q is not store:id (e.g. steam:620), ignored", row, b))
 		}
 
+		if v := get("grade"); v != "" {
+			if g := game.Grade(strings.ToLower(v)); g.Valid() {
+				d.Grade = g
+			} else {
+				warnings = append(warnings, fmt.Sprintf("row %d: grade %q is not one of sealed, mint, very_good, good, acceptable, damaged", row, v))
+			}
+		}
+
+		if v := get("contents"); v != "" {
+			var parts []game.Content
+			for _, f := range strings.Fields(strings.ToLower(v)) {
+				parts = append(parts, game.Content(f))
+			}
+
+			if c, err := game.ContentsOf(parts...); err == nil {
+				d.Contents = c
+			} else {
+				warnings = append(warnings, fmt.Sprintf("row %d: %v", row, err))
+			}
+		}
+
+		currency := strings.ToUpper(get("currency"))
+		if currency != "" && !game.IsCurrencyCode(currency) {
+			warnings = append(warnings, fmt.Sprintf("row %d: currency %q is not a three-letter code", row, currency))
+			currency = ""
+		}
+
+		if v := get("price"); v != "" {
+			if amount, ok := parsePrice(v, currency); ok {
+				d.Price = game.Money{
+					Amount:   amount,
+					Currency: currency,
+				}
+			} else {
+				warnings = append(warnings, fmt.Sprintf("row %d: price %q is not an amount like 29.95", row, v))
+			}
+		}
+
 		ext := get("externalId")
 		if ext == "" {
 			ext = fmt.Sprintf("csv:%s|%s|%s|%s", d.Kind, strings.ToLower(d.Platform), game.MatchKey(title), d.Key)
@@ -271,7 +308,8 @@ func (Codec) Encode(w io.Writer, games []*game.Game) error {
 
 			if err := cw.Write([]string{
 				g.Title(), c.Platform, string(c.Kind), string(c.Status), c.Key, string(c.RedeemBy), c.Origin,
-				string(c.AcquiredOn), c.Edition, "", c.Location, c.Notes, links, ext, string(c.Barcode),
+				string(c.AcquiredOn), c.Edition, string(c.Grade), contentsText(c.Contents), c.Location,
+				formatPrice(c.Price), c.Price.Currency, c.Notes, links, ext, string(c.Barcode),
 			}); err != nil {
 				return err
 			}
@@ -281,4 +319,55 @@ func (Codec) Encode(w io.Writer, games []*game.Game) error {
 	cw.Flush()
 
 	return cw.Error()
+}
+
+// contentsText writes contents as the column reads them: "box manual media".
+func contentsText(c game.Contents) string {
+	list := c.List()
+	parts := make([]string, 0, len(list))
+
+	for _, x := range list {
+		parts = append(parts, string(x))
+	}
+
+	return strings.Join(parts, " ")
+}
+
+// parsePrice reads "29.95" or "29,95" (at most the currency's decimals) into minor units. An
+// unknown currency (empty) uses two decimals until the default one is known.
+func parsePrice(text, currency string) (int64, bool) {
+	digits := 2
+	if currency != "" {
+		digits = game.CurrencyDigits(currency)
+	}
+
+	whole, frac, _ := strings.Cut(strings.ReplaceAll(strings.TrimSpace(text), ",", "."), ".")
+	if whole == "" || len(frac) > digits || strings.Contains(frac, ".") {
+		return 0, false
+	}
+
+	n, err := strconv.ParseInt(whole+frac+strings.Repeat("0", digits-len(frac)), 10, 64)
+	if err != nil || n < 0 {
+		return 0, false
+	}
+
+	return n, true
+}
+
+// formatPrice writes an amount with its currency's decimals and a dot: 2995 EUR is "29.95".
+func formatPrice(m game.Money) string {
+	if m.IsZero() {
+		return ""
+	}
+
+	digits := game.CurrencyDigits(m.Currency)
+	s := strconv.FormatInt(m.Amount, 10)
+
+	if digits == 0 {
+		return s
+	}
+
+	s = strings.Repeat("0", max(0, digits+1-len(s))) + s
+
+	return s[:len(s)-digits] + "." + s[len(s)-digits:]
 }
