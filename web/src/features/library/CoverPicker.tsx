@@ -10,7 +10,8 @@ import type { CoverCandidate } from '../../gen/gamevault/v1/provider_pb';
  */
 export default function CoverPicker({ gameId, current, onPick, onClose }: {
   gameId: string;
-  current: string;
+  /** The custom cover URL ('' for Automatic), or null when a photo of a copy is the cover. */
+  current: string | null;
   onPick: (url: string) => void;
   onClose: () => void;
 }) {

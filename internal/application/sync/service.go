@@ -63,19 +63,28 @@ type StoreLinker interface {
 // testTimeout bounds a connection test so the UI never waits forever.
 const testTimeout = 30 * time.Second
 
+// CoverCache is the port used to drop a game's cached cover image when it may have changed.
+type CoverCache interface {
+	// Invalidate drops the cached cover, so the next request resolves it again.
+	Invalidate(ctx context.Context, id game.ID) error
+}
+
 // Service exposes the source use cases.
 type Service struct {
 	sources   source.Repository
 	games     game.Repository
 	tx        port.TxManager
+	covers    CoverCache
 	now       port.Clock
 	providers map[source.Type]Provider
 	log       *slog.Logger
 	running   gosync.Mutex // one scan at a time keeps consolidation consistent
 }
 
-// NewService builds the service. Each provider is registered under its descriptor's type.
-func NewService(sources source.Repository, games game.Repository, tx port.TxManager, now port.Clock, log *slog.Logger, providers ...Provider) *Service {
+// NewService builds the service. Each provider is registered under its descriptor's type. covers
+// may be nil when no cover cache is wired.
+func NewService(sources source.Repository, games game.Repository, tx port.TxManager, covers CoverCache, now port.Clock, log *slog.Logger,
+	providers ...Provider) *Service {
 	m := map[source.Type]Provider{}
 	for _, p := range providers {
 		m[p.Descriptor().Type] = p
@@ -85,6 +94,7 @@ func NewService(sources source.Repository, games game.Repository, tx port.TxMana
 		sources:   sources,
 		games:     games,
 		tx:        tx,
+		covers:    covers,
 		now:       now,
 		providers: m,
 		log:       log,
@@ -251,7 +261,9 @@ func (s *Service) prepare(ctx context.Context, d source.TypeDescriptor, src *sou
 // Delete removes a source. Its copies become manual copies unless deleteCopies is set, in which
 // case they are removed too, along with any game left without copies.
 func (s *Service) Delete(ctx context.Context, id source.ID, deleteCopies bool) error {
-	return s.tx.WithinTx(ctx, func(ctx context.Context) error {
+	var stale []game.ID
+
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
 		if _, err := s.sources.Get(ctx, id); err != nil {
 			return err
 		}
@@ -264,6 +276,8 @@ func (s *Service) Delete(ctx context.Context, id source.ID, deleteCopies bool) e
 		now := s.now()
 
 		for _, g := range games {
+			cover := g.CoverPhoto()
+
 			var n int
 			if deleteCopies {
 				n = g.RemoveCopiesFromSource(string(id), now)
@@ -282,10 +296,31 @@ func (s *Service) Delete(ctx context.Context, id source.ID, deleteCopies bool) e
 			if err != nil {
 				return err
 			}
+
+			if g.CoverPhoto() != cover {
+				stale = append(stale, g.ID())
+			}
 		}
 
 		return s.sources.Delete(ctx, id)
 	})
+	if err == nil {
+		s.invalidateCovers(ctx, stale)
+	}
+
+	return err
+}
+
+// invalidateCovers drops the cached covers of games whose cover photo left with a source's copy.
+// Best effort: a stale cached image is not worth failing the use case.
+func (s *Service) invalidateCovers(ctx context.Context, ids []game.ID) {
+	if s.covers == nil {
+		return
+	}
+
+	for _, id := range ids {
+		_ = s.covers.Invalidate(ctx, id)
+	}
 }
 
 // Test checks a source's settings without saving anything. If id is set, cfg settings are merged
@@ -371,6 +406,7 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 	var (
 		syncErr error
 		removed int
+		stale   []game.ID
 	)
 
 	if fetchErr != nil {
@@ -382,10 +418,19 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 				return err
 			}
 
+			covers := make(map[game.ID]game.PhotoID, len(games))
+			for _, g := range games {
+				covers[g.ID()] = g.CoverPhoto()
+			}
+
 			res := game.NewConsolidator(games).Apply(string(src.ID()), copies, s.now())
 			for _, g := range res.Changed {
 				if err := s.games.Save(ctx, g); err != nil {
 					return err
+				}
+
+				if g.CoverPhoto() != covers[g.ID()] {
+					stale = append(stale, g.ID())
 				}
 			}
 
@@ -408,6 +453,8 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 
 	if syncErr != nil {
 		report.Err = syncErr.Error()
+	} else {
+		s.invalidateCovers(ctx, stale)
 	}
 
 	report.FinishedAt = s.now()

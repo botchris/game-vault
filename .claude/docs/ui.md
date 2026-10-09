@@ -12,7 +12,13 @@ because Simple Icons removed them).
   instead of refetching.
 - `features/library/`: `LibraryPage` (search, sort, A–Z rail, filters, posters/list, infinite
   scroll), `FilterPanel` (popover / bottom sheet), `PosterGrid`, `GameDetail` (the game sheet:
-  hero, Overview / Copies / Edit tabs), `GameSheet` (details from metadata providers).
+  hero, Overview / Copies / Edit tabs), `GameSheet` (details from metadata providers),
+  `CopyPhotos` (a copy's thumbnail strip, uploads with progress, the viewer with its photo footer).
+- `components/Lightbox.tsx`: the one image viewer (screenshots, copy photos). Props: ready URLs,
+  index, `onIndex`, `onClose`, optional `label` and `footer`. Buttons for previous / next, zoom,
+  full screen and close; double click or tap, wheel and pinch zoom, drag pans, swipe changes image;
+  keys ← → Esc + − 0 F (ignored while typing in a field). Always dark. A click closes only when the
+  press started on the backdrop (pointer capture retargets clicks to the stage).
 - `features/sources`: configured sources as rows (store logo from `SourceLogo` in
   `components/PlatformBadge.tsx`, status dot, copies, a round scan button; the row opens the
   settings dialog, which holds the last scan report and Delete), then tiles for the stores not
@@ -42,6 +48,7 @@ because Simple Icons removed them).
   `translateY(100%)` with `--ease-drawer` (`cubic-bezier(0.32, 0.72, 0, 1)`).
 - Pressable elements scale to 0.97 on `:active`. Hover lifts only under
   `@media (hover: hover) and (pointer: fine)`.
+- The image viewer opens and closes with fade + scale 0.97 → 1; changing image is not animated.
 - `prefers-reduced-motion` collapses transitions.
 
 ## Patterns

@@ -244,3 +244,66 @@ func (h *GameHandler) SearchLinks(ctx context.Context, req *connect.Request[pb.S
 
 	return connect.NewResponse(out), nil
 }
+
+// AddCopyPhotos attaches uploaded photos to a copy.
+func (h *GameHandler) AddCopyPhotos(ctx context.Context, req *connect.Request[pb.AddCopyPhotosRequest]) (*connect.Response[pb.AddCopyPhotosResponse], error) {
+	photos := make([]game.Photo, 0, len(req.Msg.Photos))
+
+	for _, p := range req.Msg.Photos {
+		id, err := game.ParsePhotoID(p.Id)
+		if err != nil {
+			return nil, toConnectError(err)
+		}
+
+		ph := game.Photo{
+			ID:      id,
+			Caption: p.Caption,
+		}
+		if p.TakenAt != nil {
+			ph.TakenAt = p.TakenAt.AsTime()
+		}
+
+		photos = append(photos, ph)
+	}
+
+	g, err := h.catalog.AddCopyPhotos(ctx, game.ID(req.Msg.GameId), game.ID(req.Msg.CopyId), photos)
+
+	return gameResp(g, err, func(g *pb.Game) *pb.AddCopyPhotosResponse { return &pb.AddCopyPhotosResponse{Game: g} })
+}
+
+// UpdateCopyPhoto changes a photo's caption.
+func (h *GameHandler) UpdateCopyPhoto(ctx context.Context, req *connect.Request[pb.UpdateCopyPhotoRequest]) (*connect.Response[pb.UpdateCopyPhotoResponse], error) {
+	m := req.Msg
+	g, err := h.catalog.UpdateCopyPhoto(ctx, game.ID(m.GameId), game.ID(m.CopyId), game.PhotoID(m.PhotoId), m.Caption)
+
+	return gameResp(g, err, func(g *pb.Game) *pb.UpdateCopyPhotoResponse { return &pb.UpdateCopyPhotoResponse{Game: g} })
+}
+
+// RemoveCopyPhoto removes a photo from a copy.
+func (h *GameHandler) RemoveCopyPhoto(ctx context.Context, req *connect.Request[pb.RemoveCopyPhotoRequest]) (*connect.Response[pb.RemoveCopyPhotoResponse], error) {
+	m := req.Msg
+	g, err := h.catalog.RemoveCopyPhoto(ctx, game.ID(m.GameId), game.ID(m.CopyId), game.PhotoID(m.PhotoId))
+
+	return gameResp(g, err, func(g *pb.Game) *pb.RemoveCopyPhotoResponse { return &pb.RemoveCopyPhotoResponse{Game: g} })
+}
+
+// ReorderCopyPhotos puts a copy's photos in a new order.
+func (h *GameHandler) ReorderCopyPhotos(ctx context.Context, req *connect.Request[pb.ReorderCopyPhotosRequest]) (*connect.Response[pb.ReorderCopyPhotosResponse], error) {
+	m := req.Msg
+	ids := make([]game.PhotoID, 0, len(m.PhotoIds))
+
+	for _, id := range m.PhotoIds {
+		ids = append(ids, game.PhotoID(id))
+	}
+
+	g, err := h.catalog.ReorderCopyPhotos(ctx, game.ID(m.GameId), game.ID(m.CopyId), ids)
+
+	return gameResp(g, err, func(g *pb.Game) *pb.ReorderCopyPhotosResponse { return &pb.ReorderCopyPhotosResponse{Game: g} })
+}
+
+// SetCoverPhoto makes one of the copies' photos the cover, or stops using one.
+func (h *GameHandler) SetCoverPhoto(ctx context.Context, req *connect.Request[pb.SetCoverPhotoRequest]) (*connect.Response[pb.SetCoverPhotoResponse], error) {
+	g, err := h.catalog.SetCoverPhoto(ctx, game.ID(req.Msg.GameId), game.PhotoID(req.Msg.PhotoId))
+
+	return gameResp(g, err, func(g *pb.Game) *pb.SetCoverPhotoResponse { return &pb.SetCoverPhotoResponse{Game: g} })
+}

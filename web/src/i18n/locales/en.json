@@ -313,7 +313,7 @@
     "backupName": "File",
     "backupDate": "Date",
     "backupSize": "Size",
-    "backupsHint": "Backups are written to config/backups. Automatic backups run daily and the newest 14 are kept (configurable). To restore, stop the server and replace config/gamevault.db with a backup.",
+    "backupsHint": "Backups are written to config/backups. Automatic backups run daily and the newest 14 are kept (configurable). To restore, stop the server, replace config/gamevault.db with a backup and copy config/backups/photos into config/photos.",
     "csv": "CSV import / export",
     "csvIntro": "For physical games and stores without an API. Re-importing the same file updates rows instead of duplicating them.",
     "importCsv": "Import CSV",
@@ -324,7 +324,9 @@
     "preferences": "Preferences",
     "currency": "Default currency",
     "currencyHelp": "Used for new prices and for CSV rows without a currency.",
-    "currencyNotSaved": "Proposed from your browser region, not saved yet: save it so CSV rows without a currency use it."
+    "currencyNotSaved": "Proposed from your browser region, not saved yet: save it so CSV rows without a currency use it.",
+    "backupPhotos": "Photos",
+    "photoStore": "Photos in backups: {{size}} in all; each photo is stored once, however many backups have it."
   },
   "logs": {
     "settings": "Logging and rotation",
@@ -617,5 +619,37 @@
     "manual": "Manual",
     "media": "Disc or cartridge",
     "extras": "Extras"
+  },
+  "viewer": {
+    "label": "Image viewer",
+    "close": "Close",
+    "previous": "Previous image",
+    "next": "Next image",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "resetZoom": "Fit to screen",
+    "fullscreen": "Full screen",
+    "exitFullscreen": "Exit full screen"
+  },
+  "photos": {
+    "title": "Photos of the copy",
+    "add": "Add photos",
+    "open": "Photo {{n}}",
+    "more": "+{{count}}",
+    "uploading": "Uploading {{name}}",
+    "failed": "{{name}}: {{error}}",
+    "dismiss": "Dismiss",
+    "unreadable": "This browser cannot read that image. Pick a JPEG or PNG (on an iPhone, set Camera → Formats → Most Compatible).",
+    "tooMany_one": "A copy can have at most {{max}} photos: {{count}} photo was not added.",
+    "tooMany_other": "A copy can have at most {{max}} photos: {{count}} photos were not added.",
+    "caption": "Caption",
+    "captionPlaceholder": "Add a caption",
+    "takenOn": "Taken on {{date}}",
+    "moveLeft": "Move left",
+    "moveRight": "Move right",
+    "useAsCover": "Use as cover",
+    "stopCover": "Stop using as cover",
+    "isCover": "The game's cover",
+    "confirmDelete": "Delete this photo from the copy?"
   }
 }

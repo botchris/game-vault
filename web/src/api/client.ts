@@ -24,7 +24,7 @@ const authWatcher: Interceptor = (next) => async (req) => {
 };
 
 /** The UI only talks to the backend through these typed ConnectRPC clients. */
-const baseUrl = import.meta.env.VITE_API_URL || window.location.origin;
+export const baseUrl = import.meta.env.VITE_API_URL || window.location.origin;
 const transport = createConnectTransport({ baseUrl, interceptors: [authWatcher], fetch: (input, init) => fetch(input, { ...init, credentials: 'include' }) });
 
 export const authClient = createClient(AuthService, transport);
@@ -43,6 +43,11 @@ export const metadataClient = createClient(MetadataService, transport);
  */
 export function coverUrl(g: Game): string {
   return `${baseUrl}/media/covers/${g.id}?v=${g.updatedAt?.seconds ?? 0}`;
+}
+
+/** A copy photo (or its thumbnail). Photos never change, so the URL needs no version. */
+export function photoUrl(id: string, thumb = false): string {
+  return `${baseUrl}/media/photos/${id}${thumb ? '/thumb' : ''}`;
 }
 
 /**

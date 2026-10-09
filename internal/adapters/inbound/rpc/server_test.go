@@ -22,6 +22,7 @@ import (
 	"gamevault/internal/adapters/outbound/gamedata"
 	"gamevault/internal/adapters/outbound/logfile"
 	"gamevault/internal/adapters/outbound/passwordhash"
+	"gamevault/internal/adapters/outbound/photostore"
 	"gamevault/internal/adapters/outbound/sqlite"
 	appauth "gamevault/internal/application/auth"
 	"gamevault/internal/application/catalog"
@@ -283,6 +284,7 @@ type clients struct {
 	baseURL   string
 	images    *fakeImages
 	dataDir   string
+	photosDir string
 }
 
 func newServer(t *testing.T, p sync.Provider) clients {
@@ -315,10 +317,15 @@ func newServer(t *testing.T, p sync.Provider) clients {
 		t.Fatal(err)
 	}
 
+	photos, err := photostore.Open(filepath.Join(dir, "photos"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	images := &fakeImages{}
 	boxart := &fakeBoxArt{}
 	boxDet := &fakeBoxDetails{}
-	mediaSvc := media.NewService(games, sqlite.NewProviderRepository(db), covers, sqlite.NewDetailsStore(db), images, time.Now, log,
+	mediaSvc := media.NewService(games, sqlite.NewProviderRepository(db), covers, photos, sqlite.NewDetailsStore(db), images, time.Now, log,
 		media.Providers{
 			Covers:   []media.CoverProvider{fakeSteamStore{}, boxart},
 			Barcodes: []media.BarcodeProvider{&fakeBarcodes{}},
@@ -326,17 +333,17 @@ func newServer(t *testing.T, p sync.Provider) clients {
 		})
 	logsSvc := logs.NewService(sqlite.NewSettingsRepository(db), logFiles, logFiles)
 	authSvc := appauth.NewService(sqlite.NewAuthRepository(db), sqlite.NewSettingsRepository(db), passwordhash.Bcrypt{Cost: 4}, noCerts{}, time.Now, log)
-	syncSvc := sync.NewService(sources, games, db, time.Now, log, p)
+	syncSvc := sync.NewService(sources, games, db, nil, time.Now, log, p)
 	h := rpc.NewHTTPHandler(rpc.Handlers{
 		Auth:        rpc.NewAuthHandler(authSvc),
 		AuthService: authSvc,
 		Logs:        rpc.NewLogHandler(logsSvc),
 		Media:       mediaSvc,
 		MediaRPC:    rpc.NewMediaHandler(mediaSvc),
-		Games:       rpc.NewGameHandler(catalog.NewService(games, db, time.Now, mediaSvc), mediaSvc, syncSvc),
+		Games:       rpc.NewGameHandler(catalog.NewService(games, db, time.Now, mediaSvc, photos), mediaSvc, syncSvc),
 		Sources:     rpc.NewSourceHandler(syncSvc),
 		System: rpc.NewSystemHandler(
-			system.NewService(games, db, sqlite.NewSettingsRepository(db), time.Now, log, system.Status{Version: "test"}, filepath.Join(dir, "backups"), 3),
+			system.NewService(games, db, sqlite.NewSettingsRepository(db), nil, time.Now, log, system.Status{Version: "test"}, filepath.Join(dir, "backups"), 3),
 			transfer.NewService(games, db, sqlite.NewSettingsRepository(db), time.Now, csvfile.Codec{})),
 	}, rpc.Options{Log: log})
 	srv := httptest.NewServer(h)
@@ -356,6 +363,7 @@ func newServer(t *testing.T, p sync.Provider) clients {
 		boxDet:    boxDet,
 		images:    images,
 		dataDir:   filepath.Join(dir, "game-data"),
+		photosDir: filepath.Join(dir, "photos"),
 	}
 }
 

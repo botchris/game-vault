@@ -12,14 +12,15 @@ import (
 // instance of it (a Humble key, a Steam library entry, a PS4 disc...) is a Copy inside it.
 // All changes to copies go through the Game so its invariants hold.
 type Game struct {
-	id        ID
-	title     string
-	links     Links
-	notes     string
-	coverURL  string
-	copies    []Copy
-	createdAt time.Time
-	updatedAt time.Time
+	id         ID
+	title      string
+	links      Links
+	notes      string
+	coverURL   string
+	coverPhoto PhotoID
+	copies     []Copy
+	createdAt  time.Time
+	updatedAt  time.Time
 }
 
 // New creates a game with no copies.
@@ -47,6 +48,9 @@ type Info struct {
 
 	// CoverURL is a custom cover image. Empty means the cover providers choose one.
 	CoverURL string
+
+	// CoverPhoto is one of the copies' photos used as the cover. It wins over CoverURL.
+	CoverPhoto PhotoID
 }
 
 func (i Info) normalize() (Info, error) {
@@ -75,14 +79,15 @@ func (i Info) normalize() (Info, error) {
 // Rehydrate rebuilds a game from storage. Only repositories should call it.
 func Rehydrate(id ID, info Info, copies []Copy, createdAt, updatedAt time.Time) *Game {
 	return &Game{
-		id:        id,
-		title:     info.Title,
-		links:     info.Links.clone(),
-		notes:     info.Notes,
-		coverURL:  info.CoverURL,
-		copies:    copies,
-		createdAt: createdAt,
-		updatedAt: updatedAt,
+		id:         id,
+		title:      info.Title,
+		links:      info.Links.clone(),
+		notes:      info.Notes,
+		coverURL:   info.CoverURL,
+		coverPhoto: info.CoverPhoto,
+		copies:     copies,
+		createdAt:  createdAt,
+		updatedAt:  updatedAt,
 	}
 }
 
@@ -101,6 +106,9 @@ func (g *Game) Notes() string { return g.notes }
 // CoverURL returns the custom cover image, empty when the default cover applies.
 func (g *Game) CoverURL() string { return g.coverURL }
 
+// CoverPhoto returns the photo used as the cover, empty when there is none.
+func (g *Game) CoverPhoto() PhotoID { return g.coverPhoto }
+
 // CreatedAt returns when the game was registered.
 func (g *Game) CreatedAt() time.Time { return g.createdAt }
 
@@ -111,15 +119,23 @@ func (g *Game) UpdatedAt() time.Time { return g.updatedAt }
 func (g *Game) MatchKey() string { return MatchKey(g.title) }
 
 // Copies returns a copy of the game's copies, so callers cannot bypass the aggregate.
-func (g *Game) Copies() []Copy { return append([]Copy(nil), g.copies...) }
+func (g *Game) Copies() []Copy {
+	out := make([]Copy, len(g.copies))
+	for i, c := range g.copies {
+		out[i] = c.clone()
+	}
+
+	return out
+}
 
 // Info returns the game's own attributes.
 func (g *Game) Info() Info {
 	return Info{
-		Title:    g.title,
-		Links:    g.links.clone(),
-		Notes:    g.notes,
-		CoverURL: g.coverURL,
+		Title:      g.title,
+		Links:      g.links.clone(),
+		Notes:      g.notes,
+		CoverURL:   g.coverURL,
+		CoverPhoto: g.coverPhoto,
 	}
 }
 
@@ -131,8 +147,12 @@ func (g *Game) UpdateInfo(i Info, now time.Time) (coverChanged bool, err error) 
 		return false, err
 	}
 
-	coverChanged = i.CoverURL != g.coverURL || !i.Links.Equal(g.links)
-	g.title, g.links, g.notes, g.coverURL = i.Title, i.Links, i.Notes, i.CoverURL
+	if i.CoverPhoto != "" && !g.hasPhoto(i.CoverPhoto) {
+		return false, invalid("the cover photo must be a photo of one of the game's copies")
+	}
+
+	coverChanged = i.CoverURL != g.coverURL || i.CoverPhoto != g.coverPhoto || !i.Links.Equal(g.links)
+	g.title, g.links, g.notes, g.coverURL, g.coverPhoto = i.Title, i.Links, i.Notes, i.CoverURL, i.CoverPhoto
 	g.updatedAt = now
 
 	return coverChanged, nil
@@ -191,6 +211,7 @@ func (g *Game) RemoveCopy(id ID, now time.Time) (Copy, error) {
 
 	c := g.copies[i]
 	g.copies = append(g.copies[:i], g.copies[i+1:]...)
+	g.dropOrphanCover()
 	g.updatedAt = now
 
 	return c, nil
@@ -211,6 +232,12 @@ func (g *Game) Absorb(other *Game, now time.Time) {
 
 	other.copies = nil
 	g.links.fill(other.links)
+
+	// The other game's cover photo comes along with its copies, unless the user already chose a
+	// cover for this game (a photo or a custom URL).
+	if g.coverPhoto == "" && g.coverURL == "" {
+		g.coverPhoto = other.coverPhoto
+	}
 
 	if g.coverURL == "" {
 		g.coverURL = other.coverURL
@@ -235,6 +262,8 @@ func (g *Game) RemoveCopiesFromSource(sourceID string, now time.Time) int {
 	n := len(g.copies) - len(kept)
 
 	g.copies = kept
+	g.dropOrphanCover()
+
 	if n > 0 {
 		g.updatedAt = now
 	}

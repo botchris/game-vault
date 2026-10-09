@@ -12,6 +12,7 @@ import {
 import type { LinkStore } from '../../gen/gamevault/v1/game_pb';
 import { useAppData } from '../../state/AppData';
 import CopyForm from './CopyForm';
+import CopyPhotos from './CopyPhotos';
 import CoverPicker from './CoverPicker';
 import GamePicker from './GamePicker';
 import { SheetFacts, SheetOverview, useGameDetails } from './GameSheet';
@@ -155,8 +156,19 @@ function GameDetailBody({ game, onClose, onOpenGame, onPlatform }: {
           })} />
       )}
       {dialog?.type === 'coverPicker' && (
-        <CoverPicker gameId={game.id} current={game.coverUrl} onClose={() => setDialog(null)}
-          onPick={(url) => { updateGame({ coverUrl: url }); setDialog(null); }} />
+        <CoverPicker gameId={game.id} current={game.coverPhotoId ? null : game.coverUrl} onClose={() => setDialog(null)}
+          onPick={(url) => {
+            // While a photo is the cover, whatever is picked (the current URL or Automatic too) replaces it.
+            if (game.coverPhotoId) {
+              run(async () => {
+                putGame((await gameClient.setCoverPhoto({ gameId: game.id, photoId: '' })).game!);
+                if (url !== game.coverUrl) putGame((await gameClient.updateGame({ id: game.id, title: game.title, links: game.links, notes: game.notes, coverUrl: url })).game!);
+              });
+            } else {
+              updateGame({ coverUrl: url });
+            }
+            setDialog(null);
+          }} />
       )}
       {dialog?.type === 'merge' && (
         <GamePicker title={t('game.mergeTitle', { title: game.title })} excludeId={game.id} onClose={() => setDialog(null)}
@@ -263,6 +275,7 @@ function CopiesTab({ game, busy, run, setDialog }: {
               )}
               {extra.length > 0 && <p className="muted small">{extra.join(' · ')}</p>}
               {d.notes && <p className="small">{d.notes}</p>}
+              <CopyPhotos game={game} copy={c} />
               {source && <p className="muted small">{t('copy.syncedFrom', { source })}</p>}
             </li>
           );

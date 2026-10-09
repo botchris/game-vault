@@ -38,14 +38,15 @@ func checkVersion(v, current int) error {
 // gameDoc is the stored form of a game.Game, copies included. Field names never change once
 // released.
 type gameDoc struct {
-	V         int        `json:"v"`
-	Title     string     `json:"title"`
-	Links     game.Links `json:"links,omitempty"`
-	Notes     string     `json:"notes,omitempty"`
-	CoverURL  string     `json:"coverUrl,omitempty"`
-	CreatedAt string     `json:"createdAt"`
-	UpdatedAt string     `json:"updatedAt"`
-	Copies    []copyDoc  `json:"copies,omitempty"`
+	V          int        `json:"v"`
+	Title      string     `json:"title"`
+	Links      game.Links `json:"links,omitempty"`
+	Notes      string     `json:"notes,omitempty"`
+	CoverURL   string     `json:"coverUrl,omitempty"`
+	CoverPhoto string     `json:"coverPhoto,omitempty"`
+	CreatedAt  string     `json:"createdAt"`
+	UpdatedAt  string     `json:"updatedAt"`
+	Copies     []copyDoc  `json:"copies,omitempty"`
 }
 
 // copyDoc is the stored form of a game.Copy.
@@ -62,18 +63,27 @@ type copyDoc struct {
 
 	// Condition is the free-text condition of version-1 documents, converted when read; never
 	// written.
-	Condition     string   `json:"condition,omitempty"`
-	Grade         string   `json:"grade,omitempty"`
-	Contents      []string `json:"contents,omitempty"`
-	Location      string   `json:"location,omitempty"`
-	Barcode       string   `json:"barcode,omitempty"`
-	PriceAmount   int64    `json:"priceAmount,omitempty"`
-	PriceCurrency string   `json:"priceCurrency,omitempty"`
-	Notes         string   `json:"notes,omitempty"`
-	SourceID      string   `json:"sourceId,omitempty"`
-	ExternalID    string   `json:"externalId,omitempty"`
-	CreatedAt     string   `json:"createdAt"`
-	UpdatedAt     string   `json:"updatedAt"`
+	Condition     string     `json:"condition,omitempty"`
+	Grade         string     `json:"grade,omitempty"`
+	Contents      []string   `json:"contents,omitempty"`
+	Location      string     `json:"location,omitempty"`
+	Barcode       string     `json:"barcode,omitempty"`
+	PriceAmount   int64      `json:"priceAmount,omitempty"`
+	PriceCurrency string     `json:"priceCurrency,omitempty"`
+	Notes         string     `json:"notes,omitempty"`
+	Photos        []photoDoc `json:"photos,omitempty"`
+	SourceID      string     `json:"sourceId,omitempty"`
+	ExternalID    string     `json:"externalId,omitempty"`
+	CreatedAt     string     `json:"createdAt"`
+	UpdatedAt     string     `json:"updatedAt"`
+}
+
+// photoDoc is the stored form of a game.Photo.
+type photoDoc struct {
+	ID      string `json:"id"`
+	Caption string `json:"caption,omitempty"`
+	TakenAt string `json:"takenAt,omitempty"`
+	AddedAt string `json:"addedAt"`
 }
 
 // sourceDoc is the stored form of a source.Source.
@@ -124,13 +134,14 @@ func encode(doc any) (string, error) {
 func encodeGame(g *game.Game) (string, error) {
 	info := g.Info()
 	doc := gameDoc{
-		V:         gameDocVersion,
-		Title:     info.Title,
-		Links:     info.Links,
-		Notes:     info.Notes,
-		CoverURL:  info.CoverURL,
-		CreatedAt: formatTime(g.CreatedAt()),
-		UpdatedAt: formatTime(g.UpdatedAt()),
+		V:          gameDocVersion,
+		Title:      info.Title,
+		Links:      info.Links,
+		Notes:      info.Notes,
+		CoverURL:   info.CoverURL,
+		CoverPhoto: string(info.CoverPhoto),
+		CreatedAt:  formatTime(g.CreatedAt()),
+		UpdatedAt:  formatTime(g.UpdatedAt()),
 	}
 
 	for _, c := range g.Copies() {
@@ -151,6 +162,7 @@ func encodeGame(g *game.Game) (string, error) {
 			PriceAmount:   c.Price.Amount,
 			PriceCurrency: c.Price.Currency,
 			Notes:         c.Notes,
+			Photos:        photoDocs(c.Photos),
 			SourceID:      c.SourceID,
 			ExternalID:    c.ExternalID,
 			CreatedAt:     formatTime(c.CreatedAt),
@@ -199,6 +211,7 @@ func decodeGame(id game.ID, raw string) (*game.Game, error) {
 				},
 				Notes: c.Notes,
 			},
+			Photos:     photosOf(c.Photos),
 			SourceID:   c.SourceID,
 			ExternalID: c.ExternalID,
 			CreatedAt:  parseTime(c.CreatedAt),
@@ -217,10 +230,11 @@ func decodeGame(id game.ID, raw string) (*game.Game, error) {
 	}
 
 	info := game.Info{
-		Title:    doc.Title,
-		Links:    doc.Links,
-		Notes:    doc.Notes,
-		CoverURL: doc.CoverURL,
+		Title:      doc.Title,
+		Links:      doc.Links,
+		Notes:      doc.Notes,
+		CoverURL:   doc.CoverURL,
+		CoverPhoto: game.PhotoID(doc.CoverPhoto),
 	}
 
 	return game.Rehydrate(id, info, copies, parseTime(doc.CreatedAt), parseTime(doc.UpdatedAt)), nil
@@ -346,4 +360,44 @@ func convertCondition(text string) (game.Grade, game.Contents, bool) {
 	contents, _ := game.ContentsOf(old.contents...) // the table only holds known contents
 
 	return old.grade, contents, true
+}
+
+func photoDocs(photos []game.Photo) []photoDoc {
+	if len(photos) == 0 {
+		return nil
+	}
+
+	out := make([]photoDoc, 0, len(photos))
+	for _, p := range photos {
+		d := photoDoc{
+			ID:      string(p.ID),
+			Caption: p.Caption,
+			AddedAt: formatTime(p.AddedAt),
+		}
+		if !p.TakenAt.IsZero() {
+			d.TakenAt = formatTime(p.TakenAt)
+		}
+
+		out = append(out, d)
+	}
+
+	return out
+}
+
+func photosOf(docs []photoDoc) []game.Photo {
+	if len(docs) == 0 {
+		return nil
+	}
+
+	out := make([]game.Photo, 0, len(docs))
+	for _, d := range docs {
+		out = append(out, game.Photo{
+			ID:      game.PhotoID(d.ID),
+			Caption: d.Caption,
+			TakenAt: parseTime(d.TakenAt),
+			AddedAt: parseTime(d.AddedAt),
+		})
+	}
+
+	return out
 }

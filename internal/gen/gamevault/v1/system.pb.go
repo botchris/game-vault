@@ -143,10 +143,12 @@ func (x *GetStatusResponse) GetCopyCount() int32 {
 }
 
 type Backup struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	SizeBytes     int64                  `protobuf:"varint,2,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Name      string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	SizeBytes int64                  `protobuf:"varint,2,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// How many photos the backup's list names (0 for older backups).
+	PhotoCount    int32 `protobuf:"varint,4,opt,name=photo_count,json=photoCount,proto3" json:"photo_count,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -202,6 +204,13 @@ func (x *Backup) GetCreatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *Backup) GetPhotoCount() int32 {
+	if x != nil {
+		return x.PhotoCount
+	}
+	return 0
+}
+
 type ListBackupsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -239,10 +248,12 @@ func (*ListBackupsRequest) Descriptor() ([]byte, []int) {
 }
 
 type ListBackupsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Backups       []*Backup              `protobuf:"bytes,1,rep,name=backups,proto3" json:"backups,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Backups []*Backup              `protobuf:"bytes,1,rep,name=backups,proto3" json:"backups,omitempty"`
+	// Size of the photo store all backups share (each photo stored once).
+	PhotoStoreBytes int64 `protobuf:"varint,2,opt,name=photo_store_bytes,json=photoStoreBytes,proto3" json:"photo_store_bytes,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *ListBackupsResponse) Reset() {
@@ -280,6 +291,13 @@ func (x *ListBackupsResponse) GetBackups() []*Backup {
 		return x.Backups
 	}
 	return nil
+}
+
+func (x *ListBackupsResponse) GetPhotoStoreBytes() int64 {
+	if x != nil {
+		return x.PhotoStoreBytes
+	}
+	return 0
 }
 
 type CreateBackupRequest struct {
@@ -770,16 +788,19 @@ const file_gamevault_v1_system_proto_rawDesc = "" +
 	"\n" +
 	"game_count\x18\x05 \x01(\x05R\tgameCount\x12\x1d\n" +
 	"\n" +
-	"copy_count\x18\x06 \x01(\x05R\tcopyCount\"v\n" +
+	"copy_count\x18\x06 \x01(\x05R\tcopyCount\"\x97\x01\n" +
 	"\x06Backup\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1d\n" +
 	"\n" +
 	"size_bytes\x18\x02 \x01(\x03R\tsizeBytes\x129\n" +
 	"\n" +
-	"created_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\x14\n" +
-	"\x12ListBackupsRequest\"E\n" +
+	"created_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x1f\n" +
+	"\vphoto_count\x18\x04 \x01(\x05R\n" +
+	"photoCount\"\x14\n" +
+	"\x12ListBackupsRequest\"q\n" +
 	"\x13ListBackupsResponse\x12.\n" +
-	"\abackups\x18\x01 \x03(\v2\x14.gamevault.v1.BackupR\abackups\"\x15\n" +
+	"\abackups\x18\x01 \x03(\v2\x14.gamevault.v1.BackupR\abackups\x12*\n" +
+	"\x11photo_store_bytes\x18\x02 \x01(\x03R\x0fphotoStoreBytes\"\x15\n" +
 	"\x13CreateBackupRequest\"D\n" +
 	"\x14CreateBackupResponse\x12,\n" +
 	"\x06backup\x18\x01 \x01(\v2\x14.gamevault.v1.BackupR\x06backup\",\n" +

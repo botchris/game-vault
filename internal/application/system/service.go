@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -20,6 +21,19 @@ import (
 type DatabaseBackup interface {
 	// BackupTo writes a consistent copy of the database to path.
 	BackupTo(ctx context.Context, path string) error
+}
+
+// PhotoArchive is the port that keeps the backups' photos in one shared store, each photo once,
+// however many backups list it.
+type PhotoArchive interface {
+	// Add puts the photos into the backups' store, skipping those already there.
+	Add(ids []game.PhotoID) error
+
+	// Retain deletes from the backups' store every photo not in keep.
+	Retain(keep map[game.PhotoID]bool) error
+
+	// Size returns the total size of the backups' store in bytes.
+	Size() (int64, error)
 }
 
 // Status describes the running instance.
@@ -37,6 +51,10 @@ type Backup struct {
 	Name      string
 	SizeBytes int64
 	CreatedAt time.Time
+
+	// Photos is how many photos the backup's list names; 0 for backups without a list (older ones
+	// and pre-migration copies).
+	Photos int
 }
 
 // Service exposes the system use cases.
@@ -44,6 +62,7 @@ type Service struct {
 	games     game.Repository
 	db        DatabaseBackup
 	prefs     settings.Repository
+	photos    PhotoArchive
 	now       port.Clock
 	log       *slog.Logger
 	status    Status
@@ -52,12 +71,14 @@ type Service struct {
 }
 
 // NewService builds the service. Backups are written to backupDir and only the newest keep are kept.
-func NewService(games game.Repository, db DatabaseBackup, prefs settings.Repository, now port.Clock, log *slog.Logger,
+// photos may be nil: backups then hold only the database.
+func NewService(games game.Repository, db DatabaseBackup, prefs settings.Repository, photos PhotoArchive, now port.Clock, log *slog.Logger,
 	status Status, backupDir string, keep int) *Service {
 	return &Service{
 		games:     games,
 		db:        db,
 		prefs:     prefs,
+		photos:    photos,
 		now:       now,
 		log:       log,
 		status:    status,
@@ -91,13 +112,27 @@ func (s *Service) CreateBackup(ctx context.Context) (Backup, error) {
 
 	name := fmt.Sprintf("gamevault-%s.db", s.now().UTC().Format("20060102-150405"))
 
+	// The photos are read before and after the copy: the copied database references photos from
+	// some moment in between, and the union holds all of them (a few extra are harmless).
+	before, err := s.referencedPhotos(ctx)
+	if err != nil {
+		return Backup{}, err
+	}
+
 	path := filepath.Join(s.backupDir, name)
 	if err := s.db.BackupTo(ctx, path); err != nil {
 		return Backup{}, err
 	}
 
+	photos, photoErr := s.backupPhotos(ctx, path, before)
+
+	// The database copy is a backup even when its photos failed, so rotation still runs.
 	if err := s.prune(); err != nil {
 		s.log.Warn("pruning backups", "error", err)
+	}
+
+	if photoErr != nil {
+		return Backup{}, fmt.Errorf("backing up photos: %w", photoErr)
 	}
 
 	info, err := os.Stat(path)
@@ -109,6 +144,7 @@ func (s *Service) CreateBackup(ctx context.Context) (Backup, error) {
 		Name:      name,
 		SizeBytes: info.Size(),
 		CreatedAt: info.ModTime(),
+		Photos:    photos,
 	}, nil
 }
 
@@ -139,6 +175,7 @@ func (s *Service) ListBackups(context.Context) ([]Backup, error) {
 			Name:      e.Name(),
 			SizeBytes: info.Size(),
 			CreatedAt: info.ModTime(),
+			Photos:    len(readPhotoList(filepath.Join(s.backupDir, e.Name()))),
 		})
 	}
 
@@ -162,12 +199,117 @@ func (s *Service) prune() error {
 	}
 
 	for _, b := range backups[s.keep:] {
-		if err := os.Remove(filepath.Join(s.backupDir, b.Name)); err != nil {
+		path := filepath.Join(s.backupDir, b.Name)
+		if err := os.Remove(path); err != nil {
+			return err
+		}
+
+		if err := os.Remove(photoList(path)); err != nil && !os.IsNotExist(err) {
 			return err
 		}
 	}
 
-	return nil
+	if s.photos == nil {
+		return nil
+	}
+
+	keep := map[game.PhotoID]bool{}
+
+	for _, b := range backups[:s.keep] {
+		for _, id := range readPhotoList(filepath.Join(s.backupDir, b.Name)) {
+			keep[id] = true
+		}
+	}
+
+	return s.photos.Retain(keep)
+}
+
+// PhotoStoreSize returns the size of the backups' shared photo store in bytes.
+func (s *Service) PhotoStoreSize(context.Context) (int64, error) {
+	if s.photos == nil {
+		return 0, nil
+	}
+
+	return s.photos.Size()
+}
+
+// photoList is the file next to a backup that names the photos it needs.
+func photoList(dbPath string) string { return strings.TrimSuffix(dbPath, ".db") + ".photos" }
+
+// backupPhotos writes the backup's photo list (the photos referenced before the copy, plus those
+// referenced now) and puts them in the shared store.
+func (s *Service) backupPhotos(ctx context.Context, dbPath string, before map[game.PhotoID]bool) (int, error) {
+	if s.photos == nil {
+		return 0, nil
+	}
+
+	after, err := s.referencedPhotos(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	ids := make([]game.PhotoID, 0, len(before)+len(after))
+	for id := range before {
+		ids = append(ids, id)
+	}
+
+	for id := range after {
+		if !before[id] {
+			ids = append(ids, id)
+		}
+	}
+
+	slices.Sort(ids)
+
+	var list strings.Builder
+	for _, id := range ids {
+		list.WriteString(string(id) + "\n")
+	}
+
+	if err := os.WriteFile(photoList(dbPath), []byte(list.String()), 0o600); err != nil {
+		return 0, err
+	}
+
+	return len(ids), s.photos.Add(ids)
+}
+
+// referencedPhotos returns the photos the catalog references; none when backups keep no photos.
+func (s *Service) referencedPhotos(ctx context.Context) (map[game.PhotoID]bool, error) {
+	ids := map[game.PhotoID]bool{}
+	if s.photos == nil {
+		return ids, nil
+	}
+
+	games, err := s.games.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, g := range games {
+		for _, id := range g.PhotoIDs() {
+			ids[id] = true
+		}
+	}
+
+	return ids, nil
+}
+
+// readPhotoList returns the photos a backup's list names; none when it has no list.
+func readPhotoList(dbPath string) []game.PhotoID {
+	data, err := os.ReadFile(photoList(dbPath))
+	if err != nil {
+		return nil
+	}
+
+	var ids []game.PhotoID
+
+	for line := range strings.SplitSeq(string(data), "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			ids = append(ids, game.PhotoID(line))
+		}
+	}
+
+	return ids
 }
 
 // RunScheduledBackups creates a backup every interval until ctx ends.

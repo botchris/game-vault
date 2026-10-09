@@ -93,6 +93,17 @@ message CopyDetails {
   Money price = 15;
 }
 
+// Photo is a picture of a copy the user uploaded (POST /media/photos). The image is served at
+// GET /media/photos/{id} and its thumbnail at GET /media/photos/{id}/thumb.
+message Photo {
+  // SHA-256 of the stored JPEG, lowercase hex.
+  string id = 1;
+  string caption = 2;
+  // From the photo's metadata: the camera's clock reading, as UTC. Absent when unknown.
+  google.protobuf.Timestamp taken_at = 3;
+  google.protobuf.Timestamp added_at = 4;
+}
+
 // Copy is one owned instance of a game.
 message Copy {
   string id = 1;
@@ -106,6 +117,8 @@ message Copy {
   bool redundant = 5;
   google.protobuf.Timestamp created_at = 6;
   google.protobuf.Timestamp updated_at = 7;
+  // The user's photos of the copy, in their order.
+  repeated Photo photos = 8;
 }
 
 // Game is the aggregate root: a title plus every copy you own of it.
@@ -130,6 +143,8 @@ message Game {
   // Stores the game is linked to: link key ("steam") → the game's id there ("620"). Providers
   // that know a store use its link for covers and details; imports use links to match games.
   map<string, string> links = 11;
+  // One of the copies' photos used as the cover (it wins over cover_url); empty when none.
+  string cover_photo_id = 12;
 }
 
 message ListGamesRequest {
@@ -275,6 +290,63 @@ message SearchLinksResponse {
   repeated LinkMatch matches = 1;
 }
 
+// NewPhoto is an uploaded photo to attach to a copy.
+message NewPhoto {
+  // The id POST /media/photos answered.
+  string id = 1;
+  string caption = 2;
+  // The takenAt POST /media/photos answered, if any.
+  google.protobuf.Timestamp taken_at = 3;
+}
+
+message AddCopyPhotosRequest {
+  string game_id = 1;
+  string copy_id = 2;
+  repeated NewPhoto photos = 3;
+}
+message AddCopyPhotosResponse {
+  Game game = 1;
+}
+
+message UpdateCopyPhotoRequest {
+  string game_id = 1;
+  string copy_id = 2;
+  string photo_id = 3;
+  string caption = 4;
+}
+message UpdateCopyPhotoResponse {
+  Game game = 1;
+}
+
+message RemoveCopyPhotoRequest {
+  string game_id = 1;
+  string copy_id = 2;
+  string photo_id = 3;
+}
+message RemoveCopyPhotoResponse {
+  Game game = 1;
+}
+
+// ReorderCopyPhotosRequest gives the copy's photos in their new order; it must list each once.
+message ReorderCopyPhotosRequest {
+  string game_id = 1;
+  string copy_id = 2;
+  repeated string photo_ids = 3;
+}
+message ReorderCopyPhotosResponse {
+  Game game = 1;
+}
+
+// SetCoverPhotoRequest makes one of the copies' photos the game's cover; an empty photo_id stops
+// using a photo as the cover.
+message SetCoverPhotoRequest {
+  string game_id = 1;
+  string photo_id = 2;
+}
+message SetCoverPhotoResponse {
+  Game game = 1;
+}
+
 // GameService manages the catalog of games and their copies.
 service GameService {
   rpc ListGames(ListGamesRequest) returns (ListGamesResponse);
@@ -296,4 +368,10 @@ service GameService {
   // Searches a store's catalog by title, to link a game (e.g. a physical one) to it and get its
   // cover and details.
   rpc SearchLinks(SearchLinksRequest) returns (SearchLinksResponse);
+  // Attaches uploaded photos to a copy (at most 50 per copy; a photo already on it is skipped).
+  rpc AddCopyPhotos(AddCopyPhotosRequest) returns (AddCopyPhotosResponse);
+  rpc UpdateCopyPhoto(UpdateCopyPhotoRequest) returns (UpdateCopyPhotoResponse);
+  rpc RemoveCopyPhoto(RemoveCopyPhotoRequest) returns (RemoveCopyPhotoResponse);
+  rpc ReorderCopyPhotos(ReorderCopyPhotosRequest) returns (ReorderCopyPhotosResponse);
+  rpc SetCoverPhoto(SetCoverPhotoRequest) returns (SetCoverPhotoResponse);
 }

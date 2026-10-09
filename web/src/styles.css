@@ -687,9 +687,43 @@ td.title { font-weight: 500; min-width: 220px; }
 .shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
 .shots button { padding: 0; border: none; background: none; min-height: 0; border-radius: 8px; overflow: hidden; }
 .shots img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; }
-.lightbox { position: fixed; inset: 0; z-index: 40; background: rgb(0 0 0 / .92); display: grid; place-items: center; padding: 16px; }
-.lightbox img { max-width: 100%; max-height: 92dvh; border-radius: 6px; cursor: pointer; }
-.lightbox-count { position: absolute; bottom: 14px; color: #fff; font-size: 13px; }
+/* Image viewer (components/Lightbox.tsx): always dark, whatever the theme, like a photo app. */
+.lightbox {
+  position: fixed; inset: 0; z-index: 40; display: grid; grid-template-rows: auto 1fr auto;
+  background: #080a10; color: #fff;
+  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
+  @starting-style { opacity: 0; transform: scale(0.97); }
+}
+.lightbox.closing { opacity: 0; transform: scale(0.97); transition-duration: 160ms; pointer-events: none; }
+.lightbox-bar {
+  display: flex; align-items: center; gap: 4px;
+  padding: max(8px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 8px max(12px, env(safe-area-inset-left));
+}
+.lightbox-count { font-size: 14px; font-variant-numeric: tabular-nums; opacity: .8; }
+.lightbox-button {
+  display: inline-grid; place-items: center; min-width: 44px; height: 44px; padding: 0 8px; border: 0; border-radius: 10px;
+  background: transparent; color: inherit;
+}
+.lightbox-button:disabled { opacity: .35; }
+.lightbox-zoom { font-size: 13px; font-variant-numeric: tabular-nums; }
+@media (hover: hover) and (pointer: fine) { .lightbox-button:not(:disabled):hover, .lightbox-nav:hover { background: rgb(255 255 255 / .12); } }
+.lightbox-stage { position: relative; min-height: 0; overflow: hidden; touch-action: none; user-select: none; }
+/* Absolute and centred with margin: auto, so max-height has a definite box to refer to and a tall
+   photo fits instead of being cut. */
+.lightbox-stage img {
+  position: absolute; inset: 0; margin: auto;
+  max-width: calc(100% - 32px); max-height: 100%; border-radius: 4px; transform-origin: center;
+  cursor: zoom-in; will-change: transform;
+}
+.lightbox-stage.zoomed img { cursor: grab; }
+.lightbox-nav {
+  position: absolute; top: 50%; translate: 0 -50%; display: grid; place-items: center; width: 48px; height: 72px;
+  border: 0; border-radius: 12px; background: rgb(0 0 0 / .35); color: #fff;
+}
+.lightbox-nav.prev { left: max(8px, env(safe-area-inset-left)); }
+.lightbox-nav.next { right: max(8px, env(safe-area-inset-right)); }
+.lightbox-footer { padding: 10px max(16px, env(safe-area-inset-left)) max(12px, env(safe-area-inset-bottom)); }
+@media (max-width: 859px) { .lightbox-nav { width: 40px; height: 56px; background: rgb(0 0 0 / .25); } }
 .danger-zone { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
 
 .copy-cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
@@ -999,3 +1033,28 @@ button.pbadge:active:not(:disabled) { transform: scale(0.94); }
 .toggle.on { background: var(--accent); border-color: var(--accent-strong); color: var(--accent-text); }
 select.currency { flex: 0 0 auto; width: auto; }
 .help.error { color: var(--danger); }
+
+/* Copy photos (features/library/CopyPhotos.tsx) */
+.copy-photos { display: grid; gap: 8px; margin-top: 8px; justify-items: start; }
+.photo-strip { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.photo-strip button {
+  position: relative; display: block; width: 64px; height: 64px; padding: 0; border: 0; border-radius: 8px; overflow: hidden;
+  background: var(--surface-2); transition: transform 160ms var(--ease-out);
+}
+.photo-strip button:active { transform: scale(0.97); }
+.photo-strip img { width: 100%; height: 100%; object-fit: cover; }
+.photo-more { font-weight: 700; font-size: 14px; color: var(--text); }
+.photo-cover { position: absolute; top: 4px; right: 4px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--accent-text); }
+.photo-uploads { display: grid; gap: 4px; list-style: none; margin: 0; padding: 0; width: 100%; }
+.photo-uploads li { display: flex; align-items: center; gap: 8px; }
+.photo-uploads progress { flex: 1; max-width: 220px; height: 6px; accent-color: var(--accent); }
+.photo-uploads .failed { color: var(--danger); }
+.photo-footer { display: grid; gap: 8px; max-width: 960px; margin: 0 auto; }
+.photo-caption {
+  width: 100%; font-size: 16px; padding: 8px 10px; border-radius: 8px; border: 1px solid rgb(255 255 255 / .2);
+  background: rgb(255 255 255 / .06); color: #fff;
+}
+.photo-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.photo-actions .lightbox-button { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
+.lightbox-button.active { color: var(--accent); }
+.photo-error { color: #ff8a80; }

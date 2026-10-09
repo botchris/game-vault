@@ -67,6 +67,9 @@ func NewHTTPHandler(h Handlers, opts Options) http.Handler {
 	mux.Handle("GET /media/covers/{id}", coverHandler(h.Media))
 	mux.Handle("GET /media/proxy", imageProxyHandler(h.Media))
 	mux.Handle("GET /media/games/{id}/assets/{name}", gameAssetHandler(h.Media))
+	mux.Handle("POST /media/photos", photoUploadHandler(h.Media))
+	mux.Handle("GET /media/photos/{id}", photoHandler(h.Media, false))
+	mux.Handle("GET /media/photos/{id}/thumb", photoHandler(h.Media, true))
 
 	if opts.UIDir != "" {
 		mux.Handle("/", spa(opts.UIDir))
@@ -77,7 +80,8 @@ func NewHTTPHandler(h Handlers, opts Options) http.Handler {
 		handler = cors.New(cors.Options{
 			AllowedOrigins: opts.CORSOrigins,
 			AllowedMethods: connectcors.AllowedMethods(),
-			AllowedHeaders: connectcors.AllowedHeaders(),
+			// Only the configured origins may send the photo upload header (see photoUploadHeader).
+			AllowedHeaders: append(connectcors.AllowedHeaders(), photoUploadHeader),
 			ExposedHeaders: connectcors.ExposedHeaders(),
 		}).Handler(handler)
 	}

@@ -236,6 +236,7 @@ type Service struct {
 	games     game.Repository
 	providers provider.Repository
 	store     AssetStore
+	photos    PhotoStore
 	fetch     ImageFetcher
 	searchers []LinkSearcher // registration order
 	stores    []LinkStore    // every store a provider reads links of, registration order
@@ -264,12 +265,13 @@ type Providers struct {
 }
 
 // NewService builds the service.
-func NewService(games game.Repository, providers provider.Repository, store AssetStore, details DetailsStore, fetch ImageFetcher,
+func NewService(games game.Repository, providers provider.Repository, store AssetStore, photos PhotoStore, details DetailsStore, fetch ImageFetcher,
 	now port.Clock, log *slog.Logger, impls Providers) *Service {
 	s := &Service{
 		games:        games,
 		providers:    providers,
 		store:        store,
+		photos:       photos,
 		details:      details,
 		fetch:        fetch,
 		now:          now,
@@ -564,6 +566,20 @@ func (s *Service) resolve(ctx context.Context, id game.ID) (Image, error) {
 	}
 
 	ref := GameRef{g.ID(), g.Title()}
+
+	// A photo of the user's own copy chosen as the cover wins over everything.
+	if id := g.CoverPhoto(); id != "" && s.photos != nil {
+		img, err := s.photos.Open(id, false)
+		if err == nil {
+			if err := s.store.PutCover(ref, img); err != nil {
+				return Image{}, fmt.Errorf("caching cover: %w", err)
+			}
+
+			return img, nil
+		}
+
+		s.log.Warn("cover photo unavailable, falling back", "game", g.Title(), "error", err)
+	}
 
 	// A cover the user picked or pasted always wins.
 	if u := g.CoverURL(); u != "" {

@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	"gamevault/internal/adapters/outbound/imagefetch"
 	"gamevault/internal/adapters/outbound/logfile"
 	"gamevault/internal/adapters/outbound/passwordhash"
+	"gamevault/internal/adapters/outbound/photostore"
 	"gamevault/internal/adapters/outbound/sqlite"
 	"gamevault/internal/adapters/outbound/tlspolicy"
 	"gamevault/internal/application/auth"
@@ -105,8 +107,18 @@ func run() error {
 		return err
 	}
 
+	photos, err := photostore.Open(cfg.PhotosDir())
+	if err != nil {
+		return err
+	}
+
 	if err := migrateLegacyCovers(ctx, assets, games, cfg.LegacyCoverDir(), log); err != nil {
 		return fmt.Errorf("migrating covers: %w", err)
+	}
+
+	backupPhotos, err := photostore.Open(filepath.Join(cfg.BackupDir(), "photos"))
+	if err != nil {
+		return err
 	}
 
 	plugins, err := newPlugins(log)
@@ -122,12 +134,12 @@ func run() error {
 		return fmt.Errorf("applying log settings: %w", err)
 	}
 
-	mediaSvc := media.NewService(games, sqlite.NewProviderRepository(db), assets, sqlite.NewDetailsStore(db), imagefetch.New(), now, log,
+	mediaSvc := media.NewService(games, sqlite.NewProviderRepository(db), assets, photos, sqlite.NewDetailsStore(db), imagefetch.New(), now, log,
 		plugins.Media())
-	catalogSvc := catalog.NewService(games, db, now, mediaSvc)
-	syncSvc := sync.NewService(sources, games, db, now, log, plugins.Sources()...)
+	catalogSvc := catalog.NewService(games, db, now, mediaSvc, photos)
+	syncSvc := sync.NewService(sources, games, db, mediaSvc, now, log, plugins.Sources()...)
 	transferSvc := transfer.NewService(games, db, settingsRepo, now, csvfile.Codec{})
-	systemSvc := system.NewService(games, db, settingsRepo, now, log, system.Status{
+	systemSvc := system.NewService(games, db, settingsRepo, photostore.NewArchive(photos, backupPhotos), now, log, system.Status{
 		Version:      version,
 		ConfigDir:    cfg.ConfigDir,
 		DatabasePath: cfg.DatabasePath(),
@@ -143,6 +155,7 @@ func run() error {
 	}
 
 	go mediaSvc.RunDetailsScanner(ctx, 2*time.Second) // gentle enough for the strictest store API (Steam: ~200 requests / 5 min)
+	go mediaSvc.RunPhotoCleanup(ctx, time.Hour, 24*time.Hour)
 
 	if cfg.BackupInterval > 0 {
 		go systemSvc.RunScheduledBackups(ctx, cfg.BackupInterval)

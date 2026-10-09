@@ -49,6 +49,9 @@ func (c Config) LogDir() string { return filepath.Join(c.ConfigDir, "logs") }
 // GameDataDir holds one folder per game with its cover and sheet images.
 func (c Config) GameDataDir() string { return filepath.Join(c.ConfigDir, "game-data") }
 
+// PhotosDir holds the photos users upload of their copies (see photostore).
+func (c Config) PhotosDir() string { return filepath.Join(c.ConfigDir, "photos") }
+
 // LegacyCoverDir is where versions before game-data kept covers; migrated on start.
 func (c Config) LegacyCoverDir() string { return filepath.Join(c.ConfigDir, "covers") }
 

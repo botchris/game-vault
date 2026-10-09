@@ -78,7 +78,8 @@ To stop it, press `Ctrl+C`. To update, pull the latest code and run `task run` a
 ## Your data
 
 Everything lives in the `config/` folder next to the program: the database, the downloaded box
-art and images, the logs and the automatic daily backups (the last 14 are kept). Back up that
+art and images, the photos you take of your copies, the logs and the automatic daily backups (the
+last 14 are kept, photos included). Back up that
 folder, and keep it private: it contains your CD keys and the sessions of your accounts. It is
 excluded from git.
 

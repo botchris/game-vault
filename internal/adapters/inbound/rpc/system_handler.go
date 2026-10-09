@@ -30,9 +30,10 @@ func NewSystemHandler(s *system.Service, t *transfer.Service) *SystemHandler {
 
 func backupToPB(b system.Backup) *pb.Backup {
 	return &pb.Backup{
-		Name:      b.Name,
-		SizeBytes: b.SizeBytes,
-		CreatedAt: ts(b.CreatedAt),
+		Name:       b.Name,
+		SizeBytes:  b.SizeBytes,
+		CreatedAt:  ts(b.CreatedAt),
+		PhotoCount: int32(b.Photos),
 	}
 }
 
@@ -53,14 +54,19 @@ func (h *SystemHandler) GetStatus(ctx context.Context, _ *connect.Request[pb.Get
 	}), nil
 }
 
-// ListBackups lists the database backups.
+// ListBackups lists the database backups and the size of the photo store they share.
 func (h *SystemHandler) ListBackups(ctx context.Context, _ *connect.Request[pb.ListBackupsRequest]) (*connect.Response[pb.ListBackupsResponse], error) {
 	backups, err := h.system.ListBackups(ctx)
 	if err != nil {
 		return nil, toConnectError(err)
 	}
 
-	out := &pb.ListBackupsResponse{}
+	size, err := h.system.PhotoStoreSize(ctx)
+	if err != nil {
+		return nil, toConnectError(err)
+	}
+
+	out := &pb.ListBackupsResponse{PhotoStoreBytes: size}
 	for _, b := range backups {
 		out.Backups = append(out.Backups, backupToPB(b))
 	}
