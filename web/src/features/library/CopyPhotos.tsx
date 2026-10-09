@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { timestampFromDate } from '@bufbuild/protobuf/wkt';
 import { errorMessage, gameClient, photoUrl } from '../../api/client';
@@ -135,7 +135,10 @@ function PhotoFooter({ game, copy, index, onIndex, onEmpty }: {
     putGame((await gameClient.reorderCopyPhotos({ gameId: game.id, copyId: copy.id, photoIds: order })).game!);
     onIndex(index + delta);
   });
+  // Escape cancels the edit: the blur that follows must not save what was typed.
+  const cancelled = useRef(false);
   const saveCaption = () => {
+    if (cancelled.current) { cancelled.current = false; return; }
     if (caption.trim() === photo.caption) return;
     void run(async () => putGame((await gameClient.updateCopyPhoto({ gameId: game.id, copyId: copy.id, photoId: photo.id, caption })).game!));
   };
@@ -144,7 +147,7 @@ function PhotoFooter({ game, copy, index, onIndex, onEmpty }: {
     <div className="photo-footer">
       <input className="photo-caption" value={caption} maxLength={200} placeholder={t('photos.captionPlaceholder')} aria-label={t('photos.caption')}
         onChange={(e) => setCaption(e.target.value)} onBlur={saveCaption}
-        onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') { setCaption(photo.caption); e.currentTarget.blur(); } }} />
+        onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') { cancelled.current = true; setCaption(photo.caption); e.currentTarget.blur(); } }} />
       <div className="photo-actions">
         {taken && <span className="small muted">{t('photos.takenOn', { date: taken.toLocaleDateString(i18n.language, { timeZone: 'UTC', dateStyle: 'medium' }) })}</span>}
         <span className="spacer" />

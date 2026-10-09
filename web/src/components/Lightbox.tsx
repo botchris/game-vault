@@ -146,7 +146,11 @@ export default function Lightbox({ images, index, onIndex, onClose, label, foote
   // Pointers: one drags (pans when zoomed, swipes otherwise), two pinch; a double tap or click
   // toggles the zoom. `moved` keeps the click that ends a drag from closing the viewer.
   const pointers = useRef(new Map<number, { x: number; y: number }>());
-  const gesture = useRef<{ startX: number; startY: number; view: View; dist: number; moved: boolean; onBackdrop: boolean }>({ startX: 0, startY: 0, view: FIT, dist: 0, moved: false, onBackdrop: false });
+  const gesture = useRef<{ startX: number; startY: number; view: View; dist: number; moved: boolean; onBackdrop: boolean; pinched: boolean }>(
+    { startX: 0, startY: 0, view: FIT, dist: 0, moved: false, onBackdrop: false, pinched: false });
+  // The view as last rendered, for gestures that restart in the middle (a pinch losing a finger).
+  const viewRef = useRef(view);
+  viewRef.current = view;
   const lastTap = useRef({ time: 0, x: 0, y: 0 });
 
   const relative = (x: number, y: number) => {
@@ -162,9 +166,10 @@ export default function Lightbox({ images, index, onIndex, onClose, label, foote
     if ((e.target as HTMLElement).closest('button')) return;
     // Pointer capture sends the click to the stage whatever was pressed, so remember it now.
     const onBackdrop = e.target === e.currentTarget;
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* the pointer is already gone */ }
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    gesture.current = { startX: e.clientX, startY: e.clientY, view, dist: spread(), moved: false, onBackdrop };
+    const pinched = pointers.current.size > 1 || gesture.current.pinched;
+    gesture.current = { startX: e.clientX, startY: e.clientY, view, dist: spread(), moved: pinched, onBackdrop, pinched };
   };
 
   const onPointerMove = (e: ReactPointerEvent) => {
@@ -174,6 +179,7 @@ export default function Lightbox({ images, index, onIndex, onClose, label, foote
     const dx = e.clientX - g.startX, dy = e.clientY - g.startY;
     if (Math.hypot(dx, dy) > 4) g.moved = true;
     if (pointers.current.size === 2 && g.dist > 0) {
+      g.pinched = true;
       const [a, b] = [...pointers.current.values()];
       const { px, py } = relative((a!.x + b!.x) / 2, (a!.y + b!.y) / 2);
       const next = Math.min(MAX_SCALE, Math.max(1, g.view.scale * (spread() / g.dist)));
@@ -186,10 +192,16 @@ export default function Lightbox({ images, index, onIndex, onClose, label, foote
 
   const onPointerUp = (e: ReactPointerEvent) => {
     if (!pointers.current.has(e.pointerId)) return;
-    const wasPinch = pointers.current.size > 1;
     pointers.current.delete(e.pointerId);
     const g = gesture.current;
-    if (wasPinch) { g.moved = true; return; }
+    // After a pinch, the finger left on the screen carries on panning from where the pinch left the
+    // image; lifting it neither swipes nor taps.
+    if (g.pinched) {
+      const rest = [...pointers.current.values()][0];
+      if (rest) gesture.current = { ...g, startX: rest.x, startY: rest.y, view: viewRef.current, dist: 0, moved: true };
+      else gesture.current = { ...g, pinched: false };
+      return;
+    }
     const dx = e.clientX - g.startX, dy = e.clientY - g.startY;
     if (g.view.scale === 1 && Math.abs(dx) > SWIPE_PX && Math.abs(dx) > Math.abs(dy)) {
       go(dx < 0 ? 1 : -1);
@@ -215,7 +227,10 @@ export default function Lightbox({ images, index, onIndex, onClose, label, foote
   };
 
   return (
-    <div ref={root} className={`lightbox ${closing ? 'closing' : ''}`} role="dialog" aria-modal="true" aria-label={label ?? t('viewer.label')}>
+    <div ref={root} className={`lightbox ${closing ? 'closing' : ''}`} role="dialog" aria-modal="true" aria-label={label ?? t('viewer.label')}
+      // Escape in a field of the footer (the caption) belongs to that field: never let it reach the
+      // sheet behind, which would close.
+      onKeyDown={(e) => { if (e.key === 'Escape') e.stopPropagation(); }}>
       <div className="lightbox-bar">
         <span className="lightbox-count">{many ? `${index + 1} / ${images.length}` : ''}</span>
         <span className="spacer" />

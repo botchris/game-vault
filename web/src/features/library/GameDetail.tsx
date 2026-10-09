@@ -156,8 +156,19 @@ function GameDetailBody({ game, onClose, onOpenGame, onPlatform }: {
           })} />
       )}
       {dialog?.type === 'coverPicker' && (
-        <CoverPicker gameId={game.id} current={game.coverUrl} onClose={() => setDialog(null)}
-          onPick={(url) => { updateGame({ coverUrl: url }); setDialog(null); }} />
+        <CoverPicker gameId={game.id} current={game.coverPhotoId ? null : game.coverUrl} onClose={() => setDialog(null)}
+          onPick={(url) => {
+            // While a photo is the cover, whatever is picked (the current URL or Automatic too) replaces it.
+            if (game.coverPhotoId) {
+              run(async () => {
+                putGame((await gameClient.setCoverPhoto({ gameId: game.id, photoId: '' })).game!);
+                if (url !== game.coverUrl) putGame((await gameClient.updateGame({ id: game.id, title: game.title, links: game.links, notes: game.notes, coverUrl: url })).game!);
+              });
+            } else {
+              updateGame({ coverUrl: url });
+            }
+            setDialog(null);
+          }} />
       )}
       {dialog?.type === 'merge' && (
         <GamePicker title={t('game.mergeTitle', { title: game.title })} excludeId={game.id} onClose={() => setDialog(null)}
