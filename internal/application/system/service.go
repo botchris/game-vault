@@ -112,18 +112,27 @@ func (s *Service) CreateBackup(ctx context.Context) (Backup, error) {
 
 	name := fmt.Sprintf("gamevault-%s.db", s.now().UTC().Format("20060102-150405"))
 
+	// The photos are read before and after the copy: the copied database references photos from
+	// some moment in between, and the union holds all of them (a few extra are harmless).
+	before, err := s.referencedPhotos(ctx)
+	if err != nil {
+		return Backup{}, err
+	}
+
 	path := filepath.Join(s.backupDir, name)
 	if err := s.db.BackupTo(ctx, path); err != nil {
 		return Backup{}, err
 	}
 
-	photos, err := s.backupPhotos(ctx, path)
-	if err != nil {
-		return Backup{}, fmt.Errorf("backing up photos: %w", err)
-	}
+	photos, photoErr := s.backupPhotos(ctx, path, before)
 
+	// The database copy is a backup even when its photos failed, so rotation still runs.
 	if err := s.prune(); err != nil {
 		s.log.Warn("pruning backups", "error", err)
+	}
+
+	if photoErr != nil {
+		return Backup{}, fmt.Errorf("backing up photos: %w", photoErr)
 	}
 
 	info, err := os.Stat(path)
@@ -227,27 +236,26 @@ func (s *Service) PhotoStoreSize(context.Context) (int64, error) {
 // photoList is the file next to a backup that names the photos it needs.
 func photoList(dbPath string) string { return strings.TrimSuffix(dbPath, ".db") + ".photos" }
 
-// backupPhotos writes the backup's photo list and puts the photos in the shared store.
-func (s *Service) backupPhotos(ctx context.Context, dbPath string) (int, error) {
+// backupPhotos writes the backup's photo list (the photos referenced before the copy, plus those
+// referenced now) and puts them in the shared store.
+func (s *Service) backupPhotos(ctx context.Context, dbPath string, before map[game.PhotoID]bool) (int, error) {
 	if s.photos == nil {
 		return 0, nil
 	}
 
-	games, err := s.games.List(ctx)
+	after, err := s.referencedPhotos(ctx)
 	if err != nil {
 		return 0, err
 	}
 
-	var ids []game.PhotoID
+	ids := make([]game.PhotoID, 0, len(before)+len(after))
+	for id := range before {
+		ids = append(ids, id)
+	}
 
-	seen := map[game.PhotoID]bool{}
-
-	for _, g := range games {
-		for _, id := range g.PhotoIDs() {
-			if !seen[id] {
-				seen[id] = true
-				ids = append(ids, id)
-			}
+	for id := range after {
+		if !before[id] {
+			ids = append(ids, id)
 		}
 	}
 
@@ -263,6 +271,27 @@ func (s *Service) backupPhotos(ctx context.Context, dbPath string) (int, error) 
 	}
 
 	return len(ids), s.photos.Add(ids)
+}
+
+// referencedPhotos returns the photos the catalog references; none when backups keep no photos.
+func (s *Service) referencedPhotos(ctx context.Context) (map[game.PhotoID]bool, error) {
+	ids := map[game.PhotoID]bool{}
+	if s.photos == nil {
+		return ids, nil
+	}
+
+	games, err := s.games.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, g := range games {
+		for _, id := range g.PhotoIDs() {
+			ids[id] = true
+		}
+	}
+
+	return ids, nil
 }
 
 // readPhotoList returns the photos a backup's list names; none when it has no list.

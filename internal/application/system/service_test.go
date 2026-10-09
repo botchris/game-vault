@@ -2,6 +2,7 @@ package system_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -184,6 +185,75 @@ func TestBackups_photos(t *testing.T) {
 				size, err := svc.PhotoStoreSize(ctx)
 				require.NoError(t, err)
 				assert.Equal(t, int64(100), size)
+			})
+		})
+	})
+}
+
+// racingBackup changes the catalog's photos while the database is being copied, like a user
+// editing during a backup.
+type racingBackup struct {
+	games *photoGames
+	next  []game.PhotoID
+}
+
+func (b racingBackup) BackupTo(_ context.Context, path string) error {
+	b.games.ids = b.next
+
+	return os.WriteFile(path, []byte("db"), 0o600)
+}
+
+// failingArchive cannot store photos.
+type failingArchive struct{ fakeArchive }
+
+func (failingArchive) Add([]game.PhotoID) error { return errors.New("disk full") }
+
+func TestBackups_photosEdgeCases(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	t.Run("GIVEN photos that change while the database is being copied", func(t *testing.T) {
+		dir := t.TempDir()
+		games := &photoGames{ids: []game.PhotoID{photoID(1), photoID(2)}}
+		archive := &fakeArchive{stored: map[game.PhotoID]bool{}}
+		db := racingBackup{
+			games: games,
+			next:  []game.PhotoID{photoID(2), photoID(3)},
+		}
+		svc := system.NewService(games, db, nil, archive, time.Now, logger, system.Status{}, dir, 3)
+
+		t.Run("WHEN a backup is made", func(t *testing.T) {
+			b, err := svc.CreateBackup(ctx)
+			require.NoError(t, err)
+
+			t.Run("THEN it keeps every photo the copied database may reference, before and after", func(t *testing.T) {
+				assert.Equal(t, 3, b.Photos)
+				assert.Equal(t, map[game.PhotoID]bool{photoID(1): true, photoID(2): true, photoID(3): true}, archive.stored)
+			})
+		})
+	})
+
+	t.Run("GIVEN more backups than are kept and a photo store that fails", func(t *testing.T) {
+		dir := t.TempDir()
+		old := time.Now().Add(-48 * time.Hour)
+		writeBackup(t, dir, "gamevault-20261001-120000.db", old)
+		writeBackup(t, dir, "gamevault-20261002-120000.db", old.Add(time.Hour))
+
+		games := &photoGames{ids: []game.PhotoID{photoID(1)}}
+		svc := system.NewService(games, fileBackup{}, nil, &failingArchive{}, time.Now, logger, system.Status{}, dir, 2)
+
+		t.Run("WHEN a backup is made", func(t *testing.T) {
+			_, err := svc.CreateBackup(ctx)
+
+			t.Run("THEN it reports the photos failed, keeps the database copy and still rotates", func(t *testing.T) {
+				require.ErrorContains(t, err, "disk full")
+
+				list, err := svc.ListBackups(ctx)
+				require.NoError(t, err)
+				assert.Len(t, list, 2)
+				assert.NoFileExists(t, filepath.Join(dir, "gamevault-20261001-120000.db"))
 			})
 		})
 	})
