@@ -6,8 +6,11 @@ import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CopyKind, CopyStatus, isPendingKey, kindKey, type Game } from '../lib/model';
 
-/** A glyph: a filled path from Simple Icons (CC0) or our own stroke drawing for brands it lacks. */
-type Glyph = { fill: string } | { stroke: string };
+/**
+ * A glyph: a filled path (Simple Icons, CC0, on a 24×24 box unless viewBox says otherwise) or our
+ * own stroke drawing for brands no icon set has.
+ */
+type Glyph = { fill: string; viewBox?: string } | { stroke: string };
 
 interface PlatformLook {
   glyph?: Glyph;
@@ -21,6 +24,14 @@ const XBOX: Glyph = { stroke: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM8 8l8 8M16 8
 const SWITCH: Glyph = { fill: 'M9.5 2H7a5 5 0 0 0-5 5v10a5 5 0 0 0 5 5h2.5zM6.2 7.4a1.6 1.6 0 1 0 0 .01zM14.5 2v20H17a5 5 0 0 0 5-5V7a5 5 0 0 0-5-5zm3.3 11a1.6 1.6 0 1 1 0 .01z' };
 const PC: Glyph = { stroke: 'M3 4h18v12H3zM8 20h8M12 16v4' };
 const STORE: Glyph = { stroke: 'M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2' };
+// Simple Icons has no Amazon logo; this one is Font Awesome Free 6.7.2's "amazon" brand icon
+// (https://fontawesome.com, CC BY 4.0).
+const AMAZON: Glyph = {
+  viewBox: '0 0 448 512',
+  fill: 'M257.2 162.7c-48.7 1.8-169.5 15.5-169.5 117.5 0 109.5 138.3 114 183.5 43.2 6.5 10.2 35.4 37.5 45.3 46.8l56.8-56S341 288.9 341 261.4V114.3C341 89 316.5 32 228.7 32 140.7 32 94 87 94 136.3l73.5 6.8c16.3-49.5 54.2-49.5 54.2-49.5 40.7-.1 35.5 29.8 35.5 69.1zm0 86.8c0 80-84.2 68-84.2 17.2 0-47.2 50.5-56.7 84.2-57.8v40.6zm136 163.5c-7.7 10-70 67-174.5 67S34.2 408.5 9.7 379c-6.8-7.7 1-11.3 5.5-8.3C88.5 415.2 203 488.5 387.7 401c7.5-3.7 13.3 2 5.5 12zm39.8 2.2c-6.5 15.8-16 26.8-21.2 31-5.5 4.5-9.5 2.7-6.5-3.8s19.3-46.5 12.7-55c-6.5-8.3-37-4.3-48-3.2-10.8 1-13 2-14-.3-2.3-5.7 21.7-15.5 37.5-17.5 15.7-1.8 41-.8 46 5.7 3.7 5.1 0 27.1-6.5 43.1z',
+};
+// No icon set has Fanatical's logo: our own "F" monogram, not a copy of it.
+const FANATICAL: Glyph = { fill: 'M6 3h12.5v4.2H10.8v3.4h6.6v4.2h-6.6V21H6z' };
 const KEY: Glyph = { stroke: 'M10.5 13.5 20 4M17 7l2.5 2.5M14.5 9.5 16.5 11.5M8 21a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9z' };
 
 const si = (icon: { path: string }): Glyph => ({ fill: icon.path });
@@ -42,7 +53,7 @@ const LOOKS: Record<string, PlatformLook> = {
   'riot': { glyph: si(siRiotgames), bg: '#eb0029' },
   'itch.io': { glyph: si(siItchdotio), bg: '#fa5c5c' },
   'battlestate (tarkov)': { label: 'EFT', bg: '#2d2f28' },
-  'amazon games': { glyph: STORE, label: 'Amazon', bg: '#232f3e' },
+  'amazon games': { glyph: AMAZON, bg: '#232f3e' },
   'microsoft store / xbox': { glyph: XBOX, bg: XBOX_BG },
   'playstation store': { glyph: PS, bg: PS_BG },
   'nintendo eshop': { glyph: SWITCH, label: 'eShop', bg: NINTENDO_BG },
@@ -75,7 +86,7 @@ export function platformLook(platform: string): PlatformLook {
 
 function GlyphSvg({ glyph, size }: { glyph: Glyph; size: number }) {
   return 'fill' in glyph
-    ? <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={glyph.fill} /></svg>
+    ? <svg width={size} height={size} viewBox={glyph.viewBox ?? '0 0 24 24'} fill="currentColor" aria-hidden="true"><path d={glyph.fill} /></svg>
     : <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4}
       strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={glyph.stroke} /></svg>;
 }
@@ -176,8 +187,8 @@ const SOURCE_LOOKS: Record<string, PlatformLook> = {
   ubisoft: platformLook('Ubisoft Connect'),
   xbox: platformLook('Microsoft Store / Xbox'),
   playstation: { glyph: PS, bg: PS_BG },
-  amazon: { glyph: STORE, bg: '#232f3e' },
-  fanatical: { glyph: STORE, bg: '#ff9800', fg: '#111' },
+  amazon: platformLook('Amazon Games'),
+  fanatical: { glyph: FANATICAL, bg: '#ff9800', fg: '#111' },
 };
 
 /** A source's store logo in its brand colour, as a rounded tile. */
