@@ -185,6 +185,12 @@ tasks:
       - '{{.IN_TOOLCHAIN}} go run ./tools/docspacing -fix internal cmd tools'
       - '{{.IN_TOOLCHAIN}} golangci-lint fmt ./...'
 
+  extension:pack:
+    desc: Zip the browser extension (extension/) for the Chrome Web Store / Firefox Add-ons into dist/
+    deps: [toolchain]
+    cmds:
+      - '{{.IN_TOOLCHAIN}} sh -c "mkdir -p dist && v=\$(node -p require\(process.argv[1]\).version \$PWD/extension/manifest.json) && go run ./tools/zipdir extension dist/game-vault-connector-\$v.zip tests package.json && echo dist/game-vault-connector-\$v.zip"'
+
   i18n:
     desc: Check that every UI language has the same translation keys as English
     deps: [toolchain]

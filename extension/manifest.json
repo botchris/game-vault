@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "Game Vault Connector",
+  "version": "1.0.0",
+  "description": "Connects your stores to your own Game Vault in one click: you sign in on each store's page and the extension hands the session to your Game Vault tab.",
+  "permissions": ["cookies", "webNavigation", "scripting", "tabs", "storage"],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "background": { "service_worker": "background.js", "scripts": ["background.js"], "type": "module" },
+  "action": { "default_popup": "popup.html", "default_title": "Game Vault Connector" },
+  "browser_specific_settings": { "gecko": { "id": "connector@gamevault", "strict_min_version": "128.0" } }
+}
