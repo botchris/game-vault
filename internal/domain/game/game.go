@@ -192,7 +192,7 @@ func (g *Game) addCopy(d CopyDetails, from copyOrigin, now time.Time) (Copy, err
 	}
 
 	c := Copy{
-		ID:          NewID(),
+		ID:           NewID(),
 		CopyDetails:  d,
 		SourceID:     from.sourceID,
 		ExternalID:   from.externalID,
