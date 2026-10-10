@@ -329,6 +329,27 @@ input[type="checkbox"], input[type="radio"] { min-height: 0; accent-color: var(-
   background: linear-gradient(160deg, var(--surface-3), var(--surface-2) 70%);
 }
 .cover-placeholder span { font-size: 30px; font-weight: 800; font-stretch: 125%; color: var(--muted); }
+/* A box shown whole (WholeCover): the cell keeps its 2:3 slot and stays empty; the box stands at its
+   bottom with its own proportions, like a box on a shelf. --box-w and --box-h are the box's share of
+   the cell, set once the image's size is known. Only the box has corners and a shadow (each place sets
+   --cover-shadow); the frame over it holds the badges, so they sit on the box. Until the image has
+   loaded both are invisible, then fade in; an image seen before ("instant") shows at once. */
+.cover.whole { background: none; border-radius: 0; overflow: visible; }
+.cover-box, .cover-frame {
+  position: absolute; bottom: 0; left: calc((100% - var(--box-w, 100%)) / 2);
+  width: var(--box-w, 100%); height: var(--box-h, 100%);
+}
+.cover-box {
+  border-radius: 8px; overflow: hidden; background: var(--surface-2); box-shadow: var(--cover-shadow, none); opacity: 0;
+  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out), box-shadow 200ms var(--ease-out);
+}
+.cover-frame {
+  z-index: 2; pointer-events: none; opacity: 0; visibility: hidden;
+  transition: opacity 200ms var(--ease-out), visibility 200ms, transform 200ms var(--ease-out);
+}
+.cover.whole.shown .cover-box, .cover.whole.shown .cover-frame { opacity: 1; visibility: visible; }
+.cover.whole.instant .cover-box { transition-property: transform, box-shadow; }
+.cover.whole.instant .cover-frame { transition-property: transform; }
 /* A box borrowed from another edition: named, so the edition's own badge is not contradicted. */
 .cover-borrowed {
   position: absolute; left: 6px; bottom: 6px; max-width: calc(100% - 12px);
@@ -347,16 +368,17 @@ input[type="checkbox"], input[type="radio"] { min-height: 0; accent-color: var(-
 .posters { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)); gap: 22px 18px; }
 .poster {
   position: relative; display: flex; flex-direction: column; gap: 7px; padding: 0; border: none; background: none; min-height: 0;
-  text-align: left; white-space: normal; align-items: stretch; width: 100%; border-radius: 8px;
+  text-align: left; white-space: normal; align-items: stretch; justify-content: flex-start; width: 100%; border-radius: 8px;
 }
 .poster:hover:not(:disabled) { background: none; }
 .poster-art { position: relative; display: block; }
-.poster .cover { box-shadow: var(--shadow-sm), 0 0 0 1px color-mix(in srgb, var(--text) 6%, transparent); transition: transform 200ms var(--ease-out), box-shadow 200ms var(--ease-out); }
+.poster .cover { --cover-shadow: var(--shadow-sm), 0 0 0 1px color-mix(in srgb, var(--text) 6%, transparent); }
 @media (hover: hover) and (pointer: fine) {
-  .poster:hover .cover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+  .poster:hover .cover { --cover-shadow: var(--shadow-md); }
+  .poster:hover .cover-box { transform: translateY(-3px); }
 }
 .poster:focus-visible { outline: none; }
-.poster:focus-visible .cover { outline: 2px solid var(--accent); outline-offset: 3px; }
+.poster:focus-visible .cover-box { outline: 2px solid var(--accent); outline-offset: 3px; }
 .poster-flags { position: absolute; top: 6px; left: 6px; right: 6px; display: flex; flex-wrap: wrap; gap: 4px; pointer-events: none; }
 .flag { font-size: 11px; font-weight: 650; padding: 2px 7px; border-radius: 6px; background: rgb(16 18 30 / .78); color: #fff; backdrop-filter: blur(6px); }
 .flag.danger { background: #c4302b; }
@@ -370,7 +392,7 @@ input[type="checkbox"], input[type="radio"] { min-height: 0; accent-color: var(-
 .dot.kind-key { background: var(--key); }
 .dot.kind-library { background: var(--library); }
 .dot.kind-physical { background: var(--physical); }
-.poster.selected .cover { outline: 3px solid var(--accent); outline-offset: 2px; }
+.poster.selected .cover-box { outline: 3px solid var(--accent); outline-offset: 2px; }
 
 @media (max-width: 860px) {
   .posters { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 10px; }
@@ -660,7 +682,7 @@ td.title { font-weight: 500; min-width: 220px; }
 .hero-actions .icon-button:hover:not(:disabled) { background: rgb(0 0 0 / .45); color: #fff; }
 .hero-actions .icon-button:disabled { opacity: .35; }
 .hero-cover { display: flex; flex-direction: column; gap: 10px; }
-.hero-cover .cover { box-shadow: 0 18px 40px rgb(0 0 0 / .45), 0 0 0 1px rgb(255 255 255 / .08); }
+.hero-cover .cover { --cover-shadow: 0 18px 40px rgb(0 0 0 / .45), 0 0 0 1px rgb(255 255 255 / .08); }
 .hero-cover .ghost { color: rgb(255 255 255 / .82); }
 .hero-cover .ghost:hover:not(:disabled) { background: rgb(255 255 255 / .1); color: #fff; }
 .hero-body { display: flex; flex-direction: column; gap: 14px; min-width: 0; padding-top: 6px; }
@@ -1108,13 +1130,15 @@ button.link.edition-main:hover:not(:disabled) { color: #fff; }
 /* Cards with a stretched title button, so platform badges can be buttons of their own */
 .poster-card { position: relative; display: flex; flex-direction: column; gap: 7px; min-width: 0; }
 .poster-card .poster-art { position: relative; display: block; }
-.poster-card .cover { box-shadow: var(--shadow-sm), 0 0 0 1px color-mix(in srgb, var(--text) 6%, transparent); transition: transform 200ms var(--ease-out), box-shadow 200ms var(--ease-out); }
+.poster-card .cover { --cover-shadow: var(--shadow-sm), 0 0 0 1px color-mix(in srgb, var(--text) 6%, transparent); }
+/* The box and the badges over it lift together; the cell itself never moves (a transform on it would
+   trap the badges under the stretched title button). */
 @media (hover: hover) and (pointer: fine) {
-  .poster-card:hover .cover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
-  .poster-card:hover .poster-platforms { transform: translateY(-3px); }
+  .poster-card:hover .cover { --cover-shadow: var(--shadow-md); }
+  .poster-card:hover .cover-box, .poster-card:hover .cover-frame { transform: translateY(-3px); }
 }
-.poster-card:has(.poster-open:focus-visible) .cover { outline: 2px solid var(--accent); outline-offset: 3px; }
-.poster-card:has(.poster-open:active) .cover { transform: scale(0.98); }
+.poster-card:has(.poster-open:focus-visible) .cover-box { outline: 2px solid var(--accent); outline-offset: 3px; }
+.poster-card:has(.poster-open:active) .cover-box { transform: scale(0.98); }
 .poster-open {
   display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 2px; padding: 0; border: none; background: none;
   min-height: 0; text-align: left; white-space: normal; border-radius: 0; color: inherit;
@@ -1122,7 +1146,7 @@ button.link.edition-main:hover:not(:disabled) { color: #fff; }
 .poster-open:hover:not(:disabled), .poster-open:active:not(:disabled) { background: none; transform: none; }
 .poster-open:focus-visible { outline: none; }
 .poster-open::after { content: ''; position: absolute; inset: 0; z-index: 1; }
-.poster-platforms { z-index: 2; transition: transform 200ms var(--ease-out); }
+.poster-platforms { z-index: 2; }
 .poster-platforms .pbadge, .row-main .pbadges .pbadge { pointer-events: auto; position: relative; z-index: 2; }
 button.pbadge { border: none; min-height: 0; font: inherit; font-size: 11.5px; font-weight: 700; cursor: pointer; justify-content: center; }
 button.pbadge:hover:not(:disabled) { background: var(--pb); filter: brightness(1.15); }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { coverClient, errorMessage, photoUrl, proxiedImage } from '../../api/client';
+import { WholeCover } from '../../components/Cover';
 import { Alert, Modal } from '../../components/ui';
 import type { Game } from '../../gen/gamevault/v1/game_pb';
 import type { CoverCandidate } from '../../gen/gamevault/v1/provider_pb';
@@ -49,7 +50,7 @@ export default function CoverPicker({ game, system, photosOnly = false, onPick, 
             {photos.map((p) => (
               <button key={p.id} className={`poster ${edition?.coverPhotoId === p.id ? 'selected' : ''}`} title={p.caption} aria-label={p.caption || t('coverPicker.photo')}
                 onClick={() => onPick({ case: 'photoId', value: p.id })}>
-                <div className="cover"><img src={photoUrl(p.id, true)} alt="" loading="lazy" /></div>
+                <WholeCover src={photoUrl(p.id, true)} maxAspect={Infinity} />
               </button>
             ))}
           </div>
@@ -64,7 +65,7 @@ export default function CoverPicker({ game, system, photosOnly = false, onPick, 
           {candidates && (
             <div className="posters picker-grid">
               <button className={`poster ${automatic ? 'selected' : ''}`} onClick={() => onPick({ case: 'clear', value: true })}>
-                <div className="cover"><div className="cover-placeholder"><span>AUTO</span></div></div>
+                <WholeCover placeholder={<div className="cover-placeholder"><span>AUTO</span></div>} />
                 <div className="poster-caption">
                   <span className="poster-title">{t('coverPicker.automatic')}</span>
                   <span className="muted small">{t('coverPicker.automaticHint')}</span>
@@ -72,7 +73,7 @@ export default function CoverPicker({ game, system, photosOnly = false, onPick, 
               </button>
               {candidates.map((c) => (
                 <button key={c.url} className={`poster ${edition?.coverUrl === c.url ? 'selected' : ''}`} onClick={() => onPick({ case: 'url', value: c.url })} title={c.label}>
-                  <div className="cover"><img src={proxiedImage(c.thumbUrl || c.url)} alt="" loading="lazy" /></div>
+                  <WholeCover src={proxiedImage(c.thumbUrl || c.url)} maxAspect={Infinity} />
                   <div className="poster-caption">
                     <span className="poster-title">{c.label || c.providerName}</span>
                     <span className="muted small">{c.providerName}</span>

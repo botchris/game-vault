@@ -16,7 +16,11 @@ because Simple Icons removed them).
   tab, with no animation; the image viewer catches the arrows first; the sheet is not remounted per
   game, only its body is keyed), `GameSheet` (details from metadata providers),
   `CopyPhotos` (a copy's thumbnail strip, uploads with progress, the viewer with its photo footer).
-- `components/Cover.tsx`: edition cover with the borrowed-box fallback.
+- `components/Cover.tsx`: edition cover with the borrowed-box fallback. `whole` (posters, the sheet's
+  hero) shows the box uncropped through `WholeCover`: the 2:3 cell stays, the box stands at its
+  bottom sized from the image's natural aspect (`lib/shelf.ts`), radius and shadow (`--cover-shadow`)
+  on `.cover-box` only, overlays as `children` in `.cover-frame` over the box. Never transform the
+  cell itself (it would trap the badges under the stretched title button); lift the box and frame.
 - `lib/editions.ts`: editions, library filters, cover order (pure, Node-tested).
 - `components/Lightbox.tsx`: the one image viewer (screenshots, copy photos). Props: ready URLs,
   index, `onIndex`, `onClose`, optional `label` and `footer`. Buttons for previous / next, zoom,

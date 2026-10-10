@@ -60,13 +60,15 @@ export default function PosterGrid({ items, grouping, onOpen, onSystem, activeSy
           <li key={item.key} className="poster-card">
             {/* The title button stretches over the whole card; the badges sit above it. */}
             <span className="poster-art">
-              <Cover game={item.game} system={item.system} />
-              <span className="poster-flags">
-                {days !== null && days <= 30 && <span className="flag danger">{t('common.daysLeft', { count: days })}</span>}
-                {redundant > 0 && <span className="flag warn">{t('library.redundantBadge', { count: redundant })}</span>}
-                {pending > 0 && redundant === 0 && <span className="flag">{t('library.pendingBadge', { count: pending })}</span>}
-              </span>
-              <span className="poster-platforms"><ItemBadges item={item} grouping={grouping} onSystem={onSystem} activeSystems={activeSystems} onOpen={() => onOpen(item)} moreId={moreId} /></span>
+              {/* The box is shown whole; flags and badges sit on the box, not on the cell around it. */}
+              <Cover game={item.game} system={item.system} whole>
+                <span className="poster-flags">
+                  {days !== null && days <= 30 && <span className="flag danger">{t('common.daysLeft', { count: days })}</span>}
+                  {redundant > 0 && <span className="flag warn">{t('library.redundantBadge', { count: redundant })}</span>}
+                  {pending > 0 && redundant === 0 && <span className="flag">{t('library.pendingBadge', { count: pending })}</span>}
+                </span>
+                <span className="poster-platforms"><ItemBadges item={item} grouping={grouping} onSystem={onSystem} activeSystems={activeSystems} onOpen={() => onOpen(item)} moreId={moreId} /></span>
+              </Cover>
             </span>
             <button className="poster-open" onClick={() => onOpen(item)} aria-label={label} aria-describedby={describedBy}>
               <span className="poster-title">{item.game.title}</span>
