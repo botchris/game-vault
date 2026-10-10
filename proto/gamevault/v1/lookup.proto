@@ -20,7 +20,7 @@ message BarcodeMatch {
 message GameSuggestion {
   string title = 1;
   string platform = 2;
-  // Set it as the new game's cover_url to pin this cover (and spend no further lookups).
+  // Send it as the ScannedCopy's cover_url to pin this cover (and spend no further lookups).
   string cover_url = 3;
   string thumb_url = 4;
   string label = 5;

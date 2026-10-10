@@ -31,8 +31,8 @@ export function useGameDetails(game: Game) {
     } finally {
       setLoading(false);
     }
-    // Reload when the links or cover change (the server invalidates its cache then too).
-  }, [game.id, linksKey, game.coverUrl, i18n.resolvedLanguage]);
+    // Reload when the links change (the server invalidates its cache then too).
+  }, [game.id, linksKey, i18n.resolvedLanguage]);
 
   useEffect(() => {
     load();

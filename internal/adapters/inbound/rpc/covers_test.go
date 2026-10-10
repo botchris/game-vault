@@ -88,12 +88,18 @@ func TestCovers_escapedSystem(t *testing.T) {
 	t.Run("GIVEN a game whose only copy is on a system with a space and a slash", func(t *testing.T) {
 		c := newServer(t, &fakeProvider{})
 		created, err := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{
-			Title:    "Halo 3",
-			CoverUrl: "https://boxart.test/chosen.png",
+			Title: "Halo 3",
 			Copies: []*pb.CopyDetails{{
 				Kind:     pb.CopyKind_COPY_KIND_PHYSICAL,
 				Platform: "Xbox 360/S",
 			}},
+		}))
+		require.NoError(t, err)
+
+		_, err = c.games.SetEditionCover(ctx, connect.NewRequest(&pb.SetEditionCoverRequest{
+			GameId: created.Msg.Game.Id,
+			System: created.Msg.Game.Copies[0].EffectiveSystem,
+			Cover:  &pb.SetEditionCoverRequest_Url{Url: "https://boxart.test/chosen.png"},
 		}))
 		require.NoError(t, err)
 

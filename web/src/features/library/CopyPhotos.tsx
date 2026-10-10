@@ -64,7 +64,7 @@ export default function CopyPhotos({ game, copy }: { game: Game; copy: Copy }) {
             <li key={p.id}>
               <button onClick={() => setOpen(i)} aria-label={p.caption || t('photos.open', { n: i + 1 })}>
                 <img src={photoUrl(p.id, true)} alt="" loading="lazy" />
-                {game.coverPhotoId === p.id && <span className="photo-cover" title={t('photos.isCover')}><Icon name="star" size={12} /></span>}
+                {editionCoverPhoto(game, copy) === p.id && <span className="photo-cover" title={t('photos.isCover')}><Icon name="star" size={12} /></span>}
               </button>
             </li>
           ))}
@@ -122,7 +122,8 @@ function PhotoFooter({ game, copy, index, onIndex, onEmpty }: {
   const [caption, setCaption] = useState(photo.caption);
   const [editingFor, setEditingFor] = useState(photo.id);
   if (editingFor !== photo.id) { setEditingFor(photo.id); setCaption(photo.caption); }
-  const isCover = game.coverPhotoId === photo.id;
+  // A photo is the cover of its copy's edition.
+  const isCover = editionCoverPhoto(game, copy) === photo.id;
   const taken = toDate(photo.takenAt);
 
   const run = async (fn: () => Promise<void>) => {
@@ -156,7 +157,10 @@ function PhotoFooter({ game, copy, index, onIndex, onEmpty }: {
         <button className="lightbox-button" disabled={busy || index === 0} onClick={() => move(-1)} aria-label={t('photos.moveLeft')} title={t('photos.moveLeft')}><Icon name="arrowLeft" size={18} /></button>
         <button className="lightbox-button" disabled={busy || index === photos.length - 1} onClick={() => move(1)} aria-label={t('photos.moveRight')} title={t('photos.moveRight')}><Icon name="arrowRight" size={18} /></button>
         <button className={`lightbox-button ${isCover ? 'active' : ''}`} disabled={busy} aria-pressed={isCover}
-          onClick={() => run(async () => putGame((await gameClient.setCoverPhoto({ gameId: game.id, photoId: isCover ? '' : photo.id })).game!))}>
+          onClick={() => run(async () => putGame((await gameClient.setEditionCover({
+            gameId: game.id, system: copy.effectiveSystem,
+            cover: isCover ? { case: 'clear', value: true } : { case: 'photoId', value: photo.id },
+          })).game!))}>
           <Icon name="star" size={18} />{t(isCover ? 'photos.stopCover' : 'photos.useAsCover')}
         </button>
         <button className="lightbox-button" disabled={busy} aria-label={t('common.delete')} title={t('common.delete')}
@@ -172,4 +176,9 @@ function PhotoFooter({ game, copy, index, onIndex, onEmpty }: {
       {error && <p className="small photo-error">{error}</p>}
     </div>
   );
+}
+
+/** The photo chosen as the cover of the copy's edition; '' when none. */
+function editionCoverPhoto(game: Game, copy: Copy): string {
+  return game.editions.find((e) => e.system === copy.effectiveSystem)?.coverPhotoId ?? '';
 }

@@ -5,6 +5,7 @@ import { Cover } from '../../components/Cover';
 import { Icon } from '../../components/Icon';
 import { PlatformBadge, platformHoldings } from '../../components/PlatformBadge';
 import { Alert, KeyCell, useFormatters } from '../../components/ui';
+import { mainSystem } from '../../lib/editions';
 import { formatAmount } from '../../lib/money';
 import {
   CopyKind, CopyStatus, contentKey, daysUntil, gameInfo, gradeKey, kindKey, redeemUrl, statusKey, type Copy, type CopyDetailsInput, type Game,
@@ -51,7 +52,7 @@ type Dialog =
 type Tab = 'overview' | 'copies' | 'edit';
 
 /** The editable fields a change sends; the rest are sent back as they are. */
-type GamePatch = Partial<Pick<Game, 'title' | 'links' | 'notes' | 'coverUrl' | 'playStatus' | 'rating' | 'fields'>>;
+type GamePatch = Partial<Pick<Game, 'title' | 'links' | 'notes' | 'playStatus' | 'rating' | 'fields'>>;
 
 /** A game's sheet (like CLZ): details from the metadata providers, the copies you own, and editing. */
 export default function GameDetail({ gameId, onClose, onOpenGame, onPlatform, nav }: Props) {
@@ -206,18 +207,11 @@ function GameDetailBody({ game, onClose, onOpenGame, onPlatform, nav }: {
             setDialog(null);
           })} />
       )}
+      {/* The main edition's cover for now; a game without copies has its main edition on ''. */}
       {dialog?.type === 'coverPicker' && (
-        <CoverPicker gameId={game.id} current={game.coverPhotoId ? null : game.coverUrl} onClose={() => setDialog(null)}
-          onPick={(url) => {
-            // While a photo is the cover, whatever is picked (the current URL or Automatic too) replaces it.
-            if (game.coverPhotoId) {
-              run(async () => {
-                putGame((await gameClient.setCoverPhoto({ gameId: game.id, photoId: '' })).game!);
-                if (url !== game.coverUrl) putGame((await gameClient.updateGame({ ...gameInfo(game), coverUrl: url })).game!);
-              });
-            } else {
-              updateGame({ coverUrl: url });
-            }
+        <CoverPicker game={game} system={mainSystem(game)} onClose={() => setDialog(null)}
+          onPick={(cover) => {
+            run(async () => putGame((await gameClient.setEditionCover({ gameId: game.id, system: mainSystem(game), cover })).game!));
             setDialog(null);
           }} />
       )}
@@ -368,7 +362,7 @@ function EditTab({ game, busy, onSave, setDialog, run, onDeleted }: {
   const { t } = useTranslation();
   const { dropGame, fields } = useAppData();
   const gameDefs = fields.filter((f) => f.scope === 'game');
-  const infoOf = (g: Game) => ({ title: g.title, links: { ...g.links }, notes: g.notes, coverUrl: g.coverUrl, fields: { ...g.fields } });
+  const infoOf = (g: Game) => ({ title: g.title, links: { ...g.links }, notes: g.notes, fields: { ...g.fields } });
   const [info, setInfo] = useState(() => infoOf(game));
   // Discard remounts the field inputs, so text they kept locally (an invalid number) goes too.
   const [discarded, setDiscarded] = useState(0);
@@ -376,7 +370,7 @@ function EditTab({ game, busy, onSave, setDialog, run, onDeleted }: {
   const [fieldsInvalid, reportField] = useFieldValidity();
   const [stores, setStores] = useState<LinkStore[]>([]);
   const [searching, setSearching] = useState<LinkStore | null>(null);
-  const dirty = info.title !== game.title || !sameLinks(info.links, game.links) || info.notes !== game.notes || info.coverUrl !== game.coverUrl
+  const dirty = info.title !== game.title || !sameLinks(info.links, game.links) || info.notes !== game.notes
     || !sameFields(info.fields, game.fields);
 
   useEffect(() => {
@@ -448,11 +442,6 @@ function EditTab({ game, busy, onSave, setDialog, run, onDeleted }: {
           )}
           <span className="help">{t('game.linksHelp')}</span>
         </div>
-        <label className="span2">
-          {t('game.coverUrl')}
-          <input type="url" value={info.coverUrl} placeholder={t('game.coverUrlPlaceholder')}
-            onChange={(e) => setInfo({ ...info, coverUrl: e.target.value })} />
-        </label>
         <label className="span2">
           {t('common.notes')}
           <textarea rows={3} value={info.notes} onChange={(e) => setInfo({ ...info, notes: e.target.value })} />

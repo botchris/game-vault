@@ -610,8 +610,10 @@ func (x *CoverCandidate) GetProviderName() string {
 }
 
 type ListCoverCandidatesRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	GameId        string                 `protobuf:"bytes,1,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	GameId string                 `protobuf:"bytes,1,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`
+	// The edition's system; empty: the main edition.
+	System        string `protobuf:"bytes,2,opt,name=system,proto3" json:"system,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -649,6 +651,13 @@ func (*ListCoverCandidatesRequest) Descriptor() ([]byte, []int) {
 func (x *ListCoverCandidatesRequest) GetGameId() string {
 	if x != nil {
 		return x.GameId
+	}
+	return ""
+}
+
+func (x *ListCoverCandidatesRequest) GetSystem() string {
+	if x != nil {
+		return x.System
 	}
 	return ""
 }
@@ -847,9 +856,10 @@ const file_gamevault_v1_provider_proto_rawDesc = "" +
 	"\x05label\x18\x03 \x01(\tR\x05label\x12\x1f\n" +
 	"\vprovider_id\x18\x04 \x01(\tR\n" +
 	"providerId\x12#\n" +
-	"\rprovider_name\x18\x05 \x01(\tR\fproviderName\"5\n" +
+	"\rprovider_name\x18\x05 \x01(\tR\fproviderName\"M\n" +
 	"\x1aListCoverCandidatesRequest\x12\x17\n" +
-	"\agame_id\x18\x01 \x01(\tR\x06gameId\"w\n" +
+	"\agame_id\x18\x01 \x01(\tR\x06gameId\x12\x16\n" +
+	"\x06system\x18\x02 \x01(\tR\x06system\"w\n" +
 	"\x1bListCoverCandidatesResponse\x12<\n" +
 	"\n" +
 	"candidates\x18\x01 \x03(\v2\x1c.gamevault.v1.CoverCandidateR\n" +

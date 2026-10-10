@@ -95,35 +95,60 @@ func gameToPB(g *game.Game) *pb.Game {
 	}
 
 	out := &pb.Game{
-		Id:    string(g.ID()),
-		Title: g.Title(),
-		Links: g.Links(),
-		Notes: g.Notes(),
-		// Bridge (Task 5): the API still has one cover per game, the main edition's.
-		CoverUrl:     g.MainEdition().Cover.URL,
-		CoverPhotoId: string(g.MainEdition().Cover.Photo),
-		PlayStatus:   playStatusToPB[g.PlayStatus()],
-		Rating:       int32(g.Rating()),
-		CreatedAt:    ts(g.CreatedAt()),
-		UpdatedAt:    ts(g.UpdatedAt()),
-		Fields:       fieldValuesToPB(g.Fields()),
+		Id:         string(g.ID()),
+		Title:      g.Title(),
+		Links:      g.Links(),
+		Notes:      g.Notes(),
+		PlayStatus: playStatusToPB[g.PlayStatus()],
+		Rating:     int32(g.Rating()),
+		CreatedAt:  ts(g.CreatedAt()),
+		UpdatedAt:  ts(g.UpdatedAt()),
+		Fields:     fieldValuesToPB(g.Fields()),
+		Editions:   editionsToPB(g),
+		MainSystem: g.MainSystem(),
 	}
 	for _, c := range g.Copies() {
 		details := detailsToPB(c.CopyDetails)
 		details.Fields = fieldValuesToPB(c.Fields)
 
 		out.Copies = append(out.Copies, &pb.Copy{
-			Id:            string(c.ID),
-			Details:       details,
-			SourceId:      c.SourceID,
-			ExternalId:    c.ExternalID,
-			Redundant:     g.IsRedundant(c),
-			Photos:        photosToPB(c.Photos),
-			Estimates:     estimatesToPB(c.Estimates),
-			NextValuation: optionalTS(c.NextValuation),
-			ValuedAt:      optionalTS(c.ValuedAt),
-			CreatedAt:     ts(c.CreatedAt),
-			UpdatedAt:     ts(c.UpdatedAt),
+			Id:              string(c.ID),
+			Details:         details,
+			SourceId:        c.SourceID,
+			ExternalId:      c.ExternalID,
+			Redundant:       g.IsRedundant(c),
+			Photos:          photosToPB(c.Photos),
+			Estimates:       estimatesToPB(c.Estimates),
+			NextValuation:   optionalTS(c.NextValuation),
+			ValuedAt:        optionalTS(c.ValuedAt),
+			EffectiveSystem: c.System(),
+			CreatedAt:       ts(c.CreatedAt),
+			UpdatedAt:       ts(c.UpdatedAt),
+		})
+	}
+
+	return out
+}
+
+// editionsToPB lists the game's editions. A game without copies has none, so it gets its main
+// edition on the empty system: that is where the cover chosen for the game lives until its first
+// copy.
+func editionsToPB(g *game.Game) []*pb.Edition {
+	editions := g.Editions()
+	if len(editions) == 0 {
+		main := g.MainEdition()
+		main.Main = true
+		editions = []game.Edition{main}
+	}
+
+	out := make([]*pb.Edition, 0, len(editions))
+
+	for _, e := range editions {
+		out = append(out, &pb.Edition{
+			System:       e.System,
+			CoverUrl:     e.Cover.URL,
+			CoverPhotoId: string(e.Cover.Photo),
+			Main:         e.Main,
 		})
 	}
 
@@ -164,6 +189,7 @@ func detailsToPB(d game.CopyDetails) *pb.CopyDetails {
 		Price:      moneyToPB(d.Price),
 		Notes:      d.Notes,
 		Barcode:    string(d.Barcode),
+		System:     d.System,
 	}
 }
 
@@ -210,6 +236,7 @@ func detailsFromPB(d *pb.CopyDetails) (game.CopyDetails, error) {
 		},
 		Notes:   d.Notes,
 		Barcode: barcode,
+		System:  d.System,
 	}, nil
 }
 

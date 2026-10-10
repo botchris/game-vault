@@ -564,10 +564,20 @@ func TestCoversAndLogs(t *testing.T) {
 	}
 
 	// Invalid cover URLs are rejected by the domain.
-	_, err = c.games.UpdateGame(ctx, connect.NewRequest(&pb.UpdateGameRequest{
-		Id:       id,
-		Title:    "Halo 3",
-		CoverUrl: "file:///etc/passwd",
+	if _, err := c.games.AddCopy(ctx, connect.NewRequest(&pb.AddCopyRequest{
+		GameId: id,
+		Details: &pb.CopyDetails{
+			Kind:     pb.CopyKind_COPY_KIND_LIBRARY,
+			Platform: "Steam",
+		},
+	})); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = c.games.SetEditionCover(ctx, connect.NewRequest(&pb.SetEditionCoverRequest{
+		GameId: id,
+		System: "PC",
+		Cover:  &pb.SetEditionCoverRequest_Url{Url: "file:///etc/passwd"},
 	}))
 	if connect.CodeOf(err) != connect.CodeInvalidArgument {
 		t.Fatalf("expected InvalidArgument for a file:// cover, got %v", err)
@@ -697,12 +707,11 @@ func TestCoverProviderChain(t *testing.T) {
 		t.Fatal("the box art provider must not be asked for games without physical copies")
 	}
 
-	// Pinning a candidate = setting it as the custom cover.
-	if _, err := c.games.UpdateGame(ctx, connect.NewRequest(&pb.UpdateGameRequest{
-		Id:       g.Msg.Game.Id,
-		Title:    "Portal 2",
-		Links:    map[string]string{"steam": "620"},
-		CoverUrl: cands.Msg.Candidates[0].Url,
+	// Pinning a candidate = choosing it as the edition's cover.
+	if _, err := c.games.SetEditionCover(ctx, connect.NewRequest(&pb.SetEditionCoverRequest{
+		GameId: g.Msg.Game.Id,
+		System: "PS3",
+		Cover:  &pb.SetEditionCoverRequest_Url{Url: cands.Msg.Candidates[0].Url},
 	})); err != nil {
 		t.Fatal(err)
 	}
@@ -739,8 +748,7 @@ func TestBarcodeScanFlow(t *testing.T) {
 	s := res.Msg.Suggestions[0]
 
 	created, err := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{
-		Title:    s.Title,
-		CoverUrl: s.CoverUrl,
+		Title: s.Title,
 		Copies: []*pb.CopyDetails{{
 			Kind:     pb.CopyKind_COPY_KIND_PHYSICAL,
 			Platform: s.Platform,
@@ -749,6 +757,14 @@ func TestBarcodeScanFlow(t *testing.T) {
 		}},
 	}))
 	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := c.games.SetEditionCover(ctx, connect.NewRequest(&pb.SetEditionCoverRequest{
+		GameId: created.Msg.Game.Id,
+		System: s.Platform,
+		Cover:  &pb.SetEditionCoverRequest_Url{Url: s.CoverUrl},
+	})); err != nil {
 		t.Fatal(err)
 	}
 
