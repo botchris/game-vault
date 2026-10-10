@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 	"strings"
 	"time"
 
@@ -92,7 +93,10 @@ type SyncReport struct {
 	CopiesUpdated   int
 	CopiesUnchanged int
 	GamesCreated    int
-	Warnings        []string
+
+	// Excluded counts the imported items skipped because the user removed them from the source.
+	Excluded int
+	Warnings []string
 }
 
 // Success reports whether the scan finished without error.
@@ -107,6 +111,7 @@ type Source struct {
 	syncInterval time.Duration
 	settings     Settings
 	lastSync     *SyncReport
+	exclusions   []Exclusion // newest first
 	createdAt    time.Time
 	updatedAt    time.Time
 }
@@ -117,6 +122,19 @@ type Config struct {
 	Enabled      bool
 	SyncInterval time.Duration // 0 = manual only
 	Settings     Settings
+}
+
+// Exclusion is an item the user removed from a source's imports: the source skips it on every
+// scan until the user brings it back.
+type Exclusion struct {
+	// ExternalID is the copy's id at the source, e.g. "psn:EP4350-CUSA00127_00-NETFLIXPOLLUX001".
+	ExternalID string
+
+	// Title is the title the item had, to list it.
+	Title string
+
+	// At is when it was removed.
+	At time.Time
 }
 
 func (c Config) validate(d TypeDescriptor) (Config, error) {
@@ -155,7 +173,7 @@ func New(d TypeDescriptor, cfg Config, now time.Time) (*Source, error) {
 
 // Rehydrate rebuilds a source from storage. Only repositories should call it.
 func Rehydrate(id ID, typ Type, name string, enabled bool, interval time.Duration, settings Settings,
-	lastSync *SyncReport, createdAt, updatedAt time.Time) *Source {
+	lastSync *SyncReport, exclusions []Exclusion, createdAt, updatedAt time.Time) *Source {
 	return &Source{
 		id:           id,
 		typ:          typ,
@@ -164,6 +182,7 @@ func Rehydrate(id ID, typ Type, name string, enabled bool, interval time.Duratio
 		syncInterval: interval,
 		settings:     settings,
 		lastSync:     lastSync,
+		exclusions:   exclusions,
 		createdAt:    createdAt,
 		updatedAt:    updatedAt,
 	}
@@ -255,6 +274,39 @@ func (s *Source) ReplaceSettings(d TypeDescriptor, settings Settings, now time.T
 // RecordSync stores the outcome of a scan.
 func (s *Source) RecordSync(r SyncReport) {
 	s.lastSync = &r
+}
+
+// Exclusions returns the items the user removed from this source, newest first.
+func (s *Source) Exclusions() []Exclusion { return slices.Clone(s.exclusions) }
+
+// Excludes reports whether the item with this external id was removed by the user.
+func (s *Source) Excludes(externalID string) bool {
+	return slices.ContainsFunc(s.exclusions, func(e Exclusion) bool { return e.ExternalID == externalID })
+}
+
+// Exclude records that the user removed an item. Removing it again keeps the first entry.
+func (s *Source) Exclude(e Exclusion) error {
+	if e.ExternalID == "" {
+		return invalid("an item to remove needs its id at the source")
+	}
+
+	if s.Excludes(e.ExternalID) {
+		return nil
+	}
+
+	s.exclusions = append(s.exclusions, e)
+	slices.SortStableFunc(s.exclusions, func(a, b Exclusion) int { return b.At.Compare(a.At) })
+
+	return nil
+}
+
+// Include takes an item off the removed list, so the next scan imports it again. It reports
+// whether the item was listed.
+func (s *Source) Include(externalID string) bool {
+	n := len(s.exclusions)
+	s.exclusions = slices.DeleteFunc(s.exclusions, func(e Exclusion) bool { return e.ExternalID == externalID })
+
+	return len(s.exclusions) < n
 }
 
 // Repository is the persistence port for sources.

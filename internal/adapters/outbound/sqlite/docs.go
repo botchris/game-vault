@@ -112,8 +112,16 @@ type sourceDoc struct {
 	SyncIntervalSeconds int64           `json:"syncIntervalSeconds,omitempty"`
 	Settings            source.Settings `json:"settings,omitempty"`
 	LastSync            *syncReportDoc  `json:"lastSync,omitempty"`
+	Exclusions          []exclusionDoc  `json:"exclusions,omitempty"`
 	CreatedAt           string          `json:"createdAt"`
 	UpdatedAt           string          `json:"updatedAt"`
+}
+
+// exclusionDoc is the stored form of a source.Exclusion.
+type exclusionDoc struct {
+	ExternalID string `json:"externalId"`
+	Title      string `json:"title,omitempty"`
+	At         string `json:"at"`
 }
 
 // syncReportDoc is the stored form of source.SyncReport (the same fields, so the types convert).
@@ -126,6 +134,7 @@ type syncReportDoc struct {
 	CopiesUpdated   int       `json:"copiesUpdated"`
 	CopiesUnchanged int       `json:"copiesUnchanged"`
 	GamesCreated    int       `json:"gamesCreated"`
+	Excluded        int       `json:"excluded,omitempty"`
 	Warnings        []string  `json:"warnings,omitempty"`
 }
 
@@ -284,6 +293,14 @@ func encodeSource(s *source.Source) (string, error) {
 		doc.LastSync = &r
 	}
 
+	for _, e := range s.Exclusions() {
+		doc.Exclusions = append(doc.Exclusions, exclusionDoc{
+			ExternalID: e.ExternalID,
+			Title:      e.Title,
+			At:         formatTime(e.At),
+		})
+	}
+
 	return encode(doc)
 }
 
@@ -308,8 +325,17 @@ func decodeSource(id source.ID, raw string) (*source.Source, error) {
 		lastSync = &r
 	}
 
+	exclusions := make([]source.Exclusion, 0, len(doc.Exclusions))
+	for _, e := range doc.Exclusions {
+		exclusions = append(exclusions, source.Exclusion{
+			ExternalID: e.ExternalID,
+			Title:      e.Title,
+			At:         parseTime(e.At),
+		})
+	}
+
 	return source.Rehydrate(id, source.Type(doc.Type), doc.Name, doc.Enabled,
-		time.Duration(doc.SyncIntervalSeconds)*time.Second, doc.Settings, lastSync,
+		time.Duration(doc.SyncIntervalSeconds)*time.Second, doc.Settings, lastSync, exclusions,
 		parseTime(doc.CreatedAt), parseTime(doc.UpdatedAt)), nil
 }
 
