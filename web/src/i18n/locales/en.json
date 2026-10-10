@@ -172,6 +172,8 @@
     "platform": "Platform",
     "system": "System",
     "systemHelp": "Automatic: {{system}}. Change it if this copy is played on another system.",
+    "systemHelpOverride": "Automatic: as the source or the platform says. Change it if this copy is played on another system; empty it to go back to automatic.",
+    "systemAutomatic": "Automatic",
     "status": "Status",
     "key": "Key / gift link",
     "redeemBy": "Redeem by",

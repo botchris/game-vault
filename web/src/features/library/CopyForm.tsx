@@ -43,8 +43,9 @@ export default function CopyForm({ initial, managedBy, sourceSystem, onSubmit, o
   // A custom field holding invalid text (a number, a year) blocks Save until it is fixed or cleared.
   const [fieldsInvalid, reportField] = useFieldValidity();
   // What an empty System means: the source's system, else the platform's (it follows the platform as
-  // it is typed).
-  const automatic = sourceSystem || systemOf(d.platform);
+  // it is typed). With an override stored, the API does not say what the source gives, so automatic
+  // is unknown (null) and the form names no system it may get wrong.
+  const automatic = initial?.system ? null : sourceSystem || systemOf(d.platform);
   // Whether the System field was touched: a stored override is kept as it is unless it was edited,
   // since the source's system (what automatic would give) is not always known here.
   const [systemEdited, setSystemEdited] = useState(false);
@@ -65,9 +66,10 @@ export default function CopyForm({ initial, managedBy, sourceSystem, onSubmit, o
       // The server replaces the copy's values: drop only those of known fields that no longer apply
       // after a kind change; values of fields this page does not know are kept, never erased.
       const values = cleanFields(copyValuesFor(d.fields, fields, d.kind));
-      // The system goes back to automatic when it is emptied, or edited to what automatic gives.
+      // The system goes back to automatic when it is emptied, or edited to what automatic gives
+      // (when that is known).
       const typed = d.system.trim();
-      const system = typed === '' || (systemEdited && systemOf(typed) === automatic) ? '' : typed;
+      const system = typed === '' || (systemEdited && automatic !== null && systemOf(typed) === automatic) ? '' : typed;
       await onSubmit({ ...d, system, price: minor ? create(MoneySchema, { amountMinor: minor, currency }) : undefined, fields: values });
     } catch (err) {
       setError(errorMessage(err));
@@ -100,10 +102,10 @@ export default function CopyForm({ initial, managedBy, sourceSystem, onSubmit, o
           </label>
           <label>
             {t('copy.system')}
-            <input list="copy-systems" value={d.system} placeholder={automatic}
+            <input list="copy-systems" value={d.system} placeholder={automatic ?? t('copy.systemAutomatic')}
               onChange={(e) => { setSystemEdited(true); set('system', e.target.value); }} />
             <datalist id="copy-systems">{SYSTEMS.map((s) => <option key={s} value={s} />)}</datalist>
-            <span className="help">{t('copy.systemHelp', { system: automatic })}</span>
+            <span className="help">{automatic === null ? t('copy.systemHelpOverride') : t('copy.systemHelp', { system: automatic })}</span>
           </label>
           <label>
             {t('copy.status')}

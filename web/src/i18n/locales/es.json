@@ -172,6 +172,8 @@
     "platform": "Plataforma",
     "system": "Sistema",
     "systemHelp": "Automático: {{system}}. Cámbialo si esta copia se juega en otro sistema.",
+    "systemHelpOverride": "Automático: lo que digan la fuente o la plataforma. Cámbialo si esta copia se juega en otro sistema; vacíalo para volver a automático.",
+    "systemAutomatic": "Automático",
     "status": "Estado",
     "key": "Clave / enlace de regalo",
     "redeemBy": "Canjear antes de",
