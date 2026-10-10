@@ -15,15 +15,15 @@ import (
 	"gamevault/internal/domain/game"
 )
 
-// covers records the editions whose cached cover was dropped ("<system>"; the game is not told apart).
+// covers records the editions whose cached cover was dropped ("<game id>|<system>").
 type covers struct {
 	editions []string
 }
 
 func (c *covers) Invalidate(context.Context, game.ID) error { return nil }
 
-func (c *covers) InvalidateEdition(_ context.Context, _ game.ID, system string) error {
-	c.editions = append(c.editions, system)
+func (c *covers) InvalidateEdition(_ context.Context, id game.ID, system string) error {
+	c.editions = append(c.editions, string(id)+"|"+system)
 
 	return nil
 }
@@ -42,7 +42,13 @@ func TestImport_coverCache(t *testing.T) {
 
 		_, err = svc.Import(ctx, []byte("title,platform,kind\nHalo 3,Steam,library\nHalo 3,PS3,physical\n"))
 		require.NoError(t, err)
-		assert.ElementsMatch(t, []string{"PC", "PS3"}, cache.editions, "a new game's editions all count")
+
+		games, err := sqlite.NewGameRepository(db).List(ctx)
+		require.NoError(t, err)
+		require.Len(t, games, 1)
+
+		id := string(games[0].ID())
+		assert.ElementsMatch(t, []string{id + "|PC", id + "|PS3"}, cache.editions, "a new game's editions all count")
 
 		cache.editions = nil
 
@@ -51,7 +57,7 @@ func TestImport_coverCache(t *testing.T) {
 			require.NoError(t, err)
 
 			t.Run("THEN only the PC edition's cached cover is dropped", func(t *testing.T) {
-				assert.Equal(t, []string{"PC"}, cache.editions)
+				assert.Equal(t, []string{id + "|PC"}, cache.editions)
 			})
 		})
 

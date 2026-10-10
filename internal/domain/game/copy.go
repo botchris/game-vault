@@ -201,7 +201,12 @@ func (c *Copy) applyImport(in CopyDetails) bool {
 	}
 
 	set(&c.Notes, in.Notes)
-	set(&c.CopyDetails.System, in.System)
+
+	// A system equal to the copy's effective one (say a source's) is not an override: pinning it
+	// would stop the copy following its source, so an exported file imports again unchanged.
+	if in.System != "" && SystemOf(in.System) != c.System() {
+		c.CopyDetails.System = in.System
+	}
 
 	if in.RedeemBy != "" {
 		c.RedeemBy = in.RedeemBy

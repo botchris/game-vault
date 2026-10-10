@@ -286,3 +286,52 @@ func TestConsolidator_keepsWhatTheUserSet(t *testing.T) {
 		})
 	})
 }
+
+func TestConsolidatorFileSystemColumn(t *testing.T) {
+	psn := func(system string) ImportedCopy {
+		return ImportedCopy{
+			ExternalID: "csv:psn-astro",
+			Title:      "Astro Bot",
+			Details: CopyDetails{
+				Kind:     KindLibrary,
+				Platform: "PlayStation Store",
+				System:   system,
+			},
+		}
+	}
+
+	t.Run("GIVEN a copy whose source says PS5", func(t *testing.T) {
+		in := psn("")
+		in.System = "PS5"
+
+		first := NewConsolidator(nil).Apply("psn-src", []ImportedCopy{in}, t0)
+		require.Len(t, first.Changed, 1)
+
+		t.Run("WHEN a file exported from it is imported again", func(t *testing.T) {
+			res := NewConsolidator(first.Changed).Apply("", []ImportedCopy{psn("PS5")}, t0)
+
+			t.Run("THEN no override is stored and the copy is unchanged", func(t *testing.T) {
+				assert.Equal(t, 1, res.CopiesUnchanged)
+				assert.Empty(t, res.Changed)
+
+				cp := first.Changed[0].Copies()[0]
+				assert.Empty(t, cp.CopyDetails.System)
+				assert.Equal(t, "PS5", cp.System())
+			})
+		})
+	})
+
+	t.Run("GIVEN a copy without a source system", func(t *testing.T) {
+		first := NewConsolidator(nil).Apply("", []ImportedCopy{psn("")}, t0)
+
+		t.Run("WHEN a file gives it PS5 and a later one leaves the system empty", func(t *testing.T) {
+			set := NewConsolidator(first.Changed).Apply("", []ImportedCopy{psn("PS5")}, t0)
+			NewConsolidator(first.Changed).Apply("", []ImportedCopy{psn("")}, t0)
+
+			t.Run("THEN the override is kept", func(t *testing.T) {
+				assert.Equal(t, 1, set.CopiesUpdated)
+				assert.Equal(t, "PS5", first.Changed[0].Copies()[0].CopyDetails.System)
+			})
+		})
+	})
+}

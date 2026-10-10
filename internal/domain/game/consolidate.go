@@ -138,7 +138,8 @@ func (c *Consolidator) Apply(sourceID string, imported []ImportedCopy, now time.
 			cp := &g.copies[i]
 
 			changed := cp.applyImport(details)
-			if cp.SourceSystem != sourceSystem {
+			// A one-off import (a file) knows no source, so it must not erase what a source said.
+			if sourceID != "" && cp.SourceSystem != sourceSystem {
 				cp.SourceSystem = sourceSystem
 				changed = true
 			}
