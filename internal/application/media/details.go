@@ -16,10 +16,12 @@ import (
 // detailsTTL is how long cached details are used before asking the providers again.
 const detailsTTL = 30 * 24 * time.Hour
 
-// detailsLogicChanged is when the way sheets are gathered last improved (the fallback pass). A
-// sparse sheet cached before it was built without the improvement, so it is fetched again once
-// instead of waiting for detailsTTL. Bump it with such changes, never to a time in the future.
-var detailsLogicChanged = time.Date(2026, 10, 10, 0, 0, 0, 0, time.UTC) // the fallback pass
+// detailsLogicVersion is the version of the way sheets are gathered, stored in every sheet cached
+// (GameDetails.LogicVersion). A sparse sheet cached by an older version (0: before the fallback pass)
+// was built without the improvement, so it is fetched again once when opened instead of waiting for
+// detailsTTL; a server still running the old code may cache such sheets after the upgrade's date, so
+// a version is used rather than a time. Increment it when sheet gathering improves.
+const detailsLogicVersion = 1 // 1: the fallback pass
 
 // Video is a trailer: an HLS stream (Steam) or a YouTube video (TheGamesDB).
 type Video struct {
@@ -60,9 +62,13 @@ type GameDetails struct {
 	// Sources lists the providers that contributed, in chain order.
 	Sources []provider.ID
 
-	// FallbackSkipped reports that the sheet is sparse and the fallback pass was not run (the
-	// background scan does not spend quota-limited providers' requests): opening it runs the pass.
+	// FallbackSkipped reports that the sheet is sparse and its fallback pass did not complete: it was
+	// not run (the background scan does not spend quota-limited providers' requests, a provider failed
+	// in the first pass) or a provider failed in it. Opening the sheet runs the passes again.
 	FallbackSkipped bool
+
+	// LogicVersion is the detailsLogicVersion that gathered the sheet.
+	LogicVersion int
 
 	Language  string
 	FetchedAt time.Time
@@ -209,10 +215,10 @@ func (s *Service) GameDetails(ctx context.Context, id game.ID, language string, 
 }
 
 // fresh reports whether a cached sheet can be shown without asking the providers again: it is
-// younger than detailsTTL, and not a sparse sheet from before detailsLogicChanged or one whose
-// fallback pass was skipped.
+// younger than detailsTTL, and not a sparse sheet gathered by an older detailsLogicVersion or one
+// whose fallback pass did not complete.
 func (s *Service) fresh(d GameDetails) bool {
-	if d.sparse() && (d.FallbackSkipped || d.FetchedAt.Before(detailsLogicChanged)) {
+	if d.sparse() && (d.FallbackSkipped || d.LogicVersion < detailsLogicVersion) {
 		return false
 	}
 
@@ -249,20 +255,26 @@ func (s *Service) fetchDetails(ctx context.Context, id game.ID, language string,
 
 	q := QueryFor(g, "") // a game's sheet describes it on every system
 	merged := GameDetails{
-		Language:  language,
-		FetchedAt: s.now(),
+		Language:     language,
+		FetchedAt:    s.now(),
+		LogicVersion: detailsLogicVersion,
 	}
 	pass := detailsPass{asked: map[provider.ID]bool{}}
 
 	s.askChain(ctx, g, chain, q, &merged, &pass)
 	// The fallback runs only after a clean first pass: when a provider failed or was busy, the sheet
-	// is not final (and not cached), so spending quota on it would be wasted on the next view.
+	// is not final (it is not cached, or cached to be asked again), so spending quota on it now would
+	// be wasted.
+	completed := false
+
 	if fallback && merged.sparse() && len(pass.warnings) == 0 {
 		q.Fallback = true
 		s.askChain(ctx, g, chain, q, &merged, &pass)
-	} else if !fallback && merged.sparse() && len(pass.warnings) == 0 {
-		merged.FallbackSkipped = true
+		completed = len(pass.warnings) == 0
 	}
+	// A sparse sheet whose fallback did not complete (skipped, or a provider failed in either pass)
+	// may be cached, but the next opening runs the passes again instead of keeping it for detailsTTL.
+	merged.FallbackSkipped = merged.sparse() && !completed
 	// Cache even an empty sheet so unknown games are not looked up on every view; failures are not
 	// cached. Nor is a sheet a provider was too busy to fill: cached, it would lack that provider's
 	// part until the cache expires.

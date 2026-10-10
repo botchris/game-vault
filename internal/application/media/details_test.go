@@ -2,6 +2,7 @@ package media_test
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"path/filepath"
@@ -50,6 +51,9 @@ func (p *storeDetails) Details(context.Context, media.CoverQuery, string, schema
 // games no store knows and the fallback pass.
 type quotaDetails struct {
 	limited atomic.Bool
+
+	// failing makes it answer like a server error (HTTP 5xx), not a rate limit.
+	failing atomic.Bool
 	calls   atomic.Int32
 
 	// asked is the query of the last call.
@@ -78,6 +82,10 @@ func (p *quotaDetails) Details(_ context.Context, q media.CoverQuery, _ string, 
 
 	if p.limited.Load() {
 		return nil, provider.ErrRateLimited
+	}
+
+	if p.failing.Load() {
+		return nil, errors.New("server error 503: try again later")
 	}
 
 	return &media.GameDetails{
@@ -200,16 +208,17 @@ func TestGameDetails_fallbackPass(t *testing.T) {
 	})
 }
 
-func TestGameDetails_sheetsCachedBeforeTheFallbackPass(t *testing.T) {
+func TestGameDetails_sheetsCachedByOlderLogic(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	// The fallback pass arrived on 2026-10-10; these sheets were cached five days before and are
+	// These sheets carry no logic version: the code before the fallback pass cached them, an hour ago
+	// (well within the 30-day TTL), so only the version can tell they are outdated.
 	// still within the 30-day TTL.
 	now := func() time.Time { return time.Date(2026, 10, 12, 12, 0, 0, 0, time.UTC) }
-	before := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)
+	before := now().Add(-time.Hour)
 
-	t.Run("GIVEN a PlayStation-only game with an empty sheet cached before the fallback pass", func(t *testing.T) {
+	t.Run("GIVEN a PlayStation-only game with an empty sheet cached by the code before the fallback pass", func(t *testing.T) {
 		env := newDetailsEnv(t, ctx, now, nil)
 		g := saveGame(t, ctx, env.games, "Console Quest", game.Links{"playstation": "PPSA0001"}, game.CopyDetails{
 			Kind:     game.KindLibrary,
@@ -259,7 +268,7 @@ func TestGameDetails_sheetsCachedBeforeTheFallbackPass(t *testing.T) {
 		})
 	})
 
-	t.Run("GIVEN a game with a sheet that has a summary, cached before the fallback pass", func(t *testing.T) {
+	t.Run("GIVEN a game with a sheet that has a summary, cached by the code before the fallback pass", func(t *testing.T) {
 		env := newDetailsEnv(t, ctx, now, nil)
 		g := saveGame(t, ctx, env.games, "Console Quest", game.Links{"playstation": "PPSA0001"}, game.CopyDetails{
 			Kind:     game.KindLibrary,
@@ -279,6 +288,52 @@ func TestGameDetails_sheetsCachedBeforeTheFallbackPass(t *testing.T) {
 				assert.Equal(t, "Written by hand long ago.", d.Summary)
 				assert.Zero(t, env.quota.calls.Load())
 				assert.Zero(t, env.store.calls.Load())
+			})
+		})
+	})
+}
+
+func TestGameDetails_sparseSheetWithAFailedFallback(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a game linked to Steam and PlayStation, and a quota-limited provider failing with a server error", func(t *testing.T) {
+		env := newDetailsEnv(t, ctx, time.Now, &media.GameDetails{Genres: []string{"Puzzle"}})
+		env.quota.failing.Store(true)
+		g := saveGame(t, ctx, env.games, "Console Quest", game.Links{
+			"playstation":  "PPSA0001",
+			game.LinkSteam: "10",
+		}, game.CopyDetails{
+			Kind:     game.KindLibrary,
+			Platform: "PS4",
+		})
+
+		t.Run("WHEN its sheet is opened and the store knows only its genres", func(t *testing.T) {
+			d, warnings, err := env.svc.GameDetails(ctx, g.ID(), "en", false)
+			require.NoError(t, err)
+
+			t.Run("THEN it shows the genres and the failure", func(t *testing.T) {
+				assert.Equal(t, []string{"Puzzle"}, d.Genres)
+				assert.Len(t, warnings, 1)
+			})
+
+			t.Run("AND the sparse sheet is cached as still owing its fallback pass", func(t *testing.T) {
+				cached, ok, err := env.details.Get(ctx, g.ID(), "en")
+				require.NoError(t, err)
+				require.True(t, ok)
+				assert.True(t, cached.FallbackSkipped)
+			})
+		})
+
+		t.Run("WHEN the provider recovers and the sheet is opened again", func(t *testing.T) {
+			env.quota.failing.Store(false)
+
+			d, warnings, err := env.svc.GameDetails(ctx, g.ID(), "en", false)
+			require.NoError(t, err)
+
+			t.Run("THEN the fallback pass fills it", func(t *testing.T) {
+				assert.Empty(t, warnings)
+				assert.Equal(t, "A console adventure.", d.Summary)
 			})
 		})
 	})

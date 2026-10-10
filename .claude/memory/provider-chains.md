@@ -28,7 +28,8 @@ metadata:
   asked answered and the sheet is sparse (no summary and no screenshots), `fetchDetails` runs the
   chain again with `Fallback` set, asking only providers not asked yet, to fill the gaps (a PS4-only
   library game gets TheGamesDB's sheet). Rate limits in either pass keep the sheet uncached. The
-  background scanner skips the pass (quota) and marks such sheets `FallbackSkipped`, so opening them
-  runs it. Bump `detailsLogicChanged` in `media/details.go` when sheet gathering improves: sparse
-  sheets cached before it are refetched once. TheGamesDB searches covers and sheets on the copies'
+  background scanner skips the pass (quota); it and a provider error in either pass mark the sparse
+  sheet `FallbackSkipped`, so opening it runs the passes again. Increment `detailsLogicVersion` in
+  `media/details.go` when sheet gathering improves: sparse sheets with an older `LogicVersion` are
+  refetched once (a version, not a date, so sheets an old server caches later are caught too). TheGamesDB searches covers and sheets on the copies'
   systems (`game.SystemOf`: "PlayStation Store" → PS4).
