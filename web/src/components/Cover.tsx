@@ -1,8 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useReducer } from 'react';
 import { useTranslation } from 'react-i18next';
 import { coverUrl } from '../api/client';
 import type { Game } from '../gen/gamevault/v1/game_pb';
-import { coverOrder, nextCover } from '../lib/editions';
+import { CoverFailures, coverOrder, coverSignature, nextCover } from '../lib/editions';
+
+// Failed covers outlive the component: a card scrolled back into view, or the sheet's hero showing
+// the same edition, does not ask again for a box the server did not have.
+const failures = new CoverFailures();
 
 /**
  * A game's cover on one edition (the main one when `system` is omitted). When the edition has no box
@@ -18,11 +22,11 @@ export function Cover({ game, system = '', className = '', onShown }: {
 }) {
   const { t } = useTranslation();
   const order = coverOrder(game, system);
-  // Failures are forgotten when the game changes (a new cover was chosen) or the edition does.
-  const version = `${game.id}|${game.updatedAt?.seconds ?? 0}|${order.join('|')}`;
-  const [failed, setFailed] = useState<{ version: string; systems: ReadonlySet<string> }>({ version, systems: new Set() });
-  const tried = failed.version === version ? failed.systems : new Set<string>();
-  const shown = nextCover(order, tried);
+  // Failures are forgotten only when the game's cover inputs change (title, store links, a chosen
+  // cover, an edition added or made main), not on every edit of the game.
+  const signature = coverSignature(game);
+  const [, rerender] = useReducer((n: number) => n + 1, 0);
+  const shown = nextCover(order, failures.failed(game.id, signature));
 
   useEffect(() => { onShown?.(shown); }, [shown, onShown]);
 
@@ -35,7 +39,7 @@ export function Cover({ game, system = '', className = '', onShown }: {
       ) : (
         <>
           <img key={shown} src={coverUrl(game, shown)} alt="" loading="lazy" decoding="async"
-            onError={() => setFailed({ version, systems: new Set([...tried, shown]) })} />
+            onError={() => { failures.add(game.id, signature, shown); rerender(); }} />
           {shown !== order[0] && <span className="cover-borrowed">{t('edition.borrowed', { system: shown })}</span>}
         </>
       )}

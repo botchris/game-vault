@@ -188,6 +188,34 @@ export function nextCover(order: string[], failed: ReadonlySet<string>): string 
   return order.find((s) => !failed.has(s)) ?? null;
 }
 
+/** What a game's covers depend on, as the web sees it: the title and the store links (providers find
+ *  the box by them), and each edition's system, main mark and chosen cover. A cover that failed stays
+ *  failed until this changes, so edits that touch nothing else (a rating, a play status) ask the
+ *  server no more. */
+export function coverSignature(g: { title: string; editions: EditionLike[]; links?: Record<string, string> }): string {
+  const links = Object.entries(g.links ?? {}).sort(([a], [b]) => a.localeCompare(b));
+  return JSON.stringify([g.title, links, g.editions.map((e) => [e.system, e.main, e.coverUrl, e.coverPhotoId])]);
+}
+
+/** The covers that failed to load, by game: shared by every card and sheet showing the game, and
+ *  forgotten for a game once its cover signature changes. */
+export class CoverFailures {
+  private readonly games = new Map<string, { signature: string; systems: Set<string> }>();
+
+  /** The systems whose cover failed for the game while its covers depended on `signature`. */
+  failed(gameId: string, signature: string): ReadonlySet<string> {
+    const entry = this.games.get(gameId);
+    return entry && entry.signature === signature ? entry.systems : new Set();
+  }
+
+  /** Records that the system's cover failed; a new signature starts the game's record over. */
+  add(gameId: string, signature: string, system: string): void {
+    const entry = this.games.get(gameId);
+    if (entry && entry.signature === signature) entry.systems.add(system);
+    else this.games.set(gameId, { signature, systems: new Set([system]) });
+  }
+}
+
 /** A game's copies grouped by system: the current edition first, then in the editions' order. */
 export function groupCopies<C extends CopyLike>(copies: C[], editions: EditionLike[], current: string): { system: string; copies: C[] }[] {
   const systems = [current, ...editions.map((e) => e.system), ...copies.map((c) => c.effectiveSystem)];

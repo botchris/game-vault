@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  NO_FILTERS, activeFilterCount, coverOrder, coverPath, editionsOf, itemLabel, filterItems, groupCopies, itemCounts, libraryItems, mainSystem,
+  CoverFailures, NO_FILTERS, activeFilterCount, coverOrder, coverSignature, coverPath, editionsOf, itemLabel, filterItems, groupCopies, itemCounts, libraryItems, mainSystem,
   nextCover, openEdition, sortItems, systemCounts, systemOf,
 } from '../src/lib/editions.ts';
 
@@ -134,4 +134,45 @@ test('in "By platform" an item is named with its system, so two editions of a ga
   assert.equal(itemLabel(t, pc, 'platform'), 'library.itemLabel:Halo 3|PC');
   assert.equal(itemLabel(t, libraryItems([g], 'game')[0], 'game'), undefined, '"By game" keeps the title');
   assert.equal(itemLabel(t, libraryItems([game('g2', 'Halo 4', [], [])], 'platform')[0], 'platform'), undefined, 'no system, no suffix');
+});
+
+test('coverSignature changes with the cover inputs only, not with other edits of the game', () => {
+  const base = coverSignature(halo);
+  assert.equal(coverSignature({ ...halo, rating: 4, playStatus: 3, updatedAt: { seconds: 99n } }), base, 'a rating or play status keeps it');
+  assert.equal(coverSignature({ ...halo, links: {} }), base, 'no links is the same as an empty map');
+  assert.equal(coverSignature({ ...halo, links: { steam: '1', gog: '2' } }), coverSignature({ ...halo, links: { gog: '2', steam: '1' } }), 'link order does not matter');
+
+  const changed = {
+    title: { ...halo, title: 'Halo 3 ODST' },
+    link: { ...halo, links: { steam: '976730' } },
+    'chosen cover': { ...halo, editions: [edition('PS3', { main: true, coverUrl: 'https://img/1.jpg' }), edition('PC'), edition('Xbox 360')] },
+    'cover photo': { ...halo, editions: [edition('PS3', { main: true }), edition('PC', { coverPhotoId: 'p1' }), edition('Xbox 360')] },
+    'main edition': { ...halo, editions: [edition('PS3'), edition('PC', { main: true }), edition('Xbox 360')] },
+    'new edition': { ...halo, editions: [...halo.editions, edition('Switch')] },
+  };
+  for (const [what, g] of Object.entries(changed)) assert.notEqual(coverSignature(g), base, what);
+});
+
+test('CoverFailures: failures stay until the signature changes, then the cards try again', () => {
+  const f = new CoverFailures();
+  const order = coverOrder(halo, 'PC');
+  const sig = coverSignature(halo);
+  assert.equal(nextCover(order, f.failed('g1', sig)), 'PC');
+
+  f.add('g1', sig, 'PC');
+  f.add('g1', sig, 'PS3');
+  assert.equal(nextCover(order, f.failed('g1', sig)), 'Xbox 360');
+  f.add('g1', sig, 'Xbox 360');
+  assert.equal(nextCover(order, f.failed('g1', sig)), null, 'all failed: initials, no more requests');
+
+  // An edit that leaves the cover inputs alone (a rating) keeps the record: no new request.
+  assert.equal(nextCover(order, f.failed('g1', coverSignature({ ...halo, rating: 5 }))), null);
+  assert.equal(nextCover(order, f.failed('g2', sig)), 'PC', 'another game is not affected');
+
+  // A chosen cover starts the game's record over.
+  const chosen = coverSignature({ ...halo, editions: [edition('PS3', { main: true }), edition('PC', { coverUrl: 'https://img/pc.jpg' }), edition('Xbox 360')] });
+  assert.equal(nextCover(order, f.failed('g1', chosen)), 'PC');
+  f.add('g1', chosen, 'PC');
+  assert.deepEqual([...f.failed('g1', chosen)], ['PC']);
+  assert.equal(f.failed('g1', sig).size, 0, 'the old signature\'s failures are gone');
 });
