@@ -3,6 +3,7 @@ package rpc
 import (
 	"encoding/json"
 	"errors"
+	"slices"
 	"time"
 
 	"connectrpc.com/connect"
@@ -433,35 +434,43 @@ func fieldValuesToPB(values game.FieldValues) map[string]*pb.FieldValue {
 	out := make(map[string]*pb.FieldValue, len(values))
 
 	for id, v := range values {
-		out[id] = fieldValueToPB(v)
+		if pv, ok := fieldValueToPB(v); ok {
+			out[id] = pv
+		}
+	}
+
+	if len(out) == 0 {
+		return nil
 	}
 
 	return out
 }
 
-func fieldValueToPB(v game.FieldValue) *pb.FieldValue {
+// fieldValueToPB maps the member that is set; ok is false for an empty value, which is never
+// stored and must not reach the API as a value without a member.
+func fieldValueToPB(v game.FieldValue) (_ *pb.FieldValue, ok bool) {
 	switch {
 	case v.Text != "":
-		return &pb.FieldValue{Value: &pb.FieldValue_Text{Text: v.Text}}
+		return &pb.FieldValue{Value: &pb.FieldValue_Text{Text: v.Text}}, true
 	case v.Bool != nil:
-		return &pb.FieldValue{Value: &pb.FieldValue_Bool{Bool: *v.Bool}}
+		return &pb.FieldValue{Value: &pb.FieldValue_Bool{Bool: *v.Bool}}, true
 	case v.Number != nil:
-		return &pb.FieldValue{Value: &pb.FieldValue_Number{Number: *v.Number}}
+		return &pb.FieldValue{Value: &pb.FieldValue_Number{Number: *v.Number}}, true
 	case v.Money != nil:
 		return &pb.FieldValue{Value: &pb.FieldValue_Money{Money: &pb.Money{
 			AmountMinor: v.Money.Amount,
 			Currency:    v.Money.Currency,
-		}}}
+		}}}, true
 	case v.Date != "":
-		return &pb.FieldValue{Value: &pb.FieldValue_Date{Date: v.Date}}
+		return &pb.FieldValue{Value: &pb.FieldValue_Date{Date: v.Date}}, true
 	case v.Minutes != nil:
-		return &pb.FieldValue{Value: &pb.FieldValue_Minutes{Minutes: *v.Minutes}}
+		return &pb.FieldValue{Value: &pb.FieldValue_Minutes{Minutes: *v.Minutes}}, true
 	case v.Choice != "":
-		return &pb.FieldValue{Value: &pb.FieldValue_Choice{Choice: v.Choice}}
-	case v.Choices != nil:
-		return &pb.FieldValue{Value: &pb.FieldValue_Choices{Choices: &pb.ChoiceList{Ids: v.Choices}}}
+		return &pb.FieldValue{Value: &pb.FieldValue_Choice{Choice: v.Choice}}, true
+	case len(v.Choices) > 0:
+		return &pb.FieldValue{Value: &pb.FieldValue_Choices{Choices: &pb.ChoiceList{Ids: slices.Clone(v.Choices)}}}, true
 	default:
-		return &pb.FieldValue{}
+		return nil, false
 	}
 }
 
@@ -480,14 +489,19 @@ func fieldValuesFromPB(values map[string]*pb.FieldValue) game.FieldValues {
 	return out
 }
 
+// fieldValueFromPB copies the request's value: the domain value must not point into the message.
 func fieldValueFromPB(v *pb.FieldValue) game.FieldValue {
 	switch x := v.GetValue().(type) {
 	case *pb.FieldValue_Text:
 		return game.FieldValue{Text: x.Text}
 	case *pb.FieldValue_Bool:
-		return game.FieldValue{Bool: &x.Bool}
+		b := x.Bool
+
+		return game.FieldValue{Bool: &b}
 	case *pb.FieldValue_Number:
-		return game.FieldValue{Number: &x.Number}
+		n := x.Number
+
+		return game.FieldValue{Number: &n}
 	case *pb.FieldValue_Money:
 		return game.FieldValue{Money: &game.Money{
 			Amount:   x.Money.GetAmountMinor(),
@@ -496,11 +510,13 @@ func fieldValueFromPB(v *pb.FieldValue) game.FieldValue {
 	case *pb.FieldValue_Date:
 		return game.FieldValue{Date: x.Date}
 	case *pb.FieldValue_Minutes:
-		return game.FieldValue{Minutes: &x.Minutes}
+		m := x.Minutes
+
+		return game.FieldValue{Minutes: &m}
 	case *pb.FieldValue_Choice:
 		return game.FieldValue{Choice: x.Choice}
 	case *pb.FieldValue_Choices:
-		return game.FieldValue{Choices: x.Choices.GetIds()}
+		return game.FieldValue{Choices: slices.Clone(x.Choices.GetIds())}
 	default:
 		return game.FieldValue{}
 	}
