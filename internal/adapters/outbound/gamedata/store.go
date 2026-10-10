@@ -302,25 +302,33 @@ func (s *Store) ClearCoverMissing(id game.ID, system string) error {
 	return nil
 }
 
-// DeleteCover removes the cover of a game's edition and its missing marker, and the cover from
-// before editions, which the main edition would otherwise adopt instead of the new one.
+// DeleteCover removes the cover of a game's edition and its missing marker. Other editions' files,
+// and the cover from before editions, stay.
 func (s *Store) DeleteCover(id game.ID, system string) error {
 	dir, ok := s.dir(id)
 	if !ok {
 		return nil
 	}
 
-	for _, name := range []string{coverFile(system) + ".missing", legacyMissing} {
-		if err := os.Remove(filepath.Join(dir, name)); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return err
-		}
-	}
-
-	if err := removeImage(dir, legacyCover); err != nil {
+	if err := os.Remove(filepath.Join(dir, coverFile(system)+".missing")); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 
 	return removeImage(dir, coverFile(system))
+}
+
+// DeleteLegacyCover removes the cover from before editions (cover.jpg) and its missing marker.
+func (s *Store) DeleteLegacyCover(id game.ID) error {
+	dir, ok := s.dir(id)
+	if !ok {
+		return nil
+	}
+
+	if err := os.Remove(filepath.Join(dir, legacyMissing)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+
+	return removeImage(dir, legacyCover)
 }
 
 // DeleteCovers removes the covers and missing markers of every edition of a game.

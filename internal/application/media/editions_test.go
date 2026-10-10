@@ -310,4 +310,50 @@ func TestEditionCovers(t *testing.T) {
 			})
 		})
 	})
+
+	t.Run("GIVEN a game without copies whose cover was chosen", func(t *testing.T) {
+		env := newMediaEnv(t, ctx)
+		g := saveGame(t, ctx, env.games, "Halo 3", nil)
+		require.NoError(t, g.SetEditionCover("", game.EditionCover{URL: "https://img.test/chosen"}, time.Now()))
+		require.NoError(t, env.games.Save(ctx, g))
+
+		t.Run("THEN its cover is the chosen one, and nobody is asked", func(t *testing.T) {
+			img, err := env.svc.Cover(ctx, g.ID())
+			assert.Equal(t, "https://img.test/chosen", cover(t, img, err))
+			assert.Empty(t, env.box.asked)
+		})
+	})
+
+	for _, tc := range []struct {
+		system string
+		want   string
+	}{
+		{"Wii", "legacy"},                   // another edition leaves it for the main one to adopt
+		{"PS3", "https://img.test/box-PS3"}, // the main edition resolves its cover again
+	} {
+		t.Run("GIVEN a cover cached before editions for a game whose main edition is PS3, and a Wii disc", func(t *testing.T) {
+			env := newMediaEnv(t, ctx)
+			g := saveGame(t, ctx, env.games, "Halo 3", nil,
+				game.CopyDetails{
+					Kind:     game.KindPhysical,
+					Platform: "PS3",
+				},
+				game.CopyDetails{
+					Kind:     game.KindPhysical,
+					Platform: "Wii",
+				})
+
+			legacy := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(legacy, string(g.ID())+".jpg"), []byte("legacy"), 0o600))
+			_, err := env.assets.MigrateLegacyCovers(legacy, map[game.ID]string{g.ID(): g.Title()})
+			require.NoError(t, err)
+
+			t.Run("WHEN the "+tc.system+" edition is invalidated THEN the main cover is "+tc.want, func(t *testing.T) {
+				require.NoError(t, env.svc.InvalidateEdition(ctx, g.ID(), tc.system))
+
+				main, err := env.svc.Cover(ctx, g.ID())
+				assert.Equal(t, tc.want, cover(t, main, err))
+			})
+		})
+	}
 }

@@ -136,6 +136,14 @@ func TestEditionCoverFiles(t *testing.T) {
 			})
 		})
 
+		t.Run("WHEN another edition's cover is deleted THEN the cover from before editions stays", func(t *testing.T) {
+			require.NoError(t, s.PutCover(g, "Wii", jpg))
+			require.NoError(t, s.DeleteCover(g.ID, "Wii"))
+
+			_, err := os.Stat(filepath.Join(root, "Halo 3 [019b11c2-bbbb]", "cover.jpg"))
+			assert.NoError(t, err)
+		})
+
 		t.Run("WHEN the main edition adopts it", func(t *testing.T) {
 			img, ok, err := s.AdoptLegacyCover(g, "PS3")
 			require.NoError(t, err)
@@ -150,6 +158,26 @@ func TestEditionCoverFiles(t *testing.T) {
 				_, ok, _ = s.AdoptLegacyCover(g, "PC")
 				assert.False(t, ok)
 			})
+		})
+	})
+
+	t.Run("GIVEN a cover stored before editions, and its missing marker", func(t *testing.T) {
+		root := t.TempDir()
+		s, err := Open(root)
+		require.NoError(t, err)
+
+		legacy := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(legacy, string(g.ID)+".jpg"), jpg.Data, 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(legacy, string(g.ID)+".missing"), []byte("2026-10-01T00:00:00Z"), 0o600))
+		_, err = s.MigrateLegacyCovers(legacy, map[game.ID]string{g.ID: g.Title})
+		require.NoError(t, err)
+
+		t.Run("WHEN it is deleted THEN no edition can adopt it, and the marker is gone", func(t *testing.T) {
+			require.NoError(t, s.DeleteLegacyCover(g.ID))
+
+			_, ok, _ := s.AdoptLegacyCover(g, "PS3")
+			assert.False(t, ok)
+			assert.Empty(t, filesLike(t, filepath.Join(root, "Halo 3 [019b11c2-bbbb]"), "cover*"))
 		})
 	})
 }

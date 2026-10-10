@@ -110,8 +110,10 @@ func TestCoverProviders_appliesBySystem(t *testing.T) {
 	})
 
 	for id, tc := range providers {
-		for _, row := range tc.rows {
-			assert.Equal(t, row.want, tc.p.Applies(row.q), "%s: %s", id, row.name)
-		}
+		t.Run(string(id), func(t *testing.T) {
+			for _, row := range tc.rows {
+				assert.Equal(t, row.want, tc.p.Applies(row.q), row.name)
+			}
+		})
 	}
 }

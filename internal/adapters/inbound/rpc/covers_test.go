@@ -80,3 +80,30 @@ func TestCovers_pcOnlyGame(t *testing.T) {
 		})
 	})
 }
+
+func TestCovers_escapedSystem(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a game whose only copy is on a system with a space and a slash", func(t *testing.T) {
+		c := newServer(t, &fakeProvider{})
+		created, err := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{
+			Title:    "Halo 3",
+			CoverUrl: "https://boxart.test/chosen.png",
+			Copies: []*pb.CopyDetails{{
+				Kind:     pb.CopyKind_COPY_KIND_PHYSICAL,
+				Platform: "Xbox 360/S",
+			}},
+		}))
+		require.NoError(t, err)
+
+		t.Run("WHEN its edition's cover is asked with the system escaped", func(t *testing.T) {
+			status, body := getMedia(t, c.baseURL+"/media/covers/"+created.Msg.Game.Id+"/Xbox%20360%2FS")
+
+			t.Run("THEN the address reaches that edition", func(t *testing.T) {
+				assert.Equal(t, http.StatusOK, status)
+				assert.Equal(t, png1x1, body)
+			})
+		})
+	})
+}

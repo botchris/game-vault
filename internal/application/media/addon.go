@@ -92,6 +92,12 @@ func (s *Service) addOnCover(ctx context.Context, g *game.Game, system string) (
 		}
 	}
 
+	// Only stores' providers answer the search below, and they have art for PC editions only: a
+	// console edition would spend requests to rate-limited stores for nothing.
+	if !(CoverQuery{System: system}).ForPC() {
+		return Image{}, false
+	}
+
 	for _, ls := range s.searchers {
 		if img, ok := s.baseCoverIn(ctx, ls, g, ref, system); ok {
 			return img, true

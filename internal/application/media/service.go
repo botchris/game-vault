@@ -66,8 +66,12 @@ type AssetStore interface {
 	// stored covers stay.
 	ClearCoverMissing(id game.ID, system string) error
 
-	// DeleteCover removes an edition's stored cover and "no cover found" marker.
+	// DeleteCover removes an edition's stored cover and "no cover found" marker; other editions'
+	// covers and the cover stored before editions stay.
 	DeleteCover(id game.ID, system string) error
+
+	// DeleteLegacyCover removes the cover stored before editions and its "no cover found" marker.
+	DeleteLegacyCover(id game.ID) error
 
 	// DeleteCovers removes the stored covers and markers of every edition of a game.
 	DeleteCovers(id game.ID) error
@@ -619,7 +623,11 @@ func (s *Service) resolve(ctx context.Context, id game.ID, system string) (Image
 	}
 
 	edition, ok := g.Edition(system)
-	if !ok && (system != "" || len(g.Copies()) > 0) {
+	if system == "" && len(g.Copies()) == 0 {
+		edition, ok = g.MainEdition(), true // a game without copies: its cover is the one chosen for the game
+	}
+
+	if !ok {
 		return Image{}, ErrNoCover // no copy on that system (any more)
 	}
 
@@ -843,9 +851,28 @@ func (s *Service) RefreshCovers(ctx context.Context, missingOnly bool) (int, err
 }
 
 // InvalidateEdition drops the cached cover of a game's edition (implements catalog.CoverCache and
-// sync.CoverCache): its chosen cover or its copies changed.
-func (s *Service) InvalidateEdition(_ context.Context, id game.ID, system string) error {
-	return s.store.DeleteCover(id, system)
+// sync.CoverCache): its chosen cover or its copies changed. For the main edition (or a game without
+// copies) it also drops the cover cached before editions, which the main edition would otherwise
+// adopt instead of resolving the new one; other editions leave it for the main edition to adopt.
+func (s *Service) InvalidateEdition(ctx context.Context, id game.ID, system string) error {
+	if err := s.store.DeleteCover(id, system); err != nil {
+		return err
+	}
+
+	g, err := s.games.Get(ctx, id)
+	if errors.Is(err, game.ErrGameNotFound) {
+		return s.store.DeleteLegacyCover(id) // nothing left to adopt it
+	}
+
+	if err != nil {
+		return err
+	}
+
+	if system == "" || system == g.MainEdition().System {
+		return s.store.DeleteLegacyCover(id)
+	}
+
+	return nil
 }
 
 // Invalidate drops the game's cover, details and downloaded images (implements catalog.CoverCache):
