@@ -181,3 +181,56 @@ func TestEditionCoverFiles(t *testing.T) {
 		})
 	})
 }
+
+func TestPruneCoverMarkers(t *testing.T) {
+	g := media.GameRef{
+		ID:    "019b11c2-cccc",
+		Title: "Halo 3",
+	}
+	at := time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC)
+
+	t.Run("GIVEN misses remembered for PS3 and Xbox 360, a miss from before editions, and a PS3 cover", func(t *testing.T) {
+		root := t.TempDir()
+		s, err := Open(root)
+		require.NoError(t, err)
+		require.NoError(t, s.MarkCoverMissing(g, "PS3", at))
+		require.NoError(t, s.MarkCoverMissing(g, "Xbox 360", at))
+		require.NoError(t, s.PutCover(g, "Wii", jpg))
+
+		dir, _ := s.dir(g.ID)
+		require.NoError(t, os.WriteFile(filepath.Join(dir, legacyMissing), []byte(at.Format(time.RFC3339)), 0o644))
+
+		t.Run("WHEN the markers of systems other than PS3 and Wii are pruned", func(t *testing.T) {
+			n, err := s.PruneCoverMarkers(g.ID, []string{"PS3", "Wii"})
+			require.NoError(t, err)
+
+			t.Run("THEN the Xbox 360 marker and the one from before editions go", func(t *testing.T) {
+				assert.Equal(t, 2, n)
+
+				_, ok := s.CoverMissingSince(g.ID, "Xbox 360")
+				assert.False(t, ok)
+				assert.False(t, s.HasLegacyCover(g.ID))
+			})
+
+			t.Run("AND the PS3 marker and every cover stay", func(t *testing.T) {
+				_, ok := s.CoverMissingSince(g.ID, "PS3")
+				assert.True(t, ok)
+
+				_, ok, err = s.GetCover(g.ID, "Wii")
+				require.NoError(t, err)
+				assert.True(t, ok)
+			})
+		})
+	})
+
+	t.Run("GIVEN a game with nothing stored", func(t *testing.T) {
+		s, err := Open(t.TempDir())
+		require.NoError(t, err)
+
+		t.Run("THEN pruning finds nothing to do", func(t *testing.T) {
+			n, err := s.PruneCoverMarkers(g.ID, nil)
+			require.NoError(t, err)
+			assert.Zero(t, n)
+		})
+	})
+}

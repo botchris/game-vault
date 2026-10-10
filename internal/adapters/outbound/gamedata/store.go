@@ -302,6 +302,42 @@ func (s *Store) ClearCoverMissing(id game.ID, system string) error {
 	return nil
 }
 
+// PruneCoverMarkers removes the missing markers of editions not on systems, and the one from
+// before editions (cover.missing), and reports how many it removed. Covers stay.
+func (s *Store) PruneCoverMarkers(id game.ID, systems []string) (int, error) {
+	dir, ok := s.dir(id)
+	if !ok {
+		return 0, nil
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return 0, err
+	}
+
+	keep := make(map[string]bool, len(systems))
+	for _, system := range systems {
+		keep[coverFile(system)+".missing"] = true
+	}
+
+	n := 0
+
+	for _, e := range entries {
+		name := e.Name()
+		if keep[name] || !strings.HasSuffix(name, ".missing") || !isCoverName(strings.TrimSuffix(name, ".missing")) {
+			continue
+		}
+
+		if err := os.Remove(filepath.Join(dir, name)); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return n, err
+		}
+
+		n++
+	}
+
+	return n, nil
+}
+
 // DeleteCover removes the cover of a game's edition and its missing marker. Other editions' files,
 // and the cover from before editions, stay.
 func (s *Store) DeleteCover(id game.ID, system string) error {

@@ -89,6 +89,9 @@ type mediaEnv struct {
 	games  game.Repository
 	assets *gamedata.Store
 	box    *boxArt
+
+	// root is the folder of the asset store.
+	root string
 }
 
 func newMediaEnv(t *testing.T, ctx context.Context) mediaEnv {
@@ -98,7 +101,8 @@ func newMediaEnv(t *testing.T, ctx context.Context) mediaEnv {
 	require.NoError(t, err)
 	t.Cleanup(func() { db.Close() })
 
-	assets, err := gamedata.Open(filepath.Join(t.TempDir(), "game-data"))
+	root := filepath.Join(t.TempDir(), "game-data")
+	assets, err := gamedata.Open(root)
 	require.NoError(t, err)
 
 	games, box := sqlite.NewGameRepository(db), &boxArt{}
@@ -110,6 +114,7 @@ func newMediaEnv(t *testing.T, ctx context.Context) mediaEnv {
 		games:  games,
 		assets: assets,
 		box:    box,
+		root:   root,
 	}
 }
 
@@ -419,6 +424,127 @@ func TestInvalidateEditionWithoutCoverFromBeforeEditions(t *testing.T) {
 		t.Run("WHEN its edition is invalidated, as on its first scan, THEN the game is not read", func(t *testing.T) {
 			require.NoError(t, svc.InvalidateEdition(ctx, g.ID(), "PS3"))
 			assert.Zero(t, games.gets)
+		})
+	})
+}
+
+func TestEditionCover_cachedWithoutReadingTheGame(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a game whose PS3 edition's cover was resolved and cached", func(t *testing.T) {
+		db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "gamevault.db"), "")
+		require.NoError(t, err)
+		t.Cleanup(func() { db.Close() })
+
+		assets, err := gamedata.Open(filepath.Join(t.TempDir(), "game-data"))
+		require.NoError(t, err)
+
+		games := &countingGames{Repository: sqlite.NewGameRepository(db)}
+		svc := media.NewService(games, sqlite.NewProviderRepository(db), assets, nil, nil, echo{}, time.Now,
+			slog.New(slog.NewTextHandler(io.Discard, nil)), media.Providers{Covers: []media.CoverProvider{&boxArt{}}})
+		g := saveGame(t, ctx, games, "Halo 3", nil, game.CopyDetails{
+			Kind:     game.KindPhysical,
+			Platform: "PS3",
+		})
+
+		_, err = svc.EditionCover(ctx, g.ID(), "PS3")
+		require.NoError(t, err)
+
+		games.gets = 0
+
+		t.Run("WHEN the edition's cover is asked again", func(t *testing.T) {
+			img, err := svc.EditionCover(ctx, g.ID(), "PS3")
+
+			t.Run("THEN the cached file is served without reading the game", func(t *testing.T) {
+				assert.Equal(t, "https://img.test/box-PS3", cover(t, img, err))
+				assert.Zero(t, games.gets)
+			})
+		})
+
+		t.Run("WHEN the edition changes or goes away, which invalidates it", func(t *testing.T) {
+			require.NoError(t, svc.InvalidateEdition(ctx, g.ID(), "PS3"))
+
+			t.Run("THEN no stale file is left to serve", func(t *testing.T) {
+				_, ok, err := assets.GetCover(g.ID(), "PS3")
+				require.NoError(t, err)
+				assert.False(t, ok)
+			})
+		})
+	})
+}
+
+func TestCoverMarkers_cleanup(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	// leftovers stores what older versions could leave behind for g: a miss for a system the game no
+	// longer has, and the miss from before editions.
+	leftovers := func(t *testing.T, env mediaEnv, g *game.Game) {
+		t.Helper()
+
+		ref := media.GameRef{
+			ID:    g.ID(),
+			Title: g.Title(),
+		}
+		require.NoError(t, env.assets.MarkCoverMissing(ref, "Xbox 360", time.Now()))
+
+		dir := filepath.Join(env.root, "Halo 3 ["+string(g.ID())+"]")
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "cover.missing"), []byte(time.Now().UTC().Format(time.RFC3339)), 0o644))
+		require.True(t, env.assets.HasLegacyCover(g.ID()))
+	}
+
+	gone := func(t *testing.T, env mediaEnv, g *game.Game) {
+		t.Helper()
+
+		_, ok := env.assets.CoverMissingSince(g.ID(), "Xbox 360")
+		assert.False(t, ok, "the miss of a system the game no longer has")
+		assert.False(t, env.assets.HasLegacyCover(g.ID()), "the miss from before editions")
+	}
+
+	discs := []game.CopyDetails{{
+		Kind:     game.KindPhysical,
+		Platform: "PS3",
+	}, {
+		Kind:     game.KindPhysical,
+		Platform: "Wii",
+	}}
+
+	t.Run("GIVEN a game with PS3 and Wii discs and leftover misses", func(t *testing.T) {
+		env := newMediaEnv(t, ctx)
+		g := saveGame(t, ctx, env.games, "Halo 3", nil, discs...)
+		_, err := env.svc.EditionCover(ctx, g.ID(), "Wii") // no box art for the Wii: its miss is remembered
+		require.ErrorIs(t, err, media.ErrNoCover)
+		leftovers(t, env, g)
+
+		t.Run("WHEN the main edition's cover is resolved", func(t *testing.T) {
+			img, err := env.svc.Cover(ctx, g.ID())
+
+			t.Run("THEN the leftovers are gone, and the Wii miss stays", func(t *testing.T) {
+				assert.Equal(t, "https://img.test/box-PS3", cover(t, img, err))
+				gone(t, env, g)
+
+				_, ok := env.assets.CoverMissingSince(g.ID(), "Wii")
+				assert.True(t, ok)
+			})
+		})
+	})
+
+	t.Run("GIVEN a game whose covers are cached, and leftover misses", func(t *testing.T) {
+		env := newMediaEnv(t, ctx)
+		g := saveGame(t, ctx, env.games, "Halo 3", nil, discs...)
+		_, err := env.svc.Cover(ctx, g.ID())
+		require.NoError(t, err)
+		leftovers(t, env, g)
+
+		t.Run("WHEN missing covers are refreshed", func(t *testing.T) {
+			n, err := env.svc.RefreshCovers(ctx, true)
+			require.NoError(t, err)
+
+			t.Run("THEN the leftovers are gone and the game counts as refreshed", func(t *testing.T) {
+				gone(t, env, g)
+				assert.Equal(t, 1, n)
+			})
 		})
 	})
 }

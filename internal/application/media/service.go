@@ -66,6 +66,10 @@ type AssetStore interface {
 	// stored covers stay.
 	ClearCoverMissing(id game.ID, system string) error
 
+	// PruneCoverMarkers removes the "no cover found" markers of the editions not on systems, and the
+	// one from before editions, and reports how many it removed. Stored covers stay.
+	PruneCoverMarkers(id game.ID, systems []string) (int, error)
+
 	// DeleteCover removes an edition's stored cover and "no cover found" marker; other editions'
 	// covers and the cover stored before editions stay.
 	DeleteCover(id game.ID, system string) error
@@ -617,15 +621,40 @@ func (s *Service) EditionCover(ctx context.Context, id game.ID, system string) (
 	return v.(Image), nil
 }
 
-// resolve finds an edition's cover: the cover cached before editions (main edition only), the
-// chosen photo, the chosen URL, the provider chain with its fallback pass, the base game's cover for
-// the same system (add-ons), else "missing".
+// resolve finds an edition's cover (see resolveEdition). Once the main edition has resolved (a
+// cover, or a miss remembered), the game's leftover "no cover found" markers go: those of systems
+// it no longer has and the one from before editions, which nothing reads any more.
 func (s *Service) resolve(ctx context.Context, id game.ID, system string) (Image, error) {
 	g, err := s.games.Get(ctx, id)
 	if err != nil {
 		return Image{}, err
 	}
 
+	img, err := s.resolveEdition(ctx, g, system)
+
+	resolved := err == nil || (errors.Is(err, ErrNoCover) && !errors.Is(err, provider.ErrRateLimited))
+	if resolved && system == g.MainEdition().System {
+		if _, perr := s.store.PruneCoverMarkers(id, editionSystems(g)); perr != nil {
+			s.log.Warn("pruning old cover markers", "game", g.Title(), "error", perr)
+		}
+	}
+
+	return img, err
+}
+
+// editionSystems returns the systems of g's editions, or the empty system of a game without copies.
+func editionSystems(g *game.Game) []string {
+	if systems := g.Systems(); len(systems) > 0 {
+		return systems
+	}
+
+	return []string{""}
+}
+
+// resolveEdition finds the cover of g's edition on system: the cover cached before editions (main
+// edition only), the chosen photo, the chosen URL, the provider chain with its fallback pass, the
+// base game's cover for the same system (add-ons), else "missing".
+func (s *Service) resolveEdition(ctx context.Context, g *game.Game, system string) (Image, error) {
 	edition, ok := g.Edition(system)
 	if system == "" && len(g.Copies()) == 0 {
 		edition, ok = g.MainEdition(), true // a game without copies: its cover is the one chosen for the game
@@ -873,12 +902,15 @@ func (s *Service) RefreshCovers(ctx context.Context, missingOnly bool) (int, err
 			continue
 		}
 
-		systems := g.Systems()
-		if len(systems) == 0 {
-			systems = []string{""}
+		systems := editionSystems(g)
+
+		// Markers of systems the game no longer has, and the one from before editions, are leftovers.
+		pruned, err := s.store.PruneCoverMarkers(g.ID(), systems)
+		if err != nil {
+			return n, err
 		}
 
-		dropped := false
+		dropped := pruned > 0
 
 		for _, system := range systems {
 			if _, missing := s.store.CoverMissingSince(g.ID(), system); !missing {
