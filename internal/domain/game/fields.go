@@ -39,7 +39,8 @@ func (v FieldValue) IsZero() bool {
 		v.Minutes == nil && v.Choice == "" && len(v.Choices) == 0
 }
 
-func (v FieldValue) clone() FieldValue {
+// Clone returns a deep copy of the value, sharing no pointer or slice with it.
+func (v FieldValue) Clone() FieldValue {
 	out := v
 	out.Choices = slices.Clone(v.Choices)
 
@@ -82,7 +83,7 @@ func (f FieldValues) compact() FieldValues {
 			out = FieldValues{}
 		}
 
-		out[id] = v.clone()
+		out[id] = v.Clone()
 	}
 
 	return out

@@ -35,7 +35,7 @@ func (s *Set) Validate(scope Scope, kind game.Kind, values game.FieldValues) (ga
 		}
 
 		if !v.IsZero() {
-			out[id] = v
+			out[id] = v.Clone() // the caller keeps its pointers and slices to itself
 		}
 	}
 
@@ -49,21 +49,13 @@ func (s *Set) Validate(scope Scope, kind game.Kind, values game.FieldValues) (ga
 // normalize checks that only the member of the field's type is set and that it is within limits.
 func (d Definition) normalize(v game.FieldValue) (game.FieldValue, error) {
 	wrong := invalid("%q got a value of another type: reload the page and try again", d.Name)
+	if !onlyMemberOf(d.Type, v) {
+		return v, wrong
+	}
 
 	switch d.Type {
 	case TypeText, TypeLongText:
 		text := strings.TrimSpace(v.Text)
-		if !(game.FieldValue{
-			Bool:    v.Bool,
-			Number:  v.Number,
-			Money:   v.Money,
-			Date:    v.Date,
-			Minutes: v.Minutes,
-			Choice:  v.Choice,
-			Choices: v.Choices,
-		}).IsZero() {
-			return v, wrong
-		}
 
 		limit := MaxText
 		if d.Type == TypeLongText {
@@ -76,32 +68,8 @@ func (d Definition) normalize(v game.FieldValue) (game.FieldValue, error) {
 
 		return game.FieldValue{Text: text}, nil
 	case TypeBool:
-		if !(game.FieldValue{
-			Text:    v.Text,
-			Number:  v.Number,
-			Money:   v.Money,
-			Date:    v.Date,
-			Minutes: v.Minutes,
-			Choice:  v.Choice,
-			Choices: v.Choices,
-		}).IsZero() {
-			return v, wrong
-		}
-
 		return game.FieldValue{Bool: v.Bool}, nil
 	case TypeNumber:
-		if !(game.FieldValue{
-			Text:    v.Text,
-			Bool:    v.Bool,
-			Money:   v.Money,
-			Date:    v.Date,
-			Minutes: v.Minutes,
-			Choice:  v.Choice,
-			Choices: v.Choices,
-		}).IsZero() {
-			return v, wrong
-		}
-
 		limit := int64(MaxNumber)
 		if d.Decimals == 2 {
 			limit *= 100
@@ -113,18 +81,6 @@ func (d Definition) normalize(v game.FieldValue) (game.FieldValue, error) {
 
 		return game.FieldValue{Number: v.Number}, nil
 	case TypeMoney:
-		if !(game.FieldValue{
-			Text:    v.Text,
-			Bool:    v.Bool,
-			Number:  v.Number,
-			Date:    v.Date,
-			Minutes: v.Minutes,
-			Choice:  v.Choice,
-			Choices: v.Choices,
-		}).IsZero() {
-			return v, wrong
-		}
-
 		if v.Money == nil {
 			return game.FieldValue{}, nil
 		}
@@ -146,18 +102,6 @@ func (d Definition) normalize(v game.FieldValue) (game.FieldValue, error) {
 
 		return game.FieldValue{Money: &m}, nil
 	case TypeDate:
-		if !(game.FieldValue{
-			Text:    v.Text,
-			Bool:    v.Bool,
-			Number:  v.Number,
-			Money:   v.Money,
-			Minutes: v.Minutes,
-			Choice:  v.Choice,
-			Choices: v.Choices,
-		}).IsZero() {
-			return v, wrong
-		}
-
 		date := strings.TrimSpace(v.Date)
 		if date != "" && !validPartialDate(date) {
 			return v, invalid("%q must be a year, a year and month, or a full date", d.Name)
@@ -165,54 +109,18 @@ func (d Definition) normalize(v game.FieldValue) (game.FieldValue, error) {
 
 		return game.FieldValue{Date: date}, nil
 	case TypeDuration:
-		if !(game.FieldValue{
-			Text:    v.Text,
-			Bool:    v.Bool,
-			Number:  v.Number,
-			Money:   v.Money,
-			Date:    v.Date,
-			Choice:  v.Choice,
-			Choices: v.Choices,
-		}).IsZero() {
-			return v, wrong
-		}
-
 		if v.Minutes != nil && (*v.Minutes < 0 || *v.Minutes > MaxMinutes) {
 			return v, invalid("%q is out of range", d.Name)
 		}
 
 		return game.FieldValue{Minutes: v.Minutes}, nil
 	case TypeList:
-		if !(game.FieldValue{
-			Text:    v.Text,
-			Bool:    v.Bool,
-			Number:  v.Number,
-			Money:   v.Money,
-			Date:    v.Date,
-			Minutes: v.Minutes,
-			Choices: v.Choices,
-		}).IsZero() {
-			return v, wrong
-		}
-
 		if _, ok := d.choice(v.Choice); v.Choice != "" && !ok {
 			return v, invalid("%q: that value is no longer in the list, reload the page", d.Name)
 		}
 
 		return game.FieldValue{Choice: v.Choice}, nil
 	case TypeMultiList:
-		if !(game.FieldValue{
-			Text:    v.Text,
-			Bool:    v.Bool,
-			Number:  v.Number,
-			Money:   v.Money,
-			Date:    v.Date,
-			Minutes: v.Minutes,
-			Choice:  v.Choice,
-		}).IsZero() {
-			return v, wrong
-		}
-
 		var ids []string
 
 		for _, c := range d.Choices {
@@ -233,10 +141,38 @@ func (d Definition) normalize(v game.FieldValue) (game.FieldValue, error) {
 	}
 }
 
+// onlyMemberOf reports whether v sets no member but the one of fields of type t. It clears that
+// member and checks that nothing is left, so a member added to game.FieldValue later is refused
+// for every type without listing it here.
+func onlyMemberOf(t Type, v game.FieldValue) bool {
+	switch t {
+	case TypeText, TypeLongText:
+		v.Text = ""
+	case TypeBool:
+		v.Bool = nil
+	case TypeNumber:
+		v.Number = nil
+	case TypeMoney:
+		v.Money = nil
+	case TypeDate:
+		v.Date = ""
+	case TypeDuration:
+		v.Minutes = nil
+	case TypeList:
+		v.Choice = ""
+	case TypeMultiList:
+		v.Choices = nil
+	}
+
+	return v.IsZero()
+}
+
+// validPartialDate reports whether s is "YYYY", "YYYY-MM" or "YYYY-MM-DD", an existing date from
+// year 1 on (Go parses year 0, which no calendar has).
 func validPartialDate(s string) bool {
 	for _, layout := range []string{"2006", "2006-01", time.DateOnly} {
-		if _, err := time.Parse(layout, s); err == nil && len(s) == len(layout) {
-			return true
+		if t, err := time.Parse(layout, s); err == nil && len(s) == len(layout) {
+			return t.Year() >= 1
 		}
 	}
 

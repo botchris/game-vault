@@ -172,6 +172,8 @@ func (s *Set) Add(d Definition) (Definition, error) {
 	}
 
 	d.ID = uuid.NewString()
+
+	d.Choices = slices.Clone(d.Choices) // the caller's slice is theirs: ids and trimming go to a copy
 	for i := range d.Choices {
 		d.Choices[i].ID = uuid.NewString()
 	}
@@ -207,12 +209,26 @@ func (s *Set) Update(d Definition) error {
 	}
 
 	d.Choices = slices.Clone(d.Choices)
+	seen := make(map[string]bool, len(d.Choices))
+
 	for j := range d.Choices {
-		if d.Choices[j].ID == "" {
+		id := d.Choices[j].ID
+		if id == "" {
 			d.Choices[j].ID = uuid.NewString()
-		} else if _, ok := old.choice(d.Choices[j].ID); !ok {
+
+			continue
+		}
+
+		if _, ok := old.choice(id); !ok {
 			return ErrNotFound
 		}
+
+		// Two values with one id would make games' values ambiguous and RemoveChoice drop both.
+		if seen[id] {
+			return invalid("%q: a value of the list appears twice, reload the page and try again", old.Name)
+		}
+
+		seen[id] = true
 	}
 
 	d, err := s.check(d)
