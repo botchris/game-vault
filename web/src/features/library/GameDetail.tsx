@@ -207,9 +207,9 @@ function GameDetailBody({ game, system, onClose, onOpenGame, onEdition, onPlatfo
                 .map((h) => <PlatformBadge key={h.platform} {...h} full onSelect={onPlatform} />)}
               {/* With one edition, saying it is the game's cover tells nothing. */}
               {game.editions.length >= 2 && edition && (edition.main
-                ? <span className="badge">{t('edition.isMain')}</span>
+                ? <span className="badge edition-main">{t('edition.isMain')}</span>
                 : (
-                  <button type="button" className="link" disabled={busy}
+                  <button type="button" className="link edition-main" disabled={busy}
                     onClick={() => run(async () => putGame((await gameClient.setMainEdition({ gameId: game.id, system: current })).game!))}>
                     {t('edition.useAsMain')}
                   </button>
