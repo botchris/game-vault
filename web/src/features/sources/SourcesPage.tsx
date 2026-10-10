@@ -143,7 +143,8 @@ function SourceRow(props: { source: Source; typeName: string; syncing: boolean; 
   } else if (r) {
     tone = r.warnings.length > 0 ? 'warn' : 'ok';
     const changes = r.copiesAdded > 0 ? t('sources.newCopies', { count: r.copiesAdded }) : t('sources.noChanges');
-    status = [when(toDate(r.finishedAt)!), changes, r.warnings.length > 0 && t('sources.warnings', { count: r.warnings.length })]
+    status = [when(toDate(r.finishedAt)!), changes, r.excluded > 0 && t('sources.excludedCount', { count: r.excluded }),
+      r.warnings.length > 0 && t('sources.warnings', { count: r.warnings.length })]
       .filter(Boolean).join(' · ');
   }
 

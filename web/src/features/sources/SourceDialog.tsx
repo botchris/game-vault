@@ -7,6 +7,7 @@ import { Alert, Modal, useFormatters } from '../../components/ui';
 import { SettingField_Kind, type SettingField, type Source, type SourceType } from '../../gen/gamevault/v1/source_pb';
 import { connect, ConnectorError, detect, type Connector, type Recipe } from '../../lib/connector';
 import { toDate } from '../../lib/model';
+import { useAppData } from '../../state/AppData';
 
 interface Props {
   type: SourceType;
@@ -129,6 +130,20 @@ export default function SourceDialog({ type, source, onClose, onSaved, onDeleted
 
   const r = source?.lastSync;
 
+  // Items brought back in this dialog leave the list at once; the sources reload behind.
+  const [restored, setRestored] = useState<string[]>([]);
+  const { reloadSources } = useAppData();
+  const removed = (source?.exclusions ?? []).filter((e) => !restored.includes(e.externalId));
+  const includeAgain = async (externalId: string) => {
+    try {
+      await sourceClient.includeCopy({ sourceId: source!.id, externalId });
+      setRestored((list) => [...list, externalId]);
+      void reloadSources();
+    } catch (e) {
+      setResult({ tone: 'error', text: errorMessage(e) });
+    }
+  };
+
   return (
     <Modal title={source ? t('sources.editTitle', { name: source.name }) : t('sources.addTitle', { type: type.name })} onClose={onClose}
       footer={<>
@@ -166,6 +181,21 @@ export default function SourceDialog({ type, source, onClose, onSaved, onDeleted
                 <ul>{r.warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>
               </details>
             )}
+          </section>
+        )}
+        {removed.length > 0 && (
+          <section className="source-excluded">
+            <h3>{t('sources.excludedTitle', { count: removed.length })}</h3>
+            <p className="muted small">{t('sources.excludedHint')}</p>
+            <ul>
+              {removed.map((e) => (
+                <li key={e.externalId}>
+                  <span className="source-excluded-title">{e.title || e.externalId}</span>
+                  <span className="muted small">{fmt.date(toDate(e.at))}</span>
+                  <button type="button" className="small-button" disabled={locked} onClick={() => includeAgain(e.externalId)}>{t('sources.importAgain')}</button>
+                </li>
+              ))}
+            </ul>
           </section>
         )}
         <div className="grid">

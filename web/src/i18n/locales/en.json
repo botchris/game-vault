@@ -186,7 +186,9 @@
     "contents": "Contents",
     "price": "Purchase price",
     "currency": "Currency",
-    "priceInvalid": "Not an amount, e.g. 29.95"
+    "priceInvalid": "Not an amount, e.g. 29.95",
+    "confirmExclude": "Remove «{{title}}» from {{source}} and do not import it again? The next sync will skip it; you can bring it back from the source's settings.",
+    "confirmExcludeLoses": " Its photos and price estimates will be deleted."
   },
   "picker": {
     "search": "Search games…",
@@ -318,7 +320,12 @@
       "apiKeyHelp": "1. Open the page above and sign in to itch.io.\n2. Press Generate new API key and copy it.\n3. Paste it here.\nThe key gives access to your itch.io account: never share it. Revoke it on the same page to disconnect Game Vault."
     },
     "riskTitle": "Risk to your account",
-    "readTerms": "Read Fanatical's terms"
+    "readTerms": "Read Fanatical's terms",
+    "excludedTitle": "Removed from this source ({{count}})",
+    "importAgain": "Import again",
+    "excludedHint": "Scans skip these items. Import one again to bring it back on the next sync.",
+    "excludedCount_one": "{{count}} removed by you",
+    "excludedCount_other": "{{count}} removed by you"
   },
   "system": {
     "status": "Status",

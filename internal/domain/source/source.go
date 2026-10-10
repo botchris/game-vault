@@ -284,6 +284,16 @@ func (s *Source) Excludes(externalID string) bool {
 	return slices.ContainsFunc(s.exclusions, func(e Exclusion) bool { return e.ExternalID == externalID })
 }
 
+// Exclusion returns the entry for an item the user removed, if it is listed.
+func (s *Source) Exclusion(externalID string) (Exclusion, bool) {
+	i := slices.IndexFunc(s.exclusions, func(e Exclusion) bool { return e.ExternalID == externalID })
+	if i < 0 {
+		return Exclusion{}, false
+	}
+
+	return s.exclusions[i], true
+}
+
 // Exclude records that the user removed an item. Removing it again keeps the first entry.
 func (s *Source) Exclude(e Exclusion) error {
 	if e.ExternalID == "" {

@@ -11,7 +11,7 @@ one line here. Update a file instead of adding a duplicate; date facts about ext
 
 ## Status (update when the user reports results)
 - [Integration status](memory/status-integrations.md) — confirmed: Humble, Steam, Epic, GOG, EA, Ubisoft, Xbox; watch Battle.net keep-alive; PlayStation and the security redesign untested by the user
-- [Open threads](memory/open-threads.md) — offered, not done: cover photo recognition (paused), PS Store covers, EAN-Search button, config README
+- [Open threads](memory/open-threads.md) — offered, not done: cover photo recognition (paused), EAN-Search button, config README
 - [Known gaps](memory/known-gaps.md) — games without any cover
 
 ## Decisions
@@ -37,7 +37,7 @@ one line here. Update a file instead of adding a duplicate; date facts about ext
 - [EA](memory/ea.md) — Origin dead; GraphQL validates before auth; public `game(slug)` pack art
 - [Ubisoft](memory/ubisoft.md) — app `314d4fef…` blocked; `PRODrememberMe` rotates on every use; limit 50
 - [Xbox](memory/xbox.md) — Xbox app client; collections need `"beneficiaries": []`; public display catalog
-- [PlayStation](memory/playstation.md) — NPSSO; registered GraphQL hashes; CSRF header
+- [PlayStation](memory/playstation.md) — NPSSO; registered GraphQL hashes; CSRF header; store pages forbidden (no PS Store covers); non-games removed by the user
 - [Amazon Games](memory/amazon.md) — launcher device sign-in (nile), refresh token does not rotate, entitlements API, no portrait art
 - [itch.io](memory/itch.md) — official API, personal key, `/profile/owned-keys` until an empty page, errors list even with 200
 - [Fanatical](memory/fanatical.md) — `/api/user/keys` with the `bsauth` token; terms forbid it, built only behind a required risk consent (user's decision)

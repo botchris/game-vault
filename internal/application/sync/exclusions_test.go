@@ -158,6 +158,28 @@ func TestExclusions(t *testing.T) {
 		})
 	})
 
+	t.Run("GIVEN a removed item whose old id the store now gives to several items", func(t *testing.T) {
+		svc, p, games, id := setup(t)
+		gameID, copyID := copyOf(t, games, "Netflix")
+		_, err := svc.ExcludeCopy(ctx, gameID, copyID)
+		require.NoError(t, err)
+
+		// Humble's old ids named an order, not a key: every key of the order reports the same one.
+		netflix := item("ls:v2:netflix", "Netflix")
+		netflix.PreviousExternalID = "ls:netflix"
+		spotify := item("ls:v2:spotify", "Spotify")
+		spotify.PreviousExternalID = "ls:netflix"
+		p.items = []game.ImportedCopy{netflix, spotify, item("ls:journey", "Journey")}
+
+		v, err := svc.Sync(ctx, id)
+		require.NoError(t, err)
+
+		t.Run("THEN only the item with the removed title stays out", func(t *testing.T) {
+			assert.ElementsMatch(t, []string{"Journey", "Spotify"}, titles(t, games))
+			assert.Equal(t, 1, v.LastSync().Excluded)
+		})
+	})
+
 	t.Run("GIVEN the user removes an item while a sync is fetching", func(t *testing.T) {
 		svc, p, games, id := setup(t)
 		gameID, copyID := copyOf(t, games, "Netflix")

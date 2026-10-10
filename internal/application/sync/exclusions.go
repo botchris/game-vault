@@ -110,9 +110,7 @@ func skipExcluded(src *source.Source, copies []game.ImportedCopy) ([]game.Import
 	for i, c := range copies {
 		out[i] = c
 
-		// The item's old id counts too: a store that changed its id format must not bring it back.
-		excluded := src.Excludes(c.ExternalID) || c.PreviousExternalID != "" && src.Excludes(c.PreviousExternalID)
-		if c.Withdrawn || !excluded {
+		if c.Withdrawn || !excludedItem(src, c) {
 			continue
 		}
 
@@ -131,4 +129,21 @@ func (s *Service) Get(ctx context.Context, id source.ID) (SourceView, error) {
 	}
 
 	return s.view(ctx, src)
+}
+
+// excludedItem reports whether the user removed this imported item. Its old id counts too, so a
+// store that changed its id format does not bring it back; but an old id may have named several
+// items (Humble's named an order, not a key), so it only counts for the item with the removed title.
+func excludedItem(src *source.Source, c game.ImportedCopy) bool {
+	if src.Excludes(c.ExternalID) {
+		return true
+	}
+
+	if c.PreviousExternalID == "" {
+		return false
+	}
+
+	e, ok := src.Exclusion(c.PreviousExternalID)
+
+	return ok && game.MatchKey(e.Title) == game.MatchKey(c.Title)
 }
