@@ -54,12 +54,37 @@ func TestFieldsRepository(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, s.Definitions(), got.Definitions())
 	})
+}
 
-	t.Run("GIVEN a document written by a newer Game Vault THEN it is refused", func(t *testing.T) {
-		_, err := repo.db.conn(ctx).ExecContext(ctx, `UPDATE settings SET value = '{"v":2,"fields":[]}' WHERE key = 'fields'`)
+func TestFieldsRepository_storedDocumentItCannotRead(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	// withStored returns a repository whose custom fields row holds raw.
+	withStored := func(t *testing.T, raw string) *SettingsRepository {
+		t.Helper()
+
+		repo := NewSettingsRepository(openTest(t))
+		_, err := repo.db.conn(ctx).ExecContext(ctx, `INSERT INTO settings (key, value, updated_at) VALUES ('fields', ?, '')`, raw)
 		require.NoError(t, err)
 
-		_, err = repo.Fields(ctx)
-		assert.ErrorIs(t, err, errNewerDocument)
+		return repo
+	}
+
+	t.Run("GIVEN a document written by a newer Game Vault WHEN the fields are read", func(t *testing.T) {
+		_, err := withStored(t, `{"v":2,"fields":[]}`).Fields(ctx)
+
+		t.Run("THEN it is refused as newer", func(t *testing.T) {
+			assert.ErrorIs(t, err, errNewerDocument)
+		})
+	})
+
+	t.Run("GIVEN a document that is not valid JSON WHEN the fields are read", func(t *testing.T) {
+		_, err := withStored(t, `{"v":1,"fields":[`).Fields(ctx)
+
+		t.Run("THEN the error says the custom fields could not be read", func(t *testing.T) {
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "reading custom fields")
+		})
 	})
 }
