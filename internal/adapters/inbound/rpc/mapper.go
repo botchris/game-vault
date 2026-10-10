@@ -534,7 +534,7 @@ func choiceToPB(c field.Choice) *pb.FieldChoice {
 	}
 }
 
-func definitionFromPB(d *pb.FieldDefinition) field.Definition {
+func definitionFromPB(d *pb.FieldDefinition) (field.Definition, error) {
 	out := field.Definition{
 		ID:       d.GetId(),
 		Name:     d.GetName(),
@@ -546,9 +546,12 @@ func definitionFromPB(d *pb.FieldDefinition) field.Definition {
 	}
 
 	for _, k := range d.GetKinds() {
-		if kind, ok := kindFromPB[k]; ok {
-			out.Kinds = append(out.Kinds, kind)
+		kind, ok := kindFromPB[k]
+		if !ok {
+			return field.Definition{}, connect.NewError(connect.CodeInvalidArgument, errors.New("the copy kind is not valid: pick one from the list and try again"))
 		}
+
+		out.Kinds = append(out.Kinds, kind)
 	}
 
 	for _, c := range d.GetChoices() {
@@ -558,5 +561,5 @@ func definitionFromPB(d *pb.FieldDefinition) field.Definition {
 		})
 	}
 
-	return out
+	return out, nil
 }

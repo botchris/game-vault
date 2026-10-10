@@ -119,3 +119,25 @@ func TestFields_endToEnd(t *testing.T) {
 		})
 	})
 }
+
+func TestFields_unknownCopyKind(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a server", func(t *testing.T) {
+		c := newServer(t, &fakeProvider{})
+
+		t.Run("WHEN a copy field is created restricted to an unspecified copy kind", func(t *testing.T) {
+			_, err := c.fields.CreateField(ctx, connect.NewRequest(&pb.CreateFieldRequest{Field: &pb.FieldDefinition{
+				Name:  "Sealed",
+				Type:  "bool",
+				Scope: "copy",
+				Kinds: []pb.CopyKind{pb.CopyKind_COPY_KIND_UNSPECIFIED},
+			}}))
+
+			t.Run("THEN it is refused instead of applying to every kind", func(t *testing.T) {
+				assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+			})
+		})
+	})
+}

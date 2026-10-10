@@ -227,7 +227,8 @@ export type CopyDetails = Message<"gamevault.v1.CopyDetails"> & {
   price?: Money | undefined;
 
   /**
-   * The copy's custom field values: field id → value (see FieldService).
+   * The copy's custom field values: field id → value (see FieldService). AddCopy and UpdateCopy
+   * replace the copy's values with these: omitted means cleared.
    *
    * @generated from field: map<string, gamevault.v1.FieldValue> fields = 16;
    */

@@ -126,7 +126,8 @@ message CopyDetails {
   repeated CopyContent contents = 14;
   // What was paid; absent or zero amount: no price.
   Money price = 15;
-  // The copy's custom field values: field id → value (see FieldService).
+  // The copy's custom field values: field id → value (see FieldService). AddCopy and UpdateCopy
+  // replace the copy's values with these: omitted means cleared.
   map<string, FieldValue> fields = 16;
 }
 

@@ -40,7 +40,12 @@ func (h *FieldHandler) ListFields(ctx context.Context, _ *connect.Request[pb.Lis
 
 // CreateField adds a custom field.
 func (h *FieldHandler) CreateField(ctx context.Context, req *connect.Request[pb.CreateFieldRequest]) (*connect.Response[pb.CreateFieldResponse], error) {
-	d, err := h.fields.Create(ctx, definitionFromPB(req.Msg.Field))
+	def, err := definitionFromPB(req.Msg.Field)
+	if err != nil {
+		return nil, toConnectError(err)
+	}
+
+	d, err := h.fields.Create(ctx, def)
 	if err != nil {
 		return nil, toConnectError(err)
 	}
@@ -50,7 +55,12 @@ func (h *FieldHandler) CreateField(ctx context.Context, req *connect.Request[pb.
 
 // UpdateField changes a custom field's editable attributes.
 func (h *FieldHandler) UpdateField(ctx context.Context, req *connect.Request[pb.UpdateFieldRequest]) (*connect.Response[pb.UpdateFieldResponse], error) {
-	d, err := h.fields.Update(ctx, definitionFromPB(req.Msg.Field))
+	def, err := definitionFromPB(req.Msg.Field)
+	if err != nil {
+		return nil, toConnectError(err)
+	}
+
+	d, err := h.fields.Update(ctx, def)
 	if err != nil {
 		return nil, toConnectError(err)
 	}

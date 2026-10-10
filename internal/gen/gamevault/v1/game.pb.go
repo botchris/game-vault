@@ -639,7 +639,8 @@ type CopyDetails struct {
 	Contents []CopyContent `protobuf:"varint,14,rep,packed,name=contents,proto3,enum=gamevault.v1.CopyContent" json:"contents,omitempty"`
 	// What was paid; absent or zero amount: no price.
 	Price *Money `protobuf:"bytes,15,opt,name=price,proto3" json:"price,omitempty"`
-	// The copy's custom field values: field id → value (see FieldService).
+	// The copy's custom field values: field id → value (see FieldService). AddCopy and UpdateCopy
+	// replace the copy's values with these: omitted means cleared.
 	Fields        map[string]*FieldValue `protobuf:"bytes,16,rep,name=fields,proto3" json:"fields,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
