@@ -82,6 +82,11 @@ type Service struct {
 	providers map[source.Type]Provider
 	log       *slog.Logger
 	running   gosync.Mutex // one scan at a time keeps consolidation consistent
+
+	// warnedSystems holds "<source id>\x00<system>" for each invalid system a source sent that a scan
+	// already warned about in this process: a source sends the same one on every scan, so repeats
+	// are only logged at debug level. Guarded by running.
+	warnedSystems map[string]bool
 }
 
 // NewService builds the service. Each provider is registered under its descriptor's type. covers
@@ -94,13 +99,14 @@ func NewService(sources source.Repository, games game.Repository, tx port.TxMana
 	}
 
 	return &Service{
-		sources:   sources,
-		games:     games,
-		tx:        tx,
-		covers:    covers,
-		now:       now,
-		providers: m,
-		log:       log,
+		sources:       sources,
+		games:         games,
+		tx:            tx,
+		covers:        covers,
+		now:           now,
+		providers:     m,
+		log:           log,
+		warnedSystems: map[string]bool{},
 	}
 }
 
@@ -493,6 +499,7 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 			report.CopiesAdded, report.CopiesUpdated = res.CopiesAdded, res.CopiesUpdated
 			report.CopiesUnchanged, report.GamesCreated = res.CopiesUnchanged, res.GamesCreated
 			report.Warnings = append(report.Warnings, res.Warnings...)
+			report.Warnings = append(report.Warnings, s.firstInvalidSystems(src, res.InvalidSystems)...)
 
 			return nil
 		})
@@ -544,6 +551,27 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 	}
 
 	return v, syncErr
+}
+
+// firstInvalidSystems returns the warnings of the invalid systems src sent that no scan of it has
+// warned about since the server started, and logs them; repeats are logged at debug level only.
+// The caller holds s.running.
+func (s *Service) firstInvalidSystems(src *source.Source, invalid []game.InvalidSystem) []string {
+	var out []string
+
+	for _, inv := range invalid {
+		key := string(src.ID()) + "\x00" + inv.System
+		if s.warnedSystems[key] {
+			s.log.Debug("source sent an invalid system again", "source", src.Name(), "system", inv.System)
+			continue
+		}
+
+		s.warnedSystems[key] = true
+		s.log.Warn("source sent an invalid system", "source", src.Name(), "warning", inv.Warning)
+		out = append(out, inv.Warning)
+	}
+
+	return out
 }
 
 // SyncAll scans every enabled source. Failures are recorded on each source, not returned.

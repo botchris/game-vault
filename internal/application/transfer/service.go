@@ -111,6 +111,10 @@ func (s *Service) Import(ctx context.Context, content []byte) (source.SyncReport
 		report.CopiesUnchanged, report.GamesCreated = res.CopiesUnchanged, res.GamesCreated
 		report.Warnings = append(report.Warnings, res.Warnings...)
 
+		for _, inv := range res.InvalidSystems { // a file is imported once: every one is worth saying
+			report.Warnings = append(report.Warnings, inv.Warning)
+		}
+
 		return nil
 	})
 	if err == nil {

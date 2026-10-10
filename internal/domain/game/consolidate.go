@@ -43,6 +43,32 @@ type ConsolidationResult struct {
 	// Emptied are games whose only copies were withdrawn: the caller deletes them.
 	Emptied  []ID
 	Warnings []string
+
+	// InvalidSystems lists, once each, the systems the source named that are not valid names; the
+	// copies keep the system their platform implies. They are apart from Warnings because a source
+	// sends the same one on every scan, and a caller may want to warn only once.
+	InvalidSystems []InvalidSystem
+}
+
+// InvalidSystem is a system a source named that is not a valid name.
+type InvalidSystem struct {
+	// System is the name as the source sent it.
+	System string
+
+	// Warning says which copy had it first and why it was refused.
+	Warning string
+}
+
+// addInvalidSystem records an invalid system the first time it is seen.
+func (r *ConsolidationResult) addInvalidSystem(system, warning string) {
+	if slices.ContainsFunc(r.InvalidSystems, func(i InvalidSystem) bool { return i.System == system }) {
+		return
+	}
+
+	r.InvalidSystems = append(r.InvalidSystems, InvalidSystem{
+		System:  system,
+		Warning: warning,
+	})
 }
 
 // Consolidator merges imported copies into the catalog, Sonarr-style: each imported copy is
@@ -122,7 +148,8 @@ func (c *Consolidator) Apply(sourceID string, imported []ImportedCopy, now time.
 
 		sourceSystem, err := normalizeSystem(in.System)
 		if err != nil {
-			r.Warnings = append(r.Warnings, in.Title+": "+err.Error())
+			r.addInvalidSystem(in.System, in.Title+": "+err.Error())
+
 			sourceSystem = ""
 		}
 

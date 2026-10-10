@@ -95,7 +95,7 @@ copies say PS4 or PS5), else the one its platform implies. PC stores and launche
 Games, GOG, EA App, Ubisoft Connect, Battle.net, itch.io, Amazon Games and the like) and the
 ambiguous "Microsoft Store / Xbox" imply `PC`; console names are their own system; "PlayStation
 Store" implies PS4 and "Nintendo eShop" Switch. An unknown platform is its own system and an empty
-one is `Other`. A source that lists PC copies sets `ImportedCopy.System` to `game.SystemPC`. Scans
+one is `Other`. A source that lists PC copies sets `ImportedCopy.System` to `game.SystemPC`. A system a source sends that is not a valid name is ignored (the platform's applies); scans warn about it once per source and system while the server runs, then only log it at debug level, while a CSV import warns every time. Scans
 never touch the override; the form's **System** field clears it when emptied. A system name is
 stored in game documents and in cover file names, so existing names never change.
 

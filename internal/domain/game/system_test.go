@@ -179,13 +179,21 @@ func TestConsolidator_systems(t *testing.T) {
 		})
 	})
 
-	t.Run("GIVEN a source system that is not a valid name", func(t *testing.T) {
-		res := NewConsolidator(nil).Apply("src", imported("--"), t0)
+	t.Run("GIVEN a source system that is not a valid name, on two copies", func(t *testing.T) {
+		in := append(imported("--"), imported("--")...)
+		in[1].ExternalID, in[1].Title = "psn:2", "Journey"
+		res := NewConsolidator(nil).Apply("src", in, t0)
 
-		t.Run("THEN the copy is imported without it and the scan warns", func(t *testing.T) {
-			require.Len(t, res.Changed, 1)
+		t.Run("THEN the copies are imported without it", func(t *testing.T) {
+			require.Len(t, res.Changed, 2)
 			assert.Empty(t, res.Changed[0].Copies()[0].SourceSystem)
-			assert.Len(t, res.Warnings, 1)
+		})
+
+		t.Run("AND the system is reported once, apart from the other warnings, so callers can tell repeats", func(t *testing.T) {
+			require.Len(t, res.InvalidSystems, 1)
+			assert.Equal(t, "--", res.InvalidSystems[0].System)
+			assert.Contains(t, res.InvalidSystems[0].Warning, "Astro Bot")
+			assert.Empty(t, res.Warnings)
 		})
 	})
 }
