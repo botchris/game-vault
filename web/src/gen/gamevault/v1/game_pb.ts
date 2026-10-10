@@ -1437,8 +1437,8 @@ export const ReorderCopyPhotosResponseSchema: GenMessage<ReorderCopyPhotosRespon
 
 /**
  * SetEditionCoverRequest chooses the cover of a game's edition: an image URL, one of the photos of
- * that edition's copies, or clear (the cover providers choose again). A game without copies takes
- * its cover on the empty system.
+ * that edition's copies, or clear (the cover providers choose again). The empty system is valid only
+ * for a game without copies, which keeps its cover there until its first copy appears.
  *
  * @generated from message gamevault.v1.SetEditionCoverRequest
  */

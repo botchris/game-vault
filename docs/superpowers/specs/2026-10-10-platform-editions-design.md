@@ -69,6 +69,9 @@ The model gains a middle level instead, like Discogs' master and release:
 - The game stores:
   - `Covers map[string]EditionCover`: chosen covers, keyed by system;
   - `MainSystem string`: empty means the default rule.
+- A game without copies keeps its chosen cover under the empty system `""` (served at the main
+  address). When its first edition appears, that cover moves to the edition if it has no cover of
+  its own, else it is dropped. `SetEditionCover("")` is valid only for a game without copies.
 - An entry in `Covers` whose system has no copy left is dropped, the way `dropOrphanCover` drops a
   photo cover today. A photo cover must belong to a copy of that system. Moving a copy to another
   system (an override) drops a photo cover that no longer fits. `MainSystem` is cleared when its
@@ -99,8 +102,9 @@ The model gains a middle level instead, like Discogs' master and release:
   - **`coverPhoto`** goes to the edition of the system of the copy that holds the photo;
   - **`coverUrl`** goes to the main edition by the default rule, and that system is stored as
     `mainSystem`, so the "by game" view looks exactly as before;
-  - when both exist, the photo wins for the main edition, as today. The URL goes to the main
-    edition only when the photo's edition is another one.
+  - when both exist, the photo wins for the main edition, as today. When the photo's edition is
+    another one, the photo's system becomes the main system (the by-game view is unchanged) and the
+    URL goes to the edition the default rule would have chosen.
 - No identifier changes: ExternalIDs, PhotoIDs and game ids stay as they are. Opening an older
   database writes the usual pre-migration backup.
 
@@ -177,8 +181,8 @@ The model gains a middle level instead, like Discogs' master and release:
 
 ### Game sheet
 
-- It opens on the edition that was clicked (`#/game/<id>?system=PS3`); without `system`, on the main
-  edition.
+- It opens on the edition that was clicked, through component state (the app has no per-game route,
+  so there is no `?system=` parameter); a link opens the main edition.
 - The header shows the current edition's cover and system. When there are two or more editions,
   chips switch between them (`PC · PS3 · Xbox 360`).
 - When the cover is borrowed, the header says so, with "Choose cover…" and "Use a photo" at hand.

@@ -3266,8 +3266,8 @@ func (x *ReorderCopyPhotosResponse) GetGame() *Game {
 }
 
 // SetEditionCoverRequest chooses the cover of a game's edition: an image URL, one of the photos of
-// that edition's copies, or clear (the cover providers choose again). A game without copies takes
-// its cover on the empty system.
+// that edition's copies, or clear (the cover providers choose again). The empty system is valid only
+// for a game without copies, which keeps its cover there until its first copy appears.
 type SetEditionCoverRequest struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
 	GameId string                 `protobuf:"bytes,1,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`
