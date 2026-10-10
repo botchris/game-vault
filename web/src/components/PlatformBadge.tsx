@@ -168,24 +168,38 @@ export function PlatformBadge({ platform, holding = 'owned', kind, full = false,
   );
 }
 
+/** The platforms a "+N" chip hides when a game's badges are capped at `max`. */
+export function hiddenPlatforms(game: Game, max = 3): string[] {
+  const all = platformHoldings(game);
+  return all.length > max ? all.slice(max - 1).map((h) => h.platform) : [];
+}
+
 /** The badges of a game, capped with a "+N" chip; `small` for the stores beside a PC edition's badge.
  *  `onMore` runs on a click on the "+N" chip (the small badges let clicks through to their card, but
- *  the chip keeps its pointer so its tooltip names the stores it hides). */
-export function PlatformBadges({ game, max = 3, onSelect, active = [], small = false, onMore }: {
+ *  the chip keeps its pointer so its tooltip names the stores it hides). The chip says the hidden
+ *  names to screen readers too, and `moreId` lets the card's button use it as its description. */
+export function PlatformBadges({ game, max = 3, onSelect, active = [], small = false, onMore, moreId }: {
   game: Game;
   max?: number;
   onSelect?: (platform: string) => void;
   active?: string[];
   small?: boolean;
   onMore?: () => void;
+  moreId?: string;
 }) {
+  const { t } = useTranslation();
   const all = platformHoldings(game);
-  const shown = all.length > max ? all.slice(0, max - 1) : all;
-  const rest = all.length - shown.length;
+  const hidden = hiddenPlatforms(game, max);
+  const shown = all.slice(0, all.length - hidden.length);
+  const names = hidden.join(', ');
   return (
     <span className={`pbadges ${small ? 'small' : ''}`}>
       {shown.map((h) => <PlatformBadge key={h.platform} {...h} onSelect={onSelect} active={active.includes(h.platform)} />)}
-      {rest > 0 && <span className="pbadge more" title={all.slice(shown.length).map((h) => h.platform).join(', ')} onClick={onMore}>+{rest}</span>}
+      {hidden.length > 0 && (
+        <span className="pbadge more" id={moreId} title={names} onClick={onMore}>
+          <span aria-hidden="true">+{hidden.length}</span><span className="sr-only">{t('platform.alsoOn', { platforms: names })}</span>
+        </span>
+      )}
     </span>
   );
 }
@@ -197,13 +211,19 @@ export function SystemBadges({ game, max = 3, onSelect, active = [] }: {
   onSelect?: (system: string) => void;
   active?: string[];
 }) {
+  const { t } = useTranslation();
   const all = systemHoldings(game);
   const shown = all.length > max ? all.slice(0, max - 1) : all;
   const rest = all.length - shown.length;
   return (
     <span className="pbadges">
       {shown.map((h) => <PlatformBadge key={h.platform} {...h} onSelect={onSelect} active={active.includes(h.platform)} />)}
-      {rest > 0 && <span className="pbadge more" title={all.slice(shown.length).map((h) => h.platform).join(', ')}>+{rest}</span>}
+      {rest > 0 && (
+        <span className="pbadge more" title={all.slice(shown.length).map((h) => h.platform).join(', ')}>
+          <span aria-hidden="true">+{rest}</span>
+          <span className="sr-only">{t('platform.alsoOn', { platforms: all.slice(shown.length).map((h) => h.platform).join(', ') })}</span>
+        </span>
+      )}
     </span>
   );
 }

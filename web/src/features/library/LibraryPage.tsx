@@ -14,7 +14,7 @@ import FilterPanel from './FilterPanel';
 import GameDetail, { type SheetNav } from './GameDetail';
 import NewGameDialog from './NewGameDialog';
 import { Stars } from './PlayControls';
-import PosterGrid, { ItemBadges } from './PosterGrid';
+import PosterGrid, { ItemBadges, moreStoresId } from './PosterGrid';
 
 type Quick = 'pending' | 'expiring' | 'redundant' | null;
 export type SortBy = 'titleAsc' | 'titleDesc' | 'added' | 'year' | 'deadline' | 'copies' | 'rating';
@@ -288,15 +288,16 @@ function GameRow({ item, grouping, onOpen, onSystem, activeSystems }: {
   const deadline = nextDeadline(item.view);
   const days = daysUntil(deadline);
   const meta = [game.releaseYear || '', game.genres.slice(0, 3).join(', ')].filter(Boolean).join(' · ');
+  const moreId = moreStoresId('row', item, grouping);
   return (
     <li>
       {/* The title button stretches over the row; the platform badges sit above it. */}
       <div className="game-row">
         <Cover game={game} system={item.system} className="row-cover" />
         <span className="row-main">
-          <button className="row-open" onClick={onOpen} aria-label={itemLabel(t, item, grouping)}>{game.title}</button>
+          <button className="row-open" onClick={onOpen} aria-label={itemLabel(t, item, grouping)} aria-describedby={moreId}>{game.title}</button>
           {meta && <span className="row-meta">{meta}</span>}
-          <ItemBadges item={item} grouping={grouping} onSystem={onSystem} activeSystems={activeSystems} onOpen={onOpen} />
+          <ItemBadges item={item} grouping={grouping} onSystem={onSystem} activeSystems={activeSystems} onOpen={onOpen} moreId={moreId} />
         </span>
         <span className="row-side">
           {game.playStatus !== PlayStatus.UNSPECIFIED && <span className={`badge play-badge play-${playKey(game.playStatus)}`}>{t(`play.${playKey(game.playStatus)}`)}</span>}

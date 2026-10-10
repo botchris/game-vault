@@ -748,6 +748,7 @@
     "emptyNoLinks": "No details found. Link the game to a store (Edit → Store links) or enable TheGamesDB in Providers."
   },
   "platform": {
+    "alsoOn": "Also on {{platforms}}",
     "pendingKey": "key not redeemed yet",
     "filterBy": "Show only {{platform}} games",
     "clearFilter": "Show every platform"

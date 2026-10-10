@@ -748,6 +748,7 @@
     "emptyNoLinks": "No se han encontrado detalles. Vincula el juego con una tienda (Editar → Vínculos con tiendas) o activa TheGamesDB en Proveedores."
   },
   "platform": {
+    "alsoOn": "También en {{platforms}}",
     "pendingKey": "clave sin canjear",
     "filterBy": "Ver solo juegos de {{platform}}",
     "clearFilter": "Ver todas las plataformas"
