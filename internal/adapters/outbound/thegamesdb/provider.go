@@ -70,6 +70,9 @@ type Provider struct {
 	// API calls TheGamesDB; tests point it at a fake server.
 	API *apiclient.Client
 
+	// throttle spaces the requests (see minGap); a Provider built without New sends them at once.
+	throttle *throttle
+
 	mu        sync.Mutex
 	platforms map[string]int64 // normalised name or alias → TheGamesDB platform id
 }
@@ -83,7 +86,10 @@ func New() *Provider {
 	api := apiclient.New(defaultBaseURL)
 	api.HTTP.Timeout = 20 * time.Second
 
-	return &Provider{API: api}
+	return &Provider{
+		API:      api,
+		throttle: newThrottle(minGap, time.Now, sleep),
+	}
 }
 
 // Descriptor implements media.CoverProvider.
@@ -125,6 +131,8 @@ func apiError(se *apiclient.StatusError) error {
 	_ = json.Unmarshal([]byte(se.Body), &body)
 
 	switch {
+	case se.Status == http.StatusTooManyRequests: // its body only says "Unknown Error Code"
+		return fmt.Errorf("TheGamesDB asked to slow down (HTTP %d): %w", se.Status, provider.ErrRateLimited)
 	case body.Status != "":
 		return fmt.Errorf("TheGamesDB: %s (HTTP %d)", body.Status, se.Status)
 	case se.Status == http.StatusForbidden || se.Status == http.StatusUnauthorized:
@@ -134,8 +142,9 @@ func apiError(se *apiclient.StatusError) error {
 	return fmt.Errorf("TheGamesDB: HTTP %d", se.Status)
 }
 
+// get calls TheGamesDB through the throttle, so a burst of lookups never reaches it at once.
 func (p *Provider) get(ctx context.Context, path string, q url.Values, out any) error {
-	err := p.API.Get(ctx, path, q, out)
+	err := p.throttle.do(ctx, func() error { return p.API.Get(ctx, path, q, out) })
 
 	var se *apiclient.StatusError
 	if errors.As(err, &se) {

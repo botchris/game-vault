@@ -28,7 +28,7 @@ one line here. Update a file instead of adding a duplicate; date facts about ext
 ## External services (as of 2026-10)
 - [Humble Bundle](memory/humble.md) — keyindex is not a key id (use machine_name); non-game keys withdrawn by platform; one-copy-per-order bug fixed 2026-10-08
 - [Steam](memory/steam.md) — public store APIs, ~200 req / 5 min, Humble AppIDs that don't exist
-- [TheGamesDB](memory/thegamesdb.md) — free quota check, unknown keys look valid, CDN blocks hotlinks
+- [TheGamesDB](memory/thegamesdb.md) — free quota check, unknown keys look valid, CDN blocks hotlinks, 429 on bursts (throttled)
 - [Epic](memory/epic.md) — Legendary's credentials, paste the JSON code, catalog without namespace
 - [GOG](memory/gog.md) — Galaxy credentials, 302 to login on bad token, public box art
 - [Battle.net](memory/battlenet.md) — cookies, short sessions, SSO renewal failed once, no public box art

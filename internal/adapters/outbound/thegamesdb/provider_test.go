@@ -138,10 +138,11 @@ func TestTestChecksTheKey(t *testing.T) {
 	}
 }
 
-// testProvider points the provider at the fake server.
+// testProvider points the provider at the fake server, without the production throttle's gap.
 func testProvider(srv *httptest.Server) *Provider {
 	p := New()
 	p.API.BaseURL, p.API.HTTP = srv.URL, srv.Client()
+	p.throttle = nil
 
 	return p
 }
