@@ -151,8 +151,12 @@ func (*fakeBarcodes) Lookup(_ context.Context, code game.Barcode, _ schema.Setti
 	return nil, nil
 }
 
-// fakeBoxArt is a keyed provider for physical copies; it records how often it is asked.
-type fakeBoxArt struct{ asked int }
+// fakeBoxArt is a keyed provider for physical copies; it records how often it is asked, and while
+// limited it asks to slow down instead of answering.
+type fakeBoxArt struct {
+	asked   int
+	limited bool
+}
 
 func (*fakeBoxArt) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
@@ -247,6 +251,10 @@ func (*fakeBoxArt) ImageHosts() []string { return []string{"boxart.test"} }
 
 func (f *fakeBoxArt) Covers(_ context.Context, q media.CoverQuery, s schema.Settings) ([]media.CoverCandidate, error) {
 	f.asked++
+
+	if f.limited {
+		return nil, provider.ErrRateLimited
+	}
 
 	if s["api_key"] != "k" {
 		return nil, errors.New("bad key")

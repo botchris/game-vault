@@ -113,3 +113,44 @@ func TestCovers_escapedSystem(t *testing.T) {
 		})
 	})
 }
+
+func TestCovers_rateLimited(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a game with a PS3 disc and a box art provider asking to slow down", func(t *testing.T) {
+		c := newServer(t, &fakeProvider{})
+		_, err := c.providers.UpdateProvider(ctx, connect.NewRequest(&pb.UpdateProviderRequest{
+			Id:       "boxart",
+			Enabled:  true,
+			Settings: map[string]string{"api_key": "k"},
+		}))
+		require.NoError(t, err)
+
+		c.boxart.limited = true
+
+		created, err := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{
+			Title: "Halo 3",
+			Copies: []*pb.CopyDetails{{
+				Kind:     pb.CopyKind_COPY_KIND_PHYSICAL,
+				Platform: "PS3",
+			}},
+		}))
+		require.NoError(t, err)
+
+		t.Run("WHEN the edition's cover is asked", func(t *testing.T) {
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/media/covers/"+created.Msg.Game.Id+"/PS3", nil)
+			require.NoError(t, err)
+
+			res, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			res.Body.Close()
+
+			t.Run("THEN the answer says to try again later, and is not cached", func(t *testing.T) {
+				assert.Equal(t, http.StatusServiceUnavailable, res.StatusCode)
+				assert.Equal(t, "30", res.Header.Get("Retry-After"))
+				assert.Equal(t, "no-store", res.Header.Get("Cache-Control"))
+			})
+		})
+	})
+}

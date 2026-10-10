@@ -290,7 +290,7 @@ type Service struct {
 	langs        languages
 	retryMissing time.Duration // how long a "not found" result is trusted
 	group        singleflight.Group
-	slots        chan struct{} // limits concurrent downloads
+	slots        chan struct{} // limits concurrent cover downloads (not provider lookups)
 }
 
 // Providers groups the provider implementations available to the service. Their DefaultOrder (then
@@ -688,11 +688,7 @@ func (s *Service) resolveEdition(ctx context.Context, g *game.Game, system strin
 
 	// A cover the user picked or pasted comes next.
 	if u := edition.Cover.URL; u != "" {
-		s.slots <- struct{}{}
-
 		img, err := s.fetchAndCache(ctx, ref, system, u)
-		<-s.slots
-
 		if err == nil {
 			return img, nil
 		}
@@ -779,9 +775,6 @@ func newLookup() *lookup { return &lookup{asked: map[provider.ID]bool{}} }
 // coverFromChain asks the enabled cover providers that apply to q, in order, and caches the first
 // image that downloads. Providers already asked in look are skipped; the ones asked are added to it.
 func (s *Service) coverFromChain(ctx context.Context, ref GameRef, system string, q CoverQuery, look *lookup) (Image, error) {
-	s.slots <- struct{}{}
-	defer func() { <-s.slots }()
-
 	chain, err := s.chain(ctx)
 	if err != nil {
 		return Image{}, err
@@ -820,8 +813,15 @@ func (s *Service) coverFromChain(ctx context.Context, ref GameRef, system string
 	return Image{}, ErrNoCover
 }
 
+// fetchAndCache downloads an image and stores it as the edition's cover. Only the download holds
+// one of the download slots: a provider lookup does not, so lookups queued behind a slow or
+// throttled provider never keep other providers' covers waiting.
 func (s *Service) fetchAndCache(ctx context.Context, g GameRef, system, url string) (Image, error) {
+	s.slots <- struct{}{}
+
 	img, err := s.fetch.Fetch(ctx, url)
+	<-s.slots
+
 	if err != nil {
 		return Image{}, err
 	}

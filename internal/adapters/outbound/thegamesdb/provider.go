@@ -142,9 +142,15 @@ func apiError(se *apiclient.StatusError) error {
 	return fmt.Errorf("TheGamesDB: HTTP %d", se.Status)
 }
 
-// get calls TheGamesDB through the throttle, so a burst of lookups never reaches it at once.
+// get calls TheGamesDB through the throttle, so a burst of lookups never reaches it at once. The
+// answer's error is translated inside the throttle, which backs off after a rate-limit answer.
 func (p *Provider) get(ctx context.Context, path string, q url.Values, out any) error {
-	err := p.throttle.do(ctx, func() error { return p.API.Get(ctx, path, q, out) })
+	return p.throttle.do(ctx, func() error { return p.getNow(ctx, path, q, out) })
+}
+
+// getNow calls TheGamesDB at once, bypassing the throttle.
+func (p *Provider) getNow(ctx context.Context, path string, q url.Values, out any) error {
+	err := p.API.Get(ctx, path, q, out)
 
 	var se *apiclient.StatusError
 	if errors.As(err, &se) {
@@ -159,14 +165,15 @@ var ErrUnknownKey = errors.New("TheGamesDB did not recognize the API key")
 
 // Test implements media.Provider by reading the remaining allowance; that endpoint does not consume
 // it. It answers 200 even for unknown keys, with no allowance and no refresh timer, which is how
-// those are detected. A valid key that used up its allowance still has a refresh timer.
+// those are detected. A valid key that used up its allowance still has a refresh timer. The check
+// bypasses the throttle: the user is waiting for it, and it must not queue behind cover lookups.
 func (p *Provider) Test(ctx context.Context, s schema.Settings) error {
 	var out struct {
 		Remaining *int `json:"remaining_monthly_allowance"`
 		Extra     int  `json:"extra_allowance"`
 		Refresh   int  `json:"allowance_refresh_timer"`
 	}
-	if err := p.get(ctx, "/v1/API/Limit", url.Values{"apikey": {s[settingAPIKey]}}, &out); err != nil {
+	if err := p.getNow(ctx, "/v1/API/Limit", url.Values{"apikey": {s[settingAPIKey]}}, &out); err != nil {
 		return err
 	}
 

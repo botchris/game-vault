@@ -11,4 +11,5 @@ As of 2026-10:
 - No documented per-second rate, but a burst of parallel lookups (a library page of new console
   editions) got HTTP 429 with `{"status":"Unknown Error Code"}` on 2026-10-10. The adapter now
   sends one request at a time, 500 ms apart (`minGap`), and maps 429 to `provider.ErrRateLimited`,
-  which never records a "no cover" marker nor caches a sheet.
+  which never records a "no cover" marker nor caches a sheet. Waits over 5 s or a queue of 8 fail
+  fast as rate-limited; a 429 starts a 30 s back-off; `Test` bypasses the throttle.

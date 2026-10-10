@@ -153,3 +153,98 @@ func TestThrottle(t *testing.T) {
 		})
 	})
 }
+
+func TestThrottle_failsFast(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	start := time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC)
+	sent := 0
+	request := func() error {
+		sent++
+		return nil
+	}
+
+	t.Run("GIVEN a throttle whose queue is full", func(t *testing.T) {
+		clock := &fakeClock{now: start}
+		th := newThrottle(minGap, clock.Now, clock.Sleep)
+		th.queued = maxQueue
+
+		t.Run("WHEN one more request comes", func(t *testing.T) {
+			sent = 0
+			err := th.do(ctx, request)
+
+			t.Run("THEN it is refused at once as rate-limited, without waiting or sending", func(t *testing.T) {
+				require.ErrorIs(t, err, provider.ErrRateLimited)
+				assert.Zero(t, sent)
+				assert.Empty(t, clock.sleeps)
+			})
+		})
+	})
+
+	t.Run("GIVEN a throttle whose next turn is further away than the longest wait", func(t *testing.T) {
+		clock := &fakeClock{now: start}
+		th := newThrottle(minGap, clock.Now, clock.Sleep)
+		th.next = start.Add(maxWait + time.Second)
+
+		t.Run("WHEN a request comes", func(t *testing.T) {
+			sent = 0
+			err := th.do(ctx, request)
+
+			t.Run("THEN it is refused at once as rate-limited", func(t *testing.T) {
+				require.ErrorIs(t, err, provider.ErrRateLimited)
+				assert.Zero(t, sent)
+				assert.Empty(t, clock.sleeps)
+			})
+		})
+	})
+
+	t.Run("GIVEN a request that TheGamesDB answers with HTTP 429", func(t *testing.T) {
+		clock := &fakeClock{now: start}
+		th := newThrottle(minGap, clock.Now, clock.Sleep)
+		err := th.do(ctx, func() error { return provider.ErrRateLimited })
+		require.ErrorIs(t, err, provider.ErrRateLimited)
+
+		t.Run("WHEN the next request comes during the back-off", func(t *testing.T) {
+			sent = 0
+			clock.now = clock.now.Add(backoff / 2)
+			err := th.do(ctx, request)
+
+			t.Run("THEN it fails fast without reaching TheGamesDB", func(t *testing.T) {
+				require.ErrorIs(t, err, provider.ErrRateLimited)
+				assert.Zero(t, sent)
+			})
+		})
+
+		t.Run("WHEN the next request comes after the back-off", func(t *testing.T) {
+			sent = 0
+			clock.now = start.Add(backoff + time.Second)
+			err := th.do(ctx, request)
+
+			t.Run("THEN it is sent", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.Equal(t, 1, sent)
+			})
+		})
+	})
+}
+
+func TestTest_skipsTheThrottle(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN TheGamesDB backing off after a 429", func(t *testing.T) {
+		srv, _ := fakeServer(t)
+		p := testProvider(srv)
+		p.throttle = newThrottle(minGap, time.Now, sleep)
+		p.throttle.next = time.Now().Add(backoff)
+
+		t.Run("WHEN the settings are tested", func(t *testing.T) {
+			err := p.Test(ctx, schema.Settings{settingAPIKey: "good"})
+
+			t.Run("THEN the check is sent anyway and passes", func(t *testing.T) {
+				require.NoError(t, err)
+			})
+		})
+	})
+}
