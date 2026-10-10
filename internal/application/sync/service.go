@@ -446,9 +446,13 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 
 	var (
 		syncErr error
-		removed int
-		stale   = staleEditions{}
-		emptied []game.ID
+
+		// newlyWarned are the invalid systems this scan warns about first; they count as warned only
+		// once the scan is saved.
+		newlyWarned []string
+		removed     int
+		stale       = staleEditions{}
+		emptied     []game.ID
 	)
 
 	if fetchErr != nil {
@@ -499,7 +503,9 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 			report.CopiesAdded, report.CopiesUpdated = res.CopiesAdded, res.CopiesUpdated
 			report.CopiesUnchanged, report.GamesCreated = res.CopiesUnchanged, res.GamesCreated
 			report.Warnings = append(report.Warnings, res.Warnings...)
-			report.Warnings = append(report.Warnings, s.firstInvalidSystems(src, res.InvalidSystems)...)
+			warned, keys := s.firstInvalidSystems(src, res.InvalidSystems)
+			report.Warnings = append(report.Warnings, warned...)
+			newlyWarned = keys
 
 			return nil
 		})
@@ -508,6 +514,10 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 	if syncErr != nil {
 		report.Err = syncErr.Error()
 	} else {
+		for _, k := range newlyWarned {
+			s.warnedSystems[k] = true
+		}
+
 		s.invalidateEditions(ctx, stale)
 		s.invalidateGames(ctx, emptied)
 	}
@@ -553,11 +563,12 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 	return v, syncErr
 }
 
-// firstInvalidSystems returns the warnings of the invalid systems src sent that no scan of it has
-// warned about since the server started, and logs them; repeats are logged at debug level only.
-// The caller holds s.running.
-func (s *Service) firstInvalidSystems(src *source.Source, invalid []game.InvalidSystem) []string {
-	var out []string
+// firstInvalidSystems returns the warnings of the invalid systems src sent that no successful scan
+// of it has warned about since the server started, with their keys in s.warnedSystems, and logs
+// them; repeats are logged at debug level only. The caller records the keys once its scan is saved,
+// so a failed scan warns again next time. It holds s.running.
+func (s *Service) firstInvalidSystems(src *source.Source, invalid []game.InvalidSystem) ([]string, []string) {
+	var warnings, keys []string
 
 	for _, inv := range invalid {
 		key := string(src.ID()) + "\x00" + inv.System
@@ -566,12 +577,13 @@ func (s *Service) firstInvalidSystems(src *source.Source, invalid []game.Invalid
 			continue
 		}
 
-		s.warnedSystems[key] = true
 		s.log.Warn("source sent an invalid system", "source", src.Name(), "warning", inv.Warning)
-		out = append(out, inv.Warning)
+
+		warnings = append(warnings, inv.Warning)
+		keys = append(keys, key)
 	}
 
-	return out
+	return warnings, keys
 }
 
 // SyncAll scans every enabled source. Failures are recorded on each source, not returned.
