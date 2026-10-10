@@ -292,8 +292,8 @@ function DateInput({ def, value, onChange, onInvalid }: InputProps<string>) {
   const { t, i18n } = useTranslation();
   const errorId = `${useId()}-error`;
   const [y = '', m = '', d = ''] = value ? value.split('-') : [];
-  const [year, setYear] = useDraft(value, y, (s) => (/^\d{4}$/.test(s) ? [s, m, d].filter(Boolean).join('-') : s === '' ? '' : '?'));
-  const invalid = year !== '' && !/^\d{4}$/.test(year);
+  const [year, setYear] = useDraft(value, y, (s) => (validYear(s) ? [s, m, d].filter(Boolean).join('-') : s === '' ? '' : '?'));
+  const invalid = year !== '' && !validYear(year);
   useReportInvalid(invalid, onInvalid);
   const emit = (yy: string, mm: string, dd: string) => {
     if (!yy) onChange(() => EMPTY);
@@ -302,7 +302,7 @@ function DateInput({ def, value, onChange, onInvalid }: InputProps<string>) {
   const changeYear = (s: string) => {
     setYear(s);
     if (s === '') emit('', '', '');
-    else if (/^\d{4}$/.test(s)) emit(s, m, d && Number(d) <= daysIn(s, m) ? d : '');
+    else if (validYear(s)) emit(s, m, d && Number(d) <= daysIn(s, m) ? d : '');
   };
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
   const monthName = (n: number) => new Date(2000, n - 1, 1).toLocaleDateString(i18n.language, { month: 'long' });
@@ -324,6 +324,11 @@ function DateInput({ def, value, onChange, onInvalid }: InputProps<string>) {
       </span>
     </Group>
   );
+}
+
+/** Whether a year is four digits and not 0000, which the server refuses. */
+function validYear(s: string): boolean {
+  return /^\d{4}$/.test(s) && s !== '0000';
 }
 
 /** Days in a month ("2024", "02" → 29). */
