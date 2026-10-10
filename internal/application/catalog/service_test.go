@@ -147,14 +147,28 @@ func TestEditionCoverCache(t *testing.T) {
 			assert.Empty(t, cache.editions)
 		})
 
-		t.Run("WHEN an override moves the second disc to PS4 THEN the PS3 and PS4 covers are dropped", func(t *testing.T) {
+		t.Run("WHEN a second PS3 disc is added THEN no cached cover is dropped: the edition's cover inputs are the same", func(t *testing.T) {
 			svc, cache, g := setup(t)
+			_, err := svc.AddCopy(ctx, g.ID(), game.CopyDetails{
+				Kind:     game.KindPhysical,
+				Platform: "PS3",
+			}, nil)
+			require.NoError(t, err)
+			assert.Empty(t, cache.editions)
+		})
+
+		t.Run("WHEN PS3 has no chosen cover and an override moves the second disc to PS4 THEN only the new PS4 edition's cover is dropped", func(t *testing.T) {
+			svc, cache, g := setup(t)
+			g, err := svc.SetEditionCover(ctx, g.ID(), "PS3", game.EditionCover{})
+			require.NoError(t, err)
+
+			cache.editions = nil
 			c := g.Copies()[1]
 			d := c.CopyDetails
 			d.System = "PS4"
-			_, err := svc.UpdateCopy(ctx, g.ID(), c.ID, d, nil)
+			_, err = svc.UpdateCopy(ctx, g.ID(), c.ID, d, nil)
 			require.NoError(t, err)
-			assert.ElementsMatch(t, []string{string(g.ID()) + "|PS3", string(g.ID()) + "|PS4"}, cache.editions)
+			assert.Equal(t, []string{string(g.ID()) + "|PS4"}, cache.editions)
 		})
 
 		t.Run("WHEN an override moves the photographed disc to PS4 THEN the PS3 cover photo goes and the PS3 and PS4 covers are dropped", func(t *testing.T) {
