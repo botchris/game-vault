@@ -22,10 +22,12 @@ func sampleGame(t *testing.T) *game.Game {
 	t.Helper()
 
 	return game.Rehydrate("g1", game.Info{
-		Title:    "Hades",
-		Links:    game.Links{"steam": "1145360"},
-		Notes:    "GOTY",
-		CoverURL: "https://example.test/hades.jpg",
+		Title:      "Hades",
+		Links:      game.Links{"steam": "1145360"},
+		Notes:      "GOTY",
+		CoverURL:   "https://example.test/hades.jpg",
+		PlayStatus: game.PlayFinished,
+		Rating:     5,
 	}, []game.Copy{
 		{
 			ID: "c1",
@@ -101,6 +103,8 @@ func TestDocuments_game(t *testing.T) {
 			t.Run("THEN missing fields are empty and unknown ones are ignored", func(t *testing.T) {
 				assert.Equal(t, "Celeste", got.Title())
 				assert.Empty(t, got.Links())
+				assert.Equal(t, game.PlayNone, got.PlayStatus())
+				assert.Zero(t, got.Rating())
 				require.Len(t, got.Copies(), 1)
 				assert.Equal(t, game.KindLibrary, got.Copies()[0].Kind)
 				assert.Empty(t, got.Copies()[0].Location)

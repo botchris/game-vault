@@ -33,6 +33,20 @@ enum CopyStatus {
   COPY_STATUS_SOLD = 8;
 }
 
+// PlayStatus says where the user is with a game. It belongs to the game, not to a copy.
+enum PlayStatus {
+  // The user has not said.
+  PLAY_STATUS_UNSPECIFIED = 0;
+  // Owned and meant to be played.
+  PLAY_STATUS_BACKLOG = 1;
+  // Being played now.
+  PLAY_STATUS_PLAYING = 2;
+  // Played to the end, or as far as the user wanted.
+  PLAY_STATUS_FINISHED = 3;
+  // Started and dropped.
+  PLAY_STATUS_ABANDONED = 4;
+}
+
 // CopyGrade is how good a physical copy looks, as collectors grade it.
 enum CopyGrade {
   COPY_GRADE_UNSPECIFIED = 0;
@@ -168,6 +182,9 @@ message Game {
   map<string, string> links = 11;
   // One of the copies' photos used as the cover (it wins over cover_url); empty when none.
   string cover_photo_id = 12;
+  PlayStatus play_status = 13;
+  // The user's score from 1 to 5 stars; 0 when unrated.
+  int32 rating = 14;
 }
 
 message ListGamesRequest {
@@ -212,6 +229,9 @@ message UpdateGameRequest {
   string cover_url = 5;
   // The game's links, replacing the current ones (an empty map unlinks every store).
   map<string, string> links = 6;
+  // Like every field here, these replace the current values: send them back unchanged to keep them.
+  PlayStatus play_status = 7;
+  int32 rating = 8;
 }
 message UpdateGameResponse {
   Game game = 1;

@@ -102,11 +102,18 @@ func (h *GameHandler) CreateGame(ctx context.Context, req *connect.Request[pb.Cr
 
 // UpdateGame changes the editable fields of a game.
 func (h *GameHandler) UpdateGame(ctx context.Context, req *connect.Request[pb.UpdateGameRequest]) (*connect.Response[pb.UpdateGameResponse], error) {
+	status, ok := playStatusFromPB[req.Msg.PlayStatus]
+	if !ok {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("the play status is not valid: reload the page and try again"))
+	}
+
 	info := game.Info{
-		Title:    req.Msg.Title,
-		Links:    req.Msg.Links,
-		Notes:    req.Msg.Notes,
-		CoverURL: req.Msg.CoverUrl,
+		Title:      req.Msg.Title,
+		Links:      req.Msg.Links,
+		Notes:      req.Msg.Notes,
+		CoverURL:   req.Msg.CoverUrl,
+		PlayStatus: status,
+		Rating:     game.Rating(req.Msg.Rating),
 	}
 	g, err := h.catalog.UpdateGame(ctx, game.ID(req.Msg.Id), info)
 

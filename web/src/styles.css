@@ -646,6 +646,27 @@ td.title { font-weight: 500; min-width: 220px; }
 .hero .plat-nintendo { --c: #d8232a; }
 .hero .plat-steam { --c: #1b6fa8; }
 .hero .plat-pc, .hero .plat-other { --c: #4b5568; }
+/* Play status and rating: quiet chips on the hero, the chosen one solid white like an active choice. */
+.play-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.play-status { display: flex; flex-wrap: wrap; gap: 6px; }
+.play-chip {
+  min-height: 32px; padding: 4px 12px; border-radius: 999px; font-size: 14px; font-weight: 550;
+  color: #fff; background: rgb(255 255 255 / .1); border-color: rgb(255 255 255 / .18);
+}
+.play-chip:hover:not(:disabled) { background: rgb(255 255 255 / .18); color: #fff; }
+.play-chip.active, .play-chip.active:hover:not(:disabled) { background: #fff; border-color: #fff; color: #181c2c; }
+.stars { display: inline-flex; align-items: center; gap: 2px; }
+.stars.read-only { gap: 0; color: var(--muted); }
+.star-button {
+  display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: none; border-radius: 8px;
+  background: none; color: rgb(255 255 255 / .55);
+}
+.star-button:hover:not(:disabled) { background: rgb(255 255 255 / .1); color: #fff; }
+.star-button:has(.filled) { color: #fff; }
+.stars.read-only .star { width: 13px; height: 13px; }
+.badge.play-badge { background: var(--surface-2); color: var(--text); }
+.badge.play-abandoned { color: var(--muted); }
+@media (max-width: 760px) { .play-chip, .star-button { min-height: 38px; } .star-button { width: 38px; height: 38px; } }
 .genres { display: flex; flex-wrap: wrap; gap: 6px; }
 .genre { font-size: 13px; padding: 3px 11px; border-radius: 999px; background: var(--surface-2); }
 .hero .genre { background: rgb(255 255 255 / .12); color: #fff; }
@@ -767,13 +788,14 @@ td.title { font-weight: 500; min-width: 220px; }
 
 /* Mobile hero: facts drop below cover+title for room */
 @media (max-width: 760px) {
-  .hero { display: grid; grid-template-rows: auto auto 1fr auto; align-items: start; row-gap: 10px; }
+  .hero { display: grid; grid-template-rows: auto auto 1fr auto auto; align-items: start; row-gap: 10px; }
   .hero-body { display: contents; }
   .hero-body > .genres { align-self: start; }
   .hero-cover { grid-column: 1; grid-row: 1 / span 3; }
   .hero-title { align-self: end; }
   .hero-title, .hero-line, .hero-body > .genres { grid-column: 2; }
-  .hero-body > .facts { grid-column: 1 / -1; grid-row: 4; margin-top: 6px; }
+  .hero-body > .play-controls { grid-column: 1 / -1; grid-row: 4; margin-top: 6px; }
+  .hero-body > .facts { grid-column: 1 / -1; grid-row: 5; margin-top: 6px; }
 }
 
 /* ---------- Logs ---------- */
