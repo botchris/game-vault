@@ -1,52 +1,10 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Icon } from '../../components/Icon';
-import { filterOptions, isFilterable, matchesFieldFilters, pruneFieldFilter, type Definition, type FieldFilter } from '../../lib/fields';
+import { MANUAL, NO_FILTERS, activeFilterCount, type Filters } from '../../lib/editions';
+import { filterOptions, isFilterable, type Definition } from '../../lib/fields';
 import { CopyKind, KINDS, PLAY_STATUSES, PlayStatus, kindKey, playKey, type Game } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
-
-export interface Filters {
-  kind: CopyKind;
-  platforms: string[];
-  genres: string[];
-  /** Source ids; MANUAL stands for copies added by hand or from a CSV. */
-  sources: string[];
-  /** Play statuses; UNSPECIFIED stands for games the user has not given one. */
-  play: PlayStatus[];
-  /** Custom field values by field id: choice ids, 'yes' / 'no', or '' for games without a value. */
-  fields: FieldFilter;
-}
-
-export const MANUAL = '';
-
-export const NO_FILTERS: Filters = { kind: CopyKind.UNSPECIFIED, platforms: [], genres: [], sources: [], play: [], fields: {} };
-
-export const activeFilterCount = (f: Filters) => (f.kind ? 1 : 0) + f.platforms.length + f.genres.length + f.sources.length + f.play.length
-  + Object.values(f.fields).reduce((n, keys) => n + keys.length, 0);
-
-/**
- * The filters without custom field values that no longer exist (a deleted field, a removed choice),
- * so they neither count in the badge nor stay selected out of reach. The same object when nothing
- * was dropped.
- */
-export function pruneFilters(f: Filters, defs: Definition[]): Filters {
-  const fields = pruneFieldFilter(f.fields, defs);
-  return fields === f.fields ? f : { ...f, fields };
-}
-
-/** A game matches when it has a copy of the kind on one of the platforms, a copy from one of the
- * sources, one of the genres, one of the play statuses and one of the chosen values of each
- * filtered custom field. */
-export function matchesFilters(g: Game, f: Filters, defs: Definition[]): boolean {
-  if (f.kind || f.platforms.length) {
-    const ok = g.copies.some((c) => (!f.kind || c.details?.kind === f.kind) && (!f.platforms.length || f.platforms.includes(c.details?.platform ?? '')));
-    if (!ok) return false;
-  }
-  if (f.sources.length && !g.copies.some((c) => f.sources.includes(c.sourceId))) return false;
-  if (f.genres.length && !g.genres.some((x) => f.genres.includes(x))) return false;
-  if (f.play.length && !f.play.includes(g.playStatus)) return false;
-  return matchesFieldFilters(g, defs, f.fields);
-}
 
 function toggle<T>(list: T[], v: T) {
   return list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
