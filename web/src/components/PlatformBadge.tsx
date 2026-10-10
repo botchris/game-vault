@@ -168,13 +168,16 @@ export function PlatformBadge({ platform, holding = 'owned', kind, full = false,
   );
 }
 
-/** The badges of a game, capped with a "+N" chip; `small` for the stores beside a PC edition's badge. */
-export function PlatformBadges({ game, max = 3, onSelect, active = [], small = false }: {
+/** The badges of a game, capped with a "+N" chip; `small` for the stores beside a PC edition's badge.
+ *  `onMore` runs on a click on the "+N" chip (the small badges let clicks through to their card, but
+ *  the chip keeps its pointer so its tooltip names the stores it hides). */
+export function PlatformBadges({ game, max = 3, onSelect, active = [], small = false, onMore }: {
   game: Game;
   max?: number;
   onSelect?: (platform: string) => void;
   active?: string[];
   small?: boolean;
+  onMore?: () => void;
 }) {
   const all = platformHoldings(game);
   const shown = all.length > max ? all.slice(0, max - 1) : all;
@@ -182,7 +185,7 @@ export function PlatformBadges({ game, max = 3, onSelect, active = [], small = f
   return (
     <span className={`pbadges ${small ? 'small' : ''}`}>
       {shown.map((h) => <PlatformBadge key={h.platform} {...h} onSelect={onSelect} active={active.includes(h.platform)} />)}
-      {rest > 0 && <span className="pbadge more" title={all.slice(shown.length).map((h) => h.platform).join(', ')}>+{rest}</span>}
+      {rest > 0 && <span className="pbadge more" title={all.slice(shown.length).map((h) => h.platform).join(', ')} onClick={onMore}>+{rest}</span>}
     </span>
   );
 }

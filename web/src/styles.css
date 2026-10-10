@@ -1074,8 +1074,10 @@ td.title { font-weight: 500; min-width: 220px; }
 .pbadges.small .pbadge { height: 20px; padding: 0 5px; font-size: 10.5px; }
 .pbadges.small .pbadge.icon-only { width: 20px; padding: 0; }
 .pbadges.small .pbadge svg { width: 12px; height: 12px; }
-/* The stores beside a PC edition's badge only inform: a click goes through to the card. */
-.poster-platforms .pbadges.small .pbadge, .row-main .pbadges.small .pbadge { pointer-events: none; }
+/* The stores beside a PC edition's badge only inform: a click goes through to the card. The "+N"
+   chip keeps the pointer so its tooltip names the hidden stores; a click on it opens the card too. */
+.poster-platforms .pbadges.small .pbadge:not(.more), .row-main .pbadges.small .pbadge:not(.more) { pointer-events: none; }
+.pbadges.small .pbadge.more { cursor: pointer; }
 .pbadge svg { flex: none; width: 14px; height: 14px; }
 .pbadge-key svg { width: 11px; height: 11px; }
 /* A key you still have to redeem: same colour, hollow, with a key glyph */

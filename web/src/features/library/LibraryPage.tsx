@@ -296,7 +296,7 @@ function GameRow({ item, grouping, onOpen, onSystem, activeSystems }: {
         <span className="row-main">
           <button className="row-open" onClick={onOpen} aria-label={itemLabel(t, item, grouping)}>{game.title}</button>
           {meta && <span className="row-meta">{meta}</span>}
-          <ItemBadges item={item} grouping={grouping} onSystem={onSystem} activeSystems={activeSystems} />
+          <ItemBadges item={item} grouping={grouping} onSystem={onSystem} activeSystems={activeSystems} onOpen={onOpen} />
         </span>
         <span className="row-side">
           {game.playStatus !== PlayStatus.UNSPECIFIED && <span className={`badge play-badge play-${playKey(game.playStatus)}`}>{t(`play.${playKey(game.playStatus)}`)}</span>}
