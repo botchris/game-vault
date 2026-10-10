@@ -28,8 +28,7 @@ metadata:
   JSON documents `(id, doc)`; the adapter's `gameDoc`/`copyDoc`/`sourceDoc`/`providerDoc` field
   names never change once released (like ExternalID prefixes). A new field needs no migration;
   changing a field's meaning bumps `"v"`. Opening an older database writes
-  `backups/pre-migration-NNNN.db` first. The user's local `config/` DB is stale (stopped at 0006;
-  their real instance runs in Docker), so real-data checks on copies also exercise 0007–0008.
+  `backups/pre-migration-NNNN.db` first.
 - **Copies (2026-10-09, part 1 of the physical-copy work):** `Grade`, `Contents` (a bit set, so
   `CopyDetails` stays comparable), `Price Money` (minor units of the currency, `CurrencyDigits` for
   JPY/BHD…). Game docs are v2 (old `condition` converted on read). Default currency in

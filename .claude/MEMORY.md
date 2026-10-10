@@ -5,14 +5,12 @@ it. To add a memory: create `.claude/memory/<slug>.md` (frontmatter `name`, `des
 `metadata.type`: user | project | reference | feedback; link related ones with `[[slug]]`) and add
 one line here. Update a file instead of adding a duplicate; date facts about external services.
 
-## User
-- [User profile](memory/user-profile.md) — Spanish chat / English code, runs `task run`, no host deps, anti-bot jitter, Emil design taste, no VPN dependency in the product
+## Working rules
+- [Public project](memory/public-project.md) — public repo: no personal data (own library, counts, accounts, test results) in PRs, commits, docs, specs, comments or memory
 - [Go style feedback](memory/go-style-feedback.md) — always load `write-go` before Go; blank line between documented members; every interface method documented; one struct field per line
 
-## Status (update when the user reports results)
-- [Integration status](memory/status-integrations.md) — confirmed: Humble, Steam, Epic, GOG, EA, Ubisoft, Xbox; watch Battle.net keep-alive; PlayStation and the security redesign untested by the user
+## Status
 - [Open threads](memory/open-threads.md) — offered, not done: cover photo recognition (paused)
-- [Known gaps](memory/known-gaps.md) — games without any cover
 
 ## Decisions
 - [License](memory/license.md) — PolyForm Noncommercial 1.0.0: source-available, no commercial use; never say "open source"

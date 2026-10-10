@@ -27,7 +27,7 @@
 - Captured values go only to the requesting tab, in the reply. The extension never stores or logs them.
 - Recipe version `1`. The engine limits a sign-in to `timeoutSeconds` (default 300, maximum 600) and allows one sign-in at a time per Game Vault tab.
 - Every UI text through `t()` with keys in `en.json` and `es.json`; repository text in English.
-- Real-store checks: on a **copy** of the config only Humble and Steam (rotating credentials); the rest on the user's real server after merging.
+- Real-store checks: on a **copy** of the config only Humble and Steam (rotating credentials); the rest only on a main server after merging.
 - Branch `feature/connector-extension`, one PR to `main`, nothing published to extension stores, no tags.
 
 ## Review Focus
@@ -1682,7 +1682,7 @@ git commit -m "Source dialog: connect with the browser extension, open the sign-
 - [ ] **Step 4: README** — one line: connect most stores in one click with the Game Vault Connector browser extension (`extension/`).
 - [ ] **Step 5: Memory** — `.claude/memory/connector.md` (`type: project`): the spike results per store (spec table, dated 2026-10-10), Ubisoft's `/ready` page and why its home page fails, that cookie and storage captures need a readiness condition, the protocol and permission model, nothing published to stores yet (user's decision C). Add its line to `.claude/MEMORY.md`.
 - [ ] **Step 6: Full verification** — `task lint`, `task test`, the Task 6 checks on the test server, `task extension:pack`.
-- [ ] **Step 7: Real check (the user)** — with the extension loaded unpacked and the test server on a copy, connect **Humble only** (it does not rotate) end to end. The other stores are connected on the user's real server after merging.
+- [ ] **Step 7: Real check** — with the extension loaded unpacked and the test server on a copy, connect **Humble only** (it does not rotate) end to end. The other stores are connected only on a main server after merging.
 - [ ] **Step 8: Commit the docs**
 
 ```bash

@@ -4,7 +4,7 @@ description: Game Vault Connector browser extension — spike results per store 
 metadata:
   type: project
 ---
-- **Spike (2026-10-10, Chrome, the user's accounts): 10/10 stores captured without DevTools.**
+- **Spike (2026-10-10, Chrome, real accounts): 10/10 stores captured without DevTools.**
   Humble cookie `_simpleauth_sess`; Battle.net all cookies of `account.battle.net/overview`; EA the
   cookies of `accounts.ea.com` (auth check returns `access_token`); PlayStation `npsso`
   (`ca.account.sony.com/api/v1/ssocookie`); Ubisoft localStorage `PRODrememberMe`, read when
@@ -24,4 +24,4 @@ metadata:
   offered on plain-http network addresses (anyone on the network could reuse it).
 - The background is tested in Node against a fake `chrome` (`extension/tests/background.test.mjs`):
   the engine tests alone missed that the background never gave the engine its poll timer.
-- Real-store checks: on a config copy only Humble and Steam; the rest on the real server.
+- Real-store checks: on a config copy only Humble and Steam; the rest only on a main server.

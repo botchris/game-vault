@@ -5,6 +5,6 @@ metadata:
   type: reference
 ---
 As of 2026-10:
-- The key lives in the provider settings; the user has roughly 1,000 requests a month.
+- The key lives in the provider settings; a free key has roughly 1,000 requests a month.
 - `API/Limit` costs nothing and reports the remaining quota; unknown keys answer 200 with 0/0.
 - Its CDN rejects hotlinked images: always go through the proxy (see [[local-images]]).

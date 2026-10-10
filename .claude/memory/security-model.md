@@ -23,5 +23,4 @@ allowlist, pending logins): "like Sonarr or Radarr: a user and password and a fe
   pointing its name at this machine and reading data with the user's browser).
 
 **Why:** without them, "no password on trusted networks" would let a website or a proxied remote
-caller in. Status: built and tested against fakes and the test server; not yet used by the user
-with their real setup (see [[status-integrations]]).
+caller in. Status: built and tested against fakes and the test server; not yet confirmed in real use.
