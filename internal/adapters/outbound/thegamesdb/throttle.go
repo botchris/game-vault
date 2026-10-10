@@ -66,7 +66,8 @@ func newThrottle(gap time.Duration, now func() time.Time, sleep func(context.Con
 
 // do waits for its turn and the gap, then runs request. It returns an error wrapping
 // provider.ErrRateLimited without running request when the wait would be too long. A request that
-// fails with provider.ErrRateLimited starts the back-off, unless it is provider.ErrQuotaExhausted. A nil throttle runs request at once.
+// fails with provider.ErrRateLimited starts the back-off, unless it is provider.ErrQuotaExhausted.
+// A nil throttle runs request at once.
 func (t *throttle) do(ctx context.Context, request func() error) error {
 	if t == nil {
 		return request()

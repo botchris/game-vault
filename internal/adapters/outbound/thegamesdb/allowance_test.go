@@ -308,6 +308,23 @@ func TestAllowance_perKey(t *testing.T) {
 			t.Run("THEN the error says the key is unknown, not that it renews", func(t *testing.T) {
 				require.ErrorIs(t, err, ErrUnknownKey)
 				assert.NotErrorIs(t, err, provider.ErrQuotaExhausted)
+				assert.Equal(t, "the API key was not recognized: check it in the provider settings", err.Error())
+
+				t.Run("AND it is still a rate limit, so nothing is remembered from the 429", func(t *testing.T) {
+					assert.ErrorIs(t, err, provider.ErrRateLimited)
+				})
+			})
+		})
+
+		t.Run("WHEN TheGamesDB answers 429 again after the back-off, within 5 minutes", func(t *testing.T) {
+			clock.now = clock.now.Add(backoff + time.Second)
+
+			_, err := p.Covers(ctx, q, schema.Settings{settingAPIKey: "unknown"})
+
+			t.Run("THEN the stored verdict is reused without another check", func(t *testing.T) {
+				assert.Equal(t, 1, srv.limitChecks())
+				require.ErrorIs(t, err, ErrUnknownKey)
+				assert.ErrorIs(t, err, provider.ErrRateLimited)
 			})
 		})
 	})

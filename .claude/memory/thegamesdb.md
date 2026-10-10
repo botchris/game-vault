@@ -18,7 +18,8 @@ As of 2026-10:
   every sheet saying "busy"). `API/Limit` still answers 200 with 0 remaining and the refresh timer.
   So a 429 checks `API/Limit` inside the throttle's turn (one check at a time, at most every
   5 min after a successful one); with 0 left the adapter sends nothing with that key until
-  now + `allowance_refresh_timer` (6 h when missing; 0 means an unknown key) and lookups return
+  now + `allowance_refresh_timer` (6 h when missing; 0 means an unknown key, whose error still
+  matches `ErrRateLimited`: a 429 must never record a miss) and lookups return
   `provider.ErrQuotaExhausted` (matches `ErrRateLimited`: no marker, no cached sheet, no 30 s
   back-off) saying when it renews; the cover endpoint answers 503 with `Retry-After: 3600`. The
   state is per key and `Test` updates it (extra allowance lifts it). Error texts don't name

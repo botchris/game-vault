@@ -44,6 +44,9 @@ type keyAllowance struct {
 
 	// checked is when the allowance was last read successfully.
 	checked time.Time
+
+	// unknown reports that the last read found the key unknown to TheGamesDB.
+	unknown bool
 }
 
 // limit is TheGamesDB's answer to API/Limit.
@@ -109,7 +112,10 @@ func (p *Provider) note(apiKey string, lim limit, now time.Time) {
 		p.allowance.keys = map[string]keyAllowance{}
 	}
 
-	k := keyAllowance{checked: now}
+	k := keyAllowance{
+		checked: now,
+		unknown: errors.Is(lim.verdict(), ErrUnknownKey),
+	}
 	if errors.Is(lim.verdict(), ErrNoAllowance) {
 		k.until = now.Add(lim.renewal())
 	}
@@ -118,22 +124,28 @@ func (p *Provider) note(apiKey string, lim limit, now time.Time) {
 }
 
 // checkAllowance asks TheGamesDB after an HTTP 429 whether apiKey's allowance is used up. If it is,
-// no request with that key is sent until it renews, and the returned error says so; an unknown key
-// returns ErrUnknownKey. Otherwise (allowance left, a failed check, or a successful check a moment
-// ago) it returns nil and the 429 stays a plain rate limit. The caller holds the throttle's turn,
-// so lookups queued meanwhile wait for the answer instead of being refused as "busy".
+// no request with that key is sent until it renews, and the returned error says so. An unknown key
+// returns errUnknownKeyLimited, still a rate limit, also when a check a moment ago found it.
+// Otherwise (allowance left, a failed check, or a check a moment ago that found allowance left) it
+// returns nil and the 429 stays a plain rate limit. The caller holds the throttle's turn, so
+// lookups queued meanwhile wait for the answer instead of being refused as "busy".
 func (p *Provider) checkAllowance(ctx context.Context, apiKey string) error {
 	p.allowance.checking.Lock()
 	defer p.allowance.checking.Unlock()
 
 	p.allowance.mu.Lock()
 	err := p.usedUpLocked(apiKey) // a check that just ran found out
-	checked := p.allowance.keys[apiKey].checked
-	recent := !checked.IsZero() && p.clock().Sub(checked) < allowanceRecheck
+	k := p.allowance.keys[apiKey]
+	recent := !k.checked.IsZero() && p.clock().Sub(k.checked) < allowanceRecheck
 	p.allowance.mu.Unlock()
 
-	if err != nil || recent {
+	switch {
+	case err != nil:
 		return err
+	case recent && k.unknown: // the verdict of a check a moment ago still holds
+		return errUnknownKeyLimited
+	case recent:
+		return nil
 	}
 
 	lim, err := p.limit(ctx, apiKey)
@@ -143,11 +155,29 @@ func (p *Provider) checkAllowance(ctx context.Context, apiKey string) error {
 
 	p.note(apiKey, lim, p.clock())
 
-	if v := lim.verdict(); errors.Is(v, ErrUnknownKey) {
-		return v
+	if errors.Is(lim.verdict(), ErrUnknownKey) {
+		return errUnknownKeyLimited
 	}
 
 	return p.usedUp(apiKey)
+}
+
+// errUnknownKeyLimited is the answer to a lookup that got HTTP 429 with a key TheGamesDB does not
+// know. It matches ErrUnknownKey and also provider.ErrRateLimited: the answer was a 429, which says
+// nothing about the game, so no "no cover" marker or sheet may be remembered from it.
+var errUnknownKeyLimited error = unknownKeyLimited{}
+
+// unknownKeyLimited is errUnknownKeyLimited's type.
+type unknownKeyLimited struct{}
+
+// Error does not name TheGamesDB: the warnings that show it already start with "TheGamesDB: ".
+func (unknownKeyLimited) Error() string {
+	return "the API key was not recognized: check it in the provider settings"
+}
+
+// Is matches ErrUnknownKey and provider.ErrRateLimited.
+func (unknownKeyLimited) Is(target error) bool {
+	return target == ErrUnknownKey || target == provider.ErrRateLimited
 }
 
 // limit reads the key's remaining allowance. That endpoint does not consume it, and it bypasses

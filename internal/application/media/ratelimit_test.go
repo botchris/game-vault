@@ -28,14 +28,14 @@ import (
 // busyTheGamesDB is a fake TheGamesDB that answers searches with HTTP 429 while busy is set, as the
 // real one did to a burst of cover lookups on 2026-10-10 and does once the key's monthly allowance
 // is used up, and with one PS3 box and a sheet otherwise. API/Limit (free) reports remaining
-// requests left, renewing in 12 days.
-func busyTheGamesDB(t *testing.T, busy *atomic.Bool, remaining int) *httptest.Server {
+// requests left, renewing in refresh seconds (0 for an unknown key).
+func busyTheGamesDB(t *testing.T, busy *atomic.Bool, remaining, refresh int) *httptest.Server {
 	t.Helper()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.URL.Path == "/v1/API/Limit":
-			fmt.Fprintf(w, `{"remaining_monthly_allowance":%d,"extra_allowance":0,"allowance_refresh_timer":1036800}`, remaining)
+			fmt.Fprintf(w, `{"remaining_monthly_allowance":%d,"extra_allowance":0,"allowance_refresh_timer":%d}`, remaining, refresh)
 		case r.URL.Path == "/v1/Platforms":
 			w.Write([]byte(`{"data":{"platforms":{"12":{"id":12,"name":"Sony Playstation 3","alias":"sony-playstation-3"}}}}`))
 		case busy.Load():
@@ -83,7 +83,7 @@ func TestRateLimitedProvider(t *testing.T) {
 
 		busy.Store(true)
 
-		api := apiclient.New(busyTheGamesDB(t, &busy, 500).URL)
+		api := apiclient.New(busyTheGamesDB(t, &busy, 500, 1036800).URL)
 		tgdb := &thegamesdb.Provider{API: api}
 
 		db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "gamevault.db"), "")
@@ -157,12 +157,38 @@ func TestQuotaExhaustedProvider(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	t.Run("GIVEN TheGamesDB with this month's allowance used up, and a game with a PS3 disc", func(t *testing.T) {
+	for _, quota := range []struct {
+		name      string
+		remaining int
+		refresh   int
+		cause     error
+		warning   string
+	}{
+		{
+			"this month's allowance used up", 0, 1036800, provider.ErrQuotaExhausted,
+			"TheGamesDB: the API key has used this month's allowance: covers and sheets resume when it renews in 12 days",
+		},
+		{
+			"an unknown key", 0, 0, provider.ErrRateLimited,
+			"TheGamesDB: the API key was not recognized: check it in the provider settings",
+		},
+	} {
+		testUnavailableTheGamesDB(t, ctx, quota.name, quota.remaining, quota.refresh, quota.cause, quota.warning)
+	}
+}
+
+// testUnavailableTheGamesDB checks a TheGamesDB that answers HTTP 429 and whose API/Limit reports
+// remaining and refresh: covers fail with cause, the sheet shows warning, and nothing is remembered
+// from it.
+func testUnavailableTheGamesDB(t *testing.T, ctx context.Context, name string, remaining, refresh int, cause error, warning string) {
+	t.Helper()
+
+	t.Run("GIVEN TheGamesDB answering 429 with "+name+", and a game with a PS3 disc", func(t *testing.T) {
 		var busy atomic.Bool
 
 		busy.Store(true)
 
-		tgdb := &thegamesdb.Provider{API: apiclient.New(busyTheGamesDB(t, &busy, 0).URL)}
+		tgdb := &thegamesdb.Provider{API: apiclient.New(busyTheGamesDB(t, &busy, remaining, refresh).URL)}
 
 		db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "gamevault.db"), "")
 		require.NoError(t, err)
@@ -188,9 +214,9 @@ func TestQuotaExhaustedProvider(t *testing.T) {
 		t.Run("WHEN the PS3 edition's cover is asked", func(t *testing.T) {
 			_, err := svc.EditionCover(ctx, g.ID(), "PS3")
 
-			t.Run("THEN it has no cover this time, because of the allowance", func(t *testing.T) {
+			t.Run("THEN it has no cover this time, and says why", func(t *testing.T) {
 				require.ErrorIs(t, err, media.ErrNoCover)
-				assert.ErrorIs(t, err, provider.ErrQuotaExhausted)
+				assert.ErrorIs(t, err, cause)
 
 				t.Run("AND no miss is remembered", func(t *testing.T) {
 					_, marked := assets.CoverMissingSince(g.ID(), "PS3")
@@ -203,10 +229,10 @@ func TestQuotaExhaustedProvider(t *testing.T) {
 			d, warnings, err := svc.GameDetails(ctx, g.ID(), "en", false)
 			require.NoError(t, err)
 
-			t.Run("THEN it shows what the other provider knows and says when TheGamesDB's allowance renews", func(t *testing.T) {
+			t.Run("THEN it shows what the other provider knows and says why TheGamesDB has nothing", func(t *testing.T) {
 				assert.Equal(t, []string{"Shooter"}, d.Genres)
 				require.Len(t, warnings, 1)
-				assert.Equal(t, "TheGamesDB: the API key has used this month's allowance: covers and sheets resume when it renews in 12 days", warnings[0])
+				assert.Equal(t, warning, warnings[0])
 				assert.NotContains(t, warnings[0], "busy")
 				assert.NotContains(t, warnings[0], "too many requests")
 			})
