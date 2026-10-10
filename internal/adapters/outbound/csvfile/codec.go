@@ -4,12 +4,16 @@
 // ignored):
 //
 //	title, platform, kind, status, key, redeemBy, origin, acquiredOn, edition, grade, contents,
-//	location, price, currency, notes, links, externalId, barcode
+//	location, price, currency, notes, links, externalId, barcode, system
 //
 // grade is one of sealed, mint, very_good, good, acceptable, damaged; contents lists box, manual,
 // media and extras separated by spaces; price is an amount with a dot or a comma and at most the
 // currency's decimals (29.95, 1500 for JPY), and currency its ISO 4217 code. A price without
 // currency is left without one: the importer applies the default currency.
+//
+// system is the system the copy is played on (PC, PS4, Switch…). The export writes each copy's
+// effective system; the import keeps a value only when it differs from the one the platform
+// implies (it is then the copy's own system), so an export imported again changes nothing.
 //
 // links lists the stores the game is linked to as space-separated store:id pairs
 // ("steam:620 gog:1207658924"); every row of a game carries the game's links.
@@ -32,6 +36,7 @@ import (
 var columns = []string{
 	"title", "platform", "kind", "status", "key", "redeemBy", "origin", "acquiredOn", "edition",
 	"grade", "contents", "location", "price", "currency", "notes", "links", "externalId", "barcode",
+	"system",
 }
 
 var aliases = map[string]string{
@@ -143,6 +148,10 @@ func (Codec) Decode(r io.Reader) ([]game.ImportedCopy, []string, error) {
 			Edition:  get("edition"),
 			Location: get("location"),
 			Notes:    get("notes"),
+		}
+
+		if s := get("system"); s != "" && game.SystemOf(s) != game.SystemOf(d.Platform) {
+			d.System = s // the domain checks it and names it like SystemOf when the copy is saved
 		}
 
 		var ok bool
@@ -309,7 +318,7 @@ func (Codec) Encode(w io.Writer, games []*game.Game) error {
 			if err := cw.Write([]string{
 				g.Title(), c.Platform, string(c.Kind), string(c.Status), c.Key, string(c.RedeemBy), c.Origin,
 				string(c.AcquiredOn), c.Edition, string(c.Grade), contentsText(c.Contents), c.Location,
-				formatPrice(c.Price), c.Price.Currency, c.Notes, links, ext, string(c.Barcode),
+				formatPrice(c.Price), c.Price.Currency, c.Notes, links, ext, string(c.Barcode), c.System(),
 			}); err != nil {
 				return err
 			}

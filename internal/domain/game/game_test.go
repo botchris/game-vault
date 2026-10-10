@@ -103,32 +103,6 @@ func TestAbsorb(t *testing.T) {
 	}
 }
 
-func TestUpdateInfoCover(t *testing.T) {
-	g, _ := New("Halo 3", t0)
-	if _, err := g.UpdateInfo(Info{
-		Title:    "Halo 3",
-		CoverURL: "javascript:alert(1)",
-	}, t0); err == nil {
-		t.Error("non-http cover urls must be rejected")
-	}
-
-	changed, err := g.UpdateInfo(Info{
-		Title:    "Halo 3",
-		CoverURL: "https://example.com/halo.jpg",
-	}, t0)
-	if err != nil || !changed {
-		t.Fatalf("cover change not reported: %v %v", changed, err)
-	}
-
-	if changed, _ := g.UpdateInfo(Info{
-		Title:    "Halo 3 ",
-		CoverURL: "https://example.com/halo.jpg",
-		Notes:    "x",
-	}, t0); changed {
-		t.Error("only title/notes changed, the cover did not")
-	}
-}
-
 func TestParseBarcode(t *testing.T) {
 	ok := map[string]Barcode{
 		"5 026555 255042": "5026555255042", // Red Dead Redemption, Xbox 360 PAL

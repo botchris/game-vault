@@ -94,12 +94,12 @@ func (h *GameHandler) CreateGame(ctx context.Context, req *connect.Request[pb.Cr
 	}
 
 	info := game.Info{
-		Title:    req.Msg.Title,
-		Links:    req.Msg.Links,
-		Notes:    req.Msg.Notes,
-		CoverURL: req.Msg.CoverUrl,
-		Fields:   fieldValuesFromPB(req.Msg.Fields),
+		Title:  req.Msg.Title,
+		Links:  req.Msg.Links,
+		Notes:  req.Msg.Notes,
+		Fields: fieldValuesFromPB(req.Msg.Fields),
 	}
+
 	g, err := h.catalog.CreateGame(ctx, info, copies, copyFields...)
 
 	return gameResp(g, err, func(g *pb.Game) *pb.CreateGameResponse { return &pb.CreateGameResponse{Game: g} })
@@ -116,11 +116,11 @@ func (h *GameHandler) UpdateGame(ctx context.Context, req *connect.Request[pb.Up
 		Title:      req.Msg.Title,
 		Links:      req.Msg.Links,
 		Notes:      req.Msg.Notes,
-		CoverURL:   req.Msg.CoverUrl,
 		PlayStatus: status,
 		Rating:     game.Rating(req.Msg.Rating),
 		Fields:     fieldValuesFromPB(req.Msg.Fields),
 	}
+
 	g, err := h.catalog.UpdateGame(ctx, game.ID(req.Msg.Id), info)
 
 	return gameResp(g, err, func(g *pb.Game) *pb.UpdateGameResponse { return &pb.UpdateGameResponse{Game: g} })
@@ -397,9 +397,34 @@ func (h *GameHandler) ReorderCopyPhotos(ctx context.Context, req *connect.Reques
 	return gameResp(g, err, func(g *pb.Game) *pb.ReorderCopyPhotosResponse { return &pb.ReorderCopyPhotosResponse{Game: g} })
 }
 
-// SetCoverPhoto makes one of the copies' photos the cover, or stops using one.
-func (h *GameHandler) SetCoverPhoto(ctx context.Context, req *connect.Request[pb.SetCoverPhotoRequest]) (*connect.Response[pb.SetCoverPhotoResponse], error) {
-	g, err := h.catalog.SetCoverPhoto(ctx, game.ID(req.Msg.GameId), game.PhotoID(req.Msg.PhotoId))
+// SetEditionCover chooses the cover of a game's edition: a URL, a photo of one of its copies, or
+// none (the providers choose). A game without copies takes its cover on the empty system.
+func (h *GameHandler) SetEditionCover(ctx context.Context, req *connect.Request[pb.SetEditionCoverRequest]) (*connect.Response[pb.SetEditionCoverResponse], error) {
+	var cover game.EditionCover
 
-	return gameResp(g, err, func(g *pb.Game) *pb.SetCoverPhotoResponse { return &pb.SetCoverPhotoResponse{Game: g} })
+	switch c := req.Msg.Cover.(type) {
+	case *pb.SetEditionCoverRequest_Url:
+		cover.URL = c.Url
+	case *pb.SetEditionCoverRequest_PhotoId:
+		id, err := game.ParsePhotoID(c.PhotoId)
+		if err != nil {
+			return nil, toConnectError(err)
+		}
+
+		cover.Photo = id
+	case *pb.SetEditionCoverRequest_Clear:
+	default:
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("choose a cover, a photo or automatic, then try again"))
+	}
+
+	g, err := h.catalog.SetEditionCover(ctx, game.ID(req.Msg.GameId), req.Msg.System, cover)
+
+	return gameResp(g, err, func(g *pb.Game) *pb.SetEditionCoverResponse { return &pb.SetEditionCoverResponse{Game: g} })
+}
+
+// SetMainEdition makes a game's edition the one shown when the game is listed once.
+func (h *GameHandler) SetMainEdition(ctx context.Context, req *connect.Request[pb.SetMainEditionRequest]) (*connect.Response[pb.SetMainEditionResponse], error) {
+	g, err := h.catalog.SetMainSystem(ctx, game.ID(req.Msg.GameId), req.Msg.System)
+
+	return gameResp(g, err, func(g *pb.Game) *pb.SetMainEditionResponse { return &pb.SetMainEditionResponse{Game: g} })
 }

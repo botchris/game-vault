@@ -86,8 +86,9 @@ func (s *Store) ImageHosts() []string {
 		"cdn.akamai.steamstatic.com", "shared.akamai.steamstatic.com"}
 }
 
-// Applies reports whether Steam knows the game: only those linked to a Steam AppID.
-func (s *Store) Applies(q media.CoverQuery) bool { return AppIDOf(q) != 0 }
+// Applies reports whether the game is linked to Steam and the query is for its PC edition (or names
+// no system).
+func (s *Store) Applies(q media.CoverQuery) bool { return q.ForPC() && AppIDOf(q) != 0 }
 
 // Covers returns the portrait library art first, then the landscape header. Recent apps keep
 // their images under hashed paths (…/apps/<id>/<hash>/library_600x900.jpg), so the real paths are

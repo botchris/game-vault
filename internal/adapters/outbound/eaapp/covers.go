@@ -67,8 +67,8 @@ func (c *Covers) ImageHosts() []string { return []string{"app-images.ea.com"} }
 // LinkStore implements media.StoreLinker.
 func (c *Covers) LinkStore() game.Store { return LinkedStore }
 
-// Applies reports whether the game is linked to the EA app.
-func (c *Covers) Applies(q media.CoverQuery) bool { return q.Links[LinkedStore.Key] != "" }
+// Applies reports whether the game is linked to the EA app, for its PC edition.
+func (c *Covers) Applies(q media.CoverQuery) bool { return q.ForPC() && q.Links[LinkedStore.Key] != "" }
 
 var (
 	reYearSuffix = regexp.MustCompile(`\s*\(\d{4}\)\s*$`)

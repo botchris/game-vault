@@ -80,8 +80,12 @@ func (c *Covers) ImageHosts() []string {
 func (c *Covers) LinkStore() game.Store { return LinkedStore }
 
 // Applies reports whether the game is linked to Ubisoft Connect or has a copy for it (a Humble
-// Uplay key, for instance).
+// Uplay key, for instance), for its PC edition.
 func (c *Covers) Applies(q media.CoverQuery) bool {
+	if !q.ForPC() {
+		return false
+	}
+
 	if q.Links[LinkedStore.Key] != "" {
 		return true
 	}

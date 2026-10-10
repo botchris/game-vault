@@ -43,7 +43,7 @@ not registered, so it never shows up in Game Vault. It has the two pieces most s
 | File | What it shows |
 | --- | --- |
 | `plugin.go` | `Plugin()`, and the `LinkedStore` the source and the cover provider share |
-| `source.go` | A source: a token setting, `apiclient`, `Test`, `Fetch`, sentinel errors, skipping what is not an owned game, linking each game to the store |
+| `source.go` | A source: a token setting, `apiclient`, `Test`, `Fetch`, sentinel errors, skipping what is not an owned game, linking each game to the store, and `ImportedCopy.System = game.SystemPC` on a PC store's copies (a console source sets its own system, or leaves it empty for the platform to decide) |
 | `covers.go` | A cover provider: `DefaultOrder`, `Applies` from the game's link, candidates best first, "unknown game" as no candidates, image hosts |
 | `plugin_test.go` | A fake store with its failures, GIVEN / WHEN / THEN tests, and `plugintest` |
 
@@ -103,7 +103,9 @@ extension update: discuss it first.
   its place in the chain for new installs (lower runs first). Look at the others' values and pick
   a number between them; the user can reorder the chain afterwards.
 - `Applies(q)` decides from the query alone, without network: `q.Links[LinkedStore.Key]`,
-  `q.Platforms`, `q.PhysicalPlatforms`. A provider with a monthly quota also checks
+  `q.Platforms`, `q.PhysicalPlatforms`. `q.System` is the edition's system (`""` when the query
+  names none): a store provider applies only when `q.ForPC()`; a console catalog checks the system
+  (see `xbox.IsXboxSystem`). A provider with a monthly quota also checks
   `q.HasStoreLink()` and `q.Fallback` so it is not spent on games stores already cover.
 - Return `nil, nil` when the service does not know the game; an error only for real failures.
 - `ImageHosts()` (`media.ImageHoster`) lists the hosts of the images it returns: the browser only

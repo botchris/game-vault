@@ -113,7 +113,7 @@ type GameSuggestion struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	Title    string                 `protobuf:"bytes,1,opt,name=title,proto3" json:"title,omitempty"`
 	Platform string                 `protobuf:"bytes,2,opt,name=platform,proto3" json:"platform,omitempty"`
-	// Set it as the new game's cover_url to pin this cover (and spend no further lookups).
+	// Send it as the ScannedCopy's cover_url to pin this cover (and spend no further lookups).
 	CoverUrl      string `protobuf:"bytes,3,opt,name=cover_url,json=coverUrl,proto3" json:"cover_url,omitempty"`
 	ThumbUrl      string `protobuf:"bytes,4,opt,name=thumb_url,json=thumbUrl,proto3" json:"thumb_url,omitempty"`
 	Label         string `protobuf:"bytes,5,opt,name=label,proto3" json:"label,omitempty"`

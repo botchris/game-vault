@@ -59,8 +59,8 @@ func (c *Covers) ImageHosts() []string { return []string{"images.gog-statics.com
 // LinkStore implements media.StoreLinker.
 func (c *Covers) LinkStore() game.Store { return LinkedStore }
 
-// Applies reports whether the game is linked to GOG.
-func (c *Covers) Applies(q media.CoverQuery) bool { return q.Links[LinkedStore.Key] != "" }
+// Applies reports whether the game is linked to GOG, for its PC edition.
+func (c *Covers) Applies(q media.CoverQuery) bool { return q.ForPC() && q.Links[LinkedStore.Key] != "" }
 
 type link struct {
 	Href string `json:"href"`

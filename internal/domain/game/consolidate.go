@@ -25,6 +25,10 @@ type ImportedCopy struct {
 	// They are added to the game where it has no link to that store yet.
 	Links   Links
 	Details CopyDetails
+
+	// System is the exact system the copy is played on, when the source knows it (PS4 or PS5 for a
+	// PlayStation Store game). It wins over the one the platform implies, never over the user's.
+	System string
 }
 
 // ConsolidationResult summarizes what a consolidation changed.
@@ -39,6 +43,32 @@ type ConsolidationResult struct {
 	// Emptied are games whose only copies were withdrawn: the caller deletes them.
 	Emptied  []ID
 	Warnings []string
+
+	// InvalidSystems lists, once each, the systems the source named that are not valid names; the
+	// copies keep the system their platform implies. They are apart from Warnings because a source
+	// sends the same one on every scan, and a caller may want to warn only once.
+	InvalidSystems []InvalidSystem
+}
+
+// InvalidSystem is a system a source named that is not a valid name.
+type InvalidSystem struct {
+	// System is the name as the source sent it.
+	System string
+
+	// Warning says which copy had it first and why it was refused.
+	Warning string
+}
+
+// addInvalidSystem records an invalid system the first time it is seen.
+func (r *ConsolidationResult) addInvalidSystem(system, warning string) {
+	if slices.ContainsFunc(r.InvalidSystems, func(i InvalidSystem) bool { return i.System == system }) {
+		return
+	}
+
+	r.InvalidSystems = append(r.InvalidSystems, InvalidSystem{
+		System:  system,
+		Warning: warning,
+	})
 }
 
 // Consolidator merges imported copies into the catalog, Sonarr-style: each imported copy is
@@ -116,6 +146,13 @@ func (c *Consolidator) Apply(sourceID string, imported []ImportedCopy, now time.
 			continue
 		}
 
+		sourceSystem, err := normalizeSystem(in.System)
+		if err != nil {
+			r.addInvalidSystem(in.System, in.Title+": "+err.Error())
+
+			sourceSystem = ""
+		}
+
 		if in.Links, err = in.Links.normalize(); err != nil {
 			r.Warnings = append(r.Warnings, in.Title+": "+err.Error())
 			in.Links = nil
@@ -128,6 +165,12 @@ func (c *Consolidator) Apply(sourceID string, imported []ImportedCopy, now time.
 			cp := &g.copies[i]
 
 			changed := cp.applyImport(details)
+			// A one-off import (a file) knows no source, so it must not erase what a source said.
+			if sourceID != "" && cp.SourceSystem != sourceSystem {
+				cp.SourceSystem = sourceSystem
+				changed = true
+			}
+
 			if sourceID != "" && cp.SourceID != sourceID {
 				cp.SourceID = sourceID // adopt copies created by a CSV import or an older source
 				changed = true
@@ -140,6 +183,7 @@ func (c *Consolidator) Apply(sourceID string, imported []ImportedCopy, now time.
 			}
 
 			if changed {
+				g.reconcileEditions() // a scan can change a copy's platform, and so its system
 				cp.UpdatedAt, g.updatedAt = now, now
 				c.markChanged(g)
 
@@ -165,7 +209,12 @@ func (c *Consolidator) Apply(sourceID string, imported []ImportedCopy, now time.
 
 		g.links.fill(in.Links)
 
-		if _, err := g.addCopy(details, sourceID, in.ExternalID, now); err != nil {
+		from := copyOrigin{
+			sourceID:     sourceID,
+			externalID:   in.ExternalID,
+			sourceSystem: sourceSystem,
+		}
+		if _, err := g.addCopy(details, from, now); err != nil {
 			r.Warnings = append(r.Warnings, in.Title+": "+err.Error())
 			continue
 		}

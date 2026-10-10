@@ -129,6 +129,11 @@ func IsKnownPlatform(p string) bool {
 	return slices.ContainsFunc(knownPlatforms, func(k string) bool { return strings.EqualFold(k, strings.TrimSpace(p)) })
 }
 
+// KnownPlatforms returns the stores, launchers and consoles Game Vault knows, PC and console names
+// included (a copy of the list: callers cannot change it). The web's platform tables are checked
+// against it.
+func KnownPlatforms() []string { return slices.Clone(knownPlatforms) }
+
 // CanonicalPlatform fixes the casing of known platforms ("steam" → "Steam") so they compare equal.
 // Unknown platforms are returned trimmed but otherwise untouched.
 func CanonicalPlatform(p string) string {

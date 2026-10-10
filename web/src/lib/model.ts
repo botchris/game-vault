@@ -31,6 +31,9 @@ export const STORE_PLATFORMS = [
   'Rockstar', 'Battlestate (Tarkov)', 'Riot', 'itch.io', 'Amazon Games', 'PlayStation Store', 'Nintendo eShop',
 ];
 
+// The same names as SYSTEMS in editions.ts (a disc's platform is its system). Both stay literal
+// arrays: TestSystems_webAgrees (cmd/gamevault/system_test.go) reads them from the source and checks
+// them against the server's SystemOf.
 export const PHYSICAL_PLATFORMS = [
   'PC', 'PS5', 'PS4', 'PS3', 'PS2', 'PS1', 'PSP', 'PS Vita', 'Xbox Series', 'Xbox One', 'Xbox 360', 'Xbox',
   'Switch', 'Wii U', 'Wii', 'GameCube', 'N64', '3DS', 'DS', 'Game Boy',
@@ -39,7 +42,7 @@ export const PHYSICAL_PLATFORMS = [
 export function emptyDetails(kind: CopyKind = CopyKind.PHYSICAL): CopyDetailsInput {
   return {
     kind, platform: '', status: STATUSES_BY_KIND[kind][0], key: '', redeemBy: '', origin: '',
-    acquiredOn: '', edition: '', grade: CopyGrade.UNSPECIFIED, contents: [], location: '', notes: '', barcode: '', fields: {},
+    acquiredOn: '', edition: '', grade: CopyGrade.UNSPECIFIED, contents: [], location: '', notes: '', barcode: '', system: '', fields: {},
   };
 }
 
@@ -55,7 +58,7 @@ export const MAX_RATING = 5;
 /** Every editable field of a game, as UpdateGame expects them: it replaces all of them, so a
  *  change starts from this and overrides only what it changes. */
 export const gameInfo = (g: Game) => ({
-  id: g.id, title: g.title, links: g.links, notes: g.notes, coverUrl: g.coverUrl, playStatus: g.playStatus, rating: g.rating, fields: g.fields,
+  id: g.id, title: g.title, links: g.links, notes: g.notes, playStatus: g.playStatus, rating: g.rating, fields: g.fields,
 });
 
 export const GRADES = [CopyGrade.SEALED, CopyGrade.MINT, CopyGrade.VERY_GOOD, CopyGrade.GOOD, CopyGrade.ACCEPTABLE, CopyGrade.DAMAGED] as const;

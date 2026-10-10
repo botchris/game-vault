@@ -77,7 +77,7 @@ export type GameSuggestion = Message<"gamevault.v1.GameSuggestion"> & {
   platform: string;
 
   /**
-   * Set it as the new game's cover_url to pin this cover (and spend no further lookups).
+   * Send it as the ScannedCopy's cover_url to pin this cover (and spend no further lookups).
    *
    * @generated from field: string cover_url = 3;
    */

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { errorMessage, mediaUrl, metadataClient } from '../../api/client';
 import { Icon } from '../../components/Icon';
@@ -10,6 +10,10 @@ import { toDate, type Game } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
 import { FieldList, hasFieldList } from '../fields/FieldList';
 
+/** How long a game must stay on screen before its sheet is asked for, so passing over games with the
+ *  arrow keys does not fetch every sheet (an unknown one may spend TheGamesDB's monthly quota). */
+const DETAILS_DELAY_MS = 300;
+
 /** Loads the game's details from the metadata providers (cached server-side). */
 export function useGameDetails(game: Game) {
   const { i18n } = useTranslation();
@@ -18,24 +22,33 @@ export function useGameDetails(game: Game) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const linksKey = JSON.stringify(Object.entries(game.links).sort());
+  // Only the latest request may update the sheet: an answer for a game left behind is dropped.
+  const latest = useRef(0);
 
   const load = useCallback(async (refresh = false) => {
+    const request = ++latest.current;
     setLoading(true);
     setError('');
     try {
       const res = await metadataClient.getGameDetails({ gameId: game.id, language: i18n.resolvedLanguage ?? 'en', refresh });
+      if (request !== latest.current) return;
       setDetails(res.details ?? null);
       setWarnings(res.warnings);
     } catch (e) {
-      setError(errorMessage(e));
+      if (request === latest.current) setError(errorMessage(e));
     } finally {
-      setLoading(false);
+      if (request === latest.current) setLoading(false);
     }
-    // Reload when the links or cover change (the server invalidates its cache then too).
-  }, [game.id, linksKey, game.coverUrl, i18n.resolvedLanguage]);
+    // Reload when the links change (the server invalidates its cache then too).
+  }, [game.id, linksKey, i18n.resolvedLanguage]);
 
   useEffect(() => {
-    load();
+    setLoading(true);
+    const timer = window.setTimeout(() => { load(); }, DETAILS_DELAY_MS);
+    return () => {
+      window.clearTimeout(timer);
+      latest.current++; // the game changed: a request still running is for the one left behind
+    };
   }, [load]);
 
   return { details, warnings, loading, error, refresh: () => load(true) };

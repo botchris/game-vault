@@ -2,6 +2,7 @@ package media
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -14,6 +15,13 @@ import (
 
 // detailsTTL is how long cached details are used before asking the providers again.
 const detailsTTL = 30 * 24 * time.Hour
+
+// detailsLogicVersion is the version of the way sheets are gathered, stored in every sheet cached
+// (GameDetails.LogicVersion). A sparse sheet cached by an older version (0: before the fallback pass)
+// was built without the improvement, so it is fetched again once when opened instead of waiting for
+// detailsTTL; a server still running the old code may cache such sheets after the upgrade's date, so
+// a version is used rather than a time. Increment it when sheet gathering improves.
+const detailsLogicVersion = 1 // 1: the fallback pass
 
 // Video is a trailer: an HLS stream (Steam) or a YouTube video (TheGamesDB).
 type Video struct {
@@ -52,7 +60,16 @@ type GameDetails struct {
 	Screenshots   []Screenshot
 
 	// Sources lists the providers that contributed, in chain order.
-	Sources   []provider.ID
+	Sources []provider.ID
+
+	// FallbackSkipped reports that the sheet is sparse and its fallback pass did not complete: it was
+	// not run (the background scan does not spend quota-limited providers' requests, a provider failed
+	// in the first pass) or a provider failed in it. Opening the sheet runs the passes again.
+	FallbackSkipped bool
+
+	// LogicVersion is the detailsLogicVersion that gathered the sheet.
+	LogicVersion int
+
 	Language  string
 	FetchedAt time.Time
 }
@@ -62,6 +79,11 @@ func (d GameDetails) empty() bool {
 	return d.Summary == "" && len(d.Genres) == 0 && len(d.Developers) == 0 && len(d.Publishers) == 0 &&
 		d.ReleaseDate == "" && len(d.Videos) == 0 && len(d.Screenshots) == 0
 }
+
+// sparse reports whether the sheet shows next to nothing: no summary and no screenshots, the two
+// parts that make the overview worth opening. Genres, dates or companies alone do not count. A
+// sparse sheet triggers the fallback pass.
+func (d GameDetails) sparse() bool { return d.Summary == "" && len(d.Screenshots) == 0 }
 
 // fill copies into d the fields it lacks from o (Plex-style: the first agent wins, later ones fill gaps).
 func (d *GameDetails) fill(o GameDetails) bool {
@@ -167,7 +189,7 @@ func (s *Service) GameDetails(ctx context.Context, id game.ID, language string, 
 	if !refresh {
 		if d, ok, err := s.details.Get(ctx, id, language); err != nil {
 			return d, nil, err
-		} else if ok && s.now().Sub(d.FetchedAt) < detailsTTL {
+		} else if ok && s.fresh(d) {
 			s.registerAssets(ctx, ref, &d)
 			return d, nil, nil
 		}
@@ -179,7 +201,7 @@ func (s *Service) GameDetails(ctx context.Context, id game.ID, language string, 
 	}
 
 	v, err, _ := s.group.Do("details:"+string(id)+":"+language, func() (any, error) {
-		d, w, err := s.fetchDetails(context.WithoutCancel(ctx), id, language)
+		d, w, err := s.fetchDetails(context.WithoutCancel(ctx), id, language, true)
 		return out{d, w}, err
 	})
 	if err != nil {
@@ -192,7 +214,35 @@ func (s *Service) GameDetails(ctx context.Context, id game.ID, language string, 
 	return r.d, r.warnings, nil
 }
 
-func (s *Service) fetchDetails(ctx context.Context, id game.ID, language string) (GameDetails, []string, error) {
+// fresh reports whether a cached sheet can be shown without asking the providers again: it is
+// younger than detailsTTL, and not a sparse sheet gathered by an older detailsLogicVersion or one
+// whose fallback pass did not complete.
+func (s *Service) fresh(d GameDetails) bool {
+	if d.sparse() && (d.FallbackSkipped || d.LogicVersion < detailsLogicVersion) {
+		return false
+	}
+
+	return s.now().Sub(d.FetchedAt) < detailsTTL
+}
+
+// detailsPass is what one pass over the metadata chain left behind.
+type detailsPass struct {
+	warnings []string
+
+	// limited reports that a provider asked to slow down.
+	limited bool
+
+	// asked holds the providers already asked, so a later pass does not ask them again.
+	asked map[provider.ID]bool
+}
+
+// fetchDetails asks the metadata chain for a game's sheet and caches it. When the chain answered
+// without errors but the sheet is sparse (see GameDetails.sparse), and fallback is set, it runs a
+// second pass with CoverQuery.Fallback set: quota-limited providers (TheGamesDB) that keep out of
+// games a store knows may then fill the gaps, for a game only a console store knows (a PS4 library
+// copy) whose store has no details provider. The background scanner passes false: it must not spend
+// those providers' quota.
+func (s *Service) fetchDetails(ctx context.Context, id game.ID, language string, fallback bool) (GameDetails, []string, error) {
 	g, err := s.games.Get(ctx, id)
 	if err != nil {
 		return GameDetails{}, nil, err
@@ -203,23 +253,62 @@ func (s *Service) fetchDetails(ctx context.Context, id game.ID, language string)
 		return GameDetails{}, nil, err
 	}
 
-	q := QueryFor(g)
+	q := QueryFor(g, "") // a game's sheet describes it on every system
 	merged := GameDetails{
-		Language:  language,
-		FetchedAt: s.now(),
+		Language:     language,
+		FetchedAt:    s.now(),
+		LogicVersion: detailsLogicVersion,
+	}
+	pass := detailsPass{asked: map[provider.ID]bool{}}
+
+	s.askChain(ctx, g, chain, q, &merged, &pass)
+	// The fallback runs only after a clean first pass: when a provider failed or was busy, the sheet
+	// is not final (it is not cached, or cached to be asked again), so spending quota on it now would
+	// be wasted.
+	completed := false
+
+	if fallback && merged.sparse() && len(pass.warnings) == 0 {
+		q.Fallback = true
+		s.askChain(ctx, g, chain, q, &merged, &pass)
+		completed = len(pass.warnings) == 0
+	}
+	// A sparse sheet whose fallback did not complete (skipped, or a provider failed in either pass)
+	// may be cached, but the next opening runs the passes again instead of keeping it for detailsTTL.
+	merged.FallbackSkipped = merged.sparse() && !completed
+	// Cache even an empty sheet so unknown games are not looked up on every view; failures are not
+	// cached. Nor is a sheet a provider was too busy to fill: cached, it would lack that provider's
+	// part until the cache expires.
+	if !pass.limited && (len(pass.warnings) == 0 || !merged.empty()) {
+		if err := s.details.Put(ctx, id, merged); err != nil {
+			s.log.Warn("caching details", "error", err)
+		}
 	}
 
-	var warnings []string
+	return merged, pass.warnings, nil
+}
 
+// askChain asks every applicable provider of the chain not asked yet, filling merged's gaps.
+func (s *Service) askChain(ctx context.Context, g *game.Game, chain []ProviderView, q CoverQuery, merged *GameDetails, pass *detailsPass) {
 	for _, p := range chain {
 		impl := s.metadata[p.ID()]
-		if !impl.Applies(q) {
+		if pass.asked[p.ID()] || !impl.Applies(q) {
 			continue
 		}
 
-		d, err := impl.Details(ctx, q, language, p.Settings())
+		pass.asked[p.ID()] = true
+
+		d, err := impl.Details(ctx, q, merged.Language, p.Settings())
+		if errors.Is(err, provider.ErrRateLimited) {
+			pass.limited = true
+
+			pass.warnings = append(pass.warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
+			s.log.Info("metadata provider busy, asking again later", "provider", p.ID(), "game", g.Title())
+
+			continue
+		}
+
 		if err != nil {
-			warnings = append(warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
+			pass.warnings = append(pass.warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
 			s.log.Warn("metadata provider failed", "provider", p.ID(), "game", g.Title(), "error", err)
 
 			continue
@@ -229,12 +318,4 @@ func (s *Service) fetchDetails(ctx context.Context, id game.ID, language string)
 			merged.Sources = append(merged.Sources, p.ID())
 		}
 	}
-	// Cache even an empty sheet so unknown games are not looked up on every view; failures are not cached.
-	if len(warnings) == 0 || !merged.empty() {
-		if err := s.details.Put(ctx, id, merged); err != nil {
-			s.log.Warn("caching details", "error", err)
-		}
-	}
-
-	return merged, warnings, nil
 }

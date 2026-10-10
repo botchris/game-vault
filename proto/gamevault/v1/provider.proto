@@ -83,6 +83,8 @@ message CoverCandidate {
 
 message ListCoverCandidatesRequest {
   string game_id = 1;
+  // The edition's system; empty: the main edition.
+  string system = 2;
 }
 message ListCoverCandidatesResponse {
   repeated CoverCandidate candidates = 1;
@@ -100,7 +102,7 @@ message RefreshCoversResponse {
 }
 
 // CoverService lets users pick covers among the providers' proposals and refresh the cache.
-// To pin a candidate, set it as the game's cover_url with GameService.UpdateGame.
+// To pin a candidate, choose it with GameService.SetEditionCover.
 service CoverService {
   rpc ListCoverCandidates(ListCoverCandidatesRequest) returns (ListCoverCandidatesResponse);
   rpc RefreshCovers(RefreshCoversRequest) returns (RefreshCoversResponse);

@@ -32,6 +32,10 @@ const (
 // ErrNotFound means no configuration exists for the provider.
 var ErrNotFound = errors.New("provider not found")
 
+// ErrRateLimited means the service asked to slow down (HTTP 429). It is transient: the answer says
+// nothing about the game, so callers must not remember it as "nothing found" and ask again later.
+var ErrRateLimited = errors.New("the service is receiving too many requests: try again in a few minutes")
+
 // Descriptor describes a provider implementation and the settings it needs.
 type Descriptor struct {
 	ID             ID

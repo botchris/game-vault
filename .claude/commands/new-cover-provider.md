@@ -5,11 +5,12 @@ argument-hint: <source of box art>
 Add $ARGUMENTS as a Game Vault cover provider, following `.claude/docs/integrations.md`
 ("A new cover provider"):
 
-- `Applies` decides without network calls; quota-limited providers respect `HasStoreLink` and
-  `Fallback`.
+- `Applies` decides without network calls, by `q.System` (`q.ForPC()` for PC stores); quota-limited
+  providers respect `HasStoreLink` and `Fallback`.
 - Candidates best first (portrait before landscape), labelled with where they come from;
   `ImageHosts` declared for the proxy.
 - Register in `media.Providers.Covers`, bump `coverLogicChanged` (current UTC time), add the
   `providers.<id>.description` texts (en/es), a test against a fake server, and `docs/technical.md`.
-- Measure coverage on the user's real games with the test server (copy of the config, port 8093)
-  and report how many games got a cover, from which provider, and which did not.
+- Measure coverage on a real library with the test server (copy of the config, port 8093) and
+  report the numbers (how many games got a cover, from which provider, which did not) in chat only,
+  never in the repository.

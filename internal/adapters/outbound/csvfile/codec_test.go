@@ -207,3 +207,57 @@ func TestEncode_physicalColumns(t *testing.T) {
 		Currency: "JPY",
 	}, copies[0].Details.Price)
 }
+
+func TestSystem_column(t *testing.T) {
+	t.Run("GIVEN rows whose system matches their platform's, differs from it, or is empty", func(t *testing.T) {
+		in := "title,platform,kind,system\n" +
+			"Hades,Steam,library,PC\n" +
+			"Astro Bot,PlayStation Store,library,ps5\n" +
+			"Halo 3,Xbox 360,physical,\n"
+
+		t.Run("WHEN they are imported", func(t *testing.T) {
+			copies, warnings, err := Codec{}.Decode(strings.NewReader(in))
+			require.NoError(t, err)
+			require.Len(t, copies, 3)
+			assert.Empty(t, warnings)
+
+			t.Run("THEN only a system that differs from the platform's is stored as the copy's own", func(t *testing.T) {
+				assert.Empty(t, copies[0].Details.System, "PC is what Steam implies: automatic")
+				assert.Equal(t, "ps5", copies[1].Details.System, "the domain names it PS5 when the copy is saved")
+				assert.Empty(t, copies[2].Details.System, "empty means automatic")
+			})
+		})
+	})
+
+	t.Run("GIVEN a game with a copy whose system the user changed and one on automatic", func(t *testing.T) {
+		now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+		g, _ := game.New("Astro Bot", now)
+		_, err := g.AddCopy(game.CopyDetails{
+			Kind:     game.KindLibrary,
+			Platform: "PlayStation Store",
+			System:   "PS5",
+		}, now)
+		require.NoError(t, err)
+		_, err = g.AddCopy(game.CopyDetails{
+			Kind:     game.KindLibrary,
+			Platform: "Steam",
+		}, now)
+		require.NoError(t, err)
+
+		t.Run("WHEN it is exported and imported again", func(t *testing.T) {
+			var b strings.Builder
+			require.NoError(t, Codec{}.Encode(&b, []*game.Game{g}))
+
+			copies, _, err := Codec{}.Decode(strings.NewReader(b.String()))
+			require.NoError(t, err)
+			require.Len(t, copies, 2)
+
+			t.Run("THEN the export writes each copy's effective system, and the import keeps the user's choice only", func(t *testing.T) {
+				assert.Contains(t, b.String(), ",PS5\n")
+				assert.Contains(t, b.String(), ",PC\n")
+				assert.Equal(t, "PS5", copies[0].Details.System)
+				assert.Empty(t, copies[1].Details.System)
+			})
+		})
+	})
+}

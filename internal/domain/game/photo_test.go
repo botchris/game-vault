@@ -178,73 +178,6 @@ func TestPhotos_editReorderRemove(t *testing.T) {
 	})
 }
 
-func TestPhotos_cover(t *testing.T) {
-	t.Run("GIVEN a game whose two copies share a photo, and one copy has another", func(t *testing.T) {
-		g, a, b := gameWithTwoCopies(t)
-		_, err := g.AddPhotos(a, []Photo{{ID: pid(1)}, {ID: pid(2)}}, t0)
-		require.NoError(t, err)
-		_, err = g.AddPhotos(b, []Photo{{ID: pid(1)}}, t0)
-		require.NoError(t, err)
-
-		t.Run("WHEN a photo that no copy has is chosen as the cover", func(t *testing.T) {
-			info := g.Info()
-			info.CoverPhoto = pid(9)
-			_, err := g.UpdateInfo(info, t0)
-
-			t.Run("THEN it is refused", func(t *testing.T) {
-				var ve *ValidationError
-				assert.ErrorAs(t, err, &ve)
-				assert.Empty(t, g.CoverPhoto())
-			})
-		})
-
-		t.Run("WHEN the shared photo becomes the cover", func(t *testing.T) {
-			info := g.Info()
-			info.CoverPhoto = pid(1)
-			changed, err := g.UpdateInfo(info, t0)
-			require.NoError(t, err)
-
-			t.Run("THEN the cover changed", func(t *testing.T) {
-				assert.True(t, changed)
-				assert.Equal(t, pid(1), g.CoverPhoto())
-			})
-
-			t.Run("AND removing it from one copy keeps it as the cover, since the other copy has it", func(t *testing.T) {
-				_, err := g.RemovePhoto(a, pid(1), t0)
-				require.NoError(t, err)
-				assert.Equal(t, pid(1), g.CoverPhoto())
-			})
-
-			t.Run("AND removing the copy that still has it clears the cover", func(t *testing.T) {
-				_, err := g.RemoveCopy(b, t0)
-				require.NoError(t, err)
-				assert.Empty(t, g.CoverPhoto())
-			})
-		})
-	})
-
-	t.Run("GIVEN a game without a cover photo and another whose copy has one", func(t *testing.T) {
-		g, _, _ := gameWithTwoCopies(t)
-		other, c, _ := gameWithTwoCopies(t)
-		_, err := other.AddPhotos(c, []Photo{{ID: pid(5)}}, t0)
-		require.NoError(t, err)
-
-		info := other.Info()
-		info.CoverPhoto = pid(5)
-		_, err = other.UpdateInfo(info, t0)
-		require.NoError(t, err)
-
-		t.Run("WHEN the first absorbs the second", func(t *testing.T) {
-			g.Absorb(other, t0)
-
-			t.Run("THEN the photos come along and the cover photo is adopted", func(t *testing.T) {
-				assert.Equal(t, []PhotoID{pid(5)}, g.PhotoIDs())
-				assert.Equal(t, pid(5), g.CoverPhoto())
-			})
-		})
-	})
-}
-
 func TestPhotos_aggregateIsolation(t *testing.T) {
 	t.Run("GIVEN a copy with a photo", func(t *testing.T) {
 		g, a, _ := gameWithTwoCopies(t)
@@ -318,33 +251,6 @@ func TestPhotos_scansAndMoves(t *testing.T) {
 			t.Run("THEN its photos go with it", func(t *testing.T) {
 				assert.Equal(t, []PhotoID{pid(1)}, other.PhotoIDs())
 				assert.Empty(t, g.PhotoIDs())
-			})
-		})
-	})
-
-	t.Run("GIVEN a target game with a custom cover URL, and another whose cover is a photo", func(t *testing.T) {
-		target, _, _ := gameWithTwoCopies(t)
-		info := target.Info()
-		info.CoverURL = "https://example.test/halo.jpg"
-		_, err := target.UpdateInfo(info, t0)
-		require.NoError(t, err)
-
-		other, c, _ := gameWithTwoCopies(t)
-		_, err = other.AddPhotos(c, []Photo{{ID: pid(5)}}, t0)
-		require.NoError(t, err)
-
-		oi := other.Info()
-		oi.CoverPhoto = pid(5)
-		_, err = other.UpdateInfo(oi, t0)
-		require.NoError(t, err)
-
-		t.Run("WHEN the target absorbs the other", func(t *testing.T) {
-			target.Absorb(other, t0)
-
-			t.Run("THEN the target keeps the cover the user chose for it", func(t *testing.T) {
-				assert.Empty(t, target.CoverPhoto())
-				assert.Equal(t, "https://example.test/halo.jpg", target.CoverURL())
-				assert.Equal(t, []PhotoID{pid(5)}, target.PhotoIDs())
 			})
 		})
 	})

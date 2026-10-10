@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -70,6 +71,9 @@ type Provider struct {
 	// API calls TheGamesDB; tests point it at a fake server.
 	API *apiclient.Client
 
+	// throttle spaces the requests (see minGap); a Provider built without New sends them at once.
+	throttle *throttle
+
 	mu        sync.Mutex
 	platforms map[string]int64 // normalised name or alias → TheGamesDB platform id
 }
@@ -83,7 +87,10 @@ func New() *Provider {
 	api := apiclient.New(defaultBaseURL)
 	api.HTTP.Timeout = 20 * time.Second
 
-	return &Provider{API: api}
+	return &Provider{
+		API:      api,
+		throttle: newThrottle(minGap, time.Now, sleep),
+	}
 }
 
 // Descriptor implements media.CoverProvider.
@@ -125,6 +132,8 @@ func apiError(se *apiclient.StatusError) error {
 	_ = json.Unmarshal([]byte(se.Body), &body)
 
 	switch {
+	case se.Status == http.StatusTooManyRequests: // its body only says "Unknown Error Code"
+		return fmt.Errorf("TheGamesDB asked to slow down (HTTP %d): %w", se.Status, provider.ErrRateLimited)
 	case body.Status != "":
 		return fmt.Errorf("TheGamesDB: %s (HTTP %d)", body.Status, se.Status)
 	case se.Status == http.StatusForbidden || se.Status == http.StatusUnauthorized:
@@ -134,7 +143,14 @@ func apiError(se *apiclient.StatusError) error {
 	return fmt.Errorf("TheGamesDB: HTTP %d", se.Status)
 }
 
+// get calls TheGamesDB through the throttle, so a burst of lookups never reaches it at once. The
+// answer's error is translated inside the throttle, which backs off after a rate-limit answer.
 func (p *Provider) get(ctx context.Context, path string, q url.Values, out any) error {
+	return p.throttle.do(ctx, func() error { return p.getNow(ctx, path, q, out) })
+}
+
+// getNow calls TheGamesDB at once, bypassing the throttle.
+func (p *Provider) getNow(ctx context.Context, path string, q url.Values, out any) error {
 	err := p.API.Get(ctx, path, q, out)
 
 	var se *apiclient.StatusError
@@ -150,14 +166,15 @@ var ErrUnknownKey = errors.New("TheGamesDB did not recognize the API key")
 
 // Test implements media.Provider by reading the remaining allowance; that endpoint does not consume
 // it. It answers 200 even for unknown keys, with no allowance and no refresh timer, which is how
-// those are detected. A valid key that used up its allowance still has a refresh timer.
+// those are detected. A valid key that used up its allowance still has a refresh timer. The check
+// bypasses the throttle: the user is waiting for it, and it must not queue behind cover lookups.
 func (p *Provider) Test(ctx context.Context, s schema.Settings) error {
 	var out struct {
 		Remaining *int `json:"remaining_monthly_allowance"`
 		Extra     int  `json:"extra_allowance"`
 		Refresh   int  `json:"allowance_refresh_timer"`
 	}
-	if err := p.get(ctx, "/v1/API/Limit", url.Values{"apikey": {s[settingAPIKey]}}, &out); err != nil {
+	if err := p.getNow(ctx, "/v1/API/Limit", url.Values{"apikey": {s[settingAPIKey]}}, &out); err != nil {
 		return err
 	}
 
@@ -216,6 +233,30 @@ func (p *Provider) platformIDs(ctx context.Context, apiKey string, names []strin
 	return ids
 }
 
+// searchSystems returns the systems a search for q is filtered to: the edition's system, or without
+// one the systems of the game's physical copies, or else of all its copies. Platforms are named by
+// their system ("PlayStation Store" → "PS4", "Steam" → "PC"), the names platformNames knows, so
+// covers and sheets map a copy to the same TheGamesDB platform.
+func searchSystems(q media.CoverQuery) []string {
+	if q.System != "" {
+		return []string{q.System} // an edition's box art: its system names TheGamesDB's platform
+	}
+
+	platforms := q.PhysicalPlatforms
+	if len(platforms) == 0 {
+		platforms = q.Platforms
+	}
+
+	systems := make([]string, 0, len(platforms))
+	for _, pl := range platforms {
+		if s := game.SystemOf(pl); s != game.SystemOther && !slices.Contains(systems, s) {
+			systems = append(systems, s)
+		}
+	}
+
+	return systems
+}
+
 type searchResponse struct {
 	Data struct {
 		Games []struct {
@@ -241,18 +282,13 @@ type searchResponse struct {
 	} `json:"include"`
 }
 
-// Covers searches the game by title on the platforms of its physical copies (or all its
-// platforms) and returns front box art, exact title matches first.
+// Covers searches the game by title on the edition's system (or, without one, the platforms of its
+// physical copies or all its platforms) and returns front box art, exact title matches first.
 func (p *Provider) Covers(ctx context.Context, q media.CoverQuery, s schema.Settings) ([]media.CoverCandidate, error) {
 	key := s[settingAPIKey]
 
-	platforms := q.PhysicalPlatforms
-	if len(platforms) == 0 {
-		platforms = q.Platforms
-	}
-
 	params := url.Values{"apikey": {key}, "name": {q.Title}, "include": {"boxart,platform"}}
-	if ids := p.platformIDs(ctx, key, platforms); len(ids) > 0 {
+	if ids := p.platformIDs(ctx, key, searchSystems(q)); len(ids) > 0 {
 		parts := make([]string, len(ids))
 		for i, id := range ids {
 			parts[i] = strconv.FormatInt(id, 10)

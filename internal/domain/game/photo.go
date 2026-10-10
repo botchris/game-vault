@@ -122,8 +122,8 @@ func (g *Game) UpdatePhoto(copyID ID, photoID PhotoID, caption string, now time.
 	return g.touchCopy(i, now), nil
 }
 
-// RemovePhoto removes a photo from a copy. The game's cover photo is cleared when no copy has it
-// any more.
+// RemovePhoto removes a photo from a copy. An edition's cover photo is cleared when no copy of
+// that edition has it any more.
 func (g *Game) RemovePhoto(copyID ID, photoID PhotoID, now time.Time) (Copy, error) {
 	i, j, err := g.photoAt(copyID, photoID)
 	if err != nil {
@@ -131,7 +131,7 @@ func (g *Game) RemovePhoto(copyID ID, photoID PhotoID, now time.Time) (Copy, err
 	}
 
 	g.copies[i].Photos = slices.Delete(slices.Clone(g.copies[i].Photos), j, j+1)
-	g.dropOrphanCover()
+	g.reconcileEditions()
 
 	return g.touchCopy(i, now), nil
 }
@@ -177,23 +177,6 @@ func (g *Game) PhotoIDs() []PhotoID {
 	}
 
 	return out
-}
-
-func (g *Game) hasPhoto(id PhotoID) bool {
-	for _, c := range g.copies {
-		if photoIndex(c.Photos, id) >= 0 {
-			return true
-		}
-	}
-
-	return false
-}
-
-// dropOrphanCover clears the cover photo when no copy has that photo any more.
-func (g *Game) dropOrphanCover() {
-	if g.coverPhoto != "" && !g.hasPhoto(g.coverPhoto) {
-		g.coverPhoto = ""
-	}
 }
 
 func (g *Game) photoAt(copyID ID, photoID PhotoID) (int, int, error) {
