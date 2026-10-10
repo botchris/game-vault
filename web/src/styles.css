@@ -831,6 +831,25 @@ td.title { font-weight: 500; min-width: 220px; }
 .detail-cover-col { display: flex; flex-direction: column; gap: 8px; }
 .picker-grid { margin-top: 10px; }
 
+/* ---------- Custom fields ---------- */
+.fields .page-head { margin-bottom: 0; justify-content: space-between; }
+.fields-intro { margin: 0; max-width: 64ch; }
+.fields .chain { margin-top: 0; }
+.fields .chain-body strong { overflow-wrap: anywhere; }
+.field-note { margin: -4px 0 0; }
+.field-kinds { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 6px; }
+.field-kinds legend { padding: 0; font-size: 13px; color: var(--muted); font-weight: 550; margin-bottom: 6px; }
+.field-kinds p { margin: 0; }
+.field-kinds-row { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.grid .field-kinds label.check-inline { flex-direction: row; font-size: 15px; color: var(--text); font-weight: 450; }
+.field-values h3 { font-size: 15px; margin: 4px 0 8px; }
+.field-values ol { list-style: none; padding: 0; margin: 0 0 10px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
+.field-value { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.field-value input { flex: 1 1 0; width: auto; min-width: 0; }
+.field-value-actions { display: flex; align-items: center; gap: 4px; flex: none; }
+.field-value-merge { display: flex; align-items: end; gap: 8px; flex-wrap: wrap; margin: 6px 0 4px; padding: 10px; border-radius: 10px; background: var(--surface-2); }
+.field-value-merge label { display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: var(--muted); font-weight: 550; flex: 1 1 180px; min-width: 0; }
+
 /* ---------- Scan ---------- */
 .scan { max-width: 880px; }
 .scan .page-head { margin-bottom: 4px; }
