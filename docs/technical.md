@@ -331,8 +331,9 @@ they can be moved up and down.
 
 Limits: 50 fields; 200 values per list; field and value names of 1 to 60 characters (field names
 are unique, ignoring case, and adding a list value that already exists returns that one); numbers
-and amounts within ±1,000,000,000,000 as stored (in hundredths for 2 decimals, in minor units for
-money); durations up to 100,000 hours.
+within ±1,000,000,000,000 (whole or with 2 decimals); money amounts from 0 to
+1,000,000,000,000 in a currency with cents (at most 100,000,000,000,000 minor units, so never
+negative); durations up to 100,000 hours.
 The type and whether a field describes a game or a copy are fixed once it exists; the name, the
 copy kinds, the number and money options and the list values can change.
 
