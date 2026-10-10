@@ -1,0 +1,94 @@
+syntax = "proto3";
+
+package gamevault.v1;
+
+import "gamevault/v1/game.proto";
+
+option go_package = "gamevault/internal/gen/gamevault/v1;gamevaultv1";
+
+// FieldChoice is one value of a list or multilist field.
+message FieldChoice {
+  string id = 1;
+  string name = 2;
+}
+
+// FieldDefinition is a custom field.
+message FieldDefinition {
+  string id = 1;
+  string name = 2;
+  // text, longtext, bool, number, money, date, duration, list, multilist.
+  string type = 3;
+  // game or copy.
+  string scope = 4;
+  // Copy fields only: the copy kinds the field applies to; empty means all.
+  repeated CopyKind kinds = 5;
+  int32 decimals = 6;
+  string unit = 7;
+  string currency = 8;
+  repeated FieldChoice choices = 9;
+}
+
+message ListFieldsRequest {}
+message ListFieldsResponse {
+  repeated FieldDefinition fields = 1;
+}
+message CreateFieldRequest {
+  FieldDefinition field = 1;
+}
+message CreateFieldResponse {
+  FieldDefinition field = 1;
+}
+message UpdateFieldRequest {
+  FieldDefinition field = 1;
+}
+message UpdateFieldResponse {
+  FieldDefinition field = 1;
+}
+message MoveFieldRequest {
+  string id = 1;
+  int32 index = 2;
+}
+message MoveFieldResponse {}
+message FieldUsageRequest {
+  string id = 1;
+}
+message FieldUsageResponse {
+  int32 games = 1;
+  int32 copies = 2;
+}
+message DeleteFieldRequest {
+  string id = 1;
+}
+message DeleteFieldResponse {
+  int32 games = 1;
+  int32 copies = 2;
+}
+message RemoveChoiceRequest {
+  string field_id = 1;
+  string choice_id = 2;
+  // Another value of the field that replaces it in games; empty clears it.
+  string merge_into = 3;
+}
+message RemoveChoiceResponse {}
+message AddChoiceRequest {
+  string field_id = 1;
+  string name = 2;
+}
+message AddChoiceResponse {
+  FieldChoice choice = 1;
+}
+
+// FieldService defines the custom fields users fill in on games and copies.
+service FieldService {
+  rpc ListFields(ListFieldsRequest) returns (ListFieldsResponse);
+  rpc CreateField(CreateFieldRequest) returns (CreateFieldResponse);
+  rpc UpdateField(UpdateFieldRequest) returns (UpdateFieldResponse);
+  rpc MoveField(MoveFieldRequest) returns (MoveFieldResponse);
+  rpc FieldUsage(FieldUsageRequest) returns (FieldUsageResponse);
+  // Removes the field and its values from every game and copy.
+  rpc DeleteField(DeleteFieldRequest) returns (DeleteFieldResponse);
+  // Removes a list value, clearing it from games or merging it into another value.
+  rpc RemoveChoice(RemoveChoiceRequest) returns (RemoveChoiceResponse);
+  // Adds a list value, or returns the existing one with that name.
+  rpc AddChoice(AddChoiceRequest) returns (AddChoiceResponse);
+}

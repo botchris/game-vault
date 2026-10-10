@@ -12,6 +12,7 @@ import (
 	"gamevault/internal/application/media"
 	"gamevault/internal/application/sync"
 	"gamevault/internal/application/valuation"
+	"gamevault/internal/domain/field"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
@@ -102,11 +103,15 @@ func gameToPB(g *game.Game) *pb.Game {
 		Rating:       int32(g.Rating()),
 		CreatedAt:    ts(g.CreatedAt()),
 		UpdatedAt:    ts(g.UpdatedAt()),
+		Fields:       fieldValuesToPB(g.Fields()),
 	}
 	for _, c := range g.Copies() {
+		details := detailsToPB(c.CopyDetails)
+		details.Fields = fieldValuesToPB(c.Fields)
+
 		out.Copies = append(out.Copies, &pb.Copy{
 			Id:            string(c.ID),
-			Details:       detailsToPB(c.CopyDetails),
+			Details:       details,
 			SourceId:      c.SourceID,
 			ExternalId:    c.ExternalID,
 			Redundant:     g.IsRedundant(c),
@@ -397,14 +402,15 @@ func toConnectError(err error) error {
 		sv   *source.ValidationError
 		setv *settings.ValidationError
 		schv *schema.ValidationError
+		fv   *field.ValidationError
 	)
 	switch {
 	case errors.As(err, &ce):
 		return err
-	case errors.Is(err, game.ErrGameNotFound), errors.Is(err, game.ErrCopyNotFound), errors.Is(err, game.ErrPhotoNotFound), errors.Is(err, source.ErrNotFound),
+	case errors.Is(err, game.ErrGameNotFound), errors.Is(err, game.ErrCopyNotFound), errors.Is(err, game.ErrPhotoNotFound), errors.Is(err, source.ErrNotFound), errors.Is(err, field.ErrNotFound),
 		errors.Is(err, provider.ErrNotFound), errors.Is(err, media.ErrUnknownProvider), errors.Is(err, sync.ErrNotExcluded):
 		return connect.NewError(connect.CodeNotFound, err)
-	case errors.As(err, &gv), errors.As(err, &sv), errors.As(err, &setv), errors.As(err, &schv), errors.Is(err, source.ErrUnknownType),
+	case errors.As(err, &gv), errors.As(err, &sv), errors.As(err, &setv), errors.As(err, &schv), errors.As(err, &fv), errors.Is(err, source.ErrUnknownType),
 		errors.Is(err, game.ErrInvalidBarcode):
 		return connect.NewError(connect.CodeInvalidArgument, err)
 	case errors.Is(err, catalog.ErrPhotoNotUploaded), errors.Is(err, valuation.ErrNotValuable), errors.Is(err, valuation.ErrNoProviders),
@@ -415,4 +421,142 @@ func toConnectError(err error) error {
 	default:
 		return connect.NewError(connect.CodeInternal, err)
 	}
+}
+
+// fieldValuesToPB maps custom field values onto the API.
+func fieldValuesToPB(values game.FieldValues) map[string]*pb.FieldValue {
+	if len(values) == 0 {
+		return nil
+	}
+
+	out := make(map[string]*pb.FieldValue, len(values))
+
+	for id, v := range values {
+		out[id] = fieldValueToPB(v)
+	}
+
+	return out
+}
+
+func fieldValueToPB(v game.FieldValue) *pb.FieldValue {
+	switch {
+	case v.Text != "":
+		return &pb.FieldValue{Value: &pb.FieldValue_Text{Text: v.Text}}
+	case v.Bool != nil:
+		return &pb.FieldValue{Value: &pb.FieldValue_Bool{Bool: *v.Bool}}
+	case v.Number != nil:
+		return &pb.FieldValue{Value: &pb.FieldValue_Number{Number: *v.Number}}
+	case v.Money != nil:
+		return &pb.FieldValue{Value: &pb.FieldValue_Money{Money: &pb.Money{
+			AmountMinor: v.Money.Amount,
+			Currency:    v.Money.Currency,
+		}}}
+	case v.Date != "":
+		return &pb.FieldValue{Value: &pb.FieldValue_Date{Date: v.Date}}
+	case v.Minutes != nil:
+		return &pb.FieldValue{Value: &pb.FieldValue_Minutes{Minutes: *v.Minutes}}
+	case v.Choice != "":
+		return &pb.FieldValue{Value: &pb.FieldValue_Choice{Choice: v.Choice}}
+	case v.Choices != nil:
+		return &pb.FieldValue{Value: &pb.FieldValue_Choices{Choices: &pb.ChoiceList{Ids: v.Choices}}}
+	default:
+		return &pb.FieldValue{}
+	}
+}
+
+// fieldValuesFromPB maps the API's custom field values onto the domain; the catalog validates them.
+func fieldValuesFromPB(values map[string]*pb.FieldValue) game.FieldValues {
+	if len(values) == 0 {
+		return nil
+	}
+
+	out := make(game.FieldValues, len(values))
+
+	for id, v := range values {
+		out[id] = fieldValueFromPB(v)
+	}
+
+	return out
+}
+
+func fieldValueFromPB(v *pb.FieldValue) game.FieldValue {
+	switch x := v.GetValue().(type) {
+	case *pb.FieldValue_Text:
+		return game.FieldValue{Text: x.Text}
+	case *pb.FieldValue_Bool:
+		return game.FieldValue{Bool: &x.Bool}
+	case *pb.FieldValue_Number:
+		return game.FieldValue{Number: &x.Number}
+	case *pb.FieldValue_Money:
+		return game.FieldValue{Money: &game.Money{
+			Amount:   x.Money.GetAmountMinor(),
+			Currency: x.Money.GetCurrency(),
+		}}
+	case *pb.FieldValue_Date:
+		return game.FieldValue{Date: x.Date}
+	case *pb.FieldValue_Minutes:
+		return game.FieldValue{Minutes: &x.Minutes}
+	case *pb.FieldValue_Choice:
+		return game.FieldValue{Choice: x.Choice}
+	case *pb.FieldValue_Choices:
+		return game.FieldValue{Choices: x.Choices.GetIds()}
+	default:
+		return game.FieldValue{}
+	}
+}
+
+func definitionToPB(d field.Definition) *pb.FieldDefinition {
+	out := &pb.FieldDefinition{
+		Id:       d.ID,
+		Name:     d.Name,
+		Type:     string(d.Type),
+		Scope:    string(d.Scope),
+		Decimals: int32(d.Decimals),
+		Unit:     d.Unit,
+		Currency: d.Currency,
+	}
+
+	for _, k := range d.Kinds {
+		out.Kinds = append(out.Kinds, kindToPB[k])
+	}
+
+	for _, c := range d.Choices {
+		out.Choices = append(out.Choices, choiceToPB(c))
+	}
+
+	return out
+}
+
+func choiceToPB(c field.Choice) *pb.FieldChoice {
+	return &pb.FieldChoice{
+		Id:   c.ID,
+		Name: c.Name,
+	}
+}
+
+func definitionFromPB(d *pb.FieldDefinition) field.Definition {
+	out := field.Definition{
+		ID:       d.GetId(),
+		Name:     d.GetName(),
+		Type:     field.Type(d.GetType()),
+		Scope:    field.Scope(d.GetScope()),
+		Decimals: int(d.GetDecimals()),
+		Unit:     d.GetUnit(),
+		Currency: d.GetCurrency(),
+	}
+
+	for _, k := range d.GetKinds() {
+		if kind, ok := kindFromPB[k]; ok {
+			out.Kinds = append(out.Kinds, kind)
+		}
+	}
+
+	for _, c := range d.GetChoices() {
+		out.Choices = append(out.Choices, field.Choice{
+			ID:   c.GetId(),
+			Name: c.GetName(),
+		})
+	}
+
+	return out
 }

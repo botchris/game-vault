@@ -30,6 +30,7 @@ import (
 	"gamevault/internal/adapters/outbound/tlspolicy"
 	"gamevault/internal/application/auth"
 	"gamevault/internal/application/catalog"
+	"gamevault/internal/application/fields"
 	"gamevault/internal/application/logs"
 	"gamevault/internal/application/media"
 	"gamevault/internal/application/sync"
@@ -138,6 +139,7 @@ func run() error {
 	mediaSvc := media.NewService(games, sqlite.NewProviderRepository(db), assets, photos, sqlite.NewDetailsStore(db), imagefetch.New(), now, log,
 		plugins.Media())
 	valuationSvc := valuation.NewService(games, db, mediaSvc, settingsRepo, now, log, plugins.Valuations()...)
+	fieldsSvc := fields.NewService(settingsRepo, games, db)
 	catalogSvc := catalog.NewService(games, db, now, mediaSvc, photos, settingsRepo)
 	syncSvc := sync.NewService(sources, games, db, mediaSvc, now, log, plugins.Sources()...)
 	transferSvc := transfer.NewService(games, db, settingsRepo, now, csvfile.Codec{})
@@ -189,6 +191,7 @@ func run() error {
 		MediaRPC:    rpc.NewMediaHandler(mediaSvc),
 		Media:       mediaSvc,
 		Valuation:   rpc.NewValuationHandler(valuationSvc),
+		Fields:      rpc.NewFieldHandler(fieldsSvc),
 	}, rpc.Options{
 		UIDir:       cfg.UIDir,
 		CORSOrigins: cfg.CORSOrigins,
