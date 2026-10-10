@@ -86,6 +86,16 @@
     "markedRedeemed_other": "{{count}} claves marcadas como canjeadas.",
     "addGame": "Añadir juego",
     "showing": "{{shown}} de {{total}} juegos",
+    "showingEditions": "{{editions}} de {{games}}",
+    "editionCount_one": "{{n}} edición",
+    "editionCount_other": "{{n}} ediciones",
+    "gameCount_one": "{{n}} juego",
+    "gameCount_other": "{{n}} juegos",
+    "grouping": {
+      "label": "Agrupar",
+      "platform": "Por plataforma",
+      "game": "Por juego"
+    },
     "empty": "Aún no hay nada. Añade un juego a mano, conecta tus cuentas de tiendas en Fuentes, o importa un CSV en Sistema.",
     "columns": {
       "copies": "Copias",
@@ -99,6 +109,7 @@
       "list": "Lista",
       "posters": "Carátulas"
     },
+    "itemLabel": "{{title}} · {{system}}",
     "pendingBadge_one": "{{count}} clave pendiente",
     "pendingBadge_other": "{{count}} claves pendientes",
     "filters": {
@@ -108,6 +119,7 @@
       "kind": "Tipo de copia",
       "any": "Cualquiera",
       "genres": "Géneros",
+      "systems": "Sistema",
       "noGenres": "Aún no hay géneros. Aparecen a medida que se descargan las fichas.",
       "genresPartial": "Géneros conocidos para {{cached}} de {{total}} juegos; el resto se descarga en segundo plano.",
       "done": "Ver resultados",
@@ -130,7 +142,6 @@
     "copies_other": "{{count}} copias",
     "noCopies": "Todavía no hay copias.",
     "coverUrl": "URL de la carátula",
-    "coverUrlPlaceholder": "Vacío = la eligen los proveedores",
     "links": "Vínculos con tiendas",
     "linkPlaceholder": "Id en la tienda",
     "storePage": "Abrir",
@@ -159,6 +170,8 @@
     "edit": "Editar copia",
     "kind": "Tipo",
     "platform": "Plataforma",
+    "system": "Sistema",
+    "systemHelp": "Automático: {{system}}. Cámbialo si esta copia se juega en otro sistema.",
     "status": "Estado",
     "key": "Clave / enlace de regalo",
     "redeemBy": "Canjear antes de",
@@ -569,9 +582,13 @@
   "coverPicker": {
     "open": "Elegir carátula…",
     "title": "Elegir carátula",
+    "titleFor": "Elegir la carátula de {{system}}",
     "intro": "Imágenes que proponen tus proveedores de carátulas activos. La que elijas se mantiene aunque cambies el orden de los proveedores.",
     "automatic": "Automática",
     "automaticHint": "Que decida la cadena de proveedores",
+    "photos": "Fotos de tus copias",
+    "photo": "Foto de tu copia",
+    "paste": "Usar esta imagen",
     "none": "Ningún proveedor tiene carátula para este juego. Vincúlalo con una tienda (Editar → Vínculos con tiendas) o pega la URL de una imagen."
   },
   "scan": {
@@ -779,9 +796,9 @@
     "takenOn": "Tomada el {{date}}",
     "moveLeft": "Mover a la izquierda",
     "moveRight": "Mover a la derecha",
-    "useAsCover": "Usar como portada",
-    "stopCover": "Dejar de usar como portada",
-    "isCover": "La portada del juego",
+    "useAsCover": "Usar como carátula de esta edición",
+    "stopCover": "Dejar de usar como carátula",
+    "isCover": "Carátula de esta edición",
     "confirmDelete": "¿Borrar esta foto de la copia?"
   },
   "value": {
@@ -814,5 +831,14 @@
       "timeout": "El inicio de sesión ha tardado demasiado; inténtalo de nuevo.",
       "failed": "La extensión no pudo terminar el inicio de sesión; inténtalo de nuevo o pega el valor a mano."
     }
+  },
+  "edition": {
+    "borrowed": "Caja de {{system}}",
+    "chips": "Ediciones",
+    "borrowedHelp": "Aún no tiene carátula propia: se ve la de {{system}}.",
+    "noBox": "Esta edición aún no tiene carátula.",
+    "usePhoto": "Usar una foto",
+    "useAsMain": "Usar como portada del juego",
+    "isMain": "Portada del juego"
   }
 }

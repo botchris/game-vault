@@ -15,4 +15,11 @@ metadata:
 - When cover resolution improves, bump `coverLogicChanged` in
   `internal/application/media/service.go` to the current UTC time (never in the future) so old
   "no cover" markers are retried.
-- Add-ons (DLC, soundtracks…) borrow the base game's cover (`media/addon.go`).
+- Add-ons (DLC, soundtracks…) borrow the base game's cover for the same system (`media/addon.go`).
+- **Editions (2026-10-10):** covers are per (game, system) (`CoverQuery.System`, `QueryFor(g, system)`).
+  Store providers apply only when `q.ForPC()`, Xbox to the PC and Xbox systems, TheGamesDB to any
+  system with its quota rules per edition (its search filtered to the edition's system).
+  `coverLogicChanged` was bumped on 2026-10-10 for editions. The pre-editions `cover.jpg` is adopted
+  by the main edition. An edition is invalidated only when its cover inputs change (chosen cover,
+  platforms of its copies, store links), not when a disc or key is added: that spares the quota. See
+  [[data-model]].

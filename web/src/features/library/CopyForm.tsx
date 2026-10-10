@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { errorMessage } from '../../api/client';
 import { Alert, Modal } from '../../components/ui';
 import { CopyGrade, MoneySchema } from '../../gen/gamevault/v1/game_pb';
+import { SYSTEMS, systemOf } from '../../lib/editions';
 import { copyValuesFor } from '../../lib/fields';
 import { amountInput, currencyDigits, currencyList, parseAmount } from '../../lib/money';
 import {
@@ -18,12 +19,14 @@ interface Props {
   initial?: CopyDetailsInput;
   /** Shown when the copy is kept in sync by a source. */
   managedBy?: string;
+  /** The system the copy's source gives it, if any: what "automatic" means for it. */
+  sourceSystem?: string;
   onSubmit: (d: CopyDetailsInput) => Promise<void>;
   onClose: () => void;
 }
 
 /** Add or edit one copy of a game. */
-export default function CopyForm({ initial, managedBy, onSubmit, onClose }: Props) {
+export default function CopyForm({ initial, managedBy, sourceSystem, onSubmit, onClose }: Props) {
   const { t, i18n } = useTranslation();
   const { games, fields } = useAppData();
   const locations = useMemo(() => usedLocations(games), [games]);
@@ -39,6 +42,12 @@ export default function CopyForm({ initial, managedBy, onSubmit, onClose }: Prop
   const amountInvalid = minor === null;
   // A custom field holding invalid text (a number, a year) blocks Save until it is fixed or cleared.
   const [fieldsInvalid, reportField] = useFieldValidity();
+  // What an empty System means: the source's system, else the platform's (it follows the platform as
+  // it is typed).
+  const automatic = sourceSystem || systemOf(d.platform);
+  // Whether the System field was touched: a stored override is kept as it is unless it was edited,
+  // since the source's system (what automatic would give) is not always known here.
+  const [systemEdited, setSystemEdited] = useState(false);
 
   // The copy fields that apply to the chosen kind (a field without kinds applies to all).
   const defs = fields.filter((f) => f.scope === 'copy' && (!f.kinds.length || f.kinds.includes(d.kind)));
@@ -56,7 +65,10 @@ export default function CopyForm({ initial, managedBy, onSubmit, onClose }: Prop
       // The server replaces the copy's values: drop only those of known fields that no longer apply
       // after a kind change; values of fields this page does not know are kept, never erased.
       const values = cleanFields(copyValuesFor(d.fields, fields, d.kind));
-      await onSubmit({ ...d, price: minor ? create(MoneySchema, { amountMinor: minor, currency }) : undefined, fields: values });
+      // The system goes back to automatic when it is emptied, or edited to what automatic gives.
+      const typed = d.system.trim();
+      const system = typed === '' || (systemEdited && systemOf(typed) === automatic) ? '' : typed;
+      await onSubmit({ ...d, system, price: minor ? create(MoneySchema, { amountMinor: minor, currency }) : undefined, fields: values });
     } catch (err) {
       setError(errorMessage(err));
       setBusy(false);
@@ -85,6 +97,13 @@ export default function CopyForm({ initial, managedBy, onSubmit, onClose }: Prop
             <input list="copy-platforms" value={d.platform} onChange={(e) => set('platform', e.target.value)}
               placeholder={d.kind === CopyKind.PHYSICAL ? 'PS4, Xbox 360…' : 'Steam, Ubisoft Connect…'} autoFocus />
             <datalist id="copy-platforms">{platforms.map((p) => <option key={p} value={p} />)}</datalist>
+          </label>
+          <label>
+            {t('copy.system')}
+            <input list="copy-systems" value={d.system} placeholder={automatic}
+              onChange={(e) => { setSystemEdited(true); set('system', e.target.value); }} />
+            <datalist id="copy-systems">{SYSTEMS.map((s) => <option key={s} value={s} />)}</datalist>
+            <span className="help">{t('copy.systemHelp', { system: automatic })}</span>
           </label>
           <label>
             {t('copy.status')}

@@ -18,8 +18,9 @@ import (
 // one bumps it, and the decoder converts older documents when it reads them (see
 // docs/superpowers/specs/2026-10-09-json-documents-design.md).
 const (
-	// gameDocVersion 2 replaced the copies' free-text condition with grade and contents.
-	gameDocVersion     = 2
+	// gameDocVersion 2 replaced the copies' free-text condition with grade and contents; 3 moved the
+	// cover to editions (covers by system, mainSystem).
+	gameDocVersion     = 3
 	sourceDocVersion   = 1
 	providerDocVersion = 1
 	fieldsDocVersion   = 1
@@ -40,19 +41,32 @@ func checkVersion(v, current int) error {
 // gameDoc is the stored form of a game.Game, copies included. Field names never change once
 // released.
 type gameDoc struct {
-	V          int        `json:"v"`
-	Title      string     `json:"title"`
-	Links      game.Links `json:"links,omitempty"`
-	Notes      string     `json:"notes,omitempty"`
-	CoverURL   string     `json:"coverUrl,omitempty"`
-	CoverPhoto string     `json:"coverPhoto,omitempty"`
-	PlayStatus string     `json:"playStatus,omitempty"`
-	Rating     int        `json:"rating,omitempty"`
+	V     int        `json:"v"`
+	Title string     `json:"title"`
+	Links game.Links `json:"links,omitempty"`
+	Notes string     `json:"notes,omitempty"`
+
+	// CoverURL and CoverPhoto are the game's single cover of version-2 documents, converted to
+	// edition covers when read (game.AdoptGameCover); never written.
+	CoverURL   string `json:"coverUrl,omitempty"`
+	CoverPhoto string `json:"coverPhoto,omitempty"`
+
+	// Covers are the covers chosen per system; MainSystem the user's main edition.
+	Covers     map[string]coverDoc `json:"covers,omitempty"`
+	MainSystem string              `json:"mainSystem,omitempty"`
+	PlayStatus string              `json:"playStatus,omitempty"`
+	Rating     int                 `json:"rating,omitempty"`
 
 	Fields    map[string]fieldValueDoc `json:"fields,omitempty"`
 	CreatedAt string                   `json:"createdAt"`
 	UpdatedAt string                   `json:"updatedAt"`
 	Copies    []copyDoc                `json:"copies,omitempty"`
+}
+
+// coverDoc is the stored form of a game.EditionCover: a URL or a photo id.
+type coverDoc struct {
+	URL   string `json:"url,omitempty"`
+	Photo string `json:"photo,omitempty"`
 }
 
 // copyDoc is the stored form of a game.Copy.
@@ -77,6 +91,8 @@ type copyDoc struct {
 	PriceAmount   int64         `json:"priceAmount,omitempty"`
 	PriceCurrency string        `json:"priceCurrency,omitempty"`
 	Notes         string        `json:"notes,omitempty"`
+	System        string        `json:"system,omitempty"`
+	SourceSystem  string        `json:"sourceSystem,omitempty"`
 	Photos        []photoDoc    `json:"photos,omitempty"`
 	Estimates     []estimateDoc `json:"estimates,omitempty"`
 	NextValuation string        `json:"nextValuation,omitempty"`
@@ -170,8 +186,8 @@ func encodeGame(g *game.Game) (string, error) {
 		Title:      info.Title,
 		Links:      info.Links,
 		Notes:      info.Notes,
-		CoverURL:   info.CoverURL,
-		CoverPhoto: string(info.CoverPhoto),
+		Covers:     coversToDoc(g.Covers()),
+		MainSystem: g.MainSystem(),
 		PlayStatus: string(info.PlayStatus),
 		Rating:     int(info.Rating),
 		Fields:     fieldsToDoc(g.Fields()),
@@ -197,6 +213,8 @@ func encodeGame(g *game.Game) (string, error) {
 			PriceAmount:   c.Price.Amount,
 			PriceCurrency: c.Price.Currency,
 			Notes:         c.Notes,
+			System:        c.CopyDetails.System,
+			SourceSystem:  c.SourceSystem,
 			Photos:        photoDocs(c.Photos),
 			Estimates:     estimateDocs(c.Estimates),
 			NextValuation: optionalTime(c.NextValuation),
@@ -248,7 +266,8 @@ func decodeGame(id game.ID, raw string) (*game.Game, error) {
 					Amount:   c.PriceAmount,
 					Currency: c.PriceCurrency,
 				},
-				Notes: c.Notes,
+				Notes:  c.Notes,
+				System: c.System,
 			},
 			Photos:        photosOf(c.Photos),
 			Estimates:     estimatesOf(c.Estimates),
@@ -257,6 +276,7 @@ func decodeGame(id game.ID, raw string) (*game.Game, error) {
 			Fields:        fieldsFromDoc(c.Fields),
 			SourceID:      c.SourceID,
 			ExternalID:    c.ExternalID,
+			SourceSystem:  c.SourceSystem,
 			CreatedAt:     parseTime(c.CreatedAt),
 			UpdatedAt:     parseTime(c.UpdatedAt),
 		}
@@ -276,14 +296,51 @@ func decodeGame(id game.ID, raw string) (*game.Game, error) {
 		Title:      doc.Title,
 		Links:      doc.Links,
 		Notes:      doc.Notes,
-		CoverURL:   doc.CoverURL,
-		CoverPhoto: game.PhotoID(doc.CoverPhoto),
 		PlayStatus: game.PlayStatus(doc.PlayStatus),
 		Rating:     game.Rating(doc.Rating),
 		Fields:     fieldsFromDoc(doc.Fields),
 	}
 
-	return game.Rehydrate(id, info, copies, parseTime(doc.CreatedAt), parseTime(doc.UpdatedAt)), nil
+	g := game.Rehydrate(id, info, copies, parseTime(doc.CreatedAt), parseTime(doc.UpdatedAt))
+	if doc.V < 3 {
+		g.AdoptGameCover(doc.CoverURL, game.PhotoID(doc.CoverPhoto))
+	} else {
+		g.RestoreEditions(coversFromDoc(doc.Covers), doc.MainSystem)
+	}
+
+	return g, nil
+}
+
+func coversToDoc(covers map[string]game.EditionCover) map[string]coverDoc {
+	if len(covers) == 0 {
+		return nil
+	}
+
+	out := make(map[string]coverDoc, len(covers))
+	for system, c := range covers {
+		out[system] = coverDoc{
+			URL:   c.URL,
+			Photo: string(c.Photo),
+		}
+	}
+
+	return out
+}
+
+func coversFromDoc(docs map[string]coverDoc) map[string]game.EditionCover {
+	if len(docs) == 0 {
+		return nil
+	}
+
+	out := make(map[string]game.EditionCover, len(docs))
+	for system, d := range docs {
+		out[system] = game.EditionCover{
+			URL:   d.URL,
+			Photo: game.PhotoID(d.Photo),
+		}
+	}
+
+	return out
 }
 
 func encodeSource(s *source.Source) (string, error) {

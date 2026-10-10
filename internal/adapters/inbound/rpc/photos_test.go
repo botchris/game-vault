@@ -247,14 +247,15 @@ func TestCopyPhotos_endToEnd(t *testing.T) {
 		})
 
 		t.Run("WHEN a photo becomes the cover", func(t *testing.T) {
-			res, err := c.games.SetCoverPhoto(ctx, connect.NewRequest(&pb.SetCoverPhotoRequest{
-				GameId:  g.Id,
-				PhotoId: ids[0],
+			res, err := c.games.SetEditionCover(ctx, connect.NewRequest(&pb.SetEditionCoverRequest{
+				GameId: g.Id,
+				System: g.Copies[0].EffectiveSystem,
+				Cover:  &pb.SetEditionCoverRequest_PhotoId{PhotoId: ids[0]},
 			}))
 			require.NoError(t, err)
 
 			t.Run("THEN the game says so and its cover is that photo", func(t *testing.T) {
-				assert.Equal(t, ids[0], res.Msg.Game.CoverPhotoId)
+				assert.Equal(t, ids[0], res.Msg.Game.Editions[0].CoverPhotoId)
 
 				r, err := http.Get(c.baseURL + "/media/covers/" + g.Id)
 				require.NoError(t, err)
@@ -270,21 +271,21 @@ func TestCopyPhotos_endToEnd(t *testing.T) {
 				assert.Equal(t, want, data)
 			})
 
-			t.Run("AND editing the title keeps it, but a new custom cover URL replaces it", func(t *testing.T) {
+			t.Run("AND editing the title keeps it, but choosing a cover URL for the edition replaces it", func(t *testing.T) {
 				kept, err := c.games.UpdateGame(ctx, connect.NewRequest(&pb.UpdateGameRequest{
 					Id:    g.Id,
 					Title: "Halo 3 (2007)",
 				}))
 				require.NoError(t, err)
-				assert.Equal(t, ids[0], kept.Msg.Game.CoverPhotoId)
+				assert.Equal(t, ids[0], kept.Msg.Game.Editions[0].CoverPhotoId)
 
-				replaced, err := c.games.UpdateGame(ctx, connect.NewRequest(&pb.UpdateGameRequest{
-					Id:       g.Id,
-					Title:    "Halo 3 (2007)",
-					CoverUrl: "https://example.test/halo.jpg",
+				replaced, err := c.games.SetEditionCover(ctx, connect.NewRequest(&pb.SetEditionCoverRequest{
+					GameId: g.Id,
+					System: g.Copies[0].EffectiveSystem,
+					Cover:  &pb.SetEditionCoverRequest_Url{Url: "https://example.test/halo.jpg"},
 				}))
 				require.NoError(t, err)
-				assert.Empty(t, replaced.Msg.Game.CoverPhotoId)
+				assert.Empty(t, replaced.Msg.Game.Editions[0].CoverPhotoId)
 			})
 		})
 

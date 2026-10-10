@@ -78,9 +78,12 @@ const (
 	// GameServiceReorderCopyPhotosProcedure is the fully-qualified name of the GameService's
 	// ReorderCopyPhotos RPC.
 	GameServiceReorderCopyPhotosProcedure = "/gamevault.v1.GameService/ReorderCopyPhotos"
-	// GameServiceSetCoverPhotoProcedure is the fully-qualified name of the GameService's SetCoverPhoto
-	// RPC.
-	GameServiceSetCoverPhotoProcedure = "/gamevault.v1.GameService/SetCoverPhoto"
+	// GameServiceSetEditionCoverProcedure is the fully-qualified name of the GameService's
+	// SetEditionCover RPC.
+	GameServiceSetEditionCoverProcedure = "/gamevault.v1.GameService/SetEditionCover"
+	// GameServiceSetMainEditionProcedure is the fully-qualified name of the GameService's
+	// SetMainEdition RPC.
+	GameServiceSetMainEditionProcedure = "/gamevault.v1.GameService/SetMainEdition"
 )
 
 // GameServiceClient is a client for the gamevault.v1.GameService service.
@@ -115,7 +118,10 @@ type GameServiceClient interface {
 	UpdateCopyPhoto(context.Context, *connect.Request[v1.UpdateCopyPhotoRequest]) (*connect.Response[v1.UpdateCopyPhotoResponse], error)
 	RemoveCopyPhoto(context.Context, *connect.Request[v1.RemoveCopyPhotoRequest]) (*connect.Response[v1.RemoveCopyPhotoResponse], error)
 	ReorderCopyPhotos(context.Context, *connect.Request[v1.ReorderCopyPhotosRequest]) (*connect.Response[v1.ReorderCopyPhotosResponse], error)
-	SetCoverPhoto(context.Context, *connect.Request[v1.SetCoverPhotoRequest]) (*connect.Response[v1.SetCoverPhotoResponse], error)
+	// Chooses an edition's cover. An unknown system, or a photo of another system's copy, is
+	// InvalidArgument with a message that names the system.
+	SetEditionCover(context.Context, *connect.Request[v1.SetEditionCoverRequest]) (*connect.Response[v1.SetEditionCoverResponse], error)
+	SetMainEdition(context.Context, *connect.Request[v1.SetMainEditionRequest]) (*connect.Response[v1.SetMainEditionResponse], error)
 }
 
 // NewGameServiceClient constructs a client for the gamevault.v1.GameService service. By default, it
@@ -243,10 +249,16 @@ func NewGameServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(gameServiceMethods.ByName("ReorderCopyPhotos")),
 			connect.WithClientOptions(opts...),
 		),
-		setCoverPhoto: connect.NewClient[v1.SetCoverPhotoRequest, v1.SetCoverPhotoResponse](
+		setEditionCover: connect.NewClient[v1.SetEditionCoverRequest, v1.SetEditionCoverResponse](
 			httpClient,
-			baseURL+GameServiceSetCoverPhotoProcedure,
-			connect.WithSchema(gameServiceMethods.ByName("SetCoverPhoto")),
+			baseURL+GameServiceSetEditionCoverProcedure,
+			connect.WithSchema(gameServiceMethods.ByName("SetEditionCover")),
+			connect.WithClientOptions(opts...),
+		),
+		setMainEdition: connect.NewClient[v1.SetMainEditionRequest, v1.SetMainEditionResponse](
+			httpClient,
+			baseURL+GameServiceSetMainEditionProcedure,
+			connect.WithSchema(gameServiceMethods.ByName("SetMainEdition")),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -273,7 +285,8 @@ type gameServiceClient struct {
 	updateCopyPhoto   *connect.Client[v1.UpdateCopyPhotoRequest, v1.UpdateCopyPhotoResponse]
 	removeCopyPhoto   *connect.Client[v1.RemoveCopyPhotoRequest, v1.RemoveCopyPhotoResponse]
 	reorderCopyPhotos *connect.Client[v1.ReorderCopyPhotosRequest, v1.ReorderCopyPhotosResponse]
-	setCoverPhoto     *connect.Client[v1.SetCoverPhotoRequest, v1.SetCoverPhotoResponse]
+	setEditionCover   *connect.Client[v1.SetEditionCoverRequest, v1.SetEditionCoverResponse]
+	setMainEdition    *connect.Client[v1.SetMainEditionRequest, v1.SetMainEditionResponse]
 }
 
 // ListGames calls gamevault.v1.GameService.ListGames.
@@ -371,9 +384,14 @@ func (c *gameServiceClient) ReorderCopyPhotos(ctx context.Context, req *connect.
 	return c.reorderCopyPhotos.CallUnary(ctx, req)
 }
 
-// SetCoverPhoto calls gamevault.v1.GameService.SetCoverPhoto.
-func (c *gameServiceClient) SetCoverPhoto(ctx context.Context, req *connect.Request[v1.SetCoverPhotoRequest]) (*connect.Response[v1.SetCoverPhotoResponse], error) {
-	return c.setCoverPhoto.CallUnary(ctx, req)
+// SetEditionCover calls gamevault.v1.GameService.SetEditionCover.
+func (c *gameServiceClient) SetEditionCover(ctx context.Context, req *connect.Request[v1.SetEditionCoverRequest]) (*connect.Response[v1.SetEditionCoverResponse], error) {
+	return c.setEditionCover.CallUnary(ctx, req)
+}
+
+// SetMainEdition calls gamevault.v1.GameService.SetMainEdition.
+func (c *gameServiceClient) SetMainEdition(ctx context.Context, req *connect.Request[v1.SetMainEditionRequest]) (*connect.Response[v1.SetMainEditionResponse], error) {
+	return c.setMainEdition.CallUnary(ctx, req)
 }
 
 // GameServiceHandler is an implementation of the gamevault.v1.GameService service.
@@ -408,7 +426,10 @@ type GameServiceHandler interface {
 	UpdateCopyPhoto(context.Context, *connect.Request[v1.UpdateCopyPhotoRequest]) (*connect.Response[v1.UpdateCopyPhotoResponse], error)
 	RemoveCopyPhoto(context.Context, *connect.Request[v1.RemoveCopyPhotoRequest]) (*connect.Response[v1.RemoveCopyPhotoResponse], error)
 	ReorderCopyPhotos(context.Context, *connect.Request[v1.ReorderCopyPhotosRequest]) (*connect.Response[v1.ReorderCopyPhotosResponse], error)
-	SetCoverPhoto(context.Context, *connect.Request[v1.SetCoverPhotoRequest]) (*connect.Response[v1.SetCoverPhotoResponse], error)
+	// Chooses an edition's cover. An unknown system, or a photo of another system's copy, is
+	// InvalidArgument with a message that names the system.
+	SetEditionCover(context.Context, *connect.Request[v1.SetEditionCoverRequest]) (*connect.Response[v1.SetEditionCoverResponse], error)
+	SetMainEdition(context.Context, *connect.Request[v1.SetMainEditionRequest]) (*connect.Response[v1.SetMainEditionResponse], error)
 }
 
 // NewGameServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -532,10 +553,16 @@ func NewGameServiceHandler(svc GameServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(gameServiceMethods.ByName("ReorderCopyPhotos")),
 		connect.WithHandlerOptions(opts...),
 	)
-	gameServiceSetCoverPhotoHandler := connect.NewUnaryHandler(
-		GameServiceSetCoverPhotoProcedure,
-		svc.SetCoverPhoto,
-		connect.WithSchema(gameServiceMethods.ByName("SetCoverPhoto")),
+	gameServiceSetEditionCoverHandler := connect.NewUnaryHandler(
+		GameServiceSetEditionCoverProcedure,
+		svc.SetEditionCover,
+		connect.WithSchema(gameServiceMethods.ByName("SetEditionCover")),
+		connect.WithHandlerOptions(opts...),
+	)
+	gameServiceSetMainEditionHandler := connect.NewUnaryHandler(
+		GameServiceSetMainEditionProcedure,
+		svc.SetMainEdition,
+		connect.WithSchema(gameServiceMethods.ByName("SetMainEdition")),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/gamevault.v1.GameService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -578,8 +605,10 @@ func NewGameServiceHandler(svc GameServiceHandler, opts ...connect.HandlerOption
 			gameServiceRemoveCopyPhotoHandler.ServeHTTP(w, r)
 		case GameServiceReorderCopyPhotosProcedure:
 			gameServiceReorderCopyPhotosHandler.ServeHTTP(w, r)
-		case GameServiceSetCoverPhotoProcedure:
-			gameServiceSetCoverPhotoHandler.ServeHTTP(w, r)
+		case GameServiceSetEditionCoverProcedure:
+			gameServiceSetEditionCoverHandler.ServeHTTP(w, r)
+		case GameServiceSetMainEditionProcedure:
+			gameServiceSetMainEditionHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -665,6 +694,10 @@ func (UnimplementedGameServiceHandler) ReorderCopyPhotos(context.Context, *conne
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gamevault.v1.GameService.ReorderCopyPhotos is not implemented"))
 }
 
-func (UnimplementedGameServiceHandler) SetCoverPhoto(context.Context, *connect.Request[v1.SetCoverPhotoRequest]) (*connect.Response[v1.SetCoverPhotoResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gamevault.v1.GameService.SetCoverPhoto is not implemented"))
+func (UnimplementedGameServiceHandler) SetEditionCover(context.Context, *connect.Request[v1.SetEditionCoverRequest]) (*connect.Response[v1.SetEditionCoverResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gamevault.v1.GameService.SetEditionCover is not implemented"))
+}
+
+func (UnimplementedGameServiceHandler) SetMainEdition(context.Context, *connect.Request[v1.SetMainEditionRequest]) (*connect.Response[v1.SetMainEditionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gamevault.v1.GameService.SetMainEdition is not implemented"))
 }

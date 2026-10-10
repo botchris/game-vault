@@ -77,7 +77,8 @@ it once saved. How to write one: [`docs/plugins.md`](plugins.md).
 | Concept          | Kind                  | Notes |
 |------------------|-----------------------|-------|
 | `Game`           | Aggregate root        | Title, links to stores (`{"steam": "620"}`), notes, play status, rating, and its copies. Every copy change goes through the game. |
-| `Copy`           | Entity inside `Game`  | `kind` is `key`, `library` or `physical`. `status` must be valid for the kind. Holds platform, key, redeem-by date, origin, edition, purchase date and price (any kind), and for physical copies grade, contents and location. |
+| `Copy`           | Entity inside `Game`  | `kind` is `key`, `library` or `physical`. `status` must be valid for the kind. Holds platform, key, redeem-by date, origin, edition, purchase date and price (any kind), and for physical copies grade, contents and location, and the system it is played on (see below). |
+| `Edition`        | Derived from the copies | One per system of a game's copies (PC, PS3, Xbox 360…). It holds only its chosen cover (a URL or a photo of one of its copies); the game stores those by system and an optional main system. |
 | `Source`         | Aggregate root        | A scanned account: type, settings (secrets masked towards clients), interval, last sync report. |
 | `Consolidator`   | Domain service        | Merges imported copies into the catalog. It matches by external id, then by any store link the copy shares with a game, then by normalised title (no trademarks, brackets, edition words or "<store> key", so "Hades - GOG Key" is "hades"); if nothing matches it creates a new game. |
 
@@ -85,6 +86,27 @@ The **play status** (`backlog`, `playing`, `finished`, `abandoned`, or not set) 
 (1 to 5 stars, 0 when unrated) belong to the game, not to a copy: owning a game twice does not mean
 playing it twice. Merging games keeps the kept game's status and rating and takes the other's only
 where it has none. They are not part of the CSV, which has one row per copy.
+
+### Systems and editions
+
+A copy's **platform** says where it lives (Steam, a Humble key, a PS4 disc). Its **system** says
+where it is played: the user's override on the copy, else the system its source states (PlayStation
+copies say PS4 or PS5), else the one its platform implies. PC stores and launchers (Steam, Epic
+Games, GOG, EA App, Ubisoft Connect, Battle.net, itch.io, Amazon Games and the like) and the
+ambiguous "Microsoft Store / Xbox" imply `PC`; console names are their own system; "PlayStation
+Store" implies PS4 and "Nintendo eShop" Switch. An unknown platform is its own system and an empty
+one is `Other`. A source that lists PC copies sets `ImportedCopy.System` to `game.SystemPC`. Scans
+never touch the override; the form's **System** field clears it when emptied. A system name is
+stored in game documents and in cover file names, so existing names never change.
+
+A game has one **edition** per system of its copies. The **main edition** is the one the user chose
+(**Use as the game's cover**), else one with a physical copy, then the one with the most copies,
+then the first by system. A chosen cover whose system has no copy left is dropped, a photo cover
+must be of a copy of that system, and a main system without copies is cleared. A game without
+copies keeps its chosen cover under the empty system until its first copy appears: it then moves to
+that edition if it has no cover of its own, else it is dropped. Merging games keeps the kept game's
+covers and main system and fills the gaps from the other. Redundant keys still compare platforms;
+play status, rating, notes and custom fields stay on the game.
 
 A key is **redundant** when it is pending (unrevealed or revealed) and the same game already has a `library` copy on the same platform. It is a key you can gift.
 Re-scans never move a key you marked as `redeemed` back to pending.
@@ -95,15 +117,22 @@ a **purchase price**: an amount in the currency's minor unit (cents for EUR, yen
 BHD) and its ISO 4217 code; Game Vault never converts currencies. The **default currency** (System →
 Preferences, stored in the `settings` table) fills new prices and CSV rows without a currency; until
 it is saved the UI proposes the browser region's currency. Scans never set or clear grade, contents
-or price. Game documents are version 2: the free-text `condition` of version-1 documents is
+or price. Game documents are version 3: the free-text `condition` of version-1 documents is
 converted when read (the five texts the form used to suggest, in English or Spanish, become a grade
-and contents; anything else is appended to the notes as `Condition: …`).
+and contents; anything else is appended to the notes as `Condition: …`), and so are version-2
+documents (a cover photo goes to its copy's edition, which becomes the main one; a cover URL goes
+to the default main edition, unless the photo took it: when both land on the same edition, the
+photo wins and the URL is not kept). Migration `0010` only triggers the
+pre-migration backup.
 
 **CSV** (System → import / export) is English only: `title, platform, kind, status, key, redeemBy,
 origin, acquiredOn, edition, grade, contents, location, price, currency, notes, links, externalId,
-barcode`. `grade` and `contents` take the values above (`very_good`, `box manual media`), `price` a
+barcode, system`. `grade` and `contents` take the values above (`very_good`, `box manual media`), `price` a
 dot or comma decimal with at most the currency's decimals. Unknown columns and invalid values are
-reported per row; the row is still imported.
+reported per row; the row is still imported. The export writes each copy's effective system. The
+import keeps `system` as the copy's own system only when it differs from the copy's effective one
+(for a new copy, the one its platform implies), so re-importing an export pins nothing; empty means
+automatic, and an import never clears an override the copy already has.
 
 ## Configuration
 
@@ -134,7 +163,7 @@ state, like `/config` in Sonarr or Radarr. It is git-ignored.
 | `photos/` | The photos of your copies. They exist nowhere else: back them up with the database |
 | `backups/` | Database snapshots and their photo store (see [Backups](#backups)) |
 | `logs/` | Server logs, rotated by size (limits set on the Logs page) |
-| `game-data/` | One folder per game (`<title> [<id>]`): `cover.jpg`, sheet screenshots, trailer posters and `assets.json` (where each image came from). Downloaded again when missing: safe to delete |
+| `game-data/` | One folder per game (`<title> [<id>]`): `cover-<system>-<hash>.jpg` per edition (and `.missing` markers), sheet screenshots, trailer posters and `assets.json` (where each image came from). A `cover.jpg` from before editions is adopted by the main edition on first view when it can only be that edition's (see Covers), else deleted. Downloaded again when missing: safe to delete |
 
 To back up Game Vault by hand, stop it and copy the whole directory; `game-data/` can be left out.
 Treat the copy like a password manager's file: the database holds store sessions and CD keys.
@@ -261,14 +290,17 @@ Each provider declares which games it applies to. That keeps providers with a qu
 
 | Cover provider | Applies to | Notes |
 |---|---|---|
-| Chosen / custom cover | any game with a cover URL | Always first. Set with **Choose cover…** or by pasting a URL |
-| TheGamesDB | physical copies, games no store knows, and store games no store had art for | Platform-specific box art (Xbox 360 case, PS3 case…). Needs an API key, which has a monthly allowance. **Test** checks the key without spending it, and says so when this month's allowance is used up |
-| Steam | games linked to Steam | No key, no quota |
-| Epic, GOG, Ubisoft, EA, Battle.net, Xbox | games imported from that store | Official box art, no key, no quota (see below) |
+| Chosen cover | the edition it was chosen for | Always first. Set with **Choose cover…** (a candidate, or a photo of one of the edition's copies) |
+| TheGamesDB | any system, searching that system's box art: physical copies, editions no store knows, and on the fallback pass | Platform-specific box art (Xbox 360 case, PS3 case…). Needs an API key, which has a monthly allowance. **Test** checks the key without spending it, and says so when this month's allowance is used up |
+| Steam | the PC edition of games linked to Steam | No key, no quota |
+| Epic, GOG, Ubisoft, EA, Battle.net | the PC edition of games linked to that store | Official box art, no key, no quota (see below) |
+| Xbox | the PC and Xbox editions of games linked to the Microsoft Store | Official box art, no key, no quota (see below) |
 
-`GET /media/covers/{gameId}` returns the cover. The first image found is stored in the game's folder in `config/game-data/`. A miss is remembered for 7 days so quotas are not spent again.
-Changing, enabling or reordering a cover provider forgets those misses.
-**Choose cover…** in the game page shows every enabled provider's proposals, and pins the one you pick.
+Covers are resolved per edition, in this order: the chosen photo, the chosen URL, the provider chain (with the fallback pass), the base game's cover for the same system (add-ons), else "missing". The first image found is stored in the game's folder in `config/game-data/`; a miss is remembered for 7 days per edition so quotas are not spent again. A cover from before editions (`cover.jpg`) was resolved for the whole game, so it may show another system's box. The main edition (or a game's cover under the empty system) adopts it on first view instead of downloading again only when the game has at most one system, or when the main edition has a chosen cover (a URL or a photo); otherwise the file is deleted and the main edition resolves its own. Making another edition the main one deletes it too, so the new main edition never adopts the old one's image.
+`GET /media/covers/{gameId}/{system}` (the system URL-escaped) returns an edition's cover and `GET /media/covers/{gameId}` the main edition's; a miss is a 404 with `no-store`. `CoverQuery.System` carries the edition's system and each provider's `Applies` decides by it (`ForPC()` for the store providers).
+A scan or an edit drops the cached covers only of the editions whose cover inputs changed: their chosen cover, their copies' platforms (or whether one is physical) or the game's store links. Adding a disc or a key to an edition does not refetch its cover, which spares TheGamesDB's quota. Choosing an edition's cover keeps the cached sheet; only deleting the game drops it.
+Changing, enabling or reordering a cover provider forgets the misses.
+**Choose cover…** in the game sheet shows every enabled provider's proposals for the edition's system, and the photos of that edition's copies, and pins the one you pick.
 Images are plain HTTP rather than RPC so browsers can load and cache them with `<img>`. Everything else goes through Connect.
 For games no store knows (physical games, for example), link them under **Edit → Store links** (each provider that can search its store offers **Search…**), or paste any image URL.
 
@@ -278,12 +310,19 @@ Store covers: every library source links the games it imports to its store (Stea
 
 - **Sort** by title (A–Z or Z–A), recently added, release year, redeem deadline, number of copies or rating. The choice and the view (covers or list) are remembered per device.
 - **A–Z bar**: jump to the games starting with a letter (`#` groups titles starting with a digit or symbol). Letters with no games under the current filters are greyed out.
-- **Filters**: kind of copy, play status, source, platform, genre and the custom list, multilist and yes/no fields, plus quick filters for pending keys, keys expiring in 30 days and keys you don't need. Each option shows how many games it matches.
+- **Two views**, chosen with "By platform | By game" next to Covers / List and remembered per device ("By platform" by default). **By platform** shows a card or row per edition: its cover, the game title, the system badge, small store badges on PC, and the pending or redundant badges of that edition's copies; a box borrowed from another edition is labelled "<system> box". The header counts "N editions of M games". **By game** shows the main edition's cover with the badges of all the game's systems. When an edition's cover answers 404, the card borrows the main edition's, then the other editions'.
+- **Filters**: system, kind of copy, play status, source, platform, genre and the custom list, multilist and yes/no fields, plus quick filters for pending keys, keys expiring in 30 days and keys you don't need. The System filter counts editions in "By platform" and games in "By game". In "By platform", copy-level filters (kind, platform, source, copy fields, redundant keys) keep an edition when one of its copies matches; game-level ones (play status, rating, genres, game fields) and the search apply to all of a game's editions. Ties in a sort are broken by system. Other options show how many games they match.
 - **Genres and release year** come from the game details. Game Vault downloads the details of Steam-linked games in the background (in the UI language, at a gentle pace), so the genre filter fills in over the first hours; the filter panel says how many games are covered so far.
-- **Platform badges** on every cover show where you have the game: the store or console logo (with the generation for consoles: PS3, 360…). Solid badges are copies you own; hollow ones with a key glyph are keys you have not redeemed yet. Sold, gifted and expired copies are not shown. Logos come from [Simple Icons](https://simpleicons.org) (CC0); Xbox and Nintendo, which Simple Icons does not ship, use simple drawn glyphs. Brand logos are trademarks of their owners.
+- **System badges** in "By game" show where you have the game: the store or console logo (with the generation for consoles: PS3, 360…). Solid badges are copies you own; hollow ones with a key glyph are keys you have not redeemed yet. Sold, gifted and expired copies are not shown. Logos come from [Simple Icons](https://simpleicons.org) (CC0); Xbox and Nintendo, which Simple Icons does not ship, use simple drawn glyphs. Brand logos are trademarks of their owners.
 - On phones the sidebar becomes a bottom tab bar, filters open as a bottom sheet and the game sheet takes the full screen.
 
 ## Game sheets
+
+The sheet opens on the edition that was clicked (the main one when opened from a link). With two or
+more editions, chips switch between them. The hero shows that edition's cover and, when the box is
+borrowed, says so and offers **Choose cover…** and **Use a photo**; **Use as the game's cover**
+makes a non-main edition the main one. Copies are grouped by system, the current edition first, and
+the copy form has a **System** field (the derived system as placeholder; emptied means automatic).
 
 The hero of the sheet holds the **play status** chips and the **rating** stars. Both save on click;
 clicking the current one again clears it. The list view shows them next to each game.
@@ -296,15 +335,15 @@ It comes from the **game details** provider chain. The first provider gives the 
 | Steam store | games linked to Steam | In the UI language, free. Trailers are HLS streams, played natively in Safari or with hls.js (loaded on demand) elsewhere |
 | TheGamesDB | physical copies or games without store links | Platform-specific, in English. Shares the key with TheGamesDB covers. About 2 requests per game; genre and company lists are fetched once per run |
 
-Sheets are fetched when a game is opened and cached in `game_details` for 30 days, per language. **Refresh details** fetches them again.
+Game sheets stay per game, not per edition. Sheets are fetched when a game is opened and cached in `game_details` for 30 days, per language. **Refresh details** fetches them again.
 
-Every image of a game lives in its own folder, `config/game-data/<title> [<id>]/`. That folder holds `cover.jpg`, the screenshots and their thumbnails, the trailer posters, and `assets.json`, which records where each image came from.
+Every image of a game lives in its own folder, `config/game-data/<title> [<id>]/`. That folder holds the covers (one per edition), the screenshots and their thumbnails, the trailer posters, and `assets.json`, which records where each image came from.
 When a sheet is opened, its images are downloaded in the background. From then on the UI loads them from disk through `GET /media/games/{id}/assets/{name}`. A file that goes missing is downloaded again on first request.
 Names are derived from the source URL, so a changed image gets a new file and images dropped from the sheet are deleted.
 Only trailers stream from the provider; they are hundreds of MB each.
 The image proxy is only used when exploring new options (choose cover, scan suggestions). Folders are renamed when a game is renamed and deleted with the game.
 Covers from the old flat `config/covers/` layout are moved into `game-data` on first start.
-Changing a game's store links or cover drops its cached sheet. Descriptions are converted to plain text, so third-party HTML is never rendered.
+The sheet is dropped only when the game is deleted. Descriptions are converted to plain text, so third-party HTML is never rendered.
 
 ## Custom fields
 
@@ -375,9 +414,10 @@ Scans never touch field values: sources write store data only, so values survive
 
 Any copy (key, library or physical) can have up to 50 photos, in the order the user chooses, each
 with an optional caption (at most 200 characters), the date it was taken and the date it was added.
-One of them can be the game's cover: a cover photo wins over the custom cover URL and the providers.
-Editing the game keeps it; choosing another custom cover URL replaces it; removing the photo (or
-the copy) clears it when no other copy of the game has that photo.
+One of them can be the cover of its copy's edition: a cover photo wins over the chosen URL and the
+providers. Editing the game keeps it; choosing another cover for the edition replaces it; removing
+the photo (or the copy), or moving the copy to another system, clears it when no other copy of that
+edition has that photo.
 
 - **Files.** `config/photos/<first two hex>/<sha256>.jpg` and `<sha256>-thumb.jpg`. A photo is named
   after the SHA-256 of its stored JPEG, so the same image is stored once and a file never changes
@@ -397,7 +437,7 @@ the copy) clears it when no other copy of the game has that photo.
   The server computes the id, reads `DateTimeOriginal` (or `DateTime`) from the EXIF metadata and
   answers `{"id", "takenAt"}`. EXIF dates have no zone, so `takenAt` is the camera's clock reading
   stored as UTC and shown as a date in UTC. The photo is then attached with `AddCopyPhotos`;
-  `UpdateCopyPhoto`, `ReorderCopyPhotos`, `RemoveCopyPhoto` and `SetCoverPhoto` edit them.
+  `UpdateCopyPhoto`, `ReorderCopyPhotos`, `RemoveCopyPhoto` and `SetEditionCover` edit them.
 - **Serving.** `GET /media/photos/{id}` and `/media/photos/{id}/thumb`, cached as immutable.
 - **Cleanup.** An hour after start and then daily, photo files no copy references are deleted once
   they are a day old, so a photo being attached, or removed by mistake and uploaded again, survives.

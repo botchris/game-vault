@@ -203,7 +203,7 @@ func (s *Service) fetchDetails(ctx context.Context, id game.ID, language string)
 		return GameDetails{}, nil, err
 	}
 
-	q := QueryFor(g)
+	q := QueryFor(g, "") // a game's sheet describes it on every system
 	merged := GameDetails{
 		Language:  language,
 		FetchedAt: s.now(),

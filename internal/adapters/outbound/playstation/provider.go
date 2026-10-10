@@ -483,13 +483,23 @@ func mapTitles(titles []title) []game.ImportedCopy {
 		}
 
 		seen[id] = true
+		platform := platformName(t.Platform)
+
+		// The system is set on purpose although it equals the platform's system: Sony says which
+		// console the title was bought for, and the copy keeps it as the source's system.
+		system := platform
+		if platform == "PlayStation Store" {
+			system = "" // Sony did not say which console: the platform's system applies
+		}
+
 		out = append(out, game.ImportedCopy{
 			ExternalID: "psn:" + id,
 			Links:      game.Links{LinkedStore.Key: id},
 			Title:      name,
+			System:     system,
 			Details: game.CopyDetails{
 				Kind:     game.KindLibrary,
-				Platform: platformName(t.Platform),
+				Platform: platform,
 				Status:   game.StatusOwned,
 				Origin:   "PlayStation Store",
 			},

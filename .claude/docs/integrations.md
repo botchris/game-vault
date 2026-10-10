@@ -68,8 +68,9 @@ non-2xx answers, which `StatusError` keeps only as a snippet.
 1. `covers.go` in the store's package (or a new package): `CoverProviderID`, `Descriptor()` with
    `Kind: provider.KindCover`, `EnabledByDefault: true` when it is free, and a `DefaultOrder`.
 2. `Applies(q)` must not touch the network: decide from `q.Links[LinkedStore.Key]` (the game's
-   link to the store; implement `media.StoreLinker` too), `q.Platforms`, `q.PhysicalPlatforms`. Quota-limited providers also check
-   `q.HasStoreLink()` / `q.Fallback`.
+   link to the store; implement `media.StoreLinker` too), `q.Platforms`, `q.PhysicalPlatforms`. `q.System` is the edition's system (`""` when the query names none): a
+   store provider applies only when `q.ForPC()`; a console catalog checks the system (see
+   `xbox.IsXboxSystem`). Quota-limited providers also check `q.HasStoreLink()` / `q.Fallback`.
 3. `Covers(ctx, q, settings)` returns candidates best first (portrait art before landscape), each
    with `URL`, `ThumbURL`, a `Label` saying where it comes from, and `Provider`. Return `nil, nil`
    when the game is unknown; errors only for real failures.

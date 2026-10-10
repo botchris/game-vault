@@ -55,9 +55,9 @@ func (c *Covers) LinkStore() game.Store { return LinkedStore }
 // proxy, which only fetches from declared hosts.
 func (c *Covers) ImageHosts() []string { return []string{imageHost} }
 
-// Applies reports whether the game is linked to the store. It decides from the query alone,
-// without the network.
-func (c *Covers) Applies(q media.CoverQuery) bool { return q.Links[LinkedStore.Key] != "" }
+// Applies reports whether the game is linked to the store, for its PC edition. It decides from the
+// query alone, without the network.
+func (c *Covers) Applies(q media.CoverQuery) bool { return q.ForPC() && q.Links[LinkedStore.Key] != "" }
 
 type product struct {
 	Title string `json:"title"`

@@ -19,7 +19,8 @@ Game Vault puts your whole collection in one catalog that runs on your own compu
 - **Keys are tracked:** which ones you have not redeemed, which expire soon, and which you don't
   need because you already own the game on that platform (so you can gift them). Steam keys get a
   direct "redeem" link.
-- **A proper catalog:** box art, search, sort, filters by platform, store, kind of copy and genre,
+- **A proper catalog:** box art for each platform you own a game on (a PS3 disc and an Xbox 360
+  disc each show their own box), search, sort, filters by platform, store, kind of copy and genre,
   and a sheet for every game with its summary, genres, developer, release date, trailers and
   screenshots.
 - Works on desktop and phone, in English and Spanish. Your data stays on your machine.

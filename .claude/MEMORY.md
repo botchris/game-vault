@@ -15,8 +15,8 @@ one line here. Update a file instead of adding a duplicate; date facts about ext
 ## Decisions
 - [License](memory/license.md) — PolyForm Noncommercial 1.0.0: source-available, no commercial use; never say "open source"
 - [Project name](memory/project-name.md) — stays "Game Vault" despite Phalcode's GameVault; no more rename proposals
-- [Data model](memory/data-model.md) — Game owns Copies and store Links (no store special); ExternalID prefixes and PhotoIDs must never change; shared platform names; copy photos
-- [Provider chains](memory/provider-chains.md) — chain order, TheGamesDB quota rules + fallback pass, bump `coverLogicChanged`
+- [Data model](memory/data-model.md) — Game owns Copies, store Links (no store special) and editions (a cover per system); ExternalID prefixes and PhotoIDs must never change; shared platform names; copy photos
+- [Provider chains](memory/provider-chains.md) — chain order, covers per edition (`Applies` by system), TheGamesDB quota rules + fallback pass, bump `coverLogicChanged`
 - [Credentials](memory/credentials.md) — `FieldState` for rotating secrets, `Preparer` code cache, always hand back the latest token; never two servers on one rotating credential (test copies: `-no-unattended`)
 - [Unattended requests](memory/unattended-requests.md) — keep-alive ±30%, scans ±10%, spread start-up
 - [Local images](memory/local-images.md) — downloads into `config/game-data`, proxy only for declared hosts

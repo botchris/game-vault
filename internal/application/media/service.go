@@ -27,10 +27,13 @@ import (
 // coverLogicChanged is when the way covers are found last improved (e.g. add-ons borrowing their
 // base game's cover). "No cover found" markers older than this are ignored, so games are retried
 // with the new logic instead of waiting for the marker to expire. Bump it with such changes.
-var coverLogicChanged = time.Date(2026, 10, 8, 12, 15, 0, 0, time.UTC) // EA and Battle.net cover providers, fallback pass
+var coverLogicChanged = time.Date(2026, 10, 10, 0, 0, 0, 0, time.UTC) // covers per edition (system)
 
 // ErrNoCover means no image could be found for the game.
 var ErrNoCover = errors.New("no cover available")
+
+// ErrNoEdition means the game has no copy on the system asked for.
+var ErrNoEdition = errors.New("the game has no copy on that system: reload the page")
 
 // ErrUnknownProvider means no implementation is registered under that id.
 var ErrUnknownProvider = errors.New("unknown provider")
@@ -45,20 +48,41 @@ type Image struct {
 // game, Plex-style): its cover, the "no cover found" marker, and the images of its details sheet,
 // with a record of where each one came from so it can be downloaded again if it goes missing.
 type AssetStore interface {
-	// GetCover returns the stored cover of a game, and whether there is one.
-	GetCover(id game.ID) (Image, bool, error)
+	// GetCover returns the stored cover of a game's edition, and whether there is one.
+	GetCover(id game.ID, system string) (Image, bool, error)
 
-	// PutCover stores the cover of a game, replacing the previous one.
-	PutCover(g GameRef, img Image) error
+	// PutCover stores the cover of a game's edition, replacing the previous one.
+	PutCover(g GameRef, system string, img Image) error
 
-	// MarkCoverMissing remembers that no cover was found, so the lookup is not repeated on every request.
-	MarkCoverMissing(g GameRef, at time.Time) error
+	// MarkCoverMissing remembers that no cover was found for an edition, so the lookup is not
+	// repeated on every request.
+	MarkCoverMissing(g GameRef, system string, at time.Time) error
 
-	// CoverMissingSince returns when no cover was last found for the game, and whether that was recorded.
-	CoverMissingSince(id game.ID) (time.Time, bool)
+	// CoverMissingSince returns when no cover was last found for an edition, and whether that was
+	// recorded.
+	CoverMissingSince(id game.ID, system string) (time.Time, bool)
 
-	// DeleteCover removes the stored cover and the "no cover found" marker.
-	DeleteCover(id game.ID) error
+	// ClearCoverMissing forgets that no cover was found for an edition, so it is looked up again;
+	// stored covers stay.
+	ClearCoverMissing(id game.ID, system string) error
+
+	// DeleteCover removes an edition's stored cover and "no cover found" marker; other editions'
+	// covers and the cover stored before editions stay.
+	DeleteCover(id game.ID, system string) error
+
+	// DeleteLegacyCover removes the cover stored before editions and its "no cover found" marker.
+	DeleteLegacyCover(id game.ID) error
+
+	// HasLegacyCover reports whether the cover stored before editions, or its "no cover found"
+	// marker, is still there.
+	HasLegacyCover(id game.ID) bool
+
+	// DeleteCovers removes the stored covers and markers of every edition of a game.
+	DeleteCovers(id game.ID) error
+
+	// AdoptLegacyCover makes the cover stored before editions the cover of the edition on system,
+	// and reports whether there was one.
+	AdoptLegacyCover(g GameRef, system string) (Image, bool, error)
 
 	// GetAsset returns a stored sheet image of a game, and whether there is one.
 	GetAsset(id game.ID, name string) (Image, bool, error)
@@ -87,6 +111,10 @@ type ImageFetcher interface {
 type CoverQuery struct {
 	Title string
 
+	// System is the edition's system ("PC", "PS3"…); empty when the query names none (a game
+	// without copies, a title search, a game sheet).
+	System string
+
 	// Links are the stores the game is linked to ({"steam": "620"}); a provider that knows a
 	// store reads its link.
 	Links game.Links
@@ -106,17 +134,23 @@ type CoverQuery struct {
 // Quota-limited providers skip those games.
 func (q CoverQuery) HasStoreLink() bool { return len(q.Links) > 0 }
 
+// ForPC reports whether PC store art fits the query: its system is PC, or it names none. Store
+// providers apply only then.
+func (q CoverQuery) ForPC() bool { return q.System == "" || q.System == game.SystemPC }
+
 // HasPhysical reports whether the game has at least one physical copy.
 func (q CoverQuery) HasPhysical() bool { return len(q.PhysicalPlatforms) > 0 }
 
-// QueryFor builds the cover query of a game.
-func QueryFor(g *game.Game) CoverQuery {
+// QueryFor builds the cover query of a game's edition on system, from that edition's copies. An
+// empty system takes every copy and names no system (games without copies, game sheets).
+func QueryFor(g *game.Game, system string) CoverQuery {
 	q := CoverQuery{
-		Title: g.Title(),
-		Links: g.Links(),
+		Title:  g.Title(),
+		System: system,
+		Links:  g.Links(),
 	}
 	for _, c := range g.Copies() {
-		if c.Platform == "" {
+		if c.Platform == "" || (system != "" && c.System() != system) {
 			continue
 		}
 
@@ -552,17 +586,30 @@ func (s *Service) enabled(ctx context.Context, kind provider.Kind) ([]ProviderVi
 	return slices.DeleteFunc(views, func(v ProviderView) bool { return !v.Enabled() }), nil
 }
 
-// Cover returns the game's cover, resolving and caching it on first use.
+// Cover returns the cover of the game's main edition (see game.Game.MainEdition).
 func (s *Service) Cover(ctx context.Context, id game.ID) (Image, error) {
-	if img, ok, err := s.store.GetCover(id); err != nil || ok {
+	g, err := s.games.Get(ctx, id)
+	if err != nil {
+		return Image{}, err
+	}
+
+	return s.EditionCover(ctx, id, g.MainEdition().System)
+}
+
+// EditionCover returns the cover of the game's edition on system, resolving and caching it on first
+// use. The empty system is the cover of a game without copies.
+func (s *Service) EditionCover(ctx context.Context, id game.ID, system string) (Image, error) {
+	if img, ok, err := s.store.GetCover(id, system); err != nil || ok {
 		return img, err
 	}
 
-	if since, ok := s.store.CoverMissingSince(id); ok && since.After(coverLogicChanged) && s.now().Sub(since) < s.retryMissing {
+	if since, ok := s.store.CoverMissingSince(id, system); ok && since.After(coverLogicChanged) && s.now().Sub(since) < s.retryMissing {
 		return Image{}, ErrNoCover
 	}
 	// Concurrent requests for the same cover share one lookup.
-	v, err, _ := s.group.Do(string(id), func() (any, error) { return s.resolve(context.WithoutCancel(ctx), id) })
+	v, err, _ := s.group.Do(string(id)+"\x00"+system, func() (any, error) {
+		return s.resolve(context.WithoutCancel(ctx), id, system)
+	})
 	if err != nil {
 		return Image{}, err
 	}
@@ -570,51 +617,69 @@ func (s *Service) Cover(ctx context.Context, id game.ID) (Image, error) {
 	return v.(Image), nil
 }
 
-func (s *Service) resolve(ctx context.Context, id game.ID) (Image, error) {
+// resolve finds an edition's cover: the cover cached before editions (main edition only), the
+// chosen photo, the chosen URL, the provider chain with its fallback pass, the base game's cover for
+// the same system (add-ons), else "missing".
+func (s *Service) resolve(ctx context.Context, id game.ID, system string) (Image, error) {
 	g, err := s.games.Get(ctx, id)
 	if err != nil {
 		return Image{}, err
 	}
 
+	edition, ok := g.Edition(system)
+	if system == "" && len(g.Copies()) == 0 {
+		edition, ok = g.MainEdition(), true // a game without copies: its cover is the one chosen for the game
+	}
+
+	if !ok {
+		return Image{}, ErrNoCover // no copy on that system (any more)
+	}
+
 	ref := GameRef{g.ID(), g.Title()}
 
+	if system == g.MainEdition().System {
+		if img, ok := s.adoptLegacyCover(g, ref, edition); ok {
+			return img, nil
+		}
+	}
+
 	// A photo of the user's own copy chosen as the cover wins over everything.
-	if id := g.CoverPhoto(); id != "" && s.photos != nil {
+	if id := edition.Cover.Photo; id != "" && s.photos != nil {
 		img, err := s.photos.Open(id, false)
 		if err == nil {
-			if err := s.store.PutCover(ref, img); err != nil {
+			if err := s.store.PutCover(ref, system, img); err != nil {
 				return Image{}, fmt.Errorf("caching cover: %w", err)
 			}
 
 			return img, nil
 		}
 
-		s.log.Warn("cover photo unavailable, falling back", "game", g.Title(), "error", err)
+		s.log.Warn("cover photo unavailable, falling back", "game", g.Title(), "system", system, "error", err)
 	}
 
-	// A cover the user picked or pasted always wins.
-	if u := g.CoverURL(); u != "" {
+	// A cover the user picked or pasted comes next.
+	if u := edition.Cover.URL; u != "" {
 		s.slots <- struct{}{}
 
-		img, err := s.fetchAndCache(ctx, ref, u)
+		img, err := s.fetchAndCache(ctx, ref, system, u)
 		<-s.slots
 
 		if err == nil {
 			return img, nil
 		}
 
-		s.log.Warn("custom cover failed, falling back to providers", "game", g.Title(), "url", u)
+		s.log.Warn("chosen cover failed, falling back to providers", "game", g.Title(), "system", system, "url", u)
 	}
 
-	q := QueryFor(g)
+	q := QueryFor(g, system)
 	asked := map[provider.ID]bool{}
 
-	img, err := s.coverFromChain(ctx, ref, q, asked)
+	img, err := s.coverFromChain(ctx, ref, system, q, asked)
 	if errors.Is(err, ErrNoCover) && q.HasStoreLink() {
-		// No store had art for it (a game only on Battle.net, an old EA title…): ask the providers
-		// that kept out of it, so quota-limited ones help too.
+		// No provider that knows the game's stores had art for this edition (a game only on
+		// Battle.net, a console edition of a Steam game…): ask the ones that kept out of it.
 		q.Fallback = true
-		img, err = s.coverFromChain(ctx, ref, q, asked)
+		img, err = s.coverFromChain(ctx, ref, system, q, asked)
 	}
 
 	if err == nil {
@@ -625,14 +690,14 @@ func (s *Service) resolve(ctx context.Context, id game.ID) (Image, error) {
 		return Image{}, err
 	}
 	// Add-ons (DLC, soundtracks…) rarely have art of their own: borrow the base game's.
-	if img, ok := s.addOnCover(ctx, g); ok {
+	if img, ok := s.addOnCover(ctx, g, system); ok {
 		return img, nil
 	}
 
 	if len(asked) > 0 {
-		s.log.Info("no cover found", "game", g.Title())
+		s.log.Info("no cover found", "game", g.Title(), "system", system)
 
-		if err := s.store.MarkCoverMissing(ref, s.now()); err != nil {
+		if err := s.store.MarkCoverMissing(ref, system, s.now()); err != nil {
 			s.log.Warn("marking missing cover", "error", err)
 		}
 	}
@@ -640,9 +705,32 @@ func (s *Service) resolve(ctx context.Context, id game.ID) (Image, error) {
 	return Image{}, ErrNoCover
 }
 
+// adoptLegacyCover makes the cover cached before editions the main edition's, and reports whether
+// there was one. That file was resolved for the whole game, so it may show another system's box:
+// it is only adopted when it can only be this edition's (the game has at most one system) or when
+// it came from the cover the user chose, which went to this edition. Otherwise it is deleted and
+// the edition resolves its own.
+func (s *Service) adoptLegacyCover(g *game.Game, ref GameRef, main game.Edition) (Image, bool) {
+	if len(g.Systems()) > 1 && main.Cover.IsZero() {
+		if err := s.store.DeleteLegacyCover(g.ID()); err != nil {
+			s.log.Warn("deleting the cover cached before editions", "game", g.Title(), "error", err)
+		}
+
+		return Image{}, false
+	}
+
+	img, ok, err := s.store.AdoptLegacyCover(ref, main.System)
+	if err != nil {
+		s.log.Warn("adopting the cover cached before editions", "game", g.Title(), "error", err)
+		return Image{}, false
+	}
+
+	return img, ok
+}
+
 // coverFromChain asks the enabled cover providers that apply to q, in order, and caches the first
 // image that downloads. Providers already in asked are skipped; the ones asked are added to it.
-func (s *Service) coverFromChain(ctx context.Context, ref GameRef, q CoverQuery, asked map[provider.ID]bool) (Image, error) {
+func (s *Service) coverFromChain(ctx context.Context, ref GameRef, system string, q CoverQuery, asked map[provider.ID]bool) (Image, error) {
 	s.slots <- struct{}{}
 	defer func() { <-s.slots }()
 
@@ -666,7 +754,7 @@ func (s *Service) coverFromChain(ctx context.Context, ref GameRef, q CoverQuery,
 		}
 
 		for _, c := range candidates[:min(len(candidates), 2)] {
-			if img, err := s.fetchAndCache(ctx, ref, c.URL); err == nil {
+			if img, err := s.fetchAndCache(ctx, ref, system, c.URL); err == nil {
 				s.log.Debug("cover cached", "game", ref.Title, "provider", p.ID(), "url", c.URL)
 				return img, nil
 			}
@@ -676,25 +764,34 @@ func (s *Service) coverFromChain(ctx context.Context, ref GameRef, q CoverQuery,
 	return Image{}, ErrNoCover
 }
 
-func (s *Service) fetchAndCache(ctx context.Context, g GameRef, url string) (Image, error) {
+func (s *Service) fetchAndCache(ctx context.Context, g GameRef, system, url string) (Image, error) {
 	img, err := s.fetch.Fetch(ctx, url)
 	if err != nil {
 		return Image{}, err
 	}
 
-	if err := s.store.PutCover(g, img); err != nil {
+	if err := s.store.PutCover(g, system, img); err != nil {
 		return Image{}, fmt.Errorf("caching cover: %w", err)
 	}
 
 	return img, nil
 }
 
-// CoverCandidates asks every enabled, applicable provider for images, for the "choose cover"
-// dialog. Failing providers are reported as warnings.
-func (s *Service) CoverCandidates(ctx context.Context, id game.ID) ([]CoverCandidate, []string, error) {
+// CoverCandidates asks every enabled provider that applies to the game's edition on system (the
+// main edition when system is empty) for images, for the "choose cover" dialog. Failing providers
+// are reported as warnings.
+func (s *Service) CoverCandidates(ctx context.Context, id game.ID, system string) ([]CoverCandidate, []string, error) {
 	g, err := s.games.Get(ctx, id)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if system == "" {
+		system = g.MainEdition().System
+	}
+
+	if _, ok := g.Edition(system); !ok && len(g.Copies()) > 0 {
+		return nil, nil, fmt.Errorf("%w (%s)", ErrNoEdition, system)
 	}
 
 	chain, err := s.chain(ctx)
@@ -702,7 +799,7 @@ func (s *Service) CoverCandidates(ctx context.Context, id game.ID) ([]CoverCandi
 		return nil, nil, err
 	}
 
-	q := QueryFor(g)
+	q := QueryFor(g, system)
 
 	var (
 		out      []CoverCandidate
@@ -727,8 +824,9 @@ func (s *Service) CoverCandidates(ctx context.Context, id game.ID) ([]CoverCandi
 	return out, warnings, nil
 }
 
-// RefreshCovers drops cached covers so they are resolved again on next view. With missingOnly,
-// only "not found" markers are dropped (cheap: real covers stay cached). Returns games affected.
+// RefreshCovers drops cached covers so they are resolved again on next view. With missingOnly, only
+// the editions' "not found" markers are dropped (cheap: real covers stay cached). It returns how many
+// games were affected.
 func (s *Service) RefreshCovers(ctx context.Context, missingOnly bool) (int, error) {
 	games, err := s.games.List(ctx)
 	if err != nil {
@@ -738,19 +836,79 @@ func (s *Service) RefreshCovers(ctx context.Context, missingOnly bool) (int, err
 	n := 0
 
 	for _, g := range games {
-		_, missing := s.store.CoverMissingSince(g.ID())
-		if missingOnly && !missing {
+		if !missingOnly {
+			if err := s.store.DeleteCovers(g.ID()); err != nil {
+				return n, err
+			}
+
+			n++
+
 			continue
 		}
 
-		if err := s.store.DeleteCover(g.ID()); err != nil {
-			return n, err
+		systems := g.Systems()
+		if len(systems) == 0 {
+			systems = []string{""}
 		}
 
-		n++
+		dropped := false
+
+		for _, system := range systems {
+			if _, missing := s.store.CoverMissingSince(g.ID(), system); !missing {
+				continue
+			}
+
+			// Only the marker goes: deleting the cover would also delete the one from before
+			// editions, which the main edition has not adopted yet.
+			if err := s.store.ClearCoverMissing(g.ID(), system); err != nil {
+				return n, err
+			}
+
+			dropped = true
+		}
+
+		if dropped {
+			n++
+		}
 	}
 
 	return n, nil
+}
+
+// InvalidateEdition drops the cached cover of a game's edition (implements catalog.CoverCache and
+// sync.CoverCache): its chosen cover or its copies changed. For the main edition (or a game without
+// copies) it also drops the cover cached before editions, which the main edition would otherwise
+// adopt instead of resolving the new one; other editions leave it for the main edition to adopt.
+func (s *Service) InvalidateEdition(ctx context.Context, id game.ID, system string) error {
+	if err := s.store.DeleteCover(id, system); err != nil {
+		return err
+	}
+	// Without a cover from before editions there is nothing more to drop: every new game's first
+	// scan ends here, without reading the game.
+	if !s.store.HasLegacyCover(id) {
+		return nil
+	}
+
+	g, err := s.games.Get(ctx, id)
+	if errors.Is(err, game.ErrGameNotFound) {
+		return s.store.DeleteLegacyCover(id) // nothing left to adopt it
+	}
+
+	if err != nil {
+		return err
+	}
+
+	if system == "" || system == g.MainEdition().System {
+		return s.store.DeleteLegacyCover(id)
+	}
+
+	return nil
+}
+
+// DropLegacyCover drops the game's cover cached before editions (implements catalog.CoverCache): the
+// main edition changed, and the new one must not adopt the old one's image.
+func (s *Service) DropLegacyCover(_ context.Context, id game.ID) error {
+	return s.store.DeleteLegacyCover(id)
 }
 
 // Invalidate drops the game's cover, details and downloaded images (implements catalog.CoverCache):
@@ -929,6 +1087,7 @@ func (s *Service) suggest(ctx context.Context, games []*game.Game, title, platfo
 	q := CoverQuery{Title: title}
 	if platform != "" {
 		q.PhysicalPlatforms, q.Platforms = []string{platform}, []string{platform}
+		q.System = game.SystemOf(platform)
 	}
 
 	chain, err := s.chain(ctx)

@@ -104,7 +104,9 @@ func (fakeSteamStore) Descriptor() provider.Descriptor {
 
 func (fakeSteamStore) Test(context.Context, schema.Settings) error { return nil }
 
-func (fakeSteamStore) Applies(q media.CoverQuery) bool { return q.Links[game.LinkSteam] != "" }
+func (fakeSteamStore) Applies(q media.CoverQuery) bool {
+	return q.ForPC() && q.Links[game.LinkSteam] != ""
+}
 
 func (fakeSteamStore) Covers(_ context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	return []media.CoverCandidate{
@@ -352,7 +354,7 @@ func newServer(t *testing.T, p sync.Provider) clients {
 		Sources:     rpc.NewSourceHandler(syncSvc),
 		System: rpc.NewSystemHandler(
 			system.NewService(games, db, sqlite.NewSettingsRepository(db), nil, time.Now, log, system.Status{Version: "test"}, filepath.Join(dir, "backups"), 3),
-			transfer.NewService(games, db, sqlite.NewSettingsRepository(db), time.Now, csvfile.Codec{})),
+			transfer.NewService(games, db, sqlite.NewSettingsRepository(db), time.Now, csvfile.Codec{}, nil)),
 	}, rpc.Options{Log: log})
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
@@ -562,10 +564,20 @@ func TestCoversAndLogs(t *testing.T) {
 	}
 
 	// Invalid cover URLs are rejected by the domain.
-	_, err = c.games.UpdateGame(ctx, connect.NewRequest(&pb.UpdateGameRequest{
-		Id:       id,
-		Title:    "Halo 3",
-		CoverUrl: "file:///etc/passwd",
+	if _, err := c.games.AddCopy(ctx, connect.NewRequest(&pb.AddCopyRequest{
+		GameId: id,
+		Details: &pb.CopyDetails{
+			Kind:     pb.CopyKind_COPY_KIND_LIBRARY,
+			Platform: "Steam",
+		},
+	})); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = c.games.SetEditionCover(ctx, connect.NewRequest(&pb.SetEditionCoverRequest{
+		GameId: id,
+		System: "PC",
+		Cover:  &pb.SetEditionCoverRequest_Url{Url: "file:///etc/passwd"},
 	}))
 	if connect.CodeOf(err) != connect.CodeInvalidArgument {
 		t.Fatalf("expected InvalidArgument for a file:// cover, got %v", err)
@@ -670,8 +682,9 @@ func TestCoverProviderChain(t *testing.T) {
 		t.Fatalf("reorder: %+v %v", re, err)
 	}
 
+	// A PS3 disc of a Steam game: its edition is PS3, so only box art proposes; Steam is for its PC edition.
 	cands, err := c.covers.ListCoverCandidates(ctx, connect.NewRequest(&pb.ListCoverCandidatesRequest{GameId: g.Msg.Game.Id}))
-	if err != nil || len(cands.Msg.Candidates) != 3 || cands.Msg.Candidates[0].ProviderName != "Box art" {
+	if err != nil || len(cands.Msg.Candidates) != 1 || cands.Msg.Candidates[0].ProviderName != "Box art" {
 		t.Fatalf("candidates: %+v %v", cands, err)
 	}
 
@@ -694,12 +707,11 @@ func TestCoverProviderChain(t *testing.T) {
 		t.Fatal("the box art provider must not be asked for games without physical copies")
 	}
 
-	// Pinning a candidate = setting it as the custom cover.
-	if _, err := c.games.UpdateGame(ctx, connect.NewRequest(&pb.UpdateGameRequest{
-		Id:       g.Msg.Game.Id,
-		Title:    "Portal 2",
-		Links:    map[string]string{"steam": "620"},
-		CoverUrl: cands.Msg.Candidates[1].Url,
+	// Pinning a candidate = choosing it as the edition's cover.
+	if _, err := c.games.SetEditionCover(ctx, connect.NewRequest(&pb.SetEditionCoverRequest{
+		GameId: g.Msg.Game.Id,
+		System: "PS3",
+		Cover:  &pb.SetEditionCoverRequest_Url{Url: cands.Msg.Candidates[0].Url},
 	})); err != nil {
 		t.Fatal(err)
 	}
@@ -736,8 +748,7 @@ func TestBarcodeScanFlow(t *testing.T) {
 	s := res.Msg.Suggestions[0]
 
 	created, err := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{
-		Title:    s.Title,
-		CoverUrl: s.CoverUrl,
+		Title: s.Title,
 		Copies: []*pb.CopyDetails{{
 			Kind:     pb.CopyKind_COPY_KIND_PHYSICAL,
 			Platform: s.Platform,
@@ -746,6 +757,14 @@ func TestBarcodeScanFlow(t *testing.T) {
 		}},
 	}))
 	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := c.games.SetEditionCover(ctx, connect.NewRequest(&pb.SetEditionCoverRequest{
+		GameId: created.Msg.Game.Id,
+		System: s.Platform,
+		Cover:  &pb.SetEditionCoverRequest_Url{Url: s.CoverUrl},
+	})); err != nil {
 		t.Fatal(err)
 	}
 

@@ -10,12 +10,14 @@ because Simple Icons removed them).
 - `App.tsx`: shell (sidebar on desktop, bottom tab bar under 860 px), hash router (`#/library`…).
 - `state/AppData.tsx`: the catalog and sources shared by every page; mutations call `putGame`
   instead of refetching.
-- `features/library/`: `LibraryPage` (search, sort, A–Z rail, filters, posters/list, infinite
-  scroll), `FilterPanel` (popover / bottom sheet), `PosterGrid`, `GameDetail` (the game sheet:
-  hero, Overview / Copies / Edit tabs; ‹ › and ← → move through the library's current list, keeping the
+- `features/library/`: `LibraryPage` (search, sort, A–Z rail, filters, by platform or by game, posters/list,
+  infinite scroll), `FilterPanel` (popover / bottom sheet), `PosterGrid`, `GameDetail` (the game sheet:
+  hero, edition chips, Overview / Copies / Edit tabs; ‹ › and ← → move through the library's current list, keeping the
   tab, with no animation; the image viewer catches the arrows first; the sheet is not remounted per
   game, only its body is keyed), `GameSheet` (details from metadata providers),
   `CopyPhotos` (a copy's thumbnail strip, uploads with progress, the viewer with its photo footer).
+- `components/Cover.tsx`: edition cover with the borrowed-box fallback.
+- `lib/editions.ts`: editions, library filters, cover order (pure, Node-tested).
 - `components/Lightbox.tsx`: the one image viewer (screenshots, copy photos). Props: ready URLs,
   index, `onIndex`, `onClose`, optional `label` and `footer`. Buttons for previous / next, zoom,
   full screen and close; double click or tap, wheel and pinch zoom, drag pans, swipe changes image;
@@ -28,7 +30,7 @@ because Simple Icons removed them).
 - `features/sources`, `features/providers`: settings dialogs; field help is rendered by
   `components/FieldHelp.tsx` from plain text (lines `1. …` become numbered steps, backticks become
   code).
-- `api/client.ts`: Connect clients, `coverUrl`, `mediaUrl`, `proxiedImage`, `errorMessage`.
+- `api/client.ts`: Connect clients, `coverUrl(game, system)`, `mediaUrl`, `proxiedImage`, `errorMessage`.
 - Generated API types in `web/src/gen` (never edit; `task generate`).
 
 ## Design system ("la vitrina")

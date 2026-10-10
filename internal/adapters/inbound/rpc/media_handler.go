@@ -8,11 +8,25 @@ import (
 	"gamevault/internal/domain/game"
 )
 
-// coverHandler serves GET /media/covers/{id}. Images are plain HTTP rather than RPC so browsers can
-// load them with <img src> and cache them. Clients add ?v=<updatedAt> to bust the cache.
+// coverHandler serves GET /media/covers/{id} (the main edition's cover) and
+// GET /media/covers/{id}/{system} (an edition's; the system is URL-escaped, so it may contain
+// spaces or slashes). Images are plain HTTP rather than RPC so browsers can load them with
+// <img src> and cache them. Clients add ?v=<updatedAt> to bust the cache.
 func coverHandler(m *media.Service) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		img, err := m.Cover(r.Context(), game.ID(r.PathValue("id")))
+		id := game.ID(r.PathValue("id"))
+
+		var (
+			img media.Image
+			err error
+		)
+
+		if system := r.PathValue("system"); system != "" {
+			img, err = m.EditionCover(r.Context(), id, system)
+		} else {
+			img, err = m.Cover(r.Context(), id)
+		}
+
 		switch {
 		case errors.Is(err, media.ErrNoCover), errors.Is(err, game.ErrGameNotFound):
 			w.Header().Set("Cache-Control", "no-store") // a cover may be found later: never cache the miss

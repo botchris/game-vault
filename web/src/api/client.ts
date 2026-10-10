@@ -10,6 +10,7 @@ import { CoverService, ProviderService } from '../gen/gamevault/v1/provider_pb';
 import { SourceService } from '../gen/gamevault/v1/source_pb';
 import { SystemService } from '../gen/gamevault/v1/system_pb';
 import { ValuationService } from '../gen/gamevault/v1/valuation_pb';
+import { coverPath, mainSystem } from '../lib/editions';
 
 /** Fired when the server says the session is gone, so the app shows the login screen again. */
 export const UNAUTHENTICATED_EVENT = 'gamevault:unauthenticated';
@@ -42,11 +43,12 @@ export const metadataClient = createClient(MetadataService, transport);
 export const valuationClient = createClient(ValuationService, transport);
 
 /**
- * Cover image URL. Images are plain HTTP (not RPC) so <img> can load and cache them;
- * the updatedAt version busts the browser cache when the cover changes.
+ * Cover image URL of a game's edition on `system`, the main edition's when it is omitted. Images
+ * are plain HTTP (not RPC) so <img> can load and cache them; the updatedAt version busts the
+ * browser cache when a cover changes.
  */
-export function coverUrl(g: Game): string {
-  return `${baseUrl}/media/covers/${g.id}?v=${g.updatedAt?.seconds ?? 0}`;
+export function coverUrl(g: Game, system?: string): string {
+  return `${baseUrl}${coverPath(g.id, system ?? mainSystem(g))}?v=${g.updatedAt?.seconds ?? 0}`;
 }
 
 /** A copy photo (or its thumbnail). Photos never change, so the URL needs no version. */

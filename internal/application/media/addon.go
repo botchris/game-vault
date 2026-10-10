@@ -72,9 +72,10 @@ func baseQueries(title string) []string {
 	return out
 }
 
-// addOnCover finds a cover for an add-on nobody has art for: the base game's cover, from the
-// catalog when you own it, else from a store after finding the base game in its catalog by title.
-func (s *Service) addOnCover(ctx context.Context, g *game.Game) (Image, bool) {
+// addOnCover finds a cover for an add-on's edition nobody has art for: the base game's cover for
+// the same system, from the catalog when you own the base game on it, else from a store after
+// finding the base game in its catalog by title.
+func (s *Service) addOnCover(ctx context.Context, g *game.Game, system string) (Image, bool) {
 	if !IsAddOn(g.Title()) {
 		return Image{}, false
 	}
@@ -82,17 +83,23 @@ func (s *Service) addOnCover(ctx context.Context, g *game.Game) (Image, bool) {
 	ref := GameRef{g.ID(), g.Title()}
 	if catalog, err := s.games.List(ctx); err == nil {
 		if base := baseGameOf(g, catalog); base != nil {
-			if img, err := s.Cover(ctx, base.ID()); err == nil {
-				if err := s.store.PutCover(ref, img); err == nil {
-					s.log.Info("add-on cover taken from its base game", "game", g.Title(), "base", base.Title())
+			if img, ok := s.baseEditionCover(ctx, base, system); ok {
+				if err := s.store.PutCover(ref, system, img); err == nil {
+					s.log.Info("add-on cover taken from its base game", "game", g.Title(), "base", base.Title(), "system", system)
 					return img, true
 				}
 			}
 		}
 	}
 
+	// Only stores' providers answer the search below, and they have art for PC editions only: a
+	// console edition would spend requests to rate-limited stores for nothing.
+	if !(CoverQuery{System: system}).ForPC() {
+		return Image{}, false
+	}
+
 	for _, ls := range s.searchers {
-		if img, ok := s.baseCoverIn(ctx, ls, g, ref); ok {
+		if img, ok := s.baseCoverIn(ctx, ls, g, ref, system); ok {
 			return img, true
 		}
 	}
@@ -100,8 +107,24 @@ func (s *Service) addOnCover(ctx context.Context, g *game.Game) (Image, bool) {
 	return Image{}, false
 }
 
+// baseEditionCover is the base game's cover on system (its main edition's when system is empty),
+// when the base game has a copy on it.
+func (s *Service) baseEditionCover(ctx context.Context, base *game.Game, system string) (Image, bool) {
+	if system == "" {
+		system = base.MainEdition().System
+	}
+
+	if _, ok := base.Edition(system); !ok && system != "" {
+		return Image{}, false
+	}
+
+	img, err := s.EditionCover(ctx, base.ID(), system)
+
+	return img, err == nil
+}
+
 // baseCoverIn looks for the base game of the add-on g in one store's catalog.
-func (s *Service) baseCoverIn(ctx context.Context, ls LinkSearcher, g *game.Game, ref GameRef) (Image, bool) {
+func (s *Service) baseCoverIn(ctx context.Context, ls LinkSearcher, g *game.Game, ref GameRef, system string) (Image, bool) {
 	store := ls.LinkStore()
 	key := game.MatchKey(g.Title())
 
@@ -117,10 +140,11 @@ func (s *Service) baseCoverIn(ctx context.Context, ls LinkSearcher, g *game.Game
 			}
 			// Linked to the store, the query only reaches providers that know it (no quota spent).
 			cq := CoverQuery{
-				Title: m.Name,
-				Links: game.Links{store.Key: m.ID},
+				Title:  m.Name,
+				System: system,
+				Links:  game.Links{store.Key: m.ID},
 			}
-			if img, err := s.coverFromChain(ctx, ref, cq, map[provider.ID]bool{}); err == nil {
+			if img, err := s.coverFromChain(ctx, ref, system, cq, map[provider.ID]bool{}); err == nil {
 				s.log.Info("add-on cover taken from its base game", "game", g.Title(), "base", m.Name, "store", store.Name)
 				return img, true
 			}

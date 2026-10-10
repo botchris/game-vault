@@ -43,3 +43,13 @@ metadata:
   provider, `provider.KindValuation`) and `NextValuation`; document fields `estimates` /
   `nextValuation`, game docs still v2. Cleared when the barcode or kind changes. Next possible
   source: PriceCharting (official, paid, sold prices, PAL sections, USD).
+- **Editions (2026-10-10):** the effective system of a copy is `CopyDetails.System` (the user's
+  override, kept by scans), else `Copy.SourceSystem` (`ImportedCopy.System`; PC store sources set
+  `game.SystemPC`, PlayStation PS4/PS5), else `SystemOf(platform)`. Editions are derived, one per
+  system; the game stores `covers` by system and `mainSystem`. A game without copies keeps its
+  chosen cover under the system `""`. Game docs are v3 (`covers`, `mainSystem`, copies' `system`
+  and `sourceSystem`); v2 is converted on read (photo to its edition, which becomes the main one;
+  URL to the default main edition). Migration 0010 only triggers the pre-migration backup. System
+  names (`PC`, console names, `Other`) are stored in documents and cover file names: never rename
+  them. The CSV `system` column is an override only when it differs from the copy's effective
+  system; an import never clears one. See [[provider-chains]].

@@ -3,7 +3,8 @@
 //
 //	config/game-data/
 //	  Red Dead Redemption [019b11c2-…]/
-//	    cover.jpg            the cover (or cover.missing: when the last lookup found nothing)
+//	    cover-ps3-1a2b3c4d.jpg   the cover of each edition, by system (cover-….missing when the
+//	                             last lookup found nothing); cover.jpg is a cover from before editions
 //	    assets.json          where each sheet image came from, to download it again if missing
 //	    screenshot-3f9a….jpg full-size screenshots
 //	    thumb-77b2….jpg      screenshot thumbnails
@@ -14,6 +15,8 @@
 package gamedata
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"maps"
@@ -30,10 +33,10 @@ import (
 )
 
 const (
-	coverName   = "cover"
-	missingFile = "cover.missing"
-	sourcesFile = "assets.json"
-	maxTitleLen = 80
+	legacyCover   = "cover"
+	legacyMissing = "cover.missing"
+	sourcesFile   = "assets.json"
+	maxTitleLen   = 80
 )
 
 var (
@@ -45,6 +48,7 @@ var (
 	reDirID    = regexp.MustCompile(`\[([0-9a-fA-F-]{1,64})\]$`)
 	reBadChars = regexp.MustCompile(`[/\\:*?"<>|]+`)
 	reSpaces   = regexp.MustCompile(`\s+`)
+	reNotSlug  = regexp.MustCompile(`[^a-z0-9]+`)
 
 	errBadID   = errors.New("invalid game id")
 	errBadName = errors.New("invalid asset name")
@@ -205,46 +209,75 @@ func writeImage(dir, name string, img media.Image) error {
 
 // Cover ------------------------------------------------------------------------------------------
 
-// GetCover returns the locally stored cover of a game, if any.
-func (s *Store) GetCover(id game.ID) (media.Image, bool, error) {
+// coverFile is the file name, without extension, of an edition's cover: "cover-xbox-360-1a2b3c4d".
+// The slug keeps folders readable; the hash keeps apart systems with the same slug ("PS4/Pro",
+// "PS4 Pro") and makes any system name safe as a file name. A game without copies uses
+// "cover-game".
+func coverFile(system string) string {
+	if system == "" {
+		return legacyCover + "-game"
+	}
+
+	slug := strings.Trim(reNotSlug.ReplaceAllString(strings.ToLower(system), "-"), "-")
+	if len(slug) > 40 {
+		slug = strings.Trim(slug[:40], "-")
+	}
+
+	if slug == "" {
+		slug = "system"
+	}
+
+	sum := sha256.Sum256([]byte(system))
+
+	return legacyCover + "-" + slug + "-" + hex.EncodeToString(sum[:4])
+}
+
+// isCoverName reports whether a file name (without extension) belongs to a cover, so sheet images
+// can never use or prune it.
+func isCoverName(name string) bool {
+	return name == legacyCover || strings.HasPrefix(name, legacyCover+"-")
+}
+
+// GetCover returns the stored cover of a game's edition, if any.
+func (s *Store) GetCover(id game.ID, system string) (media.Image, bool, error) {
 	dir, ok := s.dir(id)
 	if !ok {
 		return media.Image{}, false, nil
 	}
 
-	return readImage(dir, coverName)
+	return readImage(dir, coverFile(system))
 }
 
-// PutCover stores the cover of a game and clears any missing marker.
-func (s *Store) PutCover(g media.GameRef, img media.Image) error {
+// PutCover stores the cover of a game's edition and clears its missing marker.
+func (s *Store) PutCover(g media.GameRef, system string, img media.Image) error {
 	dir, err := s.ensureDir(g)
 	if err != nil {
 		return err
 	}
 
-	_ = os.Remove(filepath.Join(dir, missingFile))
+	_ = os.Remove(filepath.Join(dir, coverFile(system)+".missing")) // absent is fine
 
-	return writeImage(dir, coverName, img)
+	return writeImage(dir, coverFile(system), img)
 }
 
-// MarkCoverMissing records when no provider had a cover for the game.
-func (s *Store) MarkCoverMissing(g media.GameRef, at time.Time) error {
+// MarkCoverMissing records when no provider had a cover for a game's edition.
+func (s *Store) MarkCoverMissing(g media.GameRef, system string, at time.Time) error {
 	dir, err := s.ensureDir(g)
 	if err != nil {
 		return err
 	}
 
-	return writeFile(filepath.Join(dir, missingFile), []byte(at.UTC().Format(time.RFC3339)))
+	return writeFile(filepath.Join(dir, coverFile(system)+".missing"), []byte(at.UTC().Format(time.RFC3339)))
 }
 
-// CoverMissingSince returns when the game was marked as having no cover.
-func (s *Store) CoverMissingSince(id game.ID) (time.Time, bool) {
+// CoverMissingSince returns when a game's edition was marked as having no cover.
+func (s *Store) CoverMissingSince(id game.ID, system string) (time.Time, bool) {
 	dir, ok := s.dir(id)
 	if !ok {
 		return time.Time{}, false
 	}
 
-	b, err := os.ReadFile(filepath.Join(dir, missingFile))
+	b, err := os.ReadFile(filepath.Join(dir, coverFile(system)+".missing"))
 	if err != nil {
 		return time.Time{}, false
 	}
@@ -254,25 +287,122 @@ func (s *Store) CoverMissingSince(id game.ID) (time.Time, bool) {
 	return t, err == nil
 }
 
-// DeleteCover removes the stored cover and its missing marker.
-func (s *Store) DeleteCover(id game.ID) error {
+// ClearCoverMissing removes the missing marker of a game's edition, so its cover is looked up
+// again; its stored cover, and the cover from before editions, stay.
+func (s *Store) ClearCoverMissing(id game.ID, system string) error {
 	dir, ok := s.dir(id)
 	if !ok {
 		return nil
 	}
 
-	if err := os.Remove(filepath.Join(dir, missingFile)); err != nil && !errors.Is(err, os.ErrNotExist) {
+	if err := os.Remove(filepath.Join(dir, coverFile(system)+".missing")); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 
-	return removeImage(dir, coverName)
+	return nil
+}
+
+// DeleteCover removes the cover of a game's edition and its missing marker. Other editions' files,
+// and the cover from before editions, stay.
+func (s *Store) DeleteCover(id game.ID, system string) error {
+	dir, ok := s.dir(id)
+	if !ok {
+		return nil
+	}
+
+	if err := os.Remove(filepath.Join(dir, coverFile(system)+".missing")); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+
+	return removeImage(dir, coverFile(system))
+}
+
+// DeleteLegacyCover removes the cover from before editions (cover.jpg) and its missing marker.
+func (s *Store) DeleteLegacyCover(id game.ID) error {
+	dir, ok := s.dir(id)
+	if !ok {
+		return nil
+	}
+
+	if err := os.Remove(filepath.Join(dir, legacyMissing)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+
+	return removeImage(dir, legacyCover)
+}
+
+// HasLegacyCover reports whether the game's folder still holds the cover from before editions
+// (cover.jpg) or its missing marker.
+func (s *Store) HasLegacyCover(id game.ID) bool {
+	dir, ok := s.dir(id)
+	if !ok {
+		return false
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, legacyMissing)); err == nil {
+		return true
+	}
+
+	for ext := range typeByExt {
+		if _, err := os.Stat(filepath.Join(dir, legacyCover+ext)); err == nil {
+			return true
+		}
+	}
+
+	return false
+}
+
+// DeleteCovers removes the covers and missing markers of every edition of a game.
+func (s *Store) DeleteCovers(id game.ID) error {
+	dir, ok := s.dir(id)
+	if !ok {
+		return nil
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+
+	for _, e := range entries {
+		if isCoverName(strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))) {
+			if err := os.Remove(filepath.Join(dir, e.Name())); err != nil && !errors.Is(err, os.ErrNotExist) {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// AdoptLegacyCover makes the cover stored before editions (cover.jpg) the cover of the edition
+// on system, and reports whether there was one. The main edition adopts it, so upgrading does not
+// download every cover again.
+func (s *Store) AdoptLegacyCover(g media.GameRef, system string) (media.Image, bool, error) {
+	dir, ok := s.dir(g.ID)
+	if !ok {
+		return media.Image{}, false, nil
+	}
+
+	img, ok, err := readImage(dir, legacyCover)
+	if err != nil || !ok {
+		return media.Image{}, false, err
+	}
+
+	if err := s.PutCover(g, system, img); err != nil {
+		return media.Image{}, false, err
+	}
+
+	_ = os.Remove(filepath.Join(dir, legacyMissing)) // absent is fine
+
+	return img, true, removeImage(dir, legacyCover)
 }
 
 // Sheet images -----------------------------------------------------------------------------------
 
 // GetAsset returns a stored sheet image (screenshot, artwork) of a game by name.
 func (s *Store) GetAsset(id game.ID, name string) (media.Image, bool, error) {
-	if !reName.MatchString(name) || name == coverName {
+	if !reName.MatchString(name) || isCoverName(name) {
 		return media.Image{}, false, errBadName
 	}
 
@@ -286,7 +416,7 @@ func (s *Store) GetAsset(id game.ID, name string) (media.Image, bool, error) {
 
 // PutAsset stores a sheet image of a game under the given name.
 func (s *Store) PutAsset(g media.GameRef, name string, img media.Image) error {
-	if !reName.MatchString(name) || name == coverName {
+	if !reName.MatchString(name) || isCoverName(name) {
 		return errBadName
 	}
 
@@ -329,7 +459,7 @@ func (s *Store) loadSources(id game.ID) map[string]string {
 // SetAssetSources records the remote URL each stored sheet image came from.
 func (s *Store) SetAssetSources(g media.GameRef, sources map[string]string) error {
 	for name := range sources {
-		if !reName.MatchString(name) || name == coverName {
+		if !reName.MatchString(name) || isCoverName(name) {
 			return errBadName
 		}
 	}
@@ -366,7 +496,7 @@ func (s *Store) SetAssetSources(g media.GameRef, sources map[string]string) erro
 
 	for _, e := range entries {
 		name := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
-		if _, isImage := typeByExt[filepath.Ext(e.Name())]; isImage && name != coverName {
+		if _, isImage := typeByExt[filepath.Ext(e.Name())]; isImage && !isCoverName(name) {
 			if _, keep := sources[name]; !keep {
 				_ = os.Remove(filepath.Join(dir, e.Name()))
 			}
@@ -440,9 +570,9 @@ func (s *Store) MigrateLegacyCovers(legacyDir string, titles map[game.ID]string)
 			return moved, err
 		}
 
-		dst := filepath.Join(dir, coverName+ext)
+		dst := filepath.Join(dir, legacyCover+ext)
 		if ext == ".missing" {
-			dst = filepath.Join(dir, missingFile)
+			dst = filepath.Join(dir, legacyMissing)
 		}
 
 		if err := os.Rename(src, dst); err != nil {

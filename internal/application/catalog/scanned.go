@@ -74,12 +74,14 @@ func (s *Service) AddScannedCopies(ctx context.Context, items []ScannedCopy) ([]
 	var (
 		results []ScannedResult
 		changed []*game.Game
+		touched []editionPrints
 	)
 
 	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
 		// Start over on every attempt, so a retried transaction reports only what it saved.
 		results = make([]ScannedResult, len(items))
 		changed = nil
+		touched = nil
 		now := s.now()
 
 		for i, it := range items {
@@ -106,6 +108,7 @@ func (s *Service) AddScannedCopies(ctx context.Context, items []ScannedCopy) ([]
 			}
 
 			added := false
+			before := g.CoverFingerprints() // empty for a new game: all its editions count
 
 			for _, i := range group {
 				c, err := g.AddCopy(items[i].Details, now)
@@ -122,11 +125,20 @@ func (s *Service) AddScannedCopies(ctx context.Context, items []ScannedCopy) ([]
 				continue
 			}
 
+			if items[group[0]].GameID == "" {
+				setScannedCover(g, items, group, results, now)
+			}
+
 			if err := s.games.Save(ctx, g); err != nil {
 				return err
 			}
 
 			changed = append(changed, g)
+			touched = append(touched, editionPrints{
+				id:     g.ID(),
+				before: before,
+				after:  g.CoverFingerprints(),
+			})
 		}
 
 		return nil
@@ -135,11 +147,24 @@ func (s *Service) AddScannedCopies(ctx context.Context, items []ScannedCopy) ([]
 		return nil, nil, err
 	}
 
+	// A physical copy added to an edition that only had digital ones changes its cover inputs.
+	for _, p := range touched {
+		s.invalidateEditions(ctx, p.id, p.before, p.after)
+	}
+
 	return results, changed, nil
 }
 
+// editionPrints are a game's cover fingerprints before and after a change.
+type editionPrints struct {
+	id     game.ID
+	before map[string]string
+	after  map[string]string
+}
+
 // scannedTarget returns the game a group of items goes to: the existing game, or a new one with
-// the group's title and the first cover one of its items chose.
+// the group's title. It checks the covers the group's items chose first, so a bad one fails the
+// whole group before anything is added; setScannedCover sets one once the copies are added.
 func (s *Service) scannedTarget(ctx context.Context, items []ScannedCopy, group []int, now time.Time) (*game.Game, error) {
 	first := items[group[0]]
 	if first.GameID != "" {
@@ -152,21 +177,29 @@ func (s *Service) scannedTarget(ctx context.Context, items []ScannedCopy, group 
 	}
 
 	for _, i := range group {
-		if items[i].CoverURL == "" {
-			continue
-		}
-
-		if _, err := g.UpdateInfo(game.Info{
-			Title:    g.Title(),
-			CoverURL: items[i].CoverURL,
-		}, now); err != nil {
+		if _, err := game.ParseCoverURL(items[i].CoverURL); err != nil {
 			return nil, err
 		}
-
-		break
 	}
 
 	return g, nil
+}
+
+// setScannedCover gives a new game the first cover one of its items chose, on the edition of that
+// item's copy: a PS3 disc's box goes to the PS3 edition.
+func setScannedCover(g *game.Game, items []ScannedCopy, group []int, results []ScannedResult, now time.Time) {
+	for _, i := range group {
+		if items[i].CoverURL == "" || results[i].CopyID == "" {
+			continue
+		}
+
+		for _, c := range g.Copies() {
+			if c.ID == results[i].CopyID {
+				_ = g.SetEditionCover(c.System(), game.EditionCover{URL: items[i].CoverURL}, now) // scannedTarget checked the URL
+				return
+			}
+		}
+	}
 }
 
 // groupScanned groups the items' indexes by the game they go to, in order of first appearance: an
