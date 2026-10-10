@@ -313,7 +313,7 @@ Store covers: every library source links the games it imports to its store (Stea
 
 - **Sort** by title (A–Z or Z–A), recently added, release year, redeem deadline, number of copies or rating. The choice and the view (covers or list) are remembered per device.
 - **A–Z bar**: jump to the games starting with a letter (`#` groups titles starting with a digit or symbol). Letters with no games under the current filters are greyed out.
-- **Two views**, chosen with "By platform | By game" next to Covers / List and remembered per device ("By platform" by default). **By platform** shows a card or row per edition: its cover, the game title, the system badge, small store badges on PC, and the pending or redundant badges of that edition's copies; a box borrowed from another edition is labelled "<system> box". The header counts "N editions of M games". **By game** shows the main edition's cover with the badges of all the game's systems. When an edition's cover answers 404, the card borrows the main edition's, then the other editions'.
+- **Two views**, chosen with "By platform | By game" next to Covers / List and remembered per device ("By platform" by default). **By platform** shows a card or row per edition: its cover, the game title, the system badge, small store badges on PC, and the pending or redundant badges of that edition's copies; a box borrowed from another edition is labelled "<system> box". The header counts "N editions of M games". **By game** shows the main edition's cover with the badges of all the game's systems. When an edition's cover answers 404, the card borrows the main edition's, then the other editions', and shows the title's initials when none has one. A failed cover is not asked for again until the game's cover inputs change (title, store links, an edition's chosen cover, a new or main edition), so rating a game or changing its play status costs no new requests. The "+N" chip of a PC edition's store badges names the hidden stores in its tooltip; like the badges, a click on it opens the card.
 - **Filters**: system, kind of copy, play status, source, platform, genre and the custom list, multilist and yes/no fields, plus quick filters for pending keys, keys expiring in 30 days and keys you don't need. The System filter counts editions in "By platform" and games in "By game". In "By platform", copy-level filters (kind, platform, source, copy fields, redundant keys) keep an edition when one of its copies matches; game-level ones (play status, rating, genres, game fields) and the search apply to all of a game's editions. Ties in a sort are broken by system. Other options show how many games they match.
 - **Genres and release year** come from the game details. Game Vault downloads the details of Steam-linked games in the background (in the UI language, at a gentle pace), so the genre filter fills in over the first hours; the filter panel says how many games are covered so far.
 - **System badges** in "By game" show where you have the game: the store or console logo (with the generation for consoles: PS3, 360…). Solid badges are copies you own; hollow ones with a key glyph are keys you have not redeemed yet. Sold, gifted and expired copies are not shown. Logos come from [Simple Icons](https://simpleicons.org) (CC0); Xbox and Nintendo, which Simple Icons does not ship, use simple drawn glyphs. Brand logos are trademarks of their owners.
@@ -323,9 +323,12 @@ Store covers: every library source links the games it imports to its store (Stea
 
 The sheet opens on the edition that was clicked (the main one when opened from a link). With two or
 more editions, chips switch between them. The hero shows that edition's cover and, when the box is
-borrowed, says so and offers **Choose cover…** and **Use a photo**; **Use as the game's cover**
-makes a non-main edition the main one. Copies are grouped by system, the current edition first, and
-the copy form has a **System** field (the derived system as placeholder; emptied means automatic).
+borrowed, says so in a note under the cover (the cover itself carries no "<system> box" label there)
+and offers **Choose cover…** and **Use a photo**; **Use as the game's cover** makes a non-main
+edition the main one. Copies are grouped by system, the current edition first, and the copy form has
+a **System** field (the derived system as placeholder; emptied means automatic). When the copy has
+an override stored, the API does not expose the source's system, so the hint says "as the source or
+the platform says" instead of naming one.
 
 The hero of the sheet holds the **play status** chips and the **rating** stars. Both save on click;
 clicking the current one again clears it. The list view shows them next to each game.
