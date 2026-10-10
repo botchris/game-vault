@@ -86,7 +86,7 @@ func (h *MediaHandler) TestProvider(ctx context.Context, req *connect.Request[pb
 
 // ListCoverCandidates returns the covers the providers propose for a game.
 func (h *MediaHandler) ListCoverCandidates(ctx context.Context, req *connect.Request[pb.ListCoverCandidatesRequest]) (*connect.Response[pb.ListCoverCandidatesResponse], error) {
-	candidates, warnings, err := h.media.CoverCandidates(ctx, game.ID(req.Msg.GameId))
+	candidates, warnings, err := h.media.CoverCandidates(ctx, game.ID(req.Msg.GameId), "") // empty: the main edition
 	if err != nil {
 		return nil, toConnectError(err)
 	}

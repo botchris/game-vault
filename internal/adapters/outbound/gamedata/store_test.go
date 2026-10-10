@@ -27,13 +27,13 @@ func TestLayoutRenameAndPrune(t *testing.T) {
 		ID:    "019b11c2-aaaa",
 		Title: `Halo 3: ODST / "Collector's"`,
 	}
-	if err := s.PutCover(g, jpg); err != nil {
+	if err := s.PutCover(g, "PS3", jpg); err != nil {
 		t.Fatal(err)
 	}
 
 	dir := filepath.Join(root, `Halo 3 ODST Collector's [019b11c2-aaaa]`)
-	if _, err := os.Stat(filepath.Join(dir, "cover.jpg")); err != nil {
-		t.Fatalf("cover not in the game's folder: %v", err)
+	if covers := filesLike(t, dir, "cover-ps3-*.jpg"); len(covers) != 1 {
+		t.Fatalf("cover not in the game's folder: %v", covers)
 	}
 
 	// Sheet images and their sources; removing one from the sheet deletes its file.
@@ -54,7 +54,7 @@ func TestLayoutRenameAndPrune(t *testing.T) {
 		t.Fatal("images no longer in the sheet must be pruned")
 	}
 
-	if _, ok, _ := s.GetCover(g.ID); !ok {
+	if _, ok, _ := s.GetCover(g.ID, "PS3"); !ok {
 		t.Fatal("pruning must never touch the cover")
 	}
 
@@ -76,9 +76,9 @@ func TestLayoutRenameAndPrune(t *testing.T) {
 	}
 
 	// Missing marker, path traversal, delete.
-	s2.MarkCoverMissing(g, time.Now())
+	s2.MarkCoverMissing(g, "PS3", time.Now())
 
-	if _, ok := s2.CoverMissingSince(g.ID); !ok {
+	if _, ok := s2.CoverMissingSince(g.ID, "PS3"); !ok {
 		t.Fatal("missing marker")
 	}
 
@@ -108,12 +108,15 @@ func TestMigrateLegacyCovers(t *testing.T) {
 		t.Fatalf("migrated %d, %v", n, err)
 	}
 
-	if _, ok, _ := s.GetCover("019a-1"); !ok {
+	if _, ok, _ := s.AdoptLegacyCover(media.GameRef{
+		ID:    "019a-1",
+		Title: "Portal 2",
+	}, "PS3"); !ok {
 		t.Fatal("cover not migrated")
 	}
 
-	if _, ok := s.CoverMissingSince("019a-2"); !ok {
-		t.Fatal("missing marker not migrated")
+	if _, err := os.Stat(filepath.Join(root, "Big Rigs [019a-2]", "cover.missing")); err != nil {
+		t.Fatalf("missing marker not migrated: %v", err)
 	}
 
 	if _, err := os.Stat(legacy); !os.IsNotExist(err) {

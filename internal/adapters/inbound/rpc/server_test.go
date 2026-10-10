@@ -104,7 +104,9 @@ func (fakeSteamStore) Descriptor() provider.Descriptor {
 
 func (fakeSteamStore) Test(context.Context, schema.Settings) error { return nil }
 
-func (fakeSteamStore) Applies(q media.CoverQuery) bool { return q.Links[game.LinkSteam] != "" }
+func (fakeSteamStore) Applies(q media.CoverQuery) bool {
+	return q.ForPC() && q.Links[game.LinkSteam] != ""
+}
 
 func (fakeSteamStore) Covers(_ context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	return []media.CoverCandidate{
@@ -670,8 +672,9 @@ func TestCoverProviderChain(t *testing.T) {
 		t.Fatalf("reorder: %+v %v", re, err)
 	}
 
+	// A PS3 disc of a Steam game: its edition is PS3, so only box art proposes; Steam is for its PC edition.
 	cands, err := c.covers.ListCoverCandidates(ctx, connect.NewRequest(&pb.ListCoverCandidatesRequest{GameId: g.Msg.Game.Id}))
-	if err != nil || len(cands.Msg.Candidates) != 3 || cands.Msg.Candidates[0].ProviderName != "Box art" {
+	if err != nil || len(cands.Msg.Candidates) != 1 || cands.Msg.Candidates[0].ProviderName != "Box art" {
 		t.Fatalf("candidates: %+v %v", cands, err)
 	}
 
@@ -699,7 +702,7 @@ func TestCoverProviderChain(t *testing.T) {
 		Id:       g.Msg.Game.Id,
 		Title:    "Portal 2",
 		Links:    map[string]string{"steam": "620"},
-		CoverUrl: cands.Msg.Candidates[1].Url,
+		CoverUrl: cands.Msg.Candidates[0].Url,
 	})); err != nil {
 		t.Fatal(err)
 	}

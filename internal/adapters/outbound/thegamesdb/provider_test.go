@@ -6,6 +6,10 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
@@ -140,4 +144,33 @@ func testProvider(srv *httptest.Server) *Provider {
 	p.API.BaseURL, p.API.HTTP = srv.URL, srv.Client()
 
 	return p
+}
+
+func TestCovers_editionSystem(t *testing.T) {
+	srv, calls := fakeServer(t)
+	p := testProvider(srv)
+
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN the digital PS3 edition of a game linked to Steam", func(t *testing.T) {
+		q := media.CoverQuery{
+			Title:     "Halo 3",
+			System:    "PS3",
+			Platforms: []string{"PlayStation Store"},
+			Links:     game.Links{game.LinkSteam: "1"},
+		}
+
+		t.Run("THEN it keeps its quota on the first pass and helps on the fallback pass", func(t *testing.T) {
+			assert.False(t, p.Applies(q))
+			q.Fallback = true
+			assert.True(t, p.Applies(q))
+		})
+
+		t.Run("WHEN its covers are searched THEN the search is filtered to the edition's system", func(t *testing.T) {
+			_, err := p.Covers(ctx, q, schema.Settings{settingAPIKey: "good"})
+			require.NoError(t, err)
+			assert.Contains(t, (*calls)[len(*calls)-1], "filter%5Bplatform%5D=12")
+		})
+	})
 }

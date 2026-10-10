@@ -49,9 +49,9 @@ func (c *Covers) Descriptor() provider.Descriptor {
 // LinkStore implements media.StoreLinker.
 func (c *Covers) LinkStore() game.Store { return LinkedStore }
 
-// Applies reports whether the game is linked to Battle.net.
+// Applies reports whether the game is linked to Battle.net, for its PC edition.
 func (c *Covers) Applies(q media.CoverQuery) bool {
-	return q.Links[LinkedStore.Key] != ""
+	return q.ForPC() && q.Links[LinkedStore.Key] != ""
 }
 
 // reYear drops a year Battle.net adds to tell remasters apart: "… Remastered (2017)".

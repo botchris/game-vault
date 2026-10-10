@@ -241,14 +241,18 @@ type searchResponse struct {
 	} `json:"include"`
 }
 
-// Covers searches the game by title on the platforms of its physical copies (or all its
-// platforms) and returns front box art, exact title matches first.
+// Covers searches the game by title on the edition's system (or, without one, the platforms of its
+// physical copies or all its platforms) and returns front box art, exact title matches first.
 func (p *Provider) Covers(ctx context.Context, q media.CoverQuery, s schema.Settings) ([]media.CoverCandidate, error) {
 	key := s[settingAPIKey]
 
 	platforms := q.PhysicalPlatforms
 	if len(platforms) == 0 {
 		platforms = q.Platforms
+	}
+
+	if q.System != "" {
+		platforms = []string{q.System} // an edition's box art: its system names TheGamesDB's platform
 	}
 
 	params := url.Values{"apikey": {key}, "name": {q.Title}, "include": {"boxart,platform"}}

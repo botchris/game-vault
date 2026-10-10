@@ -414,7 +414,7 @@ func toConnectError(err error) error {
 		errors.Is(err, provider.ErrNotFound), errors.Is(err, media.ErrUnknownProvider), errors.Is(err, sync.ErrNotExcluded):
 		return connect.NewError(connect.CodeNotFound, err)
 	case errors.As(err, &gv), errors.As(err, &sv), errors.As(err, &setv), errors.As(err, &schv), errors.As(err, &fv), errors.Is(err, source.ErrUnknownType),
-		errors.Is(err, game.ErrInvalidBarcode):
+		errors.Is(err, game.ErrInvalidBarcode), errors.Is(err, media.ErrNoEdition):
 		return connect.NewError(connect.CodeInvalidArgument, err)
 	case errors.Is(err, catalog.ErrPhotoNotUploaded), errors.Is(err, valuation.ErrNotValuable), errors.Is(err, valuation.ErrNoProviders),
 		errors.Is(err, sync.ErrNotImported), errors.Is(err, fields.ErrValuesConflict):
