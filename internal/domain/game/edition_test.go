@@ -297,6 +297,15 @@ func TestAdoptGameCover(t *testing.T) {
 		assert.Equal(t, "PS3", g.MainSystem())
 	})
 
+	t.Run("GIVEN a game without copies THEN it keeps the URL as the cover the game has until it has editions", func(t *testing.T) {
+		g := gameWith(t)
+		g.AdoptGameCover(url, pid(7))
+		assert.Equal(t, map[string]EditionCover{"": {URL: url}}, g.Covers())
+		assert.Equal(t, EditionCover{URL: url}, g.MainEdition().Cover)
+		assert.Empty(t, g.Editions())
+		assert.Empty(t, g.MainSystem())
+	})
+
 	t.Run("GIVEN a photo no copy has any more THEN only the URL is adopted", func(t *testing.T) {
 		g := discs(t)
 		g.AdoptGameCover(url, pid(9))
@@ -346,6 +355,60 @@ func TestCoverFingerprints(t *testing.T) {
 			_, err := g.UpdateInfo(info, t0)
 			require.NoError(t, err)
 			assert.Equal(t, []string{"PC", "PS3", "Wii"}, ChangedSystems(before, g.CoverFingerprints()))
+		})
+	})
+}
+
+func TestCoverWithoutCopies(t *testing.T) {
+	const url = "https://example.test/halo.jpg"
+
+	// coverOnly returns a game without copies whose cover is url.
+	coverOnly := func(t *testing.T) *Game {
+		t.Helper()
+
+		g := gameWith(t)
+		require.NoError(t, g.SetEditionCover("", EditionCover{URL: url}, t0))
+
+		return g
+	}
+
+	t.Run("GIVEN a game without copies with a chosen cover", func(t *testing.T) {
+		g := coverOnly(t)
+
+		t.Run("THEN it is the main cover, and the game still has no editions", func(t *testing.T) {
+			assert.Equal(t, EditionCover{URL: url}, g.MainEdition().Cover)
+			assert.Empty(t, g.Editions())
+		})
+
+		t.Run("WHEN its first copy, a PS3 disc, is added THEN the cover moves to the PS3 edition", func(t *testing.T) {
+			_, err := g.AddCopy(on(KindPhysical, "PS3"), t0)
+			require.NoError(t, err)
+			assert.Equal(t, map[string]EditionCover{"PS3": {URL: url}}, g.Covers())
+
+			p, _ := g.Edition("PS3")
+			assert.Equal(t, EditionCover{URL: url}, p.Cover)
+		})
+
+		t.Run("AND the empty system is refused once the game has copies", func(t *testing.T) {
+			var ve *ValidationError
+			assert.ErrorAs(t, g.SetEditionCover("", EditionCover{URL: url}, t0), &ve)
+		})
+	})
+
+	t.Run("GIVEN a game without copies with a cover, and another with a PS3 disc", func(t *testing.T) {
+		t.Run("WHEN the PS3 edition has no cover THEN it takes the first game's", func(t *testing.T) {
+			kept := coverOnly(t)
+			kept.Absorb(gameWith(t, on(KindPhysical, "PS3")), t0)
+			assert.Equal(t, map[string]EditionCover{"PS3": {URL: url}}, kept.Covers())
+		})
+
+		t.Run("WHEN the PS3 edition already has a cover THEN it keeps it and the other is dropped", func(t *testing.T) {
+			kept := coverOnly(t)
+			other := gameWith(t, on(KindPhysical, "PS3"))
+			require.NoError(t, other.SetEditionCover("PS3", EditionCover{URL: "https://example.test/ps3.jpg"}, t0))
+
+			kept.Absorb(other, t0)
+			assert.Equal(t, map[string]EditionCover{"PS3": {URL: "https://example.test/ps3.jpg"}}, kept.Covers())
 		})
 	})
 }

@@ -328,6 +328,10 @@ func coversToDoc(covers map[string]game.EditionCover) map[string]coverDoc {
 }
 
 func coversFromDoc(docs map[string]coverDoc) map[string]game.EditionCover {
+	if len(docs) == 0 {
+		return nil
+	}
+
 	out := make(map[string]game.EditionCover, len(docs))
 	for system, d := range docs {
 		out[system] = game.EditionCover{

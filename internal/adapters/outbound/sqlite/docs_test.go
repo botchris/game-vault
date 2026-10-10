@@ -545,6 +545,30 @@ func TestDocuments_editions(t *testing.T) {
 		})
 	})
 
+	t.Run("GIVEN a game without copies with a chosen cover WHEN it is encoded and decoded THEN the cover comes back", func(t *testing.T) {
+		g := game.Rehydrate("g3", game.Info{Title: "Halo 3"}, nil, docTime, docTime)
+		g.RestoreEditions(map[string]game.EditionCover{"": {URL: "https://example.test/halo.jpg"}}, "")
+
+		raw, err := encodeGame(g)
+		require.NoError(t, err)
+
+		got, err := decodeGame(g.ID(), raw)
+		require.NoError(t, err)
+		assert.Equal(t, map[string]game.EditionCover{"": {URL: "https://example.test/halo.jpg"}}, got.Covers())
+	})
+
+	t.Run("GIVEN a version-2 document of a game without copies, with a cover URL, WHEN it is read THEN the game keeps it", func(t *testing.T) {
+		got, err := decodeGame("g4", `{"v":2,"title":"Halo 3","coverUrl":"https://example.test/halo.jpg","createdAt":"2026-10-09T18:30:00Z","updatedAt":"2026-10-09T18:30:00Z"}`)
+		require.NoError(t, err)
+		assert.Equal(t, game.EditionCover{URL: "https://example.test/halo.jpg"}, got.MainEdition().Cover)
+	})
+
+	t.Run("GIVEN a version-3 document without covers WHEN it is read THEN the game has none", func(t *testing.T) {
+		got, err := decodeGame("g5", `{"v":3,"title":"Halo 3","createdAt":"2026-10-09T18:30:00Z","updatedAt":"2026-10-09T18:30:00Z"}`)
+		require.NoError(t, err)
+		assert.Nil(t, got.Covers())
+	})
+
 	t.Run("GIVEN a version-2 document with a cover URL, and a cover photo on a copy of another edition than the default main one", func(t *testing.T) {
 		const at = `"createdAt":"2026-10-09T18:30:00Z","updatedAt":"2026-10-09T18:30:00Z"`
 

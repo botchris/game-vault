@@ -97,7 +97,8 @@ func (g *Game) hasPhotoOn(system string, id PhotoID) bool {
 // MainSystem returns the system the user chose for the main edition; empty means the default rule.
 func (g *Game) MainSystem() string { return g.mainSystem }
 
-// Covers returns the chosen covers by system (a copy).
+// Covers returns the chosen covers by system (a copy). The empty system holds the cover chosen
+// for a game without copies, until its first edition takes it (see reconcileEditions).
 func (g *Game) Covers() map[string]EditionCover { return maps.Clone(g.covers) }
 
 // mainOf returns the main edition's system: the user's choice, else an edition with a physical
@@ -121,11 +122,11 @@ func (g *Game) mainOf() string {
 }
 
 // MainEdition returns the edition shown when the game is listed once (see mainOf). A game without
-// copies has no editions: its main edition is the zero Edition.
+// copies has no editions: its main edition has no system, only the cover chosen for the game.
 func (g *Game) MainEdition() Edition {
 	main := g.mainOf()
 	if main == "" {
-		return Edition{}
+		return Edition{Cover: g.covers[""]}
 	}
 
 	return Edition{
@@ -169,9 +170,13 @@ func (g *Game) Edition(system string) (Edition, bool) {
 }
 
 // SetEditionCover chooses the cover of the edition on system; a zero cover lets the providers
-// choose again. A photo must be of one of that edition's copies.
+// choose again. A photo must be of one of that edition's copies. A game without copies takes its
+// cover on the empty system, which its first edition inherits.
 func (g *Game) SetEditionCover(system string, cover EditionCover, now time.Time) error {
-	if !g.hasSystem(system) {
+	switch {
+	case system == "" && len(g.copies) > 0:
+		return invalid("the game has copies: choose the cover of one of its editions; reload the page")
+	case system != "" && !g.hasSystem(system):
 		return invalid("%s: this game has no copy on that system; reload the page", system)
 	}
 
@@ -213,9 +218,23 @@ func (g *Game) SetMainSystem(system string, now time.Time) error {
 }
 
 // reconcileEditions drops what no longer fits the copies: covers of systems without copies, photo
-// covers whose photo no copy of that system has, and a main system without copies.
+// covers whose photo no copy of that system has, and a main system without copies. Once the game
+// has copies, the cover chosen while it had none goes to the main edition, unless that edition
+// has a cover of its own.
 func (g *Game) reconcileEditions() {
+	if c, ok := g.covers[""]; ok && len(g.copies) > 0 {
+		delete(g.covers, "")
+
+		if main := g.mainOf(); g.covers[main].IsZero() {
+			g.covers[main] = c // the loop below drops a photo no copy of that edition has
+		}
+	}
+
 	for system, c := range g.covers {
+		if system == "" {
+			continue // the game has no copies yet
+		}
+
 		if !g.hasSystem(system) || (c.Photo != "" && !g.hasPhotoOn(system, c.Photo)) {
 			delete(g.covers, system)
 		}
@@ -238,7 +257,8 @@ func (g *Game) RestoreEditions(covers map[string]EditionCover, mainSystem string
 // into edition covers. A photo goes to the edition of a copy that has it, and that edition becomes
 // the main one, so the game looks as before. A URL goes to the main edition by the default rule,
 // unless the photo took that edition; that system is stored as the main one when no photo set it.
-// Only repositories call it, right after Rehydrate.
+// A game without copies keeps the URL as its cover (see SetEditionCover). Only repositories call
+// it, right after Rehydrate.
 func (g *Game) AdoptGameCover(coverURL string, photo PhotoID) {
 	defaultMain := g.mainOf()
 
@@ -250,7 +270,12 @@ func (g *Game) AdoptGameCover(coverURL string, photo PhotoID) {
 		}
 	}
 
-	if coverURL == "" || defaultMain == "" {
+	if coverURL == "" {
+		return
+	}
+
+	if defaultMain == "" {
+		g.covers = map[string]EditionCover{"": {URL: coverURL}}
 		return
 	}
 

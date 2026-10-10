@@ -192,6 +192,7 @@ func (g *Game) addCopy(d CopyDetails, sourceID, externalID string, now time.Time
 		UpdatedAt:   now,
 	}
 	g.copies = append(g.copies, c)
+	g.reconcileEditions() // the first copy takes the cover chosen for the game
 	g.updatedAt = now
 
 	return c, nil
@@ -238,6 +239,11 @@ func (g *Game) RemoveCopy(id ID, now time.Time) (Copy, error) {
 
 // AttachCopy adopts a copy removed from another game (used to move or merge copies).
 func (g *Game) AttachCopy(c Copy, now time.Time) {
+	g.attachCopy(c, now)
+	g.reconcileEditions() // the first copy takes the cover chosen for the game
+}
+
+func (g *Game) attachCopy(c Copy, now time.Time) {
 	c.UpdatedAt = now
 	g.copies = append(g.copies, c)
 	g.updatedAt = now
@@ -245,8 +251,9 @@ func (g *Game) AttachCopy(c Copy, now time.Time) {
 
 // Absorb moves every copy of other into g. The caller must delete other afterwards.
 func (g *Game) Absorb(other *Game, now time.Time) {
+	// Editions are reconciled once every copy is in, so the main edition is the final one.
 	for _, c := range other.copies {
-		g.AttachCopy(c, now)
+		g.attachCopy(c, now)
 	}
 
 	other.copies = nil

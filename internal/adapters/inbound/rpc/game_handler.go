@@ -94,6 +94,13 @@ func (h *GameHandler) CreateGame(ctx context.Context, req *connect.Request[pb.Cr
 		copyFields = append(copyFields, fieldValuesFromPB(d.GetFields()))
 	}
 
+	// The cover URL is checked first: a game created before it is refused would be duplicated by a
+	// retry.
+	coverURL, err := game.ParseCoverURL(req.Msg.CoverUrl)
+	if err != nil {
+		return nil, toConnectError(err)
+	}
+
 	info := game.Info{
 		Title:  req.Msg.Title,
 		Links:  req.Msg.Links,
@@ -102,8 +109,8 @@ func (h *GameHandler) CreateGame(ctx context.Context, req *connect.Request[pb.Cr
 	}
 
 	g, err := h.catalog.CreateGame(ctx, info, copies, copyFields...)
-	if err == nil && req.Msg.CoverUrl != "" {
-		g, err = h.setMainCoverURL(ctx, g, req.Msg.CoverUrl) // Bridge (Task 5)
+	if err == nil && coverURL != "" {
+		g, err = h.setMainCoverURL(ctx, g, coverURL) // Bridge (Task 5)
 	}
 
 	return gameResp(g, err, func(g *pb.Game) *pb.CreateGameResponse { return &pb.CreateGameResponse{Game: g} })
@@ -116,6 +123,12 @@ func (h *GameHandler) UpdateGame(ctx context.Context, req *connect.Request[pb.Up
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("the play status is not valid: reload the page and try again"))
 	}
 
+	// The cover URL is checked first, so a bad one changes nothing.
+	coverURL, err := game.ParseCoverURL(req.Msg.CoverUrl)
+	if err != nil {
+		return nil, toConnectError(err)
+	}
+
 	info := game.Info{
 		Title:      req.Msg.Title,
 		Links:      req.Msg.Links,
@@ -126,8 +139,8 @@ func (h *GameHandler) UpdateGame(ctx context.Context, req *connect.Request[pb.Up
 	}
 
 	g, err := h.catalog.UpdateGame(ctx, game.ID(req.Msg.Id), info)
-	if err == nil && req.Msg.CoverUrl != g.MainEdition().Cover.URL {
-		g, err = h.setMainCoverURL(ctx, g, req.Msg.CoverUrl) // Bridge (Task 5)
+	if err == nil && coverURL != g.MainEdition().Cover.URL {
+		g, err = h.setMainCoverURL(ctx, g, coverURL) // Bridge (Task 5)
 	}
 
 	return gameResp(g, err, func(g *pb.Game) *pb.UpdateGameResponse { return &pb.UpdateGameResponse{Game: g} })
@@ -404,19 +417,11 @@ func (h *GameHandler) ReorderCopyPhotos(ctx context.Context, req *connect.Reques
 	return gameResp(g, err, func(g *pb.Game) *pb.ReorderCopyPhotosResponse { return &pb.ReorderCopyPhotosResponse{Game: g} })
 }
 
-// setMainCoverURL sets a cover URL on the game's main edition. Bridge (Task 5): the API speaks of
-// one cover per game until it speaks of editions.
+// setMainCoverURL sets a checked cover URL on the game's main edition; a game without copies keeps
+// it on the empty system until its first edition. Bridge (Task 5): the API speaks of one cover per
+// game until it speaks of editions.
 func (h *GameHandler) setMainCoverURL(ctx context.Context, g *game.Game, coverURL string) (*game.Game, error) {
-	if _, err := game.ParseCoverURL(coverURL); err != nil {
-		return nil, err
-	}
-
-	main := g.MainEdition()
-	if main.System == "" {
-		return g, nil // a game without copies has no edition to hold a cover
-	}
-
-	return h.catalog.SetEditionCover(ctx, g.ID(), main.System, game.EditionCover{URL: coverURL})
+	return h.catalog.SetEditionCover(ctx, g.ID(), g.MainEdition().System, game.EditionCover{URL: coverURL})
 }
 
 // SetCoverPhoto makes one of the copies' photos the cover of its edition, and that edition the main
