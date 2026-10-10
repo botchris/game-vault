@@ -130,6 +130,7 @@ func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.
 			ExternalID: "example:" + id,
 			Title:      title,
 			Links:      game.Links{LinkedStore.Key: id},
+			System:     game.SystemPC,
 			Details: game.CopyDetails{
 				Kind:     game.KindLibrary,
 				Platform: Platform,

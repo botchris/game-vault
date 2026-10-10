@@ -77,6 +77,8 @@ type copyDoc struct {
 	PriceAmount   int64         `json:"priceAmount,omitempty"`
 	PriceCurrency string        `json:"priceCurrency,omitempty"`
 	Notes         string        `json:"notes,omitempty"`
+	System        string        `json:"system,omitempty"`
+	SourceSystem  string        `json:"sourceSystem,omitempty"`
 	Photos        []photoDoc    `json:"photos,omitempty"`
 	Estimates     []estimateDoc `json:"estimates,omitempty"`
 	NextValuation string        `json:"nextValuation,omitempty"`
@@ -197,6 +199,8 @@ func encodeGame(g *game.Game) (string, error) {
 			PriceAmount:   c.Price.Amount,
 			PriceCurrency: c.Price.Currency,
 			Notes:         c.Notes,
+			System:        c.CopyDetails.System,
+			SourceSystem:  c.SourceSystem,
 			Photos:        photoDocs(c.Photos),
 			Estimates:     estimateDocs(c.Estimates),
 			NextValuation: optionalTime(c.NextValuation),
@@ -248,7 +252,8 @@ func decodeGame(id game.ID, raw string) (*game.Game, error) {
 					Amount:   c.PriceAmount,
 					Currency: c.PriceCurrency,
 				},
-				Notes: c.Notes,
+				Notes:  c.Notes,
+				System: c.System,
 			},
 			Photos:        photosOf(c.Photos),
 			Estimates:     estimatesOf(c.Estimates),
@@ -257,6 +262,7 @@ func decodeGame(id game.ID, raw string) (*game.Game, error) {
 			Fields:        fieldsFromDoc(c.Fields),
 			SourceID:      c.SourceID,
 			ExternalID:    c.ExternalID,
+			SourceSystem:  c.SourceSystem,
 			CreatedAt:     parseTime(c.CreatedAt),
 			UpdatedAt:     parseTime(c.UpdatedAt),
 		}

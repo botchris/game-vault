@@ -446,3 +446,41 @@ func TestDocuments_customFieldValues(t *testing.T) {
 		})
 	})
 }
+
+func TestDocuments_systems(t *testing.T) {
+	t.Run("GIVEN a copy with the user's system and its source's", func(t *testing.T) {
+		g := game.Rehydrate("g1", game.Info{Title: "Astro Bot"}, []game.Copy{{
+			ID: "c1",
+			CopyDetails: game.CopyDetails{
+				Kind:     game.KindLibrary,
+				Platform: "PlayStation Store",
+				Status:   game.StatusOwned,
+				System:   "PS4",
+			},
+			SourceSystem: "PS5",
+			CreatedAt:    docTime,
+			UpdatedAt:    docTime,
+		}}, docTime, docTime)
+
+		t.Run("WHEN it is encoded and decoded", func(t *testing.T) {
+			raw, err := encodeGame(g)
+			require.NoError(t, err)
+
+			got, err := decodeGame(g.ID(), raw)
+			require.NoError(t, err)
+
+			t.Run("THEN both come back", func(t *testing.T) {
+				assert.Equal(t, g.Copies(), got.Copies())
+				assert.Contains(t, raw, `"system":"PS4"`)
+				assert.Contains(t, raw, `"sourceSystem":"PS5"`)
+			})
+
+			t.Run("AND a copy with neither writes neither", func(t *testing.T) {
+				plain, err := encodeGame(sampleGame(t))
+				require.NoError(t, err)
+				assert.NotContains(t, plain, `"system"`)
+				assert.NotContains(t, plain, `"sourceSystem"`)
+			})
+		})
+	})
+}

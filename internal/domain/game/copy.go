@@ -63,6 +63,9 @@ type CopyDetails struct {
 	Barcode    Barcode  // physical only: EAN/UPC printed on the box
 	Price      Money    // what was paid, any kind
 	Notes      string
+
+	// System is the system the user says the copy is played on; empty: automatic (see Copy.System).
+	System string
 }
 
 // normalize trims values, fills defaults and enforces the kind/status invariants.
@@ -84,6 +87,14 @@ func (d CopyDetails) normalize() (CopyDetails, error) {
 	}
 
 	d.Platform = CanonicalPlatform(d.Platform)
+
+	system, err := normalizeSystem(d.System)
+	if err != nil {
+		return d, err
+	}
+
+	d.System = system
+
 	if d.Kind != KindKey {
 		d.Key, d.RedeemBy = "", ""
 	}
@@ -132,13 +143,29 @@ type Copy struct {
 	ValuedAt   time.Time
 	SourceID   string // source that manages this copy; empty for manual copies
 	ExternalID string // stable identifier inside the source
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+
+	// SourceSystem is the system the source says the copy is played on; empty when it does not say.
+	SourceSystem string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 // IsPendingKey reports whether the copy is a key you still have to do something with.
 func (c Copy) IsPendingKey() bool {
 	return c.Kind == KindKey && (c.Status == StatusUnrevealed || c.Status == StatusRevealed)
+}
+
+// System returns the system the copy is played on: the user's choice, else the one its source
+// gave, else the one its platform implies (SystemOf).
+func (c Copy) System() string {
+	switch {
+	case c.CopyDetails.System != "":
+		return c.CopyDetails.System
+	case c.SourceSystem != "":
+		return c.SourceSystem
+	}
+
+	return SystemOf(c.Platform)
 }
 
 // applyImport overlays details coming from a source onto the copy. Values the source does not
@@ -174,6 +201,7 @@ func (c *Copy) applyImport(in CopyDetails) bool {
 	}
 
 	set(&c.Notes, in.Notes)
+	set(&c.CopyDetails.System, in.System)
 
 	if in.RedeemBy != "" {
 		c.RedeemBy = in.RedeemBy

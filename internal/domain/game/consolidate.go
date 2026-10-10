@@ -25,6 +25,10 @@ type ImportedCopy struct {
 	// They are added to the game where it has no link to that store yet.
 	Links   Links
 	Details CopyDetails
+
+	// System is the exact system the copy is played on, when the source knows it (PS4 or PS5 for a
+	// PlayStation Store game). It wins over the one the platform implies, never over the user's.
+	System string
 }
 
 // ConsolidationResult summarizes what a consolidation changed.
@@ -116,6 +120,12 @@ func (c *Consolidator) Apply(sourceID string, imported []ImportedCopy, now time.
 			continue
 		}
 
+		sourceSystem, err := normalizeSystem(in.System)
+		if err != nil {
+			r.Warnings = append(r.Warnings, in.Title+": "+err.Error())
+			sourceSystem = ""
+		}
+
 		if in.Links, err = in.Links.normalize(); err != nil {
 			r.Warnings = append(r.Warnings, in.Title+": "+err.Error())
 			in.Links = nil
@@ -128,6 +138,11 @@ func (c *Consolidator) Apply(sourceID string, imported []ImportedCopy, now time.
 			cp := &g.copies[i]
 
 			changed := cp.applyImport(details)
+			if cp.SourceSystem != sourceSystem {
+				cp.SourceSystem = sourceSystem
+				changed = true
+			}
+
 			if sourceID != "" && cp.SourceID != sourceID {
 				cp.SourceID = sourceID // adopt copies created by a CSV import or an older source
 				changed = true
@@ -169,6 +184,8 @@ func (c *Consolidator) Apply(sourceID string, imported []ImportedCopy, now time.
 			r.Warnings = append(r.Warnings, in.Title+": "+err.Error())
 			continue
 		}
+
+		g.copies[len(g.copies)-1].SourceSystem = sourceSystem
 
 		c.index(g)
 		c.markChanged(g)
