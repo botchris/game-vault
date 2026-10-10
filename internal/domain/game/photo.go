@@ -221,6 +221,7 @@ func (g *Game) touchCopy(i int, now time.Time) Copy {
 func (c Copy) clone() Copy {
 	c.Photos = slices.Clone(c.Photos)
 	c.Estimates = slices.Clone(c.Estimates)
+	c.Fields = c.Fields.compact()
 
 	return c
 }
