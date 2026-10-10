@@ -182,12 +182,15 @@ func (c *Consolidator) Apply(sourceID string, imported []ImportedCopy, now time.
 
 		g.links.fill(in.Links)
 
-		if _, err := g.addCopy(details, sourceID, in.ExternalID, now); err != nil {
+		from := copyOrigin{
+			sourceID:     sourceID,
+			externalID:   in.ExternalID,
+			sourceSystem: sourceSystem,
+		}
+		if _, err := g.addCopy(details, from, now); err != nil {
 			r.Warnings = append(r.Warnings, in.Title+": "+err.Error())
 			continue
 		}
-
-		g.copies[len(g.copies)-1].SourceSystem = sourceSystem
 
 		c.index(g)
 		c.markChanged(g)

@@ -174,10 +174,18 @@ func (g *Game) UpdateInfo(i Info, now time.Time) (linksChanged bool, err error) 
 
 // AddCopy adds a manual copy.
 func (g *Game) AddCopy(d CopyDetails, now time.Time) (Copy, error) {
-	return g.addCopy(d, "", "", now)
+	return g.addCopy(d, copyOrigin{}, now)
 }
 
-func (g *Game) addCopy(d CopyDetails, sourceID, externalID string, now time.Time) (Copy, error) {
+// copyOrigin is where an imported copy comes from: its source, its id there, and the system the
+// source says it is played on. A manual copy has none.
+type copyOrigin struct {
+	sourceID     string
+	externalID   string
+	sourceSystem string
+}
+
+func (g *Game) addCopy(d CopyDetails, from copyOrigin, now time.Time) (Copy, error) {
 	d, err := d.normalize()
 	if err != nil {
 		return Copy{}, err
@@ -185,11 +193,12 @@ func (g *Game) addCopy(d CopyDetails, sourceID, externalID string, now time.Time
 
 	c := Copy{
 		ID:          NewID(),
-		CopyDetails: d,
-		SourceID:    sourceID,
-		ExternalID:  externalID,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		CopyDetails:  d,
+		SourceID:     from.sourceID,
+		ExternalID:   from.externalID,
+		SourceSystem: from.sourceSystem, // before reconciling: it decides the copy's system
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
 	g.copies = append(g.copies, c)
 	g.reconcileEditions() // the first copy takes the cover chosen for the game

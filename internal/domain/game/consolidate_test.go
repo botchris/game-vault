@@ -335,3 +335,37 @@ func TestConsolidatorFileSystemColumn(t *testing.T) {
 		})
 	})
 }
+
+func TestConsolidatorFirstCopyTakesCoverOnSourceSystem(t *testing.T) {
+	const url = "https://example.test/astro.jpg"
+
+	t.Run("GIVEN a game without copies whose cover was chosen", func(t *testing.T) {
+		g, err := New("Astro Bot", t0)
+		require.NoError(t, err)
+		require.NoError(t, g.SetEditionCover("", EditionCover{URL: url}, t0))
+
+		t.Run("WHEN a source whose system (PS5) differs from its platform's (PS4) adds its first copy", func(t *testing.T) {
+			res := NewConsolidator([]*Game{g}).Apply("psn-src", []ImportedCopy{{
+				ExternalID: "psn:astro",
+				Title:      "Astro Bot",
+				System:     "PS5",
+				Details: CopyDetails{
+					Kind:     KindLibrary,
+					Platform: "PlayStation Store",
+				},
+			}}, t0)
+			require.Len(t, res.Changed, 1)
+			require.Equal(t, "PS4", SystemOf("PlayStation Store"))
+
+			t.Run("THEN the cover moves to the PS5 edition", func(t *testing.T) {
+				assert.Equal(t, map[string]EditionCover{"PS5": {URL: url}}, g.Covers())
+			})
+
+			t.Run("AND it survives a re-read", func(t *testing.T) {
+				read := Rehydrate(g.ID(), g.Info(), g.Copies(), t0, t0)
+				read.RestoreEditions(g.Covers(), g.MainSystem())
+				assert.Equal(t, map[string]EditionCover{"PS5": {URL: url}}, read.Covers())
+			})
+		})
+	})
+}
