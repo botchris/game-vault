@@ -95,12 +95,13 @@ func gameToPB(g *game.Game) *pb.Game {
 	}
 
 	out := &pb.Game{
-		Id:           string(g.ID()),
-		Title:        g.Title(),
-		Links:        g.Links(),
-		Notes:        g.Notes(),
-		CoverUrl:     g.CoverURL(),
-		CoverPhotoId: string(g.CoverPhoto()),
+		Id:    string(g.ID()),
+		Title: g.Title(),
+		Links: g.Links(),
+		Notes: g.Notes(),
+		// Bridge (Task 5): the API still has one cover per game, the main edition's.
+		CoverUrl:     g.MainEdition().Cover.URL,
+		CoverPhotoId: string(g.MainEdition().Cover.Photo),
 		PlayStatus:   playStatusToPB[g.PlayStatus()],
 		Rating:       int32(g.Rating()),
 		CreatedAt:    ts(g.CreatedAt()),

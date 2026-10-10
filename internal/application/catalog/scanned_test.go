@@ -92,7 +92,7 @@ func TestAddScannedCopies(t *testing.T) {
 				ds3 := games[1]
 				assert.Equal(t, "Dead Space 3", ds3.Title())
 				assert.Len(t, ds3.Copies(), 2)
-				assert.Equal(t, "https://example.com/ds3.jpg", ds3.CoverURL())
+				assert.Equal(t, map[string]game.EditionCover{"Xbox 360": {URL: "https://example.com/ds3.jpg"}}, ds3.Covers(), "the cover goes to the edition of the disc that chose it")
 				assert.Equal(t, ds3.ID(), results[1].GameID)
 				assert.Equal(t, ds3.ID(), results[2].GameID)
 			})

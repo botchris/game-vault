@@ -3,7 +3,6 @@ package game
 
 import (
 	"context"
-	"net/url"
 	"slices"
 	"strings"
 	"time"
@@ -17,11 +16,11 @@ type Game struct {
 	title      string
 	links      Links
 	notes      string
-	coverURL   string
-	coverPhoto PhotoID
 	playStatus PlayStatus
 	rating     Rating
 	fields     FieldValues
+	covers     map[string]EditionCover
+	mainSystem string
 	copies     []Copy
 	createdAt  time.Time
 	updatedAt  time.Time
@@ -50,12 +49,6 @@ type Info struct {
 	Links Links
 	Notes string
 
-	// CoverURL is a custom cover image. Empty means the cover providers choose one.
-	CoverURL string
-
-	// CoverPhoto is one of the copies' photos used as the cover. It wins over CoverURL.
-	CoverPhoto PhotoID
-
 	// PlayStatus says whether the user means to play the game, is playing it or is done with it.
 	PlayStatus PlayStatus
 
@@ -67,7 +60,7 @@ type Info struct {
 }
 
 func (i Info) normalize() (Info, error) {
-	i.Title, i.Notes, i.CoverURL = strings.TrimSpace(i.Title), strings.TrimSpace(i.Notes), strings.TrimSpace(i.CoverURL)
+	i.Title, i.Notes = strings.TrimSpace(i.Title), strings.TrimSpace(i.Notes)
 	if i.Title == "" {
 		return i, invalid("title is required")
 	}
@@ -87,13 +80,6 @@ func (i Info) normalize() (Info, error) {
 		return i, invalid("the rating must be between 0 and %d", MaxRating)
 	}
 
-	if i.CoverURL != "" {
-		u, err := url.Parse(i.CoverURL)
-		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-			return i, invalid("cover url must be an http(s) URL")
-		}
-	}
-
 	return i, nil
 }
 
@@ -111,8 +97,6 @@ func Rehydrate(id ID, info Info, copies []Copy, createdAt, updatedAt time.Time) 
 		title:      info.Title,
 		links:      info.Links.clone(),
 		notes:      info.Notes,
-		coverURL:   info.CoverURL,
-		coverPhoto: info.CoverPhoto,
 		playStatus: info.PlayStatus,
 		rating:     info.Rating,
 		fields:     info.Fields.compact(),
@@ -133,12 +117,6 @@ func (g *Game) Links() Links { return g.links.clone() }
 
 // Notes returns the user's free-form notes about the game.
 func (g *Game) Notes() string { return g.notes }
-
-// CoverURL returns the custom cover image, empty when the default cover applies.
-func (g *Game) CoverURL() string { return g.coverURL }
-
-// CoverPhoto returns the photo used as the cover, empty when there is none.
-func (g *Game) CoverPhoto() PhotoID { return g.coverPhoto }
 
 // PlayStatus returns where the user is with the game, PlayNone when they have not said.
 func (g *Game) PlayStatus() PlayStatus { return g.playStatus }
@@ -171,33 +149,27 @@ func (g *Game) Info() Info {
 		Title:      g.title,
 		Links:      g.links.clone(),
 		Notes:      g.notes,
-		CoverURL:   g.coverURL,
-		CoverPhoto: g.coverPhoto,
 		PlayStatus: g.playStatus,
 		Rating:     g.rating,
 		Fields:     g.fields.compact(),
 	}
 }
 
-// UpdateInfo changes the game's own attributes. It reports whether the cover may have changed
-// (custom URL or links), so cached cover images and details can be refreshed.
-func (g *Game) UpdateInfo(i Info, now time.Time) (coverChanged bool, err error) {
+// UpdateInfo changes the game's own attributes. It reports whether the links changed: covers and
+// details depend on them, so cached ones can be refreshed.
+func (g *Game) UpdateInfo(i Info, now time.Time) (linksChanged bool, err error) {
 	i, err = i.normalize()
 	if err != nil {
 		return false, err
 	}
 
-	if i.CoverPhoto != "" && !g.hasPhoto(i.CoverPhoto) {
-		return false, invalid("the cover photo must be a photo of one of the game's copies")
-	}
-
-	coverChanged = i.CoverURL != g.coverURL || i.CoverPhoto != g.coverPhoto || !i.Links.Equal(g.links)
-	g.title, g.links, g.notes, g.coverURL, g.coverPhoto = i.Title, i.Links, i.Notes, i.CoverURL, i.CoverPhoto
+	linksChanged = !i.Links.Equal(g.links)
+	g.title, g.links, g.notes = i.Title, i.Links, i.Notes
 	g.playStatus, g.rating = i.PlayStatus, i.Rating
 	g.fields = i.Fields.compact()
 	g.updatedAt = now
 
-	return coverChanged, nil
+	return linksChanged, nil
 }
 
 // AddCopy adds a manual copy.
@@ -242,6 +214,7 @@ func (g *Game) UpdateCopy(id ID, d CopyDetails, now time.Time) (Copy, error) {
 	}
 
 	g.copies[i].CopyDetails = d
+	g.reconcileEditions() // an override can move the copy to another system
 	g.copies[i].UpdatedAt = now
 	g.updatedAt = now
 
@@ -257,7 +230,7 @@ func (g *Game) RemoveCopy(id ID, now time.Time) (Copy, error) {
 
 	c := g.copies[i]
 	g.copies = append(g.copies[:i], g.copies[i+1:]...)
-	g.dropOrphanCover()
+	g.reconcileEditions()
 	g.updatedAt = now
 
 	return c, nil
@@ -279,14 +252,21 @@ func (g *Game) Absorb(other *Game, now time.Time) {
 	other.copies = nil
 	g.links.fill(other.links)
 
-	// The other game's cover photo comes along with its copies, unless the user already chose a
-	// cover for this game (a photo or a custom URL).
-	if g.coverPhoto == "" && g.coverURL == "" {
-		g.coverPhoto = other.coverPhoto
+	// Covers chosen for this game win; the other's fill the systems this game chose none for.
+	for system, c := range other.covers {
+		if _, ok := g.covers[system]; ok {
+			continue
+		}
+
+		if g.covers == nil {
+			g.covers = map[string]EditionCover{}
+		}
+
+		g.covers[system] = c
 	}
 
-	if g.coverURL == "" {
-		g.coverURL = other.coverURL
+	if g.mainSystem == "" {
+		g.mainSystem = other.mainSystem
 	}
 
 	// The play status and the rating describe the same game, so the other's only fill gaps.
@@ -304,6 +284,7 @@ func (g *Game) Absorb(other *Game, now time.Time) {
 		g.notes = strings.TrimSpace(g.notes + "\n" + other.notes)
 	}
 
+	g.reconcileEditions()
 	g.updatedAt = now
 }
 
@@ -319,7 +300,7 @@ func (g *Game) RemoveCopiesFromSource(sourceID string, now time.Time) int {
 	n := len(g.copies) - len(kept)
 
 	g.copies = kept
-	g.dropOrphanCover()
+	g.reconcileEditions()
 
 	if n > 0 {
 		g.updatedAt = now

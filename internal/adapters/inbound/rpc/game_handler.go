@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"errors"
+	"slices"
 
 	"connectrpc.com/connect"
 
@@ -94,13 +95,16 @@ func (h *GameHandler) CreateGame(ctx context.Context, req *connect.Request[pb.Cr
 	}
 
 	info := game.Info{
-		Title:    req.Msg.Title,
-		Links:    req.Msg.Links,
-		Notes:    req.Msg.Notes,
-		CoverURL: req.Msg.CoverUrl,
-		Fields:   fieldValuesFromPB(req.Msg.Fields),
+		Title:  req.Msg.Title,
+		Links:  req.Msg.Links,
+		Notes:  req.Msg.Notes,
+		Fields: fieldValuesFromPB(req.Msg.Fields),
 	}
+
 	g, err := h.catalog.CreateGame(ctx, info, copies, copyFields...)
+	if err == nil && req.Msg.CoverUrl != "" {
+		g, err = h.setMainCoverURL(ctx, g, req.Msg.CoverUrl) // Bridge (Task 5)
+	}
 
 	return gameResp(g, err, func(g *pb.Game) *pb.CreateGameResponse { return &pb.CreateGameResponse{Game: g} })
 }
@@ -116,12 +120,15 @@ func (h *GameHandler) UpdateGame(ctx context.Context, req *connect.Request[pb.Up
 		Title:      req.Msg.Title,
 		Links:      req.Msg.Links,
 		Notes:      req.Msg.Notes,
-		CoverURL:   req.Msg.CoverUrl,
 		PlayStatus: status,
 		Rating:     game.Rating(req.Msg.Rating),
 		Fields:     fieldValuesFromPB(req.Msg.Fields),
 	}
+
 	g, err := h.catalog.UpdateGame(ctx, game.ID(req.Msg.Id), info)
+	if err == nil && req.Msg.CoverUrl != g.MainEdition().Cover.URL {
+		g, err = h.setMainCoverURL(ctx, g, req.Msg.CoverUrl) // Bridge (Task 5)
+	}
 
 	return gameResp(g, err, func(g *pb.Game) *pb.UpdateGameResponse { return &pb.UpdateGameResponse{Game: g} })
 }
@@ -397,9 +404,57 @@ func (h *GameHandler) ReorderCopyPhotos(ctx context.Context, req *connect.Reques
 	return gameResp(g, err, func(g *pb.Game) *pb.ReorderCopyPhotosResponse { return &pb.ReorderCopyPhotosResponse{Game: g} })
 }
 
-// SetCoverPhoto makes one of the copies' photos the cover, or stops using one.
+// setMainCoverURL sets a cover URL on the game's main edition. Bridge (Task 5): the API speaks of
+// one cover per game until it speaks of editions.
+func (h *GameHandler) setMainCoverURL(ctx context.Context, g *game.Game, coverURL string) (*game.Game, error) {
+	if _, err := game.ParseCoverURL(coverURL); err != nil {
+		return nil, err
+	}
+
+	main := g.MainEdition()
+	if main.System == "" {
+		return g, nil // a game without copies has no edition to hold a cover
+	}
+
+	return h.catalog.SetEditionCover(ctx, g.ID(), main.System, game.EditionCover{URL: coverURL})
+}
+
+// SetCoverPhoto makes one of the copies' photos the cover of its edition, and that edition the main
+// one, or stops using a photo as the main edition's cover. Bridge (Task 5): replaced by
+// SetEditionCover.
 func (h *GameHandler) SetCoverPhoto(ctx context.Context, req *connect.Request[pb.SetCoverPhotoRequest]) (*connect.Response[pb.SetCoverPhotoResponse], error) {
-	g, err := h.catalog.SetCoverPhoto(ctx, game.ID(req.Msg.GameId), game.PhotoID(req.Msg.PhotoId))
+	id := game.ID(req.Msg.GameId)
+
+	g, err := h.catalog.GetGame(ctx, id)
+	if err != nil {
+		return nil, toConnectError(err)
+	}
+
+	main := g.MainEdition()
+	if req.Msg.PhotoId == "" {
+		if main.Cover.Photo != "" {
+			g, err = h.catalog.SetEditionCover(ctx, id, main.System, game.EditionCover{})
+		}
+
+		return gameResp(g, err, func(g *pb.Game) *pb.SetCoverPhotoResponse { return &pb.SetCoverPhotoResponse{Game: g} })
+	}
+
+	system := ""
+
+	for _, c := range g.Copies() {
+		if slices.ContainsFunc(c.Photos, func(p game.Photo) bool { return string(p.ID) == req.Msg.PhotoId }) {
+			system = c.System()
+			break
+		}
+	}
+
+	if system == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("the cover photo must be a photo of one of the game's copies"))
+	}
+
+	if g, err = h.catalog.SetEditionCover(ctx, id, system, game.EditionCover{Photo: game.PhotoID(req.Msg.PhotoId)}); err == nil {
+		g, err = h.catalog.SetMainSystem(ctx, id, system)
+	}
 
 	return gameResp(g, err, func(g *pb.Game) *pb.SetCoverPhotoResponse { return &pb.SetCoverPhotoResponse{Game: g} })
 }

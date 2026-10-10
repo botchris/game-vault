@@ -286,7 +286,7 @@ func (s *Service) Delete(ctx context.Context, id source.ID, deleteCopies bool) e
 		now := s.now()
 
 		for _, g := range games {
-			cover := g.CoverPhoto()
+			covers := g.Covers()
 
 			var n int
 			if deleteCopies {
@@ -307,7 +307,7 @@ func (s *Service) Delete(ctx context.Context, id source.ID, deleteCopies bool) e
 				return err
 			}
 
-			if g.CoverPhoto() != cover {
+			if !maps.Equal(g.Covers(), covers) { // Bridge (Task 4): per edition
 				stale = append(stale, g.ID())
 			}
 		}
@@ -321,7 +321,8 @@ func (s *Service) Delete(ctx context.Context, id source.ID, deleteCopies bool) e
 	return err
 }
 
-// invalidateCovers drops the cached covers of games whose cover photo left with a source's copy.
+// invalidateCovers drops the cached covers of games whose chosen covers changed (a photo cover left
+// with a source's copy).
 // Best effort: a stale cached image is not worth failing the use case.
 func (s *Service) invalidateCovers(ctx context.Context, ids []game.ID) {
 	if s.covers == nil {
@@ -424,9 +425,9 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 				return err
 			}
 
-			covers := make(map[game.ID]game.PhotoID, len(games))
+			covers := make(map[game.ID]map[string]game.EditionCover, len(games))
 			for _, g := range games {
-				covers[g.ID()] = g.CoverPhoto()
+				covers[g.ID()] = g.Covers()
 			}
 
 			// The user may have removed items since the scan started: ask the source as it is now.
@@ -446,7 +447,7 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 					return err
 				}
 
-				if g.CoverPhoto() != covers[g.ID()] {
+				if !maps.Equal(g.Covers(), covers[g.ID()]) { // Bridge (Task 4): per edition
 					stale = append(stale, g.ID())
 				}
 			}

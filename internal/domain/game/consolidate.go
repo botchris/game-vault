@@ -155,6 +155,7 @@ func (c *Consolidator) Apply(sourceID string, imported []ImportedCopy, now time.
 			}
 
 			if changed {
+				g.reconcileEditions() // a scan can change a copy's platform, and so its system
 				cp.UpdatedAt, g.updatedAt = now, now
 				c.markChanged(g)
 

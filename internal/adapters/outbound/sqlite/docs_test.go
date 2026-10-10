@@ -21,11 +21,10 @@ var docTime = time.Date(2026, 10, 9, 18, 30, 0, 123456789, time.UTC)
 func sampleGame(t *testing.T) *game.Game {
 	t.Helper()
 
-	return game.Rehydrate("g1", game.Info{
+	g := game.Rehydrate("g1", game.Info{
 		Title:      "Hades",
 		Links:      game.Links{"steam": "1145360"},
 		Notes:      "GOTY",
-		CoverURL:   "https://example.test/hades.jpg",
 		PlayStatus: game.PlayFinished,
 		Rating:     5,
 	}, []game.Copy{
@@ -60,6 +59,9 @@ func sampleGame(t *testing.T) *game.Game {
 			UpdatedAt: docTime,
 		},
 	}, docTime, docTime)
+	g.RestoreEditions(map[string]game.EditionCover{"PS4": {URL: "https://example.test/hades.jpg"}}, "PS4")
+
+	return g
 }
 
 func TestDocuments_game(t *testing.T) {
@@ -76,6 +78,8 @@ func TestDocuments_game(t *testing.T) {
 			t.Run("THEN the aggregate is the same", func(t *testing.T) {
 				assert.Equal(t, g.Info(), got.Info())
 				assert.Equal(t, g.Copies(), got.Copies())
+				assert.Equal(t, g.Covers(), got.Covers())
+				assert.Equal(t, g.MainSystem(), got.MainSystem())
 				assert.True(t, g.CreatedAt().Equal(got.CreatedAt()))
 				assert.True(t, g.UpdatedAt().Equal(got.UpdatedAt()))
 			})
@@ -83,7 +87,7 @@ func TestDocuments_game(t *testing.T) {
 			t.Run("AND the document has a version and no empty fields", func(t *testing.T) {
 				var doc map[string]any
 				require.NoError(t, json.Unmarshal([]byte(raw), &doc))
-				assert.InDelta(t, 2, doc["v"], 0)
+				assert.InDelta(t, 3, doc["v"], 0)
 
 				physical := doc["copies"].([]any)[1].(map[string]any)
 				assert.NotContains(t, physical, "key")
@@ -114,7 +118,7 @@ func TestDocuments_game(t *testing.T) {
 
 	t.Run("GIVEN a document written by a newer Game Vault", func(t *testing.T) {
 		t.Run("THEN it is refused, saying to update", func(t *testing.T) {
-			_, err := decodeGame("g3", `{"v":3,"title":"x"}`)
+			_, err := decodeGame("g3", `{"v":4,"title":"x"}`)
 			assert.ErrorIs(t, err, errNewerDocument)
 		})
 	})
@@ -221,9 +225,9 @@ func TestDocuments_physicalFields(t *testing.T) {
 			got, err := decodeGame(g.ID(), raw)
 			require.NoError(t, err)
 
-			t.Run("THEN the new fields come back, as version 2", func(t *testing.T) {
+			t.Run("THEN the new fields come back, as version 3", func(t *testing.T) {
 				assert.Equal(t, g.Copies(), got.Copies())
-				assert.Contains(t, raw, `"v":2`)
+				assert.Contains(t, raw, `"v":3`)
 				assert.Contains(t, raw, `"contents":["box","media"]`)
 			})
 		})
@@ -277,10 +281,7 @@ func TestDocuments_conditionConversion(t *testing.T) {
 func TestDocuments_photos(t *testing.T) {
 	t.Run("GIVEN a game with a photographed copy, one photo without a date, and a cover photo", func(t *testing.T) {
 		id1, id2 := game.PhotoID(strings.Repeat("a", 64)), game.PhotoID(strings.Repeat("b", 64))
-		g := game.Rehydrate("g1", game.Info{
-			Title:      "Halo 3",
-			CoverPhoto: id2,
-		}, []game.Copy{{
+		g := game.Rehydrate("g1", game.Info{Title: "Halo 3"}, []game.Copy{{
 			ID: "c1",
 			CopyDetails: game.CopyDetails{
 				Kind:   game.KindPhysical,
@@ -301,6 +302,7 @@ func TestDocuments_photos(t *testing.T) {
 			CreatedAt: docTime,
 			UpdatedAt: docTime,
 		}}, docTime, docTime)
+		g.RestoreEditions(map[string]game.EditionCover{game.SystemOther: {Photo: id2}}, "")
 
 		t.Run("WHEN it is encoded and decoded", func(t *testing.T) {
 			raw, err := encodeGame(g)
@@ -309,10 +311,10 @@ func TestDocuments_photos(t *testing.T) {
 			got, err := decodeGame(g.ID(), raw)
 			require.NoError(t, err)
 
-			t.Run("THEN the photos and the cover photo come back, as version 2", func(t *testing.T) {
+			t.Run("THEN the photos and the edition's cover photo come back, as version 3", func(t *testing.T) {
 				assert.Equal(t, g.Copies(), got.Copies())
-				assert.Equal(t, id2, got.CoverPhoto())
-				assert.Contains(t, raw, `"v":2`)
+				assert.Equal(t, g.Covers(), got.Covers())
+				assert.Contains(t, raw, `"v":3`)
 			})
 
 			t.Run("AND a photo without a date has no takenAt, and a copy without photos no photos field", func(t *testing.T) {
@@ -321,7 +323,7 @@ func TestDocuments_photos(t *testing.T) {
 				plain, err := encodeGame(sampleGame(t))
 				require.NoError(t, err)
 				assert.NotContains(t, plain, `"photos"`)
-				assert.NotContains(t, plain, `"coverPhoto"`)
+				assert.NotContains(t, plain, `"photo"`)
 			})
 		})
 	})
@@ -378,9 +380,9 @@ func TestDocuments_estimates(t *testing.T) {
 			got, err := decodeGame(g.ID(), raw)
 			require.NoError(t, err)
 
-			t.Run("THEN the estimates and the date come back, as version 2", func(t *testing.T) {
+			t.Run("THEN the estimates and the date come back, as version 3", func(t *testing.T) {
 				assert.Equal(t, g.Copies(), got.Copies())
-				assert.Contains(t, raw, `"v":2`)
+				assert.Contains(t, raw, `"v":3`)
 				assert.Contains(t, raw, `"currency":"EUR"`)
 			})
 
@@ -480,6 +482,92 @@ func TestDocuments_systems(t *testing.T) {
 				require.NoError(t, err)
 				assert.NotContains(t, plain, `"system"`)
 				assert.NotContains(t, plain, `"sourceSystem"`)
+			})
+		})
+	})
+}
+
+func TestDocuments_editions(t *testing.T) {
+	photo := game.PhotoID(strings.Repeat("c", 64))
+
+	t.Run("GIVEN a game with a chosen cover per edition and a main system", func(t *testing.T) {
+		g := game.Rehydrate("g1", game.Info{Title: "Halo 3"}, []game.Copy{
+			{
+				ID: "c1",
+				CopyDetails: game.CopyDetails{
+					Kind:     game.KindPhysical,
+					Platform: "PS3",
+					Status:   game.StatusOwned,
+				},
+				Photos: []game.Photo{{
+					ID:      photo,
+					AddedAt: docTime,
+				}},
+				CreatedAt: docTime,
+				UpdatedAt: docTime,
+			},
+			{
+				ID: "c2",
+				CopyDetails: game.CopyDetails{
+					Kind:     game.KindPhysical,
+					Platform: "Xbox 360",
+					Status:   game.StatusOwned,
+				},
+				CreatedAt: docTime,
+				UpdatedAt: docTime,
+			},
+		}, docTime, docTime)
+		g.RestoreEditions(map[string]game.EditionCover{"PS3": {Photo: photo}, "Xbox 360": {URL: "https://example.test/x360.jpg"}}, "Xbox 360")
+
+		t.Run("WHEN it is encoded and decoded", func(t *testing.T) {
+			raw, err := encodeGame(g)
+			require.NoError(t, err)
+
+			got, err := decodeGame(g.ID(), raw)
+			require.NoError(t, err)
+
+			t.Run("THEN the covers and the main system come back, in a version-3 document", func(t *testing.T) {
+				assert.Equal(t, g.Covers(), got.Covers())
+				assert.Equal(t, "Xbox 360", got.MainSystem())
+				assert.Contains(t, raw, `"v":3`)
+				assert.Contains(t, raw, `"covers":{`)
+				assert.Contains(t, raw, `"mainSystem":"Xbox 360"`)
+				assert.NotContains(t, raw, `"coverUrl"`)
+				assert.NotContains(t, raw, `"coverPhoto"`)
+			})
+
+			t.Run("AND a game without chosen covers writes neither field", func(t *testing.T) {
+				plain, err := encodeGame(game.Rehydrate("g2", game.Info{Title: "Hades"}, nil, docTime, docTime))
+				require.NoError(t, err)
+				assert.NotContains(t, plain, `"covers"`)
+				assert.NotContains(t, plain, `"mainSystem"`)
+			})
+		})
+	})
+
+	t.Run("GIVEN a version-2 document with a cover URL, and a cover photo on a copy of another edition than the default main one", func(t *testing.T) {
+		const at = `"createdAt":"2026-10-09T18:30:00Z","updatedAt":"2026-10-09T18:30:00Z"`
+
+		raw := `{"v":2,"title":"Halo 3","coverUrl":"https://example.test/halo.jpg","coverPhoto":"` + string(photo) + `",` + at + `,"copies":[` +
+			`{"id":"c1","kind":"physical","platform":"Xbox 360","status":"owned",` + at + `},` +
+			`{"id":"c2","kind":"physical","platform":"Xbox 360","status":"owned",` + at + `},` +
+			`{"id":"c3","kind":"physical","platform":"PS3","status":"owned","photos":[{"id":"` + string(photo) + `","addedAt":"2026-10-09T18:30:00Z"}],` + at + `}]}`
+
+		t.Run("WHEN it is read", func(t *testing.T) {
+			got, err := decodeGame("g1", raw)
+			require.NoError(t, err)
+
+			t.Run("THEN the photo keeps its edition as the main one, and the URL goes to the default main edition", func(t *testing.T) {
+				assert.Equal(t, map[string]game.EditionCover{"PS3": {Photo: photo}, "Xbox 360": {URL: "https://example.test/halo.jpg"}}, got.Covers())
+				assert.Equal(t, "PS3", got.MainSystem())
+			})
+
+			t.Run("AND saving it again writes version 3 without the old fields", func(t *testing.T) {
+				again, err := encodeGame(got)
+				require.NoError(t, err)
+				assert.Contains(t, again, `"v":3`)
+				assert.NotContains(t, again, `"coverUrl"`)
+				assert.NotContains(t, again, `"coverPhoto"`)
 			})
 		})
 	})

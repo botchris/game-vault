@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"errors"
+	"maps"
 	"slices"
 
 	"gamevault/internal/domain/game"
@@ -59,7 +60,7 @@ func (s *Service) ExcludeCopy(ctx context.Context, gameID, copyID game.ID) (*gam
 			return err
 		}
 
-		cover := g.CoverPhoto()
+		cover := g.Covers()
 		if _, err := g.RemoveCopy(copyID, now); err != nil {
 			return err
 		}
@@ -69,7 +70,7 @@ func (s *Service) ExcludeCopy(ctx context.Context, gameID, copyID game.ID) (*gam
 			return s.games.Delete(ctx, gameID)
 		}
 
-		stale, out = g.CoverPhoto() != cover, g
+		stale, out = !maps.Equal(g.Covers(), cover), g // Bridge (Task 4): per edition
 
 		return s.games.Save(ctx, g)
 	})

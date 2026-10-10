@@ -578,8 +578,11 @@ func (s *Service) resolve(ctx context.Context, id game.ID) (Image, error) {
 
 	ref := GameRef{g.ID(), g.Title()}
 
+	// Bridge (Task 3): until covers are resolved per edition, the main edition's chosen cover is the game's.
+	chosen := g.MainEdition().Cover
+
 	// A photo of the user's own copy chosen as the cover wins over everything.
-	if id := g.CoverPhoto(); id != "" && s.photos != nil {
+	if id := chosen.Photo; id != "" && s.photos != nil {
 		img, err := s.photos.Open(id, false)
 		if err == nil {
 			if err := s.store.PutCover(ref, img); err != nil {
@@ -593,7 +596,7 @@ func (s *Service) resolve(ctx context.Context, id game.ID) (Image, error) {
 	}
 
 	// A cover the user picked or pasted always wins.
-	if u := g.CoverURL(); u != "" {
+	if u := chosen.URL; u != "" {
 		s.slots <- struct{}{}
 
 		img, err := s.fetchAndCache(ctx, ref, u)

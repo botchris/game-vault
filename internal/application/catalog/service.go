@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 
 	"gamevault/internal/application/port"
@@ -133,9 +134,9 @@ func (s *Service) CreateGame(ctx context.Context, info game.Info, copies []game.
 	return g, nil
 }
 
-// UpdateGame changes a game's own attributes and drops its cached cover when the cover changed.
+// UpdateGame changes a game's own attributes and drops its cached cover when its links changed.
 func (s *Service) UpdateGame(ctx context.Context, id game.ID, info game.Info) (*game.Game, error) {
-	var coverChanged bool
+	var linksChanged bool
 
 	g, err := s.mutate(ctx, id, func(ctx context.Context, g *game.Game) error {
 		set, err := s.fieldSet(ctx)
@@ -143,22 +144,15 @@ func (s *Service) UpdateGame(ctx context.Context, id game.ID, info game.Info) (*
 			return err
 		}
 
-		// Editing the game keeps its cover photo (SetCoverPhoto changes it), unless the user chose
-		// another custom cover.
-		info.CoverPhoto = g.CoverPhoto()
-		if info.CoverURL != g.CoverURL() {
-			info.CoverPhoto = ""
-		}
-
 		if info.Fields, err = set.Validate(field.ScopeGame, "", info.Fields); err != nil {
 			return err
 		}
 
-		coverChanged, err = g.UpdateInfo(info, s.now())
+		linksChanged, err = g.UpdateInfo(info, s.now())
 
 		return err
 	})
-	if err == nil && coverChanged {
+	if err == nil && linksChanged {
 		s.invalidateCover(ctx, id)
 	}
 
@@ -227,7 +221,7 @@ func (s *Service) UpdateCopy(ctx context.Context, id, copyID game.ID, d game.Cop
 
 // DeleteCopy removes one copy from a game and returns the updated game.
 func (s *Service) DeleteCopy(ctx context.Context, id, copyID game.ID) (*game.Game, error) {
-	return s.mutatePhotos(ctx, id, func(g *game.Game) error {
+	return s.mutateEditions(ctx, id, func(g *game.Game) error {
 		_, err := g.RemoveCopy(copyID, s.now())
 		return err
 	})
@@ -284,8 +278,8 @@ func (s *Service) MergeGames(ctx context.Context, target game.ID, sources []game
 // The source game is deleted if it ends up without copies; in that case the first result is nil.
 func (s *Service) MoveCopy(ctx context.Context, from, copyID, target game.ID, newTitle string) (*game.Game, *game.Game, error) {
 	var (
-		src, dst *game.Game
-		srcCover game.PhotoID
+		src, dst  *game.Game
+		srcCovers map[string]game.EditionCover
 	)
 
 	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
@@ -294,7 +288,7 @@ func (s *Service) MoveCopy(ctx context.Context, from, copyID, target game.ID, ne
 			return err
 		}
 
-		srcCover = src.CoverPhoto()
+		srcCovers = src.Covers()
 
 		now := s.now()
 		if target != "" {
@@ -331,8 +325,8 @@ func (s *Service) MoveCopy(ctx context.Context, from, copyID, target game.ID, ne
 		return nil, nil, err
 	}
 
-	if src != nil && src.CoverPhoto() != srcCover {
-		s.invalidateCover(ctx, from) // the moved copy took the cover photo with it
+	if src != nil && !maps.Equal(src.Covers(), srcCovers) {
+		s.invalidateCover(ctx, from) // Bridge (Task 4): the moved copy took the cover photo with it
 	}
 
 	return src, dst, nil
@@ -346,7 +340,7 @@ func (s *Service) AddCopyPhotos(ctx context.Context, id, copyID game.ID, photos 
 		}
 	}
 
-	return s.mutatePhotos(ctx, id, func(g *game.Game) error {
+	return s.mutateEditions(ctx, id, func(g *game.Game) error {
 		_, err := g.AddPhotos(copyID, photos, s.now())
 		return err
 	})
@@ -354,7 +348,7 @@ func (s *Service) AddCopyPhotos(ctx context.Context, id, copyID game.ID, photos 
 
 // UpdateCopyPhoto changes a photo's caption and returns the updated game.
 func (s *Service) UpdateCopyPhoto(ctx context.Context, id, copyID game.ID, photoID game.PhotoID, caption string) (*game.Game, error) {
-	return s.mutatePhotos(ctx, id, func(g *game.Game) error {
+	return s.mutateEditions(ctx, id, func(g *game.Game) error {
 		_, err := g.UpdatePhoto(copyID, photoID, caption, s.now())
 		return err
 	})
@@ -363,7 +357,7 @@ func (s *Service) UpdateCopyPhoto(ctx context.Context, id, copyID game.ID, photo
 // RemoveCopyPhoto removes a photo from a copy and returns the updated game. The file stays until
 // the daily cleanup, so a mistake can be undone by uploading it again.
 func (s *Service) RemoveCopyPhoto(ctx context.Context, id, copyID game.ID, photoID game.PhotoID) (*game.Game, error) {
-	return s.mutatePhotos(ctx, id, func(g *game.Game) error {
+	return s.mutateEditions(ctx, id, func(g *game.Game) error {
 		_, err := g.RemovePhoto(copyID, photoID, s.now())
 		return err
 	})
@@ -371,33 +365,43 @@ func (s *Service) RemoveCopyPhoto(ctx context.Context, id, copyID game.ID, photo
 
 // ReorderCopyPhotos puts a copy's photos in a new order and returns the updated game.
 func (s *Service) ReorderCopyPhotos(ctx context.Context, id, copyID game.ID, ids []game.PhotoID) (*game.Game, error) {
-	return s.mutatePhotos(ctx, id, func(g *game.Game) error {
+	return s.mutateEditions(ctx, id, func(g *game.Game) error {
 		_, err := g.ReorderPhotos(copyID, ids, s.now())
 		return err
 	})
 }
 
-// SetCoverPhoto makes one of the copies' photos the cover; an empty id stops using a photo.
-func (s *Service) SetCoverPhoto(ctx context.Context, id game.ID, photoID game.PhotoID) (*game.Game, error) {
-	return s.mutatePhotos(ctx, id, func(g *game.Game) error {
-		info := g.Info()
-		info.CoverPhoto = photoID
-		_, err := g.UpdateInfo(info, s.now())
-
-		return err
+// SetEditionCover chooses the cover of a game's edition on system; a zero cover lets the
+// providers choose again.
+func (s *Service) SetEditionCover(ctx context.Context, id game.ID, system string, cover game.EditionCover) (*game.Game, error) {
+	return s.mutateEditions(ctx, id, func(g *game.Game) error {
+		return g.SetEditionCover(system, cover, s.now())
 	})
 }
 
-// mutatePhotos is mutate, dropping the cached cover when the change touched the cover photo.
-func (s *Service) mutatePhotos(ctx context.Context, id game.ID, fn func(*game.Game) error) (*game.Game, error) {
-	var before game.PhotoID
+// SetMainSystem makes a game's edition on system the one shown when the game is listed once; an
+// empty system goes back to the default rule.
+func (s *Service) SetMainSystem(ctx context.Context, id game.ID, system string) (*game.Game, error) {
+	g, err := s.mutate(ctx, id, func(_ context.Context, g *game.Game) error {
+		return g.SetMainSystem(system, s.now())
+	})
+	if err == nil {
+		s.invalidateCover(ctx, id) // Bridge (Task 3): the cached cover is the main edition's until covers are cached per edition
+	}
+
+	return g, err
+}
+
+// mutateEditions is mutate, dropping the cached cover when the change touched the chosen covers.
+func (s *Service) mutateEditions(ctx context.Context, id game.ID, fn func(*game.Game) error) (*game.Game, error) {
+	var before map[string]game.EditionCover
 
 	g, err := s.mutate(ctx, id, func(_ context.Context, g *game.Game) error {
-		before = g.CoverPhoto()
+		before = g.Covers()
 		return fn(g)
 	})
-	if err == nil && g.CoverPhoto() != before {
-		s.invalidateCover(ctx, id)
+	if err == nil && !maps.Equal(before, g.Covers()) {
+		s.invalidateCover(ctx, id) // Bridge (Task 4): only the editions whose cover inputs changed
 	}
 
 	return g, err

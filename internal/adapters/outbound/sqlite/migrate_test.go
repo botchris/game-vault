@@ -165,3 +165,28 @@ func TestMigration0009(t *testing.T) {
 		})
 	})
 }
+
+func TestMigration0010(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a database migrated up to 0009", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "old.db")
+		backups := filepath.Join(dir, "backups")
+
+		db, err := openUpTo(ctx, path, "", "0009")
+		require.NoError(t, err)
+		db.Close()
+
+		t.Run("WHEN this version opens it", func(t *testing.T) {
+			db, err := Open(ctx, path, backups)
+			require.NoError(t, err)
+			db.Close()
+
+			t.Run("THEN it was copied before game documents start being written as version 3", func(t *testing.T) {
+				assert.FileExists(t, filepath.Join(backups, "pre-migration-0010.db"))
+			})
+		})
+	})
+}

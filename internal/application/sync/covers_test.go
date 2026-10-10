@@ -68,10 +68,7 @@ func photographCover(ctx context.Context, t *testing.T, games game.Repository) g
 	_, err = g.AddCopy(game.CopyDetails{Kind: game.KindPhysical}, time.Now())
 	require.NoError(t, err)
 
-	info := g.Info()
-	info.CoverPhoto = photo
-	_, err = g.UpdateInfo(info, time.Now())
-	require.NoError(t, err)
+	require.NoError(t, g.SetEditionCover(g.Copies()[0].System(), game.EditionCover{Photo: photo}, time.Now()))
 	require.NoError(t, games.Save(ctx, g))
 
 	return g.ID()
@@ -112,7 +109,7 @@ func TestCoverPhotoLeavesWithTheSourcesCopy(t *testing.T) {
 			t.Run("THEN the game has no cover photo and its cached cover is dropped", func(t *testing.T) {
 				g, err := games.Get(ctx, id)
 				require.NoError(t, err)
-				assert.Empty(t, g.CoverPhoto())
+				assert.Empty(t, g.Covers())
 				assert.Equal(t, []game.ID{id}, cache.invalidated)
 			})
 		})
