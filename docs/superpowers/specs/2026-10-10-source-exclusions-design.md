@@ -4,25 +4,24 @@ Status: approved design, waiting for the implementation plan. Branch `feature/so
 
 ## Why
 
-Sources import whatever the store lists, and some of it is not wanted in the catalog. The user's
-PlayStation library, checked on 2026-10-10, holds 51 linked items. About 20 of them are not games:
+Sources import whatever the store lists, and some of it is not wanted in the catalog. A
+PlayStation library, for example, lists next to the games:
 
-- apps: Netflix, Spotify, YouTube, Twitch, IGN, Rakuten TV, TotalChannel;
-- demos and betas: FIFA 14, UFC, FF VII Remake, Thief, PlanetSide 2, Titanfall 2, Resident Evil 3
-  and 7, KITCHEN, and the Detroit demo, which is listed under the full game's name;
-- soundtracks, a making-of video and an art book.
+- streaming and video apps;
+- demos, betas and tech tests, some of them listed under the full game's name;
+- soundtracks, making-of videos and digital art books.
 
 Nothing Sony returns tells them apart: every item says "PS4" and has a `CUSA…` product id.
 Deleting an imported copy today is useless, because the next sync brings it back.
 
-## Decisions taken with the user
+## Decisions
 
-- **The user decides; nothing is guessed.** A per-source exclusion list replaces filters based on
-  names or ids, which are unreliable (other languages, the Detroit demo).
+- **The person decides; nothing is guessed.** A per-source exclusion list replaces filters based on
+  names or ids, which are unreliable (other languages, demos listed under the full game's name).
 - **Generic: "Remove and do not import again".** It applies to anything unwanted, game or not, and
   to every source, not only PlayStation.
-- **PlayStation Store covers are dropped.** With today's data, 35 of the 36 real PS games have a
-  cover. Also, PlayStation's website terms (section 10) forbid automated access, so store pages
+- **PlayStation Store covers are dropped.** PS games already get covers from Steam or TheGamesDB,
+  and PlayStation's website terms (section 10) forbid automated access, so store pages
   cannot be used. The open-threads memory is updated.
 
 ## What the user sees
@@ -118,7 +117,8 @@ type Exclusion struct {
   - sync and check it does not come back;
   - import it again from the dialog;
   - sync and check it is back.
-- The user, on the real server: remove the PlayStation apps, demos and soundtracks.
+- On a main server (PlayStation cannot be synced on a config copy): remove some apps, demos and
+  soundtracks from a PlayStation library.
 
 ## Delivery
 

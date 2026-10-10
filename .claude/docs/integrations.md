@@ -98,6 +98,6 @@ provider, set the same `SettingsGroup` in both descriptors.
 - [ ] `task test-server`, dialog checked in the browser pane, "Test connection" with bogus
       credentials shows the clean error from the real service; `task test-server:stop`
 - [ ] `docs/technical.md` (and the README platforms table for a new store) updated; the store's `.claude/memory/<store>.md` written and indexed in
-      `.claude/MEMORY.md`; `memory/status-integrations.md` says it awaits the user's real test
+      `.claude/MEMORY.md`; the store's memory says it awaits a test with a real account
 - [ ] Tell the user exactly what was verified for real and what only against fakes, and which
       error to paste back if the first real test fails

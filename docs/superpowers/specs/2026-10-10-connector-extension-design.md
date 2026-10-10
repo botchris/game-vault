@@ -12,7 +12,7 @@ A browser extension can. The user still signs in on each store's own page, in th
 (2FA and captchas included); the extension only collects the result and hands it to Game Vault.
 Nothing signs in for the user and nothing works around bot protection.
 
-## Spike results (2026-10-10, Chrome, the user's own accounts)
+## Spike results (2026-10-10, Chrome, real accounts)
 
 Every source that needs a browser credential was captured without DevTools:
 
@@ -187,9 +187,8 @@ format.
 - Dialog: on the test server with a simulated extension injected from the browser (it answers the
   protocol): detection, enable, Connect, fill + test + save, cancel, timeout, errors; desktop and
   mobile.
-- Real stores (the user): load the extension unpacked and connect each source. On a **copy** of the
-  config only Humble and Steam; the rest on the user's real server after merging (their sessions
-  rotate or change on use).
+- Real stores: load the extension unpacked and connect each source. On a **copy** of the config
+  only Humble and Steam; the rest only on a main server (their sessions rotate or change on use).
 
 ## Delivery
 

@@ -5,7 +5,7 @@ metadata:
   type: project
 ---
 
-The user plans to release the project as open source and decided to keep the name **Game Vault**
+The project is public (source-available, see [[license]]); the maintainer decided to keep the name **Game Vault**
 (2026-10-08), after considering alternatives (GameShelf, Ludoteca, GameCellar, Ludoshelf…).
 
 - Known overlap: Phalcode's GameVault (github.com/Phalcode/gamevault-app, ~800★), a self-hosted

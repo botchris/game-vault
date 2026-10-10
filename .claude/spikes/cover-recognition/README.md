@@ -1,7 +1,7 @@
 # Cover recognition spike
 
 Feasibility test for adding physical games from a **photo of the box**, as an alternative to
-barcodes (many PAL codes are unknown to the free barcode databases). Constraint from the user: no
+barcodes (many PAL codes are unknown to the free barcode databases). Constraint: no
 paid LLM services; small local models are fine. Not product code: nothing here is built or shipped.
 
 ## Pipeline tested
@@ -21,8 +21,8 @@ with the right title for each photo. Keep photos out of the repository (it is pu
 
 ## Results (2026-10-08, 4 photos)
 
-PAL boxes, frontal, good light: CoD Modern Warfare 2 (PS3), Red Dead Redemption GOTY (X360),
-Assassin's Creed III Edición Especial (PS3), Dead Space 3 (X360).
+PAL boxes, frontal, good light: two PS3 and two Xbox 360 games, two of them sequels whose number is
+drawn into the logo.
 
 | | Text only | + visual tie-break |
 |---|---|---|
@@ -30,7 +30,7 @@ Assassin's Creed III Edición Especial (PS3), Dead Space 3 (X360).
 | Right game in the group | 4/4 (groups of 1-3 sequels) | |
 
 - OCR: ~0.35 s per photo on a desktop CPU. Reads title, edition and platform banner on all 4.
-- OCR **never reads digits drawn as part of a logo** (MW "2", Dead Space "3"), not at 2560 px nor
+- OCR **never reads digits drawn as part of a logo** (a sequel's number in the title art), not at 2560 px nor
   with lower thresholds: text alone cannot tell sequels apart, hence the visual step.
 
 ## Before building it
@@ -48,7 +48,7 @@ Assassin's Creed III Edición Especial (PS3), Dead Space 3 (X360).
 
 ## Intended design
 
-OCR and the image encoder run **in the browser** (onnxruntime-web), so the NAS does no heavy work
+OCR and the image encoder run **in the browser** (onnxruntime-web), so the server does no heavy work
 and the server stays pure Go (`CGO_ENABLED=0`, no ONNX runtime). The server matches the text
 against the catalog, the browser re-ranks the near-ties visually, and the user confirms. The
 result goes through the same flow as a barcode match (suggestions, cover, physical copy).
