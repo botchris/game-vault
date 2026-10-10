@@ -110,7 +110,7 @@ func TestCatalogFieldValues_fieldDeletedBeforeTheWrite(t *testing.T) {
 		t.Cleanup(func() { db.Close() })
 
 		defs, games := sqlite.NewSettingsRepository(db), sqlite.NewGameRepository(db)
-		fieldSvc := fields.NewService(defs, games, db)
+		fieldSvc := fields.NewService(defs, games, db, time.Now)
 
 		review, err := fieldSvc.Create(ctx, field.Definition{
 			Name:  "Review",

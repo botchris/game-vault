@@ -25,7 +25,7 @@ func TestFieldsService(t *testing.T) {
 	t.Cleanup(func() { db.Close() })
 
 	defs, games := sqlite.NewSettingsRepository(db), sqlite.NewGameRepository(db)
-	svc := fields.NewService(defs, games, db)
+	svc := fields.NewService(defs, games, db, time.Now)
 	cat := catalog.NewService(games, db, time.Now, nil, nil, defs)
 
 	awards, err := svc.Create(ctx, field.Definition{
@@ -112,7 +112,7 @@ func TestFieldsService_updateWithStoredValues(t *testing.T) {
 	t.Cleanup(func() { db.Close() })
 
 	defs, games := sqlite.NewSettingsRepository(db), sqlite.NewGameRepository(db)
-	svc := fields.NewService(defs, games, db)
+	svc := fields.NewService(defs, games, db, time.Now)
 	cat := catalog.NewService(games, db, time.Now, nil, nil, defs)
 
 	create := func(t *testing.T, d field.Definition) field.Definition {

@@ -4,6 +4,7 @@ package game
 import (
 	"context"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 )
@@ -98,6 +99,13 @@ func (i Info) normalize() (Info, error) {
 
 // Rehydrate rebuilds a game from storage. Only repositories should call it.
 func Rehydrate(id ID, info Info, copies []Copy, createdAt, updatedAt time.Time) *Game {
+	// Empty values are never stored, on copies as on the game, so the mutators that count values
+	// (RemoveFieldValues) never count an empty one.
+	copies = slices.Clone(copies)
+	for i := range copies {
+		copies[i].Fields = copies[i].Fields.compact()
+	}
+
 	return &Game{
 		id:         id,
 		title:      info.Title,

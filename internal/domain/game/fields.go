@@ -108,7 +108,7 @@ func (g *Game) SetCopyFields(id ID, values FieldValues, now time.Time) error {
 
 // RemoveFieldValues drops a field's values from the game and its copies (the field was deleted).
 // It reports whether the game had a value and how many copies had one.
-func (g *Game) RemoveFieldValues(fieldID string) (gameHad bool, copies int) {
+func (g *Game) RemoveFieldValues(fieldID string, now time.Time) (gameHad bool, copies int) {
 	if _, ok := g.fields[fieldID]; ok {
 		delete(g.fields, fieldID)
 
@@ -119,8 +119,13 @@ func (g *Game) RemoveFieldValues(fieldID string) (gameHad bool, copies int) {
 		if _, ok := g.copies[i].Fields[fieldID]; ok {
 			delete(g.copies[i].Fields, fieldID)
 
+			g.copies[i].UpdatedAt = now
 			copies++
 		}
+	}
+
+	if gameHad || copies > 0 {
+		g.updatedAt = now
 	}
 
 	return gameHad, copies
@@ -128,19 +133,29 @@ func (g *Game) RemoveFieldValues(fieldID string) (gameHad bool, copies int) {
 
 // ReplaceChoice replaces a list value with another in a field's values, or clears it when to is
 // empty (the value was removed from the list). A multilist never ends up with the same value
-// twice. It reports whether anything changed.
-func (g *Game) ReplaceChoice(fieldID, from, to string) bool {
+// twice. An empty from matches nothing. It reports whether anything changed.
+func (g *Game) ReplaceChoice(fieldID, from, to string, now time.Time) bool {
+	if from == "" {
+		return false
+	}
+
 	changed := replaceChoice(g.fields, fieldID, from, to)
 
 	for i := range g.copies {
 		if replaceChoice(g.copies[i].Fields, fieldID, from, to) {
+			g.copies[i].UpdatedAt = now
 			changed = true
 		}
+	}
+
+	if changed {
+		g.updatedAt = now
 	}
 
 	return changed
 }
 
+// replaceChoice replaces from with to in values[fieldID]; from is never empty.
 func replaceChoice(values FieldValues, fieldID, from, to string) bool {
 	v, ok := values[fieldID]
 	if !ok {

@@ -32,14 +32,16 @@ type Service struct {
 	defs  field.Repository
 	games game.Repository
 	tx    port.TxManager
+	now   port.Clock
 }
 
-// NewService builds the service.
-func NewService(defs field.Repository, games game.Repository, tx port.TxManager) *Service {
+// NewService builds the service. The clock dates the games whose values a change rewrites.
+func NewService(defs field.Repository, games game.Repository, tx port.TxManager, now port.Clock) *Service {
 	return &Service{
 		defs:  defs,
 		games: games,
 		tx:    tx,
+		now:   now,
 	}
 }
 
@@ -221,8 +223,10 @@ func (s *Service) Delete(ctx context.Context, id string) (games, copies int, err
 			return err
 		}
 
+		now := s.now()
+
 		for _, g := range list {
-			gameHad, n := g.RemoveFieldValues(id)
+			gameHad, n := g.RemoveFieldValues(id, now)
 			if !gameHad && n == 0 {
 				continue
 			}
@@ -262,8 +266,10 @@ func (s *Service) RemoveChoice(ctx context.Context, fieldID, choiceID, mergeInto
 			return err
 		}
 
+		now := s.now()
+
 		for _, g := range list {
-			if !g.ReplaceChoice(fieldID, choiceID, mergeInto) {
+			if !g.ReplaceChoice(fieldID, choiceID, mergeInto, now) {
 				continue
 			}
 
