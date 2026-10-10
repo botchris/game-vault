@@ -108,11 +108,23 @@ func TestMigrateLegacyCovers(t *testing.T) {
 		t.Fatalf("migrated %d, %v", n, err)
 	}
 
+	if !s.HasLegacyCover("019a-1") || !s.HasLegacyCover("019a-2") {
+		t.Fatal("a migrated cover or missing marker is a cover from before editions")
+	}
+
+	if s.HasLegacyCover("019a-new") {
+		t.Fatal("a game without a folder has no cover from before editions")
+	}
+
 	if _, ok, _ := s.AdoptLegacyCover(media.GameRef{
 		ID:    "019a-1",
 		Title: "Portal 2",
 	}, "PS3"); !ok {
 		t.Fatal("cover not migrated")
+	}
+
+	if s.HasLegacyCover("019a-1") {
+		t.Fatal("an adopted cover is no longer a cover from before editions")
 	}
 
 	if _, err := os.Stat(filepath.Join(root, "Big Rigs [019a-2]", "cover.missing")); err != nil {

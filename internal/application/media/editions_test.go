@@ -383,3 +383,42 @@ func TestEditionCovers(t *testing.T) {
 		})
 	}
 }
+
+// countingGames counts the games read, to see which work is skipped.
+type countingGames struct {
+	game.Repository
+
+	gets int
+}
+
+func (c *countingGames) Get(ctx context.Context, id game.ID) (*game.Game, error) {
+	c.gets++
+	return c.Repository.Get(ctx, id)
+}
+
+func TestInvalidateEditionWithoutCoverFromBeforeEditions(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a new game with nothing stored for it", func(t *testing.T) {
+		db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "gamevault.db"), "")
+		require.NoError(t, err)
+		t.Cleanup(func() { db.Close() })
+
+		assets, err := gamedata.Open(filepath.Join(t.TempDir(), "game-data"))
+		require.NoError(t, err)
+
+		games := &countingGames{Repository: sqlite.NewGameRepository(db)}
+		svc := media.NewService(games, sqlite.NewProviderRepository(db), assets, nil, nil, echo{}, time.Now,
+			slog.New(slog.NewTextHandler(io.Discard, nil)), media.Providers{})
+		g := saveGame(t, ctx, games, "Halo 3", nil, game.CopyDetails{
+			Kind:     game.KindPhysical,
+			Platform: "PS3",
+		})
+
+		t.Run("WHEN its edition is invalidated, as on its first scan, THEN the game is not read", func(t *testing.T) {
+			require.NoError(t, svc.InvalidateEdition(ctx, g.ID(), "PS3"))
+			assert.Zero(t, games.gets)
+		})
+	})
+}

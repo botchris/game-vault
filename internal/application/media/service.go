@@ -73,6 +73,10 @@ type AssetStore interface {
 	// DeleteLegacyCover removes the cover stored before editions and its "no cover found" marker.
 	DeleteLegacyCover(id game.ID) error
 
+	// HasLegacyCover reports whether the cover stored before editions, or its "no cover found"
+	// marker, is still there.
+	HasLegacyCover(id game.ID) bool
+
 	// DeleteCovers removes the stored covers and markers of every edition of a game.
 	DeleteCovers(id game.ID) error
 
@@ -878,6 +882,11 @@ func (s *Service) RefreshCovers(ctx context.Context, missingOnly bool) (int, err
 func (s *Service) InvalidateEdition(ctx context.Context, id game.ID, system string) error {
 	if err := s.store.DeleteCover(id, system); err != nil {
 		return err
+	}
+	// Without a cover from before editions there is nothing more to drop: every new game's first
+	// scan ends here, without reading the game.
+	if !s.store.HasLegacyCover(id) {
+		return nil
 	}
 
 	g, err := s.games.Get(ctx, id)

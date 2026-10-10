@@ -331,6 +331,27 @@ func (s *Store) DeleteLegacyCover(id game.ID) error {
 	return removeImage(dir, legacyCover)
 }
 
+// HasLegacyCover reports whether the game's folder still holds the cover from before editions
+// (cover.jpg) or its missing marker.
+func (s *Store) HasLegacyCover(id game.ID) bool {
+	dir, ok := s.dir(id)
+	if !ok {
+		return false
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, legacyMissing)); err == nil {
+		return true
+	}
+
+	for ext := range typeByExt {
+		if _, err := os.Stat(filepath.Join(dir, legacyCover+ext)); err == nil {
+			return true
+		}
+	}
+
+	return false
+}
+
 // DeleteCovers removes the covers and missing markers of every edition of a game.
 func (s *Store) DeleteCovers(id game.ID) error {
 	dir, ok := s.dir(id)
