@@ -268,8 +268,10 @@ type SyncReport struct {
 	CopiesUnchanged int32    `protobuf:"varint,8,opt,name=copies_unchanged,json=copiesUnchanged,proto3" json:"copies_unchanged,omitempty"`
 	GamesCreated    int32    `protobuf:"varint,9,opt,name=games_created,json=gamesCreated,proto3" json:"games_created,omitempty"`
 	Warnings        []string `protobuf:"bytes,10,rep,name=warnings,proto3" json:"warnings,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Imported items skipped because the user removed them.
+	Excluded      int32 `protobuf:"varint,11,opt,name=excluded,proto3" json:"excluded,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SyncReport) Reset() {
@@ -372,6 +374,13 @@ func (x *SyncReport) GetWarnings() []string {
 	return nil
 }
 
+func (x *SyncReport) GetExcluded() int32 {
+	if x != nil {
+		return x.Excluded
+	}
+	return 0
+}
+
 // Source is a configured account that is scanned to keep the catalog up to date.
 type Source struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
@@ -385,9 +394,11 @@ type Source struct {
 	// Absent until the first sync.
 	LastSync *SyncReport `protobuf:"bytes,7,opt,name=last_sync,json=lastSync,proto3" json:"last_sync,omitempty"`
 	// Number of copies currently managed by this source.
-	CopyCount     int32                  `protobuf:"varint,8,opt,name=copy_count,json=copyCount,proto3" json:"copy_count,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	CopyCount int32                  `protobuf:"varint,8,opt,name=copy_count,json=copyCount,proto3" json:"copy_count,omitempty"`
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// Items the user removed from this source, newest first: scans skip them.
+	Exclusions    []*Exclusion `protobuf:"bytes,11,rep,name=exclusions,proto3" json:"exclusions,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -492,6 +503,74 @@ func (x *Source) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *Source) GetExclusions() []*Exclusion {
+	if x != nil {
+		return x.Exclusions
+	}
+	return nil
+}
+
+// Exclusion is an item the user removed from a source: scans skip it until it is brought back.
+type Exclusion struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ExternalId    string                 `protobuf:"bytes,1,opt,name=external_id,json=externalId,proto3" json:"external_id,omitempty"`
+	Title         string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	At            *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=at,proto3" json:"at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Exclusion) Reset() {
+	*x = Exclusion{}
+	mi := &file_gamevault_v1_source_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Exclusion) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Exclusion) ProtoMessage() {}
+
+func (x *Exclusion) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_source_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Exclusion.ProtoReflect.Descriptor instead.
+func (*Exclusion) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *Exclusion) GetExternalId() string {
+	if x != nil {
+		return x.ExternalId
+	}
+	return ""
+}
+
+func (x *Exclusion) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *Exclusion) GetAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.At
+	}
+	return nil
+}
+
 type SourceInput struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	Type              string                 `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
@@ -505,7 +584,7 @@ type SourceInput struct {
 
 func (x *SourceInput) Reset() {
 	*x = SourceInput{}
-	mi := &file_gamevault_v1_source_proto_msgTypes[4]
+	mi := &file_gamevault_v1_source_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -517,7 +596,7 @@ func (x *SourceInput) String() string {
 func (*SourceInput) ProtoMessage() {}
 
 func (x *SourceInput) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_source_proto_msgTypes[4]
+	mi := &file_gamevault_v1_source_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -530,7 +609,7 @@ func (x *SourceInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SourceInput.ProtoReflect.Descriptor instead.
 func (*SourceInput) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{4}
+	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *SourceInput) GetType() string {
@@ -576,7 +655,7 @@ type ListSourceTypesRequest struct {
 
 func (x *ListSourceTypesRequest) Reset() {
 	*x = ListSourceTypesRequest{}
-	mi := &file_gamevault_v1_source_proto_msgTypes[5]
+	mi := &file_gamevault_v1_source_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -588,7 +667,7 @@ func (x *ListSourceTypesRequest) String() string {
 func (*ListSourceTypesRequest) ProtoMessage() {}
 
 func (x *ListSourceTypesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_source_proto_msgTypes[5]
+	mi := &file_gamevault_v1_source_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -601,7 +680,7 @@ func (x *ListSourceTypesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSourceTypesRequest.ProtoReflect.Descriptor instead.
 func (*ListSourceTypesRequest) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{5}
+	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{6}
 }
 
 type ListSourceTypesResponse struct {
@@ -615,7 +694,7 @@ type ListSourceTypesResponse struct {
 
 func (x *ListSourceTypesResponse) Reset() {
 	*x = ListSourceTypesResponse{}
-	mi := &file_gamevault_v1_source_proto_msgTypes[6]
+	mi := &file_gamevault_v1_source_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -627,7 +706,7 @@ func (x *ListSourceTypesResponse) String() string {
 func (*ListSourceTypesResponse) ProtoMessage() {}
 
 func (x *ListSourceTypesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_source_proto_msgTypes[6]
+	mi := &file_gamevault_v1_source_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -640,7 +719,7 @@ func (x *ListSourceTypesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSourceTypesResponse.ProtoReflect.Descriptor instead.
 func (*ListSourceTypesResponse) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{6}
+	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ListSourceTypesResponse) GetTypes() []*SourceType {
@@ -665,7 +744,7 @@ type ListSourcesRequest struct {
 
 func (x *ListSourcesRequest) Reset() {
 	*x = ListSourcesRequest{}
-	mi := &file_gamevault_v1_source_proto_msgTypes[7]
+	mi := &file_gamevault_v1_source_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -677,7 +756,7 @@ func (x *ListSourcesRequest) String() string {
 func (*ListSourcesRequest) ProtoMessage() {}
 
 func (x *ListSourcesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_source_proto_msgTypes[7]
+	mi := &file_gamevault_v1_source_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -690,7 +769,7 @@ func (x *ListSourcesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSourcesRequest.ProtoReflect.Descriptor instead.
 func (*ListSourcesRequest) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{7}
+	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{8}
 }
 
 type ListSourcesResponse struct {
@@ -702,7 +781,7 @@ type ListSourcesResponse struct {
 
 func (x *ListSourcesResponse) Reset() {
 	*x = ListSourcesResponse{}
-	mi := &file_gamevault_v1_source_proto_msgTypes[8]
+	mi := &file_gamevault_v1_source_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -714,7 +793,7 @@ func (x *ListSourcesResponse) String() string {
 func (*ListSourcesResponse) ProtoMessage() {}
 
 func (x *ListSourcesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_source_proto_msgTypes[8]
+	mi := &file_gamevault_v1_source_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -727,7 +806,7 @@ func (x *ListSourcesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSourcesResponse.ProtoReflect.Descriptor instead.
 func (*ListSourcesResponse) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{8}
+	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ListSourcesResponse) GetSources() []*Source {
@@ -746,7 +825,7 @@ type CreateSourceRequest struct {
 
 func (x *CreateSourceRequest) Reset() {
 	*x = CreateSourceRequest{}
-	mi := &file_gamevault_v1_source_proto_msgTypes[9]
+	mi := &file_gamevault_v1_source_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -758,7 +837,7 @@ func (x *CreateSourceRequest) String() string {
 func (*CreateSourceRequest) ProtoMessage() {}
 
 func (x *CreateSourceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_source_proto_msgTypes[9]
+	mi := &file_gamevault_v1_source_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -771,7 +850,7 @@ func (x *CreateSourceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSourceRequest.ProtoReflect.Descriptor instead.
 func (*CreateSourceRequest) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{9}
+	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *CreateSourceRequest) GetSource() *SourceInput {
@@ -790,7 +869,7 @@ type CreateSourceResponse struct {
 
 func (x *CreateSourceResponse) Reset() {
 	*x = CreateSourceResponse{}
-	mi := &file_gamevault_v1_source_proto_msgTypes[10]
+	mi := &file_gamevault_v1_source_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -802,7 +881,7 @@ func (x *CreateSourceResponse) String() string {
 func (*CreateSourceResponse) ProtoMessage() {}
 
 func (x *CreateSourceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_source_proto_msgTypes[10]
+	mi := &file_gamevault_v1_source_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -815,7 +894,7 @@ func (x *CreateSourceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSourceResponse.ProtoReflect.Descriptor instead.
 func (*CreateSourceResponse) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{10}
+	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *CreateSourceResponse) GetSource() *Source {
@@ -835,7 +914,7 @@ type UpdateSourceRequest struct {
 
 func (x *UpdateSourceRequest) Reset() {
 	*x = UpdateSourceRequest{}
-	mi := &file_gamevault_v1_source_proto_msgTypes[11]
+	mi := &file_gamevault_v1_source_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -847,7 +926,7 @@ func (x *UpdateSourceRequest) String() string {
 func (*UpdateSourceRequest) ProtoMessage() {}
 
 func (x *UpdateSourceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_source_proto_msgTypes[11]
+	mi := &file_gamevault_v1_source_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -860,7 +939,7 @@ func (x *UpdateSourceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateSourceRequest.ProtoReflect.Descriptor instead.
 func (*UpdateSourceRequest) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{11}
+	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *UpdateSourceRequest) GetId() string {
@@ -886,7 +965,7 @@ type UpdateSourceResponse struct {
 
 func (x *UpdateSourceResponse) Reset() {
 	*x = UpdateSourceResponse{}
-	mi := &file_gamevault_v1_source_proto_msgTypes[12]
+	mi := &file_gamevault_v1_source_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -898,7 +977,7 @@ func (x *UpdateSourceResponse) String() string {
 func (*UpdateSourceResponse) ProtoMessage() {}
 
 func (x *UpdateSourceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_source_proto_msgTypes[12]
+	mi := &file_gamevault_v1_source_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -911,7 +990,7 @@ func (x *UpdateSourceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateSourceResponse.ProtoReflect.Descriptor instead.
 func (*UpdateSourceResponse) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{12}
+	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *UpdateSourceResponse) GetSource() *Source {
@@ -933,7 +1012,7 @@ type DeleteSourceRequest struct {
 
 func (x *DeleteSourceRequest) Reset() {
 	*x = DeleteSourceRequest{}
-	mi := &file_gamevault_v1_source_proto_msgTypes[13]
+	mi := &file_gamevault_v1_source_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -945,7 +1024,7 @@ func (x *DeleteSourceRequest) String() string {
 func (*DeleteSourceRequest) ProtoMessage() {}
 
 func (x *DeleteSourceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_source_proto_msgTypes[13]
+	mi := &file_gamevault_v1_source_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -958,7 +1037,7 @@ func (x *DeleteSourceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteSourceRequest.ProtoReflect.Descriptor instead.
 func (*DeleteSourceRequest) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{13}
+	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *DeleteSourceRequest) GetId() string {
@@ -983,7 +1062,7 @@ type DeleteSourceResponse struct {
 
 func (x *DeleteSourceResponse) Reset() {
 	*x = DeleteSourceResponse{}
-	mi := &file_gamevault_v1_source_proto_msgTypes[14]
+	mi := &file_gamevault_v1_source_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -995,7 +1074,7 @@ func (x *DeleteSourceResponse) String() string {
 func (*DeleteSourceResponse) ProtoMessage() {}
 
 func (x *DeleteSourceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_source_proto_msgTypes[14]
+	mi := &file_gamevault_v1_source_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1008,7 +1087,7 @@ func (x *DeleteSourceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteSourceResponse.ProtoReflect.Descriptor instead.
 func (*DeleteSourceResponse) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{14}
+	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{15}
 }
 
 // TestSourceRequest fetches from the source without saving anything.
@@ -1023,7 +1102,7 @@ type TestSourceRequest struct {
 
 func (x *TestSourceRequest) Reset() {
 	*x = TestSourceRequest{}
-	mi := &file_gamevault_v1_source_proto_msgTypes[15]
+	mi := &file_gamevault_v1_source_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1035,7 +1114,7 @@ func (x *TestSourceRequest) String() string {
 func (*TestSourceRequest) ProtoMessage() {}
 
 func (x *TestSourceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_source_proto_msgTypes[15]
+	mi := &file_gamevault_v1_source_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1048,7 +1127,7 @@ func (x *TestSourceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestSourceRequest.ProtoReflect.Descriptor instead.
 func (*TestSourceRequest) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{15}
+	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *TestSourceRequest) GetId() string {
@@ -1077,7 +1156,7 @@ type TestSourceResponse struct {
 
 func (x *TestSourceResponse) Reset() {
 	*x = TestSourceResponse{}
-	mi := &file_gamevault_v1_source_proto_msgTypes[16]
+	mi := &file_gamevault_v1_source_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1089,7 +1168,7 @@ func (x *TestSourceResponse) String() string {
 func (*TestSourceResponse) ProtoMessage() {}
 
 func (x *TestSourceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_source_proto_msgTypes[16]
+	mi := &file_gamevault_v1_source_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1102,7 +1181,7 @@ func (x *TestSourceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestSourceResponse.ProtoReflect.Descriptor instead.
 func (*TestSourceResponse) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{16}
+	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *TestSourceResponse) GetSuccess() bool {
@@ -1128,7 +1207,7 @@ type SyncSourceRequest struct {
 
 func (x *SyncSourceRequest) Reset() {
 	*x = SyncSourceRequest{}
-	mi := &file_gamevault_v1_source_proto_msgTypes[17]
+	mi := &file_gamevault_v1_source_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1140,7 +1219,7 @@ func (x *SyncSourceRequest) String() string {
 func (*SyncSourceRequest) ProtoMessage() {}
 
 func (x *SyncSourceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_source_proto_msgTypes[17]
+	mi := &file_gamevault_v1_source_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1153,7 +1232,7 @@ func (x *SyncSourceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyncSourceRequest.ProtoReflect.Descriptor instead.
 func (*SyncSourceRequest) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{17}
+	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *SyncSourceRequest) GetId() string {
@@ -1172,7 +1251,7 @@ type SyncSourceResponse struct {
 
 func (x *SyncSourceResponse) Reset() {
 	*x = SyncSourceResponse{}
-	mi := &file_gamevault_v1_source_proto_msgTypes[18]
+	mi := &file_gamevault_v1_source_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1184,7 +1263,7 @@ func (x *SyncSourceResponse) String() string {
 func (*SyncSourceResponse) ProtoMessage() {}
 
 func (x *SyncSourceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_source_proto_msgTypes[18]
+	mi := &file_gamevault_v1_source_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1197,7 +1276,7 @@ func (x *SyncSourceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyncSourceResponse.ProtoReflect.Descriptor instead.
 func (*SyncSourceResponse) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{18}
+	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *SyncSourceResponse) GetSource() *Source {
@@ -1215,7 +1294,7 @@ type SyncAllSourcesRequest struct {
 
 func (x *SyncAllSourcesRequest) Reset() {
 	*x = SyncAllSourcesRequest{}
-	mi := &file_gamevault_v1_source_proto_msgTypes[19]
+	mi := &file_gamevault_v1_source_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1227,7 +1306,7 @@ func (x *SyncAllSourcesRequest) String() string {
 func (*SyncAllSourcesRequest) ProtoMessage() {}
 
 func (x *SyncAllSourcesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_source_proto_msgTypes[19]
+	mi := &file_gamevault_v1_source_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1240,7 +1319,7 @@ func (x *SyncAllSourcesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyncAllSourcesRequest.ProtoReflect.Descriptor instead.
 func (*SyncAllSourcesRequest) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{19}
+	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{20}
 }
 
 type SyncAllSourcesResponse struct {
@@ -1252,7 +1331,7 @@ type SyncAllSourcesResponse struct {
 
 func (x *SyncAllSourcesResponse) Reset() {
 	*x = SyncAllSourcesResponse{}
-	mi := &file_gamevault_v1_source_proto_msgTypes[20]
+	mi := &file_gamevault_v1_source_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1264,7 +1343,7 @@ func (x *SyncAllSourcesResponse) String() string {
 func (*SyncAllSourcesResponse) ProtoMessage() {}
 
 func (x *SyncAllSourcesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_source_proto_msgTypes[20]
+	mi := &file_gamevault_v1_source_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1277,7 +1356,7 @@ func (x *SyncAllSourcesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyncAllSourcesResponse.ProtoReflect.Descriptor instead.
 func (*SyncAllSourcesResponse) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{20}
+	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *SyncAllSourcesResponse) GetSources() []*Source {
@@ -1285,6 +1364,94 @@ func (x *SyncAllSourcesResponse) GetSources() []*Source {
 		return x.Sources
 	}
 	return nil
+}
+
+type IncludeCopyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SourceId      string                 `protobuf:"bytes,1,opt,name=source_id,json=sourceId,proto3" json:"source_id,omitempty"`
+	ExternalId    string                 `protobuf:"bytes,2,opt,name=external_id,json=externalId,proto3" json:"external_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *IncludeCopyRequest) Reset() {
+	*x = IncludeCopyRequest{}
+	mi := &file_gamevault_v1_source_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IncludeCopyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IncludeCopyRequest) ProtoMessage() {}
+
+func (x *IncludeCopyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_source_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use IncludeCopyRequest.ProtoReflect.Descriptor instead.
+func (*IncludeCopyRequest) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *IncludeCopyRequest) GetSourceId() string {
+	if x != nil {
+		return x.SourceId
+	}
+	return ""
+}
+
+func (x *IncludeCopyRequest) GetExternalId() string {
+	if x != nil {
+		return x.ExternalId
+	}
+	return ""
+}
+
+type IncludeCopyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *IncludeCopyResponse) Reset() {
+	*x = IncludeCopyResponse{}
+	mi := &file_gamevault_v1_source_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IncludeCopyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IncludeCopyResponse) ProtoMessage() {}
+
+func (x *IncludeCopyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_source_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use IncludeCopyResponse.ProtoReflect.Descriptor instead.
+func (*IncludeCopyResponse) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_source_proto_rawDescGZIP(), []int{23}
 }
 
 var File_gamevault_v1_source_proto protoreflect.FileDescriptor
@@ -1311,7 +1478,7 @@ const file_gamevault_v1_source_proto_rawDesc = "" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12'\n" +
 	"\x0fdescription_key\x18\x03 \x01(\tR\x0edescriptionKey\x122\n" +
 	"\x06fields\x18\x04 \x03(\v2\x1a.gamevault.v1.SettingFieldR\x06fields\x12!\n" +
-	"\fmanual_scans\x18\x05 \x01(\bR\vmanualScans\"\x84\x03\n" +
+	"\fmanual_scans\x18\x05 \x01(\bR\vmanualScans\"\xa0\x03\n" +
 	"\n" +
 	"SyncReport\x129\n" +
 	"\n" +
@@ -1326,7 +1493,8 @@ const file_gamevault_v1_source_proto_rawDesc = "" +
 	"\x10copies_unchanged\x18\b \x01(\x05R\x0fcopiesUnchanged\x12#\n" +
 	"\rgames_created\x18\t \x01(\x05R\fgamesCreated\x12\x1a\n" +
 	"\bwarnings\x18\n" +
-	" \x03(\tR\bwarnings\"\xd3\x03\n" +
+	" \x03(\tR\bwarnings\x12\x1a\n" +
+	"\bexcluded\x18\v \x01(\x05R\bexcluded\"\x8c\x04\n" +
 	"\x06Source\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12\x12\n" +
@@ -1341,10 +1509,18 @@ const file_gamevault_v1_source_proto_rawDesc = "" +
 	"created_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
 	"updated_at\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x1a;\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x127\n" +
+	"\n" +
+	"exclusions\x18\v \x03(\v2\x17.gamevault.v1.ExclusionR\n" +
+	"exclusions\x1a;\n" +
 	"\rSettingsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x81\x02\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"n\n" +
+	"\tExclusion\x12\x1f\n" +
+	"\vexternal_id\x18\x01 \x01(\tR\n" +
+	"externalId\x12\x14\n" +
+	"\x05title\x18\x02 \x01(\tR\x05title\x12*\n" +
+	"\x02at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x02at\"\x81\x02\n" +
 	"\vSourceInput\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
@@ -1387,7 +1563,12 @@ const file_gamevault_v1_source_proto_rawDesc = "" +
 	"\x06source\x18\x01 \x01(\v2\x14.gamevault.v1.SourceR\x06source\"\x17\n" +
 	"\x15SyncAllSourcesRequest\"H\n" +
 	"\x16SyncAllSourcesResponse\x12.\n" +
-	"\asources\x18\x01 \x03(\v2\x14.gamevault.v1.SourceR\asources2\xc7\x05\n" +
+	"\asources\x18\x01 \x03(\v2\x14.gamevault.v1.SourceR\asources\"R\n" +
+	"\x12IncludeCopyRequest\x12\x1b\n" +
+	"\tsource_id\x18\x01 \x01(\tR\bsourceId\x12\x1f\n" +
+	"\vexternal_id\x18\x02 \x01(\tR\n" +
+	"externalId\"\x15\n" +
+	"\x13IncludeCopyResponse2\x9b\x06\n" +
 	"\rSourceService\x12^\n" +
 	"\x0fListSourceTypes\x12$.gamevault.v1.ListSourceTypesRequest\x1a%.gamevault.v1.ListSourceTypesResponse\x12R\n" +
 	"\vListSources\x12 .gamevault.v1.ListSourcesRequest\x1a!.gamevault.v1.ListSourcesResponse\x12U\n" +
@@ -1398,7 +1579,8 @@ const file_gamevault_v1_source_proto_rawDesc = "" +
 	"TestSource\x12\x1f.gamevault.v1.TestSourceRequest\x1a .gamevault.v1.TestSourceResponse\x12O\n" +
 	"\n" +
 	"SyncSource\x12\x1f.gamevault.v1.SyncSourceRequest\x1a .gamevault.v1.SyncSourceResponse\x12[\n" +
-	"\x0eSyncAllSources\x12#.gamevault.v1.SyncAllSourcesRequest\x1a$.gamevault.v1.SyncAllSourcesResponseB1Z/gamevault/internal/gen/gamevault/v1;gamevaultv1b\x06proto3"
+	"\x0eSyncAllSources\x12#.gamevault.v1.SyncAllSourcesRequest\x1a$.gamevault.v1.SyncAllSourcesResponse\x12R\n" +
+	"\vIncludeCopy\x12 .gamevault.v1.IncludeCopyRequest\x1a!.gamevault.v1.IncludeCopyResponseB1Z/gamevault/internal/gen/gamevault/v1;gamevaultv1b\x06proto3"
 
 var (
 	file_gamevault_v1_source_proto_rawDescOnce sync.Once
@@ -1413,74 +1595,81 @@ func file_gamevault_v1_source_proto_rawDescGZIP() []byte {
 }
 
 var file_gamevault_v1_source_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_gamevault_v1_source_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
+var file_gamevault_v1_source_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
 var file_gamevault_v1_source_proto_goTypes = []any{
 	(SettingField_Kind)(0),          // 0: gamevault.v1.SettingField.Kind
 	(*SettingField)(nil),            // 1: gamevault.v1.SettingField
 	(*SourceType)(nil),              // 2: gamevault.v1.SourceType
 	(*SyncReport)(nil),              // 3: gamevault.v1.SyncReport
 	(*Source)(nil),                  // 4: gamevault.v1.Source
-	(*SourceInput)(nil),             // 5: gamevault.v1.SourceInput
-	(*ListSourceTypesRequest)(nil),  // 6: gamevault.v1.ListSourceTypesRequest
-	(*ListSourceTypesResponse)(nil), // 7: gamevault.v1.ListSourceTypesResponse
-	(*ListSourcesRequest)(nil),      // 8: gamevault.v1.ListSourcesRequest
-	(*ListSourcesResponse)(nil),     // 9: gamevault.v1.ListSourcesResponse
-	(*CreateSourceRequest)(nil),     // 10: gamevault.v1.CreateSourceRequest
-	(*CreateSourceResponse)(nil),    // 11: gamevault.v1.CreateSourceResponse
-	(*UpdateSourceRequest)(nil),     // 12: gamevault.v1.UpdateSourceRequest
-	(*UpdateSourceResponse)(nil),    // 13: gamevault.v1.UpdateSourceResponse
-	(*DeleteSourceRequest)(nil),     // 14: gamevault.v1.DeleteSourceRequest
-	(*DeleteSourceResponse)(nil),    // 15: gamevault.v1.DeleteSourceResponse
-	(*TestSourceRequest)(nil),       // 16: gamevault.v1.TestSourceRequest
-	(*TestSourceResponse)(nil),      // 17: gamevault.v1.TestSourceResponse
-	(*SyncSourceRequest)(nil),       // 18: gamevault.v1.SyncSourceRequest
-	(*SyncSourceResponse)(nil),      // 19: gamevault.v1.SyncSourceResponse
-	(*SyncAllSourcesRequest)(nil),   // 20: gamevault.v1.SyncAllSourcesRequest
-	(*SyncAllSourcesResponse)(nil),  // 21: gamevault.v1.SyncAllSourcesResponse
-	nil,                             // 22: gamevault.v1.Source.SettingsEntry
-	nil,                             // 23: gamevault.v1.SourceInput.SettingsEntry
-	(*timestamppb.Timestamp)(nil),   // 24: google.protobuf.Timestamp
+	(*Exclusion)(nil),               // 5: gamevault.v1.Exclusion
+	(*SourceInput)(nil),             // 6: gamevault.v1.SourceInput
+	(*ListSourceTypesRequest)(nil),  // 7: gamevault.v1.ListSourceTypesRequest
+	(*ListSourceTypesResponse)(nil), // 8: gamevault.v1.ListSourceTypesResponse
+	(*ListSourcesRequest)(nil),      // 9: gamevault.v1.ListSourcesRequest
+	(*ListSourcesResponse)(nil),     // 10: gamevault.v1.ListSourcesResponse
+	(*CreateSourceRequest)(nil),     // 11: gamevault.v1.CreateSourceRequest
+	(*CreateSourceResponse)(nil),    // 12: gamevault.v1.CreateSourceResponse
+	(*UpdateSourceRequest)(nil),     // 13: gamevault.v1.UpdateSourceRequest
+	(*UpdateSourceResponse)(nil),    // 14: gamevault.v1.UpdateSourceResponse
+	(*DeleteSourceRequest)(nil),     // 15: gamevault.v1.DeleteSourceRequest
+	(*DeleteSourceResponse)(nil),    // 16: gamevault.v1.DeleteSourceResponse
+	(*TestSourceRequest)(nil),       // 17: gamevault.v1.TestSourceRequest
+	(*TestSourceResponse)(nil),      // 18: gamevault.v1.TestSourceResponse
+	(*SyncSourceRequest)(nil),       // 19: gamevault.v1.SyncSourceRequest
+	(*SyncSourceResponse)(nil),      // 20: gamevault.v1.SyncSourceResponse
+	(*SyncAllSourcesRequest)(nil),   // 21: gamevault.v1.SyncAllSourcesRequest
+	(*SyncAllSourcesResponse)(nil),  // 22: gamevault.v1.SyncAllSourcesResponse
+	(*IncludeCopyRequest)(nil),      // 23: gamevault.v1.IncludeCopyRequest
+	(*IncludeCopyResponse)(nil),     // 24: gamevault.v1.IncludeCopyResponse
+	nil,                             // 25: gamevault.v1.Source.SettingsEntry
+	nil,                             // 26: gamevault.v1.SourceInput.SettingsEntry
+	(*timestamppb.Timestamp)(nil),   // 27: google.protobuf.Timestamp
 }
 var file_gamevault_v1_source_proto_depIdxs = []int32{
 	0,  // 0: gamevault.v1.SettingField.kind:type_name -> gamevault.v1.SettingField.Kind
 	1,  // 1: gamevault.v1.SourceType.fields:type_name -> gamevault.v1.SettingField
-	24, // 2: gamevault.v1.SyncReport.started_at:type_name -> google.protobuf.Timestamp
-	24, // 3: gamevault.v1.SyncReport.finished_at:type_name -> google.protobuf.Timestamp
-	22, // 4: gamevault.v1.Source.settings:type_name -> gamevault.v1.Source.SettingsEntry
+	27, // 2: gamevault.v1.SyncReport.started_at:type_name -> google.protobuf.Timestamp
+	27, // 3: gamevault.v1.SyncReport.finished_at:type_name -> google.protobuf.Timestamp
+	25, // 4: gamevault.v1.Source.settings:type_name -> gamevault.v1.Source.SettingsEntry
 	3,  // 5: gamevault.v1.Source.last_sync:type_name -> gamevault.v1.SyncReport
-	24, // 6: gamevault.v1.Source.created_at:type_name -> google.protobuf.Timestamp
-	24, // 7: gamevault.v1.Source.updated_at:type_name -> google.protobuf.Timestamp
-	23, // 8: gamevault.v1.SourceInput.settings:type_name -> gamevault.v1.SourceInput.SettingsEntry
-	2,  // 9: gamevault.v1.ListSourceTypesResponse.types:type_name -> gamevault.v1.SourceType
-	4,  // 10: gamevault.v1.ListSourcesResponse.sources:type_name -> gamevault.v1.Source
-	5,  // 11: gamevault.v1.CreateSourceRequest.source:type_name -> gamevault.v1.SourceInput
-	4,  // 12: gamevault.v1.CreateSourceResponse.source:type_name -> gamevault.v1.Source
-	5,  // 13: gamevault.v1.UpdateSourceRequest.source:type_name -> gamevault.v1.SourceInput
-	4,  // 14: gamevault.v1.UpdateSourceResponse.source:type_name -> gamevault.v1.Source
-	5,  // 15: gamevault.v1.TestSourceRequest.source:type_name -> gamevault.v1.SourceInput
-	4,  // 16: gamevault.v1.SyncSourceResponse.source:type_name -> gamevault.v1.Source
-	4,  // 17: gamevault.v1.SyncAllSourcesResponse.sources:type_name -> gamevault.v1.Source
-	6,  // 18: gamevault.v1.SourceService.ListSourceTypes:input_type -> gamevault.v1.ListSourceTypesRequest
-	8,  // 19: gamevault.v1.SourceService.ListSources:input_type -> gamevault.v1.ListSourcesRequest
-	10, // 20: gamevault.v1.SourceService.CreateSource:input_type -> gamevault.v1.CreateSourceRequest
-	12, // 21: gamevault.v1.SourceService.UpdateSource:input_type -> gamevault.v1.UpdateSourceRequest
-	14, // 22: gamevault.v1.SourceService.DeleteSource:input_type -> gamevault.v1.DeleteSourceRequest
-	16, // 23: gamevault.v1.SourceService.TestSource:input_type -> gamevault.v1.TestSourceRequest
-	18, // 24: gamevault.v1.SourceService.SyncSource:input_type -> gamevault.v1.SyncSourceRequest
-	20, // 25: gamevault.v1.SourceService.SyncAllSources:input_type -> gamevault.v1.SyncAllSourcesRequest
-	7,  // 26: gamevault.v1.SourceService.ListSourceTypes:output_type -> gamevault.v1.ListSourceTypesResponse
-	9,  // 27: gamevault.v1.SourceService.ListSources:output_type -> gamevault.v1.ListSourcesResponse
-	11, // 28: gamevault.v1.SourceService.CreateSource:output_type -> gamevault.v1.CreateSourceResponse
-	13, // 29: gamevault.v1.SourceService.UpdateSource:output_type -> gamevault.v1.UpdateSourceResponse
-	15, // 30: gamevault.v1.SourceService.DeleteSource:output_type -> gamevault.v1.DeleteSourceResponse
-	17, // 31: gamevault.v1.SourceService.TestSource:output_type -> gamevault.v1.TestSourceResponse
-	19, // 32: gamevault.v1.SourceService.SyncSource:output_type -> gamevault.v1.SyncSourceResponse
-	21, // 33: gamevault.v1.SourceService.SyncAllSources:output_type -> gamevault.v1.SyncAllSourcesResponse
-	26, // [26:34] is the sub-list for method output_type
-	18, // [18:26] is the sub-list for method input_type
-	18, // [18:18] is the sub-list for extension type_name
-	18, // [18:18] is the sub-list for extension extendee
-	0,  // [0:18] is the sub-list for field type_name
+	27, // 6: gamevault.v1.Source.created_at:type_name -> google.protobuf.Timestamp
+	27, // 7: gamevault.v1.Source.updated_at:type_name -> google.protobuf.Timestamp
+	5,  // 8: gamevault.v1.Source.exclusions:type_name -> gamevault.v1.Exclusion
+	27, // 9: gamevault.v1.Exclusion.at:type_name -> google.protobuf.Timestamp
+	26, // 10: gamevault.v1.SourceInput.settings:type_name -> gamevault.v1.SourceInput.SettingsEntry
+	2,  // 11: gamevault.v1.ListSourceTypesResponse.types:type_name -> gamevault.v1.SourceType
+	4,  // 12: gamevault.v1.ListSourcesResponse.sources:type_name -> gamevault.v1.Source
+	6,  // 13: gamevault.v1.CreateSourceRequest.source:type_name -> gamevault.v1.SourceInput
+	4,  // 14: gamevault.v1.CreateSourceResponse.source:type_name -> gamevault.v1.Source
+	6,  // 15: gamevault.v1.UpdateSourceRequest.source:type_name -> gamevault.v1.SourceInput
+	4,  // 16: gamevault.v1.UpdateSourceResponse.source:type_name -> gamevault.v1.Source
+	6,  // 17: gamevault.v1.TestSourceRequest.source:type_name -> gamevault.v1.SourceInput
+	4,  // 18: gamevault.v1.SyncSourceResponse.source:type_name -> gamevault.v1.Source
+	4,  // 19: gamevault.v1.SyncAllSourcesResponse.sources:type_name -> gamevault.v1.Source
+	7,  // 20: gamevault.v1.SourceService.ListSourceTypes:input_type -> gamevault.v1.ListSourceTypesRequest
+	9,  // 21: gamevault.v1.SourceService.ListSources:input_type -> gamevault.v1.ListSourcesRequest
+	11, // 22: gamevault.v1.SourceService.CreateSource:input_type -> gamevault.v1.CreateSourceRequest
+	13, // 23: gamevault.v1.SourceService.UpdateSource:input_type -> gamevault.v1.UpdateSourceRequest
+	15, // 24: gamevault.v1.SourceService.DeleteSource:input_type -> gamevault.v1.DeleteSourceRequest
+	17, // 25: gamevault.v1.SourceService.TestSource:input_type -> gamevault.v1.TestSourceRequest
+	19, // 26: gamevault.v1.SourceService.SyncSource:input_type -> gamevault.v1.SyncSourceRequest
+	21, // 27: gamevault.v1.SourceService.SyncAllSources:input_type -> gamevault.v1.SyncAllSourcesRequest
+	23, // 28: gamevault.v1.SourceService.IncludeCopy:input_type -> gamevault.v1.IncludeCopyRequest
+	8,  // 29: gamevault.v1.SourceService.ListSourceTypes:output_type -> gamevault.v1.ListSourceTypesResponse
+	10, // 30: gamevault.v1.SourceService.ListSources:output_type -> gamevault.v1.ListSourcesResponse
+	12, // 31: gamevault.v1.SourceService.CreateSource:output_type -> gamevault.v1.CreateSourceResponse
+	14, // 32: gamevault.v1.SourceService.UpdateSource:output_type -> gamevault.v1.UpdateSourceResponse
+	16, // 33: gamevault.v1.SourceService.DeleteSource:output_type -> gamevault.v1.DeleteSourceResponse
+	18, // 34: gamevault.v1.SourceService.TestSource:output_type -> gamevault.v1.TestSourceResponse
+	20, // 35: gamevault.v1.SourceService.SyncSource:output_type -> gamevault.v1.SyncSourceResponse
+	22, // 36: gamevault.v1.SourceService.SyncAllSources:output_type -> gamevault.v1.SyncAllSourcesResponse
+	24, // 37: gamevault.v1.SourceService.IncludeCopy:output_type -> gamevault.v1.IncludeCopyResponse
+	29, // [29:38] is the sub-list for method output_type
+	20, // [20:29] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_gamevault_v1_source_proto_init() }
@@ -1494,7 +1683,7 @@ func file_gamevault_v1_source_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gamevault_v1_source_proto_rawDesc), len(file_gamevault_v1_source_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   23,
+			NumMessages:   26,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

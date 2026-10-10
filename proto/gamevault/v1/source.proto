@@ -55,6 +55,8 @@ message SyncReport {
   int32 copies_unchanged = 8;
   int32 games_created = 9;
   repeated string warnings = 10;
+  // Imported items skipped because the user removed them.
+  int32 excluded = 11;
 }
 
 // Source is a configured account that is scanned to keep the catalog up to date.
@@ -72,6 +74,15 @@ message Source {
   int32 copy_count = 8;
   google.protobuf.Timestamp created_at = 9;
   google.protobuf.Timestamp updated_at = 10;
+  // Items the user removed from this source, newest first: scans skip them.
+  repeated Exclusion exclusions = 11;
+}
+
+// Exclusion is an item the user removed from a source: scans skip it until it is brought back.
+message Exclusion {
+  string external_id = 1;
+  string title = 2;
+  google.protobuf.Timestamp at = 3;
 }
 
 message SourceInput {
@@ -144,6 +155,12 @@ message SyncAllSourcesResponse {
   repeated Source sources = 1;
 }
 
+message IncludeCopyRequest {
+  string source_id = 1;
+  string external_id = 2;
+}
+message IncludeCopyResponse {}
+
 // SourceService manages the accounts that feed the catalog and runs scans.
 service SourceService {
   rpc ListSourceTypes(ListSourceTypesRequest) returns (ListSourceTypesResponse);
@@ -154,4 +171,6 @@ service SourceService {
   rpc TestSource(TestSourceRequest) returns (TestSourceResponse);
   rpc SyncSource(SyncSourceRequest) returns (SyncSourceResponse);
   rpc SyncAllSources(SyncAllSourcesRequest) returns (SyncAllSourcesResponse);
+  // Takes an item off the source's removed list: the next scan imports it again.
+  rpc IncludeCopy(IncludeCopyRequest) returns (IncludeCopyResponse);
 }

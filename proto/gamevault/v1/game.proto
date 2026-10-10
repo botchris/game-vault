@@ -420,6 +420,15 @@ message AddScannedCopiesResponse {
   repeated Game games = 2;
 }
 
+message ExcludeCopyRequest {
+  string game_id = 1;
+  string copy_id = 2;
+}
+message ExcludeCopyResponse {
+  // Absent when the game was left without copies and deleted.
+  Game game = 1;
+}
+
 // GameService manages the catalog of games and their copies.
 service GameService {
   rpc ListGames(ListGamesRequest) returns (ListGamesResponse);
@@ -431,6 +440,9 @@ service GameService {
   rpc AddCopy(AddCopyRequest) returns (AddCopyResponse);
   rpc UpdateCopy(UpdateCopyRequest) returns (UpdateCopyResponse);
   rpc DeleteCopy(DeleteCopyRequest) returns (DeleteCopyResponse);
+  // Removes a copy a source imported and keeps the source from importing it again. A copy added
+  // by hand is refused (delete it instead).
+  rpc ExcludeCopy(ExcludeCopyRequest) returns (ExcludeCopyResponse);
   rpc MoveCopy(MoveCopyRequest) returns (MoveCopyResponse);
   // Saves the boxes of a scanning session in one transaction: copies of the same new game (by
   // title) become one game; a copy that cannot be saved fails alone, with its error.

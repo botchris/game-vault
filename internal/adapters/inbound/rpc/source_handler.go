@@ -85,6 +85,15 @@ func (h *SourceHandler) DeleteSource(ctx context.Context, req *connect.Request[p
 	return connect.NewResponse(&pb.DeleteSourceResponse{}), nil
 }
 
+// IncludeCopy takes an item off a source's removed list.
+func (h *SourceHandler) IncludeCopy(ctx context.Context, req *connect.Request[pb.IncludeCopyRequest]) (*connect.Response[pb.IncludeCopyResponse], error) {
+	if err := h.sync.IncludeCopy(ctx, source.ID(req.Msg.SourceId), req.Msg.ExternalId); err != nil {
+		return nil, toConnectError(err)
+	}
+
+	return connect.NewResponse(&pb.IncludeCopyResponse{}), nil
+}
+
 // TestSource checks that a source's credentials work without scanning it.
 func (h *SourceHandler) TestSource(ctx context.Context, req *connect.Request[pb.TestSourceRequest]) (*connect.Response[pb.TestSourceResponse], error) {
 	in := req.Msg.Source

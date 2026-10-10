@@ -278,6 +278,7 @@ func reportToPB(r *source.SyncReport) *pb.SyncReport {
 		CopiesUpdated:   int32(r.CopiesUpdated),
 		CopiesUnchanged: int32(r.CopiesUnchanged),
 		GamesCreated:    int32(r.GamesCreated),
+		Excluded:        int32(r.Excluded),
 		Warnings:        r.Warnings,
 	}
 }
@@ -352,9 +353,23 @@ func sourceToPB(v sync.SourceView, d source.TypeDescriptor) *pb.Source {
 		Settings:          d.Masked(v.Settings()),
 		LastSync:          reportToPB(v.LastSync()),
 		CopyCount:         int32(v.CopyCount),
+		Exclusions:        exclusionsToPB(v.Exclusions()),
 		CreatedAt:         ts(v.CreatedAt()),
 		UpdatedAt:         ts(v.UpdatedAt()),
 	}
+}
+
+func exclusionsToPB(list []source.Exclusion) []*pb.Exclusion {
+	out := make([]*pb.Exclusion, 0, len(list))
+	for _, e := range list {
+		out = append(out, &pb.Exclusion{
+			ExternalId: e.ExternalID,
+			Title:      e.Title,
+			At:         ts(e.At),
+		})
+	}
+
+	return out
 }
 
 func configFromPB(in *pb.SourceInput) source.Config {
@@ -387,12 +402,13 @@ func toConnectError(err error) error {
 	case errors.As(err, &ce):
 		return err
 	case errors.Is(err, game.ErrGameNotFound), errors.Is(err, game.ErrCopyNotFound), errors.Is(err, game.ErrPhotoNotFound), errors.Is(err, source.ErrNotFound),
-		errors.Is(err, provider.ErrNotFound), errors.Is(err, media.ErrUnknownProvider):
+		errors.Is(err, provider.ErrNotFound), errors.Is(err, media.ErrUnknownProvider), errors.Is(err, sync.ErrNotExcluded):
 		return connect.NewError(connect.CodeNotFound, err)
 	case errors.As(err, &gv), errors.As(err, &sv), errors.As(err, &setv), errors.As(err, &schv), errors.Is(err, source.ErrUnknownType),
 		errors.Is(err, game.ErrInvalidBarcode):
 		return connect.NewError(connect.CodeInvalidArgument, err)
-	case errors.Is(err, catalog.ErrPhotoNotUploaded), errors.Is(err, valuation.ErrNotValuable), errors.Is(err, valuation.ErrNoProviders):
+	case errors.Is(err, catalog.ErrPhotoNotUploaded), errors.Is(err, valuation.ErrNotValuable), errors.Is(err, valuation.ErrNoProviders),
+		errors.Is(err, sync.ErrNotImported):
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, valuation.ErrChanged):
 		return connect.NewError(connect.CodeAborted, err)
