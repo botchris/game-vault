@@ -10,8 +10,9 @@ metadata:
   settings map they get, and the media service persists it with `provider.UpdateState` (wired for
   barcode lookups only so far; CeX's `country_hits`, see [[cex]]).
 - TheGamesDB has a monthly quota (~1,000 requests): it only applies to physical copies, games no
-  store knows (`CoverQuery.HasStoreLink`), and on the fallback pass when no store had art.
-  Add a new store's prefix to `HasStoreLink` when it gets a cover provider. See [[thegamesdb]].
+  store knows (`CoverQuery.HasStoreLink`, which is just `len(Links) > 0`: any store link counts,
+  so a new store needs no change there), and on the fallback pass when no store had art. See
+  [[thegamesdb]].
 - When cover resolution improves, bump `coverLogicChanged` in
   `internal/application/media/service.go` to the current UTC time (never in the future) so old
   "no cover" markers are retried.
@@ -23,3 +24,11 @@ metadata:
   by the main edition. An edition is invalidated only when its cover inputs change (chosen cover,
   platforms of its copies, store links), not when a disc or key is added: that spares the quota. See
   [[data-model]].
+- **Details fallback pass (2026-10-10):** game sheets have a fallback pass too. When every provider
+  asked answered and the sheet is sparse (no summary and no screenshots), `fetchDetails` runs the
+  chain again with `Fallback` set, asking only providers not asked yet, to fill the gaps (a PS4-only
+  library game gets TheGamesDB's sheet). Rate limits in either pass keep the sheet uncached. The
+  background scanner skips the pass (quota) and marks such sheets `FallbackSkipped`, so opening them
+  runs it. Bump `detailsLogicChanged` in `media/details.go` when sheet gathering improves: sparse
+  sheets cached before it are refetched once. TheGamesDB searches covers and sheets on the copies'
+  systems (`game.SystemOf`: "PlayStation Store" → PS4).

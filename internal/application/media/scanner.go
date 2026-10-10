@@ -130,7 +130,7 @@ func (s *Service) scanOnce(ctx context.Context, lang string, pause time.Duration
 			continue
 		}
 
-		_, warnings, err := s.fetchDetails(ctx, g.ID(), lang)
+		_, warnings, err := s.fetchDetails(ctx, g.ID(), lang, false)
 		if err == nil && len(warnings) == 0 {
 			fetched++
 		}
