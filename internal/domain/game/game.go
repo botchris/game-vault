@@ -18,6 +18,8 @@ type Game struct {
 	notes      string
 	coverURL   string
 	coverPhoto PhotoID
+	playStatus PlayStatus
+	rating     Rating
 	copies     []Copy
 	createdAt  time.Time
 	updatedAt  time.Time
@@ -51,6 +53,12 @@ type Info struct {
 
 	// CoverPhoto is one of the copies' photos used as the cover. It wins over CoverURL.
 	CoverPhoto PhotoID
+
+	// PlayStatus says whether the user means to play the game, is playing it or is done with it.
+	PlayStatus PlayStatus
+
+	// Rating is the user's score, 0 when unrated.
+	Rating Rating
 }
 
 func (i Info) normalize() (Info, error) {
@@ -65,6 +73,14 @@ func (i Info) normalize() (Info, error) {
 	}
 
 	i.Links = links.clone()
+
+	if !i.PlayStatus.Valid() {
+		return i, invalid("play status %q is not valid", i.PlayStatus)
+	}
+
+	if !i.Rating.Valid() {
+		return i, invalid("the rating must be between 0 and %d", MaxRating)
+	}
 
 	if i.CoverURL != "" {
 		u, err := url.Parse(i.CoverURL)
@@ -85,6 +101,8 @@ func Rehydrate(id ID, info Info, copies []Copy, createdAt, updatedAt time.Time) 
 		notes:      info.Notes,
 		coverURL:   info.CoverURL,
 		coverPhoto: info.CoverPhoto,
+		playStatus: info.PlayStatus,
+		rating:     info.Rating,
 		copies:     copies,
 		createdAt:  createdAt,
 		updatedAt:  updatedAt,
@@ -108,6 +126,12 @@ func (g *Game) CoverURL() string { return g.coverURL }
 
 // CoverPhoto returns the photo used as the cover, empty when there is none.
 func (g *Game) CoverPhoto() PhotoID { return g.coverPhoto }
+
+// PlayStatus returns where the user is with the game, PlayNone when they have not said.
+func (g *Game) PlayStatus() PlayStatus { return g.playStatus }
+
+// Rating returns the user's score for the game, 0 when unrated.
+func (g *Game) Rating() Rating { return g.rating }
 
 // CreatedAt returns when the game was registered.
 func (g *Game) CreatedAt() time.Time { return g.createdAt }
@@ -136,6 +160,8 @@ func (g *Game) Info() Info {
 		Notes:      g.notes,
 		CoverURL:   g.coverURL,
 		CoverPhoto: g.coverPhoto,
+		PlayStatus: g.playStatus,
+		Rating:     g.rating,
 	}
 }
 
@@ -153,6 +179,7 @@ func (g *Game) UpdateInfo(i Info, now time.Time) (coverChanged bool, err error) 
 
 	coverChanged = i.CoverURL != g.coverURL || i.CoverPhoto != g.coverPhoto || !i.Links.Equal(g.links)
 	g.title, g.links, g.notes, g.coverURL, g.coverPhoto = i.Title, i.Links, i.Notes, i.CoverURL, i.CoverPhoto
+	g.playStatus, g.rating = i.PlayStatus, i.Rating
 	g.updatedAt = now
 
 	return coverChanged, nil
@@ -245,6 +272,15 @@ func (g *Game) Absorb(other *Game, now time.Time) {
 
 	if g.coverURL == "" {
 		g.coverURL = other.coverURL
+	}
+
+	// The play status and the rating describe the same game, so the other's only fill gaps.
+	if g.playStatus == PlayNone {
+		g.playStatus = other.playStatus
+	}
+
+	if g.rating == 0 {
+		g.rating = other.rating
 	}
 
 	if other.notes != "" && !strings.Contains(g.notes, other.notes) {

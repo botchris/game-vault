@@ -76,10 +76,15 @@ it once saved. How to write one: [`docs/plugins.md`](plugins.md).
 
 | Concept          | Kind                  | Notes |
 |------------------|-----------------------|-------|
-| `Game`           | Aggregate root        | Title, links to stores (`{"steam": "620"}`), notes, and its copies. Every copy change goes through the game. |
+| `Game`           | Aggregate root        | Title, links to stores (`{"steam": "620"}`), notes, play status, rating, and its copies. Every copy change goes through the game. |
 | `Copy`           | Entity inside `Game`  | `kind` is `key`, `library` or `physical`. `status` must be valid for the kind. Holds platform, key, redeem-by date, origin, edition, purchase date and price (any kind), and for physical copies grade, contents and location. |
 | `Source`         | Aggregate root        | A scanned account: type, settings (secrets masked towards clients), interval, last sync report. |
 | `Consolidator`   | Domain service        | Merges imported copies into the catalog. It matches by external id, then by any store link the copy shares with a game, then by normalised title (no trademarks, brackets, edition words or "<store> key", so "Hades - GOG Key" is "hades"); if nothing matches it creates a new game. |
+
+The **play status** (`backlog`, `playing`, `finished`, `abandoned`, or not set) and the **rating**
+(1 to 5 stars, 0 when unrated) belong to the game, not to a copy: owning a game twice does not mean
+playing it twice. Merging games keeps the kept game's status and rating and takes the other's only
+where it has none. They are not part of the CSV, which has one row per copy.
 
 A key is **redundant** when it is pending (unrevealed or revealed) and the same game already has a `library` copy on the same platform. It is a key you can gift.
 Re-scans never move a key you marked as `redeemed` back to pending.
@@ -253,14 +258,17 @@ Store covers: every library source links the games it imports to its store (Stea
 
 ## Browsing the library
 
-- **Sort** by title (A–Z or Z–A), recently added, release year, redeem deadline or number of copies. The choice and the view (covers or list) are remembered per device.
+- **Sort** by title (A–Z or Z–A), recently added, release year, redeem deadline, number of copies or rating. The choice and the view (covers or list) are remembered per device.
 - **A–Z bar**: jump to the games starting with a letter (`#` groups titles starting with a digit or symbol). Letters with no games under the current filters are greyed out.
-- **Filters**: kind of copy, platform and genre, plus quick filters for pending keys, keys expiring in 30 days and keys you don't need. Each option shows how many games it matches.
+- **Filters**: kind of copy, play status, source, platform and genre, plus quick filters for pending keys, keys expiring in 30 days and keys you don't need. Each option shows how many games it matches.
 - **Genres and release year** come from the game details. Game Vault downloads the details of Steam-linked games in the background (in the UI language, at a gentle pace), so the genre filter fills in over the first hours; the filter panel says how many games are covered so far.
 - **Platform badges** on every cover show where you have the game: the store or console logo (with the generation for consoles: PS3, 360…). Solid badges are copies you own; hollow ones with a key glyph are keys you have not redeemed yet. Sold, gifted and expired copies are not shown. Logos come from [Simple Icons](https://simpleicons.org) (CC0); Xbox and Nintendo, which Simple Icons does not ship, use simple drawn glyphs. Brand logos are trademarks of their owners.
 - On phones the sidebar becomes a bottom tab bar, filters open as a bottom sheet and the game sheet takes the full screen.
 
 ## Game sheets
+
+The hero of the sheet holds the **play status** chips and the **rating** stars. Both save on click;
+clicking the current one again clears it. The list view shows them next to each game.
 
 Each game page shows a sheet: summary, genres, developer and publisher, release date, age rating, players, Metacritic, trailers and screenshots.
 It comes from the **game details** provider chain. The first provider gives the main sheet and the next ones fill the gaps; trailers from all providers are kept.

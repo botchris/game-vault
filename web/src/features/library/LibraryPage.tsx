@@ -5,18 +5,19 @@ import { Cover } from '../../components/Cover';
 import { Icon } from '../../components/Icon';
 import { PlatformBadges } from '../../components/PlatformBadge';
 import { Alert, useFormatters } from '../../components/ui';
-import { CopyStatus, daysUntil, isPendingKey, nextDeadline, toDate, type Game } from '../../lib/model';
+import { CopyStatus, PlayStatus, daysUntil, isPendingKey, nextDeadline, playKey, toDate, type Game } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
 import FilterPanel, { NO_FILTERS, activeFilterCount, matchesFilters, type Filters } from './FilterPanel';
 import GameDetail, { type SheetNav } from './GameDetail';
 import NewGameDialog from './NewGameDialog';
+import { Stars } from './PlayControls';
 import PosterGrid from './PosterGrid';
 
 type Quick = 'pending' | 'expiring' | 'redundant' | null;
-export type SortBy = 'titleAsc' | 'titleDesc' | 'added' | 'year' | 'deadline' | 'copies';
+export type SortBy = 'titleAsc' | 'titleDesc' | 'added' | 'year' | 'deadline' | 'copies' | 'rating';
 type View = 'list' | 'posters';
 
-const SORTS: SortBy[] = ['titleAsc', 'titleDesc', 'added', 'year', 'deadline', 'copies'];
+const SORTS: SortBy[] = ['titleAsc', 'titleDesc', 'added', 'year', 'deadline', 'copies', 'rating'];
 const CHUNK = 120;
 const EXPIRING_DAYS = 30;
 const LETTERS = ['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'];
@@ -107,6 +108,7 @@ export default function LibraryPage() {
       year: (a, b) => (b.releaseYear || 0) - (a.releaseYear || 0) || byTitle(a, b),
       deadline: (a, b) => (nextDeadline(a) || '9999').localeCompare(nextDeadline(b) || '9999') || byTitle(a, b),
       copies: (a, b) => b.copies.length - a.copies.length || byTitle(a, b),
+      rating: (a, b) => b.rating - a.rating || byTitle(a, b),
     };
     return base.filter((g) => !letter || initialOf(g.title) === letter).sort(cmp[sortBy]);
   }, [base, letter, sortBy, i18n.language]);
@@ -269,6 +271,8 @@ function GameRow({ game, onOpen, onPlatform, activePlatforms }: {
           <PlatformBadges game={game} max={6} onSelect={onPlatform} active={activePlatforms} />
         </span>
         <span className="row-side">
+          {game.playStatus !== PlayStatus.UNSPECIFIED && <span className={`badge play-badge play-${playKey(game.playStatus)}`}>{t(`play.${playKey(game.playStatus)}`)}</span>}
+          {game.rating > 0 && <Stars value={game.rating} />}
           {redundant > 0 && <span className="badge warn">{t('library.redundantBadge', { count: redundant })}</span>}
           {pending > 0 && redundant === 0 && <span className="badge">{t('library.pendingBadge', { count: pending })}</span>}
           {days !== null && (

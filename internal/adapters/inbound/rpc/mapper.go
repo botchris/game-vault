@@ -53,11 +53,20 @@ var contentToPB = map[game.Content]pb.CopyContent{
 	game.ContentExtras: pb.CopyContent_COPY_CONTENT_EXTRAS,
 }
 
+var playStatusToPB = map[game.PlayStatus]pb.PlayStatus{
+	game.PlayNone:      pb.PlayStatus_PLAY_STATUS_UNSPECIFIED,
+	game.PlayBacklog:   pb.PlayStatus_PLAY_STATUS_BACKLOG,
+	game.PlayPlaying:   pb.PlayStatus_PLAY_STATUS_PLAYING,
+	game.PlayFinished:  pb.PlayStatus_PLAY_STATUS_FINISHED,
+	game.PlayAbandoned: pb.PlayStatus_PLAY_STATUS_ABANDONED,
+}
+
 var (
-	kindFromPB    = invert(kindToPB)
-	statusFromPB  = invert(statusToPB)
-	gradeFromPB   = invert(gradeToPB)
-	contentFromPB = invert(contentToPB)
+	playStatusFromPB = invert(playStatusToPB)
+	kindFromPB       = invert(kindToPB)
+	statusFromPB     = invert(statusToPB)
+	gradeFromPB      = invert(gradeToPB)
+	contentFromPB    = invert(contentToPB)
 )
 
 func invert[K, V comparable](m map[K]V) map[V]K {
@@ -89,6 +98,8 @@ func gameToPB(g *game.Game) *pb.Game {
 		Notes:        g.Notes(),
 		CoverUrl:     g.CoverURL(),
 		CoverPhotoId: string(g.CoverPhoto()),
+		PlayStatus:   playStatusToPB[g.PlayStatus()],
+		Rating:       int32(g.Rating()),
 		CreatedAt:    ts(g.CreatedAt()),
 		UpdatedAt:    ts(g.UpdatedAt()),
 	}
