@@ -105,7 +105,7 @@ func (s *Service) Update(ctx context.Context, d field.Definition) (field.Definit
 // not fit the values games and copies hold.
 func (s *Service) checkStoredValues(ctx context.Context, set *field.Set, old, updated field.Definition) error {
 	decimals := old.Decimals != updated.Decimals
-	if !decimals && old.Currency == updated.Currency && slices.Equal(old.Kinds, updated.Kinds) {
+	if !decimals && old.Currency == updated.Currency && sameKinds(old.Kinds, updated.Kinds) {
 		return nil // nothing that changes how stored values read or validate
 	}
 
@@ -153,6 +153,19 @@ func conflicts(set *field.Set, id string, g *game.Game, anyValue bool) bool {
 	return false
 }
 
+// sameKinds reports whether a and b hold the same copy kinds, in any order.
+func sameKinds(a, b []game.Kind) bool {
+	sorted := func(k []game.Kind) []game.Kind {
+		k = slices.Clone(k)
+		slices.Sort(k)
+
+		return slices.Compact(k)
+	}
+
+	return slices.Equal(sorted(a), sorted(b))
+}
+
+// countGames says how many games, for the messages the user sees ("1 game", "3 games").
 func countGames(n int) string {
 	if n == 1 {
 		return "1 game"

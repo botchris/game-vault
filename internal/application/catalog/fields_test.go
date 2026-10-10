@@ -77,6 +77,28 @@ func TestCatalogValidatesFieldValues(t *testing.T) {
 			assert.Empty(t, got.Copies()[0].Fields)
 		})
 	})
+
+	t.Run("GIVEN a new game whose key copy has a physical-only value", func(t *testing.T) {
+		t.Run("WHEN it is created", func(t *testing.T) {
+			_, err := svc.CreateGame(ctx, game.Info{Title: "Halo 2"},
+				[]game.CopyDetails{{Kind: game.KindKey}}, game.FieldValues{sealed.ID: {Bool: &yes}})
+
+			t.Run("THEN it is refused, naming the field", func(t *testing.T) {
+				var v *field.ValidationError
+				require.ErrorAs(t, err, &v)
+				assert.Contains(t, err.Error(), "Sealed")
+			})
+
+			t.Run("AND no game was stored", func(t *testing.T) {
+				list, err := sqlite.NewGameRepository(db).List(ctx)
+				require.NoError(t, err)
+
+				for _, g := range list {
+					assert.NotEqual(t, "Halo 2", g.Title())
+				}
+			})
+		})
+	})
 }
 
 // racingTx is a port.TxManager that runs a hook once, just before the next transaction begins: it

@@ -241,3 +241,148 @@ func TestFieldsService_updateWithStoredValues(t *testing.T) {
 		})
 	})
 }
+
+// countingGames is a game.Repository that counts the times every game is listed.
+type countingGames struct {
+	game.Repository
+
+	lists int
+}
+
+func (c *countingGames) List(ctx context.Context) ([]*game.Game, error) {
+	c.lists++
+
+	return c.Repository.List(ctx)
+}
+
+func TestFieldsService_updateKindsInAnotherOrder(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "gamevault.db"), "")
+	require.NoError(t, err)
+	t.Cleanup(func() { db.Close() })
+
+	games := &countingGames{Repository: sqlite.NewGameRepository(db)}
+	svc := fields.NewService(sqlite.NewSettingsRepository(db), games, db, time.Now)
+
+	t.Run("GIVEN a copy field limited to physical copies and keys", func(t *testing.T) {
+		sealed, err := svc.Create(ctx, field.Definition{
+			Name:  "Sealed",
+			Type:  field.TypeBool,
+			Scope: field.ScopeCopy,
+			Kinds: []game.Kind{game.KindPhysical, game.KindKey},
+		})
+		require.NoError(t, err)
+
+		t.Run("WHEN it is saved with the same kinds in another order", func(t *testing.T) {
+			sealed.Kinds = []game.Kind{game.KindKey, game.KindPhysical}
+			_, err := svc.Update(ctx, sealed)
+			require.NoError(t, err)
+
+			t.Run("THEN the stored values are not checked, as nothing changed for them", func(t *testing.T) {
+				assert.Zero(t, games.lists)
+			})
+		})
+	})
+}
+
+func TestFieldsService_editing(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "gamevault.db"), "")
+	require.NoError(t, err)
+	t.Cleanup(func() { db.Close() })
+
+	created := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	later := created.Add(time.Hour)
+	now := created
+	clock := func() time.Time { return now }
+
+	defs, games := sqlite.NewSettingsRepository(db), sqlite.NewGameRepository(db)
+	svc := fields.NewService(defs, games, db, clock)
+	cat := catalog.NewService(games, db, clock, nil, nil, defs)
+
+	review, err := svc.Create(ctx, field.Definition{
+		Name:  "Review",
+		Type:  field.TypeText,
+		Scope: field.ScopeGame,
+	})
+	require.NoError(t, err)
+	shelf, err := svc.Create(ctx, field.Definition{
+		Name:    "Shelf",
+		Type:    field.TypeList,
+		Scope:   field.ScopeGame,
+		Choices: []field.Choice{{Name: "Top"}, {Name: "Bottom"}},
+	})
+	require.NoError(t, err)
+
+	top := shelf.Choices[0].ID
+	g, err := cat.CreateGame(ctx, game.Info{
+		Title: "Halo 3",
+		Fields: game.FieldValues{
+			review.ID: {Text: "Great"},
+			shelf.ID:  {Choice: top},
+		},
+	}, nil)
+	require.NoError(t, err)
+
+	now = later
+
+	t.Run("GIVEN two fields WHEN the second is moved first", func(t *testing.T) {
+		require.NoError(t, svc.Move(ctx, shelf.ID, 0))
+
+		t.Run("THEN the list reads back in the new order", func(t *testing.T) {
+			list, err := svc.List(ctx)
+			require.NoError(t, err)
+			require.Len(t, list, 2)
+			assert.Equal(t, shelf.ID, list[0].ID)
+			assert.Equal(t, review.ID, list[1].ID)
+		})
+
+		t.Run("AND moving a field that does not exist is refused", func(t *testing.T) {
+			assert.ErrorIs(t, svc.Move(ctx, "gone", 0), field.ErrNotFound)
+		})
+	})
+
+	t.Run("GIVEN a game holding a list value WHEN the value is removed without a merge", func(t *testing.T) {
+		require.NoError(t, svc.RemoveChoice(ctx, shelf.ID, top, ""))
+
+		t.Run("THEN the game loses the value and is dated by the change", func(t *testing.T) {
+			got, err := games.Get(ctx, g.ID())
+			require.NoError(t, err)
+			assert.NotContains(t, got.Fields(), shelf.ID)
+			assert.Equal(t, "Great", got.Fields()[review.ID].Text, "other values stay")
+			assert.True(t, got.UpdatedAt().Equal(later))
+		})
+
+		t.Run("AND the list keeps the other value", func(t *testing.T) {
+			list, err := svc.List(ctx)
+			require.NoError(t, err)
+			require.Len(t, list[0].Choices, 1)
+			assert.Equal(t, "Bottom", list[0].Choices[0].Name)
+		})
+	})
+
+	t.Run("GIVEN a game field with a value WHEN it is deleted", func(t *testing.T) {
+		gamesN, copiesN, err := svc.Delete(ctx, review.ID)
+		require.NoError(t, err)
+
+		t.Run("THEN the counts say one game had a value and no copy", func(t *testing.T) {
+			assert.Equal(t, 1, gamesN)
+			assert.Zero(t, copiesN)
+		})
+
+		t.Run("AND the game no longer holds it", func(t *testing.T) {
+			got, err := games.Get(ctx, g.ID())
+			require.NoError(t, err)
+			assert.Empty(t, got.Fields())
+		})
+
+		t.Run("AND deleting it again is refused", func(t *testing.T) {
+			_, _, err := svc.Delete(ctx, review.ID)
+			assert.ErrorIs(t, err, field.ErrNotFound)
+		})
+	})
+}
