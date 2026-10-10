@@ -9,6 +9,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"gamevault/internal/application/catalog"
+	"gamevault/internal/application/fields"
 	"gamevault/internal/application/media"
 	"gamevault/internal/application/sync"
 	"gamevault/internal/application/valuation"
@@ -414,7 +415,7 @@ func toConnectError(err error) error {
 		errors.Is(err, game.ErrInvalidBarcode):
 		return connect.NewError(connect.CodeInvalidArgument, err)
 	case errors.Is(err, catalog.ErrPhotoNotUploaded), errors.Is(err, valuation.ErrNotValuable), errors.Is(err, valuation.ErrNoProviders),
-		errors.Is(err, sync.ErrNotImported):
+		errors.Is(err, sync.ErrNotImported), errors.Is(err, fields.ErrValuesConflict):
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, valuation.ErrChanged):
 		return connect.NewError(connect.CodeAborted, err)

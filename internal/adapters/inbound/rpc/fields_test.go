@@ -141,3 +141,35 @@ func TestFields_unknownCopyKind(t *testing.T) {
 		})
 	})
 }
+
+func TestFields_updateConflictingWithValues(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a number field with a value in a game", func(t *testing.T) {
+		c := newServer(t, &fakeProvider{})
+
+		created, err := c.fields.CreateField(ctx, connect.NewRequest(&pb.CreateFieldRequest{Field: &pb.FieldDefinition{
+			Name:  "Weight",
+			Type:  "number",
+			Scope: "game",
+		}}))
+		require.NoError(t, err)
+
+		weight := created.Msg.Field
+		_, err = c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{
+			Title:  "Halo 3",
+			Fields: map[string]*pb.FieldValue{weight.Id: {Value: &pb.FieldValue_Number{Number: 5}}},
+		}))
+		require.NoError(t, err)
+
+		t.Run("WHEN its decimals change", func(t *testing.T) {
+			weight.Decimals = 2
+			_, err := c.fields.UpdateField(ctx, connect.NewRequest(&pb.UpdateFieldRequest{Field: weight}))
+
+			t.Run("THEN it is refused as a failed precondition", func(t *testing.T) {
+				assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
+			})
+		})
+	})
+}

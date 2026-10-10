@@ -4,11 +4,28 @@ package fields
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"slices"
 
 	"gamevault/internal/application/port"
 	"gamevault/internal/domain/field"
 	"gamevault/internal/domain/game"
 )
+
+// ErrValuesConflict means a definition change would corrupt or invalidate the values games and
+// copies already hold (see Service.Update). The error that wraps it names the field and says how
+// many games are affected.
+var ErrValuesConflict = errors.New("the change does not fit the values games already hold")
+
+// valuesConflict is an ErrValuesConflict with the message the user sees.
+type valuesConflict struct{ msg string }
+
+// Error returns the message, which says what to clear or change first.
+func (e *valuesConflict) Error() string { return e.msg }
+
+// Unwrap returns ErrValuesConflict, so callers match it with errors.Is.
+func (e *valuesConflict) Unwrap() error { return ErrValuesConflict }
 
 // Service manages custom field definitions.
 type Service struct {
@@ -51,21 +68,95 @@ func (s *Service) Create(ctx context.Context, d field.Definition) (field.Definit
 	return out, err
 }
 
-// Update changes a field (see field.Set.Update).
+// Update changes a field (see field.Set.Update). In the same transaction it refuses a change that
+// would corrupt or invalidate stored values: new decimals while any game or copy holds a value
+// (the stored integers would be read at another scale), and a new currency or new copy kinds that
+// some stored value no longer fits (every later save of those games would be refused).
 func (s *Service) Update(ctx context.Context, d field.Definition) (field.Definition, error) {
 	var out field.Definition
 
-	err := s.edit(ctx, func(set *field.Set) error {
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		set, err := s.defs.Fields(ctx)
+		if err != nil {
+			return err
+		}
+
+		old, _ := set.Get(d.ID) // Update reports a missing field
+
 		if err := set.Update(d); err != nil {
 			return err
 		}
 
 		out, _ = set.Get(d.ID)
 
-		return nil
+		if err := s.checkStoredValues(ctx, set, old, out); err != nil {
+			return err
+		}
+
+		return s.defs.SaveFields(ctx, set)
 	})
 
 	return out, err
+}
+
+// checkStoredValues refuses the change from old to updated (already applied to set) when it does
+// not fit the values games and copies hold.
+func (s *Service) checkStoredValues(ctx context.Context, set *field.Set, old, updated field.Definition) error {
+	decimals := old.Decimals != updated.Decimals
+	if !decimals && old.Currency == updated.Currency && slices.Equal(old.Kinds, updated.Kinds) {
+		return nil // nothing that changes how stored values read or validate
+	}
+
+	list, err := s.games.List(ctx)
+	if err != nil {
+		return err
+	}
+
+	affected := 0
+
+	for _, g := range list {
+		if conflicts(set, updated.ID, g, decimals) {
+			affected++
+		}
+	}
+
+	if affected == 0 {
+		return nil
+	}
+
+	if decimals {
+		return &valuesConflict{msg: fmt.Sprintf("%q has values in %s: clear them before changing the decimals", updated.Name, countGames(affected))}
+	}
+
+	return &valuesConflict{msg: fmt.Sprintf("%q: values in %s do not fit the new currency or copy kinds: change or clear them first", updated.Name, countGames(affected))}
+}
+
+// conflicts reports whether the game or one of its copies holds a value of the field that does not
+// fit set's definition of it, or any value at all when anyValue is set.
+func conflicts(set *field.Set, id string, g *game.Game, anyValue bool) bool {
+	if v, ok := g.Fields()[id]; ok {
+		if _, err := set.Validate(field.ScopeGame, "", game.FieldValues{id: v}); anyValue || err != nil {
+			return true
+		}
+	}
+
+	for _, c := range g.Copies() {
+		if v, ok := c.Fields[id]; ok {
+			if _, err := set.Validate(field.ScopeCopy, c.Kind, game.FieldValues{id: v}); anyValue || err != nil {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func countGames(n int) string {
+	if n == 1 {
+		return "1 game"
+	}
+
+	return fmt.Sprintf("%d games", n)
 }
 
 // Move puts a field at index.

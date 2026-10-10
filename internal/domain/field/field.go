@@ -188,6 +188,7 @@ func (s *Set) Add(d Definition) (Definition, error) {
 
 // Update changes a field's name, copy kinds, number and money options and list values. The type
 // and scope never change, and list values are only removed with RemoveChoice (they are in use).
+// The caller refuses, in the same transaction, changes that do not fit the values games hold.
 func (s *Set) Update(d Definition) error {
 	i := s.index(d.ID)
 	if i < 0 {

@@ -102,3 +102,142 @@ func TestFieldsService(t *testing.T) {
 		assert.Equal(t, art, c.ID)
 	})
 }
+
+func TestFieldsService_updateWithStoredValues(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "gamevault.db"), "")
+	require.NoError(t, err)
+	t.Cleanup(func() { db.Close() })
+
+	defs, games := sqlite.NewSettingsRepository(db), sqlite.NewGameRepository(db)
+	svc := fields.NewService(defs, games, db)
+	cat := catalog.NewService(games, db, time.Now, nil, nil, defs)
+
+	create := func(t *testing.T, d field.Definition) field.Definition {
+		t.Helper()
+
+		out, err := svc.Create(ctx, d)
+		require.NoError(t, err)
+
+		return out
+	}
+
+	weight := create(t, field.Definition{
+		Name:  "Weight",
+		Type:  field.TypeNumber,
+		Scope: field.ScopeGame,
+	})
+	rating := create(t, field.Definition{
+		Name:  "Rating",
+		Type:  field.TypeNumber,
+		Scope: field.ScopeGame,
+	})
+	price := create(t, field.Definition{
+		Name:  "Paid",
+		Type:  field.TypeMoney,
+		Scope: field.ScopeGame,
+	})
+	sealed := create(t, field.Definition{
+		Name:  "Sealed",
+		Type:  field.TypeBool,
+		Scope: field.ScopeCopy,
+	})
+
+	five, yes := int64(5), true
+	_, err = cat.CreateGame(ctx, game.Info{
+		Title: "Halo 3",
+		Fields: game.FieldValues{
+			weight.ID: {Number: &five},
+			price.ID: {Money: &game.Money{
+				Amount:   1999,
+				Currency: "EUR",
+			}},
+		},
+	},
+		[]game.CopyDetails{{Kind: game.KindPhysical}}, game.FieldValues{sealed.ID: {Bool: &yes}})
+	require.NoError(t, err)
+
+	t.Run("GIVEN a number field with a value in a game", func(t *testing.T) {
+		t.Run("WHEN its decimals change", func(t *testing.T) {
+			d := weight
+			d.Decimals = 2
+			_, err := svc.Update(ctx, d)
+
+			t.Run("THEN it is refused, naming the field and how many games hold a value", func(t *testing.T) {
+				require.ErrorIs(t, err, fields.ErrValuesConflict)
+				assert.Contains(t, err.Error(), "Weight")
+				assert.Contains(t, err.Error(), "1 game")
+				assert.Contains(t, err.Error(), "decimals")
+			})
+		})
+
+		t.Run("WHEN it is renamed and gets a unit", func(t *testing.T) {
+			d := weight
+			d.Name = "Mass"
+			d.Unit = "g"
+			got, err := svc.Update(ctx, d)
+
+			t.Run("THEN it is allowed", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.Equal(t, "Mass", got.Name)
+				assert.Equal(t, 0, got.Decimals)
+			})
+		})
+	})
+
+	t.Run("GIVEN a number field without values WHEN its decimals change THEN it is allowed", func(t *testing.T) {
+		d := rating
+		d.Decimals = 2
+		got, err := svc.Update(ctx, d)
+		require.NoError(t, err)
+		assert.Equal(t, 2, got.Decimals)
+	})
+
+	t.Run("GIVEN a money field with a value in euros", func(t *testing.T) {
+		t.Run("WHEN its currency becomes the euro THEN it is allowed", func(t *testing.T) {
+			d := price
+			d.Currency = "EUR"
+			_, err := svc.Update(ctx, d)
+			require.NoError(t, err)
+		})
+
+		t.Run("WHEN its currency becomes the dollar", func(t *testing.T) {
+			d := price
+			d.Currency = "USD"
+			_, err := svc.Update(ctx, d)
+
+			t.Run("THEN it is refused, naming the field and how many games do not fit", func(t *testing.T) {
+				require.ErrorIs(t, err, fields.ErrValuesConflict)
+				assert.Contains(t, err.Error(), "Paid")
+				assert.Contains(t, err.Error(), "1 game")
+			})
+		})
+	})
+
+	t.Run("GIVEN a copy field for every kind with a value on a physical copy", func(t *testing.T) {
+		t.Run("WHEN it is limited to keys", func(t *testing.T) {
+			d := sealed
+			d.Kinds = []game.Kind{game.KindKey}
+			_, err := svc.Update(ctx, d)
+
+			t.Run("THEN it is refused, because the physical copy would keep a value", func(t *testing.T) {
+				require.ErrorIs(t, err, fields.ErrValuesConflict)
+				assert.Contains(t, err.Error(), "Sealed")
+			})
+		})
+
+		t.Run("WHEN it is limited to physical copies THEN it is allowed", func(t *testing.T) {
+			d := sealed
+			d.Kinds = []game.Kind{game.KindPhysical}
+			_, err := svc.Update(ctx, d)
+			require.NoError(t, err)
+		})
+
+		t.Run("WHEN it applies to every kind again THEN it is allowed", func(t *testing.T) {
+			_, err := svc.Update(ctx, sealed)
+			require.NoError(t, err)
+		})
+	})
+}

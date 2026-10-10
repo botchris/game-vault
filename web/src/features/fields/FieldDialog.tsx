@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { errorMessage, fieldClient } from '../../api/client';
 import { Alert, Modal } from '../../components/ui';
@@ -42,7 +42,20 @@ export default function FieldDialog({ field, onClose }: Props) {
   const [removing, setRemoving] = useState<{ key: number; mergeInto: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // Whether games or copies hold a value of the number field being edited: its decimals are then
+  // fixed, because the stored values would be read at another scale. Other changes that do not fit
+  // the stored values are refused by the server and shown as any save error.
+  const [hasValues, setHasValues] = useState(false);
   const isList = type === 'list' || type === 'multilist';
+
+  useEffect(() => {
+    if (!field || field.type !== 'number') return;
+    let live = true;
+    fieldClient.fieldUsage({ id: field.id })
+      .then((u) => { if (live) setHasValues(u.games + u.copies > 0); })
+      .catch(() => {}); // the server still refuses the change; the hint is only a convenience
+    return () => { live = false; };
+  }, [field]);
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -174,10 +187,11 @@ export default function FieldDialog({ field, onClose }: Props) {
             <>
               <label>
                 {t('fields.decimals')}
-                <select value={decimals} onChange={(e) => setDecimals(Number(e.target.value))}>
+                <select value={decimals} disabled={hasValues} onChange={(e) => setDecimals(Number(e.target.value))}>
                   <option value={0}>0</option>
                   <option value={2}>2</option>
                 </select>
+                {hasValues && <span className="muted small">{t('fields.decimalsInUse')}</span>}
               </label>
               <label>
                 {t('fields.unit')}

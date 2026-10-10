@@ -519,6 +519,7 @@
     "kindsAll": "all kinds",
     "kindsHint": "With none ticked, every kind of copy has the field.",
     "decimals": "Decimals",
+    "decimalsInUse": "Fixed while games hold a value: clear them to change it.",
     "unit": "Unit",
     "unitPlaceholder": "h, km, %…",
     "currency": "Currency",

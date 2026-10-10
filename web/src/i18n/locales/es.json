@@ -519,6 +519,7 @@
     "kindsAll": "todos los tipos",
     "kindsHint": "Si no marcas ninguno, todas las copias tienen el campo.",
     "decimals": "Decimales",
+    "decimalsInUse": "No se puede cambiar mientras haya juegos con un valor: bórralos para cambiarlo.",
     "unit": "Unidad",
     "unitPlaceholder": "h, km, %…",
     "currency": "Moneda",

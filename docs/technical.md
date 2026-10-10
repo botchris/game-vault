@@ -315,7 +315,7 @@ you paid, how long a game took, a personal rating… Each field has a name and o
 |---|---|---|
 | Text | one line, up to 250 characters | as typed |
 | Long text | several lines, up to 10,000 characters | as typed |
-| Yes / no | a checkbox | Yes or No |
+| Yes / no | a Yes / No / — segmented control (— leaves it empty) | Yes or No |
 | Number | whole, or with 2 decimals (stored in hundredths); optional unit | the number and its unit |
 | Money | an amount in minor units and a currency (ISO 4217; empty means the default currency) | localized amount |
 | Date | a year, a year and month, or a full date | localized |
@@ -335,7 +335,11 @@ within ±1,000,000,000,000 (whole or with 2 decimals); money amounts from 0 to
 1,000,000,000,000 in a currency with cents (at most 100,000,000,000,000 minor units, so never
 negative); durations up to 100,000 hours.
 The type and whether a field describes a game or a copy are fixed once it exists; the name, the
-copy kinds, the number and money options and the list values can change.
+copy kinds, the number and money options and the list values can change. A change that would
+corrupt or invalidate stored values is refused, saying how many games are affected: new decimals
+while any game or copy holds a value (the stored hundredths would be read at another scale, so the
+Fields page disables the control then), and a new currency or new copy kinds that some stored value
+no longer fits. Clear or change those values first.
 
 **Storage.** The definitions live in the `fields` setting, as one ordered list; each field and list
 value has an id that never changes, so renaming a value renames it everywhere. Values live inside
