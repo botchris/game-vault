@@ -35,7 +35,9 @@ const (
   "game":{"id":500003,"title":"Celeste OST","classification":"soundtrack"}}
 ]}`
 
-	emptyPage = `{"page":3,"per_page":500,"owned_keys":[]}`
+	// emptyPage is how itch.io writes an empty page: its Lua backend encodes an empty list as an
+	// object (seen by the user on a real account on 2026-10-10).
+	emptyPage = `{"page":3,"per_page":500,"owned_keys":{}}`
 )
 
 // fakeItch reproduces api.itch.io's owned keys endpoint and its failures.
@@ -123,6 +125,32 @@ func TestProvider_Fetch(t *testing.T) {
 			})
 		})
 	})
+}
+
+func TestKeyList_UnmarshalJSON(t *testing.T) {
+	cases := map[string][]int64{
+		`[{"id":1},{"id":2}]`: {1, 2},
+		`[]`:                  {},
+		`{}`:                  {},
+		`null`:                nil,
+		`{"2":{"id":2},"10":{"id":10},"1":{"id":1},"9":{"id":9}}`: {1, 2, 9, 10},
+	}
+
+	for raw, want := range cases {
+		var got keyList
+		require.NoError(t, got.UnmarshalJSON([]byte(raw)), raw)
+
+		var ids []int64
+		if got != nil {
+			ids = make([]int64, 0, len(got))
+		}
+
+		for _, k := range got {
+			ids = append(ids, k.ID)
+		}
+
+		assert.Equal(t, want, ids, raw)
+	}
 }
 
 func TestProvider_errors(t *testing.T) {

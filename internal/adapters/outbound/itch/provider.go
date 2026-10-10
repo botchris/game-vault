@@ -1,11 +1,15 @@
 package itch
 
 import (
+	"bytes"
+	"cmp"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -94,8 +98,58 @@ type ownedGame struct {
 // page is one page of owned keys. The API signals errors with an errors list, sometimes with HTTP
 // 200.
 type page struct {
-	OwnedKeys []ownedKey `json:"owned_keys"`
-	Errors    []string   `json:"errors"`
+	OwnedKeys keyList  `json:"owned_keys"`
+	Errors    []string `json:"errors"`
+}
+
+// keyList decodes owned_keys. itch.io's backend writes an empty list as an empty object ({}), so
+// the empty page that ends every scan comes as one; an object with entries is read in key order.
+type keyList []ownedKey
+
+// UnmarshalJSON accepts a JSON array, an object of keys, or null.
+func (l *keyList) UnmarshalJSON(b []byte) error {
+	b = bytes.TrimSpace(b)
+	if len(b) == 0 || b[0] != '{' {
+		var list []ownedKey
+		if err := json.Unmarshal(b, &list); err != nil {
+			return err
+		}
+
+		*l = list
+
+		return nil
+	}
+
+	var byIndex map[string]ownedKey
+	if err := json.Unmarshal(b, &byIndex); err != nil {
+		return err
+	}
+
+	indexes := make([]string, 0, len(byIndex))
+	for k := range byIndex {
+		indexes = append(indexes, k)
+	}
+
+	// Lua arrays become objects keyed "1", "2"…: numeric order, not string order ("10" after "9").
+	slices.SortFunc(indexes, func(a, b string) int {
+		na, errA := strconv.Atoi(a)
+		nb, errB := strconv.Atoi(b)
+
+		if errA == nil && errB == nil {
+			return cmp.Compare(na, nb)
+		}
+
+		return strings.Compare(a, b)
+	})
+
+	list := make([]ownedKey, 0, len(indexes))
+	for _, k := range indexes {
+		list = append(list, byIndex[k])
+	}
+
+	*l = list
+
+	return nil
 }
 
 // ownedKeys reads one page (from 1) of the account's keys.

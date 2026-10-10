@@ -15,6 +15,9 @@ As of 2026-10-10 (https://itch.io/docs/api/serverside):
   (both for `/credentials/info` and `/profile/owned-keys`).
 - `classification` values (go-itchio): game, tool, assets, game_mod, physical_game, soundtrack,
   other, comic, book. Only `game` (or missing) is imported.
+- **Empty lists come as `{}`** (Lua/cjson): `"owned_keys":{}` on an empty page, confirmed by the user's
+  first real test on 2026-10-10 ("cannot unmarshal object into … []itch.ownedKey"). Decode any
+  itch.io list as array-or-object.
 - Dates are documented as RFC 3339; the importer also accepts "2006-01-02 15:04:05".
 - Covers are 315×250 (landscape): no cover provider; games get covers from other links or by hand.
 - Not yet confirmed with a real account: the exact `game` object and whether `classification`
