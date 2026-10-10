@@ -113,13 +113,8 @@ func (d *Details) lookupNames(ctx context.Context, apiKey, kind string, ids []in
 func (d *Details) Details(ctx context.Context, q media.CoverQuery, _ string, s schema.Settings) (*media.GameDetails, error) {
 	key := s[settingAPIKey]
 
-	platforms := q.PhysicalPlatforms
-	if len(platforms) == 0 {
-		platforms = q.Platforms
-	}
-
 	params := url.Values{"apikey": {key}, "name": {q.Title}, "fields": {"overview,players,publishers,genres,rating,coop,youtube"}}
-	if ids := d.p.platformIDs(ctx, key, platforms); len(ids) > 0 {
+	if ids := d.p.platformIDs(ctx, key, searchSystems(q)); len(ids) > 0 {
 		parts := make([]string, len(ids))
 		for i, id := range ids {
 			parts[i] = strconv.FormatInt(id, 10)

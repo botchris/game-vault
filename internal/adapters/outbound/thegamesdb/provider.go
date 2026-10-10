@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -232,6 +233,30 @@ func (p *Provider) platformIDs(ctx context.Context, apiKey string, names []strin
 	return ids
 }
 
+// searchSystems returns the systems a search for q is filtered to: the edition's system, or without
+// one the systems of the game's physical copies, or else of all its copies. Platforms are named by
+// their system ("PlayStation Store" → "PS4", "Steam" → "PC"), the names platformNames knows, so
+// covers and sheets map a copy to the same TheGamesDB platform.
+func searchSystems(q media.CoverQuery) []string {
+	if q.System != "" {
+		return []string{q.System} // an edition's box art: its system names TheGamesDB's platform
+	}
+
+	platforms := q.PhysicalPlatforms
+	if len(platforms) == 0 {
+		platforms = q.Platforms
+	}
+
+	systems := make([]string, 0, len(platforms))
+	for _, pl := range platforms {
+		if s := game.SystemOf(pl); s != game.SystemOther && !slices.Contains(systems, s) {
+			systems = append(systems, s)
+		}
+	}
+
+	return systems
+}
+
 type searchResponse struct {
 	Data struct {
 		Games []struct {
@@ -262,17 +287,8 @@ type searchResponse struct {
 func (p *Provider) Covers(ctx context.Context, q media.CoverQuery, s schema.Settings) ([]media.CoverCandidate, error) {
 	key := s[settingAPIKey]
 
-	platforms := q.PhysicalPlatforms
-	if len(platforms) == 0 {
-		platforms = q.Platforms
-	}
-
-	if q.System != "" {
-		platforms = []string{q.System} // an edition's box art: its system names TheGamesDB's platform
-	}
-
 	params := url.Values{"apikey": {key}, "name": {q.Title}, "include": {"boxart,platform"}}
-	if ids := p.platformIDs(ctx, key, platforms); len(ids) > 0 {
+	if ids := p.platformIDs(ctx, key, searchSystems(q)); len(ids) > 0 {
 		parts := make([]string, len(ids))
 		for i, id := range ids {
 			parts[i] = strconv.FormatInt(id, 10)

@@ -115,3 +115,47 @@ func TestDetailsTestChecksTheSharedKey(t *testing.T) {
 		})
 	})
 }
+
+func TestDetails_consolePlatforms(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN TheGamesDB with the PS4 among its platforms", func(t *testing.T) {
+		var filter string
+
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/v1/Platforms": // real shape (/v1/Platforms, 2026-10), fake values
+				w.Write([]byte(`{"data":{"count":2,"platforms":{"4919":{"id":4919,"name":"Sony Playstation 4","alias":"sony-playstation-4"},` +
+					`"1":{"id":1,"name":"PC","alias":"pc"}}}}`))
+			case "/v1.1/Games/ByGameName":
+				filter = r.URL.Query().Get("filter[platform]")
+
+				w.Write([]byte(`{"data":{"count":1,"games":[{"id":5,"game_title":"Console Quest","platform":4919,"overview":"A console adventure."}]}}`))
+			default:
+				w.Write([]byte(`{"data":{}}`))
+			}
+		}))
+		defer srv.Close()
+
+		d := NewDetails(testProvider(srv))
+
+		for _, platform := range []string{"PS4", "PlayStation Store"} {
+			t.Run("WHEN the sheet of a game owned only as a "+platform+" library copy is asked", func(t *testing.T) {
+				got, err := d.Details(ctx, media.CoverQuery{
+					Title:     "Console Quest",
+					Links:     map[string]string{"playstation": "PPSA0001"},
+					Platforms: []string{platform},
+					Fallback:  true,
+				}, "en", schema.Settings{settingAPIKey: "k"})
+				require.NoError(t, err)
+
+				t.Run("THEN the search is filtered to TheGamesDB's PS4, as covers are", func(t *testing.T) {
+					assert.Equal(t, "4919", filter)
+					require.NotNil(t, got)
+					assert.Equal(t, "A console adventure.", got.Summary)
+				})
+			})
+		}
+	})
+}
