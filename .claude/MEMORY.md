@@ -11,7 +11,7 @@ one line here. Update a file instead of adding a duplicate; date facts about ext
 
 ## Status (update when the user reports results)
 - [Integration status](memory/status-integrations.md) — confirmed: Humble, Steam, Epic, GOG, EA, Ubisoft, Xbox; watch Battle.net keep-alive; PlayStation and the security redesign untested by the user
-- [Open threads](memory/open-threads.md) — offered, not done: cover photo recognition (paused), PS Store covers, EAN-Search button, config README
+- [Open threads](memory/open-threads.md) — offered, not done: cover photo recognition (paused), PS Store covers
 - [Known gaps](memory/known-gaps.md) — games without any cover
 
 ## Decisions

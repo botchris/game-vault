@@ -6,6 +6,7 @@ import { Icon } from '../../components/Icon';
 import { PlatformBadge } from '../../components/PlatformBadge';
 import { Alert } from '../../components/ui';
 import { useAppData } from '../../state/AppData';
+import { lookupLinks } from '../../lib/barcode.ts';
 import { resolved, status, type Answer, type Choice, type Row } from './scanList.ts';
 
 /** Names of the barcode databases, for "found in …". */
@@ -117,6 +118,17 @@ function RowDetail({ answer, choice, batchPlatform, onAmend, onDone }: {
         <code>{answer.barcode}</code>{' · '}
         {m ? t('scan.list.foundIn', { provider: PROVIDER_NAMES[m.providerId] ?? m.providerId, raw: m.raw }) : t('scan.list.unknown')}
       </p>
+      {!m && (
+        // Looked up by hand, in the user's browser: Game Vault never reads these pages.
+        <p className="scan-row-links small">
+          <a href={lookupLinks(answer.barcode).eanSearch} target="_blank" rel="noreferrer">
+            {t('scan.list.lookupEan')}<Icon name="external" size={13} />
+          </a>
+          <a href={lookupLinks(answer.barcode).web} target="_blank" rel="noreferrer">
+            {t('scan.list.lookupWeb')}<Icon name="external" size={13} />
+          </a>
+        </p>
+      )}
       <form className="scan-fix" onSubmit={(e) => { e.preventDefault(); search(); }}>
         <label className="scan-fix-title">
           {t('game.title')}
