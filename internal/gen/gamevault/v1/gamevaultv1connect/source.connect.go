@@ -57,6 +57,9 @@ const (
 	// SourceServiceSyncAllSourcesProcedure is the fully-qualified name of the SourceService's
 	// SyncAllSources RPC.
 	SourceServiceSyncAllSourcesProcedure = "/gamevault.v1.SourceService/SyncAllSources"
+	// SourceServiceIncludeCopyProcedure is the fully-qualified name of the SourceService's IncludeCopy
+	// RPC.
+	SourceServiceIncludeCopyProcedure = "/gamevault.v1.SourceService/IncludeCopy"
 )
 
 // SourceServiceClient is a client for the gamevault.v1.SourceService service.
@@ -69,6 +72,8 @@ type SourceServiceClient interface {
 	TestSource(context.Context, *connect.Request[v1.TestSourceRequest]) (*connect.Response[v1.TestSourceResponse], error)
 	SyncSource(context.Context, *connect.Request[v1.SyncSourceRequest]) (*connect.Response[v1.SyncSourceResponse], error)
 	SyncAllSources(context.Context, *connect.Request[v1.SyncAllSourcesRequest]) (*connect.Response[v1.SyncAllSourcesResponse], error)
+	// Takes an item off the source's removed list: the next scan imports it again.
+	IncludeCopy(context.Context, *connect.Request[v1.IncludeCopyRequest]) (*connect.Response[v1.IncludeCopyResponse], error)
 }
 
 // NewSourceServiceClient constructs a client for the gamevault.v1.SourceService service. By
@@ -130,6 +135,12 @@ func NewSourceServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(sourceServiceMethods.ByName("SyncAllSources")),
 			connect.WithClientOptions(opts...),
 		),
+		includeCopy: connect.NewClient[v1.IncludeCopyRequest, v1.IncludeCopyResponse](
+			httpClient,
+			baseURL+SourceServiceIncludeCopyProcedure,
+			connect.WithSchema(sourceServiceMethods.ByName("IncludeCopy")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -143,6 +154,7 @@ type sourceServiceClient struct {
 	testSource      *connect.Client[v1.TestSourceRequest, v1.TestSourceResponse]
 	syncSource      *connect.Client[v1.SyncSourceRequest, v1.SyncSourceResponse]
 	syncAllSources  *connect.Client[v1.SyncAllSourcesRequest, v1.SyncAllSourcesResponse]
+	includeCopy     *connect.Client[v1.IncludeCopyRequest, v1.IncludeCopyResponse]
 }
 
 // ListSourceTypes calls gamevault.v1.SourceService.ListSourceTypes.
@@ -185,6 +197,11 @@ func (c *sourceServiceClient) SyncAllSources(ctx context.Context, req *connect.R
 	return c.syncAllSources.CallUnary(ctx, req)
 }
 
+// IncludeCopy calls gamevault.v1.SourceService.IncludeCopy.
+func (c *sourceServiceClient) IncludeCopy(ctx context.Context, req *connect.Request[v1.IncludeCopyRequest]) (*connect.Response[v1.IncludeCopyResponse], error) {
+	return c.includeCopy.CallUnary(ctx, req)
+}
+
 // SourceServiceHandler is an implementation of the gamevault.v1.SourceService service.
 type SourceServiceHandler interface {
 	ListSourceTypes(context.Context, *connect.Request[v1.ListSourceTypesRequest]) (*connect.Response[v1.ListSourceTypesResponse], error)
@@ -195,6 +212,8 @@ type SourceServiceHandler interface {
 	TestSource(context.Context, *connect.Request[v1.TestSourceRequest]) (*connect.Response[v1.TestSourceResponse], error)
 	SyncSource(context.Context, *connect.Request[v1.SyncSourceRequest]) (*connect.Response[v1.SyncSourceResponse], error)
 	SyncAllSources(context.Context, *connect.Request[v1.SyncAllSourcesRequest]) (*connect.Response[v1.SyncAllSourcesResponse], error)
+	// Takes an item off the source's removed list: the next scan imports it again.
+	IncludeCopy(context.Context, *connect.Request[v1.IncludeCopyRequest]) (*connect.Response[v1.IncludeCopyResponse], error)
 }
 
 // NewSourceServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -252,6 +271,12 @@ func NewSourceServiceHandler(svc SourceServiceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(sourceServiceMethods.ByName("SyncAllSources")),
 		connect.WithHandlerOptions(opts...),
 	)
+	sourceServiceIncludeCopyHandler := connect.NewUnaryHandler(
+		SourceServiceIncludeCopyProcedure,
+		svc.IncludeCopy,
+		connect.WithSchema(sourceServiceMethods.ByName("IncludeCopy")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/gamevault.v1.SourceService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case SourceServiceListSourceTypesProcedure:
@@ -270,6 +295,8 @@ func NewSourceServiceHandler(svc SourceServiceHandler, opts ...connect.HandlerOp
 			sourceServiceSyncSourceHandler.ServeHTTP(w, r)
 		case SourceServiceSyncAllSourcesProcedure:
 			sourceServiceSyncAllSourcesHandler.ServeHTTP(w, r)
+		case SourceServiceIncludeCopyProcedure:
+			sourceServiceIncludeCopyHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -309,4 +336,8 @@ func (UnimplementedSourceServiceHandler) SyncSource(context.Context, *connect.Re
 
 func (UnimplementedSourceServiceHandler) SyncAllSources(context.Context, *connect.Request[v1.SyncAllSourcesRequest]) (*connect.Response[v1.SyncAllSourcesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gamevault.v1.SourceService.SyncAllSources is not implemented"))
+}
+
+func (UnimplementedSourceServiceHandler) IncludeCopy(context.Context, *connect.Request[v1.IncludeCopyRequest]) (*connect.Response[v1.IncludeCopyResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gamevault.v1.SourceService.IncludeCopy is not implemented"))
 }

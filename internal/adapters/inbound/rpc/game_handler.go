@@ -171,6 +171,16 @@ func (h *GameHandler) DeleteCopy(ctx context.Context, req *connect.Request[pb.De
 	return gameResp(g, err, func(g *pb.Game) *pb.DeleteCopyResponse { return &pb.DeleteCopyResponse{Game: g} })
 }
 
+// ExcludeCopy removes a copy a source imported and keeps the source from importing it again.
+func (h *GameHandler) ExcludeCopy(ctx context.Context, req *connect.Request[pb.ExcludeCopyRequest]) (*connect.Response[pb.ExcludeCopyResponse], error) {
+	g, err := h.sources.ExcludeCopy(ctx, game.ID(req.Msg.GameId), game.ID(req.Msg.CopyId))
+	if err != nil {
+		return nil, toConnectError(err)
+	}
+
+	return connect.NewResponse(&pb.ExcludeCopyResponse{Game: gameToPB(g)}), nil
+}
+
 // MoveCopy reassigns a copy to another game.
 func (h *GameHandler) MoveCopy(ctx context.Context, req *connect.Request[pb.MoveCopyRequest]) (*connect.Response[pb.MoveCopyResponse], error) {
 	src, dst, err := h.catalog.MoveCopy(ctx, game.ID(req.Msg.GameId), game.ID(req.Msg.CopyId), game.ID(req.Msg.TargetGameId), req.Msg.NewGameTitle)

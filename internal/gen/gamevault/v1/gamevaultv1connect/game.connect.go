@@ -51,6 +51,8 @@ const (
 	GameServiceUpdateCopyProcedure = "/gamevault.v1.GameService/UpdateCopy"
 	// GameServiceDeleteCopyProcedure is the fully-qualified name of the GameService's DeleteCopy RPC.
 	GameServiceDeleteCopyProcedure = "/gamevault.v1.GameService/DeleteCopy"
+	// GameServiceExcludeCopyProcedure is the fully-qualified name of the GameService's ExcludeCopy RPC.
+	GameServiceExcludeCopyProcedure = "/gamevault.v1.GameService/ExcludeCopy"
 	// GameServiceMoveCopyProcedure is the fully-qualified name of the GameService's MoveCopy RPC.
 	GameServiceMoveCopyProcedure = "/gamevault.v1.GameService/MoveCopy"
 	// GameServiceAddScannedCopiesProcedure is the fully-qualified name of the GameService's
@@ -92,6 +94,9 @@ type GameServiceClient interface {
 	AddCopy(context.Context, *connect.Request[v1.AddCopyRequest]) (*connect.Response[v1.AddCopyResponse], error)
 	UpdateCopy(context.Context, *connect.Request[v1.UpdateCopyRequest]) (*connect.Response[v1.UpdateCopyResponse], error)
 	DeleteCopy(context.Context, *connect.Request[v1.DeleteCopyRequest]) (*connect.Response[v1.DeleteCopyResponse], error)
+	// Removes a copy a source imported and keeps the source from importing it again. A copy added
+	// by hand is refused (delete it instead).
+	ExcludeCopy(context.Context, *connect.Request[v1.ExcludeCopyRequest]) (*connect.Response[v1.ExcludeCopyResponse], error)
 	MoveCopy(context.Context, *connect.Request[v1.MoveCopyRequest]) (*connect.Response[v1.MoveCopyResponse], error)
 	// Saves the boxes of a scanning session in one transaction: copies of the same new game (by
 	// title) become one game; a copy that cannot be saved fails alone, with its error.
@@ -178,6 +183,12 @@ func NewGameServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(gameServiceMethods.ByName("DeleteCopy")),
 			connect.WithClientOptions(opts...),
 		),
+		excludeCopy: connect.NewClient[v1.ExcludeCopyRequest, v1.ExcludeCopyResponse](
+			httpClient,
+			baseURL+GameServiceExcludeCopyProcedure,
+			connect.WithSchema(gameServiceMethods.ByName("ExcludeCopy")),
+			connect.WithClientOptions(opts...),
+		),
 		moveCopy: connect.NewClient[v1.MoveCopyRequest, v1.MoveCopyResponse](
 			httpClient,
 			baseURL+GameServiceMoveCopyProcedure,
@@ -252,6 +263,7 @@ type gameServiceClient struct {
 	addCopy           *connect.Client[v1.AddCopyRequest, v1.AddCopyResponse]
 	updateCopy        *connect.Client[v1.UpdateCopyRequest, v1.UpdateCopyResponse]
 	deleteCopy        *connect.Client[v1.DeleteCopyRequest, v1.DeleteCopyResponse]
+	excludeCopy       *connect.Client[v1.ExcludeCopyRequest, v1.ExcludeCopyResponse]
 	moveCopy          *connect.Client[v1.MoveCopyRequest, v1.MoveCopyResponse]
 	addScannedCopies  *connect.Client[v1.AddScannedCopiesRequest, v1.AddScannedCopiesResponse]
 	markRedeemedKeys  *connect.Client[v1.MarkRedeemedKeysRequest, v1.MarkRedeemedKeysResponse]
@@ -307,6 +319,11 @@ func (c *gameServiceClient) UpdateCopy(ctx context.Context, req *connect.Request
 // DeleteCopy calls gamevault.v1.GameService.DeleteCopy.
 func (c *gameServiceClient) DeleteCopy(ctx context.Context, req *connect.Request[v1.DeleteCopyRequest]) (*connect.Response[v1.DeleteCopyResponse], error) {
 	return c.deleteCopy.CallUnary(ctx, req)
+}
+
+// ExcludeCopy calls gamevault.v1.GameService.ExcludeCopy.
+func (c *gameServiceClient) ExcludeCopy(ctx context.Context, req *connect.Request[v1.ExcludeCopyRequest]) (*connect.Response[v1.ExcludeCopyResponse], error) {
+	return c.excludeCopy.CallUnary(ctx, req)
 }
 
 // MoveCopy calls gamevault.v1.GameService.MoveCopy.
@@ -370,6 +387,9 @@ type GameServiceHandler interface {
 	AddCopy(context.Context, *connect.Request[v1.AddCopyRequest]) (*connect.Response[v1.AddCopyResponse], error)
 	UpdateCopy(context.Context, *connect.Request[v1.UpdateCopyRequest]) (*connect.Response[v1.UpdateCopyResponse], error)
 	DeleteCopy(context.Context, *connect.Request[v1.DeleteCopyRequest]) (*connect.Response[v1.DeleteCopyResponse], error)
+	// Removes a copy a source imported and keeps the source from importing it again. A copy added
+	// by hand is refused (delete it instead).
+	ExcludeCopy(context.Context, *connect.Request[v1.ExcludeCopyRequest]) (*connect.Response[v1.ExcludeCopyResponse], error)
 	MoveCopy(context.Context, *connect.Request[v1.MoveCopyRequest]) (*connect.Response[v1.MoveCopyResponse], error)
 	// Saves the boxes of a scanning session in one transaction: copies of the same new game (by
 	// title) become one game; a copy that cannot be saved fails alone, with its error.
@@ -452,6 +472,12 @@ func NewGameServiceHandler(svc GameServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(gameServiceMethods.ByName("DeleteCopy")),
 		connect.WithHandlerOptions(opts...),
 	)
+	gameServiceExcludeCopyHandler := connect.NewUnaryHandler(
+		GameServiceExcludeCopyProcedure,
+		svc.ExcludeCopy,
+		connect.WithSchema(gameServiceMethods.ByName("ExcludeCopy")),
+		connect.WithHandlerOptions(opts...),
+	)
 	gameServiceMoveCopyHandler := connect.NewUnaryHandler(
 		GameServiceMoveCopyProcedure,
 		svc.MoveCopy,
@@ -532,6 +558,8 @@ func NewGameServiceHandler(svc GameServiceHandler, opts ...connect.HandlerOption
 			gameServiceUpdateCopyHandler.ServeHTTP(w, r)
 		case GameServiceDeleteCopyProcedure:
 			gameServiceDeleteCopyHandler.ServeHTTP(w, r)
+		case GameServiceExcludeCopyProcedure:
+			gameServiceExcludeCopyHandler.ServeHTTP(w, r)
 		case GameServiceMoveCopyProcedure:
 			gameServiceMoveCopyHandler.ServeHTTP(w, r)
 		case GameServiceAddScannedCopiesProcedure:
@@ -595,6 +623,10 @@ func (UnimplementedGameServiceHandler) UpdateCopy(context.Context, *connect.Requ
 
 func (UnimplementedGameServiceHandler) DeleteCopy(context.Context, *connect.Request[v1.DeleteCopyRequest]) (*connect.Response[v1.DeleteCopyResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gamevault.v1.GameService.DeleteCopy is not implemented"))
+}
+
+func (UnimplementedGameServiceHandler) ExcludeCopy(context.Context, *connect.Request[v1.ExcludeCopyRequest]) (*connect.Response[v1.ExcludeCopyResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gamevault.v1.GameService.ExcludeCopy is not implemented"))
 }
 
 func (UnimplementedGameServiceHandler) MoveCopy(context.Context, *connect.Request[v1.MoveCopyRequest]) (*connect.Response[v1.MoveCopyResponse], error) {

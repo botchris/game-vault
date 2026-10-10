@@ -186,7 +186,9 @@
     "contents": "Contenido",
     "price": "Precio de compra",
     "currency": "Moneda",
-    "priceInvalid": "No es un importe, p. ej. 29,95"
+    "priceInvalid": "No es un importe, p. ej. 29,95",
+    "confirmExclude": "¿Quitar «{{title}}» de {{source}} y no volver a importarlo? La próxima sincronización lo saltará; puedes recuperarlo desde los ajustes de la fuente.",
+    "confirmExcludeLoses": " Se borrarán sus fotos y sus precios estimados."
   },
   "picker": {
     "search": "Buscar juegos…",
@@ -318,7 +320,12 @@
       "apiKeyHelp": "1. Abre la página de arriba e inicia sesión en itch.io.\n2. Pulsa Generate new API key y cópiala.\n3. Pégala aquí.\nLa clave da acceso a tu cuenta de itch.io: no la compartas nunca. Revócala en la misma página para desconectar Game Vault."
     },
     "riskTitle": "Riesgo para tu cuenta",
-    "readTerms": "Leer las condiciones de Fanatical"
+    "readTerms": "Leer las condiciones de Fanatical",
+    "excludedTitle": "Quitados de esta fuente ({{count}})",
+    "importAgain": "Volver a importar",
+    "excludedHint": "Las sincronizaciones saltan estos elementos. Vuelve a importar uno para recuperarlo en la próxima sincronización.",
+    "excludedCount_one": "{{count}} quitado por ti",
+    "excludedCount_other": "{{count}} quitados por ti"
   },
   "system": {
     "status": "Estado",

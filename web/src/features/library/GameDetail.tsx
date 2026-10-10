@@ -179,7 +179,7 @@ function GameDetailBody({ game, onClose, onOpenGame, onPlatform, nav }: {
           {tab === 'overview' && (
             <SheetOverview game={game} details={details} warnings={sheet.warnings} loading={sheet.loading} error={sheet.error} onRefresh={sheet.refresh} />
           )}
-          {tab === 'copies' && <CopiesTab game={game} busy={busy} run={run} setDialog={setDialog} />}
+          {tab === 'copies' && <CopiesTab game={game} busy={busy} run={run} setDialog={setDialog} onGameGone={() => { dropGame(game.id); onClose(); }} />}
           {tab === 'edit' && <EditTab game={game} busy={busy} onSave={updateGame} setDialog={setDialog} run={run} onDeleted={onClose} />}
         </div>
       </article>
@@ -248,15 +248,17 @@ function EditCopyDialog({ game, copy, onClose }: { game: Game; copy: Copy; onClo
   );
 }
 
-function CopiesTab({ game, busy, run, setDialog }: {
+function CopiesTab({ game, busy, run, setDialog, onGameGone }: {
   game: Game;
   busy: boolean;
   run: (fn: () => Promise<void>) => Promise<void>;
   setDialog: (d: Dialog) => void;
+  /** The game was deleted (its last copy was removed for good). */
+  onGameGone: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const fmt = useFormatters();
-  const { putGame, sourceName } = useAppData();
+  const { putGame, sourceName, reloadSources } = useAppData();
   // Copy whose key was just opened in the store: offer to mark it as redeemed.
   const [redeeming, setRedeeming] = useState<string | null>(null);
 
@@ -267,8 +269,23 @@ function CopiesTab({ game, busy, run, setDialog }: {
   });
 
   const deleteCopy = (c: Copy) => {
-    if (!confirm(t('copy.confirmDelete'))) return;
-    run(async () => putGame((await gameClient.deleteCopy({ gameId: game.id, copyId: c.id })).game!));
+    if (!c.sourceId || !c.externalId) {
+      if (!confirm(t('copy.confirmDelete'))) return;
+      run(async () => putGame((await gameClient.deleteCopy({ gameId: game.id, copyId: c.id })).game!));
+      return;
+    }
+    // An imported copy would come back on the next sync: remove it for good instead.
+    const loses = c.photos.length > 0 || c.estimates.length > 0;
+    const question = t('copy.confirmExclude', { title: game.title, source: sourceName(c.sourceId) })
+      + (loses ? t('copy.confirmExcludeLoses') : '');
+    if (!confirm(question)) return;
+    run(async () => {
+      const res = await gameClient.excludeCopy({ gameId: game.id, copyId: c.id });
+      if (res.game) putGame(res.game);
+      else onGameGone();
+      // The source's removed list changed; the page does not wait for it.
+      void reloadSources();
+    });
   };
 
   return (

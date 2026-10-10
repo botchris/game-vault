@@ -144,6 +144,16 @@ type SourceView struct {
 	CopyCount int
 }
 
+// Get returns one source with the number of copies it manages.
+func (s *Service) Get(ctx context.Context, id source.ID) (SourceView, error) {
+	src, err := s.sources.Get(ctx, id)
+	if err != nil {
+		return SourceView{}, err
+	}
+
+	return s.view(ctx, src)
+}
+
 // List returns every source with the number of copies it manages.
 func (s *Service) List(ctx context.Context) ([]SourceView, error) {
 	sources, err := s.sources.List(ctx)
@@ -391,10 +401,6 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 	settings := src.Settings()
 
 	copies, warnings, fetchErr := p.Fetch(ctx, settings)
-	if d, err := s.Descriptor(src.Type()); err == nil {
-		src.UpdateState(d, settings, s.now()) // saved below with the report
-	}
-
 	report.Warnings = warnings
 
 	for _, c := range copies {
@@ -422,6 +428,17 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 			for _, g := range games {
 				covers[g.ID()] = g.CoverPhoto()
 			}
+
+			// The user may have removed items since the scan started: ask the source as it is now.
+			fresh, err := s.sources.Get(ctx, src.ID())
+			if err != nil {
+				return err
+			}
+
+			var excluded int
+
+			copies, excluded = skipExcluded(fresh, copies)
+			report.Excluded = excluded
 
 			res := game.NewConsolidator(games).Apply(string(src.ID()), copies, s.now())
 			for _, g := range res.Changed {
@@ -458,10 +475,33 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 	}
 
 	report.FinishedAt = s.now()
-	src.RecordSync(report)
 
-	if err := s.sources.Save(ctx, src); err != nil {
-		return SourceView{}, errors.Join(syncErr, err)
+	// Saved on the source as it is now: the user may have removed items or changed its settings
+	// while the store was answering. Only the scan's own results (its report and any session the
+	// store rotated) are written over it.
+	saveErr := s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		latest, err := s.sources.Get(ctx, src.ID())
+		if err != nil {
+			return err
+		}
+
+		// Only a session the store rotated during this scan is written: one the user renewed
+		// meanwhile (a new sign-in) must not be replaced by the scan's older copy.
+		if d, err := s.Descriptor(latest.Type()); err == nil && !maps.Equal(d.Fields.State(settings), d.Fields.State(src.Settings())) {
+			latest.UpdateState(d, settings, s.now())
+		}
+
+		latest.RecordSync(report)
+		src = latest
+
+		return s.sources.Save(ctx, latest)
+	})
+	if saveErr != nil {
+		// The report is lost, and with it any session the store rotated during the scan: the
+		// next scan may find the source signed out.
+		s.log.Error("saving the scan", "source", src.Name(), "error", saveErr)
+
+		return SourceView{}, errors.Join(syncErr, saveErr)
 	}
 
 	s.log.Info("source synced", "source", src.Name(), "fetched", report.Fetched, "added", report.CopiesAdded,

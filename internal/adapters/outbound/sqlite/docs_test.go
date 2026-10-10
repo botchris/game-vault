@@ -127,10 +127,16 @@ func TestDocuments_sourceAndProvider(t *testing.T) {
 			FinishedAt:  docTime.Add(time.Minute),
 			Fetched:     3,
 			CopiesAdded: 2,
+			Excluded:    2,
 			Warnings:    []string{"one skipped"},
 		}
+		exclusions := []source.Exclusion{{
+			ExternalID: "humble:a",
+			Title:      "A",
+			At:         docTime,
+		}}
 		s := source.Rehydrate("src1", "humble", "Humble Bundle", false, 24*time.Hour,
-			source.Settings{"session": "secret"}, report, docTime, docTime)
+			source.Settings{"session": "secret"}, report, exclusions, docTime, docTime)
 
 		t.Run("WHEN it is encoded and decoded", func(t *testing.T) {
 			raw, err := encodeSource(s)
@@ -148,6 +154,11 @@ func TestDocuments_sourceAndProvider(t *testing.T) {
 				require.NotNil(t, got.LastSync())
 				assert.Equal(t, report.Warnings, got.LastSync().Warnings)
 				assert.True(t, report.FinishedAt.Equal(got.LastSync().FinishedAt))
+				assert.Equal(t, 2, got.LastSync().Excluded)
+				require.Len(t, got.Exclusions(), 1)
+				assert.Equal(t, "humble:a", got.Exclusions()[0].ExternalID)
+				assert.Equal(t, "A", got.Exclusions()[0].Title)
+				assert.True(t, docTime.Equal(got.Exclusions()[0].At))
 			})
 		})
 	})
