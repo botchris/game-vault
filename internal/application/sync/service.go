@@ -391,10 +391,6 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 	settings := src.Settings()
 
 	copies, warnings, fetchErr := p.Fetch(ctx, settings)
-	if d, err := s.Descriptor(src.Type()); err == nil {
-		src.UpdateState(d, settings, s.now()) // saved below with the report
-	}
-
 	report.Warnings = warnings
 
 	for _, c := range copies {
@@ -422,6 +418,17 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 			for _, g := range games {
 				covers[g.ID()] = g.CoverPhoto()
 			}
+
+			// The user may have removed items since the scan started: ask the source as it is now.
+			fresh, err := s.sources.Get(ctx, src.ID())
+			if err != nil {
+				return err
+			}
+
+			var excluded int
+
+			copies, excluded = skipExcluded(fresh, copies)
+			report.Excluded = excluded
 
 			res := game.NewConsolidator(games).Apply(string(src.ID()), copies, s.now())
 			for _, g := range res.Changed {
@@ -458,10 +465,27 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 	}
 
 	report.FinishedAt = s.now()
-	src.RecordSync(report)
 
-	if err := s.sources.Save(ctx, src); err != nil {
-		return SourceView{}, errors.Join(syncErr, err)
+	// Saved on the source as it is now: the user may have removed items or changed its settings
+	// while the store was answering. Only the scan's own results (its report and any session the
+	// store rotated) are written over it.
+	saveErr := s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		latest, err := s.sources.Get(ctx, src.ID())
+		if err != nil {
+			return err
+		}
+
+		if d, err := s.Descriptor(latest.Type()); err == nil {
+			latest.UpdateState(d, settings, s.now())
+		}
+
+		latest.RecordSync(report)
+		src = latest
+
+		return s.sources.Save(ctx, latest)
+	})
+	if saveErr != nil {
+		return SourceView{}, errors.Join(syncErr, saveErr)
 	}
 
 	s.log.Info("source synced", "source", src.Name(), "fetched", report.Fetched, "added", report.CopiesAdded,
