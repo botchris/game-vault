@@ -46,9 +46,11 @@ type gameDoc struct {
 	CoverPhoto string     `json:"coverPhoto,omitempty"`
 	PlayStatus string     `json:"playStatus,omitempty"`
 	Rating     int        `json:"rating,omitempty"`
-	CreatedAt  string     `json:"createdAt"`
-	UpdatedAt  string     `json:"updatedAt"`
-	Copies     []copyDoc  `json:"copies,omitempty"`
+
+	Fields    map[string]fieldValueDoc `json:"fields,omitempty"`
+	CreatedAt string                   `json:"createdAt"`
+	UpdatedAt string                   `json:"updatedAt"`
+	Copies    []copyDoc                `json:"copies,omitempty"`
 }
 
 // copyDoc is the stored form of a game.Copy.
@@ -77,10 +79,12 @@ type copyDoc struct {
 	Estimates     []estimateDoc `json:"estimates,omitempty"`
 	NextValuation string        `json:"nextValuation,omitempty"`
 	ValuedAt      string        `json:"valuedAt,omitempty"`
-	SourceID      string        `json:"sourceId,omitempty"`
-	ExternalID    string        `json:"externalId,omitempty"`
-	CreatedAt     string        `json:"createdAt"`
-	UpdatedAt     string        `json:"updatedAt"`
+
+	Fields     map[string]fieldValueDoc `json:"fields,omitempty"`
+	SourceID   string                   `json:"sourceId,omitempty"`
+	ExternalID string                   `json:"externalId,omitempty"`
+	CreatedAt  string                   `json:"createdAt"`
+	UpdatedAt  string                   `json:"updatedAt"`
 }
 
 // photoDoc is the stored form of a game.Photo.
@@ -168,6 +172,7 @@ func encodeGame(g *game.Game) (string, error) {
 		CoverPhoto: string(info.CoverPhoto),
 		PlayStatus: string(info.PlayStatus),
 		Rating:     int(info.Rating),
+		Fields:     fieldsToDoc(g.Fields()),
 		CreatedAt:  formatTime(g.CreatedAt()),
 		UpdatedAt:  formatTime(g.UpdatedAt()),
 	}
@@ -194,6 +199,7 @@ func encodeGame(g *game.Game) (string, error) {
 			Estimates:     estimateDocs(c.Estimates),
 			NextValuation: optionalTime(c.NextValuation),
 			ValuedAt:      optionalTime(c.ValuedAt),
+			Fields:        fieldsToDoc(c.Fields),
 			SourceID:      c.SourceID,
 			ExternalID:    c.ExternalID,
 			CreatedAt:     formatTime(c.CreatedAt),
@@ -246,6 +252,7 @@ func decodeGame(id game.ID, raw string) (*game.Game, error) {
 			Estimates:     estimatesOf(c.Estimates),
 			NextValuation: parseTime(c.NextValuation),
 			ValuedAt:      parseTime(c.ValuedAt),
+			Fields:        fieldsFromDoc(c.Fields),
 			SourceID:      c.SourceID,
 			ExternalID:    c.ExternalID,
 			CreatedAt:     parseTime(c.CreatedAt),
@@ -271,6 +278,7 @@ func decodeGame(id game.ID, raw string) (*game.Game, error) {
 		CoverPhoto: game.PhotoID(doc.CoverPhoto),
 		PlayStatus: game.PlayStatus(doc.PlayStatus),
 		Rating:     game.Rating(doc.Rating),
+		Fields:     fieldsFromDoc(doc.Fields),
 	}
 
 	return game.Rehydrate(id, info, copies, parseTime(doc.CreatedAt), parseTime(doc.UpdatedAt)), nil
@@ -508,6 +516,75 @@ func estimatesOf(docs []estimateDoc) []game.Estimate {
 			URL:       d.URL,
 			FetchedAt: parseTime(d.FetchedAt),
 		})
+	}
+
+	return out
+}
+
+// fieldValueDoc is the stored form of a game.FieldValue: only the member that is set.
+type fieldValueDoc struct {
+	Text     string   `json:"text,omitempty"`
+	Bool     *bool    `json:"bool,omitempty"`
+	Number   *int64   `json:"number,omitempty"`
+	Amount   *int64   `json:"amount,omitempty"`
+	Currency string   `json:"currency,omitempty"`
+	Date     string   `json:"date,omitempty"`
+	Minutes  *int64   `json:"minutes,omitempty"`
+	Choice   string   `json:"choice,omitempty"`
+	Choices  []string `json:"choices,omitempty"`
+}
+
+func fieldsToDoc(values game.FieldValues) map[string]fieldValueDoc {
+	if len(values) == 0 {
+		return nil
+	}
+
+	out := make(map[string]fieldValueDoc, len(values))
+	for id, v := range values {
+		d := fieldValueDoc{
+			Text:    v.Text,
+			Bool:    v.Bool,
+			Number:  v.Number,
+			Date:    v.Date,
+			Minutes: v.Minutes,
+			Choice:  v.Choice,
+			Choices: v.Choices,
+		}
+		if v.Money != nil {
+			amount := v.Money.Amount
+			d.Amount, d.Currency = &amount, v.Money.Currency
+		}
+
+		out[id] = d
+	}
+
+	return out
+}
+
+func fieldsFromDoc(docs map[string]fieldValueDoc) game.FieldValues {
+	if len(docs) == 0 {
+		return nil
+	}
+
+	out := make(game.FieldValues, len(docs))
+	for id, d := range docs {
+		v := game.FieldValue{
+			Text:    d.Text,
+			Bool:    d.Bool,
+			Number:  d.Number,
+			Date:    d.Date,
+			Minutes: d.Minutes,
+			Choice:  d.Choice,
+			Choices: d.Choices,
+		}
+		if d.Amount != nil {
+			v.Money = &game.Money{
+				Amount:   *d.Amount,
+				Currency: d.Currency,
+			}
+		}
+
+		out[id] = v
 	}
 
 	return out

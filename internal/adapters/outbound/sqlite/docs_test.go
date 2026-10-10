@@ -396,3 +396,53 @@ func TestDocuments_estimates(t *testing.T) {
 		})
 	})
 }
+
+func TestDocuments_customFieldValues(t *testing.T) {
+	t.Run("GIVEN a game and a copy with custom field values of every kind", func(t *testing.T) {
+		n, m, yes := int64(1250), int64(90), true
+		base := sampleGame(t)
+
+		info := base.Info()
+		info.Fields = game.FieldValues{
+			"r": {Text: "Great"},
+			"w": {Number: &n},
+			"m": {Money: &game.Money{
+				Amount:   499,
+				Currency: "EUR",
+			}},
+			"d": {Date: "2024"},
+			"t": {Choices: []string{"a", "b"}},
+		}
+
+		copies := base.Copies()
+		copies[0].Fields = game.FieldValues{
+			"s": {Bool: &yes},
+			"l": {Choice: "x"},
+			"h": {Minutes: &m},
+		}
+
+		g := game.Rehydrate(base.ID(), info, copies, docTime, docTime)
+
+		t.Run("WHEN it is encoded and decoded", func(t *testing.T) {
+			raw, err := encodeGame(g)
+			require.NoError(t, err)
+
+			got, err := decodeGame(g.ID(), raw)
+			require.NoError(t, err)
+
+			t.Run("THEN the values are the same", func(t *testing.T) {
+				assert.Equal(t, g.Fields(), got.Fields())
+				assert.Equal(t, g.Copies()[0].Fields, got.Copies()[0].Fields)
+			})
+		})
+	})
+
+	t.Run("GIVEN a game without custom field values", func(t *testing.T) {
+		raw, err := encodeGame(sampleGame(t))
+		require.NoError(t, err)
+
+		t.Run("THEN the document has no fields member", func(t *testing.T) {
+			assert.NotContains(t, raw, `"fields"`)
+		})
+	})
+}
