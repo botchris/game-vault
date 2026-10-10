@@ -106,11 +106,19 @@ func (s *Service) IncludeCopy(ctx context.Context, id source.ID, externalID stri
 func skipExcluded(src *source.Source, copies []game.ImportedCopy) ([]game.ImportedCopy, int) {
 	out := make([]game.ImportedCopy, len(copies))
 	skipped := 0
+	// How many items report each old id: an old id may have named several of them.
+	previous := map[string]int{}
+
+	for _, c := range copies {
+		if c.PreviousExternalID != "" {
+			previous[c.PreviousExternalID]++
+		}
+	}
 
 	for i, c := range copies {
 		out[i] = c
 
-		if c.Withdrawn || !excludedItem(src, c) {
+		if c.Withdrawn || !excludedItem(src, c, previous[c.PreviousExternalID] > 1) {
 			continue
 		}
 
@@ -121,20 +129,10 @@ func skipExcluded(src *source.Source, copies []game.ImportedCopy) ([]game.Import
 	return out, skipped
 }
 
-// Get returns one source with the number of copies it manages.
-func (s *Service) Get(ctx context.Context, id source.ID) (SourceView, error) {
-	src, err := s.sources.Get(ctx, id)
-	if err != nil {
-		return SourceView{}, err
-	}
-
-	return s.view(ctx, src)
-}
-
 // excludedItem reports whether the user removed this imported item. Its old id counts too, so a
-// store that changed its id format does not bring it back; but an old id may have named several
-// items (Humble's named an order, not a key), so it only counts for the item with the removed title.
-func excludedItem(src *source.Source, c game.ImportedCopy) bool {
+// store that changed its id format does not bring it back. When the old id is shared by several
+// items (Humble's named an order, not a key), it only counts for the item with the removed title.
+func excludedItem(src *source.Source, c game.ImportedCopy, sharedPrevious bool) bool {
 	if src.Excludes(c.ExternalID) {
 		return true
 	}
@@ -144,6 +142,9 @@ func excludedItem(src *source.Source, c game.ImportedCopy) bool {
 	}
 
 	e, ok := src.Exclusion(c.PreviousExternalID)
+	if !ok {
+		return false
+	}
 
-	return ok && game.MatchKey(e.Title) == game.MatchKey(c.Title)
+	return !sharedPrevious || game.MatchKey(e.Title) == game.MatchKey(c.Title)
 }

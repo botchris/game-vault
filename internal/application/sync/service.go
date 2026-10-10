@@ -144,6 +144,16 @@ type SourceView struct {
 	CopyCount int
 }
 
+// Get returns one source with the number of copies it manages.
+func (s *Service) Get(ctx context.Context, id source.ID) (SourceView, error) {
+	src, err := s.sources.Get(ctx, id)
+	if err != nil {
+		return SourceView{}, err
+	}
+
+	return s.view(ctx, src)
+}
+
 // List returns every source with the number of copies it manages.
 func (s *Service) List(ctx context.Context) ([]SourceView, error) {
 	sources, err := s.sources.List(ctx)
@@ -487,6 +497,10 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 		return s.sources.Save(ctx, latest)
 	})
 	if saveErr != nil {
+		// The report is lost, and with it any session the store rotated during the scan: the
+		// next scan may find the source signed out.
+		s.log.Error("saving the scan", "source", src.Name(), "error", saveErr)
+
 		return SourceView{}, errors.Join(syncErr, saveErr)
 	}
 

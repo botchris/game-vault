@@ -281,9 +281,10 @@ function CopiesTab({ game, busy, run, setDialog, onGameGone }: {
     if (!confirm(question)) return;
     run(async () => {
       const res = await gameClient.excludeCopy({ gameId: game.id, copyId: c.id });
-      await reloadSources();
       if (res.game) putGame(res.game);
       else onGameGone();
+      // The source's removed list changed; the page does not wait for it.
+      void reloadSources();
     });
   };
 

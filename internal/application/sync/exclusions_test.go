@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -181,6 +182,32 @@ func TestExclusions(t *testing.T) {
 		})
 	})
 
+	t.Run("GIVEN a removed item whose game was renamed WHEN the store reports it under a new id format", func(t *testing.T) {
+		svc, p, games, id := setup(t)
+		gameID, copyID := copyOf(t, games, "Netflix")
+		g, err := games.Get(ctx, gameID)
+		require.NoError(t, err)
+
+		info := g.Info()
+		info.Title = "Streaming app"
+		_, err = g.UpdateInfo(info, time.Now())
+		require.NoError(t, err)
+		require.NoError(t, games.Save(ctx, g))
+		_, err = svc.ExcludeCopy(ctx, gameID, copyID)
+		require.NoError(t, err)
+
+		renamed := item("ls:v2:netflix", "Netflix")
+		renamed.PreviousExternalID = "ls:netflix"
+		p.items = []game.ImportedCopy{renamed, item("ls:journey", "Journey")}
+
+		_, err = svc.Sync(ctx, id)
+		require.NoError(t, err)
+
+		t.Run("THEN it stays out: no other item has that old id", func(t *testing.T) {
+			assert.ElementsMatch(t, []string{"Journey"}, titles(t, games))
+		})
+	})
+
 	t.Run("GIVEN the user removes an item while a sync is fetching", func(t *testing.T) {
 		svc, p, games, id := setup(t)
 		gameID, copyID := copyOf(t, games, "Netflix")
@@ -279,6 +306,43 @@ func TestSyncKeepsASessionTheUserRenewedMeanwhile(t *testing.T) {
 			got, err := sources.Get(ctx, v.ID())
 			require.NoError(t, err)
 			assert.Equal(t, "new", got.Settings()["session"])
+		})
+	})
+}
+
+func TestSyncLogsAFailedSave(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "gamevault.db"), "")
+	require.NoError(t, err)
+	t.Cleanup(func() { db.Close() })
+
+	var logged strings.Builder
+
+	p := &listing{items: []game.ImportedCopy{item("ls:journey", "Journey")}}
+	svc := sync.NewService(sqlite.NewSourceRepository(db), sqlite.NewGameRepository(db), db, nil, time.Now,
+		slog.New(slog.NewTextHandler(&logged, nil)), p)
+
+	v, err := svc.Create(ctx, "ls", source.Config{
+		Name:    "My listing",
+		Enabled: true,
+	})
+	require.NoError(t, err)
+
+	t.Run("GIVEN the source is deleted while the store answers", func(t *testing.T) {
+		p.during = func() {
+			require.NoError(t, svc.Delete(ctx, v.ID(), false))
+
+			p.during = nil
+		}
+
+		_, err := svc.Sync(ctx, v.ID())
+
+		t.Run("THEN the scan fails and the failed save is logged as an error, naming the source", func(t *testing.T) {
+			require.Error(t, err)
+			assert.Contains(t, logged.String(), "level=ERROR")
+			assert.Contains(t, logged.String(), "My listing")
 		})
 	})
 }
