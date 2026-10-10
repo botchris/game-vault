@@ -220,6 +220,8 @@ input[type="checkbox"], input[type="radio"] { min-height: 0; accent-color: var(-
   min-width: 20px; height: 20px; padding: 0 6px; display: inline-grid; place-items: center;
 }
 .view-toggle button { min-height: 34px; padding: 4px 9px; }
+.grouping-toggle { flex: none; }
+.grouping-toggle button { min-height: 34px; }
 
 .quick-row { display: flex; gap: 8px; align-items: center; margin-bottom: 18px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
 .quick-row::-webkit-scrollbar { display: none; }
@@ -266,7 +268,11 @@ input[type="checkbox"], input[type="radio"] { min-height: 0; accent-color: var(-
   .page-title { font-size: 26px; }
   .library-toolbar { flex-wrap: wrap; }
   .search-field { flex: 1 1 100%; order: -1; }
-  .sort-select { flex: 1; }
+  .sort-select { flex: 1 1 140px; min-width: 140px; }
+  /* Sort and filters share a row; how the library is shown (grouping, covers or list) takes the next. */
+  .grouping-toggle, .view-toggle { order: 1; }
+  .grouping-toggle { flex: 1 0 auto; flex-wrap: nowrap; }
+  .grouping-toggle button { flex: 1; }
 }
 @media (max-width: 520px) {
   .hide-narrow { display: none; }
@@ -323,6 +329,18 @@ input[type="checkbox"], input[type="radio"] { min-height: 0; accent-color: var(-
   background: linear-gradient(160deg, var(--surface-3), var(--surface-2) 70%);
 }
 .cover-placeholder span { font-size: 30px; font-weight: 800; font-stretch: 125%; color: var(--muted); }
+/* A box borrowed from another edition: named, so the edition's own badge is not contradicted. */
+.cover-borrowed {
+  position: absolute; left: 6px; bottom: 6px; max-width: calc(100% - 12px);
+  font-size: 10.5px; font-weight: 650; padding: 2px 6px; border-radius: 5px;
+  background: rgb(16 18 30 / .78); color: #fff; backdrop-filter: blur(6px);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none;
+}
+/* On a poster the flags hold the top and the badges the bottom: the label sits just above the badges. */
+.poster-art .cover-borrowed { bottom: 36px; }
+@media (max-width: 860px) { .poster-art .cover-borrowed { bottom: 28px; left: 4px; } }
+/* Too small to carry a label (list rows, scan thumbnails) or blurred behind the sheet's hero. */
+.row-cover .cover-borrowed, .scan-row-thumb .cover-borrowed, .hero-backdrop .cover-borrowed { display: none; }
 
 .posters { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)); gap: 22px 18px; }
 .poster {
@@ -1031,6 +1049,9 @@ td.title { font-weight: 500; min-width: 220px; }
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / .22), 0 1px 4px rgb(0 0 0 / .4);
 }
 .pbadge.icon-only { padding: 0; width: 24px; justify-content: center; }
+.pbadges.small .pbadge { height: 20px; padding: 0 5px; font-size: 10.5px; }
+.pbadges.small .pbadge.icon-only { width: 20px; padding: 0; }
+.pbadges.small .pbadge svg { width: 12px; height: 12px; }
 .pbadge svg { flex: none; width: 14px; height: 14px; }
 .pbadge-key svg { width: 11px; height: 11px; }
 /* A key you still have to redeem: same colour, hollow, with a key glyph */

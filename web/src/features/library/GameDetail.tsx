@@ -25,6 +25,8 @@ import PlayControls from './PlayControls';
 
 interface Props {
   gameId: string;
+  /** The edition to open on; empty: the main one. */
+  system?: string;
   onClose: () => void;
   /** Switch the dialog to another game (after a merge or move). */
   onOpenGame: (id: string) => void;

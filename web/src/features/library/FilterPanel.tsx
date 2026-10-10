@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Icon } from '../../components/Icon';
-import { MANUAL, NO_FILTERS, activeFilterCount, type Filters } from '../../lib/editions';
+import { MANUAL, NO_FILTERS, activeFilterCount, systemCounts, type Filters } from '../../lib/editions';
 import { filterOptions, isFilterable, type Definition } from '../../lib/fields';
 import { CopyKind, KINDS, PLAY_STATUSES, PlayStatus, kindKey, playKey, type Game } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
@@ -11,11 +11,14 @@ function toggle<T>(list: T[], v: T) {
 }
 
 /**
- * Filters popover (desktop) / bottom sheet (phones). Options show how many games each would match,
- * so empty choices are obvious before picking them.
+ * Filters popover (desktop) / bottom sheet (phones). Options show how many items each would match
+ * (`games` are the library items' views: editions "By platform", games "By game"), so empty choices
+ * are obvious before picking them.
  */
-export default function FilterPanel({ games, filters, onChange, onClose, detailsCached }: {
+export default function FilterPanel({ games, total, filters, onChange, onClose, detailsCached }: {
   games: Game[];
+  /** How many games the library holds (for the note on genres still downloading). */
+  total: number;
   filters: Filters;
   onChange: (f: Filters) => void;
   onClose: () => void;
@@ -58,6 +61,8 @@ export default function FilterPanel({ games, filters, onChange, onClose, details
     const played = [...PLAY_STATUSES, PlayStatus.UNSPECIFIED].filter((x) => pl.has(x)).map((x) => ({ status: x, count: pl.get(x)! }));
     return { platforms: sorted(p), genres: sorted(g), sources: src, play: played };
   }, [games, configured, i18n.language]);
+
+  const systems = useMemo(() => systemCounts(games), [games]);
 
   // Only fields with a fixed set of values make sense as filters; options no game has are hidden.
   const fieldGroups = useMemo(() => defs.filter(isFilterable)
@@ -125,6 +130,16 @@ export default function FilterPanel({ games, filters, onChange, onClose, details
         )}
 
         <section>
+          <h3>{t('library.filters.systems')}</h3>
+          <div className="choice-row">
+            {systems.map(([s, n]) => (
+              <button key={s} className={`choice ${filters.systems.includes(s) ? 'active' : ''}`} aria-pressed={filters.systems.includes(s)}
+                onClick={() => onChange({ ...filters, systems: toggle(filters.systems, s) })}>{s}<span className="choice-count">{n}</span></button>
+            ))}
+          </div>
+        </section>
+
+        <section>
           <h3>{t('copy.platform')}</h3>
           <div className="choice-row">
             {platforms.map(([p, n]) => (
@@ -144,8 +159,8 @@ export default function FilterPanel({ games, filters, onChange, onClose, details
               ))}
             </div>
           )}
-          {detailsCached < games.length && (
-            <p className="muted small">{t('library.filters.genresPartial', { cached: detailsCached.toLocaleString(i18n.language), total: games.length.toLocaleString(i18n.language) })}</p>
+          {detailsCached < total && (
+            <p className="muted small">{t('library.filters.genresPartial', { cached: detailsCached.toLocaleString(i18n.language), total: total.toLocaleString(i18n.language) })}</p>
           )}
         </section>
 

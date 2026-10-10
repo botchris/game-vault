@@ -4,7 +4,7 @@ import {
 } from 'simple-icons';
 import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CopyKind, CopyStatus, isPendingKey, kindKey, type Game } from '../lib/model';
+import { CopyKind, CopyStatus, isPendingKey, kindKey, type Copy, type Game } from '../lib/model';
 
 /**
  * A glyph: a filled path (Simple Icons, CC0, on a 24×24 box unless viewBox says otherwise) or our
@@ -102,24 +102,34 @@ export interface PlatformHolding {
 
 const KIND_ORDER = { [CopyKind.PHYSICAL]: 0, [CopyKind.LIBRARY]: 1, [CopyKind.KEY]: 2, [CopyKind.UNSPECIFIED]: 3 };
 
+/** What you have on each of a game's platforms (or systems, with `by`), one entry each. */
+function holdingsBy(game: Game, by: (c: Copy) => string): PlatformHolding[] {
+  const map = new Map<string, PlatformHolding>();
+  for (const c of game.copies) {
+    const d = c.details;
+    if (!d) continue;
+    if ([CopyStatus.SOLD, CopyStatus.GIFTED, CopyStatus.EXPIRED].includes(d.status)) continue;
+    const platform = by(c);
+    if (!platform) continue;
+    const holding: Holding = isPendingKey(c) ? 'key' : 'owned';
+    const k = platform.toLowerCase();
+    const prev = map.get(k);
+    if (!prev || (prev.holding === 'key' && holding === 'owned')) map.set(k, { platform, holding, kind: d.kind });
+  }
+  return [...map.values()].sort((a, b) => (a.holding === b.holding ? 0 : a.holding === 'owned' ? -1 : 1) || KIND_ORDER[a.kind] - KIND_ORDER[b.kind]);
+}
+
 /**
  * The platforms a game is available on, one entry per platform. Copies you no longer have (sold,
  * gifted, expired keys) are left out; a redeemed key counts as owned.
  */
 export function platformHoldings(game: Game): PlatformHolding[] {
-  const by = new Map<string, PlatformHolding>();
-  for (const c of game.copies) {
-    const d = c.details;
-    if (!d) continue;
-    if ([CopyStatus.SOLD, CopyStatus.GIFTED, CopyStatus.EXPIRED].includes(d.status)) continue;
-    const platform = d.platform;
-    if (!platform) continue;
-    const holding: Holding = isPendingKey(c) ? 'key' : 'owned';
-    const k = platform.toLowerCase();
-    const prev = by.get(k);
-    if (!prev || (prev.holding === 'key' && holding === 'owned')) by.set(k, { platform, holding, kind: d.kind });
-  }
-  return [...by.values()].sort((a, b) => (a.holding === b.holding ? 0 : a.holding === 'owned' ? -1 : 1) || KIND_ORDER[a.kind] - KIND_ORDER[b.kind]);
+  return holdingsBy(game, (c) => c.details?.platform ?? '');
+}
+
+/** The systems a game is played on, one entry each, owned before pending keys. */
+export function systemHoldings(game: Game): PlatformHolding[] {
+  return holdingsBy(game, (c) => c.effectiveSystem);
 }
 
 /** A platform logo chip. `full` also prints the platform name (for the game sheet). With
@@ -158,14 +168,33 @@ export function PlatformBadge({ platform, holding = 'owned', kind, full = false,
   );
 }
 
-/** The badges of a game, capped with a "+N" chip. */
-export function PlatformBadges({ game, max = 3, onSelect, active = [] }: {
+/** The badges of a game, capped with a "+N" chip; `small` for the stores beside a PC edition's badge. */
+export function PlatformBadges({ game, max = 3, onSelect, active = [], small = false }: {
   game: Game;
   max?: number;
   onSelect?: (platform: string) => void;
   active?: string[];
+  small?: boolean;
 }) {
   const all = platformHoldings(game);
+  const shown = all.length > max ? all.slice(0, max - 1) : all;
+  const rest = all.length - shown.length;
+  return (
+    <span className={`pbadges ${small ? 'small' : ''}`}>
+      {shown.map((h) => <PlatformBadge key={h.platform} {...h} onSelect={onSelect} active={active.includes(h.platform)} />)}
+      {rest > 0 && <span className="pbadge more" title={all.slice(shown.length).map((h) => h.platform).join(', ')}>+{rest}</span>}
+    </span>
+  );
+}
+
+/** A game's systems as badges ("By game" view); a click filters the library by that system. */
+export function SystemBadges({ game, max = 3, onSelect, active = [] }: {
+  game: Game;
+  max?: number;
+  onSelect?: (system: string) => void;
+  active?: string[];
+}) {
+  const all = systemHoldings(game);
   const shown = all.length > max ? all.slice(0, max - 1) : all;
   const rest = all.length - shown.length;
   return (
