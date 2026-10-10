@@ -3,6 +3,9 @@ package game
 import (
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var t0 = time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
@@ -164,4 +167,81 @@ func TestParseBarcode(t *testing.T) {
 	if _, ok := g.CopyWithBarcode("5026555255042"); !ok {
 		t.Error("CopyWithBarcode should find the disc")
 	}
+}
+
+func TestGame_playStatusAndRating(t *testing.T) {
+	t.Run("GIVEN a game without play status or rating", func(t *testing.T) {
+		g, err := New("Hollow Knight", t0)
+		require.NoError(t, err)
+
+		t.Run("WHEN the user marks it as playing with four stars", func(t *testing.T) {
+			changed, err := g.UpdateInfo(Info{
+				Title:      g.Title(),
+				PlayStatus: PlayPlaying,
+				Rating:     4,
+			}, t0)
+			require.NoError(t, err)
+
+			t.Run("THEN both are kept and the cover is untouched", func(t *testing.T) {
+				assert.Equal(t, PlayPlaying, g.PlayStatus())
+				assert.Equal(t, Rating(4), g.Rating())
+				assert.False(t, changed)
+			})
+		})
+
+		t.Run("WHEN the status or the rating is out of range", func(t *testing.T) {
+			_, badStatus := g.UpdateInfo(Info{
+				Title:      g.Title(),
+				PlayStatus: "wishlist",
+			}, t0)
+			_, badRating := g.UpdateInfo(Info{
+				Title:  g.Title(),
+				Rating: MaxRating + 1,
+			}, t0)
+
+			t.Run("THEN the change is refused and the game keeps its values", func(t *testing.T) {
+				var verr *ValidationError
+				require.ErrorAs(t, badStatus, &verr)
+				require.ErrorAs(t, badRating, &verr)
+				assert.Equal(t, PlayPlaying, g.PlayStatus())
+				assert.Equal(t, Rating(4), g.Rating())
+			})
+		})
+	})
+
+	t.Run("GIVEN two games being merged", func(t *testing.T) {
+		a, _ := New("Celeste", t0)
+		b, _ := New("Celeste (2018)", t0)
+		_, err := b.UpdateInfo(Info{
+			Title:      b.Title(),
+			PlayStatus: PlayFinished,
+			Rating:     5,
+		}, t0)
+		require.NoError(t, err)
+
+		t.Run("WHEN the kept game has neither", func(t *testing.T) {
+			a.Absorb(b, t0)
+
+			t.Run("THEN it takes the absorbed game's", func(t *testing.T) {
+				assert.Equal(t, PlayFinished, a.PlayStatus())
+				assert.Equal(t, Rating(5), a.Rating())
+			})
+		})
+
+		t.Run("WHEN the kept game already has its own", func(t *testing.T) {
+			c, _ := New("Celeste", t0)
+			_, err := c.UpdateInfo(Info{
+				Title:      c.Title(),
+				PlayStatus: PlayAbandoned,
+				Rating:     2,
+			}, t0)
+			require.NoError(t, err)
+			c.Absorb(b, t0)
+
+			t.Run("THEN they win", func(t *testing.T) {
+				assert.Equal(t, PlayAbandoned, c.PlayStatus())
+				assert.Equal(t, Rating(2), c.Rating())
+			})
+		})
+	})
 }

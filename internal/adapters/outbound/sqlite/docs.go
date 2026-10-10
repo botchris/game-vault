@@ -44,6 +44,8 @@ type gameDoc struct {
 	Notes      string     `json:"notes,omitempty"`
 	CoverURL   string     `json:"coverUrl,omitempty"`
 	CoverPhoto string     `json:"coverPhoto,omitempty"`
+	PlayStatus string     `json:"playStatus,omitempty"`
+	Rating     int        `json:"rating,omitempty"`
 	CreatedAt  string     `json:"createdAt"`
 	UpdatedAt  string     `json:"updatedAt"`
 	Copies     []copyDoc  `json:"copies,omitempty"`
@@ -155,6 +157,8 @@ func encodeGame(g *game.Game) (string, error) {
 		Notes:      info.Notes,
 		CoverURL:   info.CoverURL,
 		CoverPhoto: string(info.CoverPhoto),
+		PlayStatus: string(info.PlayStatus),
+		Rating:     int(info.Rating),
 		CreatedAt:  formatTime(g.CreatedAt()),
 		UpdatedAt:  formatTime(g.UpdatedAt()),
 	}
@@ -256,6 +260,8 @@ func decodeGame(id game.ID, raw string) (*game.Game, error) {
 		Notes:      doc.Notes,
 		CoverURL:   doc.CoverURL,
 		CoverPhoto: game.PhotoID(doc.CoverPhoto),
+		PlayStatus: game.PlayStatus(doc.PlayStatus),
+		Rating:     game.Rating(doc.Rating),
 	}
 
 	return game.Rehydrate(id, info, copies, parseTime(doc.CreatedAt), parseTime(doc.UpdatedAt)), nil

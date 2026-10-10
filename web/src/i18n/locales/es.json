@@ -68,7 +68,8 @@
       "added": "Añadidos recientemente",
       "year": "Año de lanzamiento",
       "deadline": "Fecha límite de canje",
-      "copies": "Más copias"
+      "copies": "Más copias",
+      "rating": "Valoración"
     },
     "quick": {
       "all": "",
@@ -139,6 +140,18 @@
     "nextGame": "Juego siguiente",
     "previousGameKey": "Juego anterior (←)",
     "nextGameKey": "Juego siguiente (→)"
+  },
+  "play": {
+    "label": "Estado de juego",
+    "backlog": "Pendiente",
+    "playing": "Jugando",
+    "finished": "Terminado",
+    "abandoned": "Abandonado",
+    "unspecified": "Sin indicar",
+    "rating": "Valoración",
+    "rated_one": "{{count}} estrella",
+    "rated_other": "{{count}} estrellas",
+    "clearRating": "Quitar la valoración"
   },
   "copy": {
     "add": "Añadir copia",

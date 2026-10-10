@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Icon } from '../../components/Icon';
-import { CopyKind, KINDS, kindKey, type Game } from '../../lib/model';
+import { CopyKind, KINDS, PLAY_STATUSES, PlayStatus, kindKey, playKey, type Game } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
 
 export interface Filters {
@@ -10,16 +10,18 @@ export interface Filters {
   genres: string[];
   /** Source ids; MANUAL stands for copies added by hand or from a CSV. */
   sources: string[];
+  /** Play statuses; UNSPECIFIED stands for games the user has not given one. */
+  play: PlayStatus[];
 }
 
 export const MANUAL = '';
 
-export const NO_FILTERS: Filters = { kind: CopyKind.UNSPECIFIED, platforms: [], genres: [], sources: [] };
+export const NO_FILTERS: Filters = { kind: CopyKind.UNSPECIFIED, platforms: [], genres: [], sources: [], play: [] };
 
-export const activeFilterCount = (f: Filters) => (f.kind ? 1 : 0) + f.platforms.length + f.genres.length + f.sources.length;
+export const activeFilterCount = (f: Filters) => (f.kind ? 1 : 0) + f.platforms.length + f.genres.length + f.sources.length + f.play.length;
 
 /** A game matches when it has a copy of the kind on one of the platforms, a copy from one of the
- * sources, and one of the genres. */
+ * sources, one of the genres and one of the play statuses. */
 export function matchesFilters(g: Game, f: Filters): boolean {
   if (f.kind || f.platforms.length) {
     const ok = g.copies.some((c) => (!f.kind || c.details?.kind === f.kind) && (!f.platforms.length || f.platforms.includes(c.details?.platform ?? '')));
@@ -27,10 +29,11 @@ export function matchesFilters(g: Game, f: Filters): boolean {
   }
   if (f.sources.length && !g.copies.some((c) => f.sources.includes(c.sourceId))) return false;
   if (f.genres.length && !g.genres.some((x) => f.genres.includes(x))) return false;
+  if (f.play.length && !f.play.includes(g.playStatus)) return false;
   return true;
 }
 
-function toggle(list: string[], v: string) {
+function toggle<T>(list: T[], v: T) {
   return list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
 }
 
@@ -63,11 +66,13 @@ export default function FilterPanel({ games, filters, onChange, onClose, details
     };
   }, [onClose]);
 
-  const { platforms, genres, sources } = useMemo(() => {
+  const { platforms, genres, sources, play } = useMemo(() => {
+    const pl = new Map<PlayStatus, number>();
     const p = new Map<string, number>();
     const g = new Map<string, number>();
     const s = new Map<string, number>();
     for (const game of games) {
+      pl.set(game.playStatus, (pl.get(game.playStatus) ?? 0) + 1);
       for (const id of new Set(game.copies.map((c) => c.sourceId))) s.set(id, (s.get(id) ?? 0) + 1);
       for (const pl of new Set(game.copies.map((c) => c.details?.platform).filter(Boolean) as string[])) p.set(pl, (p.get(pl) ?? 0) + 1);
       for (const ge of game.genres) g.set(ge, (g.get(ge) ?? 0) + 1);
@@ -76,7 +81,9 @@ export default function FilterPanel({ games, filters, onChange, onClose, details
     // Configured sources first (in their own order), then manual copies; sources with no copies are hidden.
     const src = configured.filter((x) => s.has(x.id)).map((x) => ({ id: x.id, name: x.name, count: s.get(x.id)! }));
     if (s.has(MANUAL)) src.push({ id: MANUAL, name: '', count: s.get(MANUAL)! });
-    return { platforms: sorted(p), genres: sorted(g), sources: src };
+    // The statuses in their own order, then games without one; the ones no game has are hidden.
+    const played = [...PLAY_STATUSES, PlayStatus.UNSPECIFIED].filter((x) => pl.has(x)).map((x) => ({ status: x, count: pl.get(x)! }));
+    return { platforms: sorted(p), genres: sorted(g), sources: src, play: played };
   }, [games, configured, i18n.language]);
 
   return (
@@ -99,6 +106,20 @@ export default function FilterPanel({ games, filters, onChange, onClose, details
             ))}
           </div>
         </section>
+
+        {play.length > 1 && (
+          <section>
+            <h3>{t('play.label')}</h3>
+            <div className="choice-row">
+              {play.map((x) => (
+                <button key={x.status} className={`choice ${filters.play.includes(x.status) ? 'active' : ''}`} aria-pressed={filters.play.includes(x.status)}
+                  onClick={() => onChange({ ...filters, play: toggle(filters.play, x.status) })}>
+                  {t(`play.${playKey(x.status)}`)}<span className="choice-count">{x.count}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
         {sources.length > 1 && (
           <section>

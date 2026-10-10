@@ -7,7 +7,7 @@ import { PlatformBadge, platformHoldings } from '../../components/PlatformBadge'
 import { Alert, KeyCell, useFormatters } from '../../components/ui';
 import { formatAmount } from '../../lib/money';
 import {
-  CopyKind, CopyStatus, contentKey, daysUntil, gradeKey, kindKey, redeemUrl, statusKey, type Copy, type CopyDetailsInput, type Game,
+  CopyKind, CopyStatus, contentKey, daysUntil, gameInfo, gradeKey, kindKey, redeemUrl, statusKey, type Copy, type CopyDetailsInput, type Game,
 } from '../../lib/model';
 import type { LinkStore } from '../../gen/gamevault/v1/game_pb';
 import { useAppData } from '../../state/AppData';
@@ -18,6 +18,7 @@ import CoverPicker from './CoverPicker';
 import GamePicker from './GamePicker';
 import { SheetFacts, SheetOverview, useGameDetails } from './GameSheet';
 import LinkSearchDialog from './LinkSearchDialog';
+import PlayControls from './PlayControls';
 
 interface Props {
   gameId: string;
@@ -46,6 +47,9 @@ type Dialog =
   | null;
 
 type Tab = 'overview' | 'copies' | 'edit';
+
+/** The editable fields a change sends; the rest are sent back as they are. */
+type GamePatch = Partial<Pick<Game, 'title' | 'links' | 'notes' | 'coverUrl' | 'playStatus' | 'rating'>>;
 
 /** A game's sheet (like CLZ): details from the metadata providers, the copies you own, and editing. */
 export default function GameDetail({ gameId, onClose, onOpenGame, onPlatform, nav }: Props) {
@@ -82,11 +86,8 @@ function GameDetailBody({ game, onClose, onOpenGame, onPlatform, nav }: {
     }
   };
 
-  const updateGame = (patch: Partial<Pick<Game, 'title' | 'links' | 'notes' | 'coverUrl'>>) => run(async () => {
-    const res = await gameClient.updateGame({
-      id: game.id, title: game.title, links: game.links, notes: game.notes, coverUrl: game.coverUrl, ...patch,
-    });
-    putGame(res.game!);
+  const updateGame = (patch: GamePatch) => run(async () => {
+    putGame((await gameClient.updateGame({ ...gameInfo(game), ...patch })).game!);
   });
 
   const details = sheet.details;
@@ -158,6 +159,7 @@ function GameDetailBody({ game, onClose, onOpenGame, onPlatform, nav }: {
               {release && <span className="hero-year">{release}</span>}
               {platformHoldings(game).map((h) => <PlatformBadge key={h.platform} {...h} full onSelect={onPlatform} />)}
             </div>
+            <PlayControls game={game} busy={busy} onChange={updateGame} />
             {genres.length > 0 && <div className="genres">{genres.map((g) => <span key={g} className="genre">{g}</span>)}</div>}
             <SheetFacts details={details} />
           </div>
@@ -209,7 +211,7 @@ function GameDetailBody({ game, onClose, onOpenGame, onPlatform, nav }: {
             if (game.coverPhotoId) {
               run(async () => {
                 putGame((await gameClient.setCoverPhoto({ gameId: game.id, photoId: '' })).game!);
-                if (url !== game.coverUrl) putGame((await gameClient.updateGame({ id: game.id, title: game.title, links: game.links, notes: game.notes, coverUrl: url })).game!);
+                if (url !== game.coverUrl) putGame((await gameClient.updateGame({ ...gameInfo(game), coverUrl: url })).game!);
               });
             } else {
               updateGame({ coverUrl: url });
@@ -336,7 +338,7 @@ function CopiesTab({ game, busy, run, setDialog }: {
 function EditTab({ game, busy, onSave, setDialog, run, onDeleted }: {
   game: Game;
   busy: boolean;
-  onSave: (patch: Partial<Pick<Game, 'title' | 'links' | 'notes' | 'coverUrl'>>) => Promise<void>;
+  onSave: (patch: GamePatch) => Promise<void>;
   setDialog: (d: Dialog) => void;
   run: (fn: () => Promise<void>) => Promise<void>;
   onDeleted: () => void;

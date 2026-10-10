@@ -68,7 +68,8 @@
       "added": "Recently added",
       "year": "Release year",
       "deadline": "Redeem deadline",
-      "copies": "Most copies"
+      "copies": "Most copies",
+      "rating": "Rating"
     },
     "quick": {
       "all": "",
@@ -139,6 +140,18 @@
     "nextGame": "Next game",
     "previousGameKey": "Previous game (←)",
     "nextGameKey": "Next game (→)"
+  },
+  "play": {
+    "label": "Play status",
+    "backlog": "Backlog",
+    "playing": "Playing",
+    "finished": "Finished",
+    "abandoned": "Abandoned",
+    "unspecified": "Not set",
+    "rating": "Rating",
+    "rated_one": "{{count}} star",
+    "rated_other": "{{count}} stars",
+    "clearRating": "Clear the rating"
   },
   "copy": {
     "add": "Add copy",

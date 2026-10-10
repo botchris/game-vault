@@ -1,7 +1,7 @@
 import { timestampDate, type Timestamp } from '@bufbuild/protobuf/wkt';
-import { CopyContent, CopyGrade, CopyKind, CopyStatus, type Copy, type CopyDetails, type Game } from '../gen/gamevault/v1/game_pb';
+import { CopyContent, CopyGrade, CopyKind, CopyStatus, PlayStatus, type Copy, type CopyDetails, type Game } from '../gen/gamevault/v1/game_pb';
 
-export { CopyKind, CopyStatus };
+export { CopyKind, CopyStatus, PlayStatus };
 export type { Copy, CopyDetails, Game };
 
 /** Plain, editable shape of CopyDetails (without the protobuf $typeName). */
@@ -42,6 +42,21 @@ export function emptyDetails(kind: CopyKind = CopyKind.PHYSICAL): CopyDetailsInp
     acquiredOn: '', edition: '', grade: CopyGrade.UNSPECIFIED, contents: [], location: '', notes: '', barcode: '',
   };
 }
+
+/** Play statuses in the order the user goes through them; UNSPECIFIED (not said) is left out. */
+export const PLAY_STATUSES = [PlayStatus.BACKLOG, PlayStatus.PLAYING, PlayStatus.FINISHED, PlayStatus.ABANDONED] as const;
+
+/** Translation key suffix: t(`play.${playKey(s)}`); UNSPECIFIED is "unspecified". */
+export const playKey = (s: PlayStatus) => PlayStatus[s].toLowerCase();
+
+/** The highest rating, in stars; 0 means unrated. */
+export const MAX_RATING = 5;
+
+/** Every editable field of a game, as UpdateGame expects them: it replaces all of them, so a
+ *  change starts from this and overrides only what it changes. */
+export const gameInfo = (g: Game) => ({
+  id: g.id, title: g.title, links: g.links, notes: g.notes, coverUrl: g.coverUrl, playStatus: g.playStatus, rating: g.rating,
+});
 
 export const GRADES = [CopyGrade.SEALED, CopyGrade.MINT, CopyGrade.VERY_GOOD, CopyGrade.GOOD, CopyGrade.ACCEPTABLE, CopyGrade.DAMAGED] as const;
 export const CONTENTS = [CopyContent.BOX, CopyContent.MANUAL, CopyContent.MEDIA, CopyContent.EXTRAS] as const;
