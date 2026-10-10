@@ -115,3 +115,14 @@ export function filterOptions(games: GameLike[], def: Definition): { key: string
   const keys = def.type === 'bool' ? ['yes', 'no'] : def.choices.map((c) => c.id);
   return [...keys, ''].map((key) => ({ key, count: games.filter((g) => gameKeys(g, def).includes(key)).length }));
 }
+
+/**
+ * The values a copy of the given kind keeps when saved: those of the copy fields that apply to the
+ * kind, and those of fields the page does not know (definitions not loaded, or made in another tab),
+ * which are kept as they are rather than erased, since the server replaces a copy's values.
+ */
+export function copyValuesFor<V>(values: Record<string, V>, defs: Definition[], kind: number): Record<string, V> {
+  const known = new Set(defs.map((d) => d.id));
+  const applies = new Set(defs.filter((d) => d.scope === 'copy' && (!d.kinds.length || d.kinds.includes(kind))).map((d) => d.id));
+  return Object.fromEntries(Object.entries(values).filter(([id]) => applies.has(id) || !known.has(id)));
+}

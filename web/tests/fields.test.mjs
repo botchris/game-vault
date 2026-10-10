@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { fieldText, filterOptions, matchesFieldFilters, numberInput, parseNumber, searchableText } from '../src/lib/fields.ts';
+import { fieldText, filterOptions, matchesFieldFilters, copyValuesFor, numberInput, parseNumber, searchableText } from '../src/lib/fields.ts';
 
 const fmt = {
   money: (n, c) => `${c} ${n}`,
@@ -80,4 +80,16 @@ test('filterOptions counts games per choice and for no value', () => {
   assert.deepEqual(filterOptions([game({ b: val('bool', true) }), game({})], flag), [
     { key: 'yes', count: 1 }, { key: 'no', count: 0 }, { key: '', count: 1 },
   ]);
+});
+
+test('copyValuesFor keeps values the page does not know and drops known fields that do not apply to the kind', () => {
+  const defs = [
+    def({ id: 'all', scope: 'copy' }),
+    def({ id: 'disc', scope: 'copy', kinds: [3] }),
+    def({ id: 'shelf', scope: 'game' }),
+  ];
+  const values = { all: val('text', 'a'), disc: val('text', 'b'), other: val('text', 'c'), shelf: val('text', 'd') };
+  assert.deepEqual(Object.keys(copyValuesFor(values, defs, 1)).sort(), ['all', 'other']);
+  assert.deepEqual(Object.keys(copyValuesFor(values, defs, 3)).sort(), ['all', 'disc', 'other']);
+  assert.equal(copyValuesFor(values, [], 1).other, values.other); // nothing loaded: nothing is lost
 });

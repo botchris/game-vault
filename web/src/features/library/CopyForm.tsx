@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { errorMessage } from '../../api/client';
 import { Alert, Modal } from '../../components/ui';
 import { CopyGrade, MoneySchema } from '../../gen/gamevault/v1/game_pb';
+import { copyValuesFor } from '../../lib/fields';
 import { amountInput, currencyDigits, currencyList, parseAmount } from '../../lib/money';
 import {
   CONTENTS, CopyKind, GRADES, KINDS, PHYSICAL_PLATFORMS, STATUSES_BY_KIND, STORE_PLATFORMS, contentKey, emptyDetails,
@@ -50,9 +51,9 @@ export default function CopyForm({ initial, managedBy, onSubmit, onClose }: Prop
     setBusy(true);
     setError('');
     try {
-      // The server replaces the copy's values: send every one that applies to the kind, and only
-      // those (values of fields that no longer apply after a kind change are dropped).
-      const values = cleanFields(Object.fromEntries(defs.filter((f) => f.id in d.fields).map((f) => [f.id, d.fields[f.id]])));
+      // The server replaces the copy's values: drop only those of known fields that no longer apply
+      // after a kind change; values of fields this page does not know are kept, never erased.
+      const values = cleanFields(copyValuesFor(d.fields, fields, d.kind));
       await onSubmit({ ...d, price: minor ? create(MoneySchema, { amountMinor: minor, currency }) : undefined, fields: values });
     } catch (err) {
       setError(errorMessage(err));
