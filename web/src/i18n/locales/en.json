@@ -109,6 +109,7 @@
       "list": "List",
       "posters": "Covers"
     },
+    "itemLabel": "{{title}} · {{system}}",
     "pendingBadge_one": "{{count}} pending key",
     "pendingBadge_other": "{{count}} pending keys",
     "filters": {

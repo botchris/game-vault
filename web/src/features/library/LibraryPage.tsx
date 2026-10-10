@@ -8,7 +8,7 @@ import { searchableText } from '../../lib/fields';
 import { CopyStatus, PlayStatus, daysUntil, isPendingKey, nextDeadline, playKey, toDate, type Game } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
 import {
-  NO_FILTERS, activeFilterCount, filterItems, itemCounts, libraryItems, openEdition, pruneFilters, sortItems, type Filters, type Grouping, type LibraryItem,
+  NO_FILTERS, activeFilterCount, filterItems, itemCounts, itemLabel, libraryItems, openEdition, pruneFilters, sortItems, type Filters, type Grouping, type LibraryItem,
 } from '../../lib/editions';
 import FilterPanel from './FilterPanel';
 import GameDetail, { type SheetNav } from './GameDetail';
@@ -294,7 +294,7 @@ function GameRow({ item, grouping, onOpen, onSystem, activeSystems }: {
       <div className="game-row">
         <Cover game={game} system={item.system} className="row-cover" />
         <span className="row-main">
-          <button className="row-open" onClick={onOpen}>{game.title}</button>
+          <button className="row-open" onClick={onOpen} aria-label={itemLabel(t, item, grouping)}>{game.title}</button>
           {meta && <span className="row-meta">{meta}</span>}
           <ItemBadges item={item} grouping={grouping} onSystem={onSystem} activeSystems={activeSystems} />
         </span>

@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Cover } from '../../components/Cover';
 import { PlatformBadge, PlatformBadges, SystemBadges } from '../../components/PlatformBadge';
-import type { Grouping, LibraryItem } from '../../lib/editions';
+import { itemLabel, type Grouping, type LibraryItem } from '../../lib/editions';
 import { daysUntil, isPendingKey, nextDeadline, type Game } from '../../lib/model';
 
 /** The badges of a library item: in "By platform", the edition's system (and, on PC, its stores,
@@ -50,7 +50,7 @@ export default function PosterGrid({ items, grouping, onOpen, onSystem, activeSy
               </span>
               <span className="poster-platforms"><ItemBadges item={item} grouping={grouping} onSystem={onSystem} activeSystems={activeSystems} /></span>
             </span>
-            <button className="poster-open" onClick={() => onOpen(item)}>
+            <button className="poster-open" onClick={() => onOpen(item)} aria-label={itemLabel(t, item, grouping)}>
               <span className="poster-title">{item.game.title}</span>
               {item.game.releaseYear > 0 && <span className="poster-meta">{item.game.releaseYear}</span>}
             </button>

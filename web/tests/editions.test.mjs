@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  NO_FILTERS, activeFilterCount, coverOrder, coverPath, editionsOf, filterItems, groupCopies, itemCounts, libraryItems, mainSystem,
+  NO_FILTERS, activeFilterCount, coverOrder, coverPath, editionsOf, itemLabel, filterItems, groupCopies, itemCounts, libraryItems, mainSystem,
   nextCover, openEdition, sortItems, systemCounts, systemOf,
 } from '../src/lib/editions.ts';
 
@@ -124,4 +124,14 @@ test('openEdition: the edition asked for while the game has it, else the main on
   assert.equal(openEdition(halo, 'Wii'), 'PS3', 'an edition whose copies moved away: the main one');
   const noCopies = game('g4', 'No copies', [], [edition('', { main: true })]);
   assert.equal(openEdition(noCopies, ''), '', 'a game without copies stays on its only edition');
+});
+
+test('in "By platform" an item is named with its system, so two editions of a game differ', () => {
+  const t = (key, o) => `${key}:${o.title}|${o.system}`;
+  const g = game('g1', 'Halo 3', [copy('PS3', 'PS3', 3), copy('PC', 'Steam', 2)], [edition('PS3', { main: true }), edition('PC')]);
+  const [ps3, pc] = libraryItems([g], 'platform');
+  assert.equal(itemLabel(t, ps3, 'platform'), 'library.itemLabel:Halo 3|PS3');
+  assert.equal(itemLabel(t, pc, 'platform'), 'library.itemLabel:Halo 3|PC');
+  assert.equal(itemLabel(t, libraryItems([g], 'game')[0], 'game'), undefined, '"By game" keeps the title');
+  assert.equal(itemLabel(t, libraryItems([game('g2', 'Halo 4', [], [])], 'platform')[0], 'platform'), undefined, 'no system, no suffix');
 });

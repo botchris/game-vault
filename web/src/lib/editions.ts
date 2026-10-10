@@ -91,6 +91,17 @@ export function libraryItems<G extends GameLike>(games: G[], grouping: Grouping)
     : games.flatMap((g) => editionsOf(g));
 }
 
+/** The accessible name of an item's open button: in "By platform" two editions of a game share a
+ *  title, so the name adds the edition's system. Undefined keeps the button's own text. */
+export function itemLabel(
+  t: (key: string, values: { title: string; system: string }) => string,
+  item: LibraryItem<GameLike>,
+  grouping: Grouping,
+): string | undefined {
+  if (grouping !== 'platform' || !item.system) return undefined;
+  return t('library.itemLabel', { title: item.game.title, system: item.system });
+}
+
 export interface Filters {
   /** A copy kind (CopyKind's number); 0: any. */
   kind: number;
