@@ -8,6 +8,7 @@ import (
 	"slices"
 
 	"gamevault/internal/application/port"
+	"gamevault/internal/domain/field"
 	"gamevault/internal/domain/game"
 )
 
@@ -34,18 +35,29 @@ type Service struct {
 	now    port.Clock
 	covers CoverCache
 	photos PhotoFiles
+	fields field.Repository
 }
 
 // NewService builds the service. covers may be nil when no cover cache is wired; photos may be nil,
-// and attached photos are then not checked.
-func NewService(games game.Repository, tx port.TxManager, now port.Clock, covers CoverCache, photos PhotoFiles) *Service {
+// and attached photos are then not checked; fields may be nil: no custom fields are defined.
+func NewService(games game.Repository, tx port.TxManager, now port.Clock, covers CoverCache, photos PhotoFiles, fields field.Repository) *Service {
 	return &Service{
 		games:  games,
 		tx:     tx,
 		now:    now,
 		covers: covers,
 		photos: photos,
+		fields: fields,
 	}
+}
+
+// fieldSet returns the custom field definitions (an empty set when none are wired).
+func (s *Service) fieldSet(ctx context.Context) (*field.Set, error) {
+	if s.fields == nil {
+		return field.NewSet(nil), nil
+	}
+
+	return s.fields.Fields(ctx)
 }
 
 // invalidateCover is best effort: a stale cached image is not worth failing the use case.
@@ -65,33 +77,72 @@ func (s *Service) GetGame(ctx context.Context, id game.ID) (*game.Game, error) {
 	return s.games.Get(ctx, id)
 }
 
-// CreateGame registers a game, optionally with some copies.
-func (s *Service) CreateGame(ctx context.Context, info game.Info, copies []game.CopyDetails) (*game.Game, error) {
-	now := s.now()
+// CreateGame registers a game, optionally with some copies. copyFields[i] holds the custom field
+// values of copies[i]; copies without an entry get none.
+func (s *Service) CreateGame(ctx context.Context, info game.Info, copies []game.CopyDetails, copyFields ...game.FieldValues) (*game.Game, error) {
+	var g *game.Game
 
-	g, err := game.New(info.Title, now)
+	// The field definitions are read in the write's transaction, so a field deleted meanwhile is
+	// refused instead of stored (SQLite has a single writer: the two cannot interleave).
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		now := s.now()
+
+		set, err := s.fieldSet(ctx)
+		if err != nil {
+			return err
+		}
+
+		if info.Fields, err = set.Validate(field.ScopeGame, "", info.Fields); err != nil {
+			return err
+		}
+
+		if g, err = game.New(info.Title, now); err != nil {
+			return err
+		}
+
+		if _, err := g.UpdateInfo(info, now); err != nil {
+			return err
+		}
+
+		for i, d := range copies {
+			c, err := g.AddCopy(d, now)
+			if err != nil {
+				return err
+			}
+
+			if i >= len(copyFields) {
+				continue
+			}
+
+			values, err := set.Validate(field.ScopeCopy, c.Kind, copyFields[i])
+			if err != nil {
+				return err
+			}
+
+			if err := g.SetCopyFields(c.ID, values, now); err != nil {
+				return err
+			}
+		}
+
+		return s.games.Save(ctx, g)
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	if _, err := g.UpdateInfo(info, now); err != nil {
-		return nil, err
-	}
-
-	for _, d := range copies {
-		if _, err := g.AddCopy(d, now); err != nil {
-			return nil, err
-		}
-	}
-
-	return g, s.games.Save(ctx, g)
+	return g, nil
 }
 
 // UpdateGame changes a game's own attributes and drops its cached cover when the cover changed.
 func (s *Service) UpdateGame(ctx context.Context, id game.ID, info game.Info) (*game.Game, error) {
 	var coverChanged bool
 
-	g, err := s.mutate(ctx, id, func(g *game.Game) error {
+	g, err := s.mutate(ctx, id, func(ctx context.Context, g *game.Game) error {
+		set, err := s.fieldSet(ctx)
+		if err != nil {
+			return err
+		}
+
 		// Editing the game keeps its cover photo (SetCoverPhoto changes it), unless the user chose
 		// another custom cover.
 		info.CoverPhoto = g.CoverPhoto()
@@ -99,7 +150,9 @@ func (s *Service) UpdateGame(ctx context.Context, id game.ID, info game.Info) (*
 			info.CoverPhoto = ""
 		}
 
-		var err error
+		if info.Fields, err = set.Validate(field.ScopeGame, "", info.Fields); err != nil {
+			return err
+		}
 
 		coverChanged, err = g.UpdateInfo(info, s.now())
 
@@ -123,19 +176,52 @@ func (s *Service) DeleteGame(ctx context.Context, id game.ID) error {
 	return nil
 }
 
-// AddCopy adds a copy to a game and returns the updated game.
-func (s *Service) AddCopy(ctx context.Context, id game.ID, d game.CopyDetails) (*game.Game, error) {
-	return s.mutate(ctx, id, func(g *game.Game) error {
-		_, err := g.AddCopy(d, s.now())
-		return err
+// AddCopy adds a copy with its custom field values to a game and returns the updated game.
+func (s *Service) AddCopy(ctx context.Context, id game.ID, d game.CopyDetails, fields game.FieldValues) (*game.Game, error) {
+	return s.mutate(ctx, id, func(ctx context.Context, g *game.Game) error {
+		set, err := s.fieldSet(ctx)
+		if err != nil {
+			return err
+		}
+
+		now := s.now()
+
+		c, err := g.AddCopy(d, now)
+		if err != nil {
+			return err
+		}
+
+		values, err := set.Validate(field.ScopeCopy, c.Kind, fields)
+		if err != nil {
+			return err
+		}
+
+		return g.SetCopyFields(c.ID, values, now)
 	})
 }
 
-// UpdateCopy changes one copy of a game and returns the updated game.
-func (s *Service) UpdateCopy(ctx context.Context, id, copyID game.ID, d game.CopyDetails) (*game.Game, error) {
-	return s.mutate(ctx, id, func(g *game.Game) error {
-		_, err := g.UpdateCopy(copyID, d, s.now())
-		return err
+// UpdateCopy changes one copy of a game and returns the updated game. The custom field values
+// replace the copy's: nil clears them, because the edit form always sends all of them.
+func (s *Service) UpdateCopy(ctx context.Context, id, copyID game.ID, d game.CopyDetails, fields game.FieldValues) (*game.Game, error) {
+	return s.mutate(ctx, id, func(ctx context.Context, g *game.Game) error {
+		set, err := s.fieldSet(ctx)
+		if err != nil {
+			return err
+		}
+
+		now := s.now()
+
+		c, err := g.UpdateCopy(copyID, d, now)
+		if err != nil {
+			return err
+		}
+
+		values, err := set.Validate(field.ScopeCopy, c.Kind, fields)
+		if err != nil {
+			return err
+		}
+
+		return g.SetCopyFields(copyID, values, now)
 	})
 }
 
@@ -306,7 +392,7 @@ func (s *Service) SetCoverPhoto(ctx context.Context, id game.ID, photoID game.Ph
 func (s *Service) mutatePhotos(ctx context.Context, id game.ID, fn func(*game.Game) error) (*game.Game, error) {
 	var before game.PhotoID
 
-	g, err := s.mutate(ctx, id, func(g *game.Game) error {
+	g, err := s.mutate(ctx, id, func(_ context.Context, g *game.Game) error {
 		before = g.CoverPhoto()
 		return fn(g)
 	})
@@ -343,7 +429,9 @@ func (s *Service) MarkRedeemedKeys(ctx context.Context) (int, error) {
 	return total, err
 }
 
-func (s *Service) mutate(ctx context.Context, id game.ID, fn func(*game.Game) error) (*game.Game, error) {
+// mutate loads a game, applies fn and saves it, in one transaction. fn gets the transaction's
+// context, so what it reads (the field definitions) is read in the same transaction.
+func (s *Service) mutate(ctx context.Context, id game.ID, fn func(context.Context, *game.Game) error) (*game.Game, error) {
 	var g *game.Game
 
 	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
@@ -352,7 +440,7 @@ func (s *Service) mutate(ctx context.Context, id game.ID, fn func(*game.Game) er
 			return err
 		}
 
-		if err := fn(g); err != nil {
+		if err := fn(ctx, g); err != nil {
 			return err
 		}
 

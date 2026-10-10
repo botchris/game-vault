@@ -78,7 +78,10 @@ func (h *GameHandler) GetGame(ctx context.Context, req *connect.Request[pb.GetGa
 
 // CreateGame adds a game to the catalog, consolidating it with an existing one when they match.
 func (h *GameHandler) CreateGame(ctx context.Context, req *connect.Request[pb.CreateGameRequest]) (*connect.Response[pb.CreateGameResponse], error) {
-	var copies []game.CopyDetails
+	var (
+		copies     []game.CopyDetails
+		copyFields []game.FieldValues
+	)
 
 	for _, d := range req.Msg.Copies {
 		cd, err := detailsFromPB(d)
@@ -87,6 +90,7 @@ func (h *GameHandler) CreateGame(ctx context.Context, req *connect.Request[pb.Cr
 		}
 
 		copies = append(copies, cd)
+		copyFields = append(copyFields, fieldValuesFromPB(d.GetFields()))
 	}
 
 	info := game.Info{
@@ -94,8 +98,9 @@ func (h *GameHandler) CreateGame(ctx context.Context, req *connect.Request[pb.Cr
 		Links:    req.Msg.Links,
 		Notes:    req.Msg.Notes,
 		CoverURL: req.Msg.CoverUrl,
+		Fields:   fieldValuesFromPB(req.Msg.Fields),
 	}
-	g, err := h.catalog.CreateGame(ctx, info, copies)
+	g, err := h.catalog.CreateGame(ctx, info, copies, copyFields...)
 
 	return gameResp(g, err, func(g *pb.Game) *pb.CreateGameResponse { return &pb.CreateGameResponse{Game: g} })
 }
@@ -114,6 +119,7 @@ func (h *GameHandler) UpdateGame(ctx context.Context, req *connect.Request[pb.Up
 		CoverURL:   req.Msg.CoverUrl,
 		PlayStatus: status,
 		Rating:     game.Rating(req.Msg.Rating),
+		Fields:     fieldValuesFromPB(req.Msg.Fields),
 	}
 	g, err := h.catalog.UpdateGame(ctx, game.ID(req.Msg.Id), info)
 
@@ -148,7 +154,7 @@ func (h *GameHandler) AddCopy(ctx context.Context, req *connect.Request[pb.AddCo
 		return nil, toConnectError(err)
 	}
 
-	g, err := h.catalog.AddCopy(ctx, game.ID(req.Msg.GameId), d)
+	g, err := h.catalog.AddCopy(ctx, game.ID(req.Msg.GameId), d, fieldValuesFromPB(req.Msg.Details.GetFields()))
 
 	return gameResp(g, err, func(g *pb.Game) *pb.AddCopyResponse { return &pb.AddCopyResponse{Game: g} })
 }
@@ -160,7 +166,7 @@ func (h *GameHandler) UpdateCopy(ctx context.Context, req *connect.Request[pb.Up
 		return nil, toConnectError(err)
 	}
 
-	g, err := h.catalog.UpdateCopy(ctx, game.ID(req.Msg.GameId), game.ID(req.Msg.CopyId), d)
+	g, err := h.catalog.UpdateCopy(ctx, game.ID(req.Msg.GameId), game.ID(req.Msg.CopyId), d, fieldValuesFromPB(req.Msg.Details.GetFields()))
 
 	return gameResp(g, err, func(g *pb.Game) *pb.UpdateCopyResponse { return &pb.UpdateCopyResponse{Game: g} })
 }

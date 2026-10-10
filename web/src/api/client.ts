@@ -1,6 +1,7 @@
 import { Code, ConnectError, createClient, type Interceptor } from '@connectrpc/connect';
 import { createConnectTransport } from '@connectrpc/connect-web';
 import { AuthService } from '../gen/gamevault/v1/auth_pb';
+import { FieldService } from '../gen/gamevault/v1/field_pb';
 import { GameService, type Game } from '../gen/gamevault/v1/game_pb';
 import { LogService } from '../gen/gamevault/v1/log_pb';
 import { LookupService } from '../gen/gamevault/v1/lookup_pb';
@@ -30,6 +31,7 @@ const transport = createConnectTransport({ baseUrl, interceptors: [authWatcher],
 
 export const authClient = createClient(AuthService, transport);
 export const gameClient = createClient(GameService, transport);
+export const fieldClient = createClient(FieldService, transport);
 export const sourceClient = createClient(SourceService, transport);
 export const systemClient = createClient(SystemService, transport);
 export const logClient = createClient(LogService, transport);

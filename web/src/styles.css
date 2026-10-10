@@ -831,6 +831,40 @@ td.title { font-weight: 500; min-width: 220px; }
 .detail-cover-col { display: flex; flex-direction: column; gap: 8px; }
 .picker-grid { margin-top: 10px; }
 
+/* ---------- Custom fields ---------- */
+.fields .page-head { margin-bottom: 0; justify-content: space-between; }
+.fields-intro { margin: 0; max-width: 64ch; }
+.fields .chain { margin-top: 0; }
+.fields .chain-body strong { overflow-wrap: anywhere; }
+/* Drag to reorder: a grip on desktop only; the arrows stay for touch and the keyboard. */
+.chain-grip { display: none; }
+@media (hover: hover) and (pointer: fine) {
+  .chain-grip {
+    display: grid; place-items: center; flex: none; width: 24px; height: 32px; margin: -4px -6px -4px -4px;
+    border-radius: 6px; color: var(--muted); cursor: grab; touch-action: none;
+  }
+  .chain-grip:hover { color: var(--text); background: var(--surface-2); }
+  .chain-grip .icon-svg { stroke-width: 3; }
+}
+.fields .chain.dragging { user-select: none; cursor: grabbing; }
+.fields .chain.dragging .chain-item { transition: transform 200ms var(--ease-out); }
+.fields .chain.dragging .chain-item.lifted { position: relative; z-index: 1; transition: none; box-shadow: var(--shadow-md); }
+.fields .chain.dragging .chain-grip { cursor: grabbing; }
+.field-note { margin: -4px 0 0; }
+.field-kinds { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 6px; }
+.field-kinds legend { padding: 0; font-size: 13px; color: var(--muted); font-weight: 550; margin-bottom: 6px; }
+.field-kinds p { margin: 0; }
+.field-kinds-row { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.grid .field-kinds label.check-inline { flex-direction: row; font-size: 15px; color: var(--text); font-weight: 450; }
+.field-values h3 { font-size: 15px; margin: 4px 0 8px; }
+.field-values-hint { margin: -4px 0 8px; }
+.field-values ol { list-style: none; padding: 0; margin: 0 0 10px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
+.field-value { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.field-value input { flex: 1 1 0; width: auto; min-width: 0; }
+.field-value-actions { display: flex; align-items: center; gap: 4px; flex: none; }
+.field-value-merge { display: flex; align-items: end; gap: 8px; flex-wrap: wrap; margin: 6px 0 4px; padding: 10px; border-radius: 10px; background: var(--surface-2); }
+.field-value-merge label { display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: var(--muted); font-weight: 550; flex: 1 1 180px; min-width: 0; }
+
 /* ---------- Scan ---------- */
 .scan { max-width: 880px; }
 .scan .page-head { margin-bottom: 4px; }
@@ -1119,3 +1153,40 @@ select.currency { flex: 0 0 auto; width: auto; }
 
 /* Connect a source with the browser extension (features/sources/SourceDialog.tsx) */
 .connector-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 0; }
+
+/* Custom field values (features/fields/FieldInput.tsx, FieldList.tsx) */
+.grid .field-inputs { margin: 0; }
+.field-inputs .field .segmented { align-self: flex-start; }
+.field-inputs input[aria-invalid="true"] { border-color: var(--danger); }
+.field-unit { color: var(--muted); font-size: 14px; font-weight: 450; white-space: nowrap; }
+.field-date, .field-duration { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.field-date .field-year { flex: 0 0 5.5em; width: 5.5em; }
+.field-date select { flex: 1 1 7em; }
+.field-duration input { flex: 0 0 4.5em; width: 4.5em; }
+.field-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.field-chip {
+  display: inline-flex; align-items: center; gap: 2px; max-width: 100%; padding: 3px 3px 3px 11px; border-radius: 999px;
+  background: var(--surface-2); color: var(--text); font-size: 14px; font-weight: 450; overflow-wrap: anywhere;
+}
+.field-chip-remove { flex: none; border: none; background: none; padding: 0; width: 24px; height: 24px; min-height: 0; border-radius: 50%; color: var(--muted); }
+.field-chip-remove:hover:not(:disabled) { background: var(--surface); color: var(--text); }
+@media (min-width: 861px) {
+  .field-inputs input, .field-inputs select, .field-inputs textarea { font-size: 15px; }
+}
+.field-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px 20px; margin: 0; }
+.field-list > div { min-width: 0; }
+.field-list .wide { grid-column: 1 / -1; }
+.field-list dt { font-size: 12px; color: var(--muted); font-weight: 550; margin-bottom: 2px; }
+.field-list dd { margin: 0; white-space: pre-line; overflow-wrap: anywhere; }
+.field-list.copy-fields { display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 13px; }
+.copy-fields > div { display: flex; gap: 4px; }
+.copy-fields .wide { flex-basis: 100%; }
+.copy-fields dt { font-size: 13px; margin: 0; flex: none; }
+.copy-fields dd { min-width: 0; }
+.copy-fields dt::after { content: ':'; }
+/* Read-only chips (several values of a list) have no remove button, so their padding is even. */
+.field-list .field-chip { padding: 3px 11px; }
+.field-list dd .field-chips { margin-top: 2px; }
+.copy-fields > div:has(.field-chips) { align-items: center; }
+.copy-fields .field-chips { gap: 4px; margin: 0; }
+.copy-fields .field-chip { padding: 1px 9px; font-size: 12.5px; }

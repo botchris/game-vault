@@ -76,6 +76,27 @@ message Money {
   string currency = 2;
 }
 
+// FieldValue is the value of a custom field (see FieldService); only the member of the field's
+// type is set.
+message FieldValue {
+  oneof value {
+    string text = 1;
+    bool bool = 2;
+    // In hundredths when the field has 2 decimals.
+    int64 number = 3;
+    Money money = 4;
+    // "YYYY", "YYYY-MM" or "YYYY-MM-DD".
+    string date = 5;
+    int64 minutes = 6;
+    // A list value's id.
+    string choice = 7;
+    ChoiceList choices = 8;
+  }
+}
+message ChoiceList {
+  repeated string ids = 1;
+}
+
 // CopyDetails holds the editable attributes of a copy.
 message CopyDetails {
   reserved 9;
@@ -105,6 +126,9 @@ message CopyDetails {
   repeated CopyContent contents = 14;
   // What was paid; absent or zero amount: no price.
   Money price = 15;
+  // The copy's custom field values: field id → value (see FieldService). AddCopy and UpdateCopy
+  // replace the copy's values with these: omitted means cleared.
+  map<string, FieldValue> fields = 16;
 }
 
 // Photo is a picture of a copy the user uploaded (POST /media/photos). The image is served at
@@ -185,6 +209,8 @@ message Game {
   PlayStatus play_status = 13;
   // The user's score from 1 to 5 stars; 0 when unrated.
   int32 rating = 14;
+  // The game's custom field values: field id → value (see FieldService).
+  map<string, FieldValue> fields = 15;
 }
 
 message ListGamesRequest {
@@ -214,6 +240,8 @@ message CreateGameRequest {
   repeated CopyDetails copies = 4;
   string cover_url = 5;
   map<string, string> links = 6;
+  // The game's custom field values: field id → value.
+  map<string, FieldValue> fields = 7;
 }
 message CreateGameResponse {
   Game game = 1;
@@ -232,6 +260,8 @@ message UpdateGameRequest {
   // Like every field here, these replace the current values: send them back unchanged to keep them.
   PlayStatus play_status = 7;
   int32 rating = 8;
+  // The game's custom field values, replacing the current ones.
+  map<string, FieldValue> fields = 9;
 }
 message UpdateGameResponse {
   Game game = 1;

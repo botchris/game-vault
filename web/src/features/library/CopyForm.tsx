@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { errorMessage } from '../../api/client';
 import { Alert, Modal } from '../../components/ui';
 import { CopyGrade, MoneySchema } from '../../gen/gamevault/v1/game_pb';
+import { copyValuesFor } from '../../lib/fields';
 import { amountInput, currencyDigits, currencyList, parseAmount } from '../../lib/money';
 import {
   CONTENTS, CopyKind, GRADES, KINDS, PHYSICAL_PLATFORMS, STATUSES_BY_KIND, STORE_PLATFORMS, contentKey, emptyDetails,
@@ -11,6 +12,7 @@ import {
 } from '../../lib/model';
 import { usePreferredCurrency } from '../../lib/usePreferences';
 import { useAppData } from '../../state/AppData';
+import { FieldInputs, applyField, cleanFields, useFieldValidity } from '../fields/FieldInput';
 
 interface Props {
   initial?: CopyDetailsInput;
@@ -23,7 +25,7 @@ interface Props {
 /** Add or edit one copy of a game. */
 export default function CopyForm({ initial, managedBy, onSubmit, onClose }: Props) {
   const { t, i18n } = useTranslation();
-  const { games } = useAppData();
+  const { games, fields } = useAppData();
   const locations = useMemo(() => usedLocations(games), [games]);
   const preferred = usePreferredCurrency(i18n.language);
   const [d, setD] = useState<CopyDetailsInput>(initial ?? emptyDetails());
@@ -35,6 +37,11 @@ export default function CopyForm({ initial, managedBy, onSubmit, onClose }: Prop
   const currency = chosenCurrency || preferred;
   const minor = amount.trim() === '' ? 0n : parseAmount(amount, currencyDigits(currency));
   const amountInvalid = minor === null;
+  // A custom field holding invalid text (a number, a year) blocks Save until it is fixed or cleared.
+  const [fieldsInvalid, reportField] = useFieldValidity();
+
+  // The copy fields that apply to the chosen kind (a field without kinds applies to all).
+  const defs = fields.filter((f) => f.scope === 'copy' && (!f.kinds.length || f.kinds.includes(d.kind)));
 
   const set = <K extends keyof CopyDetailsInput>(k: K, v: CopyDetailsInput[K]) => setD((x) => ({ ...x, [k]: v }));
   const changeKind = (kind: CopyKind) =>
@@ -42,11 +49,14 @@ export default function CopyForm({ initial, managedBy, onSubmit, onClose }: Prop
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (amountInvalid) return;
+    if (amountInvalid || fieldsInvalid) return;
     setBusy(true);
     setError('');
     try {
-      await onSubmit({ ...d, price: minor ? create(MoneySchema, { amountMinor: minor, currency }) : undefined });
+      // The server replaces the copy's values: drop only those of known fields that no longer apply
+      // after a kind change; values of fields this page does not know are kept, never erased.
+      const values = cleanFields(copyValuesFor(d.fields, fields, d.kind));
+      await onSubmit({ ...d, price: minor ? create(MoneySchema, { amountMinor: minor, currency }) : undefined, fields: values });
     } catch (err) {
       setError(errorMessage(err));
       setBusy(false);
@@ -60,7 +70,7 @@ export default function CopyForm({ initial, managedBy, onSubmit, onClose }: Prop
       footer={<>
         <span className="spacer" />
         <button type="button" onClick={onClose}>{t('common.cancel')}</button>
-        <button type="submit" form="copy-form" className="primary" disabled={busy || amountInvalid}>{busy ? t('common.saving') : t('common.save')}</button>
+        <button type="submit" form="copy-form" className="primary" disabled={busy || amountInvalid || fieldsInvalid}>{busy ? t('common.saving') : t('common.save')}</button>
       </>}>
       <form id="copy-form" onSubmit={submit}>
         {managedBy && <p className="muted small">{t('copy.managedBy', { source: managedBy })}</p>}
@@ -156,6 +166,8 @@ export default function CopyForm({ initial, managedBy, onSubmit, onClose }: Prop
             <textarea rows={3} value={d.notes} onChange={(e) => set('notes', e.target.value)} />
           </label>
         </div>
+        <FieldInputs defs={defs} values={d.fields} onValidity={reportField}
+          onChange={(id, update) => setD((x) => ({ ...x, fields: applyField(x.fields, id, update) }))} />
         {error && <Alert tone="error">{error}</Alert>}
       </form>
     </Modal>

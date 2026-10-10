@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Icon } from '../../components/Icon';
+import { filterOptions, isFilterable, matchesFieldFilters, pruneFieldFilter, type Definition, type FieldFilter } from '../../lib/fields';
 import { CopyKind, KINDS, PLAY_STATUSES, PlayStatus, kindKey, playKey, type Game } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
 
@@ -12,17 +13,31 @@ export interface Filters {
   sources: string[];
   /** Play statuses; UNSPECIFIED stands for games the user has not given one. */
   play: PlayStatus[];
+  /** Custom field values by field id: choice ids, 'yes' / 'no', or '' for games without a value. */
+  fields: FieldFilter;
 }
 
 export const MANUAL = '';
 
-export const NO_FILTERS: Filters = { kind: CopyKind.UNSPECIFIED, platforms: [], genres: [], sources: [], play: [] };
+export const NO_FILTERS: Filters = { kind: CopyKind.UNSPECIFIED, platforms: [], genres: [], sources: [], play: [], fields: {} };
 
-export const activeFilterCount = (f: Filters) => (f.kind ? 1 : 0) + f.platforms.length + f.genres.length + f.sources.length + f.play.length;
+export const activeFilterCount = (f: Filters) => (f.kind ? 1 : 0) + f.platforms.length + f.genres.length + f.sources.length + f.play.length
+  + Object.values(f.fields).reduce((n, keys) => n + keys.length, 0);
+
+/**
+ * The filters without custom field values that no longer exist (a deleted field, a removed choice),
+ * so they neither count in the badge nor stay selected out of reach. The same object when nothing
+ * was dropped.
+ */
+export function pruneFilters(f: Filters, defs: Definition[]): Filters {
+  const fields = pruneFieldFilter(f.fields, defs);
+  return fields === f.fields ? f : { ...f, fields };
+}
 
 /** A game matches when it has a copy of the kind on one of the platforms, a copy from one of the
- * sources, one of the genres and one of the play statuses. */
-export function matchesFilters(g: Game, f: Filters): boolean {
+ * sources, one of the genres, one of the play statuses and one of the chosen values of each
+ * filtered custom field. */
+export function matchesFilters(g: Game, f: Filters, defs: Definition[]): boolean {
   if (f.kind || f.platforms.length) {
     const ok = g.copies.some((c) => (!f.kind || c.details?.kind === f.kind) && (!f.platforms.length || f.platforms.includes(c.details?.platform ?? '')));
     if (!ok) return false;
@@ -30,7 +45,7 @@ export function matchesFilters(g: Game, f: Filters): boolean {
   if (f.sources.length && !g.copies.some((c) => f.sources.includes(c.sourceId))) return false;
   if (f.genres.length && !g.genres.some((x) => f.genres.includes(x))) return false;
   if (f.play.length && !f.play.includes(g.playStatus)) return false;
-  return true;
+  return matchesFieldFilters(g, defs, f.fields);
 }
 
 function toggle<T>(list: T[], v: T) {
@@ -50,7 +65,7 @@ export default function FilterPanel({ games, filters, onChange, onClose, details
 }) {
   const { t, i18n } = useTranslation();
   const panel = useRef<HTMLDivElement>(null);
-  const { sources: configured } = useAppData();
+  const { sources: configured, fields: defs } = useAppData();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -85,6 +100,22 @@ export default function FilterPanel({ games, filters, onChange, onClose, details
     const played = [...PLAY_STATUSES, PlayStatus.UNSPECIFIED].filter((x) => pl.has(x)).map((x) => ({ status: x, count: pl.get(x)! }));
     return { platforms: sorted(p), genres: sorted(g), sources: src, play: played };
   }, [games, configured, i18n.language]);
+
+  // Only fields with a fixed set of values make sense as filters; options no game has are hidden.
+  const fieldGroups = useMemo(() => defs.filter(isFilterable)
+    .map((def) => ({ def, options: filterOptions(games, def).filter((o) => o.count > 0 || filters.fields[def.id]?.includes(o.key)) }))
+    .filter((x) => x.options.length > 0), [defs, games, filters.fields]);
+  const optionLabel = (def: Definition, key: string) => {
+    if (key === '') return t('fields.noValue');
+    if (def.type === 'bool') return t(key === 'yes' ? 'fields.yes' : 'fields.no');
+    return def.choices.find((c) => c.id === key)?.name ?? key;
+  };
+  const toggleField = (id: string, key: string) => {
+    const keys = toggle(filters.fields[id] ?? [], key);
+    const fields = { ...filters.fields };
+    if (keys.length) fields[id] = keys; else delete fields[id];
+    onChange({ ...filters, fields });
+  };
 
   return (
     <>
@@ -159,6 +190,22 @@ export default function FilterPanel({ games, filters, onChange, onClose, details
             <p className="muted small">{t('library.filters.genresPartial', { cached: detailsCached.toLocaleString(i18n.language), total: games.length.toLocaleString(i18n.language) })}</p>
           )}
         </section>
+
+        {fieldGroups.map(({ def, options }) => (
+          <section key={def.id}>
+            <h3>{def.name}</h3>
+            <div className="choice-row">
+              {options.map((o) => {
+                const on = filters.fields[def.id]?.includes(o.key) ?? false;
+                return (
+                  <button key={o.key} className={`choice ${on ? 'active' : ''}`} aria-pressed={on} onClick={() => toggleField(def.id, o.key)}>
+                    {optionLabel(def, o.key)}<span className="choice-count">{o.count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        ))}
 
         <footer className="filter-foot">
           <button className="primary" onClick={onClose}>{t('library.filters.done')}</button>

@@ -122,6 +122,9 @@ type Copy struct {
 	// physical copies with a barcode have them.
 	Estimates []Estimate
 
+	// Fields are the copy's custom field values, by field id.
+	Fields FieldValues
+
 	// NextValuation is when the prices are next estimated; zero when none is planned.
 	NextValuation time.Time
 

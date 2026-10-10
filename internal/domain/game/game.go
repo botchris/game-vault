@@ -4,6 +4,7 @@ package game
 import (
 	"context"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 )
@@ -20,6 +21,7 @@ type Game struct {
 	coverPhoto PhotoID
 	playStatus PlayStatus
 	rating     Rating
+	fields     FieldValues
 	copies     []Copy
 	createdAt  time.Time
 	updatedAt  time.Time
@@ -59,6 +61,9 @@ type Info struct {
 
 	// Rating is the user's score, 0 when unrated.
 	Rating Rating
+
+	// Fields are the game's custom field values, by field id.
+	Fields FieldValues
 }
 
 func (i Info) normalize() (Info, error) {
@@ -94,6 +99,13 @@ func (i Info) normalize() (Info, error) {
 
 // Rehydrate rebuilds a game from storage. Only repositories should call it.
 func Rehydrate(id ID, info Info, copies []Copy, createdAt, updatedAt time.Time) *Game {
+	// Empty values are never stored, on copies as on the game, so the mutators that count values
+	// (RemoveFieldValues) never count an empty one.
+	copies = slices.Clone(copies)
+	for i := range copies {
+		copies[i].Fields = copies[i].Fields.compact()
+	}
+
 	return &Game{
 		id:         id,
 		title:      info.Title,
@@ -103,6 +115,7 @@ func Rehydrate(id ID, info Info, copies []Copy, createdAt, updatedAt time.Time) 
 		coverPhoto: info.CoverPhoto,
 		playStatus: info.PlayStatus,
 		rating:     info.Rating,
+		fields:     info.Fields.compact(),
 		copies:     copies,
 		createdAt:  createdAt,
 		updatedAt:  updatedAt,
@@ -162,6 +175,7 @@ func (g *Game) Info() Info {
 		CoverPhoto: g.coverPhoto,
 		PlayStatus: g.playStatus,
 		Rating:     g.rating,
+		Fields:     g.fields.compact(),
 	}
 }
 
@@ -180,6 +194,7 @@ func (g *Game) UpdateInfo(i Info, now time.Time) (coverChanged bool, err error) 
 	coverChanged = i.CoverURL != g.coverURL || i.CoverPhoto != g.coverPhoto || !i.Links.Equal(g.links)
 	g.title, g.links, g.notes, g.coverURL, g.coverPhoto = i.Title, i.Links, i.Notes, i.CoverURL, i.CoverPhoto
 	g.playStatus, g.rating = i.PlayStatus, i.Rating
+	g.fields = i.Fields.compact()
 	g.updatedAt = now
 
 	return coverChanged, nil
@@ -282,6 +297,8 @@ func (g *Game) Absorb(other *Game, now time.Time) {
 	if g.rating == 0 {
 		g.rating = other.rating
 	}
+
+	g.fields = fillFields(g.fields, other.fields)
 
 	if other.notes != "" && !strings.Contains(g.notes, other.notes) {
 		g.notes = strings.TrimSpace(g.notes + "\n" + other.notes)

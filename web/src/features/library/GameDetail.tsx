@@ -11,6 +11,8 @@ import {
 } from '../../lib/model';
 import type { LinkStore } from '../../gen/gamevault/v1/game_pb';
 import { useAppData } from '../../state/AppData';
+import { FieldInputs, applyField, cleanFields, sameFields, useFieldValidity } from '../fields/FieldInput';
+import { FieldList } from '../fields/FieldList';
 import CopyForm from './CopyForm';
 import CopyPhotos from './CopyPhotos';
 import CopyValue from './CopyValue';
@@ -49,7 +51,7 @@ type Dialog =
 type Tab = 'overview' | 'copies' | 'edit';
 
 /** The editable fields a change sends; the rest are sent back as they are. */
-type GamePatch = Partial<Pick<Game, 'title' | 'links' | 'notes' | 'coverUrl' | 'playStatus' | 'rating'>>;
+type GamePatch = Partial<Pick<Game, 'title' | 'links' | 'notes' | 'coverUrl' | 'playStatus' | 'rating' | 'fields'>>;
 
 /** A game's sheet (like CLZ): details from the metadata providers, the copies you own, and editing. */
 export default function GameDetail({ gameId, onClose, onOpenGame, onPlatform, nav }: Props) {
@@ -258,7 +260,8 @@ function CopiesTab({ game, busy, run, setDialog, onGameGone }: {
 }) {
   const { t, i18n } = useTranslation();
   const fmt = useFormatters();
-  const { putGame, sourceName, reloadSources } = useAppData();
+  const { putGame, sourceName, reloadSources, fields } = useAppData();
+  const copyDefs = fields.filter((f) => f.scope === 'copy');
   // Copy whose key was just opened in the store: offer to mark it as redeemed.
   const [redeeming, setRedeeming] = useState<string | null>(null);
 
@@ -341,6 +344,8 @@ function CopiesTab({ game, busy, run, setDialog, onGameGone }: {
               )}
               {extra.length > 0 && <p className="muted small">{extra.join(' · ')}</p>}
               {d.kind === CopyKind.PHYSICAL && <CopyValue game={game} copy={c} onAddBarcode={() => setDialog({ type: 'editCopy', copy: c })} />}
+              <FieldList className="copy-fields" values={d.fields}
+                defs={copyDefs.filter((f) => !f.kinds.length || f.kinds.includes(d.kind))} />
               {d.notes && <p className="small">{d.notes}</p>}
               <CopyPhotos game={game} copy={c} />
               {source && <p className="muted small">{t('copy.syncedFrom', { source })}</p>}
@@ -361,12 +366,18 @@ function EditTab({ game, busy, onSave, setDialog, run, onDeleted }: {
   onDeleted: () => void;
 }) {
   const { t } = useTranslation();
-  const { dropGame } = useAppData();
-  const infoOf = (g: Game) => ({ title: g.title, links: { ...g.links }, notes: g.notes, coverUrl: g.coverUrl });
+  const { dropGame, fields } = useAppData();
+  const gameDefs = fields.filter((f) => f.scope === 'game');
+  const infoOf = (g: Game) => ({ title: g.title, links: { ...g.links }, notes: g.notes, coverUrl: g.coverUrl, fields: { ...g.fields } });
   const [info, setInfo] = useState(() => infoOf(game));
+  // Discard remounts the field inputs, so text they kept locally (an invalid number) goes too.
+  const [discarded, setDiscarded] = useState(0);
+  // A field holding invalid text (a number, a year) blocks Save until it is fixed or cleared.
+  const [fieldsInvalid, reportField] = useFieldValidity();
   const [stores, setStores] = useState<LinkStore[]>([]);
   const [searching, setSearching] = useState<LinkStore | null>(null);
-  const dirty = info.title !== game.title || !sameLinks(info.links, game.links) || info.notes !== game.notes || info.coverUrl !== game.coverUrl;
+  const dirty = info.title !== game.title || !sameLinks(info.links, game.links) || info.notes !== game.notes || info.coverUrl !== game.coverUrl
+    || !sameFields(info.fields, game.fields);
 
   useEffect(() => {
     gameClient.listLinkStores({}).then((res) => setStores(res.stores), () => setStores([]));
@@ -386,7 +397,8 @@ function EditTab({ game, busy, onSave, setDialog, run, onDeleted }: {
 
   const save = (e: FormEvent) => {
     e.preventDefault();
-    onSave({ ...info, links: cleanLinks(info.links) });
+    if (fieldsInvalid) return;
+    onSave({ ...info, links: cleanLinks(info.links), fields: cleanFields(info.fields) });
   };
 
   const deleteGame = () => {
@@ -445,10 +457,12 @@ function EditTab({ game, busy, onSave, setDialog, run, onDeleted }: {
           {t('common.notes')}
           <textarea rows={3} value={info.notes} onChange={(e) => setInfo({ ...info, notes: e.target.value })} />
         </label>
+        <FieldInputs key={discarded} className="span2" defs={gameDefs} values={info.fields} onValidity={reportField}
+          onChange={(id, update) => setInfo((x) => ({ ...x, fields: applyField(x.fields, id, update) }))} />
         <div className="span2 actions">
           <span className="spacer" />
-          {dirty && <button type="button" onClick={() => setInfo(infoOf(game))}>{t('common.discard')}</button>}
-          <button type="submit" className="primary" disabled={busy || !dirty}>{t('common.save')}</button>
+          {dirty && <button type="button" onClick={() => { setInfo(infoOf(game)); setDiscarded((n) => n + 1); }}>{t('common.discard')}</button>}
+          <button type="submit" className="primary" disabled={busy || !dirty || fieldsInvalid}>{t('common.save')}</button>
         </div>
       </form>
       <div className="actions danger-zone">

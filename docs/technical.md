@@ -278,7 +278,7 @@ Store covers: every library source links the games it imports to its store (Stea
 
 - **Sort** by title (A–Z or Z–A), recently added, release year, redeem deadline, number of copies or rating. The choice and the view (covers or list) are remembered per device.
 - **A–Z bar**: jump to the games starting with a letter (`#` groups titles starting with a digit or symbol). Letters with no games under the current filters are greyed out.
-- **Filters**: kind of copy, play status, source, platform and genre, plus quick filters for pending keys, keys expiring in 30 days and keys you don't need. Each option shows how many games it matches.
+- **Filters**: kind of copy, play status, source, platform, genre and the custom list, multilist and yes/no fields, plus quick filters for pending keys, keys expiring in 30 days and keys you don't need. Each option shows how many games it matches.
 - **Genres and release year** come from the game details. Game Vault downloads the details of Steam-linked games in the background (in the UI language, at a gentle pace), so the genre filter fills in over the first hours; the filter panel says how many games are covered so far.
 - **Platform badges** on every cover show where you have the game: the store or console logo (with the generation for consoles: PS3, 360…). Solid badges are copies you own; hollow ones with a key glyph are keys you have not redeemed yet. Sold, gifted and expired copies are not shown. Logos come from [Simple Icons](https://simpleicons.org) (CC0); Xbox and Nintendo, which Simple Icons does not ship, use simple drawn glyphs. Brand logos are trademarks of their owners.
 - On phones the sidebar becomes a bottom tab bar, filters open as a bottom sheet and the game sheet takes the full screen.
@@ -305,6 +305,71 @@ Only trailers stream from the provider; they are hundreds of MB each.
 The image proxy is only used when exploring new options (choose cover, scan suggestions). Folders are renamed when a game is renamed and deleted with the game.
 Covers from the old flat `config/covers/` layout are moved into `game-data` on first start.
 Changing a game's store links or cover drops its cached sheet. Descriptions are converted to plain text, so third-party HTML is never rendered.
+
+## Custom fields
+
+**Settings → Fields** defines your own fields for what the catalog does not track: a shelf, the price
+you paid, how long a game took, a personal rating… Each field has a name and one of nine types:
+
+| Type | Value | Shown as |
+|---|---|---|
+| Text | one line, up to 250 characters | as typed |
+| Long text | several lines, up to 10,000 characters | as typed |
+| Yes / no | a Yes / No / — segmented control (— leaves it empty) | Yes or No |
+| Number | whole, or with 2 decimals (stored in hundredths; a dot or a comma is the decimal separator); optional unit | the number in the UI language (`1,25 kg` in Spanish) and its unit |
+| Money | an amount in minor units and a currency (ISO 4217; empty means the default currency) | localized amount |
+| Date | a year, a year and month, or a full date | localized |
+| Duration | hours and minutes (stored in minutes) | `12 h 30 min`, numbers in the UI language |
+| List | one of the field's values | the value's name |
+| Multi-select list | several of the field's values; typing a new one while filling it in adds it to the field | chips with the names, in the field's order |
+
+A field describes either the **game** or each of its **copies**. A copy field can be limited to some
+kinds of copy (for example physical only); with none ticked, every kind has it. Game fields are
+filled in on the game sheet's **Edit** tab and shown under **More details** on the overview; copy
+fields in the copy form and on the copy card. Only values with something to show appear (a list
+value whose choice was removed shows nothing), and **More details** is hidden when none has one.
+While a number, amount, year or duration holds text that is not valid, the control says so and
+**Save** stays disabled (in the Edit tab and the copy form) until it is fixed or cleared. Fields
+appear in the order of the Fields page, where they can be moved up and down with the arrows (touch
+and keyboard) or dragged by their grip on desktop.
+
+Limits: 50 fields; 200 values per list; field and value names of 1 to 60 characters (field names
+are unique, ignoring case, and adding a list value that already exists returns that one); numbers
+within ±1,000,000,000,000 (whole or with 2 decimals); money amounts from 0 to
+1,000,000,000,000 in a currency with cents (at most 100,000,000,000,000 minor units, so never
+negative); durations up to 100,000 hours.
+The type and whether a field describes a game or a copy are fixed once it exists; the name, the
+copy kinds, the number and money options and the list values can change. A change that would
+corrupt or invalidate stored values is refused, saying how many games are affected: new decimals
+while any game or copy holds a value (the stored hundredths would be read at another scale, so the
+Fields page disables the control then), and a new currency or new copy kinds that some stored value
+no longer fits. Clear or change those values first.
+
+**Storage.** The definitions live in the `fields` setting, as one ordered list; each field and list
+value has an id that never changes, so renaming a value renames it everywhere. Values live inside
+the game document (game fields) and the copy documents (copy fields), keyed by field id. The server
+validates and normalizes them on save (text trimmed, multilist values in the field's order without
+repeats, the field's currency filled in) and never stores empty values: clearing a field removes it
+from the document. A save that names a field that no longer exists is refused, so an old page cannot
+write stale values, and so is a copy value for a field that does not apply to the copy's kind (the
+copy form leaves those out when it saves a copy whose kind changed).
+
+**Bulk changes.** Changes that touch every game run in one transaction:
+
+- **Deleting a field** removes it and its values from every game and copy. The confirmation says
+  how many games and copies hold a value.
+- **Removing a list value** clears it from every game and copy, or, with "merge into", replaces it
+  with another value of the same field (a multilist holds the target once). It applies at once,
+  without the dialog's Save.
+
+**Filters and search.** Every list, multilist and yes/no field adds a group to the library filters,
+with each value, Yes / No, and "No value" for games without one; each option shows how many games
+it matches. A copy field matches a game when one of its copies (of the kinds the field applies to)
+has the value. Picked values of a field that was deleted, or of a choice that was removed, are
+dropped from the filters, so they no longer count in the filter badge. The search box also looks in
+the text and long-text fields of the game and its copies.
+
+Scans never touch field values: sources write store data only, so values survive every sync.
 
 ## Photos of copies
 

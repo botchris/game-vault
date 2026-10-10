@@ -39,7 +39,7 @@ export const PHYSICAL_PLATFORMS = [
 export function emptyDetails(kind: CopyKind = CopyKind.PHYSICAL): CopyDetailsInput {
   return {
     kind, platform: '', status: STATUSES_BY_KIND[kind][0], key: '', redeemBy: '', origin: '',
-    acquiredOn: '', edition: '', grade: CopyGrade.UNSPECIFIED, contents: [], location: '', notes: '', barcode: '',
+    acquiredOn: '', edition: '', grade: CopyGrade.UNSPECIFIED, contents: [], location: '', notes: '', barcode: '', fields: {},
   };
 }
 
@@ -55,7 +55,7 @@ export const MAX_RATING = 5;
 /** Every editable field of a game, as UpdateGame expects them: it replaces all of them, so a
  *  change starts from this and overrides only what it changes. */
 export const gameInfo = (g: Game) => ({
-  id: g.id, title: g.title, links: g.links, notes: g.notes, coverUrl: g.coverUrl, playStatus: g.playStatus, rating: g.rating,
+  id: g.id, title: g.title, links: g.links, notes: g.notes, coverUrl: g.coverUrl, playStatus: g.playStatus, rating: g.rating, fields: g.fields,
 });
 
 export const GRADES = [CopyGrade.SEALED, CopyGrade.MINT, CopyGrade.VERY_GOOD, CopyGrade.GOOD, CopyGrade.ACCEPTABLE, CopyGrade.DAMAGED] as const;

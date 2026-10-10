@@ -5,9 +5,10 @@ import { Cover } from '../../components/Cover';
 import { Icon } from '../../components/Icon';
 import { PlatformBadges } from '../../components/PlatformBadge';
 import { Alert, useFormatters } from '../../components/ui';
+import { searchableText } from '../../lib/fields';
 import { CopyStatus, PlayStatus, daysUntil, isPendingKey, nextDeadline, playKey, toDate, type Game } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
-import FilterPanel, { NO_FILTERS, activeFilterCount, matchesFilters, type Filters } from './FilterPanel';
+import FilterPanel, { NO_FILTERS, activeFilterCount, matchesFilters, pruneFilters, type Filters } from './FilterPanel';
 import GameDetail, { type SheetNav } from './GameDetail';
 import NewGameDialog from './NewGameDialog';
 import { Stars } from './PlayControls';
@@ -56,11 +57,13 @@ const isExpiring = (g: Game) => {
 
 export default function LibraryPage() {
   const { t, i18n } = useTranslation();
-  const { games, reloadGames, detailsCached } = useAppData();
+  const { games, reloadGames, detailsCached, fields } = useAppData();
   const [q, setQ] = useState('');
   const [quick, setQuick] = useState<Quick>(null);
   const [letter, setLetter] = useState('');
-  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  const [chosenFilters, setFilters] = useState<Filters>(NO_FILTERS);
+  // Values of fields deleted or choices removed since they were picked no longer filter or count.
+  const filters = useMemo(() => pruneFilters(chosenFilters, fields), [chosenFilters, fields]);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [sortBy, setSortBy] = usePref<SortBy>('gamevault.librarySort', 'titleAsc', SORTS);
   const [view, setView] = usePref<View>('gamevault.libraryView', 'posters', ['list', 'posters']);
@@ -87,15 +90,15 @@ export default function LibraryPage() {
       if (quick === 'pending' && !g.copies.some(isPendingKey)) return false;
       if (quick === 'expiring' && !isExpiring(g)) return false;
       if (quick === 'redundant' && !g.copies.some((c) => c.redundant)) return false;
-      if (!matchesFilters(g, filters)) return false;
+      if (!matchesFilters(g, filters, fields)) return false;
       if (needle) {
-        const hay = [g.title, g.notes, ...g.genres, ...g.copies.flatMap((c) => [c.details?.origin, c.details?.notes, c.details?.location, c.details?.edition])]
+        const hay = [g.title, g.notes, ...g.genres, ...g.copies.flatMap((c) => [c.details?.origin, c.details?.notes, c.details?.location, c.details?.edition]), searchableText(g, fields)]
           .join(' ').toLocaleLowerCase(i18n.language);
         if (!hay.includes(needle)) return false;
       }
       return true;
     });
-  }, [games, q, quick, filters, i18n.language]);
+  }, [games, q, quick, filters, fields, i18n.language]);
 
   const lettersWithGames = useMemo(() => new Set(base.map((g) => initialOf(g.title))), [base]);
 

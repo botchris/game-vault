@@ -26,6 +26,7 @@ import (
 	"gamevault/internal/adapters/outbound/sqlite"
 	appauth "gamevault/internal/application/auth"
 	"gamevault/internal/application/catalog"
+	"gamevault/internal/application/fields"
 	"gamevault/internal/application/logs"
 	"gamevault/internal/application/media"
 	"gamevault/internal/application/sync"
@@ -280,6 +281,7 @@ type clients struct {
 	boxDet    *fakeBoxDetails
 	metadata  gamevaultv1connect.MetadataServiceClient
 	valuation gamevaultv1connect.ValuationServiceClient
+	fields    gamevaultv1connect.FieldServiceClient
 	sources   gamevaultv1connect.SourceServiceClient
 	system    gamevaultv1connect.SystemServiceClient
 	logs      gamevaultv1connect.LogServiceClient
@@ -345,7 +347,8 @@ func newServer(t *testing.T, p sync.Provider) clients {
 		Media:       mediaSvc,
 		MediaRPC:    rpc.NewMediaHandler(mediaSvc),
 		Valuation:   rpc.NewValuationHandler(valuationSvc),
-		Games:       rpc.NewGameHandler(catalog.NewService(games, db, time.Now, mediaSvc, photos), mediaSvc, syncSvc),
+		Fields:      rpc.NewFieldHandler(fields.NewService(sqlite.NewSettingsRepository(db), games, db, time.Now)),
+		Games:       rpc.NewGameHandler(catalog.NewService(games, db, time.Now, mediaSvc, photos, sqlite.NewSettingsRepository(db)), mediaSvc, syncSvc),
 		Sources:     rpc.NewSourceHandler(syncSvc),
 		System: rpc.NewSystemHandler(
 			system.NewService(games, db, sqlite.NewSettingsRepository(db), nil, time.Now, log, system.Status{Version: "test"}, filepath.Join(dir, "backups"), 3),
@@ -365,6 +368,7 @@ func newServer(t *testing.T, p sync.Provider) clients {
 		lookup:    gamevaultv1connect.NewLookupServiceClient(http.DefaultClient, srv.URL),
 		metadata:  gamevaultv1connect.NewMetadataServiceClient(http.DefaultClient, srv.URL),
 		valuation: gamevaultv1connect.NewValuationServiceClient(http.DefaultClient, srv.URL),
+		fields:    gamevaultv1connect.NewFieldServiceClient(http.DefaultClient, srv.URL),
 		boxart:    boxart,
 		boxDet:    boxDet,
 		images:    images,

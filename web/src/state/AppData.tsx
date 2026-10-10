@@ -1,12 +1,15 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { errorMessage, gameClient, sourceClient } from '../api/client';
+import { errorMessage, fieldClient, gameClient, sourceClient } from '../api/client';
+import type { FieldDefinition } from '../gen/gamevault/v1/field_pb';
 import type { Game } from '../gen/gamevault/v1/game_pb';
 import type { Source, SourceType } from '../gen/gamevault/v1/source_pb';
 
 interface AppData {
   games: Game[];
   sources: Source[];
+  /** Custom field definitions, in display order. */
+  fields: FieldDefinition[];
   sourceTypes: SourceType[];
   secretPlaceholder: string;
   loading: boolean;
@@ -15,6 +18,7 @@ interface AppData {
   detailsCached: number;
   reloadGames: () => Promise<void>;
   reloadSources: () => Promise<void>;
+  reloadFields: () => Promise<void>;
   /** Replace (or add) a game after a mutation, without refetching everything. */
   putGame: (g: Game) => void;
   dropGame: (id: string) => void;
@@ -30,6 +34,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [games, setGames] = useState<Game[]>([]);
   const [detailsCached, setDetailsCached] = useState(0);
   const [sources, setSources] = useState<Source[]>([]);
+  const [fields, setFields] = useState<FieldDefinition[]>([]);
   const [sourceTypes, setSourceTypes] = useState<SourceType[]>([]);
   const [secretPlaceholder, setSecretPlaceholder] = useState('');
   const [loading, setLoading] = useState(true);
@@ -57,9 +62,17 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const reloadFields = useCallback(async () => {
+    try {
+      setFields((await fieldClient.listFields({})).fields);
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  }, []);
+
   useEffect(() => {
-    Promise.all([reloadGames(), reloadSources()]).finally(() => setLoading(false));
-  }, [reloadGames, reloadSources]);
+    Promise.all([reloadGames(), reloadSources(), reloadFields()]).finally(() => setLoading(false));
+  }, [reloadGames, reloadSources, reloadFields]);
 
   const putGame = useCallback((g: Game) => {
     setGames((list) => {
@@ -76,11 +89,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AppData>(() => {
     const names = new Map(sources.map((s) => [s.id, s.name]));
     return {
-      games, sources, sourceTypes, secretPlaceholder, loading, error, detailsCached,
-      reloadGames, reloadSources, putGame, dropGame,
+      games, sources, fields, sourceTypes, secretPlaceholder, loading, error, detailsCached,
+      reloadGames, reloadSources, reloadFields, putGame, dropGame,
       sourceName: (id) => names.get(id) ?? '',
     };
-  }, [games, sources, sourceTypes, secretPlaceholder, loading, error, detailsCached, reloadGames, reloadSources, putGame, dropGame]);
+  }, [games, sources, fields, sourceTypes, secretPlaceholder, loading, error, detailsCached, reloadGames, reloadSources, reloadFields, putGame, dropGame]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

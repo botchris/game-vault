@@ -7,6 +7,8 @@ import { Alert, useFormatters } from '../../components/ui';
 import VideoPlayer from '../../components/VideoPlayer';
 import type { GameDetails } from '../../gen/gamevault/v1/metadata_pb';
 import { toDate, type Game } from '../../lib/model';
+import { useAppData } from '../../state/AppData';
+import { FieldList, hasFieldList } from '../fields/FieldList';
 
 /** Loads the game's details from the metadata providers (cached server-side). */
 export function useGameDetails(game: Game) {
@@ -69,7 +71,7 @@ export function SheetFacts({ details }: { details: GameDetails | null }) {
   );
 }
 
-/** The "Overview" tab: summary, trailers and screenshots. */
+/** The "Overview" tab: summary, notes, the game's custom fields, trailers and screenshots. */
 export function SheetOverview({ game, details, warnings, loading, error, onRefresh }: {
   game: Game;
   details: GameDetails | null;
@@ -80,6 +82,9 @@ export function SheetOverview({ game, details, warnings, loading, error, onRefre
 }) {
   const { t } = useTranslation();
   const fmt = useFormatters();
+  const { fields } = useAppData();
+  const gameDefs = fields.filter((d) => d.scope === 'game');
+  const hasFields = hasFieldList(gameDefs, game.fields);
   const [shot, setShot] = useState<number | null>(null);
   const empty = details && !details.summary && details.videos.length === 0 && details.screenshots.length === 0;
 
@@ -100,6 +105,12 @@ export function SheetOverview({ game, details, warnings, loading, error, onRefre
         <section>
           <h3>{t('common.notes')}</h3>
           <div className="summary"><p>{game.notes}</p></div>
+        </section>
+      )}
+      {hasFields && (
+        <section>
+          <h3>{t('fields.more')}</h3>
+          <FieldList defs={gameDefs} values={game.fields} />
         </section>
       )}
       {details && details.videos.length > 0 && (

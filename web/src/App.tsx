@@ -5,19 +5,21 @@ import { Alert, LanguageSwitcher } from './components/ui';
 import AuthGate, { useAuth } from './features/auth/AuthGate';
 import LibraryPage from './features/library/LibraryPage';
 import LogsPage from './features/logs/LogsPage';
+import FieldsPage from './features/fields/FieldsPage';
 import ProvidersPage from './features/providers/ProvidersPage';
 import ScanPage from './features/scan/ScanPage';
 import SourcesPage from './features/sources/SourcesPage';
 import SystemPage from './features/system/SystemPage';
 import { AppDataProvider, useAppData } from './state/AppData';
 
-const ROUTES = ['library', 'scan', 'sources', 'providers', 'system', 'logs', 'settings'] as const;
+const ROUTES = ['library', 'scan', 'sources', 'providers', 'fields', 'system', 'logs', 'settings'] as const;
 type Route = (typeof ROUTES)[number];
 
 /** Settings pages, grouped in the sidebar and behind "Settings" on phones. */
 const SETTINGS: { route: Route; icon: IconName }[] = [
   { route: 'sources', icon: 'sources' },
   { route: 'providers', icon: 'providers' },
+  { route: 'fields', icon: 'fields' },
   { route: 'system', icon: 'system' },
   { route: 'logs', icon: 'logs' },
 ];
@@ -88,6 +90,7 @@ function Shell() {
             {route === 'scan' && <ScanPage />}
             {route === 'sources' && <SourcesPage />}
             {route === 'providers' && <ProvidersPage />}
+            {route === 'fields' && <FieldsPage />}
             {route === 'system' && <SystemPage />}
             {route === 'logs' && <LogsPage />}
             {route === 'settings' && <SettingsIndex />}
