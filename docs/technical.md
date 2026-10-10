@@ -92,12 +92,15 @@ where it has none. They are not part of the CSV, which has one row per copy.
 A copy's **platform** says where it lives (Steam, a Humble key, a PS4 disc). Its **system** says
 where it is played: the user's override on the copy, else the system its source states (PlayStation
 copies say PS4 or PS5), else the one its platform implies. PC stores and launchers (Steam, Epic
-Games, GOG, EA App, Ubisoft Connect, Battle.net, itch.io, Amazon Games and the like) and the
-ambiguous "Microsoft Store / Xbox" imply `PC`; console names are their own system; "PlayStation
-Store" implies PS4 and "Nintendo eShop" Switch. An unknown platform is its own system and an empty
-one is `Other`. A source that lists PC copies sets `ImportedCopy.System` to `game.SystemPC`. A system a source sends that is not a valid name is ignored (the platform's applies); scans warn about it once per source and system while the server runs, then only log it at debug level, while a CSV import warns every time. Scans
-never touch the override; the form's **System** field clears it when emptied. A system name is
-stored in game documents and in cover file names, so existing names never change.
+Games, GOG, EA App, Ubisoft Connect, Battle.net, itch.io, Amazon Games, Rockstar, Riot and
+Battlestate (Tarkov)), the platform `PC` itself and the ambiguous "Microsoft Store / Xbox" imply
+`PC`; console names are their own system; "PlayStation Store" implies PS4 and "Nintendo eShop"
+Switch. An unknown platform is its own system and an empty one is `Other`. A source that lists PC
+copies sets `ImportedCopy.System` to `game.SystemPC`. A system a source sends that is not a valid
+name is ignored (the platform's applies); scans warn about it once per source and system while the
+server runs, then only log it at debug level, while a CSV import warns every time. Scans never touch
+the override; the form's **System** field clears it when emptied. A system name is stored in game
+documents and in cover file names, so existing names never change.
 
 A game has one **edition** per system of its copies. The **main edition** is the one the user chose
 (**Use as the game's cover**), else one with a physical copy, then the one with the most copies,
@@ -122,8 +125,8 @@ converted when read (the five texts the form used to suggest, in English or Span
 and contents; anything else is appended to the notes as `Condition: …`), and so are version-2
 documents (a cover photo goes to its copy's edition, which becomes the main one; a cover URL goes
 to the default main edition, unless the photo took it: when both land on the same edition, the
-photo wins and the URL is not kept). Migration `0010` only triggers the
-pre-migration backup.
+photo wins and the URL is not kept, so clearing that photo later falls to the providers, not to
+the old URL). Migration `0010` only triggers the pre-migration backup.
 
 **CSV** (System → import / export) is English only: `title, platform, kind, status, key, redeemBy,
 origin, acquiredOn, edition, grade, contents, location, price, currency, notes, links, externalId,
@@ -414,8 +417,10 @@ Scans never touch field values: sources write store data only, so values survive
 
 Any copy (key, library or physical) can have up to 50 photos, in the order the user chooses, each
 with an optional caption (at most 200 characters), the date it was taken and the date it was added.
-One of them can be the cover of its copy's edition: a cover photo wins over the chosen URL and the
-providers. Editing the game keeps it; choosing another cover for the edition replaces it; removing
+One of them can be the cover of its copy's edition: a cover photo wins over the providers, and an
+edition holds either a photo or a URL, never both (choosing one replaces the other). Clearing a
+photo cover therefore lets the providers choose: no URL from before the photo is kept to fall back
+to. Editing the game keeps it; choosing another cover for the edition replaces it; removing
 the photo (or the copy), or moving the copy to another system, clears it when no other copy of that
 edition has that photo.
 

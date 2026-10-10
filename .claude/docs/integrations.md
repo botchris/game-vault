@@ -68,9 +68,10 @@ non-2xx answers, which `StatusError` keeps only as a snippet.
 1. `covers.go` in the store's package (or a new package): `CoverProviderID`, `Descriptor()` with
    `Kind: provider.KindCover`, `EnabledByDefault: true` when it is free, and a `DefaultOrder`.
 2. `Applies(q)` must not touch the network: decide from `q.Links[LinkedStore.Key]` (the game's
-   link to the store; implement `media.StoreLinker` too), `q.Platforms`, `q.PhysicalPlatforms`. `q.System` is the edition's system (`""` when the query names none): a
-   store provider applies only when `q.ForPC()`; a console catalog checks the system (see
-   `xbox.IsXboxSystem`). Quota-limited providers also check `q.HasStoreLink()` / `q.Fallback`.
+   link to the store; implement `media.StoreLinker` too), `q.Platforms`, `q.PhysicalPlatforms`.
+   `q.System` is the edition's system (`""` when the query names none): a store provider applies
+   only when `q.ForPC()`; a console catalog checks the system (see `xbox.IsXboxSystem`).
+   Quota-limited providers also check `q.HasStoreLink()` / `q.Fallback`.
 3. `Covers(ctx, q, settings)` returns candidates best first (portrait art before landscape), each
    with `URL`, `ThumbURL`, a `Label` saying where it comes from, and `Provider`. Return `nil, nil`
    when the game is unknown; errors only for real failures.
@@ -98,7 +99,8 @@ provider, set the same `SettingsGroup` in both descriptors.
   following the `write-go` skill (GIVEN-WHEN-THEN tests with testify against a fake server)
 - [ ] `task test-server`, dialog checked in the browser pane, "Test connection" with bogus
       credentials shows the clean error from the real service; `task test-server:stop`
-- [ ] `docs/technical.md` (and the README platforms table for a new store) updated; the store's `.claude/memory/<store>.md` written and indexed in
-      `.claude/MEMORY.md`; the store's memory says it awaits a test with a real account
+- [ ] `docs/technical.md` (and the README platforms table for a new store) updated; the store's
+      `.claude/memory/<store>.md` written and indexed in `.claude/MEMORY.md`; the store's memory
+      says it awaits a test with a real account
 - [ ] Tell the user exactly what was verified for real and what only against fakes, and which
       error to paste back if the first real test fails
