@@ -8,8 +8,7 @@ import VideoPlayer from '../../components/VideoPlayer';
 import type { GameDetails } from '../../gen/gamevault/v1/metadata_pb';
 import { toDate, type Game } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
-import { isEmptyValue } from '../fields/FieldInput';
-import { FieldList } from '../fields/FieldList';
+import { FieldList, hasFieldList } from '../fields/FieldList';
 
 /** Loads the game's details from the metadata providers (cached server-side). */
 export function useGameDetails(game: Game) {
@@ -85,7 +84,7 @@ export function SheetOverview({ game, details, warnings, loading, error, onRefre
   const fmt = useFormatters();
   const { fields } = useAppData();
   const gameDefs = fields.filter((d) => d.scope === 'game');
-  const hasFields = gameDefs.some((d) => !isEmptyValue(game.fields[d.id]));
+  const hasFields = hasFieldList(gameDefs, game.fields);
   const [shot, setShot] = useState<number | null>(null);
   const empty = details && !details.summary && details.videos.length === 0 && details.screenshots.length === 0;
 

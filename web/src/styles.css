@@ -1169,3 +1169,9 @@ select.currency { flex: 0 0 auto; width: auto; }
 .copy-fields dt { font-size: 13px; margin: 0; flex: none; }
 .copy-fields dd { min-width: 0; }
 .copy-fields dt::after { content: ':'; }
+/* Read-only chips (several values of a list) have no remove button, so their padding is even. */
+.field-list .field-chip { padding: 3px 11px; }
+.field-list dd .field-chips { margin-top: 2px; }
+.copy-fields > div:has(.field-chips) { align-items: center; }
+.copy-fields .field-chips { gap: 4px; margin: 0; }
+.copy-fields .field-chip { padding: 1px 9px; font-size: 12.5px; }
