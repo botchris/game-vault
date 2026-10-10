@@ -11,8 +11,8 @@ one line here. Update a file instead of adding a duplicate; date facts about ext
 
 ## Status (update when the user reports results)
 - [Integration status](memory/status-integrations.md) — confirmed: Humble, Steam, Epic, GOG, EA, Ubisoft, Xbox; watch Battle.net keep-alive; PlayStation and the security redesign untested by the user
-- [Open threads](memory/open-threads.md) — offered, not done: cover photo recognition (paused), PS Store covers, itch.io, EAN-Search button, config README
-- [Known gaps](memory/known-gaps.md) — games without any cover; project not in git yet
+- [Open threads](memory/open-threads.md) — offered, not done: cover photo recognition (paused), PS Store covers, EAN-Search button, config README
+- [Known gaps](memory/known-gaps.md) — games without any cover
 
 ## Decisions
 - [License](memory/license.md) — PolyForm Noncommercial 1.0.0: source-available, no commercial use; never say "open source"
@@ -39,6 +39,7 @@ one line here. Update a file instead of adding a duplicate; date facts about ext
 - [Xbox](memory/xbox.md) — Xbox app client; collections need `"beneficiaries": []`; public display catalog
 - [PlayStation](memory/playstation.md) — NPSSO; registered GraphQL hashes; CSRF header
 - [Amazon Games](memory/amazon.md) — launcher device sign-in (nile), refresh token does not rotate, entitlements API, no portrait art
+- [itch.io](memory/itch.md) — official API, personal key, `/profile/owned-keys` until an empty page, errors list even with 200
 - [Fanatical](memory/fanatical.md) — `/api/user/keys` with the `bsauth` token; terms forbid it, built only behind a required risk consent (user's decision)
 - [CeX](memory/cex.md) — free EAN box-detail API with PAL coverage; barcode lookups keep name and platform; prices of own copies allowed (2026-10-09); search behind Cloudflare; no images
 - [EAN-Search](memory/ean-search.md) — never scrape the public site

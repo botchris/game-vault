@@ -15,6 +15,8 @@ Confirmed by the user with real accounts:
 Implemented but **not yet tested by the user**:
 - PlayStation: NPSSO → session, purchased PS4/PS5 games, PS Plus filtered by `membership`.
   Unknown: the real response shape and how PS Plus games are marked. See [[playstation]].
+- itch.io (2026-10-10): official API, tested only against a fake server and bogus-key probes.
+  Unknown: the real `game` object of owned keys. See [[itch]].
 - Xbox Game Pass filtering assumes `acquisitionType: "Recurring"`; not confirmed.
 
 Security redesign (Sonarr-style, see [[security-model]]): built and tested on the test server

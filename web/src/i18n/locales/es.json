@@ -283,7 +283,8 @@
       "xbox": "Juegos comprados en Microsoft Store",
       "playstation": "Juegos de PS4 y PS5 comprados con tu cuenta",
       "amazon": "Juegos comprados o reclamados con Prime Gaming",
-      "fanatical": "Claves de juegos, bajo tu responsabilidad: sus condiciones no lo permiten"
+      "fanatical": "Claves de juegos, bajo tu responsabilidad: sus condiciones no lo permiten",
+      "itch": "Los juegos que compraste o reclamaste, con una clave de API personal"
     },
     "amazon": {
       "description": "Importa los juegos de tu biblioteca de Amazon Games: los que compraste y los que reclamaste con Prime Gaming. Inicia sesión como el launcher de Amazon Games (como Heroic y nile) y solo lee tu biblioteca. Los códigos de Prime Gaming para otras tiendas (GOG, Epic…) no están aquí: esos juegos aparecen al escanear esa tienda.",
@@ -297,6 +298,11 @@
       "consentHelp": "Fanatical no ofrece ninguna forma oficial de que otras aplicaciones lean tu cuenta, y sus Términos y Condiciones no lo permiten: prohíben \"take data from our website for your or third party databases or data harvests without our consent\" (tomar datos de su web para bases de datos propias o de terceros sin su consentimiento). Game Vault lee tu lista de claves igual que el plugin de Fanatical para Playnite. Fanatical podría considerarlo un incumplimiento de sus condiciones y suspender o cerrar tu cuenta.\nGame Vault solo lee, una vez por escaneo, y solo escanea cuando tú lo pides salvo que lo programes. Los autores de Game Vault no se hacen responsables de lo que Fanatical haga con tu cuenta. Si no te parece aceptable, no añadas esta fuente.",
       "session": "Datos de sesión (bsauth)",
       "sessionHelp": "1. Abre la página de arriba e inicia sesión en Fanatical.\n2. Abre las DevTools (F12, o Cmd+Opción+I en Mac) → Aplicación → Almacenamiento local → `https://www.fanatical.com`.\n3. Copia el valor de `bsauth` (empieza por `{\"authenticated\":true`) y pégalo aquí.\nLa sesión caduca al cabo de un tiempo: pega un valor nuevo cuando los escaneos digan que no has iniciado sesión. No lo compartas nunca: da acceso a tu cuenta de Fanatical."
+    },
+    "itch": {
+      "description": "Importa los juegos de tu biblioteca de itch.io: los que compraste, reclamaste gratis, conseguiste en un bundle o te regalaron. Usa la API oficial de itch.io con una clave de API personal y solo lee. No se importan herramientas, assets, bandas sonoras, cómics ni libros.",
+      "apiKey": "Clave de API",
+      "apiKeyHelp": "1. Abre la página de arriba e inicia sesión en itch.io.\n2. Pulsa Generate new API key y cópiala.\n3. Pégala aquí.\nLa clave da acceso a tu cuenta de itch.io: no la compartas nunca. Revócala en la misma página para desconectar Game Vault."
     },
     "riskTitle": "Riesgo para tu cuenta",
     "readTerms": "Leer las condiciones de Fanatical"

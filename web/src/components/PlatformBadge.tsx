@@ -188,6 +188,7 @@ const SOURCE_LOOKS: Record<string, PlatformLook> = {
   xbox: platformLook('Microsoft Store / Xbox'),
   playstation: { glyph: PS, bg: PS_BG },
   amazon: platformLook('Amazon Games'),
+  itch: platformLook('itch.io'),
   fanatical: { glyph: FANATICAL, bg: '#ff9800', fg: '#111' },
 };
 
