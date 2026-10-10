@@ -12,7 +12,7 @@ import {
 } from '../../lib/model';
 import { usePreferredCurrency } from '../../lib/usePreferences';
 import { useAppData } from '../../state/AppData';
-import { FieldInputs, cleanFields } from '../fields/FieldInput';
+import { FieldInputs, applyField, cleanFields, useFieldValidity } from '../fields/FieldInput';
 
 interface Props {
   initial?: CopyDetailsInput;
@@ -37,6 +37,8 @@ export default function CopyForm({ initial, managedBy, onSubmit, onClose }: Prop
   const currency = chosenCurrency || preferred;
   const minor = amount.trim() === '' ? 0n : parseAmount(amount, currencyDigits(currency));
   const amountInvalid = minor === null;
+  // A custom field holding invalid text (a number, a year) blocks Save until it is fixed or cleared.
+  const [fieldsInvalid, reportField] = useFieldValidity();
 
   // The copy fields that apply to the chosen kind (a field without kinds applies to all).
   const defs = fields.filter((f) => f.scope === 'copy' && (!f.kinds.length || f.kinds.includes(d.kind)));
@@ -47,7 +49,7 @@ export default function CopyForm({ initial, managedBy, onSubmit, onClose }: Prop
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (amountInvalid) return;
+    if (amountInvalid || fieldsInvalid) return;
     setBusy(true);
     setError('');
     try {
@@ -68,7 +70,7 @@ export default function CopyForm({ initial, managedBy, onSubmit, onClose }: Prop
       footer={<>
         <span className="spacer" />
         <button type="button" onClick={onClose}>{t('common.cancel')}</button>
-        <button type="submit" form="copy-form" className="primary" disabled={busy || amountInvalid}>{busy ? t('common.saving') : t('common.save')}</button>
+        <button type="submit" form="copy-form" className="primary" disabled={busy || amountInvalid || fieldsInvalid}>{busy ? t('common.saving') : t('common.save')}</button>
       </>}>
       <form id="copy-form" onSubmit={submit}>
         {managedBy && <p className="muted small">{t('copy.managedBy', { source: managedBy })}</p>}
@@ -164,7 +166,8 @@ export default function CopyForm({ initial, managedBy, onSubmit, onClose }: Prop
             <textarea rows={3} value={d.notes} onChange={(e) => set('notes', e.target.value)} />
           </label>
         </div>
-        <FieldInputs defs={defs} values={d.fields} onChange={(id, v) => setD((x) => ({ ...x, fields: { ...x.fields, [id]: v } }))} />
+        <FieldInputs defs={defs} values={d.fields} onValidity={reportField}
+          onChange={(id, update) => setD((x) => ({ ...x, fields: applyField(x.fields, id, update) }))} />
         {error && <Alert tone="error">{error}</Alert>}
       </form>
     </Modal>

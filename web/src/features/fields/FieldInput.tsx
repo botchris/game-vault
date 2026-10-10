@@ -1,5 +1,5 @@
 import { create } from '@bufbuild/protobuf';
-import { useEffect, useState, type ChangeEvent, type KeyboardEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type ChangeEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { errorMessage, fieldClient } from '../../api/client';
 import { Icon } from '../../components/Icon';
@@ -50,31 +50,65 @@ export function sameFields(a: FieldValues, b: FieldValues): boolean {
   return key(a) === key(b);
 }
 
+/**
+ * A change to one field's value, applied to the latest value the parent holds (an empty value
+ * removes it). A function rather than a value because a new list value arrives after a round trip,
+ * when the chips may have changed meanwhile.
+ */
+export type FieldUpdate = (prev: FieldValue | undefined) => FieldValue;
+
+/** The values with one field's update applied: what a parent's state setter does with onChange. */
+export function applyField(values: FieldValues, id: string, update: FieldUpdate): FieldValues {
+  return { ...values, [id]: update(values[id]) };
+}
+
+/**
+ * Which field controls hold text that is not a valid value (a number, a year, a duration). The form
+ * refuses to save while any does, instead of saving the last valid value behind the user's back.
+ * Returns whether any is invalid and the callback FieldInputs reports through.
+ */
+export function useFieldValidity() {
+  const [invalid, setInvalid] = useState<ReadonlySet<string>>(() => new Set());
+  const report = useCallback((id: string, bad: boolean) => setInvalid((s) => {
+    if (s.has(id) === bad) return s;
+    const next = new Set(s);
+    if (bad) next.add(id); else next.delete(id);
+    return next;
+  }), []);
+  return [invalid.size > 0, report] as const;
+}
+
 /** The custom fields as a grid of labelled controls, one per definition, in the definitions' order. */
-export function FieldInputs({ defs, values, onChange, className }: {
+export function FieldInputs({ defs, values, onChange, onValidity, className }: {
   defs: FieldDefinition[];
   values: FieldValues;
-  /** One field's new value (an empty value when it was removed); the parent merges it into its
-   *  latest map, since a new list value arrives after a round trip. */
-  onChange: (id: string, v: FieldValue) => void;
+  /** One field's change; the parent applies it to its latest map (see applyField). */
+  onChange: (id: string, update: FieldUpdate) => void;
+  /** Whether a field's control holds invalid text; false again when it is fixed or unmounted. */
+  onValidity?: (id: string, invalid: boolean) => void;
   className?: string;
 }) {
   if (defs.length === 0) return null;
   return (
     <div className={`grid field-inputs ${className ?? ''}`}>
       {defs.map((d) => (
-        <FieldInput key={d.id} def={d} value={values[d.id]} onChange={(v) => onChange(d.id, v)} />
+        <FieldInput key={d.id} def={d} value={values[d.id]} onChange={(update) => onChange(d.id, update)}
+          onInvalid={(bad) => onValidity?.(d.id, bad)} />
       ))}
     </div>
   );
 }
 
-/** One custom field with its label: the control depends on the field's type. */
-export function FieldInput({ def, value, onChange }: {
+interface InputProps<T> {
   def: FieldDefinition;
-  value: FieldValue | undefined;
-  onChange: (v: FieldValue) => void;
-}) {
+  value: T;
+  onChange: (update: FieldUpdate) => void;
+  onInvalid: (invalid: boolean) => void;
+}
+
+/** One custom field with its label: the control depends on the field's type. */
+export function FieldInput({ def, value, onChange, onInvalid }: InputProps<FieldValue | undefined>) {
+  const set = (v: FieldValue) => onChange(() => v);
   const val = value?.value;
   switch (def.type) {
     case 'text':
@@ -82,7 +116,7 @@ export function FieldInput({ def, value, onChange }: {
         <label>
           {def.name}
           <input maxLength={250} value={val?.case === 'text' ? val.value : ''}
-            onChange={(e) => onChange(make({ case: 'text', value: e.target.value }))} />
+            onChange={(e) => set(make({ case: 'text', value: e.target.value }))} />
         </label>
       );
     case 'longtext':
@@ -90,21 +124,21 @@ export function FieldInput({ def, value, onChange }: {
         <label className="span2">
           {def.name}
           <textarea rows={3} maxLength={10000} value={val?.case === 'text' ? val.value : ''}
-            onChange={(e) => onChange(make({ case: 'text', value: e.target.value }))} />
+            onChange={(e) => set(make({ case: 'text', value: e.target.value }))} />
         </label>
       );
     case 'bool':
-      return <BoolInput def={def} value={val?.case === 'bool' ? val.value : undefined} onChange={onChange} />;
+      return <BoolInput def={def} value={val?.case === 'bool' ? val.value : undefined} onChange={set} />;
     case 'number':
-      return <NumberInput def={def} value={val?.case === 'number' ? val.value : undefined} onChange={onChange} />;
+      return <NumberInput def={def} value={val?.case === 'number' ? val.value : undefined} onChange={onChange} onInvalid={onInvalid} />;
     case 'money':
-      return <MoneyInput def={def} value={val?.case === 'money' ? val.value : undefined} onChange={onChange} />;
+      return <MoneyInput def={def} value={val?.case === 'money' ? val.value : undefined} onChange={onChange} onInvalid={onInvalid} />;
     case 'date':
-      return <DateInput def={def} value={val?.case === 'date' ? val.value : ''} onChange={onChange} />;
+      return <DateInput def={def} value={val?.case === 'date' ? val.value : ''} onChange={onChange} onInvalid={onInvalid} />;
     case 'duration':
-      return <DurationInput def={def} value={val?.case === 'minutes' ? val.value : undefined} onChange={onChange} />;
+      return <DurationInput def={def} value={val?.case === 'minutes' ? val.value : undefined} onChange={onChange} onInvalid={onInvalid} />;
     case 'list':
-      return <ListInput def={def} value={val?.case === 'choice' ? val.value : ''} onChange={onChange} />;
+      return <ListInput def={def} value={val?.case === 'choice' ? val.value : ''} onChange={set} />;
     case 'multilist':
       return <MultiListInput def={def} ids={val?.case === 'choices' ? val.value.ids : []} onChange={onChange} />;
     default:
@@ -112,27 +146,65 @@ export function FieldInput({ def, value, onChange }: {
   }
 }
 
-/** A control made of several elements: a labelled group instead of a <label>. */
-function Group({ def, wide, error, children }: { def: FieldDefinition; wide?: boolean; error?: string; children: ReactNode }) {
+/**
+ * A control made of several elements: a labelled group instead of a <label>. The error has the id
+ * errorId, which the inputs name in aria-describedby.
+ */
+function Group({ def, wide, error, errorId, children }: {
+  def: FieldDefinition;
+  wide?: boolean;
+  error?: string;
+  errorId?: string;
+  children: ReactNode;
+}) {
   return (
     <div className={`field${wide ? ' span2' : ''}`} role="group" aria-label={def.name}>
       <span className="field-label">{def.name}</span>
       {children}
-      {error && <span className="help error">{error}</span>}
+      {error && <span id={errorId} className="help error">{error}</span>}
     </div>
   );
 }
 
+/** One input with its label and, while the text is invalid, an error the input is described by. */
+function Single({ def, error, children }: { def: FieldDefinition; error?: string; children: (ids: { id: string; describedBy?: string }) => ReactNode }) {
+  const id = useId();
+  const errorId = `${id}-error`;
+  return (
+    <div className="field">
+      <label htmlFor={id}>{def.name}</label>
+      {children({ id, describedBy: error ? errorId : undefined })}
+      {error && <span id={errorId} className="help error">{error}</span>}
+    </div>
+  );
+}
+
+/** Tells the parent whether the control's text is invalid, and that it no longer is once unmounted. */
+function useReportInvalid(invalid: boolean, onInvalid: (invalid: boolean) => void) {
+  const report = useRef(onInvalid);
+  // The latest callback, updated before the effect below reads it (effects run in order).
+  useEffect(() => {
+    report.current = onInvalid;
+  });
+  useEffect(() => {
+    report.current(invalid);
+  }, [invalid]);
+  useEffect(() => () => report.current(false), []);
+}
+
 /**
  * Text typed in an input that stands for a value: kept while it still means the current value (so
- * "3,5" is not rewritten while typing), replaced when the value changes from outside (Discard).
+ * "3,5" is not rewritten while typing), replaced by formatted when the value changes from outside
+ * (Discard, a reload). key identifies the value; keyOfText gives the key the text stands for. The
+ * check runs while rendering, when the key changes, so there is no effect and nothing to depend on.
  */
-function useDraft(key: string, format: () => string, keyOfText: (text: string) => string) {
-  const [text, setText] = useState(format);
-  useEffect(() => {
-    setText((t) => (keyOfText(t) === key ? t : format()));
-    // Only a new value resets the text; format and keyOfText are recreated on every render.
-  }, [key]);
+function useDraft(key: string, formatted: string, keyOfText: (text: string) => string) {
+  const [text, setText] = useState(formatted);
+  const [seen, setSeen] = useState(key);
+  if (seen !== key) {
+    setSeen(key);
+    if (keyOfText(text) !== key) setText(formatted);
+  }
   return [text, setText] as const;
 }
 
@@ -155,77 +227,77 @@ function BoolInput({ def, value, onChange }: { def: FieldDefinition; value: bool
   );
 }
 
-/** A number with the field's decimals; the unit follows the input. Invalid text keeps the last value. */
-function NumberInput({ def, value, onChange }: { def: FieldDefinition; value: bigint | undefined; onChange: (v: FieldValue) => void }) {
-  const { t } = useTranslation();
-  const format = () => (value === undefined ? '' : numberInput(value, def.decimals));
+/** A number with the field's decimals; the unit follows the input. Invalid text blocks saving. */
+function NumberInput({ def, value, onChange, onInvalid }: InputProps<bigint | undefined>) {
+  const { t, i18n } = useTranslation();
+  const formatted = value === undefined ? '' : numberInput(value, def.decimals, i18n.language);
   const keyOf = (s: string) => (s.trim() === '' ? '' : String(parseNumber(s, def.decimals)));
-  const [text, setText] = useDraft(value === undefined ? '' : String(value), format, keyOf);
-  const parsed = parseNumber(text, def.decimals);
-  const invalid = text.trim() !== '' && parsed === null;
+  const [text, setText] = useDraft(value === undefined ? '' : String(value), formatted, keyOf);
+  const invalid = text.trim() !== '' && parseNumber(text, def.decimals) === null;
+  useReportInvalid(invalid, onInvalid);
   const change = (s: string) => {
     setText(s);
     const n = parseNumber(s, def.decimals);
-    if (s.trim() === '') onChange(EMPTY);
-    else if (n !== null) onChange(make({ case: 'number', value: n }));
+    if (s.trim() === '') onChange(() => EMPTY);
+    else if (n !== null) onChange(() => make({ case: 'number', value: n }));
   };
   return (
-    <label>
-      {def.name}
-      <span className="row tight">
-        <input inputMode="decimal" value={text} aria-invalid={invalid} onChange={(e) => change(e.target.value)}
-          onBlur={() => { if (!invalid) setText(format()); }} />
-        {def.unit && <span className="field-unit">{def.unit}</span>}
-      </span>
-      {invalid && <span className="help error">{t('fields.invalidNumber')}</span>}
-    </label>
+    <Single def={def} error={invalid ? t('fields.invalidNumber') : undefined}>
+      {({ id, describedBy }) => (
+        <span className="row tight">
+          <input id={id} inputMode="decimal" value={text} aria-invalid={invalid} aria-describedby={describedBy}
+            onChange={(e) => change(e.target.value)} onBlur={() => { if (!invalid) setText(formatted); }} />
+          {def.unit && <span className="field-unit">{def.unit}</span>}
+        </span>
+      )}
+    </Single>
   );
 }
 
 /** An amount in the field's currency, or in the default one when the field has none. */
-function MoneyInput({ def, value, onChange }: {
-  def: FieldDefinition;
-  value: { amountMinor: bigint; currency: string } | undefined;
-  onChange: (v: FieldValue) => void;
-}) {
+function MoneyInput({ def, value, onChange, onInvalid }: InputProps<{ amountMinor: bigint; currency: string } | undefined>) {
   const { t, i18n } = useTranslation();
   const preferred = usePreferredCurrency(i18n.language);
   const currency = def.currency || value?.currency || preferred;
   const digits = currencyDigits(currency);
-  const format = () => (value ? amountInput(value.amountMinor, currency, i18n.language) || '0' : '');
+  const formatted = value ? amountInput(value.amountMinor, currency, i18n.language) || '0' : '';
   const keyOf = (s: string) => (s.trim() === '' ? '' : String(parseAmount(s, digits)));
-  const [text, setText] = useDraft(value ? String(value.amountMinor) : '', format, keyOf);
+  const [text, setText] = useDraft(value ? String(value.amountMinor) : '', formatted, keyOf);
   const invalid = text.trim() !== '' && parseAmount(text, digits) === null;
+  useReportInvalid(invalid, onInvalid);
   const change = (s: string) => {
     setText(s);
     const minor = parseAmount(s, digits);
-    if (s.trim() === '') onChange(EMPTY);
-    else if (minor !== null) onChange(make({ case: 'money', value: create(MoneySchema, { amountMinor: minor, currency }) }));
+    if (s.trim() === '') onChange(() => EMPTY);
+    else if (minor !== null) onChange(() => make({ case: 'money', value: create(MoneySchema, { amountMinor: minor, currency }) }));
   };
   return (
-    <label>
-      {def.name}
-      <span className="row tight">
-        <input inputMode="decimal" value={text} aria-invalid={invalid} onChange={(e) => change(e.target.value)}
-          onBlur={() => { if (!invalid) setText(format()); }} placeholder={amountInput(2995n, currency, i18n.language)} />
-        <span className="field-unit">{currency}</span>
-      </span>
-      {invalid && <span className="help error">{t('fields.invalidNumber')}</span>}
-    </label>
+    <Single def={def} error={invalid ? t('fields.invalidNumber') : undefined}>
+      {({ id, describedBy }) => (
+        <span className="row tight">
+          <input id={id} inputMode="decimal" value={text} aria-invalid={invalid} aria-describedby={describedBy}
+            onChange={(e) => change(e.target.value)} onBlur={() => { if (!invalid) setText(formatted); }}
+            placeholder={amountInput(2995n, currency, i18n.language)} />
+          <span className="field-unit">{currency}</span>
+        </span>
+      )}
+    </Single>
   );
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
 /** Year, then an optional month, then an optional day (only with a month). */
-function DateInput({ def, value, onChange }: { def: FieldDefinition; value: string; onChange: (v: FieldValue) => void }) {
+function DateInput({ def, value, onChange, onInvalid }: InputProps<string>) {
   const { t, i18n } = useTranslation();
+  const errorId = `${useId()}-error`;
   const [y = '', m = '', d = ''] = value ? value.split('-') : [];
-  const [year, setYear] = useDraft(value, () => y, (s) => (/^\d{4}$/.test(s) ? [s, m, d].filter(Boolean).join('-') : s === '' ? '' : '?'));
+  const [year, setYear] = useDraft(value, y, (s) => (/^\d{4}$/.test(s) ? [s, m, d].filter(Boolean).join('-') : s === '' ? '' : '?'));
   const invalid = year !== '' && !/^\d{4}$/.test(year);
+  useReportInvalid(invalid, onInvalid);
   const emit = (yy: string, mm: string, dd: string) => {
-    if (!yy) onChange(EMPTY);
-    else onChange(make({ case: 'date', value: [yy, mm, mm && dd].filter(Boolean).join('-') }));
+    if (!yy) onChange(() => EMPTY);
+    else onChange(() => make({ case: 'date', value: [yy, mm, mm && dd].filter(Boolean).join('-') }));
   };
   const changeYear = (s: string) => {
     setYear(s);
@@ -236,10 +308,10 @@ function DateInput({ def, value, onChange }: { def: FieldDefinition; value: stri
   const monthName = (n: number) => new Date(2000, n - 1, 1).toLocaleDateString(i18n.language, { month: 'long' });
   const days = m ? Array.from({ length: daysIn(y || '2000', m) }, (_, i) => i + 1) : [];
   return (
-    <Group def={def} error={invalid ? t('fields.invalidYear') : undefined}>
+    <Group def={def} error={invalid ? t('fields.invalidYear') : undefined} errorId={errorId}>
       <span className="field-date">
         <input className="field-year" inputMode="numeric" maxLength={4} value={year} placeholder={t('fields.year')}
-          aria-label={t('fields.year')} aria-invalid={invalid} onChange={(e) => changeYear(e.target.value.trim())} />
+          aria-label={t('fields.year')} aria-invalid={invalid} aria-describedby={invalid ? errorId : undefined} onChange={(e) => changeYear(e.target.value.trim())} />
         <select value={m} aria-label={t('fields.month')} disabled={!y}
           onChange={(e) => { const mm = e.target.value; emit(y, mm, d && mm && Number(d) <= daysIn(y, mm) ? d : ''); }}>
           <option value="">{t('fields.month')}</option>
@@ -261,8 +333,9 @@ function daysIn(year: string, month: string): number {
 }
 
 /** Hours and minutes, stored as minutes. */
-function DurationInput({ def, value, onChange }: { def: FieldDefinition; value: bigint | undefined; onChange: (v: FieldValue) => void }) {
+function DurationInput({ def, value, onChange, onInvalid }: InputProps<bigint | undefined>) {
   const { t } = useTranslation();
+  const errorId = `${useId()}-error`;
   const split = (v: bigint | undefined): [string, string] =>
     (v === undefined ? ['', ''] : [v >= 60n ? String(v / 60n) : '', String(v % 60n)]);
   const parse = (h: string, m: string): bigint | null | undefined => {
@@ -270,26 +343,28 @@ function DurationInput({ def, value, onChange }: { def: FieldDefinition; value: 
     if (!/^\d*$/.test(h.trim()) || !/^\d*$/.test(m.trim())) return null;
     return BigInt(h.trim() || '0') * 60n + BigInt(m.trim() || '0');
   };
-  const [hm, setHm] = useDraft(value === undefined ? '' : String(value), () => split(value).join(':'), (s) => {
+  const [hm, setHm] = useDraft(value === undefined ? '' : String(value), split(value).join(':'), (s) => {
     const [h = '', m = ''] = s.split(':');
     const v = parse(h, m);
     return v === undefined ? '' : String(v);
   });
   const [h = '', m = ''] = hm.split(':');
   const invalid = parse(h, m) === null;
+  useReportInvalid(invalid, onInvalid);
+  const describedBy = invalid ? errorId : undefined;
   const change = (hh: string, mm: string) => {
     setHm(`${hh}:${mm}`);
     const v = parse(hh, mm);
-    if (v === undefined) onChange(EMPTY);
-    else if (v !== null) onChange(make({ case: 'minutes', value: v }));
+    if (v === undefined) onChange(() => EMPTY);
+    else if (v !== null) onChange(() => make({ case: 'minutes', value: v }));
   };
   return (
-    <Group def={def} error={invalid ? t('fields.invalidNumber') : undefined}>
+    <Group def={def} error={invalid ? t('fields.invalidNumber') : undefined} errorId={errorId}>
       <span className="field-duration">
-        <input inputMode="numeric" value={h} aria-label={t('fields.hoursLabel')} aria-invalid={invalid}
+        <input inputMode="numeric" value={h} aria-label={t('fields.hoursLabel')} aria-invalid={invalid} aria-describedby={describedBy}
           onChange={(e) => change(e.target.value.replace(':', ''), m)} />
         <span className="field-unit">{t('fields.hours')}</span>
-        <input inputMode="numeric" value={m} aria-label={t('fields.minutesLabel')} aria-invalid={invalid}
+        <input inputMode="numeric" value={m} aria-label={t('fields.minutesLabel')} aria-invalid={invalid} aria-describedby={describedBy}
           onChange={(e) => change(h, e.target.value.replace(':', ''))} />
         <span className="field-unit">{t('fields.minutes')}</span>
       </span>
@@ -327,13 +402,18 @@ function ListInput({ def, value, onChange }: { def: FieldDefinition; value: stri
 }
 
 /** Several values of a list: chips, and an input that picks another value or adds a new one. */
-function MultiListInput({ def, ids, onChange }: { def: FieldDefinition; ids: string[]; onChange: (v: FieldValue) => void }) {
+function MultiListInput({ def, ids, onChange }: { def: FieldDefinition; ids: string[]; onChange: (update: FieldUpdate) => void }) {
   const { t } = useTranslation();
   const { reloadFields } = useAppData();
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const set = (next: string[]) => onChange(next.length ? make({ case: 'choices', value: create(ChoiceListSchema, { ids: next }) }) : EMPTY);
+  const list = (next: string[]) => (next.length ? make({ case: 'choices', value: create(ChoiceListSchema, { ids: next }) }) : EMPTY);
+  // Every change applies to the latest ids, not the ones of this render: a value added after a
+  // round trip must not bring back a chip removed while the request was in flight.
+  const update = (fn: (ids: string[]) => string[]) =>
+    onChange((prev) => list(fn(prev?.value.case === 'choices' ? prev.value.value.ids : [])));
+  const addId = (id: string) => update((cur) => (cur.includes(id) ? cur : [...cur, id]));
   const others = def.choices.filter((c) => !ids.includes(c.id));
   const listId = `field-${def.id}-choices`;
 
@@ -342,7 +422,7 @@ function MultiListInput({ def, ids, onChange }: { def: FieldDefinition; ids: str
     if (!clean) return;
     const known = def.choices.find((c) => c.name.toLowerCase() === clean.toLowerCase());
     if (known) {
-      if (!ids.includes(known.id)) set([...ids, known.id]);
+      addId(known.id);
       setText('');
       return;
     }
@@ -352,8 +432,7 @@ function MultiListInput({ def, ids, onChange }: { def: FieldDefinition; ids: str
     try {
       const res = await fieldClient.addChoice({ fieldId: def.id, name: clean });
       await reloadFields();
-      const id = res.choice!.id;
-      if (!ids.includes(id)) set([...ids, id]);
+      addId(res.choice!.id);
       setText('');
     } catch (e) {
       setError(errorMessage(e));
@@ -387,7 +466,7 @@ function MultiListInput({ def, ids, onChange }: { def: FieldDefinition; ids: str
             <li key={id} className="field-chip">
               {def.choices.find((c) => c.id === id)?.name ?? id}
               <button type="button" className="field-chip-remove" aria-label={t('fields.removeChoice', { name: def.choices.find((c) => c.id === id)?.name ?? id })}
-                onClick={() => set(ids.filter((x) => x !== id))}><Icon name="close" size={14} /></button>
+                onClick={() => update((cur) => cur.filter((x) => x !== id))}><Icon name="close" size={14} /></button>
             </li>
           ))}
         </ul>

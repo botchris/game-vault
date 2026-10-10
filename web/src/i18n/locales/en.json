@@ -543,7 +543,7 @@
     "year": "Year",
     "month": "Month",
     "day": "Day",
-    "invalidNumber": "Not a valid number: the last valid one is kept.",
+    "invalidNumber": "Not a valid number: fix it or clear it to save.",
     "invalidYear": "Type a four-digit year.",
     "addChoice": "Add a value…",
     "removeChoice": "Remove {{name}}",

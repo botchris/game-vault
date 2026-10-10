@@ -11,7 +11,7 @@ import {
 } from '../../lib/model';
 import type { LinkStore } from '../../gen/gamevault/v1/game_pb';
 import { useAppData } from '../../state/AppData';
-import { FieldInputs, cleanFields, sameFields } from '../fields/FieldInput';
+import { FieldInputs, applyField, cleanFields, sameFields, useFieldValidity } from '../fields/FieldInput';
 import { FieldList } from '../fields/FieldList';
 import CopyForm from './CopyForm';
 import CopyPhotos from './CopyPhotos';
@@ -372,6 +372,8 @@ function EditTab({ game, busy, onSave, setDialog, run, onDeleted }: {
   const [info, setInfo] = useState(() => infoOf(game));
   // Discard remounts the field inputs, so text they kept locally (an invalid number) goes too.
   const [discarded, setDiscarded] = useState(0);
+  // A field holding invalid text (a number, a year) blocks Save until it is fixed or cleared.
+  const [fieldsInvalid, reportField] = useFieldValidity();
   const [stores, setStores] = useState<LinkStore[]>([]);
   const [searching, setSearching] = useState<LinkStore | null>(null);
   const dirty = info.title !== game.title || !sameLinks(info.links, game.links) || info.notes !== game.notes || info.coverUrl !== game.coverUrl
@@ -395,6 +397,7 @@ function EditTab({ game, busy, onSave, setDialog, run, onDeleted }: {
 
   const save = (e: FormEvent) => {
     e.preventDefault();
+    if (fieldsInvalid) return;
     onSave({ ...info, links: cleanLinks(info.links), fields: cleanFields(info.fields) });
   };
 
@@ -454,12 +457,12 @@ function EditTab({ game, busy, onSave, setDialog, run, onDeleted }: {
           {t('common.notes')}
           <textarea rows={3} value={info.notes} onChange={(e) => setInfo({ ...info, notes: e.target.value })} />
         </label>
-        <FieldInputs key={discarded} className="span2" defs={gameDefs} values={info.fields}
-          onChange={(id, v) => setInfo((x) => ({ ...x, fields: { ...x.fields, [id]: v } }))} />
+        <FieldInputs key={discarded} className="span2" defs={gameDefs} values={info.fields} onValidity={reportField}
+          onChange={(id, update) => setInfo((x) => ({ ...x, fields: applyField(x.fields, id, update) }))} />
         <div className="span2 actions">
           <span className="spacer" />
           {dirty && <button type="button" onClick={() => { setInfo(infoOf(game)); setDiscarded((n) => n + 1); }}>{t('common.discard')}</button>}
-          <button type="submit" className="primary" disabled={busy || !dirty}>{t('common.save')}</button>
+          <button type="submit" className="primary" disabled={busy || !dirty || fieldsInvalid}>{t('common.save')}</button>
         </div>
       </form>
       <div className="actions danger-zone">
