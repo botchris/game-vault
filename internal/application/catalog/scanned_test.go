@@ -40,7 +40,7 @@ func TestAddScannedCopies(t *testing.T) {
 		require.NoError(t, err)
 		t.Cleanup(func() { db.Close() })
 
-		svc := catalog.NewService(sqlite.NewGameRepository(db), db, time.Now, nil, nil)
+		svc := catalog.NewService(sqlite.NewGameRepository(db), db, time.Now, nil, nil, nil)
 		halo, err := svc.CreateGame(ctx, game.Info{Title: "Halo 3"}, nil)
 		require.NoError(t, err)
 

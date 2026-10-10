@@ -148,7 +148,7 @@ func (h *GameHandler) AddCopy(ctx context.Context, req *connect.Request[pb.AddCo
 		return nil, toConnectError(err)
 	}
 
-	g, err := h.catalog.AddCopy(ctx, game.ID(req.Msg.GameId), d)
+	g, err := h.catalog.AddCopy(ctx, game.ID(req.Msg.GameId), d, nil)
 
 	return gameResp(g, err, func(g *pb.Game) *pb.AddCopyResponse { return &pb.AddCopyResponse{Game: g} })
 }
@@ -160,7 +160,7 @@ func (h *GameHandler) UpdateCopy(ctx context.Context, req *connect.Request[pb.Up
 		return nil, toConnectError(err)
 	}
 
-	g, err := h.catalog.UpdateCopy(ctx, game.ID(req.Msg.GameId), game.ID(req.Msg.CopyId), d)
+	g, err := h.catalog.UpdateCopy(ctx, game.ID(req.Msg.GameId), game.ID(req.Msg.CopyId), d, nil)
 
 	return gameResp(g, err, func(g *pb.Game) *pb.UpdateCopyResponse { return &pb.UpdateCopyResponse{Game: g} })
 }

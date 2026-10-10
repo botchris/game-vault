@@ -39,7 +39,7 @@ func TestCoverPhotoCache(t *testing.T) {
 		t.Cleanup(func() { db.Close() })
 
 		cache := &covers{}
-		svc := catalog.NewService(sqlite.NewGameRepository(db), db, time.Now, cache, nil)
+		svc := catalog.NewService(sqlite.NewGameRepository(db), db, time.Now, cache, nil, nil)
 
 		g, err := svc.CreateGame(ctx, game.Info{Title: "Halo 3"}, []game.CopyDetails{{Kind: game.KindPhysical}, {Kind: game.KindPhysical}})
 		require.NoError(t, err)
