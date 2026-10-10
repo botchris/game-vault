@@ -33,7 +33,10 @@ export interface LibraryItem<G extends GameLike> {
   view: G;
 }
 
-/** Systems offered in the copy form: PC, then the console names game.SystemOf knows. */
+/** Systems offered in the copy form: PC, then the console names game.SystemOf knows. The same list
+ *  as PHYSICAL_PLATFORMS in model.ts, kept apart because model.ts imports generated code that Node
+ *  tests cannot load; TestSystems_webAgrees (cmd/gamevault/system_test.go) reads both lists and pins
+ *  them to the server's SystemOf. */
 export const SYSTEMS = [
   'PC', 'PS5', 'PS4', 'PS3', 'PS2', 'PS1', 'PSP', 'PS Vita', 'Xbox Series', 'Xbox One', 'Xbox 360', 'Xbox',
   'Switch', 'Wii U', 'Wii', 'GameCube', 'N64', '3DS', 'DS', 'Game Boy',

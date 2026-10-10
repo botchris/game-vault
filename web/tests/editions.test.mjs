@@ -31,15 +31,25 @@ test('mainSystem is the edition marked main, or none without editions', () => {
   assert.equal(mainSystem(empty), '');
 });
 
-test('systemOf mirrors the server', () => {
-  assert.equal(systemOf('Steam'), 'PC');
-  assert.equal(systemOf('microsoft store / xbox'), 'PC');
-  assert.equal(systemOf('PlayStation Store'), 'PS4');
-  assert.equal(systemOf('Nintendo eShop'), 'Switch');
-  assert.equal(systemOf('xbox 360'), 'Xbox 360');
-  assert.equal(systemOf(' Amiga '), 'Amiga');
-  assert.equal(systemOf(''), 'Other');
-});
+// The cases of TestSystemOf (internal/domain/game/system_test.go): keep both lists the same.
+const SYSTEM_OF_CASES = [
+  ['Steam', 'PC'], ['Epic Games', 'PC'], ['GOG', 'PC'], ['EA App', 'PC'], ['Ubisoft Connect', 'PC'],
+  ['Battle.net', 'PC'], ['itch.io', 'PC'], ['Amazon Games', 'PC'], ['Rockstar', 'PC'], ['Riot', 'PC'],
+  ['Battlestate (Tarkov)', 'PC'], ['PC', 'PC'], ['steam', 'PC'],
+  ['PS5', 'PS5'], ['PS4', 'PS4'], ['PS3', 'PS3'], ['PS2', 'PS2'], ['PS1', 'PS1'], ['PSP', 'PSP'],
+  ['PS Vita', 'PS Vita'], ['Xbox Series', 'Xbox Series'], ['Xbox One', 'Xbox One'], ['Xbox 360', 'Xbox 360'],
+  ['Xbox', 'Xbox'], ['Switch', 'Switch'], ['Wii U', 'Wii U'], ['Wii', 'Wii'], ['GameCube', 'GameCube'],
+  ['N64', 'N64'], ['3DS', '3DS'], ['DS', 'DS'], ['Game Boy', 'Game Boy'], ['xbox 360', 'Xbox 360'],
+  ['PlayStation Store', 'PS4'], ['Nintendo eShop', 'Switch'], ['Microsoft Store / Xbox', 'PC'],
+  ['  Amiga  ', 'Amiga'], ['Mega Drive', 'Mega Drive'],
+  ['', 'Other'], ['   ', 'Other'],
+];
+
+for (const [platform, want] of SYSTEM_OF_CASES) {
+  test(`systemOf: ${JSON.stringify(platform)} is played on ${want}, as the server says`, () => {
+    assert.equal(systemOf(platform), want);
+  });
+}
 
 test('editionsOf: one item per edition holding its copies; a game without copies is one item', () => {
   const items = editionsOf(halo);
