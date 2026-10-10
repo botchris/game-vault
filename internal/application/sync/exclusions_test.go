@@ -2,6 +2,7 @@ package sync_test
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"path/filepath"
@@ -214,6 +215,70 @@ func TestExclusions(t *testing.T) {
 
 		t.Run("THEN it cannot be excluded", func(t *testing.T) {
 			assert.ErrorIs(t, err, sync.ErrNotImported)
+		})
+	})
+}
+
+// expired is a source whose stored session no longer works: every scan fails without rotating it.
+// during runs inside Fetch, as if the user signed in again while the store was answering.
+type expired struct{ during func() }
+
+func (e *expired) Descriptor() source.TypeDescriptor {
+	return source.TypeDescriptor{
+		Type: "ex",
+		Name: "Expired",
+		Fields: []source.Field{{
+			Key:  "session",
+			Kind: source.FieldState,
+		}},
+	}
+}
+
+func (e *expired) Fetch(context.Context, source.Settings) ([]game.ImportedCopy, []string, error) {
+	if e.during != nil {
+		e.during()
+	}
+
+	return nil, nil, errors.New("signed out")
+}
+
+func (e *expired) Test(context.Context, source.Settings) error { return nil }
+
+func TestSyncKeepsASessionTheUserRenewedMeanwhile(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "gamevault.db"), "")
+	require.NoError(t, err)
+	t.Cleanup(func() { db.Close() })
+
+	sources := sqlite.NewSourceRepository(db)
+	p := &expired{}
+	svc := sync.NewService(sources, sqlite.NewGameRepository(db), db, nil, time.Now, slog.New(slog.NewTextHandler(io.Discard, nil)), p)
+
+	v, err := svc.Create(ctx, "ex", source.Config{Enabled: true})
+	require.NoError(t, err)
+
+	src, err := sources.Get(ctx, v.ID())
+	require.NoError(t, err)
+	src.ReplaceSettings(p.Descriptor(), source.Settings{"session": "old"}, time.Now())
+	require.NoError(t, sources.Save(ctx, src))
+
+	t.Run("GIVEN a scan of an expired session WHEN the user signs in again while it runs", func(t *testing.T) {
+		p.during = func() {
+			fresh, err := sources.Get(ctx, v.ID())
+			require.NoError(t, err)
+			fresh.ReplaceSettings(p.Descriptor(), source.Settings{"session": "new"}, time.Now())
+			require.NoError(t, sources.Save(ctx, fresh))
+		}
+
+		_, err := svc.Sync(ctx, v.ID())
+		require.Error(t, err)
+
+		t.Run("THEN the scan, which rotated nothing, leaves the new session alone", func(t *testing.T) {
+			got, err := sources.Get(ctx, v.ID())
+			require.NoError(t, err)
+			assert.Equal(t, "new", got.Settings()["session"])
 		})
 	})
 }

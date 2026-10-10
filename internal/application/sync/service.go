@@ -475,7 +475,9 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 			return err
 		}
 
-		if d, err := s.Descriptor(latest.Type()); err == nil {
+		// Only a session the store rotated during this scan is written: one the user renewed
+		// meanwhile (a new sign-in) must not be replaced by the scan's older copy.
+		if d, err := s.Descriptor(latest.Type()); err == nil && !maps.Equal(d.Fields.State(settings), d.Fields.State(src.Settings())) {
 			latest.UpdateState(d, settings, s.now())
 		}
 
