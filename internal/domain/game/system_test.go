@@ -1,6 +1,7 @@
 package game
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -9,20 +10,39 @@ import (
 )
 
 func TestSystemOf(t *testing.T) {
-	for platform, want := range map[string]string{
-		"Steam": "PC", "Epic Games": "PC", "GOG": "PC", "EA App": "PC", "Ubisoft Connect": "PC", "Battle.net": "PC",
-		"itch.io": "PC", "Amazon Games": "PC", "Rockstar": "PC", "Riot": "PC", "Battlestate (Tarkov)": "PC", "PC": "PC",
-		"steam": "PC",
-		"PS5":   "PS5", "PS4": "PS4", "PS3": "PS3", "PS2": "PS2", "PS1": "PS1", "PSP": "PSP", "PS Vita": "PS Vita",
-		"Xbox Series": "Xbox Series", "Xbox One": "Xbox One", "Xbox 360": "Xbox 360", "Xbox": "Xbox",
-		"Switch": "Switch", "Wii U": "Wii U", "Wii": "Wii", "GameCube": "GameCube", "N64": "N64", "3DS": "3DS",
-		"DS": "DS", "Game Boy": "Game Boy", "xbox 360": "Xbox 360",
-		"PlayStation Store": "PS4", "Nintendo eShop": "Switch", "Microsoft Store / Xbox": "PC",
-		"  Amiga  ": "Amiga", "Mega Drive": "Mega Drive",
-		"": "Other", "   ": "Other",
+	for _, tc := range []struct {
+		platform string
+		want     string
+	}{
+		{"Steam", "PC"}, {"Epic Games", "PC"}, {"GOG", "PC"}, {"EA App", "PC"}, {"Ubisoft Connect", "PC"},
+		{"Battle.net", "PC"}, {"itch.io", "PC"}, {"Amazon Games", "PC"}, {"Rockstar", "PC"}, {"Riot", "PC"},
+		{"Battlestate (Tarkov)", "PC"}, {"PC", "PC"}, {"steam", "PC"},
+		{"PS5", "PS5"}, {"PS4", "PS4"}, {"PS3", "PS3"}, {"PS2", "PS2"}, {"PS1", "PS1"}, {"PSP", "PSP"},
+		{"PS Vita", "PS Vita"}, {"Xbox Series", "Xbox Series"}, {"Xbox One", "Xbox One"}, {"Xbox 360", "Xbox 360"},
+		{"Xbox", "Xbox"}, {"Switch", "Switch"}, {"Wii U", "Wii U"}, {"Wii", "Wii"}, {"GameCube", "GameCube"},
+		{"N64", "N64"}, {"3DS", "3DS"}, {"DS", "DS"}, {"Game Boy", "Game Boy"}, {"xbox 360", "Xbox 360"},
+		{"PlayStation Store", "PS4"}, {"Nintendo eShop", "Switch"}, {"Microsoft Store / Xbox", "PC"},
+		{"  Amiga  ", "Amiga"}, {"Mega Drive", "Mega Drive"},
+		{"", "Other"}, {"   ", "Other"},
 	} {
-		assert.Equal(t, want, SystemOf(platform), "platform %q", platform)
+		t.Run(fmt.Sprintf("%q is played on %s", tc.platform, tc.want), func(t *testing.T) {
+			assert.Equal(t, tc.want, SystemOf(tc.platform))
+		})
 	}
+}
+
+func TestKnownPlatforms_coverEverySystemTable(t *testing.T) {
+	t.Run("GIVEN the PC platforms and the stores of several systems", func(t *testing.T) {
+		t.Run("THEN each one is a known platform, so KnownPlatforms lists every platform SystemOf maps", func(t *testing.T) {
+			for _, p := range pcPlatforms {
+				assert.Contains(t, KnownPlatforms(), p)
+			}
+
+			for p := range storeSystems {
+				assert.Contains(t, KnownPlatforms(), p)
+			}
+		})
+	})
 }
 
 func TestCopySystem(t *testing.T) {
@@ -152,9 +172,10 @@ func TestConsolidator_systems(t *testing.T) {
 			assert.Equal(t, "PS5", g.Copies()[0].CopyDetails.System)
 		})
 
-		t.Run("AND an import without one keeps it", func(t *testing.T) {
-			NewConsolidator([]*Game{g}).Apply("", imported(""), t0)
+		t.Run("AND an import without one keeps it, and the copy counts as unchanged", func(t *testing.T) {
+			again := NewConsolidator([]*Game{g}).Apply("", imported(""), t0)
 			assert.Equal(t, "PS5", g.Copies()[0].CopyDetails.System)
+			assert.Equal(t, 1, again.CopiesUnchanged)
 		})
 	})
 

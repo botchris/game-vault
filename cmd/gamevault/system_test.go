@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -14,9 +15,11 @@ import (
 )
 
 // TestSystems_webAgrees pins the web UI's system tables (SYSTEMS, the PC platforms and the store
-// systems in web/src/lib/editions.ts) to the server's (game.SystemOf): the library groups and
-// filters by the system the web computes, so a platform that each side maps differently would be
-// listed under a system the server never stored.
+// systems in web/src/lib/editions.ts) to the server's (game.SystemOf), in both directions: the
+// library groups and filters by the system the web computes, so a platform that each side maps
+// differently, or that only the server knows, would be listed under a system the server never
+// stored. The web's systemOf is TypeScript, so it is written out here from its tables rather than
+// run: go test has no JavaScript runtime.
 func TestSystems_webAgrees(t *testing.T) {
 	t.Run("GIVEN the system tables of the web UI", func(t *testing.T) {
 		src, err := os.ReadFile(filepath.Join("..", "..", "web", "src", "lib", "editions.ts"))
@@ -79,6 +82,28 @@ func TestSystems_webAgrees(t *testing.T) {
 
 			for _, p := range platforms {
 				assert.Equal(t, game.SystemOf(p), webSystemOf(p), "platform %q", p)
+			}
+		})
+
+		t.Run("THEN every platform the server knows is in the web's tables, under the same system", func(t *testing.T) {
+			model, err := os.ReadFile(filepath.Join("..", "..", "web", "src", "lib", "model.ts"))
+			require.NoError(t, err)
+
+			offered := append(webStrings(t, model, `export const STORE_PLATFORMS = \[(.*?)\];`),
+				webStrings(t, model, `export const PHYSICAL_PLATFORMS = \[(.*?)\];`)...)
+
+			for _, p := range game.KnownPlatforms() {
+				system := game.SystemOf(p)
+
+				assert.Contains(t, offered, p, "the web's forms do not offer platform %q", p)
+				assert.Contains(t, systems, system, "the web does not offer system %q (of %q)", system, p)
+
+				// A platform that is not its own system is a PC store or a store of several systems: the
+				// web must list it in PC_PLATFORMS or STORE_SYSTEMS, not fall back to the name itself.
+				if k := strings.ToLower(p); system != p {
+					inPC := system == game.SystemPC && slices.Contains(pc, k)
+					assert.True(t, inPC || stores[k] == system, "neither PC_PLATFORMS nor STORE_SYSTEMS maps %q to %s", p, system)
+				}
 			}
 		})
 

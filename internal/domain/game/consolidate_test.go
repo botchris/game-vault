@@ -326,11 +326,14 @@ func TestConsolidatorFileSystemColumn(t *testing.T) {
 
 		t.Run("WHEN a file gives it PS5 and a later one leaves the system empty", func(t *testing.T) {
 			set := NewConsolidator(first.Changed).Apply("", []ImportedCopy{psn("PS5")}, t0)
-			NewConsolidator(first.Changed).Apply("", []ImportedCopy{psn("")}, t0)
+			again := NewConsolidator(first.Changed).Apply("", []ImportedCopy{psn("")}, t0)
 
-			t.Run("THEN the override is kept", func(t *testing.T) {
+			t.Run("THEN the override is kept, and the second import leaves the copy unchanged", func(t *testing.T) {
 				assert.Equal(t, 1, set.CopiesUpdated)
 				assert.Equal(t, "PS5", first.Changed[0].Copies()[0].CopyDetails.System)
+				assert.Equal(t, 1, again.CopiesUnchanged)
+				assert.Zero(t, again.CopiesUpdated)
+				assert.Empty(t, again.Changed)
 			})
 		})
 	})
