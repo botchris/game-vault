@@ -333,7 +333,8 @@ input[type="checkbox"], input[type="radio"] { min-height: 0; accent-color: var(-
    bottom with its own proportions, like a box on a shelf. --box-w and --box-h are the box's share of
    the cell, set once the image's size is known. Only the box has corners and a shadow (each place sets
    --cover-shadow); the frame over it holds the badges, so they sit on the box. Until the image has
-   loaded both are invisible, then fade in; an image seen before ("instant") shows at once. */
+   loaded both are invisible (the cell is reserved, so nothing moves), then they appear at once: the
+   grid never animates. */
 .cover.whole { background: none; border-radius: 0; overflow: visible; }
 .cover-box, .cover-frame {
   position: absolute; bottom: 0; left: calc((100% - var(--box-w, 100%)) / 2);
@@ -341,15 +342,11 @@ input[type="checkbox"], input[type="radio"] { min-height: 0; accent-color: var(-
 }
 .cover-box {
   border-radius: 8px; overflow: hidden; background: var(--surface-2); box-shadow: var(--cover-shadow, none); opacity: 0;
-  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out), box-shadow 200ms var(--ease-out);
+  transition: transform 200ms var(--ease-out), box-shadow 200ms var(--ease-out);
 }
-.cover-frame {
-  z-index: 2; pointer-events: none; opacity: 0; visibility: hidden;
-  transition: opacity 200ms var(--ease-out), visibility 200ms, transform 200ms var(--ease-out);
-}
-.cover.whole.shown .cover-box, .cover.whole.shown .cover-frame { opacity: 1; visibility: visible; }
-.cover.whole.instant .cover-box { transition-property: transform, box-shadow; }
-.cover.whole.instant .cover-frame { transition-property: transform; }
+.cover-frame { z-index: 2; pointer-events: none; visibility: hidden; transition: transform 200ms var(--ease-out); }
+.cover.whole.shown .cover-box { opacity: 1; }
+.cover.whole.shown .cover-frame { visibility: visible; }
 /* A box borrowed from another edition: named, so the edition's own badge is not contradicted. */
 .cover-borrowed {
   position: absolute; left: 6px; bottom: 6px; max-width: calc(100% - 12px);
@@ -359,7 +356,11 @@ input[type="checkbox"], input[type="radio"] { min-height: 0; accent-color: var(-
 }
 /* On a poster the flags hold the top and the badges the bottom: the label sits just above the badges. */
 .poster-art .cover-borrowed { bottom: 36px; }
-@media (max-width: 860px) { .poster-art .cover-borrowed { bottom: 28px; left: 4px; } }
+@media (max-width: 860px) {
+  .poster-art .cover-borrowed { bottom: 28px; left: 4px; }
+  /* On a phone two flags wrap and fill a short box (a DS case): the label would cover them. */
+  .cover-frame:has(.poster-flags > .flag + .flag) .cover-borrowed { display: none; }
+}
 /* Too small to carry a label (list rows, scan thumbnails) or blurred behind the sheet's hero. */
 .row-cover .cover-borrowed, .scan-row-thumb .cover-borrowed, .scan-added .cover-borrowed, .hero-backdrop .cover-borrowed { display: none; }
 /* The sheet's hero says it in the note under the cover, so the box is labelled once. */
@@ -1138,7 +1139,7 @@ button.link.edition-main:hover:not(:disabled) { color: #fff; }
   .poster-card:hover .cover-box, .poster-card:hover .cover-frame { transform: translateY(-3px); }
 }
 .poster-card:has(.poster-open:focus-visible) .cover-box { outline: 2px solid var(--accent); outline-offset: 3px; }
-.poster-card:has(.poster-open:active) .cover-box { transform: scale(0.98); }
+.poster-card:has(.poster-open:active) .cover-box, .poster-card:has(.poster-open:active) .cover-frame { transform: scale(0.98); }
 .poster-open {
   display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 2px; padding: 0; border: none; background: none;
   min-height: 0; text-align: left; white-space: normal; border-radius: 0; color: inherit;

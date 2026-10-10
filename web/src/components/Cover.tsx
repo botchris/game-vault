@@ -12,8 +12,7 @@ import { MAX_BOX_ASPECT, boxShape } from '../lib/shelf';
 const failures = new CoverFailures();
 
 // The natural aspect of every image already shown whole, by address: a card or hero that shows it
-// again takes its shape at once, with no fade (moving through the library with the arrow keys must
-// not animate).
+// again takes its shape at once, without waiting for the image to load.
 const aspects = new Map<string, number>();
 
 /**
@@ -58,7 +57,7 @@ export function Cover({ game, system = '', className = '', onShown, whole = fals
     return shown === null ? (
       <WholeCover className={className} placeholder={placeholder} maxAspect={maxAspect}>{children}</WholeCover>
     ) : (
-      <WholeCover key={shown} className={className} src={coverUrl(game, shown)} maxAspect={maxAspect}
+      <WholeCover key={coverUrl(game, shown)} className={className} src={coverUrl(game, shown)} maxAspect={maxAspect}
         onError={() => { failures.add(game.id, signature, shown); rerender(); }}>
         {borrowed}{children}
       </WholeCover>
@@ -84,8 +83,8 @@ export function Cover({ game, system = '', className = '', onShown, whole = fals
  * like a box on a shelf (a DS case short and wide, a Switch case tall and narrow). The cell keeps
  * its size, so titles and rows stay aligned; only the visible box (`.cover-box`) carries the rounded
  * corners and the shadow, and `children` are laid over it (`.cover-frame`), not over the empty part
- * of the cell. The box is invisible until the image has loaded and its shape is known, then fades in:
- * nothing moves. A `placeholder` instead of `src` fills the whole cell. Images wider than
+ * of the cell. The box is invisible until the image has loaded and its shape is known, then appears
+ * with no transition: the cell is reserved, so nothing moves, and the grid never animates. A `placeholder` instead of `src` fills the whole cell. Images wider than
  * `maxAspect` are cropped at the sides to it (see MAX_BOX_ASPECT).
  */
 export function WholeCover({ src, className = '', onError, placeholder, maxAspect = MAX_BOX_ASPECT, children }: {
@@ -96,16 +95,15 @@ export function WholeCover({ src, className = '', onError, placeholder, maxAspec
   maxAspect?: number;
   children?: ReactNode;
 }) {
-  const known = src ? aspects.get(src) : undefined;
-  const [aspect, setAspect] = useState<number | undefined>(known);
-  // An image seen before shows at once; a new one fades in when it has loaded.
-  const [instant] = useState(known !== undefined || !src);
+  // The measured aspect belongs to one address: a new src starts from what is known of it.
+  const [measured, setMeasured] = useState<{ src: string; aspect: number } | null>(null);
+  const aspect = src && measured?.src === src ? measured.aspect : src ? aspects.get(src) : undefined;
   const shown = !src || aspect !== undefined;
   const shape = aspect === undefined ? boxShape(0, 0) : boxShape(aspect, 1, maxAspect);
   const style = { '--box-w': `${shape.width}%`, '--box-h': `${shape.height}%` } as CSSProperties;
 
   return (
-    <div className={`cover whole ${shown ? 'shown' : ''} ${instant ? 'instant' : ''} ${className}`} style={style}>
+    <div className={`cover whole ${shown ? 'shown' : ''} ${className}`} style={style}>
       <div className="cover-box">
         {src ? (
           <img src={src} alt="" loading="lazy" decoding="async" onError={onError}
@@ -113,7 +111,7 @@ export function WholeCover({ src, className = '', onError, placeholder, maxAspec
               const img = e.currentTarget;
               const a = img.naturalWidth > 0 && img.naturalHeight > 0 ? img.naturalWidth / img.naturalHeight : 2 / 3;
               aspects.set(src, a);
-              setAspect(a);
+              setMeasured({ src, aspect: a });
             }} />
         ) : placeholder}
       </div>

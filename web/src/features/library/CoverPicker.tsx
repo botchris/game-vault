@@ -32,6 +32,9 @@ export default function CoverPicker({ game, system, photosOnly = false, onPick, 
   const [warnings, setWarnings] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [pasted, setPasted] = useState('');
+  // Images that failed to load: their tiles are left out rather than shown empty yet clickable.
+  const [broken, setBroken] = useState<string[]>([]);
+  const breaks = (src: string) => () => setBroken((b) => (b.includes(src) ? b : [...b, src]));
   const automatic = !edition?.coverUrl && !edition?.coverPhotoId;
 
   useEffect(() => {
@@ -47,10 +50,10 @@ export default function CoverPicker({ game, system, photosOnly = false, onPick, 
         <>
           <h3>{t('coverPicker.photos')}</h3>
           <div className="posters picker-grid">
-            {photos.map((p) => (
+            {photos.filter((p) => !broken.includes(photoUrl(p.id, true))).map((p) => (
               <button key={p.id} className={`poster ${edition?.coverPhotoId === p.id ? 'selected' : ''}`} title={p.caption} aria-label={p.caption || t('coverPicker.photo')}
                 onClick={() => onPick({ case: 'photoId', value: p.id })}>
-                <WholeCover src={photoUrl(p.id, true)} maxAspect={Infinity} />
+                <WholeCover src={photoUrl(p.id, true)} maxAspect={Infinity} onError={breaks(photoUrl(p.id, true))} />
               </button>
             ))}
           </div>
@@ -71,9 +74,9 @@ export default function CoverPicker({ game, system, photosOnly = false, onPick, 
                   <span className="muted small">{t('coverPicker.automaticHint')}</span>
                 </div>
               </button>
-              {candidates.map((c) => (
+              {candidates.filter((c) => !broken.includes(proxiedImage(c.thumbUrl || c.url))).map((c) => (
                 <button key={c.url} className={`poster ${edition?.coverUrl === c.url ? 'selected' : ''}`} onClick={() => onPick({ case: 'url', value: c.url })} title={c.label}>
-                  <WholeCover src={proxiedImage(c.thumbUrl || c.url)} maxAspect={Infinity} />
+                  <WholeCover src={proxiedImage(c.thumbUrl || c.url)} maxAspect={Infinity} onError={breaks(proxiedImage(c.thumbUrl || c.url))} />
                   <div className="poster-caption">
                     <span className="poster-title">{c.label || c.providerName}</span>
                     <span className="muted small">{c.providerName}</span>
