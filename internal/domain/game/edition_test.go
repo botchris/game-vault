@@ -356,6 +356,42 @@ func TestCoverFingerprints(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, []string{"PC", "PS3", "Wii"}, ChangedSystems(before, g.CoverFingerprints()))
 		})
+
+		t.Run("WHEN a second Steam key is added THEN PC changed, although its platforms did not", func(t *testing.T) {
+			before := g.CoverFingerprints()
+			_, err := g.AddCopy(on(KindKey, "Steam"), t0)
+			require.NoError(t, err)
+			assert.Equal(t, []string{"PC"}, ChangedSystems(before, g.CoverFingerprints()))
+		})
+
+		t.Run("WHEN the Wii disc moves to PS3 THEN Wii and PS3 changed", func(t *testing.T) {
+			before := g.CoverFingerprints()
+			wii := g.Copies()[3]
+			d := wii.CopyDetails
+			d.Platform = "PS3"
+			_, err := g.UpdateCopy(wii.ID, d, t0)
+			require.NoError(t, err)
+			assert.Equal(t, []string{"PS3", "Wii"}, ChangedSystems(before, g.CoverFingerprints()))
+		})
+	})
+
+	t.Run("GIVEN a game without copies with a chosen cover", func(t *testing.T) {
+		g := gameWith(t)
+		require.NoError(t, g.SetEditionCover("", EditionCover{URL: "https://example.test/halo.jpg"}, t0))
+
+		t.Run("WHEN its first copy, a PS3 disc, is added THEN the empty system and PS3 changed", func(t *testing.T) {
+			before := g.CoverFingerprints()
+			_, err := g.AddCopy(on(KindPhysical, "PS3"), t0)
+			require.NoError(t, err)
+			assert.Equal(t, []string{"", "PS3"}, ChangedSystems(before, g.CoverFingerprints()))
+		})
+	})
+
+	t.Run("GIVEN a game without copies WHEN its cover is chosen THEN the empty system changed", func(t *testing.T) {
+		g := gameWith(t)
+		before := g.CoverFingerprints()
+		require.NoError(t, g.SetEditionCover("", EditionCover{URL: "https://example.test/halo.jpg"}, t0))
+		assert.Equal(t, []string{""}, ChangedSystems(before, g.CoverFingerprints()))
 	})
 }
 

@@ -10,6 +10,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"gamevault/internal/domain/source"
 )
 
@@ -157,4 +160,34 @@ func TestSignedOut(t *testing.T) {
 	if _, _, err := p.Fetch(context.Background(), source.Settings{}); !errors.Is(err, ErrNoNPSSO) {
 		t.Fatalf("got %v", err)
 	}
+}
+
+func TestMapTitles_systems(t *testing.T) {
+	t.Run("GIVEN titles bought for PS5, for PS4 and for a console Sony names in no known way", func(t *testing.T) {
+		got := mapTitles([]title{
+			{
+				Name:          "Astro Bot",
+				EntitlementID: "e1",
+				Platform:      "PS5",
+			},
+			{
+				Name:          "Gravity Rush",
+				EntitlementID: "e2",
+				Platform:      "PS4",
+			},
+			{
+				Name:          "Old Thing",
+				EntitlementID: "e3",
+				Platform:      "PSX",
+			},
+		})
+
+		t.Run("THEN the copies say their console, and the unknown one leaves it to the platform", func(t *testing.T) {
+			require.Len(t, got, 3)
+			assert.Equal(t, "PS5", got[0].System)
+			assert.Equal(t, "PS4", got[1].System)
+			assert.Empty(t, got[2].System)
+			assert.Equal(t, "PlayStation Store", got[2].Details.Platform)
+		})
+	})
 }

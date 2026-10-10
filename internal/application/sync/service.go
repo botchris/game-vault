@@ -63,10 +63,13 @@ type StoreLinker interface {
 // testTimeout bounds a connection test so the UI never waits forever.
 const testTimeout = 30 * time.Second
 
-// CoverCache is the port used to drop a game's cached cover image when it may have changed.
+// CoverCache is the port used to drop cached covers when they may have changed.
 type CoverCache interface {
-	// Invalidate drops the cached cover, so the next request resolves it again.
+	// Invalidate drops the game's cached covers and details, so the next request resolves them again.
 	Invalidate(ctx context.Context, id game.ID) error
+
+	// InvalidateEdition drops the cached cover of the game's edition on system.
+	InvalidateEdition(ctx context.Context, id game.ID, system string) error
 }
 
 // Service exposes the source use cases.
@@ -271,7 +274,10 @@ func (s *Service) prepare(ctx context.Context, d source.TypeDescriptor, src *sou
 // Delete removes a source. Its copies become manual copies unless deleteCopies is set, in which
 // case they are removed too, along with any game left without copies.
 func (s *Service) Delete(ctx context.Context, id source.ID, deleteCopies bool) error {
-	var stale []game.ID
+	var (
+		stale = staleEditions{}
+		gone  []game.ID
+	)
 
 	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
 		if _, err := s.sources.Get(ctx, id); err != nil {
@@ -286,7 +292,7 @@ func (s *Service) Delete(ctx context.Context, id source.ID, deleteCopies bool) e
 		now := s.now()
 
 		for _, g := range games {
-			covers := g.Covers()
+			before := g.CoverFingerprints()
 
 			var n int
 			if deleteCopies {
@@ -299,32 +305,54 @@ func (s *Service) Delete(ctx context.Context, id source.ID, deleteCopies bool) e
 			case n == 0:
 			case len(g.Copies()) == 0:
 				err = s.games.Delete(ctx, g.ID())
+				gone = append(gone, g.ID())
 			default:
 				err = s.games.Save(ctx, g)
+				stale.add(g, before)
 			}
 
 			if err != nil {
 				return err
-			}
-
-			if !maps.Equal(g.Covers(), covers) { // Bridge (Task 4): per edition
-				stale = append(stale, g.ID())
 			}
 		}
 
 		return s.sources.Delete(ctx, id)
 	})
 	if err == nil {
-		s.invalidateCovers(ctx, stale)
+		s.invalidateEditions(ctx, stale)
+		s.invalidateGames(ctx, gone)
 	}
 
 	return err
 }
 
-// invalidateCovers drops the cached covers of games whose chosen covers changed (a photo cover left
-// with a source's copy).
-// Best effort: a stale cached image is not worth failing the use case.
-func (s *Service) invalidateCovers(ctx context.Context, ids []game.ID) {
+// staleEditions are the editions of games whose cached covers may be stale: game id → systems.
+type staleEditions map[game.ID][]string
+
+// add records the editions of g whose fingerprints changed since before.
+func (st staleEditions) add(g *game.Game, before map[string]string) {
+	if changed := game.ChangedSystems(before, g.CoverFingerprints()); len(changed) > 0 {
+		st[g.ID()] = append(st[g.ID()], changed...)
+	}
+}
+
+// invalidateEditions drops the cached covers of stale editions. Best effort: a stale cached image
+// is not worth failing the use case.
+func (s *Service) invalidateEditions(ctx context.Context, stale staleEditions) {
+	if s.covers == nil {
+		return
+	}
+
+	for id, systems := range stale {
+		for _, system := range systems {
+			_ = s.covers.InvalidateEdition(ctx, id, system)
+		}
+	}
+}
+
+// invalidateGames drops the cached covers and details of deleted games, whose cached files would
+// otherwise stay behind. Best effort, like invalidateEditions.
+func (s *Service) invalidateGames(ctx context.Context, ids []game.ID) {
 	if s.covers == nil {
 		return
 	}
@@ -413,7 +441,8 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 	var (
 		syncErr error
 		removed int
-		stale   []game.ID
+		stale   = staleEditions{}
+		emptied []game.ID
 	)
 
 	if fetchErr != nil {
@@ -425,9 +454,9 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 				return err
 			}
 
-			covers := make(map[game.ID]map[string]game.EditionCover, len(games))
+			prints := make(map[game.ID]map[string]string, len(games))
 			for _, g := range games {
-				covers[g.ID()] = g.Covers()
+				prints[g.ID()] = g.CoverFingerprints()
 			}
 
 			// The user may have removed items since the scan started: ask the source as it is now.
@@ -447,9 +476,7 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 					return err
 				}
 
-				if !maps.Equal(g.Covers(), covers[g.ID()]) { // Bridge (Task 4): per edition
-					stale = append(stale, g.ID())
-				}
+				stale.add(g, prints[g.ID()]) // a new game has no fingerprints before, so all its editions count
 			}
 
 			// Games left without copies after the source withdrew them (they were never games).
@@ -458,6 +485,8 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 					return err
 				}
 			}
+
+			emptied = res.Emptied
 
 			removed = res.CopiesRemoved
 
@@ -472,7 +501,8 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 	if syncErr != nil {
 		report.Err = syncErr.Error()
 	} else {
-		s.invalidateCovers(ctx, stale)
+		s.invalidateEditions(ctx, stale)
+		s.invalidateGames(ctx, emptied)
 	}
 
 	report.FinishedAt = s.now()

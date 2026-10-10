@@ -293,7 +293,8 @@ func (g *Game) AdoptGameCover(coverURL string, photo PhotoID) {
 }
 
 // CoverFingerprints returns, per system of the game, a summary of what that edition's cover depends
-// on: its chosen cover, the platforms of its copies (physical ones apart) and the store links. When
+// on: its chosen cover, its copies, their platforms (physical ones apart) and the store links. A
+// game without copies has one entry, on the empty system, for the cover chosen for the game. When
 // a fingerprint changes, that edition's cached cover may be stale.
 func (g *Game) CoverFingerprints() map[string]string {
 	links := make([]string, 0, len(g.links))
@@ -301,15 +302,35 @@ func (g *Game) CoverFingerprints() map[string]string {
 		links = append(links, k+"="+g.links[k])
 	}
 
+	fingerprint := func(system string, platforms, copies []string) string {
+		cover := g.covers[system]
+
+		return strings.Join([]string{
+			cover.URL,
+			string(cover.Photo),
+			strings.Join(platforms, "\x1f"),
+			strings.Join(copies, "\x1f"),
+			strings.Join(links, "\x1f"),
+		}, "\x1e")
+	}
+
+	if len(g.copies) == 0 {
+		return map[string]string{"": fingerprint("", nil, nil)}
+	}
+
 	out := map[string]string{}
 
 	for _, system := range g.Systems() {
-		var platforms []string
+		var platforms, copies []string
 
 		for _, c := range g.copies {
 			if c.System() != system {
 				continue
 			}
+
+			// The copy ids say which copies the edition has, so a copy moving between editions
+			// changes both even when the platforms on each stay the same.
+			copies = append(copies, string(c.ID))
 
 			p := c.Platform
 			if c.Kind == KindPhysical {
@@ -322,9 +343,9 @@ func (g *Game) CoverFingerprints() map[string]string {
 		}
 
 		slices.Sort(platforms)
+		slices.Sort(copies)
 
-		cover := g.covers[system]
-		out[system] = strings.Join([]string{cover.URL, string(cover.Photo), strings.Join(platforms, "\x1f"), strings.Join(links, "\x1f")}, "\x1e")
+		out[system] = fingerprint(system, platforms, copies)
 	}
 
 	return out

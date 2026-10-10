@@ -15,12 +15,21 @@ import (
 	"gamevault/internal/domain/game"
 )
 
-// covers records the games whose cached cover was dropped.
-type covers struct{ invalidated []game.ID }
+// covers records the games whose cached cover and details were dropped, and the editions whose
+// cached cover was dropped ("<game id>|<system>").
+type covers struct {
+	invalidated []game.ID
+	editions    []string
+}
 
 func (c *covers) Invalidate(_ context.Context, id game.ID) error {
 	c.invalidated = append(c.invalidated, id)
 
+	return nil
+}
+
+func (c *covers) InvalidateEdition(_ context.Context, id game.ID, system string) error {
+	c.editions = append(c.editions, string(id)+"|"+system)
 	return nil
 }
 
@@ -58,9 +67,9 @@ func TestEditionCoverCache(t *testing.T) {
 
 		g, err = svc.SetEditionCover(ctx, g.ID(), "PS3", game.EditionCover{Photo: photoID(1)})
 		require.NoError(t, err)
-		assert.Equal(t, []game.ID{g.ID()}, cache.invalidated, "choosing a cover drops the cached one")
+		assert.Equal(t, []string{string(g.ID()) + "|PS3"}, cache.editions, "choosing a cover drops that edition's cached one")
 
-		cache.invalidated = nil
+		cache.editions = nil
 
 		return svc, cache, g
 	}
@@ -94,7 +103,8 @@ func TestEditionCoverCache(t *testing.T) {
 					got, err := svc.GetGame(ctx, g.ID())
 					require.NoError(t, err)
 					assert.Empty(t, got.Covers()["PS3"].Photo)
-					assert.Contains(t, cache.invalidated, g.ID())
+					assert.Contains(t, cache.editions, string(g.ID())+"|PS3")
+					assert.Empty(t, cache.invalidated, "the game's details stay")
 				})
 			})
 		}
@@ -117,11 +127,81 @@ func TestEditionCoverCache(t *testing.T) {
 			assert.Contains(t, err.Error(), "Wii")
 		})
 
-		t.Run("WHEN the main edition is chosen THEN the game keeps it", func(t *testing.T) {
-			svc, _, g := setup(t)
+		t.Run("WHEN an Xbox 360 disc is added THEN only the new edition's cached cover is dropped", func(t *testing.T) {
+			svc, cache, g := setup(t)
+			_, err := svc.AddCopy(ctx, g.ID(), game.CopyDetails{
+				Kind:     game.KindPhysical,
+				Platform: "Xbox 360",
+			}, nil)
+			require.NoError(t, err)
+			assert.Equal(t, []string{string(g.ID()) + "|Xbox 360"}, cache.editions)
+		})
+
+		t.Run("WHEN a disc's notes change THEN no cached cover is dropped", func(t *testing.T) {
+			svc, cache, g := setup(t)
+			c := g.Copies()[1]
+			d := c.CopyDetails
+			d.Notes = "signed"
+			_, err := svc.UpdateCopy(ctx, g.ID(), c.ID, d, nil)
+			require.NoError(t, err)
+			assert.Empty(t, cache.editions)
+		})
+
+		t.Run("WHEN an override moves the second disc to PS4 THEN the PS3 and PS4 covers are dropped", func(t *testing.T) {
+			svc, cache, g := setup(t)
+			c := g.Copies()[1]
+			d := c.CopyDetails
+			d.System = "PS4"
+			_, err := svc.UpdateCopy(ctx, g.ID(), c.ID, d, nil)
+			require.NoError(t, err)
+			assert.ElementsMatch(t, []string{string(g.ID()) + "|PS3", string(g.ID()) + "|PS4"}, cache.editions)
+		})
+
+		t.Run("WHEN an override moves the photographed disc to PS4 THEN the PS3 cover photo goes and the PS3 and PS4 covers are dropped", func(t *testing.T) {
+			svc, cache, g := setup(t)
+			c := g.Copies()[0]
+			d := c.CopyDetails
+			d.System = "PS4"
+			got, err := svc.UpdateCopy(ctx, g.ID(), c.ID, d, nil)
+			require.NoError(t, err)
+			assert.Empty(t, got.Covers()["PS3"].Photo)
+			assert.ElementsMatch(t, []string{string(g.ID()) + "|PS3", string(g.ID()) + "|PS4"}, cache.editions)
+		})
+
+		t.Run("WHEN the main edition is chosen THEN no cached cover is dropped", func(t *testing.T) {
+			svc, cache, g := setup(t)
 			got, err := svc.SetMainSystem(ctx, g.ID(), "PS3")
 			require.NoError(t, err)
 			assert.Equal(t, "PS3", got.MainSystem())
+			assert.Empty(t, cache.editions)
+			assert.Empty(t, cache.invalidated)
+		})
+	})
+
+	t.Run("GIVEN a game without copies with a chosen cover", func(t *testing.T) {
+		db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "gamevault.db"), "")
+		require.NoError(t, err)
+		t.Cleanup(func() { db.Close() })
+
+		cache := &covers{}
+		svc := catalog.NewService(sqlite.NewGameRepository(db), db, time.Now, cache, nil, nil)
+
+		g, err := svc.CreateGame(ctx, game.Info{Title: "Halo 3"}, nil)
+		require.NoError(t, err)
+
+		_, err = svc.SetEditionCover(ctx, g.ID(), "", game.EditionCover{URL: "https://example.test/halo.jpg"})
+		require.NoError(t, err)
+		assert.Equal(t, []string{string(g.ID()) + "|"}, cache.editions, "choosing the game's cover drops its cached one")
+
+		t.Run("WHEN its first copy, a PS3 disc, is added THEN the cover moves to PS3 and both cached covers are dropped", func(t *testing.T) {
+			cache.editions = nil
+			got, err := svc.AddCopy(ctx, g.ID(), game.CopyDetails{
+				Kind:     game.KindPhysical,
+				Platform: "PS3",
+			}, nil)
+			require.NoError(t, err)
+			assert.Equal(t, "https://example.test/halo.jpg", got.Covers()["PS3"].URL)
+			assert.ElementsMatch(t, []string{string(g.ID()) + "|", string(g.ID()) + "|PS3"}, cache.editions)
 		})
 	})
 }

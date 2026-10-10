@@ -3,7 +3,6 @@ package sync
 import (
 	"context"
 	"errors"
-	"maps"
 	"slices"
 
 	"gamevault/internal/domain/game"
@@ -22,8 +21,9 @@ var (
 // it. A game left without copies is deleted; the result is then nil.
 func (s *Service) ExcludeCopy(ctx context.Context, gameID, copyID game.ID) (*game.Game, error) {
 	var (
-		out   *game.Game
-		stale bool
+		out    *game.Game
+		before map[string]string
+		gone   bool
 	)
 
 	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
@@ -60,17 +60,17 @@ func (s *Service) ExcludeCopy(ctx context.Context, gameID, copyID game.ID) (*gam
 			return err
 		}
 
-		cover := g.Covers()
+		before = g.CoverFingerprints()
 		if _, err := g.RemoveCopy(copyID, now); err != nil {
 			return err
 		}
 
 		if len(g.Copies()) == 0 {
-			stale = true
+			gone = true
 			return s.games.Delete(ctx, gameID)
 		}
 
-		stale, out = !maps.Equal(g.Covers(), cover), g // Bridge (Task 4): per edition
+		out = g
 
 		return s.games.Save(ctx, g)
 	})
@@ -78,8 +78,10 @@ func (s *Service) ExcludeCopy(ctx context.Context, gameID, copyID game.ID) (*gam
 		return nil, err
 	}
 
-	if stale {
-		s.invalidateCovers(ctx, []game.ID{gameID})
+	if gone {
+		s.invalidateGames(ctx, []game.ID{gameID})
+	} else {
+		s.invalidateEditions(ctx, staleEditions{gameID: game.ChangedSystems(before, out.CoverFingerprints())})
 	}
 
 	return out, nil
