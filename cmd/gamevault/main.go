@@ -142,7 +142,7 @@ func run() error {
 	fieldsSvc := fields.NewService(settingsRepo, games, db, now)
 	catalogSvc := catalog.NewService(games, db, now, mediaSvc, photos, settingsRepo)
 	syncSvc := sync.NewService(sources, games, db, mediaSvc, now, log, plugins.Sources()...)
-	transferSvc := transfer.NewService(games, db, settingsRepo, now, csvfile.Codec{})
+	transferSvc := transfer.NewService(games, db, settingsRepo, now, csvfile.Codec{}, mediaSvc)
 	systemSvc := system.NewService(games, db, settingsRepo, photostore.NewArchive(photos, backupPhotos), now, log, system.Status{
 		Version:      version,
 		ConfigDir:    cfg.ConfigDir,

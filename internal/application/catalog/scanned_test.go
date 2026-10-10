@@ -206,3 +206,44 @@ func TestAddScannedCopies(t *testing.T) {
 		})
 	})
 }
+
+func TestAddScannedCopies_coverCache(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a game with a digital PC edition and a PS3 disc", func(t *testing.T) {
+		db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "gamevault.db"), "")
+		require.NoError(t, err)
+		t.Cleanup(func() { db.Close() })
+
+		cache := &covers{}
+		svc := catalog.NewService(sqlite.NewGameRepository(db), db, time.Now, cache, nil, nil)
+
+		g, err := svc.CreateGame(ctx, game.Info{Title: "Halo 3"}, []game.CopyDetails{
+			{
+				Kind:     game.KindLibrary,
+				Platform: "Steam",
+			},
+			{
+				Kind:     game.KindPhysical,
+				Platform: "PS3",
+			},
+		})
+		require.NoError(t, err)
+
+		cache.editions = nil
+
+		t.Run("WHEN a scanned PC disc is added", func(t *testing.T) {
+			_, _, err := svc.AddScannedCopies(ctx, []catalog.ScannedCopy{{
+				Ref:     "a",
+				GameID:  g.ID(),
+				Details: physical("PC", "882224536691"),
+			}})
+			require.NoError(t, err)
+
+			t.Run("THEN only the PC edition's cached cover is dropped", func(t *testing.T) {
+				assert.Equal(t, []string{string(g.ID()) + "|PC"}, cache.editions)
+			})
+		})
+	})
+}

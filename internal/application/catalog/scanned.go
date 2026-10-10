@@ -74,12 +74,14 @@ func (s *Service) AddScannedCopies(ctx context.Context, items []ScannedCopy) ([]
 	var (
 		results []ScannedResult
 		changed []*game.Game
+		touched []editionPrints
 	)
 
 	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
 		// Start over on every attempt, so a retried transaction reports only what it saved.
 		results = make([]ScannedResult, len(items))
 		changed = nil
+		touched = nil
 		now := s.now()
 
 		for i, it := range items {
@@ -106,6 +108,7 @@ func (s *Service) AddScannedCopies(ctx context.Context, items []ScannedCopy) ([]
 			}
 
 			added := false
+			before := g.CoverFingerprints() // empty for a new game: all its editions count
 
 			for _, i := range group {
 				c, err := g.AddCopy(items[i].Details, now)
@@ -131,6 +134,11 @@ func (s *Service) AddScannedCopies(ctx context.Context, items []ScannedCopy) ([]
 			}
 
 			changed = append(changed, g)
+			touched = append(touched, editionPrints{
+				id:     g.ID(),
+				before: before,
+				after:  g.CoverFingerprints(),
+			})
 		}
 
 		return nil
@@ -139,7 +147,19 @@ func (s *Service) AddScannedCopies(ctx context.Context, items []ScannedCopy) ([]
 		return nil, nil, err
 	}
 
+	// A physical copy added to an edition that only had digital ones changes its cover inputs.
+	for _, p := range touched {
+		s.invalidateEditions(ctx, p.id, p.before, p.after)
+	}
+
 	return results, changed, nil
+}
+
+// editionPrints are a game's cover fingerprints before and after a change.
+type editionPrints struct {
+	id     game.ID
+	before map[string]string
+	after  map[string]string
 }
 
 // scannedTarget returns the game a group of items goes to: the existing game, or a new one with
