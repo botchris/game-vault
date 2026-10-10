@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Icon } from '../../components/Icon';
-import { filterOptions, matchesFieldFilters, type Definition, type FieldFilter } from '../../lib/fields';
+import { filterOptions, isFilterable, matchesFieldFilters, pruneFieldFilter, type Definition, type FieldFilter } from '../../lib/fields';
 import { CopyKind, KINDS, PLAY_STATUSES, PlayStatus, kindKey, playKey, type Game } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
 
@@ -23,6 +23,16 @@ export const NO_FILTERS: Filters = { kind: CopyKind.UNSPECIFIED, platforms: [], 
 
 export const activeFilterCount = (f: Filters) => (f.kind ? 1 : 0) + f.platforms.length + f.genres.length + f.sources.length + f.play.length
   + Object.values(f.fields).reduce((n, keys) => n + keys.length, 0);
+
+/**
+ * The filters without custom field values that no longer exist (a deleted field, a removed choice),
+ * so they neither count in the badge nor stay selected out of reach. The same object when nothing
+ * was dropped.
+ */
+export function pruneFilters(f: Filters, defs: Definition[]): Filters {
+  const fields = pruneFieldFilter(f.fields, defs);
+  return fields === f.fields ? f : { ...f, fields };
+}
 
 /** A game matches when it has a copy of the kind on one of the platforms, a copy from one of the
  * sources, one of the genres, one of the play statuses and one of the chosen values of each
@@ -92,7 +102,7 @@ export default function FilterPanel({ games, filters, onChange, onClose, details
   }, [games, configured, i18n.language]);
 
   // Only fields with a fixed set of values make sense as filters; options no game has are hidden.
-  const fieldGroups = useMemo(() => defs.filter((d) => d.type === 'list' || d.type === 'multilist' || d.type === 'bool')
+  const fieldGroups = useMemo(() => defs.filter(isFilterable)
     .map((def) => ({ def, options: filterOptions(games, def).filter((o) => o.count > 0 || filters.fields[def.id]?.includes(o.key)) }))
     .filter((x) => x.options.length > 0), [defs, games, filters.fields]);
   const optionLabel = (def: Definition, key: string) => {

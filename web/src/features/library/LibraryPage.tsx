@@ -8,7 +8,7 @@ import { Alert, useFormatters } from '../../components/ui';
 import { searchableText } from '../../lib/fields';
 import { CopyStatus, PlayStatus, daysUntil, isPendingKey, nextDeadline, playKey, toDate, type Game } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
-import FilterPanel, { NO_FILTERS, activeFilterCount, matchesFilters, type Filters } from './FilterPanel';
+import FilterPanel, { NO_FILTERS, activeFilterCount, matchesFilters, pruneFilters, type Filters } from './FilterPanel';
 import GameDetail, { type SheetNav } from './GameDetail';
 import NewGameDialog from './NewGameDialog';
 import { Stars } from './PlayControls';
@@ -61,7 +61,9 @@ export default function LibraryPage() {
   const [q, setQ] = useState('');
   const [quick, setQuick] = useState<Quick>(null);
   const [letter, setLetter] = useState('');
-  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  const [chosenFilters, setFilters] = useState<Filters>(NO_FILTERS);
+  // Values of fields deleted or choices removed since they were picked no longer filter or count.
+  const filters = useMemo(() => pruneFilters(chosenFilters, fields), [chosenFilters, fields]);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [sortBy, setSortBy] = usePref<SortBy>('gamevault.librarySort', 'titleAsc', SORTS);
   const [view, setView] = usePref<View>('gamevault.libraryView', 'posters', ['list', 'posters']);
