@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"gamevault/internal/domain/game"
-	"gamevault/internal/domain/provider"
 )
 
 // reAddOn recognizes titles of extra content: "GRIP: Combat Racing Artifex DLC", "X - Soundtrack"….
@@ -144,7 +143,7 @@ func (s *Service) baseCoverIn(ctx context.Context, ls LinkSearcher, g *game.Game
 				System: system,
 				Links:  game.Links{store.Key: m.ID},
 			}
-			if img, err := s.coverFromChain(ctx, ref, system, cq, map[provider.ID]bool{}); err == nil {
+			if img, err := s.coverFromChain(ctx, ref, system, cq, newLookup()); err == nil {
 				s.log.Info("add-on cover taken from its base game", "game", g.Title(), "base", m.Name, "store", store.Name)
 				return img, true
 			}

@@ -672,14 +672,14 @@ func (s *Service) resolve(ctx context.Context, id game.ID, system string) (Image
 	}
 
 	q := QueryFor(g, system)
-	asked := map[provider.ID]bool{}
+	look := newLookup()
 
-	img, err := s.coverFromChain(ctx, ref, system, q, asked)
+	img, err := s.coverFromChain(ctx, ref, system, q, look)
 	if errors.Is(err, ErrNoCover) && q.HasStoreLink() {
 		// No provider that knows the game's stores had art for this edition (a game only on
 		// Battle.net, a console edition of a Steam game…): ask the ones that kept out of it.
 		q.Fallback = true
-		img, err = s.coverFromChain(ctx, ref, system, q, asked)
+		img, err = s.coverFromChain(ctx, ref, system, q, look)
 	}
 
 	if err == nil {
@@ -689,12 +689,20 @@ func (s *Service) resolve(ctx context.Context, id game.ID, system string) (Image
 	if !errors.Is(err, ErrNoCover) {
 		return Image{}, err
 	}
+
+	// A provider that asked to slow down said nothing about the game: the edition has no cover this
+	// time, is not remembered as missing and does not borrow another's box, so the next request
+	// asks again.
+	if look.limited {
+		return Image{}, fmt.Errorf("%w: %w", ErrNoCover, provider.ErrRateLimited)
+	}
+
 	// Add-ons (DLC, soundtracks…) rarely have art of their own: borrow the base game's.
 	if img, ok := s.addOnCover(ctx, g, system); ok {
 		return img, nil
 	}
 
-	if len(asked) > 0 {
+	if len(look.asked) > 0 {
 		s.log.Info("no cover found", "game", g.Title(), "system", system)
 
 		if err := s.store.MarkCoverMissing(ref, system, s.now()); err != nil {
@@ -728,9 +736,20 @@ func (s *Service) adoptLegacyCover(g *game.Game, ref GameRef, main game.Edition)
 	return img, ok
 }
 
+// lookup is what the passes of one cover lookup share.
+type lookup struct {
+	// asked holds the providers already asked, so the fallback pass skips them.
+	asked map[provider.ID]bool
+
+	// limited reports that a provider asked to slow down (provider.ErrRateLimited).
+	limited bool
+}
+
+func newLookup() *lookup { return &lookup{asked: map[provider.ID]bool{}} }
+
 // coverFromChain asks the enabled cover providers that apply to q, in order, and caches the first
-// image that downloads. Providers already in asked are skipped; the ones asked are added to it.
-func (s *Service) coverFromChain(ctx context.Context, ref GameRef, system string, q CoverQuery, asked map[provider.ID]bool) (Image, error) {
+// image that downloads. Providers already asked in look are skipped; the ones asked are added to it.
+func (s *Service) coverFromChain(ctx context.Context, ref GameRef, system string, q CoverQuery, look *lookup) (Image, error) {
 	s.slots <- struct{}{}
 	defer func() { <-s.slots }()
 
@@ -741,13 +760,21 @@ func (s *Service) coverFromChain(ctx context.Context, ref GameRef, system string
 
 	for _, p := range chain {
 		impl := s.covers[p.ID()]
-		if asked[p.ID()] || !impl.Applies(q) {
+		if look.asked[p.ID()] || !impl.Applies(q) {
 			continue
 		}
 
-		asked[p.ID()] = true
+		look.asked[p.ID()] = true
 
 		candidates, err := impl.Covers(ctx, q, p.Settings())
+		if errors.Is(err, provider.ErrRateLimited) {
+			look.limited = true
+
+			s.log.Info("cover provider busy, asking again later", "provider", p.ID(), "game", ref.Title, "system", system)
+
+			continue
+		}
+
 		if err != nil {
 			s.log.Warn("cover provider failed", "provider", p.ID(), "game", ref.Title, "error", err)
 			continue

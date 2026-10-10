@@ -2,6 +2,7 @@ package media
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -209,7 +210,10 @@ func (s *Service) fetchDetails(ctx context.Context, id game.ID, language string)
 		FetchedAt: s.now(),
 	}
 
-	var warnings []string
+	var (
+		warnings []string
+		limited  bool
+	)
 
 	for _, p := range chain {
 		impl := s.metadata[p.ID()]
@@ -218,6 +222,15 @@ func (s *Service) fetchDetails(ctx context.Context, id game.ID, language string)
 		}
 
 		d, err := impl.Details(ctx, q, language, p.Settings())
+		if errors.Is(err, provider.ErrRateLimited) {
+			limited = true
+
+			warnings = append(warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
+			s.log.Info("metadata provider busy, asking again later", "provider", p.ID(), "game", g.Title())
+
+			continue
+		}
+
 		if err != nil {
 			warnings = append(warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
 			s.log.Warn("metadata provider failed", "provider", p.ID(), "game", g.Title(), "error", err)
@@ -229,8 +242,10 @@ func (s *Service) fetchDetails(ctx context.Context, id game.ID, language string)
 			merged.Sources = append(merged.Sources, p.ID())
 		}
 	}
-	// Cache even an empty sheet so unknown games are not looked up on every view; failures are not cached.
-	if len(warnings) == 0 || !merged.empty() {
+	// Cache even an empty sheet so unknown games are not looked up on every view; failures are not
+	// cached. Nor is a sheet a provider was too busy to fill: cached, it would lack that provider's
+	// part until the cache expires.
+	if !limited && (len(warnings) == 0 || !merged.empty()) {
 		if err := s.details.Put(ctx, id, merged); err != nil {
 			s.log.Warn("caching details", "error", err)
 		}
