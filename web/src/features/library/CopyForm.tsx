@@ -11,6 +11,7 @@ import {
 } from '../../lib/model';
 import { usePreferredCurrency } from '../../lib/usePreferences';
 import { useAppData } from '../../state/AppData';
+import { FieldInputs, cleanFields } from '../fields/FieldInput';
 
 interface Props {
   initial?: CopyDetailsInput;
@@ -23,7 +24,7 @@ interface Props {
 /** Add or edit one copy of a game. */
 export default function CopyForm({ initial, managedBy, onSubmit, onClose }: Props) {
   const { t, i18n } = useTranslation();
-  const { games } = useAppData();
+  const { games, fields } = useAppData();
   const locations = useMemo(() => usedLocations(games), [games]);
   const preferred = usePreferredCurrency(i18n.language);
   const [d, setD] = useState<CopyDetailsInput>(initial ?? emptyDetails());
@@ -36,6 +37,9 @@ export default function CopyForm({ initial, managedBy, onSubmit, onClose }: Prop
   const minor = amount.trim() === '' ? 0n : parseAmount(amount, currencyDigits(currency));
   const amountInvalid = minor === null;
 
+  // The copy fields that apply to the chosen kind (a field without kinds applies to all).
+  const defs = fields.filter((f) => f.scope === 'copy' && (!f.kinds.length || f.kinds.includes(d.kind)));
+
   const set = <K extends keyof CopyDetailsInput>(k: K, v: CopyDetailsInput[K]) => setD((x) => ({ ...x, [k]: v }));
   const changeKind = (kind: CopyKind) =>
     setD((x) => ({ ...x, kind, status: STATUSES_BY_KIND[kind].includes(x.status) ? x.status : STATUSES_BY_KIND[kind][0] }));
@@ -46,7 +50,10 @@ export default function CopyForm({ initial, managedBy, onSubmit, onClose }: Prop
     setBusy(true);
     setError('');
     try {
-      await onSubmit({ ...d, price: minor ? create(MoneySchema, { amountMinor: minor, currency }) : undefined });
+      // The server replaces the copy's values: send every one that applies to the kind, and only
+      // those (values of fields that no longer apply after a kind change are dropped).
+      const values = cleanFields(Object.fromEntries(defs.filter((f) => f.id in d.fields).map((f) => [f.id, d.fields[f.id]])));
+      await onSubmit({ ...d, price: minor ? create(MoneySchema, { amountMinor: minor, currency }) : undefined, fields: values });
     } catch (err) {
       setError(errorMessage(err));
       setBusy(false);
@@ -156,6 +163,7 @@ export default function CopyForm({ initial, managedBy, onSubmit, onClose }: Prop
             <textarea rows={3} value={d.notes} onChange={(e) => set('notes', e.target.value)} />
           </label>
         </div>
+        <FieldInputs defs={defs} values={d.fields} onChange={(id, v) => setD((x) => ({ ...x, fields: { ...x.fields, [id]: v } }))} />
         {error && <Alert tone="error">{error}</Alert>}
       </form>
     </Modal>
