@@ -919,6 +919,8 @@ td.title { font-weight: 500; min-width: 220px; }
 .scan-row-actions { display: flex; align-items: center; gap: 6px; flex: none; }
 .scan-row-detail { display: flex; flex-direction: column; gap: 12px; padding: 4px 12px 14px; border-top: 1px solid var(--border); }
 .scan-row-found { margin: 8px 0 0; overflow-wrap: anywhere; }
+.scan-row-links { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0; }
+.scan-row-links a { display: inline-flex; align-items: center; gap: 4px; }
 .scan-clear { margin-top: 12px; font-size: 14px; }
 
 /* Send bar: always in reach of the thumb while there is a list. */

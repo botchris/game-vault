@@ -565,7 +565,9 @@
       "done": "Listo",
       "foundIn": "encontrado en {{provider}} como «{{raw}}»",
       "unknown": "No está en ninguna base de datos de códigos: escribe el título y busca. La caja guarda su código, así la próxima vez se reconoce al instante.",
-      "sound": "Sonido"
+      "sound": "Sonido",
+      "lookupEan": "Buscar en EAN-Search",
+      "lookupWeb": "Buscar en la web"
     }
   },
   "auth": {
