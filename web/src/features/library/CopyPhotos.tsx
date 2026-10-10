@@ -13,8 +13,14 @@ const MAX_PHOTOS = 50;
 
 interface Upload { key: string; name: string; progress: number; error?: string }
 
-/** A copy's photos: a strip of thumbnails, "Add photos" with per-file progress, and the viewer. */
-export default function CopyPhotos({ game, copy }: { game: Game; copy: Copy }) {
+/** A copy's photos: a strip of thumbnails, "Add photos" with per-file progress, and the viewer.
+ *  `onEditionCover` is told the system whose cover a photo became (the copy's edition), so the sheet
+ *  can show it. */
+export default function CopyPhotos({ game, copy, onEditionCover }: {
+  game: Game;
+  copy: Copy;
+  onEditionCover?: (system: string) => void;
+}) {
   const { t } = useTranslation();
   const { putGame } = useAppData();
   const [uploads, setUploads] = useState<Upload[]>([]);
@@ -99,19 +105,20 @@ export default function CopyPhotos({ game, copy }: { game: Game; copy: Copy }) {
       </label>
       {open !== null && photos[open] && (
         <Lightbox images={photos.map((p) => photoUrl(p.id))} index={open} onIndex={setOpen} onClose={() => setOpen(null)}
-          label={t('photos.title')} footer={<PhotoFooter game={game} copy={copy} index={open} onIndex={setOpen} onEmpty={() => setOpen(null)} />} />
+          label={t('photos.title')} footer={<PhotoFooter game={game} copy={copy} index={open} onIndex={setOpen} onEmpty={() => setOpen(null)} onEditionCover={onEditionCover} />} />
       )}
     </div>
   );
 }
 
 /** Under the photo in the viewer: caption (edited in place), date taken, order, cover, delete. */
-function PhotoFooter({ game, copy, index, onIndex, onEmpty }: {
+function PhotoFooter({ game, copy, index, onIndex, onEmpty, onEditionCover }: {
   game: Game;
   copy: Copy;
   index: number;
   onIndex: (i: number) => void;
   onEmpty: () => void;
+  onEditionCover?: (system: string) => void;
 }) {
   const { t, i18n } = useTranslation();
   const { putGame } = useAppData();
@@ -122,8 +129,10 @@ function PhotoFooter({ game, copy, index, onIndex, onEmpty }: {
   const [caption, setCaption] = useState(photo.caption);
   const [editingFor, setEditingFor] = useState(photo.id);
   if (editingFor !== photo.id) { setEditingFor(photo.id); setCaption(photo.caption); }
-  // A photo is the cover of its copy's edition.
+  // A photo is the cover of its copy's edition; that edition may not be the one the game shows.
+  const system = copy.effectiveSystem;
   const isCover = editionCoverPhoto(game, copy) === photo.id;
+  const isMain = game.editions.find((e) => e.system === system)?.main ?? true;
   const taken = toDate(photo.takenAt);
 
   const run = async (fn: () => Promise<void>) => {
@@ -157,12 +166,25 @@ function PhotoFooter({ game, copy, index, onIndex, onEmpty }: {
         <button className="lightbox-button" disabled={busy || index === 0} onClick={() => move(-1)} aria-label={t('photos.moveLeft')} title={t('photos.moveLeft')}><Icon name="arrowLeft" size={18} /></button>
         <button className="lightbox-button" disabled={busy || index === photos.length - 1} onClick={() => move(1)} aria-label={t('photos.moveRight')} title={t('photos.moveRight')}><Icon name="arrowRight" size={18} /></button>
         <button className={`lightbox-button ${isCover ? 'active' : ''}`} disabled={busy} aria-pressed={isCover}
-          onClick={() => run(async () => putGame((await gameClient.setEditionCover({
-            gameId: game.id, system: copy.effectiveSystem,
-            cover: isCover ? { case: 'clear', value: true } : { case: 'photoId', value: photo.id },
-          })).game!))}>
+          title={system} onClick={() => run(async () => {
+            putGame((await gameClient.setEditionCover({
+              gameId: game.id, system,
+              cover: isCover ? { case: 'clear', value: true } : { case: 'photoId', value: photo.id },
+            })).game!);
+            if (!isCover) onEditionCover?.(system);
+          })}>
           <Icon name="star" size={18} />{t(isCover ? 'photos.stopCover' : 'photos.useAsCover')}
         </button>
+        {/* Outside the main edition, the photo can also become the cover the library shows "By game". */}
+        {!isMain && (
+          <button className="lightbox-button" disabled={busy} onClick={() => run(async () => {
+            if (!isCover) putGame((await gameClient.setEditionCover({ gameId: game.id, system, cover: { case: 'photoId', value: photo.id } })).game!);
+            putGame((await gameClient.setMainEdition({ gameId: game.id, system })).game!);
+            onEditionCover?.(system);
+          })}>
+            {t('edition.useAsMain')}
+          </button>
+        )}
         <button className="lightbox-button" disabled={busy} aria-label={t('common.delete')} title={t('common.delete')}
           onClick={() => {
             if (!confirm(t('photos.confirmDelete'))) return;

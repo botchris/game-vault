@@ -5,7 +5,7 @@ import { Cover } from '../../components/Cover';
 import { Icon } from '../../components/Icon';
 import { PlatformBadge, platformHoldings } from '../../components/PlatformBadge';
 import { Alert, KeyCell, useFormatters } from '../../components/ui';
-import { mainSystem } from '../../lib/editions';
+import { groupCopies, openEdition, systemOf } from '../../lib/editions';
 import { formatAmount } from '../../lib/money';
 import {
   CopyKind, CopyStatus, contentKey, daysUntil, gameInfo, gradeKey, kindKey, redeemUrl, statusKey, type Copy, type CopyDetailsInput, type Game,
@@ -25,7 +25,7 @@ import PlayControls from './PlayControls';
 
 interface Props {
   gameId: string;
-  /** The edition to open on; empty: the main one. */
+  /** The edition to open on; empty or absent: the main one. */
   system?: string;
   onClose: () => void;
   /** Switch the dialog to another game (after a merge or move). */
@@ -48,7 +48,7 @@ type Dialog =
   | { type: 'editCopy'; copy: Copy }
   | { type: 'moveCopy'; copy: Copy }
   | { type: 'merge' }
-  | { type: 'coverPicker' }
+  | { type: 'coverPicker'; photosOnly?: boolean }
   | null;
 
 type Tab = 'overview' | 'copies' | 'edit';
@@ -57,15 +57,16 @@ type Tab = 'overview' | 'copies' | 'edit';
 type GamePatch = Partial<Pick<Game, 'title' | 'links' | 'notes' | 'playStatus' | 'rating' | 'fields'>>;
 
 /** A game's sheet (like CLZ): details from the metadata providers, the copies you own, and editing. */
-export default function GameDetail({ gameId, onClose, onOpenGame, onPlatform, nav }: Props) {
+export default function GameDetail({ gameId, system, onClose, onOpenGame, onPlatform, nav }: Props) {
   const { games } = useAppData();
   const game = games.find((g) => g.id === gameId);
   if (!game) return null;
-  return <GameDetailBody game={game} onClose={onClose} onOpenGame={onOpenGame} onPlatform={onPlatform} nav={nav} />;
+  return <GameDetailBody game={game} system={system} onClose={onClose} onOpenGame={onOpenGame} onPlatform={onPlatform} nav={nav} />;
 }
 
-function GameDetailBody({ game, onClose, onOpenGame, onPlatform, nav }: {
+function GameDetailBody({ game, system, onClose, onOpenGame, onPlatform, nav }: {
   game: Game;
+  system?: string;
   onClose: () => void;
   onOpenGame: (id: string) => void;
   onPlatform?: (platform: string) => void;
@@ -78,6 +79,18 @@ function GameDetailBody({ game, onClose, onOpenGame, onPlatform, nav }: {
   const [dialog, setDialog] = useState<Dialog>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [chosen, setChosen] = useState(system ?? '');
+  // The edition shown: the one chosen, while the game still has it (its copies may have moved), else
+  // the main one.
+  const current = openEdition(game, chosen);
+  const edition = game.editions.find((e) => e.system === current);
+  // The system whose box the hero shows (null: none), to say when it is borrowed.
+  const [shownBox, setShownBox] = useState<string | null>(current);
+  const borrowed = shownBox !== current;
+  const editionPhotos = game.copies.filter((c) => c.effectiveSystem === current).flatMap((c) => c.photos);
+  // Follow the edition the library opens: ‹ › in "By platform" can move to another edition of the
+  // same game, so the game's id alone is not enough.
+  useEffect(() => setChosen(system ?? ''), [game.id, system]);
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -142,7 +155,7 @@ function GameDetailBody({ game, onClose, onOpenGame, onPlatform, nav }: {
     <div ref={overlay} className="overlay sheet-overlay" onMouseDown={onClose}>
       <article ref={sheetEl} className="game-sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" onMouseDown={(e) => e.stopPropagation()}>
         <header className="hero">
-          <div className="hero-backdrop" aria-hidden="true"><Cover game={game} /></div>
+          <div className="hero-backdrop" aria-hidden="true"><Cover game={game} system={current} /></div>
           <div className="hero-actions">
             {nav && (
               <>
@@ -153,16 +166,44 @@ function GameDetailBody({ game, onClose, onOpenGame, onPlatform, nav }: {
             <button className="icon-button" onClick={onClose} aria-label={t('common.close')}><Icon name="close" size={20} /></button>
           </div>
           <div className="hero-cover">
-            <Cover game={game} />
+            <Cover game={game} system={current} onShown={setShownBox} />
+            {current && borrowed && (
+              <p className="cover-note">{shownBox ? t('edition.borrowedHelp', { system: shownBox }) : t('edition.noBox')}</p>
+            )}
             <button type="button" className="ghost small-button" onClick={() => setDialog({ type: 'coverPicker' })}>
               <Icon name="image" size={16} />{t('coverPicker.open')}
             </button>
+            {current && borrowed && editionPhotos.length > 0 && (
+              <button type="button" className="ghost small-button" onClick={() => setDialog({ type: 'coverPicker', photosOnly: true })}>
+                <Icon name="image" size={16} />{t('edition.usePhoto')}
+              </button>
+            )}
           </div>
           <div className="hero-body">
             <h2 id="sheet-title" className="hero-title">{game.title}</h2>
+            {game.editions.length >= 2 && (
+              <div className="edition-chips" role="group" aria-label={t('edition.chips')}>
+                {game.editions.map((e) => (
+                  <button key={e.system} type="button" className={`edition-chip ${e.system === current ? 'active' : ''}`}
+                    aria-pressed={e.system === current} onClick={() => setChosen(e.system)}>{e.system}</button>
+                ))}
+              </div>
+            )}
             <div className="hero-line">
               {release && <span className="hero-year">{release}</span>}
-              {platformHoldings(game).map((h) => <PlatformBadge key={h.platform} {...h} full onSelect={onPlatform} />)}
+              {current && <PlatformBadge platform={current} full />}
+              {/* The store or console badges, without repeating the edition's system. */}
+              {platformHoldings(game).filter((h) => h.platform !== current)
+                .map((h) => <PlatformBadge key={h.platform} {...h} full onSelect={onPlatform} />)}
+              {/* With one edition, saying it is the game's cover tells nothing. */}
+              {game.editions.length >= 2 && edition && (edition.main
+                ? <span className="badge">{t('edition.isMain')}</span>
+                : (
+                  <button type="button" className="link" disabled={busy}
+                    onClick={() => run(async () => putGame((await gameClient.setMainEdition({ gameId: game.id, system: current })).game!))}>
+                    {t('edition.useAsMain')}
+                  </button>
+                ))}
             </div>
             <PlayControls game={game} busy={busy} onChange={updateGame} />
             {genres.length > 0 && <div className="genres">{genres.map((g) => <span key={g} className="genre">{g}</span>)}</div>}
@@ -184,7 +225,10 @@ function GameDetailBody({ game, onClose, onOpenGame, onPlatform, nav }: {
           {tab === 'overview' && (
             <SheetOverview game={game} details={details} warnings={sheet.warnings} loading={sheet.loading} error={sheet.error} onRefresh={sheet.refresh} />
           )}
-          {tab === 'copies' && <CopiesTab game={game} busy={busy} run={run} setDialog={setDialog} onGameGone={() => { dropGame(game.id); onClose(); }} />}
+          {tab === 'copies' && (
+            <CopiesTab game={game} current={current} busy={busy} run={run} setDialog={setDialog} onShowEdition={setChosen}
+              onGameGone={() => { dropGame(game.id); onClose(); }} />
+          )}
           {tab === 'edit' && <EditTab game={game} busy={busy} onSave={updateGame} setDialog={setDialog} run={run} onDeleted={onClose} />}
         </div>
       </article>
@@ -209,11 +253,12 @@ function GameDetailBody({ game, onClose, onOpenGame, onPlatform, nav }: {
             setDialog(null);
           })} />
       )}
-      {/* The main edition's cover for now; a game without copies has its main edition on ''. */}
+      {/* The current edition's cover; a game without copies has its only edition on ''. A URL the
+          server refuses comes back as the sheet's error. */}
       {dialog?.type === 'coverPicker' && (
-        <CoverPicker game={game} system={mainSystem(game)} onClose={() => setDialog(null)}
+        <CoverPicker game={game} system={current} photosOnly={dialog.photosOnly} onClose={() => setDialog(null)}
           onPick={(cover) => {
-            run(async () => putGame((await gameClient.setEditionCover({ gameId: game.id, system: mainSystem(game), cover })).game!));
+            run(async () => putGame((await gameClient.setEditionCover({ gameId: game.id, system: current, cover })).game!));
             setDialog(null);
           }} />
       )}
@@ -237,8 +282,12 @@ function GameDetailBody({ game, onClose, onOpenGame, onPlatform, nav }: {
 
 function EditCopyDialog({ game, copy, onClose }: { game: Game; copy: Copy; onClose: () => void }) {
   const { putGame, sourceName } = useAppData();
+  // The API exposes the effective system only: without an override, a system that differs from the
+  // platform's is the source's.
+  const d = copy.details!;
+  const sourceSystem = !d.system && copy.effectiveSystem !== systemOf(d.platform) ? copy.effectiveSystem : '';
   return (
-    <CopyForm initial={{ ...copy.details! }} managedBy={copy.sourceId ? sourceName(copy.sourceId) : undefined} onClose={onClose}
+    <CopyForm initial={{ ...d }} sourceSystem={sourceSystem} managedBy={copy.sourceId ? sourceName(copy.sourceId) : undefined} onClose={onClose}
       onSubmit={async (d: CopyDetailsInput) => {
         putGame((await gameClient.updateCopy({ gameId: game.id, copyId: copy.id, details: d })).game!);
         onClose();
@@ -246,18 +295,20 @@ function EditCopyDialog({ game, copy, onClose }: { game: Game; copy: Copy; onClo
   );
 }
 
-function CopiesTab({ game, busy, run, setDialog, onGameGone }: {
+function CopiesTab({ game, current, busy, run, setDialog, onShowEdition, onGameGone }: {
   game: Game;
+  /** The edition the sheet shows: its copies come first. */
+  current: string;
   busy: boolean;
   run: (fn: () => Promise<void>) => Promise<void>;
   setDialog: (d: Dialog) => void;
+  /** Show this edition in the sheet (a photo just became its cover). */
+  onShowEdition: (system: string) => void;
   /** The game was deleted (its last copy was removed for good). */
   onGameGone: () => void;
 }) {
-  const { t, i18n } = useTranslation();
-  const fmt = useFormatters();
-  const { putGame, sourceName, reloadSources, fields } = useAppData();
-  const copyDefs = fields.filter((f) => f.scope === 'copy');
+  const { t } = useTranslation();
+  const { putGame, sourceName, reloadSources } = useAppData();
   // Copy whose key was just opened in the store: offer to mark it as redeemed.
   const [redeeming, setRedeeming] = useState<string | null>(null);
 
@@ -294,62 +345,89 @@ function CopiesTab({ game, busy, run, setDialog, onGameGone }: {
         <button className="primary" onClick={() => setDialog({ type: 'addCopy' })}><Icon name="plus" size={18} />{t('copy.add')}</button>
       </div>
       {game.copies.length === 0 && <p className="muted">{t('game.noCopies')}</p>}
-      <ul className="copy-cards">
-        {game.copies.map((c) => {
-          const d = c.details!;
-          const days = daysUntil(d.redeemBy);
-          const source = c.sourceId ? sourceName(c.sourceId) : '';
-          const physical = [
-            d.grade ? t(`grade.${gradeKey(d.grade)}`) : '',
-            d.contents.length ? d.contents.map((c) => t(`content.${contentKey(c)}`)).join(', ') : '',
-            d.price?.amountMinor ? formatAmount(d.price.amountMinor, d.price.currency, i18n.language) : '',
-            d.location,
-          ];
-          const extra = [d.origin, d.edition, ...physical, fmt.date(d.acquiredOn), d.barcode && `EAN ${d.barcode}`].filter(Boolean);
-          return (
-            <li key={c.id} className={`copy-card kind-edge-${kindKey(d.kind)}`}>
-              <div className="copy-top">
-                <span className={`kind kind-${kindKey(d.kind)}`}>{t(`kind.${kindKey(d.kind)}`)}</span>
-                {d.platform && <PlatformBadge platform={d.platform} full />}
-                <span className={`status status-${statusKey(d.status)}`}>{t(`status.${statusKey(d.status)}`)}</span>
-                {c.redundant && <span className="badge warn" title={t('copy.redundantHelp')}>{t('copy.redundant')}</span>}
-                <span className="spacer" />
-                <span className="copy-actions">
-                  <button className="icon-button" title={t('common.edit')} aria-label={t('common.edit')} onClick={() => setDialog({ type: 'editCopy', copy: c })}><Icon name="edit" size={18} /></button>
-                  <button className="icon-button" title={t('copy.move')} aria-label={t('copy.move')} onClick={() => setDialog({ type: 'moveCopy', copy: c })}><Icon name="move" size={18} /></button>
-                  <button className="icon-button" title={t('common.delete')} aria-label={t('common.delete')} onClick={() => deleteCopy(c)}><Icon name="trash" size={18} /></button>
-                </span>
-              </div>
-              {d.kind === CopyKind.KEY && (
-                <div className="copy-key">
-                  <KeyCell value={d.key} />
-                  {redeemUrl(c) && (
-                    <a className="button small-button" href={redeemUrl(c)!} target="_blank" rel="noreferrer" onClick={() => setRedeeming(c.id)}>
-                      {t('copy.redeemOn', { platform: d.platform })}<Icon name="external" size={14} />
-                    </a>
-                  )}
-                  {redeeming === c.id && (
-                    <button className="small-button primary" onClick={() => markRedeemed(c)} disabled={busy}><Icon name="check" size={14} />{t('copy.markRedeemed')}</button>
-                  )}
-                </div>
-              )}
-              {days !== null && (
-                <p className={`copy-deadline ${days <= 30 ? 'danger' : days <= 90 ? 'warn' : 'muted'}`}>
-                  {t('copy.redeemBy')}: {fmt.date(d.redeemBy)} · {t('common.daysLeft', { count: days })}
-                </p>
-              )}
-              {extra.length > 0 && <p className="muted small">{extra.join(' · ')}</p>}
-              {d.kind === CopyKind.PHYSICAL && <CopyValue game={game} copy={c} onAddBarcode={() => setDialog({ type: 'editCopy', copy: c })} />}
-              <FieldList className="copy-fields" values={d.fields}
-                defs={copyDefs.filter((f) => !f.kinds.length || f.kinds.includes(d.kind))} />
-              {d.notes && <p className="small">{d.notes}</p>}
-              <CopyPhotos game={game} copy={c} />
-              {source && <p className="muted small">{t('copy.syncedFrom', { source })}</p>}
-            </li>
-          );
-        })}
-      </ul>
+      {groupCopies(game.copies, game.editions, current).map((group) => (
+        <section key={group.system} className="copies-group">
+          {game.editions.length >= 2 && <h3 className="copies-system"><PlatformBadge platform={group.system} full /></h3>}
+          <ul className="copy-cards">
+            {group.copies.map((c) => (
+              <CopyCard key={c.id} game={game} copy={c} busy={busy} setDialog={setDialog} redeeming={redeeming === c.id}
+                onRedeeming={() => setRedeeming(c.id)} onMarkRedeemed={() => markRedeemed(c)} onDelete={() => deleteCopy(c)}
+                onShowEdition={onShowEdition} />
+            ))}
+          </ul>
+        </section>
+      ))}
     </>
+  );
+}
+
+/** One copy in the Copies tab: kind, platform, status, key, details, value, fields, photos. */
+function CopyCard({ game, copy, busy, setDialog, redeeming, onRedeeming, onMarkRedeemed, onDelete, onShowEdition }: {
+  game: Game;
+  copy: Copy;
+  busy: boolean;
+  setDialog: (d: Dialog) => void;
+  /** The copy's key was just opened in the store: offer to mark it as redeemed. */
+  redeeming: boolean;
+  onRedeeming: () => void;
+  onMarkRedeemed: () => void;
+  onDelete: () => void;
+  onShowEdition: (system: string) => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const fmt = useFormatters();
+  const { sourceName, fields } = useAppData();
+  const copyDefs = fields.filter((f) => f.scope === 'copy');
+  const d = copy.details!;
+  const days = daysUntil(d.redeemBy);
+  const source = copy.sourceId ? sourceName(copy.sourceId) : '';
+  const physical = [
+    d.grade ? t(`grade.${gradeKey(d.grade)}`) : '',
+    d.contents.length ? d.contents.map((c) => t(`content.${contentKey(c)}`)).join(', ') : '',
+    d.price?.amountMinor ? formatAmount(d.price.amountMinor, d.price.currency, i18n.language) : '',
+    d.location,
+  ];
+  const extra = [d.origin, d.edition, ...physical, fmt.date(d.acquiredOn), d.barcode && `EAN ${d.barcode}`].filter(Boolean);
+  return (
+    <li className={`copy-card kind-edge-${kindKey(d.kind)}`}>
+      <div className="copy-top">
+        <span className={`kind kind-${kindKey(d.kind)}`}>{t(`kind.${kindKey(d.kind)}`)}</span>
+        {d.platform && <PlatformBadge platform={d.platform} full />}
+        <span className={`status status-${statusKey(d.status)}`}>{t(`status.${statusKey(d.status)}`)}</span>
+        {copy.redundant && <span className="badge warn" title={t('copy.redundantHelp')}>{t('copy.redundant')}</span>}
+        <span className="spacer" />
+        <span className="copy-actions">
+          <button className="icon-button" title={t('common.edit')} aria-label={t('common.edit')} onClick={() => setDialog({ type: 'editCopy', copy })}><Icon name="edit" size={18} /></button>
+          <button className="icon-button" title={t('copy.move')} aria-label={t('copy.move')} onClick={() => setDialog({ type: 'moveCopy', copy })}><Icon name="move" size={18} /></button>
+          <button className="icon-button" title={t('common.delete')} aria-label={t('common.delete')} onClick={() => onDelete()}><Icon name="trash" size={18} /></button>
+        </span>
+      </div>
+      {d.kind === CopyKind.KEY && (
+        <div className="copy-key">
+          <KeyCell value={d.key} />
+          {redeemUrl(copy) && (
+            <a className="button small-button" href={redeemUrl(copy)!} target="_blank" rel="noreferrer" onClick={() => onRedeeming()}>
+              {t('copy.redeemOn', { platform: d.platform })}<Icon name="external" size={14} />
+            </a>
+          )}
+          {redeeming && (
+            <button className="small-button primary" onClick={() => onMarkRedeemed()} disabled={busy}><Icon name="check" size={14} />{t('copy.markRedeemed')}</button>
+          )}
+        </div>
+      )}
+      {days !== null && (
+        <p className={`copy-deadline ${days <= 30 ? 'danger' : days <= 90 ? 'warn' : 'muted'}`}>
+          {t('copy.redeemBy')}: {fmt.date(d.redeemBy)} · {t('common.daysLeft', { count: days })}
+        </p>
+      )}
+      {extra.length > 0 && <p className="muted small">{extra.join(' · ')}</p>}
+      {d.kind === CopyKind.PHYSICAL && <CopyValue game={game} copy={copy} onAddBarcode={() => setDialog({ type: 'editCopy', copy })} />}
+      <FieldList className="copy-fields" values={d.fields}
+        defs={copyDefs.filter((f) => !f.kinds.length || f.kinds.includes(d.kind))} />
+      {d.notes && <p className="small">{d.notes}</p>}
+      <CopyPhotos game={game} copy={copy} onEditionCover={onShowEdition} />
+      {source && <p className="muted small">{t('copy.syncedFrom', { source })}</p>}
+    </li>
   );
 }
 

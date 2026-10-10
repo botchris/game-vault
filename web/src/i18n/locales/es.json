@@ -141,7 +141,6 @@
     "copies_other": "{{count}} copias",
     "noCopies": "Todavía no hay copias.",
     "coverUrl": "URL de la carátula",
-    "coverUrlPlaceholder": "Vacío = la eligen los proveedores",
     "links": "Vínculos con tiendas",
     "linkPlaceholder": "Id en la tienda",
     "storePage": "Abrir",
@@ -170,6 +169,8 @@
     "edit": "Editar copia",
     "kind": "Tipo",
     "platform": "Plataforma",
+    "system": "Sistema",
+    "systemHelp": "Automático: {{system}}. Cámbialo si esta copia se juega en otro sistema.",
     "status": "Estado",
     "key": "Clave / enlace de regalo",
     "redeemBy": "Canjear antes de",
@@ -580,9 +581,12 @@
   "coverPicker": {
     "open": "Elegir carátula…",
     "title": "Elegir carátula",
+    "titleFor": "Elegir la carátula de {{system}}",
     "intro": "Imágenes que proponen tus proveedores de carátulas activos. La que elijas se mantiene aunque cambies el orden de los proveedores.",
     "automatic": "Automática",
     "automaticHint": "Que decida la cadena de proveedores",
+    "photos": "Fotos de tus copias",
+    "paste": "Usar esta imagen",
     "none": "Ningún proveedor tiene carátula para este juego. Vincúlalo con una tienda (Editar → Vínculos con tiendas) o pega la URL de una imagen."
   },
   "scan": {
@@ -790,9 +794,9 @@
     "takenOn": "Tomada el {{date}}",
     "moveLeft": "Mover a la izquierda",
     "moveRight": "Mover a la derecha",
-    "useAsCover": "Usar como portada",
+    "useAsCover": "Usar como carátula de esta edición",
     "stopCover": "Dejar de usar como portada",
-    "isCover": "La portada del juego",
+    "isCover": "Carátula de esta edición",
     "confirmDelete": "¿Borrar esta foto de la copia?"
   },
   "value": {
@@ -827,6 +831,12 @@
     }
   },
   "edition": {
-    "borrowed": "Caja de {{system}}"
+    "borrowed": "Caja de {{system}}",
+    "chips": "Ediciones",
+    "borrowedHelp": "Aún no tiene carátula propia: se ve la de {{system}}.",
+    "noBox": "Esta edición aún no tiene carátula.",
+    "usePhoto": "Usar una foto",
+    "useAsMain": "Usar como portada del juego",
+    "isMain": "Portada del juego"
   }
 }

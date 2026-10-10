@@ -59,6 +59,12 @@ export function mainSystem(g: { editions: EditionLike[] }): string {
   return g.editions.find((e) => e.main)?.system ?? '';
 }
 
+/** The edition a sheet opened on `system` shows: that one while the game has it, else the main one
+ *  (no system asked for, or the edition's copies moved away). */
+export function openEdition(g: { editions: EditionLike[] }, system: string): string {
+  return g.editions.some((e) => e.system === system) ? system : mainSystem(g);
+}
+
 /** Path of an edition's cover (URL-escaped: systems may hold spaces or slashes); without a system,
  *  the main edition's. */
 export function coverPath(gameId: string, system: string): string {

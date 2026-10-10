@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   NO_FILTERS, activeFilterCount, coverOrder, coverPath, editionsOf, filterItems, groupCopies, itemCounts, libraryItems, mainSystem,
-  nextCover, sortItems, systemCounts, systemOf,
+  nextCover, openEdition, sortItems, systemCounts, systemOf,
 } from '../src/lib/editions.ts';
 
 // Plain objects shaped like the generated messages; kinds: 1 key, 2 library, 3 physical.
@@ -116,4 +116,12 @@ test('a card tries its own cover, then the main edition\'s, then the others\', a
 test('groupCopies: the current edition first, then in the editions\' order', () => {
   const groups = groupCopies(halo.copies, halo.editions, 'Xbox 360');
   assert.deepEqual(groups.map((g) => [g.system, g.copies.length]), [['Xbox 360', 1], ['PS3', 1], ['PC', 1]]);
+});
+
+test('openEdition: the edition asked for while the game has it, else the main one', () => {
+  assert.equal(openEdition(halo, 'Xbox 360'), 'Xbox 360');
+  assert.equal(openEdition(halo, ''), 'PS3', 'no system (a merge, a move): the main edition');
+  assert.equal(openEdition(halo, 'Wii'), 'PS3', 'an edition whose copies moved away: the main one');
+  const noCopies = game('g4', 'No copies', [], [edition('', { main: true })]);
+  assert.equal(openEdition(noCopies, ''), '', 'a game without copies stays on its only edition');
 });

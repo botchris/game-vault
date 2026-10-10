@@ -141,7 +141,6 @@
     "copies_other": "{{count}} copies",
     "noCopies": "No copies yet.",
     "coverUrl": "Cover image URL",
-    "coverUrlPlaceholder": "Empty = chosen by the providers",
     "links": "Store links",
     "linkPlaceholder": "Id in the store",
     "storePage": "Open",
@@ -170,6 +169,8 @@
     "edit": "Edit copy",
     "kind": "Kind",
     "platform": "Platform",
+    "system": "System",
+    "systemHelp": "Automatic: {{system}}. Change it if this copy is played on another system.",
     "status": "Status",
     "key": "Key / gift link",
     "redeemBy": "Redeem by",
@@ -580,9 +581,12 @@
   "coverPicker": {
     "open": "Choose cover…",
     "title": "Choose cover",
+    "titleFor": "Choose the {{system}} cover",
     "intro": "Images proposed by your enabled cover providers. The one you pick is kept even if the provider order changes.",
     "automatic": "Automatic",
     "automaticHint": "Let the provider chain decide",
+    "photos": "Photos of your copies",
+    "paste": "Use this image",
     "none": "No provider has a cover for this game. Link it to a store (Edit → Store links) or paste an image URL."
   },
   "scan": {
@@ -790,9 +794,9 @@
     "takenOn": "Taken on {{date}}",
     "moveLeft": "Move left",
     "moveRight": "Move right",
-    "useAsCover": "Use as cover",
+    "useAsCover": "Use as this edition's cover",
     "stopCover": "Stop using as cover",
-    "isCover": "The game's cover",
+    "isCover": "This edition's cover",
     "confirmDelete": "Delete this photo from the copy?"
   },
   "value": {
@@ -827,6 +831,12 @@
     }
   },
   "edition": {
-    "borrowed": "{{system}} box"
+    "borrowed": "{{system}} box",
+    "chips": "Editions",
+    "borrowedHelp": "No box of its own yet: showing the {{system}} box.",
+    "noBox": "No box for this edition yet.",
+    "usePhoto": "Use a photo",
+    "useAsMain": "Use as the game's cover",
+    "isMain": "The game's cover"
   }
 }

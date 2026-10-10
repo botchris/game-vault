@@ -8,7 +8,7 @@ import { searchableText } from '../../lib/fields';
 import { CopyStatus, PlayStatus, daysUntil, isPendingKey, nextDeadline, playKey, toDate, type Game } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
 import {
-  NO_FILTERS, activeFilterCount, filterItems, itemCounts, libraryItems, pruneFilters, sortItems, type Filters, type Grouping, type LibraryItem,
+  NO_FILTERS, activeFilterCount, filterItems, itemCounts, libraryItems, openEdition, pruneFilters, sortItems, type Filters, type Grouping, type LibraryItem,
 } from '../../lib/editions';
 import FilterPanel from './FilterPanel';
 import GameDetail, { type SheetNav } from './GameDetail';
@@ -136,7 +136,8 @@ export default function LibraryPage() {
 
   // The open sheet moves through the list as the library shows it (search, filters, sort), loading
   // the grid down to that item so it is there when the sheet closes.
-  const openIndex = open ? filtered.findIndex((i) => i.game.id === open.id && (grouping === 'game' || i.system === open.system)) : -1;
+  // An empty system, or one the game no longer has (its copies moved), is the main edition, as in the sheet.
+  const openIndex = open ? filtered.findIndex((i) => i.game.id === open.id && (grouping === 'game' || i.system === openEdition(i.game, open.system))) : -1;
   const openAt = (i: number) => {
     setOpen({ id: filtered[i]!.game.id, system: filtered[i]!.system });
     if (i >= shown) setShown(Math.ceil((i + 1) / CHUNK) * CHUNK);

@@ -667,6 +667,18 @@ td.title { font-weight: 500; min-width: 220px; }
   text-wrap: balance; padding-right: 120px; /* room for ‹ › × */
 }
 .hero-line { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+/* Edition chips and the cover note sit on the always-dark hero: light on dark, like the play chips. */
+.edition-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 2px; }
+.edition-chip {
+  border-radius: 999px; min-height: 30px; padding: 3px 12px; font-size: 13.5px; font-weight: 600;
+  background: rgb(255 255 255 / .1); color: rgb(255 255 255 / .86); border-color: rgb(255 255 255 / .18);
+}
+.edition-chip:hover:not(:disabled) { background: rgb(255 255 255 / .18); color: #fff; }
+.edition-chip.active, .edition-chip.active:hover:not(:disabled) { background: #fff; color: #181c2c; border-color: #fff; }
+.cover-note { margin: 0; font-size: 12.5px; color: rgb(255 255 255 / .78); }
+.hero .badge { background: rgb(255 255 255 / .14); color: #fff; }
+.hero button.link { color: rgb(255 255 255 / .9); font-size: 14px; }
+.hero button.link:hover:not(:disabled) { color: #fff; }
 .hero-year { font-size: 17px; font-weight: 650; font-variant-numeric: tabular-nums; margin-right: 4px; color: rgb(255 255 255 / .9); }
 .hero .plat { color: #fff; background: color-mix(in srgb, var(--c) 55%, rgb(0 0 0 / .2)); border-color: transparent; }
 .hero .plat-xbox { --c: #107c10; }
@@ -777,6 +789,10 @@ td.title { font-weight: 500; min-width: 220px; }
 @media (max-width: 859px) { .lightbox-nav { width: 40px; height: 56px; background: rgb(0 0 0 / .25); } }
 .danger-zone { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
 
+.copies-group + .copies-group { margin-top: 18px; }
+.copies-system { margin: 0 0 8px; font-size: 14px; }
+.row.tight.cover-paste { margin-top: 14px; align-items: flex-end; flex-wrap: wrap; }
+.cover-paste label { display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: var(--muted); font-weight: 550; flex: 1 1 240px; min-width: 0; }
 .copy-cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
 .copy-card {
   background: var(--bg); border-radius: var(--radius); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;
