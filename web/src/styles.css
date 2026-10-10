@@ -837,9 +837,15 @@ td.title { font-weight: 500; min-width: 220px; }
   .hero-body > .genres { align-self: start; }
   .hero-cover { grid-column: 1; grid-row: 1 / span 3; }
   .hero-title { align-self: end; }
-  .hero-title, .hero-line, .hero-body > .genres { grid-column: 2; }
   .hero-body > .play-controls { grid-column: 1 / -1; grid-row: 4; margin-top: 6px; }
   .hero-body > .facts { grid-column: 1 / -1; grid-row: 5; margin-top: 6px; }
+  /* Edition chips take a row of their own under the title, so the genres keep their place. */
+  .hero-title, .hero-body > .edition-chips, .hero-line, .hero-body > .genres { grid-column: 2; }
+  .hero:has(.edition-chips) { grid-template-rows: auto auto auto 1fr auto auto; }
+  .hero:has(.edition-chips) .hero-cover { grid-row: 1 / span 4; }
+  .hero:has(.edition-chips) .hero-body > .play-controls { grid-row: 5; }
+  .hero:has(.edition-chips) .hero-body > .facts { grid-row: 6; }
+  .hero-body > .edition-chips { margin: 0; }
 }
 
 /* ---------- Logs ---------- */

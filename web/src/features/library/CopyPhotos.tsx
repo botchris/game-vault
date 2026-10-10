@@ -178,6 +178,8 @@ function PhotoFooter({ game, copy, index, onIndex, onEmpty, onEditionCover }: {
         {/* Outside the main edition, the photo can also become the cover the library shows "By game". */}
         {!isMain && (
           <button className="lightbox-button" disabled={busy} onClick={() => run(async () => {
+            // Two requests: if the second fails, the photo stays as its edition's cover only, and the
+            // error is shown under the photo.
             if (!isCover) putGame((await gameClient.setEditionCover({ gameId: game.id, system, cover: { case: 'photoId', value: photo.id } })).game!);
             putGame((await gameClient.setMainEdition({ gameId: game.id, system })).game!);
             onEditionCover?.(system);

@@ -586,6 +586,7 @@
     "automatic": "Automatic",
     "automaticHint": "Let the provider chain decide",
     "photos": "Photos of your copies",
+    "photo": "Photo of your copy",
     "paste": "Use this image",
     "none": "No provider has a cover for this game. Link it to a store (Edit → Store links) or paste an image URL."
   },

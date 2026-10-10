@@ -47,9 +47,9 @@ export default function CoverPicker({ game, system, photosOnly = false, onPick, 
           <h3>{t('coverPicker.photos')}</h3>
           <div className="posters picker-grid">
             {photos.map((p) => (
-              <button key={p.id} className={`poster ${edition?.coverPhotoId === p.id ? 'selected' : ''}`} title={p.caption}
+              <button key={p.id} className={`poster ${edition?.coverPhotoId === p.id ? 'selected' : ''}`} title={p.caption} aria-label={p.caption || t('coverPicker.photo')}
                 onClick={() => onPick({ case: 'photoId', value: p.id })}>
-                <div className="cover"><img src={photoUrl(p.id, true)} alt={p.caption} loading="lazy" /></div>
+                <div className="cover"><img src={photoUrl(p.id, true)} alt="" loading="lazy" /></div>
               </button>
             ))}
           </div>

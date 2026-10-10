@@ -30,6 +30,9 @@ interface Props {
   onClose: () => void;
   /** Switch the dialog to another game (after a merge or move). */
   onOpenGame: (id: string) => void;
+  /** The sheet now shows another edition of the game (a chip, a photo made its cover), so the
+   *  library's ‹ › move from it. */
+  onEdition?: (system: string) => void;
   /** Close the sheet and show the library filtered by that platform. */
   onPlatform?: (platform: string) => void;
   /** Move to the previous or next game of the list the sheet was opened from (← →, ‹ ›). Absent:
@@ -57,18 +60,19 @@ type Tab = 'overview' | 'copies' | 'edit';
 type GamePatch = Partial<Pick<Game, 'title' | 'links' | 'notes' | 'playStatus' | 'rating' | 'fields'>>;
 
 /** A game's sheet (like CLZ): details from the metadata providers, the copies you own, and editing. */
-export default function GameDetail({ gameId, system, onClose, onOpenGame, onPlatform, nav }: Props) {
+export default function GameDetail({ gameId, system, onClose, onOpenGame, onEdition, onPlatform, nav }: Props) {
   const { games } = useAppData();
   const game = games.find((g) => g.id === gameId);
   if (!game) return null;
-  return <GameDetailBody game={game} system={system} onClose={onClose} onOpenGame={onOpenGame} onPlatform={onPlatform} nav={nav} />;
+  return <GameDetailBody game={game} system={system} onClose={onClose} onOpenGame={onOpenGame} onEdition={onEdition} onPlatform={onPlatform} nav={nav} />;
 }
 
-function GameDetailBody({ game, system, onClose, onOpenGame, onPlatform, nav }: {
+function GameDetailBody({ game, system, onClose, onOpenGame, onEdition, onPlatform, nav }: {
   game: Game;
   system?: string;
   onClose: () => void;
   onOpenGame: (id: string) => void;
+  onEdition?: (system: string) => void;
   onPlatform?: (platform: string) => void;
   nav?: SheetNav;
 }) {
@@ -87,10 +91,15 @@ function GameDetailBody({ game, system, onClose, onOpenGame, onPlatform, nav }: 
   // The system whose box the hero shows (null: none), to say when it is borrowed.
   const [shownBox, setShownBox] = useState<string | null>(current);
   const borrowed = shownBox !== current;
+  const holdings = platformHoldings(game);
   const editionPhotos = game.copies.filter((c) => c.effectiveSystem === current).flatMap((c) => c.photos);
   // Follow the edition the library opens: ‹ › in "By platform" can move to another edition of the
   // same game, so the game's id alone is not enough.
   useEffect(() => setChosen(system ?? ''), [game.id, system]);
+  const showEdition = (s: string) => {
+    setChosen(s);
+    onEdition?.(s);
+  };
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -185,15 +194,16 @@ function GameDetailBody({ game, system, onClose, onOpenGame, onPlatform, nav }: 
               <div className="edition-chips" role="group" aria-label={t('edition.chips')}>
                 {game.editions.map((e) => (
                   <button key={e.system} type="button" className={`edition-chip ${e.system === current ? 'active' : ''}`}
-                    aria-pressed={e.system === current} onClick={() => setChosen(e.system)}>{e.system}</button>
+                    aria-pressed={e.system === current} onClick={() => showEdition(e.system)}>{e.system}</button>
                 ))}
               </div>
             )}
             <div className="hero-line">
               {release && <span className="hero-year">{release}</span>}
-              {current && <PlatformBadge platform={current} full />}
-              {/* The store or console badges, without repeating the edition's system. */}
-              {platformHoldings(game).filter((h) => h.platform !== current)
+              {/* The edition's system first (a filter badge when a copy's platform names it, like a
+                  disc's), then the other store or console badges. */}
+              {current && !holdings.some((h) => h.platform === current) && <PlatformBadge platform={current} full />}
+              {[...holdings.filter((h) => h.platform === current), ...holdings.filter((h) => h.platform !== current)]
                 .map((h) => <PlatformBadge key={h.platform} {...h} full onSelect={onPlatform} />)}
               {/* With one edition, saying it is the game's cover tells nothing. */}
               {game.editions.length >= 2 && edition && (edition.main
@@ -226,7 +236,7 @@ function GameDetailBody({ game, system, onClose, onOpenGame, onPlatform, nav }: 
             <SheetOverview game={game} details={details} warnings={sheet.warnings} loading={sheet.loading} error={sheet.error} onRefresh={sheet.refresh} />
           )}
           {tab === 'copies' && (
-            <CopiesTab game={game} current={current} busy={busy} run={run} setDialog={setDialog} onShowEdition={setChosen}
+            <CopiesTab game={game} current={current} busy={busy} run={run} setDialog={setDialog} onShowEdition={showEdition}
               onGameGone={() => { dropGame(game.id); onClose(); }} />
           )}
           {tab === 'edit' && <EditTab game={game} busy={busy} onSave={updateGame} setDialog={setDialog} run={run} onDeleted={onClose} />}

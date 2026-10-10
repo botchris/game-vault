@@ -586,6 +586,7 @@
     "automatic": "Automática",
     "automaticHint": "Que decida la cadena de proveedores",
     "photos": "Fotos de tus copias",
+    "photo": "Foto de tu copia",
     "paste": "Usar esta imagen",
     "none": "Ningún proveedor tiene carátula para este juego. Vincúlalo con una tienda (Editar → Vínculos con tiendas) o pega la URL de una imagen."
   },
@@ -795,7 +796,7 @@
     "moveLeft": "Mover a la izquierda",
     "moveRight": "Mover a la derecha",
     "useAsCover": "Usar como carátula de esta edición",
-    "stopCover": "Dejar de usar como portada",
+    "stopCover": "Dejar de usar como carátula",
     "isCover": "Carátula de esta edición",
     "confirmDelete": "¿Borrar esta foto de la copia?"
   },

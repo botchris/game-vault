@@ -264,6 +264,7 @@ export default function LibraryPage() {
       </div>
 
       {open && <GameDetail gameId={open.id} system={open.system} onClose={() => setOpen(null)} onOpenGame={(id) => setOpen({ id, system: '' })} nav={nav}
+        onEdition={(system) => setOpen((o) => (o ? { ...o, system } : o))}
         onPlatform={(p) => { setOpen(null); setFilters((f) => ({ ...f, platforms: [p] })); }} />}
       {creating && <NewGameDialog onClose={() => setCreating(false)} onCreated={(id) => { setCreating(false); setOpen({ id, system: '' }); }} />}
     </div>
