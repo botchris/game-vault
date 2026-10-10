@@ -14,3 +14,16 @@ export function normalizeBarcode(code: string): string {
   const d = code.replace(/\D/g, '');
   return d.length === 12 ? `0${d}` : d;
 }
+
+/**
+ * Pages where the user can look a code up by hand when no barcode database knows it: EAN-Search's
+ * own search and a web search for the exact code. They open in the user's browser; Game Vault
+ * never queries or reads them (EAN-Search's terms forbid automated use of its site).
+ */
+export function lookupLinks(code: string): { eanSearch: string; web: string } {
+  const c = normalizeBarcode(code);
+  return {
+    eanSearch: `https://www.ean-search.org/?q=${c}`,
+    web: `https://www.google.com/search?q=${encodeURIComponent(`"${c}"`)}`,
+  };
+}

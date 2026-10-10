@@ -572,7 +572,9 @@
       "done": "Done",
       "foundIn": "found in {{provider}} as «{{raw}}»",
       "unknown": "Not in any barcode database: write the title and search. The box keeps its barcode, so next time it is recognized at once.",
-      "sound": "Sound"
+      "sound": "Sound",
+      "lookupEan": "Search on EAN-Search",
+      "lookupWeb": "Search the web"
     }
   },
   "auth": {

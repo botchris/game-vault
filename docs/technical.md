@@ -123,6 +123,22 @@ The log level and log rotation are set in the UI (**Logs** page) and stored in t
 
 The web client calls the page's own origin. To point it at another backend, build it with `VITE_API_URL=https://host:port`.
 
+### The config directory
+
+`config/` (or the `-config-dir` / `GAMEVAULT_CONFIG_DIR` location) holds all of Game Vault's
+state, like `/config` in Sonarr or Radarr. It is git-ignored.
+
+| Path | Contents |
+|------|----------|
+| `gamevault.db` (and `-wal`, `-shm` while running) | SQLite database: games, copies (CD keys in clear text), sources with their credentials, settings |
+| `photos/` | The photos of your copies. They exist nowhere else: back them up with the database |
+| `backups/` | Database snapshots and their photo store (see [Backups](#backups)) |
+| `logs/` | Server logs, rotated by size (limits set on the Logs page) |
+| `game-data/` | One folder per game (`<title> [<id>]`): `cover.jpg`, sheet screenshots, trailer posters and `assets.json` (where each image came from). Downloaded again when missing: safe to delete |
+
+To back up Game Vault by hand, stop it and copy the whole directory; `game-data/` can be left out.
+Treat the copy like a password manager's file: the database holds store sessions and CD keys.
+
 ## Docker image
 
 `botchrishub/game-vault` on Docker Hub, for `linux/amd64` and `linux/arm64`, tagged with the
@@ -400,7 +416,7 @@ How a code is identified:
    **CeX** reads the box detail endpoint the CeX website calls (`wss2.cex.{country}.webuy.io/v3/boxes/{ean}/detail`, undocumented; community notes in github.com/Dionakra/webuy-api). It knows many PAL editions the other databases miss. Each country has its own catalog of the editions sold there and a barcode does not say which country it belongs to (the Spanish Dead Space 3 has a UK-registered code and is only in the Spanish catalog), so the countries are asked one at a time, never in parallel, stopping at the first that knows the code. The countries that answered are remembered (an internal provider setting) and asked first, so after the first scans a lookup is usually one request; an unknown code asks every country once. The settings can limit the countries (`uk, es, ie, pt, au, in, mx, it, pl`). Only the product name and the platform (from the category, e.g. "Xbox 360 Juegos") are used: CeX's images and prices are not. Products outside CeX's games category (films, accessories) are not offered as games. If CeX answers with anything but its JSON API (a bot check page), the lookup fails with a clear warning and the next provider is used; it is never worked around.
    The retail product name is cleaned up, e.g. "Assassin's Creed Iii Ed. Special Ps3(sp)" → *Assassin's Creed III*, PS3, Special Edition.
 3. The cover providers (TheGamesDB) propose the canonical game and its box art for that platform. The cover you pick is pinned, so no further lookup is spent.
-4. If the code is unknown (UPCitemdb knew about half of the PAL boxes we tried), the row is to review: you type the title, pick a suggestion, and the disc is saved **with its barcode**. The next scan of that code is recognised instantly.
+4. If the code is unknown (UPCitemdb knew about half of the PAL boxes we tried), the row is to review: you type the title, pick a suggestion, and the disc is saved **with its barcode**. The next scan of that code is recognised instantly. The row offers **Search on EAN-Search** and **Search the web** (a search for the exact code) to find the title by hand: they open in your browser, and Game Vault never reads those pages.
 
 If a game with the same title is already in your catalog (e.g. you own it on Steam), the disc can be added to it as one more copy.
 
