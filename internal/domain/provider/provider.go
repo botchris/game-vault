@@ -36,6 +36,22 @@ var ErrNotFound = errors.New("provider not found")
 // nothing about the game, so callers must not remember it as "nothing found" and ask again later.
 var ErrRateLimited = errors.New("the service is receiving too many requests: try again in a few minutes")
 
+// ErrQuotaExhausted means the service's request allowance (a monthly quota) is used up until it
+// renews. It is a kind of ErrRateLimited, so errors.Is matches both: like a rate limit, the answer
+// says nothing about the game and nothing is remembered from it; it only lasts longer. Providers
+// wrap it in an error that says when the allowance renews.
+var ErrQuotaExhausted error = quotaExhausted{}
+
+// quotaExhausted is ErrQuotaExhausted's type: its own message, matching ErrRateLimited too.
+type quotaExhausted struct{}
+
+func (quotaExhausted) Error() string {
+	return "the service has used its request allowance: it answers again when the allowance renews"
+}
+
+// Is makes errors.Is(ErrQuotaExhausted, ErrRateLimited) true without ErrRateLimited's message.
+func (quotaExhausted) Is(target error) bool { return target == ErrRateLimited }
+
 // Descriptor describes a provider implementation and the settings it needs.
 type Descriptor struct {
 	ID             ID

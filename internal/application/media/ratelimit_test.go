@@ -2,6 +2,7 @@ package media_test
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -25,12 +26,16 @@ import (
 )
 
 // busyTheGamesDB is a fake TheGamesDB that answers searches with HTTP 429 while busy is set, as the
-// real one did to a burst of cover lookups on 2026-10-10, and with one PS3 box and a sheet otherwise.
-func busyTheGamesDB(t *testing.T, busy *atomic.Bool) *httptest.Server {
+// real one did to a burst of cover lookups on 2026-10-10 and does once the key's monthly allowance
+// is used up, and with one PS3 box and a sheet otherwise. API/Limit (free) reports remaining
+// requests left, renewing in 12 days.
+func busyTheGamesDB(t *testing.T, busy *atomic.Bool, remaining int) *httptest.Server {
 	t.Helper()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
+		case r.URL.Path == "/v1/API/Limit":
+			fmt.Fprintf(w, `{"remaining_monthly_allowance":%d,"extra_allowance":0,"allowance_refresh_timer":1036800}`, remaining)
 		case r.URL.Path == "/v1/Platforms":
 			w.Write([]byte(`{"data":{"platforms":{"12":{"id":12,"name":"Sony Playstation 3","alias":"sony-playstation-3"}}}}`))
 		case busy.Load():
@@ -78,7 +83,7 @@ func TestRateLimitedProvider(t *testing.T) {
 
 		busy.Store(true)
 
-		api := apiclient.New(busyTheGamesDB(t, &busy).URL)
+		api := apiclient.New(busyTheGamesDB(t, &busy, 500).URL)
 		tgdb := &thegamesdb.Provider{API: api}
 
 		db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "gamevault.db"), "")
@@ -142,6 +147,73 @@ func TestRateLimitedProvider(t *testing.T) {
 				assert.Equal(t, "https://cdn.test/large/front/1.jpg", cover(t, img, coverErr))
 				assert.Empty(t, warnings)
 				assert.Equal(t, "Finish the fight.", d.Summary)
+			})
+		})
+	})
+}
+
+func TestQuotaExhaustedProvider(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN TheGamesDB with this month's allowance used up, and a game with a PS3 disc", func(t *testing.T) {
+		var busy atomic.Bool
+
+		busy.Store(true)
+
+		tgdb := &thegamesdb.Provider{API: apiclient.New(busyTheGamesDB(t, &busy, 0).URL)}
+
+		db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "gamevault.db"), "")
+		require.NoError(t, err)
+		t.Cleanup(func() { db.Close() })
+
+		assets, err := gamedata.Open(filepath.Join(t.TempDir(), "game-data"))
+		require.NoError(t, err)
+
+		games, details := sqlite.NewGameRepository(db), sqlite.NewDetailsStore(db)
+		svc := media.NewService(games, sqlite.NewProviderRepository(db), assets, nil, details, echo{}, time.Now,
+			slog.New(slog.NewTextHandler(io.Discard, nil)), media.Providers{
+				Covers:   []media.CoverProvider{tgdb},
+				Metadata: []media.MetadataProvider{otherDetails{}, thegamesdb.NewDetails(tgdb)},
+			})
+		_, err = svc.ConfigureProvider(ctx, thegamesdb.ID, true, schema.Settings{"api_key": "k"})
+		require.NoError(t, err)
+
+		g := saveGame(t, ctx, games, "Halo 3", nil, game.CopyDetails{
+			Kind:     game.KindPhysical,
+			Platform: "PS3",
+		})
+
+		t.Run("WHEN the PS3 edition's cover is asked", func(t *testing.T) {
+			_, err := svc.EditionCover(ctx, g.ID(), "PS3")
+
+			t.Run("THEN it has no cover this time, because of the allowance", func(t *testing.T) {
+				require.ErrorIs(t, err, media.ErrNoCover)
+				assert.ErrorIs(t, err, provider.ErrQuotaExhausted)
+
+				t.Run("AND no miss is remembered", func(t *testing.T) {
+					_, marked := assets.CoverMissingSince(g.ID(), "PS3")
+					assert.False(t, marked)
+				})
+			})
+		})
+
+		t.Run("WHEN the game sheet is asked", func(t *testing.T) {
+			d, warnings, err := svc.GameDetails(ctx, g.ID(), "en", false)
+			require.NoError(t, err)
+
+			t.Run("THEN it shows what the other provider knows and says when TheGamesDB's allowance renews", func(t *testing.T) {
+				assert.Equal(t, []string{"Shooter"}, d.Genres)
+				require.Len(t, warnings, 1)
+				assert.Contains(t, warnings[0], "this month's request allowance; it renews in 12 days")
+				assert.NotContains(t, warnings[0], "busy")
+				assert.NotContains(t, warnings[0], "too many requests")
+			})
+
+			t.Run("AND the sheet is not cached", func(t *testing.T) {
+				_, cached, err := details.Get(ctx, g.ID(), "en")
+				require.NoError(t, err)
+				assert.False(t, cached)
 			})
 		})
 	})
