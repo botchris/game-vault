@@ -121,7 +121,8 @@ or price. Game documents are version 3: the free-text `condition` of version-1 d
 converted when read (the five texts the form used to suggest, in English or Spanish, become a grade
 and contents; anything else is appended to the notes as `Condition: …`), and so are version-2
 documents (a cover photo goes to its copy's edition, which becomes the main one; a cover URL goes
-to the default main edition, unless the photo took it). Migration `0010` only triggers the
+to the default main edition, unless the photo took it: when both land on the same edition, the
+photo wins and the URL is not kept). Migration `0010` only triggers the
 pre-migration backup.
 
 **CSV** (System → import / export) is English only: `title, platform, kind, status, key, redeemBy,
@@ -162,7 +163,7 @@ state, like `/config` in Sonarr or Radarr. It is git-ignored.
 | `photos/` | The photos of your copies. They exist nowhere else: back them up with the database |
 | `backups/` | Database snapshots and their photo store (see [Backups](#backups)) |
 | `logs/` | Server logs, rotated by size (limits set on the Logs page) |
-| `game-data/` | One folder per game (`<title> [<id>]`): `cover-<system>-<hash>.jpg` per edition (and `.missing` markers), sheet screenshots, trailer posters and `assets.json` (where each image came from). A `cover.jpg` from before editions is adopted by the main edition on first view. Downloaded again when missing: safe to delete |
+| `game-data/` | One folder per game (`<title> [<id>]`): `cover-<system>-<hash>.jpg` per edition (and `.missing` markers), sheet screenshots, trailer posters and `assets.json` (where each image came from). A `cover.jpg` from before editions is adopted by the main edition on first view when it can only be that edition's (see Covers), else deleted. Downloaded again when missing: safe to delete |
 
 To back up Game Vault by hand, stop it and copy the whole directory; `game-data/` can be left out.
 Treat the copy like a password manager's file: the database holds store sessions and CD keys.
@@ -295,7 +296,7 @@ Each provider declares which games it applies to. That keeps providers with a qu
 | Epic, GOG, Ubisoft, EA, Battle.net | the PC edition of games linked to that store | Official box art, no key, no quota (see below) |
 | Xbox | the PC and Xbox editions of games linked to the Microsoft Store | Official box art, no key, no quota (see below) |
 
-Covers are resolved per edition, in this order: the chosen photo, the chosen URL, the provider chain (with the fallback pass), the base game's cover for the same system (add-ons), else "missing". The first image found is stored in the game's folder in `config/game-data/`; a miss is remembered for 7 days per edition so quotas are not spent again. A cover from before editions (`cover.jpg`) is adopted by the main edition (or by a game's cover under the empty system) on first view instead of being downloaded again.
+Covers are resolved per edition, in this order: the chosen photo, the chosen URL, the provider chain (with the fallback pass), the base game's cover for the same system (add-ons), else "missing". The first image found is stored in the game's folder in `config/game-data/`; a miss is remembered for 7 days per edition so quotas are not spent again. A cover from before editions (`cover.jpg`) was resolved for the whole game, so it may show another system's box. The main edition (or a game's cover under the empty system) adopts it on first view instead of downloading again only when the game has at most one system, or when the main edition has a chosen cover (a URL or a photo); otherwise the file is deleted and the main edition resolves its own. Making another edition the main one deletes it too, so the new main edition never adopts the old one's image.
 `GET /media/covers/{gameId}/{system}` (the system URL-escaped) returns an edition's cover and `GET /media/covers/{gameId}` the main edition's; a miss is a 404 with `no-store`. `CoverQuery.System` carries the edition's system and each provider's `Applies` decides by it (`ForPC()` for the store providers).
 A scan or an edit drops the cached covers only of the editions whose cover inputs changed: their chosen cover, their copies' platforms (or whether one is physical) or the game's store links. Adding a disc or a key to an edition does not refetch its cover, which spares TheGamesDB's quota. Choosing an edition's cover keeps the cached sheet; only deleting the game drops it.
 Changing, enabling or reordering a cover provider forgets the misses.

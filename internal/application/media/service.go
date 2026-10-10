@@ -634,9 +634,7 @@ func (s *Service) resolve(ctx context.Context, id game.ID, system string) (Image
 	ref := GameRef{g.ID(), g.Title()}
 
 	if system == g.MainEdition().System {
-		if img, ok, err := s.store.AdoptLegacyCover(ref, system); err != nil {
-			s.log.Warn("adopting the cover cached before editions", "game", g.Title(), "error", err)
-		} else if ok {
+		if img, ok := s.adoptLegacyCover(g, ref, edition); ok {
 			return img, nil
 		}
 	}
@@ -701,6 +699,29 @@ func (s *Service) resolve(ctx context.Context, id game.ID, system string) (Image
 	}
 
 	return Image{}, ErrNoCover
+}
+
+// adoptLegacyCover makes the cover cached before editions the main edition's, and reports whether
+// there was one. That file was resolved for the whole game, so it may show another system's box:
+// it is only adopted when it can only be this edition's (the game has at most one system) or when
+// it came from the cover the user chose, which went to this edition. Otherwise it is deleted and
+// the edition resolves its own.
+func (s *Service) adoptLegacyCover(g *game.Game, ref GameRef, main game.Edition) (Image, bool) {
+	if len(g.Systems()) > 1 && main.Cover.IsZero() {
+		if err := s.store.DeleteLegacyCover(g.ID()); err != nil {
+			s.log.Warn("deleting the cover cached before editions", "game", g.Title(), "error", err)
+		}
+
+		return Image{}, false
+	}
+
+	img, ok, err := s.store.AdoptLegacyCover(ref, main.System)
+	if err != nil {
+		s.log.Warn("adopting the cover cached before editions", "game", g.Title(), "error", err)
+		return Image{}, false
+	}
+
+	return img, ok
 }
 
 // coverFromChain asks the enabled cover providers that apply to q, in order, and caches the first
@@ -873,6 +894,12 @@ func (s *Service) InvalidateEdition(ctx context.Context, id game.ID, system stri
 	}
 
 	return nil
+}
+
+// DropLegacyCover drops the game's cover cached before editions (implements catalog.CoverCache): the
+// main edition changed, and the new one must not adopt the old one's image.
+func (s *Service) DropLegacyCover(_ context.Context, id game.ID) error {
+	return s.store.DeleteLegacyCover(id)
 }
 
 // Invalidate drops the game's cover, details and downloaded images (implements catalog.CoverCache):

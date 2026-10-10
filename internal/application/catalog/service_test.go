@@ -15,11 +15,13 @@ import (
 	"gamevault/internal/domain/game"
 )
 
-// covers records the games whose cached cover and details were dropped, and the editions whose
-// cached cover was dropped ("<game id>|<system>").
+// covers records the games whose cached cover and details were dropped, the editions whose
+// cached cover was dropped ("<game id>|<system>"), and the games whose cover cached before
+// editions was dropped.
 type covers struct {
 	invalidated []game.ID
 	editions    []string
+	legacy      []game.ID
 }
 
 func (c *covers) Invalidate(_ context.Context, id game.ID) error {
@@ -30,6 +32,11 @@ func (c *covers) Invalidate(_ context.Context, id game.ID) error {
 
 func (c *covers) InvalidateEdition(_ context.Context, id game.ID, system string) error {
 	c.editions = append(c.editions, string(id)+"|"+system)
+	return nil
+}
+
+func (c *covers) DropLegacyCover(_ context.Context, id game.ID) error {
+	c.legacy = append(c.legacy, id)
 	return nil
 }
 
@@ -216,6 +223,44 @@ func TestEditionCoverCache(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, "https://example.test/halo.jpg", got.Covers()["PS3"].URL)
 			assert.ElementsMatch(t, []string{string(g.ID()) + "|", string(g.ID()) + "|PS3"}, cache.editions)
+		})
+	})
+
+	t.Run("GIVEN a game with a PS3 disc and a Wii disc", func(t *testing.T) {
+		svc, cache, g := setup(t)
+		_, err := svc.AddCopy(ctx, g.ID(), game.CopyDetails{
+			Kind:     game.KindPhysical,
+			Platform: "Wii",
+		}, nil)
+		require.NoError(t, err)
+
+		t.Run("WHEN the Wii edition is made the main one THEN the cover cached before editions is dropped", func(t *testing.T) {
+			got, err := svc.SetMainSystem(ctx, g.ID(), "Wii")
+			require.NoError(t, err)
+			assert.Equal(t, "Wii", got.MainEdition().System)
+			assert.Equal(t, []game.ID{g.ID()}, cache.legacy, "the new main edition must not adopt the old one's image")
+		})
+	})
+
+	t.Run("GIVEN a game with a single PS3 disc", func(t *testing.T) {
+		db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "gamevault.db"), "")
+		require.NoError(t, err)
+		t.Cleanup(func() { db.Close() })
+
+		cache := &covers{}
+		svc := catalog.NewService(sqlite.NewGameRepository(db), db, time.Now, cache, nil, nil)
+
+		g, err := svc.CreateGame(ctx, game.Info{Title: "Halo 3"}, []game.CopyDetails{{
+			Kind:     game.KindPhysical,
+			Platform: "PS3",
+		}})
+		require.NoError(t, err)
+
+		t.Run("WHEN the disc is moved to a new game THEN everything cached for the emptied game is dropped", func(t *testing.T) {
+			src, _, err := svc.MoveCopy(ctx, g.ID(), g.Copies()[0].ID, "", "Halo 3 (Limited)")
+			require.NoError(t, err)
+			assert.Nil(t, src)
+			assert.Equal(t, []game.ID{g.ID()}, cache.invalidated)
 		})
 	})
 }
