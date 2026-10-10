@@ -142,35 +142,47 @@ func apiError(se *apiclient.StatusError) error {
 	case se.Status == http.StatusTooManyRequests: // its body only says "Unknown Error Code"
 		return errTooManyRequests
 	case body.Status != "":
-		return fmt.Errorf("TheGamesDB: %s (HTTP %d)", body.Status, se.Status)
+		return fmt.Errorf("%s (HTTP %d)", body.Status, se.Status)
 	case se.Status == http.StatusForbidden || se.Status == http.StatusUnauthorized:
-		return fmt.Errorf("TheGamesDB rejected the API key or the monthly allowance is used up (HTTP %d)", se.Status)
+		return fmt.Errorf("the API key was rejected (HTTP %d): check it in the settings", se.Status)
 	}
 
-	return fmt.Errorf("TheGamesDB: HTTP %d", se.Status)
+	return fmt.Errorf("HTTP %d", se.Status)
 }
 
 // errTooManyRequests is TheGamesDB's HTTP 429: a burst, or a used-up allowance (see allowance).
-var errTooManyRequests = fmt.Errorf("TheGamesDB asked to slow down (HTTP %d): %w", http.StatusTooManyRequests, provider.ErrRateLimited)
+// Like the other errors here it does not name TheGamesDB: the warnings that show it already do.
+var errTooManyRequests = fmt.Errorf("HTTP %d: %w", http.StatusTooManyRequests, provider.ErrRateLimited)
 
 // get calls TheGamesDB through the throttle, so a burst of lookups never reaches it at once. The
 // answer's error is translated inside the throttle, which backs off after a rate-limit answer.
-// While the allowance is used up nothing is sent, not even queued: the lookup gets the allowance
-// error at once. An HTTP 429 checks whether that is its cause.
+// While the key's allowance is used up nothing is sent, not even queued: the lookup gets the
+// allowance error at once. An HTTP 429 checks, still holding the throttle's turn, whether that is
+// its cause, so lookups that queued meanwhile learn the answer when their turn comes; one refused
+// as "busy" while the allowance is used up gets the allowance error instead.
 func (p *Provider) get(ctx context.Context, path string, q url.Values, out any) error {
-	if err := p.usedUp(); err != nil {
+	key := q.Get("apikey")
+	if err := p.usedUp(key); err != nil {
 		return err
 	}
 
 	err := p.throttle.do(ctx, func() error {
-		if err := p.usedUp(); err != nil { // found out while this lookup was queued
+		// A lookup that queued while the allowance was being checked learns the result here.
+		if err := p.usedUp(key); err != nil {
 			return err
 		}
 
-		return p.getNow(ctx, path, q, out)
+		err := p.getNow(ctx, path, q, out)
+		if errors.Is(err, errTooManyRequests) {
+			if found := p.checkAllowance(ctx, key); found != nil {
+				return found
+			}
+		}
+
+		return err
 	})
-	if errors.Is(err, errTooManyRequests) {
-		if used := p.checkAllowance(ctx, q.Get("apikey")); used != nil {
+	if errors.Is(err, errQueueFull) {
+		if used := p.usedUp(key); used != nil {
 			return used
 		}
 	}
@@ -194,24 +206,22 @@ func (p *Provider) getNow(ctx context.Context, path string, q url.Values, out an
 var ErrUnknownKey = errors.New("TheGamesDB did not recognize the API key")
 
 // Test implements media.Provider by reading the remaining allowance; that endpoint does not consume
-// it. It answers 200 even for unknown keys, with no allowance and no refresh timer, which is how
+// it. It answers 200 even for unknown keys, with no allowance and a zero refresh timer, which is how
 // those are detected. A valid key that used up its allowance still has a refresh timer. The check
 // bypasses the throttle: the user is waiting for it, and it must not queue behind cover lookups.
 func (p *Provider) Test(ctx context.Context, s schema.Settings) error {
-	out, err := p.limit(ctx, s[settingAPIKey])
+	key := s[settingAPIKey]
+
+	out, err := p.limit(ctx, key)
 	if err != nil {
 		return err
 	}
 
-	if out.Remaining == nil || (*out.Remaining+out.Extra == 0 && out.Refresh == 0) {
-		return ErrUnknownKey
-	}
+	// What the check found also holds for lookups: allowance bought after it ran out lets them
+	// through again at once.
+	p.note(key, out, p.clock())
 
-	if *out.Remaining+out.Extra == 0 {
-		return ErrNoAllowance
-	}
-
-	return nil
+	return out.verdict()
 }
 
 // ErrNoAllowance means the key works but this month's requests are used up.

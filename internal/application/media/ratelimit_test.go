@@ -127,6 +127,7 @@ func TestRateLimitedProvider(t *testing.T) {
 				assert.Equal(t, []string{"Shooter"}, d.Genres)
 				require.Len(t, warnings, 1)
 				assert.Contains(t, warnings[0], "too many requests")
+				assert.NotContains(t, warnings[0], "TheGamesDB: TheGamesDB")
 			})
 
 			t.Run("AND the sheet is not cached", func(t *testing.T) {
@@ -205,7 +206,7 @@ func TestQuotaExhaustedProvider(t *testing.T) {
 			t.Run("THEN it shows what the other provider knows and says when TheGamesDB's allowance renews", func(t *testing.T) {
 				assert.Equal(t, []string{"Shooter"}, d.Genres)
 				require.Len(t, warnings, 1)
-				assert.Contains(t, warnings[0], "this month's request allowance; it renews in 12 days")
+				assert.Equal(t, "TheGamesDB: the API key has used this month's allowance: covers and sheets resume when it renews in 12 days", warnings[0])
 				assert.NotContains(t, warnings[0], "busy")
 				assert.NotContains(t, warnings[0], "too many requests")
 			})

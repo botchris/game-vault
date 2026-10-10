@@ -33,7 +33,7 @@ const maxQueue = 8
 const backoff = 30 * time.Second
 
 // errQueueFull is returned instead of waiting too long for a turn.
-var errQueueFull = fmt.Errorf("TheGamesDB is busy with other lookups: %w", provider.ErrRateLimited)
+var errQueueFull = fmt.Errorf("busy with other lookups: %w", provider.ErrRateLimited)
 
 // throttle sends requests one at a time, each at least gap after the previous one ended, refuses
 // those that would wait too long, and backs off after a rate-limit answer.
@@ -66,7 +66,7 @@ func newThrottle(gap time.Duration, now func() time.Time, sleep func(context.Con
 
 // do waits for its turn and the gap, then runs request. It returns an error wrapping
 // provider.ErrRateLimited without running request when the wait would be too long. A request that
-// fails with provider.ErrRateLimited starts the back-off. A nil throttle runs request at once.
+// fails with provider.ErrRateLimited starts the back-off, unless it is provider.ErrQuotaExhausted. A nil throttle runs request at once.
 func (t *throttle) do(ctx context.Context, request func() error) error {
 	if t == nil {
 		return request()
@@ -105,7 +105,9 @@ func (t *throttle) do(ctx context.Context, request func() error) error {
 	defer t.mu.Unlock()
 
 	t.next = t.now().Add(t.gap)
-	if errors.Is(err, provider.ErrRateLimited) {
+	// A used-up allowance is no reason to back off: the provider sends nothing more with that key
+	// until it renews, and another key must not wait for it.
+	if errors.Is(err, provider.ErrRateLimited) && !errors.Is(err, provider.ErrQuotaExhausted) {
 		t.next = t.now().Add(backoff)
 	}
 

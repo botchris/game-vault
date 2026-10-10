@@ -2,6 +2,7 @@ package thegamesdb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"sync"
@@ -20,16 +21,28 @@ const allowanceFallback = 6 * time.Hour
 // than checked on every answer.
 const allowanceRecheck = 5 * time.Minute
 
-// allowance remembers that the key used up its monthly allowance. TheGamesDB then answers every
+// allowance remembers that a key used up its monthly allowance. TheGamesDB then answers every
 // request with HTTP 429 and a generic "Unknown Error Code" (seen on 2026-10-10), the same answer as
 // to a burst, so on a 429 the provider asks API/Limit, which costs nothing, which of the two it is.
+// The state is kept per key: another key pasted in the settings is not blocked, and a Test that
+// finds allowance left (extra allowance bought) clears it.
 type allowance struct {
+	// checking lets one allowance check run at a time, so lookups that hit HTTP 429 together ask
+	// API/Limit once: the others find its result when their turn comes.
+	checking sync.Mutex
+
 	mu sync.Mutex
 
-	// until is when the used-up allowance renews; before it no request is sent.
+	// keys holds what is known about each API key's allowance.
+	keys map[string]keyAllowance
+}
+
+// keyAllowance is what is known about one API key's allowance.
+type keyAllowance struct {
+	// until is when the used-up allowance renews; before it, no request with the key is sent.
 	until time.Time
 
-	// checked is when the allowance was last checked after an HTTP 429.
+	// checked is when the allowance was last read successfully.
 	checked time.Time
 }
 
@@ -41,63 +54,100 @@ type limit struct {
 	// Extra is the allowance bought on top of the monthly one.
 	Extra int `json:"extra_allowance"`
 
-	// Refresh is the number of seconds until the monthly allowance renews.
-	Refresh int `json:"allowance_refresh_timer"`
+	// Refresh is the number of seconds until the monthly allowance renews; nil when the answer
+	// lacks it.
+	Refresh *int `json:"allowance_refresh_timer"`
 }
 
-// usedUp reports whether the allowance is known to be used up: it returns the error lookups answer
-// meanwhile, without sending anything.
-func (p *Provider) usedUp() error {
+// verdict reads an API/Limit answer: nil with allowance left, ErrNoAllowance when it is used up, and
+// ErrUnknownKey for an unknown key, which TheGamesDB answers with no allowance and a zero refresh
+// timer (a valid key that used up its allowance still has a refresh timer).
+func (l limit) verdict() error {
+	switch {
+	case l.Remaining == nil, *l.Remaining+l.Extra == 0 && l.Refresh != nil && *l.Refresh == 0:
+		return ErrUnknownKey
+	case *l.Remaining+l.Extra == 0:
+		return ErrNoAllowance
+	}
+
+	return nil
+}
+
+// renewal is how long until a used-up allowance renews: the refresh timer, or allowanceFallback
+// when the answer has none.
+func (l limit) renewal() time.Duration {
+	if l.Refresh == nil || *l.Refresh <= 0 {
+		return allowanceFallback
+	}
+
+	return time.Duration(*l.Refresh) * time.Second
+}
+
+// usedUp reports whether apiKey's allowance is known to be used up: it returns the error lookups
+// answer meanwhile, without sending anything.
+func (p *Provider) usedUp(apiKey string) error {
 	p.allowance.mu.Lock()
 	defer p.allowance.mu.Unlock()
 
-	return p.usedUpLocked()
+	return p.usedUpLocked(apiKey)
 }
 
-func (p *Provider) usedUpLocked() error {
-	if left := p.allowance.until.Sub(p.clock()); left > 0 {
+func (p *Provider) usedUpLocked(apiKey string) error {
+	if left := p.allowance.keys[apiKey].until.Sub(p.clock()); left > 0 {
 		return &allowanceError{left: left}
 	}
 
 	return nil
 }
 
-// checkAllowance asks TheGamesDB after an HTTP 429 whether the key's allowance is used up. If it
-// is, no request is sent until it renews, and the returned error says so; otherwise (allowance
-// left, a failed check, or a check made a moment ago) it returns nil and the 429 stays a plain rate
-// limit. The check bypasses the throttle, which is backing off after the 429.
-func (p *Provider) checkAllowance(ctx context.Context, apiKey string) error {
-	p.allowance.mu.Lock()
-	if err := p.usedUpLocked(); err != nil { // another lookup found out meanwhile
-		p.allowance.mu.Unlock()
-		return err
-	}
-
-	now := p.clock()
-	if !p.allowance.checked.IsZero() && now.Sub(p.allowance.checked) < allowanceRecheck {
-		p.allowance.mu.Unlock()
-		return nil
-	}
-
-	p.allowance.checked = now
-	p.allowance.mu.Unlock()
-
-	lim, err := p.limit(ctx, apiKey)
-	if err != nil || lim.Remaining == nil || *lim.Remaining+lim.Extra > 0 {
-		return nil
-	}
-
-	renews := time.Duration(lim.Refresh) * time.Second
-	if renews <= 0 {
-		renews = allowanceFallback
-	}
-
+// note records what API/Limit said about apiKey's allowance, at now.
+func (p *Provider) note(apiKey string, lim limit, now time.Time) {
 	p.allowance.mu.Lock()
 	defer p.allowance.mu.Unlock()
 
-	p.allowance.until = now.Add(renews)
+	if p.allowance.keys == nil {
+		p.allowance.keys = map[string]keyAllowance{}
+	}
 
-	return p.usedUpLocked()
+	k := keyAllowance{checked: now}
+	if errors.Is(lim.verdict(), ErrNoAllowance) {
+		k.until = now.Add(lim.renewal())
+	}
+
+	p.allowance.keys[apiKey] = k
+}
+
+// checkAllowance asks TheGamesDB after an HTTP 429 whether apiKey's allowance is used up. If it is,
+// no request with that key is sent until it renews, and the returned error says so; an unknown key
+// returns ErrUnknownKey. Otherwise (allowance left, a failed check, or a successful check a moment
+// ago) it returns nil and the 429 stays a plain rate limit. The caller holds the throttle's turn,
+// so lookups queued meanwhile wait for the answer instead of being refused as "busy".
+func (p *Provider) checkAllowance(ctx context.Context, apiKey string) error {
+	p.allowance.checking.Lock()
+	defer p.allowance.checking.Unlock()
+
+	p.allowance.mu.Lock()
+	err := p.usedUpLocked(apiKey) // a check that just ran found out
+	checked := p.allowance.keys[apiKey].checked
+	recent := !checked.IsZero() && p.clock().Sub(checked) < allowanceRecheck
+	p.allowance.mu.Unlock()
+
+	if err != nil || recent {
+		return err
+	}
+
+	lim, err := p.limit(ctx, apiKey)
+	if err != nil {
+		return nil // the check failed: the next 429 checks again
+	}
+
+	p.note(apiKey, lim, p.clock())
+
+	if v := lim.verdict(); errors.Is(v, ErrUnknownKey) {
+		return v
+	}
+
+	return p.usedUp(apiKey)
 }
 
 // limit reads the key's remaining allowance. That endpoint does not consume it, and it bypasses
@@ -126,7 +176,8 @@ type allowanceError struct {
 }
 
 func (e *allowanceError) Error() string {
-	return "TheGamesDB has used this month's request allowance; it renews in " + renewsIn(e.left)
+	// No provider name: the warnings that show it already start with "TheGamesDB: ".
+	return "the API key has used this month's allowance: covers and sheets resume when it renews in " + renewsIn(e.left)
 }
 
 func (e *allowanceError) Unwrap() error { return provider.ErrQuotaExhausted }
