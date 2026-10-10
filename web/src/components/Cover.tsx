@@ -5,7 +5,9 @@ import type { Game } from '../gen/gamevault/v1/game_pb';
 import { CoverFailures, coverOrder, coverSignature, nextCover } from '../lib/editions';
 
 // Failed covers outlive the component: a card scrolled back into view, or the sheet's hero showing
-// the same edition, does not ask again for a box the server did not have.
+// the same edition, does not ask again for a box the server did not have. A failure expires after a
+// minute (it may have been a rate-limited answer), so the first render after that tries once more;
+// nothing re-renders on a timer, so a card left alone sends nothing.
 const failures = new CoverFailures();
 
 /**
@@ -22,8 +24,8 @@ export function Cover({ game, system = '', className = '', onShown }: {
 }) {
   const { t } = useTranslation();
   const order = coverOrder(game, system);
-  // Failures are forgotten only when the game's cover inputs change (title, store links, a chosen
-  // cover, an edition added or made main), not on every edit of the game.
+  // Failures are forgotten when the game's cover inputs change (title, store links, copy platforms, a
+  // chosen cover, an edition added or made main) or when they expire, not on every edit of the game.
   const signature = coverSignature(game);
   const [, rerender] = useReducer((n: number) => n + 1, 0);
   const shown = nextCover(order, failures.failed(game.id, signature));

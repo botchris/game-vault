@@ -159,8 +159,11 @@ test('coverSignature changes with the cover inputs only, not with other edits of
     'cover photo': { ...halo, editions: [edition('PS3', { main: true }), edition('PC', { coverPhotoId: 'p1' }), edition('Xbox 360')] },
     'main edition': { ...halo, editions: [edition('PS3'), edition('PC', { main: true }), edition('Xbox 360')] },
     'new edition': { ...halo, editions: [...halo.editions, edition('Switch')] },
+    'copy platform': { ...halo, copies: [halo.copies[0], copy('PC', 'GOG', 2), halo.copies[2]] },
+    'first physical copy in an edition': { ...halo, copies: [...halo.copies, copy('PC', 'Steam', 3)] },
   };
   for (const [what, g] of Object.entries(changed)) assert.notEqual(coverSignature(g), base, what);
+  assert.equal(coverSignature({ ...halo, copies: [...halo.copies, copy('PC', 'Steam', 2)] }), base, 'one more copy like one it has keeps it');
 });
 
 test('CoverFailures: failures stay until the signature changes, then the cards try again', () => {
@@ -185,4 +188,41 @@ test('CoverFailures: failures stay until the signature changes, then the cards t
   f.add('g1', chosen, 'PC');
   assert.deepEqual([...f.failed('g1', chosen)], ['PC']);
   assert.equal(f.failed('g1', sig).size, 0, 'the old signature\'s failures are gone');
+});
+
+test('CoverFailures: a failure expires after the TTL, so the next render tries once more', () => {
+  let now = 1_000;
+  const f = new CoverFailures(() => now, 60_000);
+  const order = coverOrder(hades, '');
+  const sig = coverSignature(hades);
+  f.add('g2', sig, 'PC');
+  assert.equal(nextCover(order, f.failed('g2', sig)), null, 'failed: initials, no request');
+
+  now += 59_999;
+  assert.equal(nextCover(order, f.failed('g2', sig)), null, 'still failed just before the TTL');
+
+  now += 1;
+  assert.equal(nextCover(order, f.failed('g2', sig)), 'PC', 'expired: one more try');
+
+  // The retry fails again (a 404, or a 503 while rate-limited): another full TTL before the next one.
+  f.add('g2', sig, 'PC');
+  now += 30_000;
+  assert.equal(nextCover(order, f.failed('g2', sig)), null);
+  now += 30_000;
+  assert.equal(nextCover(order, f.failed('g2', sig)), 'PC');
+});
+
+test('CoverFailures: each system expires on its own clock', () => {
+  let now = 0;
+  const f = new CoverFailures(() => now, 60_000);
+  const order = coverOrder(halo, 'PC');
+  const sig = coverSignature(halo);
+  f.add('g1', sig, 'PC');
+  now = 40_000;
+  f.add('g1', sig, 'PS3');
+  now = 60_000;
+  assert.equal(nextCover(order, f.failed('g1', sig)), 'PC', 'the edition\'s own box is tried again first');
+  assert.deepEqual([...f.failed('g1', sig)], ['PS3']);
+  now = 100_000;
+  assert.equal(f.failed('g1', sig).size, 0);
 });

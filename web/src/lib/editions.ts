@@ -191,31 +191,55 @@ export function nextCover(order: string[], failed: ReadonlySet<string>): string 
   return order.find((s) => !failed.has(s)) ?? null;
 }
 
+const PHYSICAL = 3; // CopyKind.PHYSICAL (no generated enums here, see the top of the file)
+
 /** What a game's covers depend on, as the web sees it: the title and the store links (providers find
- *  the box by them), and each edition's system, main mark and chosen cover. A cover that failed stays
- *  failed until this changes, so edits that touch nothing else (a rating, a play status) ask the
- *  server no more. */
-export function coverSignature(g: { title: string; editions: EditionLike[]; links?: Record<string, string> }): string {
+ *  the box by them), each edition's system, main mark and chosen cover, and the platforms of each
+ *  edition's copies and whether it has a physical one (the server picks a box by them). A cover that
+ *  failed stays failed until this changes or the failure expires, so edits that touch nothing else (a
+ *  rating, a play status) ask the server no more. */
+export function coverSignature(g: { title: string; editions: EditionLike[]; links?: Record<string, string>; copies?: CopyLike[] }): string {
   const links = Object.entries(g.links ?? {}).sort(([a], [b]) => a.localeCompare(b));
-  return JSON.stringify([g.title, links, g.editions.map((e) => [e.system, e.main, e.coverUrl, e.coverPhotoId])]);
+  const copies = [...new Set((g.copies ?? []).map((c) => JSON.stringify([c.effectiveSystem, c.details?.platform ?? '', c.details?.kind === PHYSICAL])))].sort();
+  return JSON.stringify([g.title, links, copies, g.editions.map((e) => [e.system, e.main, e.coverUrl, e.coverPhotoId])]);
 }
 
-/** The covers that failed to load, by game: shared by every card and sheet showing the game, and
- *  forgotten for a game once its cover signature changes. */
-export class CoverFailures {
-  private readonly games = new Map<string, { signature: string; systems: Set<string> }>();
+/** How long a failed cover is not asked for again. An <img> cannot tell a missing box (404) from a
+ *  provider that asked to slow down (503), so a failure is only trusted for a while: the first render
+ *  after it expires tries once more. */
+export const COVER_FAILURE_TTL_MS = 60_000;
 
-  /** The systems whose cover failed for the game while its covers depended on `signature`. */
-  failed(gameId: string, signature: string): ReadonlySet<string> {
-    const entry = this.games.get(gameId);
-    return entry && entry.signature === signature ? entry.systems : new Set();
+/** The covers that failed to load, by game: shared by every card and sheet showing the game,
+ *  forgotten for a game once its cover signature changes, and per system once it is older than the
+ *  TTL. `now` is injectable for tests. */
+export class CoverFailures {
+  private readonly games = new Map<string, { signature: string; systems: Map<string, number> }>();
+
+  private readonly now: () => number;
+
+  private readonly ttlMs: number;
+
+  constructor(now: () => number = Date.now, ttlMs: number = COVER_FAILURE_TTL_MS) {
+    this.now = now;
+    this.ttlMs = ttlMs;
   }
 
-  /** Records that the system's cover failed; a new signature starts the game's record over. */
+  /** The systems whose cover failed for the game, while its covers depended on `signature`, less
+   *  than the TTL ago. */
+  failed(gameId: string, signature: string): ReadonlySet<string> {
+    const entry = this.games.get(gameId);
+    if (!entry || entry.signature !== signature) return new Set();
+    const now = this.now();
+    for (const [system, at] of entry.systems) if (now - at >= this.ttlMs) entry.systems.delete(system);
+    if (entry.systems.size === 0) this.games.delete(gameId);
+    return new Set(entry.systems.keys());
+  }
+
+  /** Records that the system's cover failed now; a new signature starts the game's record over. */
   add(gameId: string, signature: string, system: string): void {
     const entry = this.games.get(gameId);
-    if (entry && entry.signature === signature) entry.systems.add(system);
-    else this.games.set(gameId, { signature, systems: new Set([system]) });
+    if (entry && entry.signature === signature) entry.systems.set(system, this.now());
+    else this.games.set(gameId, { signature, systems: new Map([[system, this.now()]]) });
   }
 }
 
