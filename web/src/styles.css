@@ -340,7 +340,7 @@ input[type="checkbox"], input[type="radio"] { min-height: 0; accent-color: var(-
 .poster-art .cover-borrowed { bottom: 36px; }
 @media (max-width: 860px) { .poster-art .cover-borrowed { bottom: 28px; left: 4px; } }
 /* Too small to carry a label (list rows, scan thumbnails) or blurred behind the sheet's hero. */
-.row-cover .cover-borrowed, .scan-row-thumb .cover-borrowed, .hero-backdrop .cover-borrowed { display: none; }
+.row-cover .cover-borrowed, .scan-row-thumb .cover-borrowed, .scan-added .cover-borrowed, .hero-backdrop .cover-borrowed { display: none; }
 
 .posters { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)); gap: 22px 18px; }
 .poster {
@@ -1052,6 +1052,8 @@ td.title { font-weight: 500; min-width: 220px; }
 .pbadges.small .pbadge { height: 20px; padding: 0 5px; font-size: 10.5px; }
 .pbadges.small .pbadge.icon-only { width: 20px; padding: 0; }
 .pbadges.small .pbadge svg { width: 12px; height: 12px; }
+/* The stores beside a PC edition's badge only inform: a click goes through to the card. */
+.poster-platforms .pbadges.small .pbadge, .row-main .pbadges.small .pbadge { pointer-events: none; }
 .pbadge svg { flex: none; width: 14px; height: 14px; }
 .pbadge-key svg { width: 11px; height: 11px; }
 /* A key you still have to redeem: same colour, hollow, with a key glyph */

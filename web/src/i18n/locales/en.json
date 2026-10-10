@@ -86,7 +86,11 @@
     "markedRedeemed_other": "{{count}} keys marked as redeemed.",
     "addGame": "Add game",
     "showing": "{{shown}} of {{total}} games",
-    "showingEditions": "{{editions}} editions of {{games}} games",
+    "showingEditions": "{{editions}} of {{games}}",
+    "editionCount_one": "{{n}} edition",
+    "editionCount_other": "{{n}} editions",
+    "gameCount_one": "{{n}} game",
+    "gameCount_other": "{{n}} games",
     "grouping": {
       "label": "Group",
       "platform": "By platform",

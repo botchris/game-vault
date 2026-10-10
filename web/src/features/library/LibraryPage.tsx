@@ -173,7 +173,10 @@ export default function LibraryPage() {
       <header className="page-head">
         <h1 className="page-title">{t('nav.library')}</h1>
         <span className="page-count">{grouping === 'platform'
-          ? t('library.showingEditions', { editions: filtered.length.toLocaleString(i18n.language), games: itemCounts(filtered).games.toLocaleString(i18n.language) })
+          ? t('library.showingEditions', {
+            editions: t('library.editionCount', { count: filtered.length, n: filtered.length.toLocaleString(i18n.language) }),
+            games: t('library.gameCount', { count: itemCounts(filtered).games, n: itemCounts(filtered).games.toLocaleString(i18n.language) }),
+          })
           : t('library.showing', { shown: filtered.length.toLocaleString(i18n.language), total: games.length.toLocaleString(i18n.language) })}</span>
         <span className="spacer" />
         <button className="primary" onClick={() => setCreating(true)}><Icon name="plus" size={18} /><span className="hide-narrow">{t('library.addGame')}</span></button>

@@ -86,7 +86,11 @@
     "markedRedeemed_other": "{{count}} claves marcadas como canjeadas.",
     "addGame": "Añadir juego",
     "showing": "{{shown}} de {{total}} juegos",
-    "showingEditions": "{{editions}} ediciones de {{games}} juegos",
+    "showingEditions": "{{editions}} de {{games}}",
+    "editionCount_one": "{{n}} edición",
+    "editionCount_other": "{{n}} ediciones",
+    "gameCount_one": "{{n}} juego",
+    "gameCount_other": "{{n}} juegos",
     "grouping": {
       "label": "Agrupar",
       "platform": "Por plataforma",
@@ -823,6 +827,6 @@
     }
   },
   "edition": {
-    "borrowed": "Carátula de {{system}}"
+    "borrowed": "Caja de {{system}}"
   }
 }
