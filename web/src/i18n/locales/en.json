@@ -296,7 +296,8 @@
       "xbox": "Games bought on the Microsoft Store",
       "playstation": "PS4 and PS5 games bought with your account",
       "amazon": "Games you bought or claimed with Prime Gaming",
-      "fanatical": "Game keys, at your own risk: Fanatical's terms do not allow it"
+      "fanatical": "Game keys, at your own risk: Fanatical's terms do not allow it",
+      "itch": "Games you bought or claimed, with a personal API key"
     },
     "amazon": {
       "description": "Imports the games in your Amazon Games library: the ones you bought and the ones you claimed with Prime Gaming. It signs in like the Amazon Games launcher does (the way Heroic and nile work) and only reads your library. Prime Gaming codes for other stores (GOG, Epic…) are not part of it: those games appear when you scan that store.",
@@ -310,6 +311,11 @@
       "consentHelp": "Fanatical has no official way for other apps to read your account, and its Terms and Conditions do not allow it: they forbid to \"take data from our website for your or third party databases or data harvests without our consent\". Game Vault reads your key list the way the Playnite Fanatical plugin does. Fanatical could consider this a breach of its terms and suspend or close your account.\nGame Vault only reads, once per scan, and scans only when you ask unless you schedule it. The authors of Game Vault are not responsible for what Fanatical does with your account. If you are not comfortable with that, do not add this source.",
       "session": "Session data (bsauth)",
       "sessionHelp": "1. Open the page above and sign in to Fanatical.\n2. Open DevTools (F12, or Cmd+Option+I on a Mac) → Application → Local Storage → `https://www.fanatical.com`.\n3. Copy the value of `bsauth` (it starts with `{\"authenticated\":true`) and paste it here.\nThe session expires after a while: paste a new value when scans say you are signed out. Never share it: it gives access to your Fanatical account."
+    },
+    "itch": {
+      "description": "Imports the games in your itch.io library: the ones you bought, claimed for free, got in a bundle or were given. It uses itch.io's official API with a personal API key and only reads. Tools, assets, soundtracks, comics and books are not imported.",
+      "apiKey": "API key",
+      "apiKeyHelp": "1. Open the page above and sign in to itch.io.\n2. Press Generate new API key and copy it.\n3. Paste it here.\nThe key gives access to your itch.io account: never share it. Revoke it on the same page to disconnect Game Vault."
     },
     "riskTitle": "Risk to your account",
     "readTerms": "Read Fanatical's terms"

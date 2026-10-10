@@ -13,6 +13,7 @@ import (
 	"gamevault/internal/adapters/outbound/fanatical"
 	"gamevault/internal/adapters/outbound/gog"
 	"gamevault/internal/adapters/outbound/humble"
+	"gamevault/internal/adapters/outbound/itch"
 	"gamevault/internal/adapters/outbound/playstation"
 	"gamevault/internal/adapters/outbound/steam"
 	"gamevault/internal/adapters/outbound/thegamesdb"
@@ -39,6 +40,7 @@ func newPlugins(log *slog.Logger) (*plugin.Registry, error) {
 		xbox.Plugin(),
 		playstation.Plugin(),
 		amazon.Plugin(),
+		itch.Plugin(),
 		// Key sellers
 		humble.Plugin(log),
 		fanatical.Plugin(),
