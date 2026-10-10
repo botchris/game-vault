@@ -836,6 +836,20 @@ td.title { font-weight: 500; min-width: 220px; }
 .fields-intro { margin: 0; max-width: 64ch; }
 .fields .chain { margin-top: 0; }
 .fields .chain-body strong { overflow-wrap: anywhere; }
+/* Drag to reorder: a grip on desktop only; the arrows stay for touch and the keyboard. */
+.chain-grip { display: none; }
+@media (hover: hover) and (pointer: fine) {
+  .chain-grip {
+    display: grid; place-items: center; flex: none; width: 24px; height: 32px; margin: -4px -6px -4px -4px;
+    border-radius: 6px; color: var(--muted); cursor: grab; touch-action: none;
+  }
+  .chain-grip:hover { color: var(--text); background: var(--surface-2); }
+  .chain-grip .icon-svg { stroke-width: 3; }
+}
+.fields .chain.dragging { user-select: none; cursor: grabbing; }
+.fields .chain.dragging .chain-item { transition: transform 200ms var(--ease-out); }
+.fields .chain.dragging .chain-item.lifted { position: relative; z-index: 1; transition: none; box-shadow: var(--shadow-md); }
+.fields .chain.dragging .chain-grip { cursor: grabbing; }
 .field-note { margin: -4px 0 0; }
 .field-kinds { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 6px; }
 .field-kinds legend { padding: 0; font-size: 13px; color: var(--muted); font-weight: 550; margin-bottom: 6px; }
@@ -843,6 +857,7 @@ td.title { font-weight: 500; min-width: 220px; }
 .field-kinds-row { display: flex; flex-wrap: wrap; gap: 8px 18px; }
 .grid .field-kinds label.check-inline { flex-direction: row; font-size: 15px; color: var(--text); font-weight: 450; }
 .field-values h3 { font-size: 15px; margin: 4px 0 8px; }
+.field-values-hint { margin: -4px 0 8px; }
 .field-values ol { list-style: none; padding: 0; margin: 0 0 10px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
 .field-value { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .field-value input { flex: 1 1 0; width: auto; min-width: 0; }

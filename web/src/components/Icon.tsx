@@ -28,6 +28,7 @@ const paths: Record<string, string> = {
   play: 'M8 5v14l11-7L8 5z',
   edit: 'M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4',
   move: 'M7 7h13l-3-3M17 17H4l3 3',
+  grip: 'M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01',
   trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3',
   external: 'M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5',
   image: 'M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15 9h.01',

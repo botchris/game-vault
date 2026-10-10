@@ -43,17 +43,21 @@ export default function FieldDialog({ field, onClose }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   // Whether games or copies hold a value of the number field being edited: its decimals are then
-  // fixed, because the stored values would be read at another scale. Other changes that do not fit
-  // the stored values are refused by the server and shown as any save error.
-  const [hasValues, setHasValues] = useState(false);
+  // fixed, because the stored values would be read at another scale. 'loading' until the usage is
+  // known, and the select stays disabled meanwhile. Other changes that do not fit the stored values
+  // are refused by the server and shown as any save error.
+  const [hasValues, setHasValues] = useState<boolean | 'loading'>(() => (field?.type === 'number' ? 'loading' : false));
   const isList = type === 'list' || type === 'multilist';
+  // The names the values have on the server: "merge into" names the target as the games know it,
+  // not as it is being renamed in this form.
+  const savedNames = new Map((field?.choices ?? []).map((c) => [c.id, c.name]));
 
   useEffect(() => {
     if (!field || field.type !== 'number') return;
     let live = true;
     fieldClient.fieldUsage({ id: field.id })
       .then((u) => { if (live) setHasValues(u.games + u.copies > 0); })
-      .catch(() => {}); // the server still refuses the change; the hint is only a convenience
+      .catch(() => { if (live) setHasValues(false); }); // the server still refuses the change; the lock is only a convenience
     return () => { live = false; };
   }, [field]);
 
@@ -94,7 +98,9 @@ export default function FieldDialog({ field, onClose }: Props) {
   const remove = () => run(async () => {
     if (!field) return;
     const usage = await fieldClient.fieldUsage({ id: field.id });
-    if (!confirm(t('fields.confirmDelete', { name: field.name, games: usage.games, copies: usage.copies }))) return;
+    const games = t('fields.gameCount', { count: usage.games });
+    const copies = t('fields.copyCount', { count: usage.copies });
+    if (!confirm(t('fields.confirmDelete', { name: field.name, games, copies }))) return;
     await fieldClient.deleteField({ id: field.id });
     await Promise.all([reloadFields(), reloadGames()]); // the games lose their values
     onClose();
@@ -137,7 +143,8 @@ export default function FieldDialog({ field, onClose }: Props) {
     addRow();
   };
 
-  const toggleKind = (k: CopyKind, on: boolean) => setKinds((list) => on ? [...list, k].sort() : list.filter((x) => x !== k));
+  // Kinds are kept in their canonical order (KINDS), not sorted as strings or numbers.
+  const toggleKind = (k: CopyKind, on: boolean) => setKinds((list) => KINDS.filter((x) => (x === k ? on : list.includes(x))));
 
   return (
     <Modal title={field ? t('fields.edit') : t('fields.add')} onClose={onClose}
@@ -187,11 +194,11 @@ export default function FieldDialog({ field, onClose }: Props) {
             <>
               <label>
                 {t('fields.decimals')}
-                <select value={decimals} disabled={hasValues} onChange={(e) => setDecimals(Number(e.target.value))}>
+                <select value={decimals} disabled={hasValues !== false} onChange={(e) => setDecimals(Number(e.target.value))}>
                   <option value={0}>0</option>
                   <option value={2}>2</option>
                 </select>
-                {hasValues && <span className="muted small">{t('fields.decimalsInUse')}</span>}
+                {hasValues === true && <span className="muted small">{t('fields.decimalsInUse')}</span>}
               </label>
               <label>
                 {t('fields.unit')}
@@ -203,7 +210,7 @@ export default function FieldDialog({ field, onClose }: Props) {
           {type === 'money' && (
             <label>
               {t('fields.currency')}
-              <input value={currency} maxLength={3} placeholder={defaultCurrency} autoCapitalize="characters"
+              <input value={currency} maxLength={3} autoCapitalize="characters"
                 onChange={(e) => setCurrency(e.target.value.toUpperCase())} />
               <span className="muted small">{t('fields.currencyDefault', { currency: defaultCurrency })}</span>
             </label>
@@ -213,12 +220,13 @@ export default function FieldDialog({ field, onClose }: Props) {
         {isList && (
           <section className="field-values">
             <h3>{t('fields.values')}</h3>
+            {field && rows.some((r) => r.id) && <p className="muted small field-values-hint">{t('fields.removeAppliesNow')}</p>}
             {rows.length > 0 && (
               <ol>
                 {rows.map((r, i) => (
                   <li key={r.key}>
                     <div className="field-value">
-                      <input value={r.name} maxLength={60} aria-label={t('fields.values')} autoFocus={r.key === focusKey}
+                      <input value={r.name} maxLength={60} aria-label={t('fields.valueN', { n: i + 1 })} autoFocus={r.key === focusKey}
                         onKeyDown={onValueKey}
                         onChange={(e) => setRows((list) => list.map((x) => x.key === r.key ? { ...x, name: e.target.value } : x))} />
                       <div className="field-value-actions">
@@ -233,7 +241,7 @@ export default function FieldDialog({ field, onClose }: Props) {
                           {t('fields.mergeInto')}
                           <select value={removing.mergeInto} onChange={(e) => setRemoving({ key: r.key, mergeInto: e.target.value })}>
                             <option value="">{t('fields.leaveEmpty')}</option>
-                            {rows.filter((o) => o.id && o.key !== r.key).map((o) => <option key={o.key} value={o.id}>{o.name}</option>)}
+                            {rows.filter((o) => o.id && o.key !== r.key).map((o) => <option key={o.key} value={o.id}>{savedNames.get(o.id) ?? o.name}</option>)}
                           </select>
                         </label>
                         <div className="field-value-actions">

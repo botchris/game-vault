@@ -316,18 +316,22 @@ you paid, how long a game took, a personal rating… Each field has a name and o
 | Text | one line, up to 250 characters | as typed |
 | Long text | several lines, up to 10,000 characters | as typed |
 | Yes / no | a Yes / No / — segmented control (— leaves it empty) | Yes or No |
-| Number | whole, or with 2 decimals (stored in hundredths); optional unit | the number and its unit |
+| Number | whole, or with 2 decimals (stored in hundredths; a dot or a comma is the decimal separator); optional unit | the number in the UI language (`1,25 kg` in Spanish) and its unit |
 | Money | an amount in minor units and a currency (ISO 4217; empty means the default currency) | localized amount |
 | Date | a year, a year and month, or a full date | localized |
-| Duration | hours and minutes (stored in minutes) | `12 h 30 min` |
+| Duration | hours and minutes (stored in minutes) | `12 h 30 min`, numbers in the UI language |
 | List | one of the field's values | the value's name |
-| Multi-select list | several of the field's values; typing a new one while filling it in adds it to the field | the names, in the field's order |
+| Multi-select list | several of the field's values; typing a new one while filling it in adds it to the field | chips with the names, in the field's order |
 
 A field describes either the **game** or each of its **copies**. A copy field can be limited to some
 kinds of copy (for example physical only); with none ticked, every kind has it. Game fields are
 filled in on the game sheet's **Edit** tab and shown under **More details** on the overview; copy
-fields in the copy form and on the copy card. Fields appear in the order of the Fields page, where
-they can be moved up and down.
+fields in the copy form and on the copy card. Only values with something to show appear (a list
+value whose choice was removed shows nothing), and **More details** is hidden when none has one.
+While a number, amount, year or duration holds text that is not valid, the control says so and
+**Save** stays disabled (in the Edit tab and the copy form) until it is fixed or cleared. Fields
+appear in the order of the Fields page, where they can be moved up and down with the arrows (touch
+and keyboard) or dragged by their grip on desktop.
 
 Limits: 50 fields; 200 values per list; field and value names of 1 to 60 characters (field names
 are unique, ignoring case, and adding a list value that already exists returns that one); numbers
@@ -355,13 +359,15 @@ copy form leaves those out when it saves a copy whose kind changed).
 - **Deleting a field** removes it and its values from every game and copy. The confirmation says
   how many games and copies hold a value.
 - **Removing a list value** clears it from every game and copy, or, with "merge into", replaces it
-  with another value of the same field (a multilist holds the target once).
+  with another value of the same field (a multilist holds the target once). It applies at once,
+  without the dialog's Save.
 
 **Filters and search.** Every list, multilist and yes/no field adds a group to the library filters,
 with each value, Yes / No, and "No value" for games without one; each option shows how many games
 it matches. A copy field matches a game when one of its copies (of the kinds the field applies to)
-has the value. The search box also looks in the text and long-text fields of the game and its
-copies.
+has the value. Picked values of a field that was deleted, or of a choice that was removed, are
+dropped from the filters, so they no longer count in the filter badge. The search box also looks in
+the text and long-text fields of the game and its copies.
 
 Scans never touch field values: sources write store data only, so values survive every sync.
 
