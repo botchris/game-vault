@@ -62,6 +62,7 @@ func testStore(srv *httptest.Server) *Store {
 	s := NewStore()
 	s.Site.BaseURL, s.Site.HTTP = srv.URL, srv.Client()
 	s.API.BaseURL, s.API.HTTP = srv.URL, srv.Client()
+	s.throttle = nil // tests send at once; the throttle has its own test
 
 	return s
 }
@@ -140,10 +141,16 @@ func TestCovers_titleSearch(t *testing.T) {
 		s, _ := titleSearchStore(t, map[string]string{
 			"Example Quest™": `[{"type":"app","name":"Example Quest 2","id":4244}]`,
 			"Twin Quest": `[{"type":"app","name":"Twin Quest","id":1},
-				{"type":"app","name":"TWIN QUEST (1998)","id":2}]`,
+				{"type":"app","name":"TWIN QUEST","id":2}]`,
+			"Remake Quest": `[{"type":"app","name":"Remake Quest: Definitive Edition","id":3},
+				{"type":"app","name":"Remake Quest (2016)","id":4}]`,
 		}, 0)
 
-		for name, title := range map[string]string{"an inexact title": "Example Quest™", "an ambiguous title": "Twin Quest"} {
+		for name, title := range map[string]string{
+			"an inexact title":                           "Example Quest™",
+			"a title two apps have exactly":              "Twin Quest",
+			"a title only editions have, more than once": "Remake Quest",
+		} {
 			t.Run("WHEN the covers of "+name+" are asked", func(t *testing.T) {
 				q := pcKey
 				q.Title = title
@@ -157,13 +164,68 @@ func TestCovers_titleSearch(t *testing.T) {
 		}
 	})
 
-	t.Run("GIVEN the store search asks to slow down", func(t *testing.T) {
-		s, _ := titleSearchStore(t, nil, http.StatusTooManyRequests)
+	t.Run("GIVEN a title the store has exactly, and also as a remake", func(t *testing.T) {
+		s, _ := titleSearchStore(t, map[string]string{
+			"Mafia": `[{"type":"app","name":"Mafia: Definitive Edition","id":1030840},
+				{"type":"app","name":"Mafia","id":40990}]`,
+		}, 0)
 
-		t.Run("WHEN covers are searched by title", func(t *testing.T) {
-			_, err := s.Covers(ctx, pcKey, schema.Settings{})
+		t.Run("WHEN its covers are asked", func(t *testing.T) {
+			q := pcKey
+			q.Title = "Mafia"
+			got, err := s.Covers(ctx, q, schema.Settings{})
+			require.NoError(t, err)
 
-			t.Run("THEN it is a rate limit, so no miss is remembered", func(t *testing.T) {
+			t.Run("THEN the exact title wins over the remake that only matches loosely", func(t *testing.T) {
+				require.NotEmpty(t, got)
+				assert.Equal(t, "https://legacy.test/steam/apps/40990/library_600x900.jpg", got[0].URL)
+			})
+		})
+	})
+
+	for name, status := range map[string]int{"asks to slow down": http.StatusTooManyRequests, "is down": http.StatusBadGateway} {
+		t.Run("GIVEN the store search "+name, func(t *testing.T) {
+			s, _ := titleSearchStore(t, nil, status)
+
+			t.Run("WHEN covers are searched by title", func(t *testing.T) {
+				_, err := s.Covers(ctx, pcKey, schema.Settings{})
+
+				t.Run("THEN it counts as limited, so the edition is not marked missing for days", func(t *testing.T) {
+					require.ErrorIs(t, err, provider.ErrRateLimited)
+				})
+			})
+		})
+	}
+
+	t.Run("GIVEN the same title searched twice in a row (Battle.net's covers, then Steam's)", func(t *testing.T) {
+		s, searched := titleSearchStore(t, map[string]string{"Example Quest™": `[]`}, 0)
+
+		t.Run("WHEN both searches run", func(t *testing.T) {
+			_, err := s.SearchLinks(ctx, "Example Quest™")
+			require.NoError(t, err)
+
+			_, err = s.Covers(ctx, pcKey, schema.Settings{})
+			require.NoError(t, err)
+
+			t.Run("THEN the store is asked once", func(t *testing.T) {
+				assert.Len(t, *searched, 1)
+			})
+		})
+	})
+
+	t.Run("GIVEN the Steam requests are already queued past the longest wait", func(t *testing.T) {
+		s, _ := titleSearchStore(t, nil, 0)
+		s.throttle = newThrottle(time.Hour, 1, time.Second, time.Now, func(context.Context, time.Duration) error { return nil })
+		require.NoError(t, s.throttle.do(ctx, func() error { return nil }))
+
+		t.Run("WHEN a linked game's covers are asked", func(t *testing.T) {
+			_, err := s.Covers(ctx, media.CoverQuery{
+				Title:  "Portal 2",
+				System: game.SystemPC,
+				Links:  game.Links{game.LinkSteam: "620"},
+			}, schema.Settings{})
+
+			t.Run("THEN it is a rate limit rather than the legacy guess, which may not exist", func(t *testing.T) {
 				require.ErrorIs(t, err, provider.ErrRateLimited)
 			})
 		})
