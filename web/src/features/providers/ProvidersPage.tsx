@@ -7,6 +7,7 @@ import { toDate } from '../../lib/model';
 import { describeStatus } from '../../lib/providerStatus';
 import { useAppData } from '../../state/AppData';
 import ProviderDialog from './ProviderDialog';
+import type { DialogIntent } from '../../lib/providerForm';
 import { forgetPriceProviders } from '../../lib/usePriceProviders';
 import { useHealth } from '../../state/Health';
 
@@ -79,6 +80,7 @@ function ProviderChain(props: {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [placeholder, setPlaceholder] = useState('');
   const [editing, setEditing] = useState<Provider | null>(null);
+  const [intent, setIntent] = useState<DialogIntent>('configure');
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -121,6 +123,7 @@ function ProviderChain(props: {
   const toggle = (p: Provider) => {
     const missingRequired = p.fields.some((f) => f.required && !p.settings[f.key]);
     if (!p.enabled && missingRequired) {
+      setIntent('enable');
       setEditing(p); // needs credentials first
       return;
     }
@@ -175,13 +178,13 @@ function ProviderChain(props: {
                 <input type="checkbox" checked={p.enabled} disabled={busy} onChange={() => toggle(p)} />
                 <span>{p.enabled ? t('providers.on') : t('providers.off')}</span>
               </label>
-              {p.fields.length > 0 && <button onClick={() => setEditing(p)}>{t('providers.configure')}</button>}
+              {p.fields.length > 0 && <button onClick={() => { setIntent('configure'); setEditing(p); }}>{t('providers.configure')}</button>}
             </div>
           </li>
         ))}
       </ol>
       {editing && (
-        <ProviderDialog provider={editing} placeholder={placeholder} onClose={() => setEditing(null)}
+        <ProviderDialog provider={editing} intent={intent} placeholder={placeholder} onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); run(load); }} />
       )}
     </section>

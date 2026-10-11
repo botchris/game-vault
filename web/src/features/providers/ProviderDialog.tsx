@@ -5,17 +5,19 @@ import { FieldHelp } from '../../components/FieldHelp';
 import { Alert, Modal } from '../../components/ui';
 import type { Provider } from '../../gen/gamevault/v1/provider_pb';
 import { SettingField_Kind } from '../../gen/gamevault/v1/source_pb';
+import { initialEnabled, type DialogIntent } from '../../lib/providerForm';
 
 /** Configure a provider's credentials, test them and enable it. */
-export default function ProviderDialog({ provider, placeholder, onClose, onSaved }: {
+export default function ProviderDialog({ provider, intent = 'configure', placeholder, onClose, onSaved }: {
   provider: Provider;
+  intent?: DialogIntent;
   placeholder: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const { t } = useTranslation();
   const [settings, setSettings] = useState<Record<string, string>>(() => ({ ...provider.settings }));
-  const [enabled, setEnabled] = useState(true);
+  const [enabled, setEnabled] = useState(() => initialEnabled(provider.enabled, intent));
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
   // A required risk not accepted yet blocks testing and saving (the server refuses it too).
