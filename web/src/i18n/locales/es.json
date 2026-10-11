@@ -498,6 +498,9 @@
     "igdbDetails": {
       "description": "Fichas de IGDB para cualquier juego: sinopsis (en inglés), géneros, compañías, fecha de lanzamiento, clasificación por edades, capturas y tráilers de YouTube. Usa la aplicación de Twitch de Carátulas; unas pocas peticiones por juego y luego se guarda."
     },
+    "wikipediaDetails": {
+      "description": "Artículo de Wikipedia y datos de Wikidata para cualquier juego que pueda identificar sin dudas: la introducción del artículo en tu idioma (en inglés si no existe), desarrolladoras, editoras, fecha de lanzamiento y géneros. Se muestra con un enlace al artículo (CC BY-SA). Gratis, sin key."
+    },
     "epicCovers": {
       "description": "Carátula oficial de Epic Games Store, para los juegos importados de tu biblioteca de Epic. Gratis, sin clave."
     },

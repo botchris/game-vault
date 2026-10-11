@@ -1,8 +1,10 @@
 package main
 
 import (
+	"cmp"
 	"io"
 	"log/slog"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -17,6 +19,7 @@ import (
 	"gamevault/internal/adapters/outbound/steam"
 	"gamevault/internal/adapters/outbound/thegamesdb"
 	"gamevault/internal/adapters/outbound/ubisoft"
+	"gamevault/internal/adapters/outbound/wikipedia"
 	"gamevault/internal/adapters/outbound/xbox"
 	"gamevault/internal/application/media"
 	"gamevault/internal/application/plugin/plugintest"
@@ -127,4 +130,29 @@ func TestCoverProviders_appliesBySystem(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestMetadataChain_defaultOrder checks the game sheet chain a new install starts with: the store
+// page first, then Wikipedia (a summary in the UI language), IGDB, and TheGamesDB last.
+func TestMetadataChain_defaultOrder(t *testing.T) {
+	t.Run("GIVEN the metadata providers compiled into Game Vault", func(t *testing.T) {
+		plugins, err := newPlugins(slog.New(slog.NewTextHandler(io.Discard, nil)))
+		require.NoError(t, err)
+
+		t.Run("WHEN they are put in their default order", func(t *testing.T) {
+			chain := plugins.Media().Metadata
+			slices.SortStableFunc(chain, func(a, b media.MetadataProvider) int {
+				return cmp.Compare(a.Descriptor().DefaultOrder, b.Descriptor().DefaultOrder)
+			})
+
+			ids := make([]provider.ID, 0, len(chain))
+			for _, p := range chain {
+				ids = append(ids, p.Descriptor().ID)
+			}
+
+			t.Run("THEN Steam comes first, then Wikipedia, IGDB and TheGamesDB", func(t *testing.T) {
+				assert.Equal(t, []provider.ID{steam.DetailsProviderID, wikipedia.DetailsID, igdb.DetailsID, thegamesdb.DetailsID}, ids)
+			})
+		})
+	})
 }

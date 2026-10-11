@@ -498,6 +498,9 @@
     "igdbDetails": {
       "description": "Game sheets from IGDB for any game: summary (English), genres, companies, release date, age rating, screenshots and YouTube trailers. Uses the Twitch application from Covers; a few requests per game, then cached."
     },
+    "wikipediaDetails": {
+      "description": "Wikipedia article and Wikidata facts for any game it can identify without doubt: the article's introduction in your language (English when there is none), developers, publishers, release date and genres. Shown with a link to the article (CC BY-SA). Free, no key."
+    },
     "epicCovers": {
       "description": "Official box art from the Epic Games Store, for games imported from your Epic library. Free, no key needed."
     },
