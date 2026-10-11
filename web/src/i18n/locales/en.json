@@ -500,6 +500,13 @@
       "clientSecret": "Client Secret",
       "clientSecretHelp": "1. In the same application on the Twitch developer console, choose New Secret.\n2. Copy the secret here. Twitch shows it only once; a new secret replaces the old one."
     },
+    "steamgriddb": {
+      "description": "Community-made box art from SteamGridDB, at your own risk: its terms forbid automated use. Asked last, only for editions no other provider had art for, by Steam AppID or by exact title, one request a second. Covers are fan-made portrait grids, labelled as community art. Needs your own free API key and starts off.",
+      "consent": "I understand the risk and use this at my own responsibility",
+      "consentHelp": "SteamGridDB offers an API with personal keys, but its Terms of Use only allow personal, non-commercial use \"solely as permitted by the normal functionality of the Service\", and forbid you to \"make any automated use of the Site, the Service or the related systems\". Game Vault looks up covers through that API the way open-source launchers such as Playnite, Heroic and Lutris do. SteamGridDB could consider this a breach of its terms and revoke your key or suspend your account.\nGame Vault only reads, one request at a time and at most one a second, and only for games no other provider had a cover for. The authors of Game Vault are not responsible for what SteamGridDB does with your key or account. If you are not comfortable with that, leave this provider off.",
+      "apiKey": "API key",
+      "apiKeyHelp": "1. Open steamgriddb.com and sign in with Steam.\n2. Open Preferences → API (the page above).\n3. Choose Generate API Key and copy the key here.\nNever share it: it acts on your SteamGridDB account."
+    },
     "igdbDetails": {
       "description": "Game sheets from IGDB for any game: summary (English), genres, companies, release date, age rating, screenshots and YouTube trailers. Uses the Twitch application from Covers; a few requests per game, then cached."
     },

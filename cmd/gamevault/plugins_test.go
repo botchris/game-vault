@@ -17,6 +17,7 @@ import (
 	"gamevault/internal/adapters/outbound/gog"
 	"gamevault/internal/adapters/outbound/igdb"
 	"gamevault/internal/adapters/outbound/steam"
+	"gamevault/internal/adapters/outbound/steamgriddb"
 	"gamevault/internal/adapters/outbound/thegamesdb"
 	"gamevault/internal/adapters/outbound/ubisoft"
 	"gamevault/internal/adapters/outbound/wikipedia"
@@ -121,6 +122,36 @@ func TestCoverProviders_appliesBySystem(t *testing.T) {
 				System:   "PS3",
 				Fallback: true,
 			}, true},
+			{"a virtual PC edition (store links only)", media.CoverQuery{
+				System:    game.SystemPC,
+				Links:     game.Links{game.LinkSteam: "1"},
+				Fallback:  true,
+				LinksOnly: true,
+			}, false},
+		}},
+		// SteamGridDB's community art is a last resort too, for any edition, but never a virtual PC box.
+		steamgriddb.ID: {steamgriddb.NewCovers(), []coverRow{
+			{"a PC edition", media.CoverQuery{System: game.SystemPC}, false},
+			{"a game without copies", media.CoverQuery{}, false},
+			{"a PS2 edition", media.CoverQuery{System: "PS2"}, false},
+			{"a PC edition linked to Steam", media.CoverQuery{
+				System: game.SystemPC,
+				Links:  game.Links{game.LinkSteam: "1"},
+			}, false},
+			{"a PC edition on the fallback pass", media.CoverQuery{
+				System:   game.SystemPC,
+				Fallback: true,
+			}, true},
+			{"a PS2 edition on the fallback pass", media.CoverQuery{
+				System:   "PS2",
+				Fallback: true,
+			}, true},
+			{"a virtual PC edition (store links only)", media.CoverQuery{
+				System:    game.SystemPC,
+				Links:     game.Links{game.LinkSteam: "1"},
+				Fallback:  true,
+				LinksOnly: true,
+			}, false},
 		}},
 		ubisoft.CoverProviderID: {&ubisoft.Covers{}, append(storeRows(ubisoft.LinkedStore.Key),
 			coverRow{"its PC edition by a Ubisoft Connect copy", media.CoverQuery{

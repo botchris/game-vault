@@ -17,6 +17,7 @@ import (
 	"gamevault/internal/adapters/outbound/itch"
 	"gamevault/internal/adapters/outbound/playstation"
 	"gamevault/internal/adapters/outbound/steam"
+	"gamevault/internal/adapters/outbound/steamgriddb"
 	"gamevault/internal/adapters/outbound/thegamesdb"
 	"gamevault/internal/adapters/outbound/ubisoft"
 	"gamevault/internal/adapters/outbound/upcitemdb"
@@ -50,6 +51,7 @@ func newPlugins(log *slog.Logger) (*plugin.Registry, error) {
 		thegamesdb.Plugin(),
 		wikipedia.Plugin(version),
 		igdb.Plugin(),
+		steamgriddb.Plugin(),
 		// Barcode lookups
 		cex.Plugin(),
 		ebay.Plugin(),
