@@ -26,5 +26,10 @@ enabled by default, no settings):
   game's systems (P400), or the only one when no system is known or it lists no platforms. A smoke
   run against the real APIs found Portal 2 (es/en), Hades (fr), Breath of the Wild (es),
   Celeste (de), Halo 3, and returned nothing for the ambiguous "Doom" on PC.
+- **Review fixes (2026-10-11):** `Applies` is false for Steam-linked games unless `q.Fallback`
+  (Steam's summary always wins; spares 4-5 requests per game in the scan); regional UI languages
+  use the primary subtag; P577 ties go to the more precise date; the license links to
+  creativecommons.org (`Attribution.LicenseURL`) and the UI only renders https hrefs; Wikidata
+  genres join the genre filter unmapped (accepted).
 - The summary is in the UI language when that Wikipedia has the article, else English
   ([[multilingual]]); labels follow the same fallback, genres capitalized.

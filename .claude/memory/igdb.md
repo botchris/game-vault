@@ -30,6 +30,11 @@ settings group `igdb`):
   formats for GOG (product id) and Epic (catalog item id?) are unverified. Else `search "…"` with
   `where platforms = (…)` (PC = 6, 14, 3) and only an exact title match, editions
   (`version_parent`) and add-ons (`parent_game`) yielding to the game; several → nothing.
+- **Review fixes (2026-10-11):** credentials go in a form body (Twitch accepts it: probed, same
+  400 "invalid client"); transport errors to Twitch are not wrapped (the URL used to carry the
+  secret); one token request per credentials at a time (singleflight), renewed after a 401 only if
+  the cached token is the refused one; missing `expires_in` = 1 h; limiter takes the slot before the
+  start time; a store id listed under several games keeps the main one, else nothing.
 - Images: `https://images.igdb.com/igdb/image/upload/t_<size>/<image_id>.jpg` (cover_big,
   cover_big_2x, screenshot_big, 1080p); removed images stay 30 days.
 - **Awaits a test with a real Twitch application**; only the error shapes above were seen live,
