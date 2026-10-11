@@ -484,14 +484,34 @@ func TestDetails_refused(t *testing.T) {
 		t.Run("WHEN a sheet is asked", func(t *testing.T) {
 			_, err := d.Details(ctx, media.CoverQuery{Title: "Example Quest"}, "en", nil)
 
-			t.Run("THEN the error says it was refused and what to do, and is not a rate limit", func(t *testing.T) {
+			t.Run("THEN the error says it was refused and what to do, as a problem of the provider", func(t *testing.T) {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "HTTP 403")
 				assert.Contains(t, err.Error(), "try again later; if it persists, report this message")
-				assert.NotErrorIs(t, err, provider.ErrRateLimited)
+				assert.ErrorIs(t, err, provider.ErrUnavailable)
 			})
 		})
 	})
+}
+
+func TestDetails_outages(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	for _, fail := range []string{"502", "hangup"} {
+		t.Run("GIVEN Wikidata failing with "+fail, func(t *testing.T) {
+			f := newFakeWiki(t)
+			f.setFail(fail)
+
+			t.Run("WHEN a sheet is asked", func(t *testing.T) {
+				_, err := f.details().Details(ctx, media.CoverQuery{Title: "Example Quest"}, "en", nil)
+
+				t.Run("THEN it is an outage, the provider's problem rather than the game's", func(t *testing.T) {
+					require.ErrorIs(t, err, provider.ErrUnavailable)
+				})
+			})
+		})
+	}
 }
 
 func TestTest(t *testing.T) {

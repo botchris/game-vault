@@ -556,9 +556,23 @@ func (d *Details) get(ctx context.Context, c *apiclient.Client, q url.Values, ou
 	case apiclient.IsStatus(err, http.StatusTooManyRequests):
 		return fmt.Errorf("HTTP %d: %w", http.StatusTooManyRequests, provider.ErrRateLimited)
 	case apiclient.IsStatus(err, http.StatusForbidden):
-		return fmt.Errorf("the Wikimedia servers refused the request (HTTP %d): try again later; if it persists, report this message", http.StatusForbidden)
-	case err != nil:
+		// A refused client (blocked or without a User-Agent) is the provider's problem, not the game's.
+		return fmt.Errorf("the Wikimedia servers refused the request (HTTP %d): try again later; if it persists, report this message: %w",
+			http.StatusForbidden, provider.ErrUnavailable)
+	case err == nil:
+	case errors.Is(err, provider.ErrRateLimited), errors.Is(err, context.Canceled), errors.Is(err, errCanceled):
 		return err
+	default:
+		var se *apiclient.StatusError
+		if errors.As(err, &se) && se.Status < 500 {
+			return err
+		}
+
+		// A server error or no answer says nothing about the game.
+		return fmt.Errorf("the Wikimedia servers are not answering, try again later (%w): %w", err, provider.ErrUnavailable)
+	}
+
+	switch {
 	case apiErr.Error == nil:
 		return nil
 	case apiErr.Error.Code == "maxlag" || apiErr.Error.Code == "ratelimited":

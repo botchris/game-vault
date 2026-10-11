@@ -58,12 +58,6 @@ func (p *Covers) ImageHosts() []string { return []string{"images.igdb.com"} }
 
 // Covers implements media.CoverProvider.
 func (p *Covers) Covers(ctx context.Context, q media.CoverQuery, s schema.Settings) ([]media.CoverCandidate, error) {
-	// Without credentials it stays silent rather than failing every lookup (a sibling may enable it
-	// before the key is entered).
-	if _, _, _, err := credentials(s); err != nil {
-		return nil, nil
-	}
-
 	g, err := p.c.find(ctx, s, q, coverFields)
 	if err != nil || g == nil || g.Cover.ImageID == "" {
 		return nil, err

@@ -130,7 +130,9 @@ func (p *Provider) Applies(q media.CoverQuery) bool {
 }
 
 // apiError builds an error for a non-200 answer, using TheGamesDB's own message when present
-// (e.g. "Invalid API key was provided.").
+// (e.g. "Invalid API key was provided."). A rejected key (provider.ErrBadSettings) and a server
+// error (provider.ErrUnavailable) are problems of the provider, not of a game: they become its
+// status instead of a warning on every sheet.
 func apiError(se *apiclient.StatusError) error {
 	var body struct {
 		Status string `json:"status"`
@@ -141,10 +143,18 @@ func apiError(se *apiclient.StatusError) error {
 	switch {
 	case se.Status == http.StatusTooManyRequests: // its body only says "Unknown Error Code"
 		return errTooManyRequests
+	case se.Status == http.StatusForbidden || se.Status == http.StatusUnauthorized ||
+		strings.Contains(strings.ToLower(body.Status), "api key"):
+		msg := fmt.Sprintf("the API key was rejected (HTTP %d): check it in the settings", se.Status)
+		if body.Status != "" {
+			msg = fmt.Sprintf("%s (HTTP %d): check the API key in the settings", body.Status, se.Status)
+		}
+
+		return provider.BadSettings(msg)
+	case se.Status >= 500:
+		return fmt.Errorf("not answering (HTTP %d): try again later: %w", se.Status, provider.ErrUnavailable)
 	case body.Status != "":
 		return fmt.Errorf("%s (HTTP %d)", body.Status, se.Status)
-	case se.Status == http.StatusForbidden || se.Status == http.StatusUnauthorized:
-		return fmt.Errorf("the API key was rejected (HTTP %d): check it in the settings", se.Status)
 	}
 
 	return fmt.Errorf("HTTP %d", se.Status)
@@ -195,8 +205,13 @@ func (p *Provider) getNow(ctx context.Context, path string, q url.Values, out an
 	err := p.API.Get(ctx, path, q, out)
 
 	var se *apiclient.StatusError
-	if errors.As(err, &se) {
+
+	switch {
+	case errors.As(err, &se):
 		return apiError(se)
+	case err != nil && !errors.Is(err, apiclient.ErrNotJSON) && !errors.Is(err, context.Canceled):
+		// No answer (no connection, a timeout): it says nothing about the game.
+		return fmt.Errorf("not answering, try again later (%w): %w", err, provider.ErrUnavailable)
 	}
 
 	return err

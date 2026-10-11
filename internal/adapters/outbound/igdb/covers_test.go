@@ -120,7 +120,7 @@ func TestCovers(t *testing.T) {
 		})
 	})
 
-	t.Run("GIVEN IGDB is enabled (the default) but has no credentials yet", func(t *testing.T) {
+	t.Run("GIVEN IGDB has no credentials yet", func(t *testing.T) {
 		f := newFakeIGDB(t)
 		c := NewCovers(f.client(time.Now))
 
@@ -130,8 +130,9 @@ func TestCovers(t *testing.T) {
 				Fallback: true,
 			}, nil)
 
-			t.Run("THEN it quietly does nothing: no error, no request", func(t *testing.T) {
-				require.NoError(t, err)
+			t.Run("THEN it says so as a settings problem, without a request: an empty answer would clear the status", func(t *testing.T) {
+				require.ErrorIs(t, err, ErrNotConfigured)
+				require.ErrorIs(t, err, provider.ErrBadSettings)
 				assert.Empty(t, got)
 				assert.Zero(t, f.tokens())
 				assert.Empty(t, f.sent("games"))

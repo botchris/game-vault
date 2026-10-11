@@ -99,6 +99,18 @@ func (f *fakeWiki) serve(w http.ResponseWriter, r *http.Request) {
 
 	switch f.fail {
 	case "":
+	case "502":
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusBadGateway)
+		w.Write([]byte("<html>502 Bad Gateway</html>"))
+
+		return
+	case "hangup":
+		if conn, _, err := w.(http.Hijacker).Hijack(); err == nil {
+			conn.Close()
+		}
+
+		return
 	case "429":
 		w.WriteHeader(http.StatusTooManyRequests)
 		w.Write([]byte(`{"error":{"code":"too-many-requests","info":"Too many requests"}}`))
