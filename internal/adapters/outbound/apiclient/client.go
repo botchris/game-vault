@@ -68,6 +68,10 @@ type Request struct {
 	Query  url.Values
 	Header http.Header
 	Body   any
+
+	// Text, when set instead of Body, is sent as is with Content-Type text/plain: the body of APIs
+	// that take a query language rather than JSON (IGDB's Apicalypse).
+	Text string
 }
 
 // StatusError is an answer with an unexpected HTTP status. Body holds the start of the answer,
@@ -121,6 +125,9 @@ func (c *Client) Do(ctx context.Context, r Request, out any) error {
 	}
 
 	var body io.Reader
+	if r.Text != "" {
+		body = strings.NewReader(r.Text)
+	}
 
 	if r.Body != nil {
 		b, err := json.Marshal(r.Body)
@@ -185,6 +192,8 @@ func (c *Client) setHeaders(req *http.Request, r Request) {
 
 	if r.Body != nil {
 		req.Header.Set("Content-Type", "application/json")
+	} else if r.Text != "" {
+		req.Header.Set("Content-Type", "text/plain")
 	}
 
 	if c.UserAgent != "" {

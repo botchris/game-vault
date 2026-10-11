@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -29,6 +30,11 @@ func fakeAPI(t *testing.T) *Client {
 				"method": r.Method, "page": r.URL.Query().Get("page"), "agent": r.UserAgent(),
 				"key": r.Header.Get("X-Key"), "extra": r.Header.Get("X-Extra"), "body": body,
 			})
+		case "/text": // echoes a plain-text body, the way query languages (IGDB's Apicalypse) send it
+			b, _ := io.ReadAll(r.Body)
+
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"type": r.Header.Get("Content-Type"), "body": string(b)})
 		case "/private":
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte("Invalid authorization header\n"))
@@ -85,6 +91,22 @@ func TestClient(t *testing.T) {
 				assert.Equal(t, map[string]any{"n": float64(1)}, out["body"])
 				assert.Equal(t, "e", out["extra"])
 				assert.Equal(t, "k", out["key"])
+			})
+		})
+
+		t.Run("WHEN a plain-text body is posted", func(t *testing.T) {
+			var out map[string]any
+
+			err := c.Do(ctx, Request{
+				Method: http.MethodPost,
+				Path:   "/text",
+				Text:   "fields name; limit 1;",
+			}, &out)
+			require.NoError(t, err)
+
+			t.Run("THEN it arrives as is, labeled as text", func(t *testing.T) {
+				assert.Equal(t, "fields name; limit 1;", out["body"])
+				assert.Equal(t, "text/plain", out["type"])
 			})
 		})
 
