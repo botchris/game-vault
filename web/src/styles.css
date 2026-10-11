@@ -233,7 +233,12 @@ input[type="checkbox"], input[type="radio"] { min-height: 0; accent-color: var(-
 .grouping-toggle { flex: none; }
 .grouping-toggle button { min-height: 34px; }
 
-.quick-row { display: flex; gap: 8px; align-items: center; margin-bottom: 18px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+/* On wide screens the chips wrap, so nothing (the "Clear all" link last) hides past the edge; on
+   phones they scroll sideways in one row, a familiar pattern there. */
+.quick-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 18px; padding-bottom: 2px; }
+@media (max-width: 860px) {
+  .quick-row { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+}
 .quick-row::-webkit-scrollbar { display: none; }
 .quick-chip { border-radius: 999px; min-height: 34px; padding: 5px 8px 5px 14px; font-size: 14px; flex: none; }
 .quick-count {
