@@ -96,8 +96,12 @@ func (p *Provider) usedUp(apiKey string) error {
 }
 
 func (p *Provider) usedUpLocked(apiKey string) error {
-	if left := p.allowance.keys[apiKey].until.Sub(p.clock()); left > 0 {
-		return &allowanceError{left: left}
+	until := p.allowance.keys[apiKey].until
+	if left := until.Sub(p.clock()); left > 0 {
+		return &allowanceError{
+			left:  left,
+			until: until,
+		}
 	}
 
 	return nil
@@ -175,9 +179,10 @@ func (unknownKeyLimited) Error() string {
 	return "the API key was not recognized: check it in the provider settings"
 }
 
-// Is matches ErrUnknownKey and provider.ErrRateLimited.
+// Is matches ErrUnknownKey, provider.ErrRateLimited (nothing may be remembered from a 429) and
+// provider.ErrBadSettings (it is the provider's problem, not a game's).
 func (unknownKeyLimited) Is(target error) bool {
-	return target == ErrUnknownKey || target == provider.ErrRateLimited
+	return target == ErrUnknownKey || target == provider.ErrRateLimited || target == provider.ErrBadSettings
 }
 
 // limit reads the key's remaining allowance. That endpoint does not consume it, and it bypasses
@@ -203,7 +208,13 @@ func (p *Provider) clock() time.Time {
 // and matches provider.ErrQuotaExhausted (and so provider.ErrRateLimited).
 type allowanceError struct {
 	left time.Duration
+
+	// until is when the allowance renews.
+	until time.Time
 }
+
+// ResumesAt implements provider.Resumer: the provider's status shows when the allowance renews.
+func (e *allowanceError) ResumesAt() time.Time { return e.until }
 
 func (e *allowanceError) Error() string {
 	// No provider name: the warnings that show it already start with "TheGamesDB: ".

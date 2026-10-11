@@ -42,10 +42,10 @@ const (
 
 var (
 	// ErrNotConfigured means the Client ID or Secret is missing.
-	ErrNotConfigured = errors.New("enter the Client ID and Client Secret of your Twitch application in the provider settings")
+	ErrNotConfigured = provider.BadSettings("enter the Client ID and Client Secret of your Twitch application in the provider settings")
 
 	// ErrBadCredentials means Twitch or IGDB rejected the Client ID or Secret.
-	ErrBadCredentials = errors.New("the Twitch application's Client ID or Secret was rejected: check them in the provider settings")
+	ErrBadCredentials = provider.BadSettings("the Twitch application's Client ID or Secret was rejected: check them in the provider settings")
 )
 
 // errTooManyRequests is IGDB's (or Twitch's) HTTP 429. Like the other errors here it does not name
@@ -210,10 +210,10 @@ func (c *Client) newToken(ctx context.Context, id, secret, key string) (string, 
 // "no cover" marker, no cached sheet), so an outage does not leave editions without covers for days.
 var (
 	// errTwitchUnreachable means the token request got no answer (no connection, a timeout).
-	errTwitchUnreachable = fmt.Errorf("could not reach Twitch to sign in to IGDB: check the connection and try again later: %w", provider.ErrRateLimited)
+	errTwitchUnreachable = fmt.Errorf("could not reach Twitch to sign in to IGDB: check the connection and try again later: %w", provider.ErrUnavailable)
 
 	// errTwitchDown means Twitch answered the token request with a server error (5xx).
-	errTwitchDown = fmt.Errorf("signing in to IGDB failed: Twitch is not answering: try again later: %w", provider.ErrRateLimited)
+	errTwitchDown = fmt.Errorf("signing in to IGDB failed: Twitch is not answering: try again later: %w", provider.ErrUnavailable)
 )
 
 // query sends an Apicalypse query to an IGDB endpoint ("games", "external_games") and decodes the
@@ -264,9 +264,9 @@ func (c *Client) send(ctx context.Context, s schema.Settings, endpoint, body str
 		return tok, err
 	case !errors.As(err, &se):
 		// No answer (no connection, a timeout): it says nothing about the game.
-		return tok, fmt.Errorf("IGDB is not answering, try again later (%w): %w", err, provider.ErrRateLimited)
+		return tok, fmt.Errorf("IGDB is not answering, try again later (%w): %w", err, provider.ErrUnavailable)
 	case se.Status >= 500:
-		return tok, fmt.Errorf("IGDB is not answering (HTTP %d): try again later: %w", se.Status, provider.ErrRateLimited)
+		return tok, fmt.Errorf("IGDB is not answering (HTTP %d): try again later: %w", se.Status, provider.ErrUnavailable)
 	}
 
 	switch se.Status {

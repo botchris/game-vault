@@ -205,7 +205,7 @@ func (s *Store) uniqueApp(ctx context.Context, term, title string) (int64, error
 	case errors.As(err, &se) && se.Status != http.StatusTooManyRequests && se.Status < 500:
 		return 0, err
 	default:
-		return 0, fmt.Errorf("steam store search is not answering, asking again later (%w): %w", err, provider.ErrRateLimited)
+		return 0, fmt.Errorf("steam store search is not answering, asking again later (%w): %w", err, provider.ErrUnavailable)
 	}
 
 	for _, same := range []func(string) bool{
