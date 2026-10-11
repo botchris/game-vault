@@ -755,7 +755,7 @@
     "storePage": "Ficha en la tienda",
     "website": "Web oficial",
     "sources": "Datos de {{sources}}",
-    "notFoundBy": "No encontrado en {{providers}}",
+    "notFoundBy": "Sin coincidencia clara en {{providers}}",
     "updated": "actualizado {{date}}",
     "refresh": "Actualizar ficha",
     "empty": "Ningún proveedor tiene todavía datos de este juego.",

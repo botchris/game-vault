@@ -55,4 +55,6 @@ metadata:
 - **Edition titles (2026-10-11, bug seen live):** "Red Dead Redemption GOTY" found nothing on IGDB
   or Wikidata, silently. Searches now use `game.SearchTitle` (MatchKey's tags removed, casing kept),
   then the raw title if no match; `GameDetails.NotFoundBy` lists providers asked that found no game
-  (footer "Not found on …", cached, not a warning).
+  (footer "No clear match on …": no result or ambiguous; cached, not a warning; limited providers
+  are not listed). Raw-title fallback compares after `game.NormalizeTitle` (™ alone is no other
+  title); Steam's cover search has the fallback too.

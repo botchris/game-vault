@@ -7,6 +7,7 @@ import { Alert, useFormatters } from '../../components/ui';
 import VideoPlayer from '../../components/VideoPlayer';
 import type { GameDetails } from '../../gen/gamevault/v1/metadata_pb';
 import { httpsUrl } from '../../lib/links';
+import { sheetFooterParts } from '../../lib/sheetFooter';
 import { toDate, type Game } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
 import { FieldList, hasFieldList } from '../fields/FieldList';
@@ -151,10 +152,8 @@ export function SheetOverview({ game, details, warnings, loading, error, onRefre
 
       {details && (
         <p className="muted small sheet-footer">
-          {details.sources.length > 0 && t('details.sources', { sources: details.sources.join(' + ') })}
-          {details.notFoundBy.length > 0 && `${details.sources.length > 0 ? ' · ' : ''}${t('details.notFoundBy', { providers: details.notFoundBy.join(', ') })}`}
-          {details.fetchedAt && ` · ${t('details.updated', { date: fmt.dateTime(toDate(details.fetchedAt)) })}`}
-          {' · '}<button className="link" onClick={onRefresh} disabled={loading}>{loading ? t('common.loading') : t('details.refresh')}</button>
+          {sheetFooterParts(details, details.fetchedAt ? fmt.dateTime(toDate(details.fetchedAt)) : undefined, t).map((part) => `${part} · `)}
+          <button className="link" onClick={onRefresh} disabled={loading}>{loading ? t('common.loading') : t('details.refresh')}</button>
         </p>
       )}
     </div>

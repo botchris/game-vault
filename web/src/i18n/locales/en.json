@@ -755,7 +755,7 @@
     "storePage": "Store page",
     "website": "Website",
     "sources": "Details from {{sources}}",
-    "notFoundBy": "Not found on {{providers}}",
+    "notFoundBy": "No clear match on {{providers}}",
     "updated": "updated {{date}}",
     "refresh": "Refresh details",
     "empty": "No provider has details for this game yet.",

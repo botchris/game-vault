@@ -494,3 +494,27 @@ func TestGameDetails_notFoundBy(t *testing.T) {
 		})
 	})
 }
+
+func TestGameDetails_notFoundByLeavesOutLimitedProviders(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a disc whose only provider asks to slow down", func(t *testing.T) {
+		env := newDetailsEnv(t, ctx, time.Now, nil)
+		env.quota.limited.Store(true)
+		g := saveGame(t, ctx, env.games, "Disc Quest", nil, game.CopyDetails{
+			Kind:     game.KindPhysical,
+			Platform: "PS4",
+		})
+
+		t.Run("WHEN its sheet is asked", func(t *testing.T) {
+			d, warnings, err := env.svc.GameDetails(ctx, g.ID(), "en", false)
+			require.NoError(t, err)
+
+			t.Run("THEN it is a warning, not \"no clear match\": it said nothing about the game", func(t *testing.T) {
+				assert.Len(t, warnings, 1)
+				assert.Empty(t, d.NotFoundBy)
+			})
+		})
+	})
+}
