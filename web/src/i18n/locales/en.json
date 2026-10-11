@@ -445,6 +445,8 @@
     "retried_other": "{{count}} games will be looked up again.",
     "redownloaded_one": "{{count}} cover dropped; it will be downloaded again.",
     "redownloaded_other": "{{count}} covers dropped; they will be downloaded again.",
+    "riskTitle": "Risk to your account",
+    "readTerms": "Read the terms",
     "testOk": "Connection works.",
     "thegamesdb": {
       "description": "Platform-specific box art (the Xbox 360 case for an Xbox 360 disc). Used for games with a physical copy, games no store knows, and store games no store had art for. One request per game, then cached.",

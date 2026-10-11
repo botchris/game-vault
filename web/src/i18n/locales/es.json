@@ -445,6 +445,8 @@
     "retried_other": "Se volverán a buscar {{count}} juegos.",
     "redownloaded_one": "{{count}} carátula borrada; se descargará de nuevo.",
     "redownloaded_other": "{{count}} carátulas borradas; se descargarán de nuevo.",
+    "riskTitle": "Riesgo para tu cuenta",
+    "readTerms": "Leer las condiciones",
     "testOk": "La conexión funciona.",
     "thegamesdb": {
       "description": "Carátulas de la caja según la plataforma (la caja de Xbox 360 para un disco de Xbox 360). Se usa para juegos con copia física, juegos que ninguna tienda conoce y juegos de tienda sin carátula en ninguna tienda. Una petición por juego y luego se guarda.",
