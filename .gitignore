@@ -1,7 +1,9 @@
 # Runtime data: the database (game keys, store sessions, cookies, API keys), downloaded images,
 # logs and backups. Back it up, never commit it. The whole directory is ignored, with no
 # exceptions, so nothing in it can be added by accident.
-/config/
+# Runtime data (database, images, logs, backups) is personal: only the empty folder is published.
+/config/*
+!/config/.gitkeep
 
 # Second safety net: personal databases anywhere in the tree (test copies, backups such as
 # gamevault-20261007-141943.db, exports…).
