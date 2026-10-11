@@ -338,3 +338,110 @@ func TestGameDetails_sparseSheetWithAFailedFallback(t *testing.T) {
 		})
 	})
 }
+
+// sheetDetails is a metadata provider that knows every game and answers a fixed sheet.
+type sheetDetails struct {
+	id    provider.ID
+	order int
+	sheet media.GameDetails
+}
+
+func (p *sheetDetails) Descriptor() provider.Descriptor {
+	return provider.Descriptor{
+		ID:               p.id,
+		Kind:             provider.KindMetadata,
+		Name:             string(p.id),
+		EnabledByDefault: true,
+		DefaultOrder:     p.order,
+	}
+}
+
+func (*sheetDetails) Test(context.Context, schema.Settings) error { return nil }
+
+func (*sheetDetails) Applies(media.CoverQuery) bool { return true }
+
+func (p *sheetDetails) Details(context.Context, media.CoverQuery, string, schema.Settings) (*media.GameDetails, error) {
+	sheet := p.sheet
+	return &sheet, nil
+}
+
+func TestGameDetails_summarySourceAndTrailers(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN an encyclopedia whose summary needs credit, then a game database, both with a trailer", func(t *testing.T) {
+		db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "gamevault.db"), "")
+		require.NoError(t, err)
+		t.Cleanup(func() { db.Close() })
+
+		assets, err := gamedata.Open(filepath.Join(t.TempDir(), "game-data"))
+		require.NoError(t, err)
+
+		credit := media.Attribution{
+			Name:    "Wikipedia",
+			URL:     "https://en.wikipedia.org/wiki/Example_Quest",
+			License: "CC BY-SA 4.0",
+		}
+		encyclopedia := &sheetDetails{
+			id:    "encyclopedia",
+			order: 1,
+			sheet: media.GameDetails{
+				Summary:       "Example Quest is a game.",
+				SummarySource: credit,
+				Videos:        []media.Video{{YouTubeID: "yt-shared"}},
+			},
+		}
+		database := &sheetDetails{
+			id:    "database",
+			order: 2,
+			sheet: media.GameDetails{
+				Summary:     "A game database's summary.",
+				Genres:      []string{"Adventure"},
+				Screenshots: []media.Screenshot{{FullURL: "https://cdn.test/1.jpg"}},
+				Videos:      []media.Video{{YouTubeID: "yt-shared"}, {YouTubeID: "yt-own"}},
+			},
+		}
+
+		games, details := sqlite.NewGameRepository(db), sqlite.NewDetailsStore(db)
+		svc := media.NewService(games, sqlite.NewProviderRepository(db), assets, nil, details, echo{}, time.Now,
+			slog.New(slog.NewTextHandler(io.Discard, nil)), media.Providers{
+				Metadata: []media.MetadataProvider{database, encyclopedia},
+			})
+		g := saveGame(t, ctx, games, "Example Quest", nil, game.CopyDetails{
+			Kind:     game.KindPhysical,
+			Platform: "PS4",
+		})
+
+		t.Run("WHEN the sheet is asked", func(t *testing.T) {
+			d, warnings, err := svc.GameDetails(ctx, g.ID(), "en", false)
+			require.NoError(t, err)
+			require.Empty(t, warnings)
+
+			t.Run("THEN the first summary wins together with its credit", func(t *testing.T) {
+				assert.Equal(t, "Example Quest is a game.", d.Summary)
+				assert.Equal(t, credit, d.SummarySource)
+
+				t.Run("AND the later provider fills the gaps", func(t *testing.T) {
+					assert.Equal(t, []string{"Adventure"}, d.Genres)
+					assert.Len(t, d.Screenshots, 1)
+				})
+
+				t.Run("AND a trailer both know is listed once", func(t *testing.T) {
+					ids := make([]string, 0, len(d.Videos))
+					for _, v := range d.Videos {
+						ids = append(ids, v.YouTubeID)
+					}
+
+					assert.Equal(t, []string{"yt-shared", "yt-own"}, ids)
+				})
+			})
+
+			t.Run("AND the credit is cached with the sheet", func(t *testing.T) {
+				cached, ok, err := details.Get(ctx, g.ID(), "en")
+				require.NoError(t, err)
+				require.True(t, ok)
+				assert.Equal(t, credit, cached.SummarySource)
+			})
+		})
+	})
+}

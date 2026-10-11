@@ -112,6 +112,14 @@ export function SheetOverview({ game, details, warnings, loading, error, onRefre
         <section>
           <h3>{t('details.summary')}</h3>
           <Summary text={details.summary} />
+          {details.summarySource?.name && (
+            <p className="muted small summary-source">
+              {details.summarySource.url
+                ? <a href={details.summarySource.url} target="_blank" rel="noreferrer">{t('details.summarySource', { source: details.summarySource.name })}</a>
+                : t('details.summarySource', { source: details.summarySource.name })}
+              {details.summarySource.license && ` · ${details.summarySource.license}`}
+            </p>
+          )}
         </section>
       )}
       {game.notes && (

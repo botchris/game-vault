@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"strconv"
 	"time"
 
@@ -21,9 +22,9 @@ const detailsTTL = 30 * 24 * time.Hour
 // was built without the improvement, so it is fetched again once when opened instead of waiting for
 // detailsTTL; a server still running the old code may cache such sheets after the upgrade's date, so
 // a version is used rather than a time. Increment it when sheet gathering improves.
-const detailsLogicVersion = 1 // 1: the fallback pass
+const detailsLogicVersion = 2 // 1: the fallback pass; 2: Wikipedia and IGDB
 
-// Video is a trailer: an HLS stream (Steam) or a YouTube video (TheGamesDB).
+// Video is a trailer: an HLS stream (Steam) or a YouTube video (IGDB, TheGamesDB).
 type Video struct {
 	Title     string
 	Thumbnail string
@@ -43,9 +44,23 @@ type Screenshot struct {
 	FullAsset  string
 }
 
+// Attribution credits the source of a text whose license asks for it (Wikipedia's CC BY-SA: name the
+// source, link to it and name the license). The zero value means no credit is needed.
+type Attribution struct {
+	// Name is the source as the UI names it ("Wikipedia").
+	Name string
+
+	// URL is the page the text comes from.
+	URL string
+
+	// License names the text's license ("CC BY-SA 4.0").
+	License string
+}
+
 // GameDetails is the descriptive sheet of a game, as gathered from the metadata providers.
 type GameDetails struct {
 	Summary       string // plain text; paragraphs separated by blank lines
+	SummarySource Attribution
 	Genres        []string
 	Developers    []string
 	Publishers    []string
@@ -99,7 +114,10 @@ func (d *GameDetails) fill(o GameDetails) bool {
 		}
 	}
 
-	str(&d.Summary, o.Summary)
+	if d.Summary == "" && o.Summary != "" {
+		d.Summary, d.SummarySource, used = o.Summary, o.SummarySource, true // the credit goes with its text
+	}
+
 	list(&d.Genres, o.Genres)
 	list(&d.Developers, o.Developers)
 	list(&d.Publishers, o.Publishers)
@@ -113,8 +131,14 @@ func (d *GameDetails) fill(o GameDetails) bool {
 		d.Metacritic, d.MetacriticURL, used = o.Metacritic, o.MetacriticURL, true
 	}
 
-	if len(o.Videos) > 0 { // trailers from every source are useful: Steam HLS + TheGamesDB YouTube
-		d.Videos, used = append(d.Videos, o.Videos...), true
+	// Trailers from every source are useful (Steam HLS, IGDB and TheGamesDB YouTube), but a YouTube
+	// video two databases know is shown once.
+	for _, v := range o.Videos {
+		if v.YouTubeID != "" && slices.ContainsFunc(d.Videos, func(have Video) bool { return have.YouTubeID == v.YouTubeID }) {
+			continue
+		}
+
+		d.Videos, used = append(d.Videos, v), true
 	}
 
 	if len(d.Screenshots) == 0 && len(o.Screenshots) > 0 {

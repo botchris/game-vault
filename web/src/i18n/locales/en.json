@@ -729,6 +729,7 @@
     },
     "loading": "Loading details…",
     "summary": "Summary",
+    "summarySource": "Source: {{source}}",
     "trailers": "Trailers",
     "trailer": "Trailer",
     "screenshots": "Screenshots",

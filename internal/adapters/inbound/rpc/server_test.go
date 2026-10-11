@@ -239,7 +239,12 @@ func (f *fakeBoxDetails) Details(_ context.Context, q media.CoverQuery, _ string
 	}
 
 	return &media.GameDetails{
-		Summary:    "English overview.",
+		Summary: "English overview.",
+		SummarySource: media.Attribution{
+			Name:    "Encyclopedia",
+			URL:     "https://encyclopedia.test/portal-2",
+			License: "CC BY-SA 4.0",
+		},
 		Publishers: []string{"Valve"},
 		Videos:     []media.Video{{YouTubeID: "abc123"}},
 	}, nil
@@ -880,6 +885,10 @@ func TestGameDetailsChain(t *testing.T) {
 		t.Fatalf("merged details: %+v", d)
 	}
 
+	if d.SummarySource != nil {
+		t.Fatalf("the credit goes with the box art provider's summary, which lost: %+v", d.SummarySource)
+	}
+
 	// Cached: no second call; refresh asks again.
 	detailsCalls := func(c clients) int { return c.boxDet.calls }
 	before := detailsCalls(c)
@@ -915,6 +924,11 @@ func TestGameDetailsChain(t *testing.T) {
 	}))
 	if res.Msg.Details.Summary != "English overview." {
 		t.Fatalf("without AppID only the box art provider applies: %+v", res.Msg.Details)
+	}
+
+	if src := res.Msg.Details.SummarySource; src.GetName() != "Encyclopedia" || src.GetUrl() != "https://encyclopedia.test/portal-2" ||
+		src.GetLicense() != "CC BY-SA 4.0" {
+		t.Fatalf("the summary's credit must reach the UI: %+v", src)
 	}
 }
 

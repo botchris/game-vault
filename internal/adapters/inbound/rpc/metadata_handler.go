@@ -34,6 +34,13 @@ func (h *MediaHandler) GetGameDetails(ctx context.Context, req *connect.Request[
 		Language:      d.Language,
 		FetchedAt:     ts(d.FetchedAt),
 	}
+	if src := d.SummarySource; src.Name != "" {
+		out.SummarySource = &pb.Attribution{
+			Name:    src.Name,
+			Url:     src.URL,
+			License: src.License,
+		}
+	}
 	// Images are served from the game's folder; the remote originals are only used to fill it.
 	id := game.ID(req.Msg.GameId)
 
