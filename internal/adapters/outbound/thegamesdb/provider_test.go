@@ -175,3 +175,36 @@ func TestCovers_editionSystem(t *testing.T) {
 		})
 	})
 }
+
+func TestProvider_transportErrorsHideTheKey(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN TheGamesDB closes the connection without answering", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			conn, _, err := w.(http.Hijacker).Hijack()
+			if err == nil {
+				conn.Close()
+			}
+		}))
+		t.Cleanup(srv.Close)
+
+		p := testProvider(srv)
+		s := schema.Settings{settingAPIKey: "s3cr3t-key"}
+
+		t.Run("WHEN the key is tested and covers are searched", func(t *testing.T) {
+			testErr := p.Test(ctx, s)
+			_, coversErr := p.Covers(ctx, media.CoverQuery{
+				Title:             "Halo 3",
+				PhysicalPlatforms: []string{"Xbox 360"},
+			}, s)
+
+			t.Run("THEN no error carries the key, which TheGamesDB takes in the query", func(t *testing.T) {
+				require.Error(t, testErr)
+				require.Error(t, coversErr)
+				assert.NotContains(t, testErr.Error(), "s3cr3t-key")
+				assert.NotContains(t, coversErr.Error(), "s3cr3t-key")
+			})
+		})
+	})
+}

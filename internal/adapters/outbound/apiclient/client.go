@@ -145,14 +145,14 @@ func (c *Client) Do(ctx context.Context, r Request, out any) error {
 
 	req, err := http.NewRequestWithContext(ctx, method, u, body)
 	if err != nil {
-		return err
+		return withoutQuery(err)
 	}
 
 	c.setHeaders(req, r)
 
 	res, err := c.HTTP.Do(req)
 	if err != nil {
-		return err
+		return withoutQuery(err)
 	}
 	defer res.Body.Close()
 
@@ -217,6 +217,29 @@ func (c *Client) maxBody() int64 {
 	}
 
 	return DefaultMaxBody
+}
+
+// withoutQuery drops the query from the URL a transport error (*url.Error) names: some services
+// take their API key in the query, and these errors end up in warnings and logs.
+func withoutQuery(err error) error {
+	var ue *url.Error
+	if !errors.As(err, &ue) {
+		return err
+	}
+
+	clean := ue.URL
+	if u, perr := url.Parse(ue.URL); perr == nil {
+		u.RawQuery, u.Fragment = "", ""
+		clean = u.String()
+	} else if i := strings.IndexAny(clean, "?#"); i >= 0 {
+		clean = clean[:i]
+	}
+
+	return &url.Error{
+		Op:  ue.Op,
+		URL: clean,
+		Err: ue.Err,
+	}
 }
 
 // snippet keeps the start of an error answer, on one line.

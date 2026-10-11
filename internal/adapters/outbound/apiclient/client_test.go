@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -128,6 +129,38 @@ func TestClient(t *testing.T) {
 
 			t.Run("THEN it is not decoded as JSON", func(t *testing.T) {
 				assert.ErrorIs(t, err, ErrNotJSON)
+			})
+		})
+	})
+}
+
+func TestClient_transportErrorsHideTheQuery(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a service that closes the connection without answering", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			conn, _, err := w.(http.Hijacker).Hijack()
+			if err == nil {
+				conn.Close()
+			}
+		}))
+		t.Cleanup(srv.Close)
+
+		c := New(srv.URL)
+		c.HTTP = srv.Client()
+
+		t.Run("WHEN a request carries an API key in its query", func(t *testing.T) {
+			err := c.Get(ctx, "/v1/Games", url.Values{"apikey": {"s3cr3t-key"}}, &struct{}{})
+
+			t.Run("THEN the error names the endpoint but not the query", func(t *testing.T) {
+				require.Error(t, err)
+				assert.NotContains(t, err.Error(), "s3cr3t-key")
+				assert.NotContains(t, fmt.Sprintf("%+v", err), "s3cr3t-key")
+				assert.Contains(t, err.Error(), "/v1/Games")
+
+				var ue *url.Error
+				assert.True(t, errors.As(err, &ue), "still a *url.Error, so callers can inspect it")
 			})
 		})
 	})
