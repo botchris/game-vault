@@ -58,3 +58,8 @@ metadata:
   (footer "No clear match on …": no result or ambiguous; cached, not a warning; limited providers
   are not listed). Raw-title fallback compares after `game.NormalizeTitle` (™ alone is no other
   title); Steam's cover search has the fallback too.
+- **Provider status (2026-10-11, maintainer's request):** provider-level errors (ErrRateLimited incl.
+  quota/busy/ErrUnavailable, and ErrBadSettings) never reach game sheets or the cover picker; the
+  media service keeps the last one per settings group in memory (`media/status.go`, cleared by a
+  success, new settings or its Until) and `GetProviderStatus` feeds the System page section and the
+  Providers page badges. TheGamesDB's allowance error implements `provider.Resumer`.
