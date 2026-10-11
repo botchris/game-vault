@@ -18,8 +18,12 @@ metadata:
   The Choose cover dialog asks the fallback providers when the first round has no candidate. On
   that pass: **Steam** searches its store by title for PC editions without an AppID (only exact
   `game.MatchKey`, one app; never stored as a link; 429 → rate limit) and **IGDB** (DefaultOrder 85,
-  `Applies` = `q.Fallback`, enabled by default, silent without credentials) gives the game's cover
-  for any system. `coverLogicChanged` bumped to 2026-10-11 09:20 UTC for it (an earlier bump for
+  `Applies` = `q.Fallback`, starts disabled (needs credentials), silent without them) gives the
+  game's cover for any system. Review round (2026-10-11): providers' "no cover" answers in a
+  limited lookup are kept 24 h in memory per edition (`media/misses.go`); add-ons borrow the base
+  game's cover before the fallback pass; configuring a sibling of a cover provider retries missing
+  covers; Steam's store search and art lookups share a throttle (burst 10, 1.5 s, 5 s max wait) and a
+  10-min search cache; 5xx/no answer from Steam's search, Twitch or IGDB count as rate limits. `coverLogicChanged` bumped to 2026-10-11 09:20 UTC for it (an earlier bump for
   IGDB alone was reverted: enabling a provider already forgets the markers).
 - Media providers can keep learned state in `schema.FieldState` settings: they write it into the
   settings map they get, and the media service persists it with `provider.UpdateState` (wired for
