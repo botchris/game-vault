@@ -27,7 +27,7 @@ import (
 // coverLogicChanged is when the way covers are found last improved (e.g. add-ons borrowing their
 // base game's cover). "No cover found" markers older than this are ignored, so games are retried
 // with the new logic instead of waiting for the marker to expire. Bump it with such changes.
-var coverLogicChanged = time.Date(2026, 10, 10, 0, 0, 0, 0, time.UTC) // covers per edition (system)
+var coverLogicChanged = time.Date(2026, 10, 11, 9, 20, 0, 0, time.UTC) // fallback pass for every game, Steam title search, IGDB
 
 // ErrNoCover means no image could be found for the game.
 var ErrNoCover = errors.New("no cover available")
@@ -700,9 +700,12 @@ func (s *Service) resolveEdition(ctx context.Context, g *game.Game, system strin
 	look := newLookup()
 
 	img, err := s.coverFromChain(ctx, ref, system, q, look)
-	if errors.Is(err, ErrNoCover) && q.HasStoreLink() {
-		// No provider that knows the game's stores had art for this edition (a game only on
-		// Battle.net, a console edition of a Steam game…): ask the ones that kept out of it.
+	if errors.Is(err, ErrNoCover) {
+		// No provider had art for this edition in the first pass (a game only on Battle.net, a
+		// console edition of a Steam game, a key no store links…): ask the ones that kept out of it,
+		// which search by title or have one cover per game. Providers already asked are skipped, so
+		// a game without store links, which TheGamesDB already got in the first pass, costs it
+		// nothing more.
 		q.Fallback = true
 		img, err = s.coverFromChain(ctx, ref, system, q, look)
 	}
@@ -840,8 +843,9 @@ func (s *Service) fetchAndCache(ctx context.Context, g GameRef, system, url stri
 }
 
 // CoverCandidates asks every enabled provider that applies to the game's edition on system (the
-// main edition when system is empty) for images, for the "choose cover" dialog. Failing providers
-// are reported as warnings.
+// main edition when system is empty) for images, for the "choose cover" dialog. When none has any,
+// the providers that keep to the fallback pass are asked too, as when the cover is resolved.
+// Failing providers are reported as warnings.
 func (s *Service) CoverCandidates(ctx context.Context, id game.ID, system string) ([]CoverCandidate, []string, error) {
 	g, err := s.games.Get(ctx, id)
 	if err != nil {
@@ -866,21 +870,32 @@ func (s *Service) CoverCandidates(ctx context.Context, id game.ID, system string
 	var (
 		out      []CoverCandidate
 		warnings []string
+		asked    = map[provider.ID]bool{}
 	)
 
-	for _, p := range chain {
-		impl := s.covers[p.ID()]
-		if !impl.Applies(q) {
-			continue
+	for _, fallback := range []bool{false, true} {
+		if fallback && len(out) > 0 {
+			break
 		}
 
-		c, err := impl.Covers(ctx, q, p.Settings())
-		if err != nil {
-			warnings = append(warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
-			continue
-		}
+		q.Fallback = fallback
 
-		out = append(out, c...)
+		for _, p := range chain {
+			impl := s.covers[p.ID()]
+			if asked[p.ID()] || !impl.Applies(q) {
+				continue
+			}
+
+			asked[p.ID()] = true
+
+			c, err := impl.Covers(ctx, q, p.Settings())
+			if err != nil {
+				warnings = append(warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
+				continue
+			}
+
+			out = append(out, c...)
+		}
 	}
 
 	return out, warnings, nil
