@@ -36,9 +36,10 @@ func (h *MediaHandler) GetGameDetails(ctx context.Context, req *connect.Request[
 	}
 	if src := d.SummarySource; src.Name != "" {
 		out.SummarySource = &pb.Attribution{
-			Name:    src.Name,
-			Url:     src.URL,
-			License: src.License,
+			Name:       src.Name,
+			Url:        src.URL,
+			License:    src.License,
+			LicenseUrl: src.LicenseURL,
 		}
 	}
 	// Images are served from the game's folder; the remote originals are only used to fill it.

@@ -78,9 +78,10 @@ func TestDetails(t *testing.T) {
 
 				t.Run("AND it credits the article and its license", func(t *testing.T) {
 					assert.Equal(t, media.Attribution{
-						Name:    "Wikipedia",
-						URL:     "https://es.wikipedia.org/wiki/Example_Quest_(videojuego)",
-						License: "CC BY-SA 4.0",
+						Name:       "Wikipedia",
+						URL:        "https://es.wikipedia.org/wiki/Example_Quest_(videojuego)",
+						License:    "CC BY-SA 4.0",
+						LicenseURL: "https://creativecommons.org/licenses/by-sa/4.0/",
 					}, got.SummarySource)
 				})
 			})

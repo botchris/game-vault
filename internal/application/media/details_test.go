@@ -378,9 +378,10 @@ func TestGameDetails_summarySourceAndTrailers(t *testing.T) {
 		require.NoError(t, err)
 
 		credit := media.Attribution{
-			Name:    "Wikipedia",
-			URL:     "https://en.wikipedia.org/wiki/Example_Quest",
-			License: "CC BY-SA 4.0",
+			Name:       "Wikipedia",
+			URL:        "https://en.wikipedia.org/wiki/Example_Quest",
+			License:    "CC BY-SA 4.0",
+			LicenseURL: "https://creativecommons.org/licenses/by-sa/4.0/",
 		}
 		encyclopedia := &sheetDetails{
 			id:    "encyclopedia",

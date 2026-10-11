@@ -37,8 +37,9 @@ const (
 	// requests in parallel.
 	requestGap = 200 * time.Millisecond
 
-	// license is the license of Wikipedia's texts, shown with the summary.
-	license = "CC BY-SA 4.0"
+	// license is the license of Wikipedia's texts, shown with the summary and linked to licenseURL.
+	license    = "CC BY-SA 4.0"
+	licenseURL = "https://creativecommons.org/licenses/by-sa/4.0/"
 
 	// videoGame is Wikidata's "video game" class (Q7889): only its instances are games.
 	videoGame = "Q7889"
@@ -489,9 +490,10 @@ func (d *Details) summary(ctx context.Context, it *item, lang string, det *media
 
 		det.Summary = paragraphs(p.Extract)
 		det.SummarySource = media.Attribution{
-			Name:    "Wikipedia",
-			URL:     p.FullURL,
-			License: license,
+			Name:       "Wikipedia",
+			URL:        p.FullURL,
+			License:    license,
+			LicenseURL: licenseURL,
 		}
 
 		return nil

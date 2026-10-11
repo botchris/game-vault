@@ -334,7 +334,9 @@ type Attribution struct {
 	// The page the text comes from.
 	Url string `protobuf:"bytes,2,opt,name=url,proto3" json:"url,omitempty"`
 	// The text's license ("CC BY-SA 4.0").
-	License       string `protobuf:"bytes,3,opt,name=license,proto3" json:"license,omitempty"`
+	License string `protobuf:"bytes,3,opt,name=license,proto3" json:"license,omitempty"`
+	// The license's text (https://creativecommons.org/licenses/by-sa/4.0/).
+	LicenseUrl    string `protobuf:"bytes,4,opt,name=license_url,json=licenseUrl,proto3" json:"license_url,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -386,6 +388,13 @@ func (x *Attribution) GetUrl() string {
 func (x *Attribution) GetLicense() string {
 	if x != nil {
 		return x.License
+	}
+	return ""
+}
+
+func (x *Attribution) GetLicenseUrl() string {
+	if x != nil {
+		return x.LicenseUrl
 	}
 	return ""
 }
@@ -546,11 +555,13 @@ const file_gamevault_v1_metadata_proto_rawDesc = "" +
 	"\blanguage\x18\x0f \x01(\tR\blanguage\x129\n" +
 	"\n" +
 	"fetched_at\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampR\tfetchedAt\x12@\n" +
-	"\x0esummary_source\x18\x11 \x01(\v2\x19.gamevault.v1.AttributionR\rsummarySource\"M\n" +
+	"\x0esummary_source\x18\x11 \x01(\v2\x19.gamevault.v1.AttributionR\rsummarySource\"n\n" +
 	"\vAttribution\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x10\n" +
 	"\x03url\x18\x02 \x01(\tR\x03url\x12\x18\n" +
-	"\alicense\x18\x03 \x01(\tR\alicense\"f\n" +
+	"\alicense\x18\x03 \x01(\tR\alicense\x12\x1f\n" +
+	"\vlicense_url\x18\x04 \x01(\tR\n" +
+	"licenseUrl\"f\n" +
 	"\x15GetGameDetailsRequest\x12\x17\n" +
 	"\agame_id\x18\x01 \x01(\tR\x06gameId\x12\x1a\n" +
 	"\blanguage\x18\x02 \x01(\tR\blanguage\x12\x18\n" +

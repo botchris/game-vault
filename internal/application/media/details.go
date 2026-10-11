@@ -55,6 +55,9 @@ type Attribution struct {
 
 	// License names the text's license ("CC BY-SA 4.0").
 	License string
+
+	// LicenseURL is the license's text (https://creativecommons.org/licenses/by-sa/4.0/).
+	LicenseURL string
 }
 
 // GameDetails is the descriptive sheet of a game, as gathered from the metadata providers.

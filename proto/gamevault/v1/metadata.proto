@@ -58,6 +58,8 @@ message Attribution {
   string url = 2;
   // The text's license ("CC BY-SA 4.0").
   string license = 3;
+  // The license's text (https://creativecommons.org/licenses/by-sa/4.0/).
+  string license_url = 4;
 }
 
 message GetGameDetailsRequest {

@@ -743,6 +743,7 @@
     "loading": "Loading details…",
     "summary": "Summary",
     "summarySource": "Source: {{source}}",
+    "summaryLicense": "License:",
     "trailers": "Trailers",
     "trailer": "Trailer",
     "screenshots": "Screenshots",

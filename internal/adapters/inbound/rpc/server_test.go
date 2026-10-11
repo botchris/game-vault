@@ -241,9 +241,10 @@ func (f *fakeBoxDetails) Details(_ context.Context, q media.CoverQuery, _ string
 	return &media.GameDetails{
 		Summary: "English overview.",
 		SummarySource: media.Attribution{
-			Name:    "Encyclopedia",
-			URL:     "https://encyclopedia.test/portal-2",
-			License: "CC BY-SA 4.0",
+			Name:       "Encyclopedia",
+			URL:        "https://encyclopedia.test/portal-2",
+			License:    "CC BY-SA 4.0",
+			LicenseURL: "https://creativecommons.org/licenses/by-sa/4.0/",
 		},
 		Publishers: []string{"Valve"},
 		Videos:     []media.Video{{YouTubeID: "abc123"}},
@@ -927,7 +928,7 @@ func TestGameDetailsChain(t *testing.T) {
 	}
 
 	if src := res.Msg.Details.SummarySource; src.GetName() != "Encyclopedia" || src.GetUrl() != "https://encyclopedia.test/portal-2" ||
-		src.GetLicense() != "CC BY-SA 4.0" {
+		src.GetLicense() != "CC BY-SA 4.0" || src.GetLicenseUrl() != "https://creativecommons.org/licenses/by-sa/4.0/" {
 		t.Fatalf("the summary's credit must reach the UI: %+v", src)
 	}
 }

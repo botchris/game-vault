@@ -743,6 +743,7 @@
     "loading": "Cargando ficha…",
     "summary": "Sinopsis",
     "summarySource": "Fuente: {{source}}",
+    "summaryLicense": "Licencia:",
     "trailers": "Tráilers",
     "trailer": "Tráiler",
     "screenshots": "Capturas",
