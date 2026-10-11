@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { errorMessage, systemClient, valuationClient } from '../../api/client';
 import { Alert, useFormatters } from '../../components/ui';
@@ -7,8 +7,8 @@ import type { SyncReport } from '../../gen/gamevault/v1/source_pb';
 import type { GetCollectionValueResponse } from '../../gen/gamevault/v1/valuation_pb';
 import { currencyList, formatAmount, regionCurrency } from '../../lib/money';
 import { downloadBytes, toDate } from '../../lib/model';
-import { describeStatus } from '../../lib/providerStatus';
-import { useProviderStatus } from '../../lib/useProviderStatus';
+import { hashTarget, issueHref, issueTitle, reasonText, sinceText } from '../../lib/health';
+import { useHealth } from '../../state/Health';
 import { useAppData } from '../../state/AppData';
 import SecurityCard from './SecurityCard';
 
@@ -19,6 +19,21 @@ const CSV_TEMPLATE =
   'Diablo IV;Battle.net;library;owned;;;;;;;;;\n' +
   'Escape from Tarkov;Battlestate (Tarkov);library;owned;Edge of Darkness;;;;;;;;\n' +
   "Assassin's Creed Unity;Ubisoft Connect;library;owned;;;;;;;;;\n";
+
+/** Scrolls to the card a "#/system/<id>" address names. */
+function scrollToTarget(hash: string) {
+  const id = hashTarget(hash);
+  if (id) document.getElementById(id)?.scrollIntoView({ block: 'start' });
+}
+
+/** Follows a link to this page's own cards by scrolling: a click on the address already shown
+ *  changes no hash, so it would do nothing. Links to other pages navigate as usual. */
+function followOnPage(e: { preventDefault: () => void }, href: string) {
+  if (!href.startsWith('#/system/')) return;
+  e.preventDefault();
+  window.history.replaceState(null, '', href);
+  scrollToTarget(href);
+}
 
 /** Status, backups of the /config data and CSV import/export. */
 export default function SystemPage() {
@@ -34,7 +49,7 @@ export default function SystemPage() {
   const [backups, setBackups] = useState<Backup[]>([]);
   const [photoStore, setPhotoStore] = useState(0n);
   const [value, setValue] = useState<GetCollectionValueResponse | null>(null);
-  const [providerStatus] = useProviderStatus();
+  const { issues, unavailable, reload: reloadHealth } = useHealth();
   const [busy, setBusy] = useState('');
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string; report?: SyncReport } | null>(null);
 
@@ -55,6 +70,17 @@ export default function SystemPage() {
   useEffect(() => {
     load().catch((e) => setNotice({ tone: 'error', text: errorMessage(e) }));
   }, [load]);
+
+  // "#/system/backups" (a health issue's link) scrolls to that card, now and on later clicks.
+  useEffect(() => {
+    const scroll = () => scrollToTarget(window.location.hash);
+    const timer = window.setTimeout(scroll, 0); // after the page's first render
+    window.addEventListener('hashchange', scroll);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('hashchange', scroll);
+    };
+  }, []);
 
   const run = async (name: string, fn: () => Promise<void>) => {
     setBusy(name);
@@ -93,6 +119,37 @@ export default function SystemPage() {
         </Alert>
       )}
 
+      <section className="card" id="health">
+        <h2>{t('health.title')}</h2>
+        {unavailable && <p className="muted small">{t('health.unavailable')}</p>}
+        {issues.length === 0 ? !unavailable && <p className="health-ok">{t('health.none')}</p> : (
+          <>
+            <p className="muted small">{t('health.intro')}</p>
+            <ul className="health-list">
+              {issues.map((issue) => {
+                const href = issueHref(issue);
+                const since = toDate(issue.since);
+                return (
+                  <li key={issue.key} className={`health-issue ${issue.level}`}>
+                    <span className={`health-dot ${issue.level}`} role="img" aria-label={t(`health.${issue.level === 'error' ? 'error' : 'warning'}`)} />
+                    <div className="health-body">
+                      <strong>{issueTitle(issue, t)}</strong>
+                      <span>{reasonText(issue, t, new Date(), i18n.language)}</span>
+                      {issue.message && <span className="muted small health-detail">{issue.message}</span>}
+                      <span className="muted small">
+                        {since && <time dateTime={since.toISOString()} title={fmt.dateTime(since)}>{sinceText(since, new Date(), i18n.language)}</time>}
+                        {since && href && ' · '}
+                        {href && <a href={href} onClick={(e) => followOnPage(e, href)}>{t('health.open')}</a>}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        )}
+      </section>
+
       <section className="card">
         <h2>{t('system.status')}</h2>
         {status && (
@@ -107,23 +164,6 @@ export default function SystemPage() {
         <p className="muted small">{t('system.configHint')}</p>
       </section>
 
-      {providerStatus.length > 0 && (
-        <section className="card">
-          <h2>{t('providerStatus.title')}</h2>
-          <p className="muted small">{t('providerStatus.intro')}</p>
-          <dl className="kv">
-            {providerStatus.map((s) => (
-              <Fragment key={s.providerId}>
-                <dt>{s.providerName}</dt>
-                <dd>
-                  {describeStatus(s, toDate(s.until) ?? undefined, new Date(), t, i18n.language)}
-                  <span className="muted small provider-status-message">{s.message}</span>
-                </dd>
-              </Fragment>
-            ))}
-          </dl>
-        </section>
-      )}
 
       <section className="card">
         <h2>{t('system.preferences')}</h2>
@@ -165,11 +205,12 @@ export default function SystemPage() {
         </section>
       )}
 
-      <section className="card">
+      <section className="card" id="backups">
         <div className="section-head">
           <h2>{t('system.backups')}</h2>
           <button className="primary" disabled={!!busy} onClick={() => run('backup', async () => {
             const res = await systemClient.createBackup({});
+            reloadHealth(); // a backup may clear a failed one
             setNotice({ tone: 'ok', text: t('system.backupCreated', { name: res.backup?.name }) });
             await load();
           })}>{busy === 'backup' ? t('common.working') : t('system.backupNow')}</button>

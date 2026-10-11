@@ -36,7 +36,9 @@ type Provider struct {
 	Enabled        bool            `protobuf:"varint,6,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	Priority       int32           `protobuf:"varint,7,opt,name=priority,proto3" json:"priority,omitempty"`
 	// Secrets are replaced by ListProvidersResponse.secret_placeholder.
-	Settings      map[string]string `protobuf:"bytes,8,rep,name=settings,proto3" json:"settings,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Settings map[string]string `protobuf:"bytes,8,rep,name=settings,proto3" json:"settings,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// The provider's current provider-level problem; unset when it has none.
+	Status        *ProviderStatus `protobuf:"bytes,9,opt,name=status,proto3" json:"status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -123,6 +125,13 @@ func (x *Provider) GetPriority() int32 {
 func (x *Provider) GetSettings() map[string]string {
 	if x != nil {
 		return x.Settings
+	}
+	return nil
+}
+
+func (x *Provider) GetStatus() *ProviderStatus {
+	if x != nil {
+		return x.Status
 	}
 	return nil
 }
@@ -535,7 +544,7 @@ func (x *TestProviderResponse) GetMessage() string {
 
 // ProviderStatus is a provider's current problem: one that concerns the provider, not a game (its
 // allowance used up, too many requests, not answering, its settings rejected). Game sheets and the
-// cover picker do not show these; the System and Providers pages do.
+// cover picker do not show these; the Providers page and System → Health do.
 type ProviderStatus struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The service: its settings group, or the provider's id when it has none.
@@ -633,87 +642,6 @@ func (x *ProviderStatus) GetUntil() *timestamppb.Timestamp {
 	return nil
 }
 
-type GetProviderStatusRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetProviderStatusRequest) Reset() {
-	*x = GetProviderStatusRequest{}
-	mi := &file_gamevault_v1_provider_proto_msgTypes[10]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetProviderStatusRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetProviderStatusRequest) ProtoMessage() {}
-
-func (x *GetProviderStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_provider_proto_msgTypes[10]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetProviderStatusRequest.ProtoReflect.Descriptor instead.
-func (*GetProviderStatusRequest) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_provider_proto_rawDescGZIP(), []int{10}
-}
-
-type GetProviderStatusResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Only providers with a current problem, by name.
-	Statuses      []*ProviderStatus `protobuf:"bytes,1,rep,name=statuses,proto3" json:"statuses,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetProviderStatusResponse) Reset() {
-	*x = GetProviderStatusResponse{}
-	mi := &file_gamevault_v1_provider_proto_msgTypes[11]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetProviderStatusResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetProviderStatusResponse) ProtoMessage() {}
-
-func (x *GetProviderStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_provider_proto_msgTypes[11]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetProviderStatusResponse.ProtoReflect.Descriptor instead.
-func (*GetProviderStatusResponse) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_provider_proto_rawDescGZIP(), []int{11}
-}
-
-func (x *GetProviderStatusResponse) GetStatuses() []*ProviderStatus {
-	if x != nil {
-		return x.Statuses
-	}
-	return nil
-}
-
 // CoverCandidate is an image proposed by a cover provider.
 type CoverCandidate struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -728,7 +656,7 @@ type CoverCandidate struct {
 
 func (x *CoverCandidate) Reset() {
 	*x = CoverCandidate{}
-	mi := &file_gamevault_v1_provider_proto_msgTypes[12]
+	mi := &file_gamevault_v1_provider_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -740,7 +668,7 @@ func (x *CoverCandidate) String() string {
 func (*CoverCandidate) ProtoMessage() {}
 
 func (x *CoverCandidate) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_provider_proto_msgTypes[12]
+	mi := &file_gamevault_v1_provider_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -753,7 +681,7 @@ func (x *CoverCandidate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CoverCandidate.ProtoReflect.Descriptor instead.
 func (*CoverCandidate) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_provider_proto_rawDescGZIP(), []int{12}
+	return file_gamevault_v1_provider_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *CoverCandidate) GetUrl() string {
@@ -802,7 +730,7 @@ type ListCoverCandidatesRequest struct {
 
 func (x *ListCoverCandidatesRequest) Reset() {
 	*x = ListCoverCandidatesRequest{}
-	mi := &file_gamevault_v1_provider_proto_msgTypes[13]
+	mi := &file_gamevault_v1_provider_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -814,7 +742,7 @@ func (x *ListCoverCandidatesRequest) String() string {
 func (*ListCoverCandidatesRequest) ProtoMessage() {}
 
 func (x *ListCoverCandidatesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_provider_proto_msgTypes[13]
+	mi := &file_gamevault_v1_provider_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -827,7 +755,7 @@ func (x *ListCoverCandidatesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCoverCandidatesRequest.ProtoReflect.Descriptor instead.
 func (*ListCoverCandidatesRequest) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_provider_proto_rawDescGZIP(), []int{13}
+	return file_gamevault_v1_provider_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ListCoverCandidatesRequest) GetGameId() string {
@@ -859,7 +787,7 @@ type ListCoverCandidatesResponse struct {
 
 func (x *ListCoverCandidatesResponse) Reset() {
 	*x = ListCoverCandidatesResponse{}
-	mi := &file_gamevault_v1_provider_proto_msgTypes[14]
+	mi := &file_gamevault_v1_provider_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -871,7 +799,7 @@ func (x *ListCoverCandidatesResponse) String() string {
 func (*ListCoverCandidatesResponse) ProtoMessage() {}
 
 func (x *ListCoverCandidatesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_provider_proto_msgTypes[14]
+	mi := &file_gamevault_v1_provider_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -884,7 +812,7 @@ func (x *ListCoverCandidatesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCoverCandidatesResponse.ProtoReflect.Descriptor instead.
 func (*ListCoverCandidatesResponse) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_provider_proto_rawDescGZIP(), []int{14}
+	return file_gamevault_v1_provider_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ListCoverCandidatesResponse) GetCandidates() []*CoverCandidate {
@@ -919,7 +847,7 @@ type RefreshCoversRequest struct {
 
 func (x *RefreshCoversRequest) Reset() {
 	*x = RefreshCoversRequest{}
-	mi := &file_gamevault_v1_provider_proto_msgTypes[15]
+	mi := &file_gamevault_v1_provider_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -931,7 +859,7 @@ func (x *RefreshCoversRequest) String() string {
 func (*RefreshCoversRequest) ProtoMessage() {}
 
 func (x *RefreshCoversRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_provider_proto_msgTypes[15]
+	mi := &file_gamevault_v1_provider_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -944,7 +872,7 @@ func (x *RefreshCoversRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RefreshCoversRequest.ProtoReflect.Descriptor instead.
 func (*RefreshCoversRequest) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_provider_proto_rawDescGZIP(), []int{15}
+	return file_gamevault_v1_provider_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *RefreshCoversRequest) GetMissingOnly() bool {
@@ -963,7 +891,7 @@ type RefreshCoversResponse struct {
 
 func (x *RefreshCoversResponse) Reset() {
 	*x = RefreshCoversResponse{}
-	mi := &file_gamevault_v1_provider_proto_msgTypes[16]
+	mi := &file_gamevault_v1_provider_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -975,7 +903,7 @@ func (x *RefreshCoversResponse) String() string {
 func (*RefreshCoversResponse) ProtoMessage() {}
 
 func (x *RefreshCoversResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_provider_proto_msgTypes[16]
+	mi := &file_gamevault_v1_provider_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -988,7 +916,7 @@ func (x *RefreshCoversResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RefreshCoversResponse.ProtoReflect.Descriptor instead.
 func (*RefreshCoversResponse) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_provider_proto_rawDescGZIP(), []int{16}
+	return file_gamevault_v1_provider_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *RefreshCoversResponse) GetGames() int32 {
@@ -1002,7 +930,7 @@ var File_gamevault_v1_provider_proto protoreflect.FileDescriptor
 
 const file_gamevault_v1_provider_proto_rawDesc = "" +
 	"\n" +
-	"\x1bgamevault/v1/provider.proto\x12\fgamevault.v1\x1a\x19gamevault/v1/source.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd4\x02\n" +
+	"\x1bgamevault/v1/provider.proto\x12\fgamevault.v1\x1a\x19gamevault/v1/source.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x8a\x03\n" +
 	"\bProvider\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x12\n" +
@@ -1011,7 +939,8 @@ const file_gamevault_v1_provider_proto_rawDesc = "" +
 	"\x06fields\x18\x05 \x03(\v2\x1a.gamevault.v1.SettingFieldR\x06fields\x12\x18\n" +
 	"\aenabled\x18\x06 \x01(\bR\aenabled\x12\x1a\n" +
 	"\bpriority\x18\a \x01(\x05R\bpriority\x12@\n" +
-	"\bsettings\x18\b \x03(\v2$.gamevault.v1.Provider.SettingsEntryR\bsettings\x1a;\n" +
+	"\bsettings\x18\b \x03(\v2$.gamevault.v1.Provider.SettingsEntryR\bsettings\x124\n" +
+	"\x06status\x18\t \x01(\v2\x1c.gamevault.v1.ProviderStatusR\x06status\x1a;\n" +
 	"\rSettingsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"*\n" +
@@ -1051,10 +980,7 @@ const file_gamevault_v1_provider_proto_rawDesc = "" +
 	"\x04kind\x18\x04 \x01(\tR\x04kind\x12\x18\n" +
 	"\amessage\x18\x05 \x01(\tR\amessage\x120\n" +
 	"\x05since\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\x05since\x120\n" +
-	"\x05until\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\x05until\"\x1a\n" +
-	"\x18GetProviderStatusRequest\"U\n" +
-	"\x19GetProviderStatusResponse\x128\n" +
-	"\bstatuses\x18\x01 \x03(\v2\x1c.gamevault.v1.ProviderStatusR\bstatuses\"\x9b\x01\n" +
+	"\x05until\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\x05until\"\x9b\x01\n" +
 	"\x0eCoverCandidate\x12\x10\n" +
 	"\x03url\x18\x01 \x01(\tR\x03url\x12\x1b\n" +
 	"\tthumb_url\x18\x02 \x01(\tR\bthumbUrl\x12\x14\n" +
@@ -1074,10 +1000,9 @@ const file_gamevault_v1_provider_proto_rawDesc = "" +
 	"\x14RefreshCoversRequest\x12!\n" +
 	"\fmissing_only\x18\x01 \x01(\bR\vmissingOnly\"-\n" +
 	"\x15RefreshCoversResponse\x12\x14\n" +
-	"\x05games\x18\x01 \x01(\x05R\x05games2\xe8\x03\n" +
+	"\x05games\x18\x01 \x01(\x05R\x05games2\x82\x03\n" +
 	"\x0fProviderService\x12X\n" +
-	"\rListProviders\x12\".gamevault.v1.ListProvidersRequest\x1a#.gamevault.v1.ListProvidersResponse\x12d\n" +
-	"\x11GetProviderStatus\x12&.gamevault.v1.GetProviderStatusRequest\x1a'.gamevault.v1.GetProviderStatusResponse\x12[\n" +
+	"\rListProviders\x12\".gamevault.v1.ListProvidersRequest\x1a#.gamevault.v1.ListProvidersResponse\x12[\n" +
 	"\x0eUpdateProvider\x12#.gamevault.v1.UpdateProviderRequest\x1a$.gamevault.v1.UpdateProviderResponse\x12a\n" +
 	"\x10ReorderProviders\x12%.gamevault.v1.ReorderProvidersRequest\x1a&.gamevault.v1.ReorderProvidersResponse\x12U\n" +
 	"\fTestProvider\x12!.gamevault.v1.TestProviderRequest\x1a\".gamevault.v1.TestProviderResponse2\xd4\x01\n" +
@@ -1097,7 +1022,7 @@ func file_gamevault_v1_provider_proto_rawDescGZIP() []byte {
 	return file_gamevault_v1_provider_proto_rawDescData
 }
 
-var file_gamevault_v1_provider_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
+var file_gamevault_v1_provider_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_gamevault_v1_provider_proto_goTypes = []any{
 	(*Provider)(nil),                    // 0: gamevault.v1.Provider
 	(*ListProvidersRequest)(nil),        // 1: gamevault.v1.ListProvidersRequest
@@ -1109,47 +1034,43 @@ var file_gamevault_v1_provider_proto_goTypes = []any{
 	(*TestProviderRequest)(nil),         // 7: gamevault.v1.TestProviderRequest
 	(*TestProviderResponse)(nil),        // 8: gamevault.v1.TestProviderResponse
 	(*ProviderStatus)(nil),              // 9: gamevault.v1.ProviderStatus
-	(*GetProviderStatusRequest)(nil),    // 10: gamevault.v1.GetProviderStatusRequest
-	(*GetProviderStatusResponse)(nil),   // 11: gamevault.v1.GetProviderStatusResponse
-	(*CoverCandidate)(nil),              // 12: gamevault.v1.CoverCandidate
-	(*ListCoverCandidatesRequest)(nil),  // 13: gamevault.v1.ListCoverCandidatesRequest
-	(*ListCoverCandidatesResponse)(nil), // 14: gamevault.v1.ListCoverCandidatesResponse
-	(*RefreshCoversRequest)(nil),        // 15: gamevault.v1.RefreshCoversRequest
-	(*RefreshCoversResponse)(nil),       // 16: gamevault.v1.RefreshCoversResponse
-	nil,                                 // 17: gamevault.v1.Provider.SettingsEntry
-	nil,                                 // 18: gamevault.v1.UpdateProviderRequest.SettingsEntry
-	nil,                                 // 19: gamevault.v1.TestProviderRequest.SettingsEntry
-	(*SettingField)(nil),                // 20: gamevault.v1.SettingField
-	(*timestamppb.Timestamp)(nil),       // 21: google.protobuf.Timestamp
+	(*CoverCandidate)(nil),              // 10: gamevault.v1.CoverCandidate
+	(*ListCoverCandidatesRequest)(nil),  // 11: gamevault.v1.ListCoverCandidatesRequest
+	(*ListCoverCandidatesResponse)(nil), // 12: gamevault.v1.ListCoverCandidatesResponse
+	(*RefreshCoversRequest)(nil),        // 13: gamevault.v1.RefreshCoversRequest
+	(*RefreshCoversResponse)(nil),       // 14: gamevault.v1.RefreshCoversResponse
+	nil,                                 // 15: gamevault.v1.Provider.SettingsEntry
+	nil,                                 // 16: gamevault.v1.UpdateProviderRequest.SettingsEntry
+	nil,                                 // 17: gamevault.v1.TestProviderRequest.SettingsEntry
+	(*SettingField)(nil),                // 18: gamevault.v1.SettingField
+	(*timestamppb.Timestamp)(nil),       // 19: google.protobuf.Timestamp
 }
 var file_gamevault_v1_provider_proto_depIdxs = []int32{
-	20, // 0: gamevault.v1.Provider.fields:type_name -> gamevault.v1.SettingField
-	17, // 1: gamevault.v1.Provider.settings:type_name -> gamevault.v1.Provider.SettingsEntry
-	0,  // 2: gamevault.v1.ListProvidersResponse.providers:type_name -> gamevault.v1.Provider
-	18, // 3: gamevault.v1.UpdateProviderRequest.settings:type_name -> gamevault.v1.UpdateProviderRequest.SettingsEntry
-	0,  // 4: gamevault.v1.UpdateProviderResponse.provider:type_name -> gamevault.v1.Provider
-	0,  // 5: gamevault.v1.ReorderProvidersResponse.providers:type_name -> gamevault.v1.Provider
-	19, // 6: gamevault.v1.TestProviderRequest.settings:type_name -> gamevault.v1.TestProviderRequest.SettingsEntry
-	21, // 7: gamevault.v1.ProviderStatus.since:type_name -> google.protobuf.Timestamp
-	21, // 8: gamevault.v1.ProviderStatus.until:type_name -> google.protobuf.Timestamp
-	9,  // 9: gamevault.v1.GetProviderStatusResponse.statuses:type_name -> gamevault.v1.ProviderStatus
-	12, // 10: gamevault.v1.ListCoverCandidatesResponse.candidates:type_name -> gamevault.v1.CoverCandidate
+	18, // 0: gamevault.v1.Provider.fields:type_name -> gamevault.v1.SettingField
+	15, // 1: gamevault.v1.Provider.settings:type_name -> gamevault.v1.Provider.SettingsEntry
+	9,  // 2: gamevault.v1.Provider.status:type_name -> gamevault.v1.ProviderStatus
+	0,  // 3: gamevault.v1.ListProvidersResponse.providers:type_name -> gamevault.v1.Provider
+	16, // 4: gamevault.v1.UpdateProviderRequest.settings:type_name -> gamevault.v1.UpdateProviderRequest.SettingsEntry
+	0,  // 5: gamevault.v1.UpdateProviderResponse.provider:type_name -> gamevault.v1.Provider
+	0,  // 6: gamevault.v1.ReorderProvidersResponse.providers:type_name -> gamevault.v1.Provider
+	17, // 7: gamevault.v1.TestProviderRequest.settings:type_name -> gamevault.v1.TestProviderRequest.SettingsEntry
+	19, // 8: gamevault.v1.ProviderStatus.since:type_name -> google.protobuf.Timestamp
+	19, // 9: gamevault.v1.ProviderStatus.until:type_name -> google.protobuf.Timestamp
+	10, // 10: gamevault.v1.ListCoverCandidatesResponse.candidates:type_name -> gamevault.v1.CoverCandidate
 	1,  // 11: gamevault.v1.ProviderService.ListProviders:input_type -> gamevault.v1.ListProvidersRequest
-	10, // 12: gamevault.v1.ProviderService.GetProviderStatus:input_type -> gamevault.v1.GetProviderStatusRequest
-	3,  // 13: gamevault.v1.ProviderService.UpdateProvider:input_type -> gamevault.v1.UpdateProviderRequest
-	5,  // 14: gamevault.v1.ProviderService.ReorderProviders:input_type -> gamevault.v1.ReorderProvidersRequest
-	7,  // 15: gamevault.v1.ProviderService.TestProvider:input_type -> gamevault.v1.TestProviderRequest
-	13, // 16: gamevault.v1.CoverService.ListCoverCandidates:input_type -> gamevault.v1.ListCoverCandidatesRequest
-	15, // 17: gamevault.v1.CoverService.RefreshCovers:input_type -> gamevault.v1.RefreshCoversRequest
-	2,  // 18: gamevault.v1.ProviderService.ListProviders:output_type -> gamevault.v1.ListProvidersResponse
-	11, // 19: gamevault.v1.ProviderService.GetProviderStatus:output_type -> gamevault.v1.GetProviderStatusResponse
-	4,  // 20: gamevault.v1.ProviderService.UpdateProvider:output_type -> gamevault.v1.UpdateProviderResponse
-	6,  // 21: gamevault.v1.ProviderService.ReorderProviders:output_type -> gamevault.v1.ReorderProvidersResponse
-	8,  // 22: gamevault.v1.ProviderService.TestProvider:output_type -> gamevault.v1.TestProviderResponse
-	14, // 23: gamevault.v1.CoverService.ListCoverCandidates:output_type -> gamevault.v1.ListCoverCandidatesResponse
-	16, // 24: gamevault.v1.CoverService.RefreshCovers:output_type -> gamevault.v1.RefreshCoversResponse
-	18, // [18:25] is the sub-list for method output_type
-	11, // [11:18] is the sub-list for method input_type
+	3,  // 12: gamevault.v1.ProviderService.UpdateProvider:input_type -> gamevault.v1.UpdateProviderRequest
+	5,  // 13: gamevault.v1.ProviderService.ReorderProviders:input_type -> gamevault.v1.ReorderProvidersRequest
+	7,  // 14: gamevault.v1.ProviderService.TestProvider:input_type -> gamevault.v1.TestProviderRequest
+	11, // 15: gamevault.v1.CoverService.ListCoverCandidates:input_type -> gamevault.v1.ListCoverCandidatesRequest
+	13, // 16: gamevault.v1.CoverService.RefreshCovers:input_type -> gamevault.v1.RefreshCoversRequest
+	2,  // 17: gamevault.v1.ProviderService.ListProviders:output_type -> gamevault.v1.ListProvidersResponse
+	4,  // 18: gamevault.v1.ProviderService.UpdateProvider:output_type -> gamevault.v1.UpdateProviderResponse
+	6,  // 19: gamevault.v1.ProviderService.ReorderProviders:output_type -> gamevault.v1.ReorderProvidersResponse
+	8,  // 20: gamevault.v1.ProviderService.TestProvider:output_type -> gamevault.v1.TestProviderResponse
+	12, // 21: gamevault.v1.CoverService.ListCoverCandidates:output_type -> gamevault.v1.ListCoverCandidatesResponse
+	14, // 22: gamevault.v1.CoverService.RefreshCovers:output_type -> gamevault.v1.RefreshCoversResponse
+	17, // [17:23] is the sub-list for method output_type
+	11, // [11:17] is the sub-list for method input_type
 	11, // [11:11] is the sub-list for extension type_name
 	11, // [11:11] is the sub-list for extension extendee
 	0,  // [0:11] is the sub-list for field type_name
@@ -1167,7 +1088,7 @@ func file_gamevault_v1_provider_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gamevault_v1_provider_proto_rawDesc), len(file_gamevault_v1_provider_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   20,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

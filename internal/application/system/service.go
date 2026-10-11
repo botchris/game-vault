@@ -10,6 +10,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"gamevault/internal/application/port"
@@ -68,6 +69,18 @@ type Service struct {
 	status    Status
 	backupDir string
 	keep      int
+
+	// mu guards the automatic backups' state below, read by the health check.
+	mu sync.Mutex
+
+	// backupEvery is the automatic backups' interval; 0 when they are off.
+	backupEvery time.Duration
+
+	// lastBackupErr is the last automatic backup's error, nil once one succeeds.
+	lastBackupErr error
+
+	// lastBackupErrAt is when lastBackupErr happened.
+	lastBackupErrAt time.Time
 }
 
 // NewService builds the service. Backups are written to backupDir and only the newest keep are kept.
@@ -104,8 +117,11 @@ func (s *Service) Status(ctx context.Context) (Status, error) {
 	return st, nil
 }
 
-// CreateBackup snapshots the database into the backups directory and prunes old backups.
-func (s *Service) CreateBackup(ctx context.Context) (Backup, error) {
+// CreateBackup snapshots the database into the backups directory and prunes old backups. Its result
+// is remembered for the health check.
+func (s *Service) CreateBackup(ctx context.Context) (b Backup, err error) {
+	defer func() { s.noteBackup(err) }()
+
 	if err := os.MkdirAll(s.backupDir, 0o755); err != nil {
 		return Backup{}, err
 	}
@@ -314,6 +330,8 @@ func readPhotoList(dbPath string) []game.PhotoID {
 
 // RunScheduledBackups creates a backup every interval until ctx ends.
 func (s *Service) RunScheduledBackups(ctx context.Context, interval time.Duration) {
+	s.ScheduleBackups(interval)
+
 	t := time.NewTicker(interval)
 	defer t.Stop()
 
@@ -322,13 +340,45 @@ func (s *Service) RunScheduledBackups(ctx context.Context, interval time.Duratio
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			if b, err := s.CreateBackup(ctx); err != nil {
-				s.log.Error("scheduled backup failed", "error", err)
-			} else {
-				s.log.Info("scheduled backup created", "name", b.Name)
-			}
+			_ = s.ScheduledBackup(ctx) // logged and kept for the health check
 		}
 	}
+}
+
+// ScheduleBackups records the automatic backups' interval (0: off), which the health check expects
+// them to keep.
+func (s *Service) ScheduleBackups(interval time.Duration) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.backupEvery = interval
+}
+
+// ScheduledBackup makes one automatic backup (see CreateBackup, which remembers the result).
+func (s *Service) ScheduledBackup(ctx context.Context) error {
+	b, err := s.CreateBackup(ctx)
+	if err != nil {
+		s.log.Error("scheduled backup failed", "error", err)
+		return err
+	}
+
+	s.log.Info("scheduled backup created", "name", b.Name)
+
+	return nil
+}
+
+// noteBackup remembers a backup's result for the health check: a failure until the next success,
+// automatic or made by hand (the issue asks the user to make one).
+func (s *Service) noteBackup(err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if err == nil {
+		s.lastBackupErr = nil
+		return
+	}
+
+	s.lastBackupErr, s.lastBackupErrAt = err, s.now()
 }
 
 // Preferences returns the user's preferences.

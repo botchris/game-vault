@@ -87,12 +87,22 @@ func TestCoverProviders_appliesBySystem(t *testing.T) {
 			coverRow{"a PS3 edition not linked to it, on the fallback pass", media.CoverQuery{
 				System:   "PS3",
 				Fallback: true,
+			}, false},
+			coverRow{"a PC edition not linked to it, with store links only", media.CoverQuery{
+				System:    game.SystemPC,
+				Fallback:  true,
+				LinksOnly: true,
 			}, false})},
-		gog.CoverProviderID:       {&gog.Covers{}, storeRows(gog.LinkedStore.Key)},
-		epic.CoverProviderID:      {&epic.Covers{}, storeRows(epic.LinkedStore.Key)},
-		eaapp.CoverProviderID:     {&eaapp.Covers{}, storeRows(eaapp.LinkedStore.Key)},
-		battlenet.CoverProviderID: {&battlenet.Covers{}, storeRows(battlenet.LinkedStore.Key)},
-		example.CoverProviderID:   {&example.Covers{}, storeRows(example.LinkedStore.Key)},
+		gog.CoverProviderID:   {&gog.Covers{}, storeRows(gog.LinkedStore.Key)},
+		epic.CoverProviderID:  {&epic.Covers{}, storeRows(epic.LinkedStore.Key)},
+		eaapp.CoverProviderID: {&eaapp.Covers{}, storeRows(eaapp.LinkedStore.Key)},
+		battlenet.CoverProviderID: {&battlenet.Covers{}, append(storeRows(battlenet.LinkedStore.Key),
+			coverRow{"a virtual PC edition (store links only): it searches by title", media.CoverQuery{
+				System:    game.SystemPC,
+				Links:     game.Links{battlenet.LinkedStore.Key: "1"},
+				LinksOnly: true,
+			}, false})},
+		example.CoverProviderID: {&example.Covers{}, storeRows(example.LinkedStore.Key)},
 		xbox.CoverProviderID: {&xbox.Covers{}, append(storeRows(xbox.LinkedStore.Key),
 			coverRow{"its Xbox 360 edition", media.CoverQuery{
 				System: "Xbox 360",
@@ -167,5 +177,34 @@ func TestMetadataChain_defaultOrder(t *testing.T) {
 				assert.Equal(t, []provider.ID{steam.DetailsProviderID, wikipedia.DetailsID, igdb.DetailsID, thegamesdb.DetailsID}, ids)
 			})
 		})
+	})
+}
+
+// TestCoverProviders_pcStoreLinks checks that every store whose cover provider has art for PC
+// editions reads a link key the domain counts as a PC store: console-only games linked to it borrow
+// its PC box (game.Game.BorrowsPCBox), and the web shows it only when the server says so.
+func TestCoverProviders_pcStoreLinks(t *testing.T) {
+	t.Run("GIVEN the cover providers compiled into Game Vault", func(t *testing.T) {
+		plugins, err := newPlugins(slog.New(slog.NewTextHandler(io.Discard, nil)))
+		require.NoError(t, err)
+
+		for _, p := range plugins.Media().Covers {
+			linker, ok := p.(media.StoreLinker)
+			if !ok {
+				continue
+			}
+
+			key := linker.LinkStore().Key
+			if !p.Applies(media.CoverQuery{
+				System: game.SystemPC,
+				Links:  game.Links{key: "1"},
+			}) {
+				continue
+			}
+
+			t.Run("THEN "+string(p.Descriptor().ID)+"'s link is a PC store link", func(t *testing.T) {
+				assert.True(t, game.IsPCStoreLink(key), key)
+			})
+		}
 	})
 }

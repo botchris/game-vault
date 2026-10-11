@@ -28,8 +28,3 @@ export function describeStatus(status: { kind: string; message: string }, until:
   if (status.kind === 'quota' && until) return t(key, { when: renewsIn(until, now, locale) });
   return t(key);
 }
-
-/** The status of the service a provider belongs to, if it has a problem. */
-export function statusFor<S extends { providerId: string; providerIds: string[] }>(statuses: S[], providerId: string): S | undefined {
-  return statuses.find((s) => s.providerId === providerId || s.providerIds.includes(providerId));
-}

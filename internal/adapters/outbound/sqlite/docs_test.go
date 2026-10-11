@@ -52,7 +52,7 @@ func sampleGame(t *testing.T) *game.Game {
 				AcquiredOn: "2021-07-11",
 				Edition:    "Collector's",
 				Location:   "Shelf",
-				Barcode:    "5026555255042",
+				Barcode:    "2001234567893",
 				Notes:      "signed",
 			},
 			CreatedAt: docTime,
@@ -592,6 +592,42 @@ func TestDocuments_editions(t *testing.T) {
 				assert.Contains(t, again, `"v":3`)
 				assert.NotContains(t, again, `"coverUrl"`)
 				assert.NotContains(t, again, `"coverPhoto"`)
+			})
+		})
+	})
+}
+
+func TestDocuments_autoLinks(t *testing.T) {
+	t.Run("GIVEN a game with an automatic link, a rejected one and an automatic search done", func(t *testing.T) {
+		g := game.Rehydrate("g1", game.Info{
+			Title: "Console Quest",
+			Links: game.Links{game.LinkSteam: "100", "psn": "PPSA0001"},
+		}, nil, docTime, docTime)
+		g.RestoreLinkOrigins([]string{game.LinkSteam}, []game.LinkRef{{
+			Key: "gog",
+			ID:  "200",
+		}}, docTime)
+
+		t.Run("WHEN it is encoded and decoded", func(t *testing.T) {
+			raw, err := encodeGame(g)
+			require.NoError(t, err)
+
+			got, err := decodeGame(g.ID(), raw)
+			require.NoError(t, err)
+
+			t.Run("THEN the origins come back, in new fields of the same document version", func(t *testing.T) {
+				assert.Equal(t, []string{game.LinkSteam}, got.AutoLinks())
+				assert.Equal(t, g.RejectedLinks(), got.RejectedLinks())
+				assert.True(t, got.AutoLinkTriedAt().Equal(docTime))
+				assert.Contains(t, raw, `"v":3`)
+			})
+
+			t.Run("AND a game without them writes none of the fields", func(t *testing.T) {
+				plain, err := encodeGame(game.Rehydrate("g2", game.Info{Title: "Plain"}, nil, docTime, docTime))
+				require.NoError(t, err)
+				assert.NotContains(t, plain, "autoLinks")
+				assert.NotContains(t, plain, "rejectedLinks")
+				assert.NotContains(t, plain, "autoLinkTriedAt")
 			})
 		})
 	})

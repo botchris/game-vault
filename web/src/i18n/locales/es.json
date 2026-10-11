@@ -77,6 +77,7 @@
       "pending": "Claves pendientes",
       "expiring": "Caducan pronto",
       "redundant": "Claves que no necesitas",
+      "several": "En varias plataformas",
       "label": "Filtros rápidos"
     },
     "markRedeemed_one": "Marcar {{count}} clave como canjeada",
@@ -151,7 +152,9 @@
     "previousGame": "Juego anterior",
     "nextGame": "Juego siguiente",
     "previousGameKey": "Juego anterior (←)",
-    "nextGameKey": "Juego siguiente (→)"
+    "nextGameKey": "Juego siguiente (→)",
+    "autoLink": "automático",
+    "autoLinkHelp": "Encontrado automáticamente con IGDB o una búsqueda en Steam. Bórralo si no es correcto: no se volverá a añadir."
   },
   "play": {
     "label": "Estado de juego",
@@ -530,9 +533,35 @@
     "valuations": "Precios",
     "valuationsIntro": "Precios de segunda mano de tus copias físicas con código de barras. Se consultan todas las fuentes activadas, cada copia en su propia fecha, más o menos una vez al mes; el orden solo indica cómo se muestran."
   },
+  "health": {
+    "title": "Salud",
+    "intro": "Problemas que necesitan tu atención. Desaparecen solos cuando se resuelven.",
+    "none": "Todo correcto",
+    "unavailable": "El estado de salud no está disponible ahora: se vuelve a comprobar en unos minutos.",
+    "error": "error",
+    "warning": "aviso",
+    "open": "Resolver",
+    "dot": "{{page}}: {{level}}",
+    "kinds": {
+      "backups": "Copias de seguridad",
+      "disk": "Espacio en disco"
+    },
+    "reasons": {
+      "provider_quota": "Cupo mensual agotado; se renueva {{until}}",
+      "provider_rate_limited": "Demasiadas peticiones; se reintenta en unos minutos",
+      "provider_unavailable": "No responde; se reintenta en unos minutos",
+      "provider_settings": "Rechaza su configuración: revísala en Proveedores",
+      "source_signed_out": "Sesión cerrada: vuelve a iniciar sesión en Fuentes",
+      "source_sync_failed": "El último escaneo falló",
+      "source_keepalive_failed": "No se pudo mantener la sesión activa",
+      "source_list_failed": "No se pudieron leer las fuentes para comprobarlas",
+      "backup_failed": "La última copia de seguridad falló: haz una ahora en Copias de seguridad",
+      "backup_stale": "Ninguna copia de seguridad en {{days}} días",
+      "disk_low": "Solo quedan {{free}} libres ({{percent}} %) en el disco de los datos",
+      "disk_critical": "Casi sin espacio: {{free}} libres en el disco de los datos"
+    }
+  },
   "providerStatus": {
-    "title": "Estado de los proveedores",
-    "intro": "Problemas de un proveedor, no de un juego: sus carátulas y fichas vuelven solas cuando terminan.",
     "quota": "cupo mensual agotado; se renueva {{when}}",
     "rateLimited": "demasiadas peticiones; se reintenta en unos minutos",
     "unavailable": "no responde; se reintenta en unos minutos",
@@ -614,12 +643,12 @@
     "paste": "Usar esta imagen",
     "none": "Ningún proveedor tiene carátula para este juego. Vincúlalo con una tienda (Editar → Vínculos con tiendas) o pega la URL de una imagen.",
     "providersUnavailable": "Algunos proveedores no están disponibles ahora mismo.",
-    "seeSystem": "Ver Sistema"
+    "seeHealth": "Ver Sistema → Estado"
   },
   "scan": {
     "title": "Escanear",
     "intro": "Añade juegos físicos por su código de barras: apunta la cámara a una caja tras otra, usa un lector USB o Bluetooth, o escribe el código. Cada caja se suma a la lista de abajo; Enviar las añade todas de golpe.",
-    "placeholder": "Código de barras, p. ej. 5 026555 255042",
+    "placeholder": "Código de barras, p. ej. 2 001234 567893",
     "placeholderCamera": "O escribe el código",
     "lookup": "Buscar",
     "invalid": "«{{code}}» no es un código de barras válido (revisa los dígitos).",

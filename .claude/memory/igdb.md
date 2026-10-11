@@ -30,6 +30,9 @@ settings group `igdb`):
   formats for GOG (product id) and Epic (catalog item id?) are unverified. Else `search "…"` with
   `where platforms = (…)` (PC = 6, 14, 3) and only an exact title match, editions
   (`version_parent`) and add-ons (`parent_game`) yielding to the game; several → nothing.
+- **Automatic links (2026-10-11):** `FindLinks` returns only the Steam link (source 1); GOG/Epic
+  uids stay out until their formats are verified. No Steam id → empty answer, so Steam's exact
+  title search still runs.
 - **Review fixes (2026-10-11):** credentials go in a form body (Twitch accepts it: probed, same
   400 "invalid client"); transport errors to Twitch are not wrapped (the URL used to carry the
   secret); one token request per credentials at a time (singleflight), renewed after a 401 only if

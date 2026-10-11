@@ -66,7 +66,7 @@ var (
 	ErrNoNPSSO = errors.New("playstation: paste the NPSSO token (sign in on playstation.com, then open the page in the help)")
 
 	// ErrSignedOut means Sony no longer accepts the NPSSO token.
-	ErrSignedOut = errors.New("playstation did not accept the NPSSO token: sign in again on playstation.com and paste a new one")
+	ErrSignedOut = source.SignedOut("playstation did not accept the NPSSO token: sign in again on playstation.com and paste a new one")
 
 	reNPSSO = regexp.MustCompile(`"npsso"\s*:\s*"([^"]+)"`)
 	reCode  = regexp.MustCompile(`[?&]code=([^&#\s]+)`)

@@ -38,9 +38,6 @@ const (
 	// ProviderServiceListProvidersProcedure is the fully-qualified name of the ProviderService's
 	// ListProviders RPC.
 	ProviderServiceListProvidersProcedure = "/gamevault.v1.ProviderService/ListProviders"
-	// ProviderServiceGetProviderStatusProcedure is the fully-qualified name of the ProviderService's
-	// GetProviderStatus RPC.
-	ProviderServiceGetProviderStatusProcedure = "/gamevault.v1.ProviderService/GetProviderStatus"
 	// ProviderServiceUpdateProviderProcedure is the fully-qualified name of the ProviderService's
 	// UpdateProvider RPC.
 	ProviderServiceUpdateProviderProcedure = "/gamevault.v1.ProviderService/UpdateProvider"
@@ -61,8 +58,6 @@ const (
 // ProviderServiceClient is a client for the gamevault.v1.ProviderService service.
 type ProviderServiceClient interface {
 	ListProviders(context.Context, *connect.Request[v1.ListProvidersRequest]) (*connect.Response[v1.ListProvidersResponse], error)
-	// GetProviderStatus lists the providers' current provider-level problems.
-	GetProviderStatus(context.Context, *connect.Request[v1.GetProviderStatusRequest]) (*connect.Response[v1.GetProviderStatusResponse], error)
 	UpdateProvider(context.Context, *connect.Request[v1.UpdateProviderRequest]) (*connect.Response[v1.UpdateProviderResponse], error)
 	ReorderProviders(context.Context, *connect.Request[v1.ReorderProvidersRequest]) (*connect.Response[v1.ReorderProvidersResponse], error)
 	TestProvider(context.Context, *connect.Request[v1.TestProviderRequest]) (*connect.Response[v1.TestProviderResponse], error)
@@ -83,12 +78,6 @@ func NewProviderServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			httpClient,
 			baseURL+ProviderServiceListProvidersProcedure,
 			connect.WithSchema(providerServiceMethods.ByName("ListProviders")),
-			connect.WithClientOptions(opts...),
-		),
-		getProviderStatus: connect.NewClient[v1.GetProviderStatusRequest, v1.GetProviderStatusResponse](
-			httpClient,
-			baseURL+ProviderServiceGetProviderStatusProcedure,
-			connect.WithSchema(providerServiceMethods.ByName("GetProviderStatus")),
 			connect.WithClientOptions(opts...),
 		),
 		updateProvider: connect.NewClient[v1.UpdateProviderRequest, v1.UpdateProviderResponse](
@@ -114,21 +103,15 @@ func NewProviderServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 
 // providerServiceClient implements ProviderServiceClient.
 type providerServiceClient struct {
-	listProviders     *connect.Client[v1.ListProvidersRequest, v1.ListProvidersResponse]
-	getProviderStatus *connect.Client[v1.GetProviderStatusRequest, v1.GetProviderStatusResponse]
-	updateProvider    *connect.Client[v1.UpdateProviderRequest, v1.UpdateProviderResponse]
-	reorderProviders  *connect.Client[v1.ReorderProvidersRequest, v1.ReorderProvidersResponse]
-	testProvider      *connect.Client[v1.TestProviderRequest, v1.TestProviderResponse]
+	listProviders    *connect.Client[v1.ListProvidersRequest, v1.ListProvidersResponse]
+	updateProvider   *connect.Client[v1.UpdateProviderRequest, v1.UpdateProviderResponse]
+	reorderProviders *connect.Client[v1.ReorderProvidersRequest, v1.ReorderProvidersResponse]
+	testProvider     *connect.Client[v1.TestProviderRequest, v1.TestProviderResponse]
 }
 
 // ListProviders calls gamevault.v1.ProviderService.ListProviders.
 func (c *providerServiceClient) ListProviders(ctx context.Context, req *connect.Request[v1.ListProvidersRequest]) (*connect.Response[v1.ListProvidersResponse], error) {
 	return c.listProviders.CallUnary(ctx, req)
-}
-
-// GetProviderStatus calls gamevault.v1.ProviderService.GetProviderStatus.
-func (c *providerServiceClient) GetProviderStatus(ctx context.Context, req *connect.Request[v1.GetProviderStatusRequest]) (*connect.Response[v1.GetProviderStatusResponse], error) {
-	return c.getProviderStatus.CallUnary(ctx, req)
 }
 
 // UpdateProvider calls gamevault.v1.ProviderService.UpdateProvider.
@@ -149,8 +132,6 @@ func (c *providerServiceClient) TestProvider(ctx context.Context, req *connect.R
 // ProviderServiceHandler is an implementation of the gamevault.v1.ProviderService service.
 type ProviderServiceHandler interface {
 	ListProviders(context.Context, *connect.Request[v1.ListProvidersRequest]) (*connect.Response[v1.ListProvidersResponse], error)
-	// GetProviderStatus lists the providers' current provider-level problems.
-	GetProviderStatus(context.Context, *connect.Request[v1.GetProviderStatusRequest]) (*connect.Response[v1.GetProviderStatusResponse], error)
 	UpdateProvider(context.Context, *connect.Request[v1.UpdateProviderRequest]) (*connect.Response[v1.UpdateProviderResponse], error)
 	ReorderProviders(context.Context, *connect.Request[v1.ReorderProvidersRequest]) (*connect.Response[v1.ReorderProvidersResponse], error)
 	TestProvider(context.Context, *connect.Request[v1.TestProviderRequest]) (*connect.Response[v1.TestProviderResponse], error)
@@ -167,12 +148,6 @@ func NewProviderServiceHandler(svc ProviderServiceHandler, opts ...connect.Handl
 		ProviderServiceListProvidersProcedure,
 		svc.ListProviders,
 		connect.WithSchema(providerServiceMethods.ByName("ListProviders")),
-		connect.WithHandlerOptions(opts...),
-	)
-	providerServiceGetProviderStatusHandler := connect.NewUnaryHandler(
-		ProviderServiceGetProviderStatusProcedure,
-		svc.GetProviderStatus,
-		connect.WithSchema(providerServiceMethods.ByName("GetProviderStatus")),
 		connect.WithHandlerOptions(opts...),
 	)
 	providerServiceUpdateProviderHandler := connect.NewUnaryHandler(
@@ -197,8 +172,6 @@ func NewProviderServiceHandler(svc ProviderServiceHandler, opts ...connect.Handl
 		switch r.URL.Path {
 		case ProviderServiceListProvidersProcedure:
 			providerServiceListProvidersHandler.ServeHTTP(w, r)
-		case ProviderServiceGetProviderStatusProcedure:
-			providerServiceGetProviderStatusHandler.ServeHTTP(w, r)
 		case ProviderServiceUpdateProviderProcedure:
 			providerServiceUpdateProviderHandler.ServeHTTP(w, r)
 		case ProviderServiceReorderProvidersProcedure:
@@ -216,10 +189,6 @@ type UnimplementedProviderServiceHandler struct{}
 
 func (UnimplementedProviderServiceHandler) ListProviders(context.Context, *connect.Request[v1.ListProvidersRequest]) (*connect.Response[v1.ListProvidersResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gamevault.v1.ProviderService.ListProviders is not implemented"))
-}
-
-func (UnimplementedProviderServiceHandler) GetProviderStatus(context.Context, *connect.Request[v1.GetProviderStatusRequest]) (*connect.Response[v1.GetProviderStatusResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gamevault.v1.ProviderService.GetProviderStatus is not implemented"))
 }
 
 func (UnimplementedProviderServiceHandler) UpdateProvider(context.Context, *connect.Request[v1.UpdateProviderRequest]) (*connect.Response[v1.UpdateProviderResponse], error) {

@@ -8,7 +8,8 @@ import { searchableText } from '../../lib/fields';
 import { CopyStatus, PlayStatus, daysUntil, isPendingKey, nextDeadline, playKey, toDate, type Game } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
 import {
-  NO_FILTERS, activeFilterCount, filterItems, itemCounts, itemLabel, libraryItems, openEdition, pruneFilters, sortItems, type Filters, type Grouping, type LibraryItem,
+  NO_FILTERS, activeFilterCount, filterItems, itemCounts, itemLabel, libraryItems, onSeveralSystems, openEdition, pruneFilters, severalSystemsCount,
+  sortItems, type Filters, type Grouping, type LibraryItem,
 } from '../../lib/editions';
 import FilterPanel from './FilterPanel';
 import GameDetail, { type SheetNav } from './GameDetail';
@@ -16,7 +17,7 @@ import NewGameDialog from './NewGameDialog';
 import { Stars } from './PlayControls';
 import PosterGrid, { ItemBadges, moreStoresId } from './PosterGrid';
 
-type Quick = 'pending' | 'expiring' | 'redundant' | null;
+type Quick = 'pending' | 'expiring' | 'redundant' | 'several' | null;
 export type SortBy = 'titleAsc' | 'titleDesc' | 'added' | 'year' | 'deadline' | 'copies' | 'rating';
 type View = 'list' | 'posters';
 
@@ -88,9 +89,10 @@ export default function LibraryPage() {
       pending: views.filter((g) => g.copies.some(isPendingKey)).length,
       expiring: views.filter(isExpiring).length,
       redundant: views.filter((g) => g.copies.some((c) => c.redundant)).length,
+      several: severalSystemsCount(items),
       revealedRedundant: copies.filter((c) => c.redundant && c.details?.status === CopyStatus.REVEALED).length,
     };
-  }, [games, views]);
+  }, [games, views, items]);
 
   // Everything but the letter, so the A–Z bar can show which letters have games.
   const base = useMemo(() => {
@@ -101,7 +103,9 @@ export default function LibraryPage() {
     const searchOk = (g: Game) => !needle || [g.title, g.notes, ...g.genres,
       ...g.copies.flatMap((c) => [c.details?.origin, c.details?.notes, c.details?.location, c.details?.edition]), searchableText(g, fields)]
       .join(' ').toLocaleLowerCase(i18n.language).includes(needle);
-    return filterItems(items, filters, fields, { copyLevel: quickOk, gameLevel: searchOk });
+    // "On several platforms" is about the game, not one edition: every edition of such a game stays.
+    const gameOk = (g: Game) => searchOk(g) && (quick !== 'several' || onSeveralSystems(g));
+    return filterItems(items, filters, fields, { copyLevel: quickOk, gameLevel: gameOk });
   }, [items, q, quick, filters, fields, i18n.language]);
 
   const lettersWithGames = useMemo(() => new Set(base.map((i) => initialOf(i.game.title))), [base]);
@@ -167,6 +171,7 @@ export default function LibraryPage() {
     { key: 'pending', count: counts.pending },
     { key: 'expiring', count: counts.expiring, tone: counts.expiring ? 'danger' : undefined },
     { key: 'redundant', count: counts.redundant, tone: counts.redundant ? 'warn' : undefined },
+    { key: 'several', count: counts.several },
   ];
 
   return (

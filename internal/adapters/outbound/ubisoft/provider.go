@@ -63,7 +63,7 @@ var (
 	ErrNoLoginData = errors.New("ubisoft: paste the login data of connect.ubisoft.com (see the help below the field)")
 
 	// ErrSignedOut means Ubisoft no longer accepts the ticket.
-	ErrSignedOut = errors.New("ubisoft did not accept the login data: its remember-me ticket is replaced every time it is used, so a value copied earlier stops working. Sign in again on connect.ubisoft.com (a private window is best) and paste the new PRODrememberMe value")
+	ErrSignedOut = source.SignedOut("ubisoft did not accept the login data: its remember-me ticket is replaced every time it is used, so a value copied earlier stops working. Sign in again on connect.ubisoft.com (a private window is best) and paste the new PRODrememberMe value")
 
 	reField = regexp.MustCompile(`"(rememberMeTicket|ticket|sessionId)"\s*:\s*"([^"]+)"`)
 

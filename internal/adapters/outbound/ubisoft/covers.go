@@ -116,6 +116,10 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 		}
 	}
 
+	if q.LinksOnly { // a virtual PC box: the space's art or nothing, no title search
+		return out, nil
+	}
+
 	store, err := c.storeCovers(ctx, q.Title)
 	if err != nil && len(out) == 0 {
 		return nil, err

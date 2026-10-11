@@ -56,7 +56,7 @@ var (
 	ErrNoCookies = errors.New("ea: paste the cookies of accounts.ea.com (see the help below the field)")
 
 	// ErrSignedOut means EA no longer accepts the cookies.
-	ErrSignedOut = errors.New("EA did not accept the cookies: sign in again on ea.com and paste the cookies of accounts.ea.com again")
+	ErrSignedOut = source.SignedOut("EA did not accept the cookies: sign in again on ea.com and paste the cookies of accounts.ea.com again")
 )
 
 // ownedGamesQuery lists full games bought on EA's own store for PC. EA Play (subscription) games

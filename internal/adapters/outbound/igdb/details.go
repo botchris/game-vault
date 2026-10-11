@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"gamevault/internal/application/media"
+	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
 )
@@ -33,6 +34,7 @@ type Details struct{ c *Client }
 var (
 	_ media.MetadataProvider = (*Details)(nil)
 	_ media.ImageHoster      = (*Details)(nil)
+	_ media.LinkFinder       = (*Details)(nil)
 )
 
 // NewDetails builds the metadata provider on c, shared with the cover provider.
@@ -110,6 +112,30 @@ func (d *Details) Details(ctx context.Context, q media.CoverQuery, _ string, s s
 	}
 
 	return det, nil
+}
+
+// linkFields are the game fields FindLinks needs: its store ids.
+var linkFields = []string{"name", "external_games.external_game_source", "external_games.uid"}
+
+// FindLinks implements media.LinkFinder: the Steam AppID IGDB lists for the game it matched (the same
+// match as the sheet's: a store link it knows, else the only game with the title). IGDB also lists
+// GOG and Epic ids, but their format has not been checked against Game Vault's links with a real
+// account yet (see .claude/memory/igdb.md), so they are not used.
+func (d *Details) FindLinks(ctx context.Context, q media.CoverQuery, s schema.Settings) (game.Links, error) {
+	g, err := d.c.find(ctx, s, q, linkFields)
+	if err != nil || g == nil {
+		return nil, err
+	}
+
+	links := game.Links{}
+
+	for _, e := range g.ExternalGames {
+		if e.Source == steamSource && reUID.MatchString(e.UID) && links[game.LinkSteam] == "" {
+			links[game.LinkSteam] = e.UID
+		}
+	}
+
+	return links, nil
 }
 
 // ratingBoards are the boards whose ratings the sheet shows, in order of preference (Steam's too).

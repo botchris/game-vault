@@ -105,7 +105,7 @@ func TestAbsorb(t *testing.T) {
 
 func TestParseBarcode(t *testing.T) {
 	ok := map[string]Barcode{
-		"5 026555 255042": "5026555255042", // Red Dead Redemption, Xbox 360 PAL
+		"2 001234 567893": "2001234567893", // an invented EAN-13 (prefix 200: in-store numbers)
 		"3307215643006":   "3307215643006",
 		"885370201215":    "0885370201215", // UPC-A is stored as EAN-13
 		"":                "",
@@ -116,29 +116,29 @@ func TestParseBarcode(t *testing.T) {
 		}
 	}
 
-	for _, bad := range []string{"5026555255043", "12345", "50265552550A2"} {
+	for _, bad := range []string{"2001234567894", "12345", "20012345678A3"} {
 		if _, err := ParseBarcode(bad); err == nil {
 			t.Errorf("ParseBarcode(%q) should fail", bad)
 		}
 	}
 
-	g, _ := New("Red Dead Redemption", t0)
+	g, _ := New("Example West", t0)
 	g.AddCopy(CopyDetails{
 		Kind:     KindPhysical,
 		Platform: "Xbox 360",
-		Barcode:  "5026555255042",
+		Barcode:  "2001234567893",
 	}, t0)
 
 	key, _ := g.AddCopy(CopyDetails{
 		Kind:     KindKey,
 		Platform: "Steam",
-		Barcode:  "5026555255042",
+		Barcode:  "2001234567893",
 	}, t0)
 	if key.Barcode != "" {
 		t.Error("only physical copies keep a barcode")
 	}
 
-	if _, ok := g.CopyWithBarcode("5026555255042"); !ok {
+	if _, ok := g.CopyWithBarcode("2001234567893"); !ok {
 		t.Error("CopyWithBarcode should find the disc")
 	}
 }

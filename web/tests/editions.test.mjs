@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   CoverFailures, NO_FILTERS, activeFilterCount, coverOrder, coverSignature, coverPath, editionsOf, itemLabel, filterItems, groupCopies, itemCounts, libraryItems, mainSystem,
-  nextCover, openEdition, sortItems, systemCounts, systemOf,
+  nextCover, onSeveralSystems, openEdition, severalSystemsCount, sortItems, systemCounts, systemOf,
 } from '../src/lib/editions.ts';
 
 // Plain objects shaped like the generated messages; kinds: 1 key, 2 library, 3 physical.
@@ -123,6 +123,20 @@ test('a card tries its own cover, then the main edition\'s, then the others\', a
   assert.equal(nextCover(order, new Set(order)), null, 'every cover failed: initials, and no more requests');
 });
 
+test('a console-only game linked to a PC store borrows the PC box last, and only then', () => {
+  const ed = (system, main = false) => ({ system, coverUrl: '', coverPhotoId: '', main });
+  const consoleQuest = { editions: [ed('PS4', true)], hasPcStoreLink: true };
+  assert.deepEqual(coverOrder(consoleQuest, 'PS4'), ['PS4', 'PC']);
+  assert.deepEqual(coverOrder({ ...consoleQuest, editions: [ed('PS4', true), ed('Switch')] }, 'Switch'), ['Switch', 'PS4', 'PC']);
+  assert.deepEqual(coverOrder({ ...consoleQuest, hasPcStoreLink: false }, 'PS4'), ['PS4'], 'no PC store: no PC box');
+  assert.deepEqual(coverOrder({ ...halo, hasPcStoreLink: true }, 'Xbox 360'), ['Xbox 360', 'PS3', 'PC'], 'its own PC edition, once');
+  assert.deepEqual(coverOrder({ editions: [ed('', true)], hasPcStoreLink: true }, ''), [''], 'a game without copies keeps its one address');
+
+  const order = coverOrder(consoleQuest, 'PS4');
+  assert.equal(nextCover(order, new Set(['PS4'])), 'PC');
+  assert.equal(nextCover(order, new Set(order)), null, 'still stops after the last');
+});
+
 test('groupCopies: the current edition first, then in the editions\' order', () => {
   const groups = groupCopies(halo.copies, halo.editions, 'Xbox 360');
   assert.deepEqual(groups.map((g) => [g.system, g.copies.length]), [['Xbox 360', 1], ['PS3', 1], ['PC', 1]]);
@@ -225,4 +239,19 @@ test('CoverFailures: each system expires on its own clock', () => {
   assert.deepEqual([...f.failed('g1', sig)], ['PS3']);
   now = 100_000;
   assert.equal(f.failed('g1', sig).size, 0);
+});
+
+test('"On several platforms": two or more systems, not two stores of one system, never a game without copies', () => {
+  const twoConsoles = game('g4', 'Two Consoles', [copy('Xbox 360', 'Xbox 360', 3), copy('PS3', 'PS3', 3)],
+    [edition('Xbox 360', { main: true }), edition('PS3')]);
+  const pcAndPs4 = game('g5', 'PC and PS4', [copy('PC', 'Steam', 2), copy('PS4', 'PS4', 3)], [edition('PS4', { main: true }), edition('PC')]);
+  assert.equal(onSeveralSystems(twoConsoles), true, 'Xbox 360 + PS3');
+  assert.equal(onSeveralSystems(pcAndPs4), true, 'PC + PS4');
+  assert.equal(onSeveralSystems(hades), false, 'Steam + GOG are both PC');
+  assert.equal(onSeveralSystems(empty), false, 'a game without copies');
+  assert.equal(onSeveralSystems(game('g6', 'Bare', [], [edition('', { main: true })])), false, 'its one empty edition');
+
+  const all = [halo, hades, empty, twoConsoles, pcAndPs4];
+  assert.equal(severalSystemsCount(libraryItems(all, 'platform')), 3 + 2 + 2, 'editions in "By platform"');
+  assert.equal(severalSystemsCount(libraryItems(all, 'game')), 3, 'games in "By game"');
 });

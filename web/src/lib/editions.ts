@@ -160,6 +160,19 @@ export function filterItems<G extends GameLike>(items: LibraryItem<G>[], f: Filt
     && (!checks.gameLevel || checks.gameLevel(i.game)));
 }
 
+/** Whether the game is owned on two or more systems (Xbox 360 and PS3, PC and PS4): the "On several
+ *  platforms" quick filter, to spot the same game bought twice. Two stores of one system (Steam and
+ *  GOG, both PC) are one edition, and a game without copies has none. */
+export function onSeveralSystems(g: { editions: EditionLike[] }): boolean {
+  return g.editions.filter((e) => e.system !== '').length >= 2;
+}
+
+/** How many items are of games on several systems: every edition of them in "By platform", so the
+ *  cards sit side by side, each game once in "By game". */
+export function severalSystemsCount(items: { game: { editions: EditionLike[] } }[]): number {
+  return items.filter((i) => onSeveralSystems(i.game)).length;
+}
+
 /** How many items are on each system, most first then by name: pass the items' views, so editions
  *  are counted in "By platform" and games in "By game". */
 export function systemCounts(views: GameLike[]): [string, number][] {
@@ -179,10 +192,15 @@ export function itemCounts(items: LibraryItem<GameLike>[]): { items: number; gam
 }
 
 /** The systems whose cover a card tries, in order: its own edition's (the main one's when it names
- *  none), then the main edition's, then the others'. A game without copies: [''] (its only address). */
-export function coverOrder(g: { editions: EditionLike[] }, system: string): string[] {
+ *  none), then the main edition's, then the others', then, for a game with copies but no PC edition
+ *  that is linked to a PC store (`hasPcStoreLink`, from the server), that store's PC box: a last
+ *  resort the card labels "PC box", never the console's. A game without copies: [''] (its only
+ *  address). */
+export function coverOrder(g: { editions: EditionLike[]; hasPcStoreLink?: boolean }, system: string): string[] {
   const main = mainSystem(g);
   const all = [system || main, main, ...g.editions.map((e) => e.system)];
+  const withCopies = g.editions.some((e) => e.system !== '');
+  if (g.hasPcStoreLink && withCopies) all.push('PC');
   return all.filter((s, i) => all.indexOf(s) === i);
 }
 

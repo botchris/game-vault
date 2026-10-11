@@ -51,7 +51,7 @@ func TestLookupAndTest(t *testing.T) {
 		t.Fatalf("lookup: %+v %v", m, err)
 	}
 
-	if m, err := p.Lookup(context.Background(), "5026555255042", good); err != nil || len(m) != 0 {
+	if m, err := p.Lookup(context.Background(), "2001234567893", good); err != nil || len(m) != 0 {
 		t.Fatalf("unknown code must be no match: %+v %v", m, err)
 	}
 

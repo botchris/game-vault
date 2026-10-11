@@ -241,6 +241,7 @@ func (s *Service) GameDetails(ctx context.Context, id game.ID, language string, 
 
 	r := v.(out)
 	s.registerAssets(ctx, ref, &r.d)
+	s.enqueueAutoLink(g) // a console game may have a store sheet to find
 
 	return r.d, r.warnings, nil
 }

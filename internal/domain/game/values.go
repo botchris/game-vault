@@ -45,7 +45,7 @@ func DateOf(t time.Time) Date { return Date(t.Format(time.DateOnly)) }
 // UPC-A codes are stored as EAN-13 (with a leading 0) so both spellings compare equal.
 type Barcode string
 
-// ParseBarcode validates a barcode, ignoring spaces and dashes ("5 026555 255042").
+// ParseBarcode validates a barcode, ignoring spaces and dashes ("2 001234 567893").
 // An empty string is a valid empty Barcode.
 func ParseBarcode(s string) (Barcode, error) {
 	digits := strings.Map(func(r rune) rune {
@@ -188,7 +188,7 @@ func NormalizeTitle(title string) string {
 }
 
 // SearchTitle returns the title to search a game database for: the title without the edition and
-// store tags MatchKey ignores ("Red Dead Redemption GOTY" → "Red Dead Redemption", "Example Game (PC
+// store tags MatchKey ignores ("Example West GOTY" → "Example West", "Example Game (PC
 // Key)" → "Example Game"), its other words, numbers and casing kept. Databases name the game, not
 // the edition a copy is, so a search for the raw title often finds nothing. A title made only of tags
 // is returned as it is.

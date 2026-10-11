@@ -344,3 +344,50 @@ func TestAgeRating(t *testing.T) {
 		assert.Equal(t, tc.want, ageRating(tc.ratings), tc.name)
 	}
 }
+
+func TestDetails_findLinks(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	disc := media.CoverQuery{
+		Title:             "Example Quest",
+		PhysicalPlatforms: []string{"PS4"},
+		Platforms:         []string{"PS4"},
+	}
+
+	t.Run("GIVEN IGDB knows the game and its store ids", func(t *testing.T) {
+		f := newFakeIGDB(t)
+		f.searchFor = map[string]string{"Example Quest": `[{"id": 1001, "name": "Example Quest", "external_games": [
+			{"external_game_source": 1, "uid": "100"},
+			{"external_game_source": 5, "uid": "200"},
+			{"external_game_source": 11, "uid": "9N0000000001"}]}]`}
+		d := NewDetails(f.client(time.Now))
+
+		t.Run("WHEN its links are asked", func(t *testing.T) {
+			got, err := d.FindLinks(ctx, disc, goodSettings)
+			require.NoError(t, err)
+
+			t.Run("THEN only the Steam link is returned: IGDB's GOG and Epic ids are not verified yet", func(t *testing.T) {
+				assert.Equal(t, game.Links{game.LinkSteam: "100"}, got)
+				assert.Contains(t, f.sent("games")[0], "external_games.uid")
+			})
+		})
+	})
+
+	t.Run("GIVEN a title IGDB has for two games", func(t *testing.T) {
+		f := newFakeIGDB(t)
+		f.searchFor = map[string]string{"Example Quest": `[
+			{"id": 1, "name": "Example Quest", "external_games": [{"external_game_source": 1, "uid": "100"}]},
+			{"id": 2, "name": "Example Quest", "external_games": [{"external_game_source": 1, "uid": "101"}]}]`}
+		d := NewDetails(f.client(time.Now))
+
+		t.Run("WHEN its links are asked", func(t *testing.T) {
+			got, err := d.FindLinks(ctx, disc, goodSettings)
+
+			t.Run("THEN none are returned rather than another game's", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.Empty(t, got)
+			})
+		})
+	})
+}

@@ -51,7 +51,7 @@ func (p *Covers) Test(ctx context.Context, s schema.Settings) error { return p.c
 // Applies implements media.CoverProvider: only on the fallback pass, for any system. The media
 // service runs that pass whenever the first one found nothing, so an edition no other provider
 // applies to still gets it.
-func (p *Covers) Applies(q media.CoverQuery) bool { return q.Fallback }
+func (p *Covers) Applies(q media.CoverQuery) bool { return q.Fallback && !q.LinksOnly }
 
 // ImageHosts implements media.ImageHoster.
 func (p *Covers) ImageHosts() []string { return []string{"images.igdb.com"} }

@@ -15,6 +15,7 @@ import (
 
 	"gamevault/internal/adapters/outbound/gamedata"
 	"gamevault/internal/adapters/outbound/sqlite"
+	"gamevault/internal/application/health"
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
@@ -467,6 +468,50 @@ func TestProviderStatus_service(t *testing.T) {
 
 			t.Run("THEN nothing breaks", func(t *testing.T) {
 				assert.Empty(t, env.svc.ProviderStatuses())
+			})
+		})
+	})
+}
+
+func TestProviderStatus_healthIssues(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a service whose details reject the key and another whose allowance is used up", func(t *testing.T) {
+		env := newServiceEnv(t, ctx)
+		env.covers.group, env.sheets.group = "", "" // two services, each its own status
+		env.sheets.set(provider.BadSettings("the key was rejected: check it in the provider settings"))
+		_, _, err := env.svc.GameDetails(ctx, env.game.ID(), "en", false)
+		require.NoError(t, err)
+
+		env.covers.set(provider.ErrQuotaExhausted)
+		_, _, _, err = env.svc.CoverCandidates(ctx, env.game.ID(), "PS4")
+		require.NoError(t, err)
+
+		t.Run("WHEN the health issues are asked", func(t *testing.T) {
+			issues := env.svc.Issues(ctx)
+
+			t.Run("THEN rejected settings are an error, a used-up allowance a warning, both pointing to Providers", func(t *testing.T) {
+				require.Len(t, issues, 2)
+
+				byKey := map[string]health.Issue{}
+				for _, i := range issues {
+					byKey[i.Key] = i
+				}
+
+				assert.Equal(t, health.LevelError, byKey["provider:db-details"].Level)
+				assert.Equal(t, "provider_settings", byKey["provider:db-details"].Reason)
+				assert.Equal(t, health.LevelWarning, byKey["provider:db"].Level)
+				assert.Equal(t, "provider_quota", byKey["provider:db"].Reason)
+				assert.NotEmpty(t, byKey["provider:db"].Params["until"], "when the allowance renews, for the translated reason")
+
+				for _, i := range issues {
+					assert.Equal(t, health.KindProvider, i.Kind)
+					assert.Equal(t, health.TargetProviders, i.Target)
+					assert.Equal(t, "Database", i.Source)
+					assert.NotEmpty(t, i.Message)
+					assert.False(t, i.Since.IsZero())
+				}
 			})
 		})
 	})

@@ -43,7 +43,7 @@ var (
 	ErrNoKey = errors.New("itch.io: paste an API key (see the help below the field)")
 
 	// ErrBadKey means itch.io rejected the key.
-	ErrBadKey = errors.New("itch.io did not accept the API key: create a new one in your itch.io settings (API keys) and paste it")
+	ErrBadKey = source.SignedOut("itch.io did not accept the API key: create a new one in your itch.io settings (API keys) and paste it")
 )
 
 // Provider implements sync.Provider for itch.io accounts.

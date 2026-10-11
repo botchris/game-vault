@@ -4,7 +4,7 @@
 // ignored):
 //
 //	title, platform, kind, status, key, redeemBy, origin, acquiredOn, edition, grade, contents,
-//	location, price, currency, notes, links, externalId, barcode, system
+//	location, price, currency, notes, links, externalId, barcode, system, autoLinks
 //
 // grade is one of sealed, mint, very_good, good, acceptable, damaged; contents lists box, manual,
 // media and extras separated by spaces; price is an amount with a dot or a comma and at most the
@@ -16,7 +16,9 @@
 // implies (it is then the copy's own system), so an export imported again changes nothing.
 //
 // links lists the stores the game is linked to as space-separated store:id pairs
-// ("steam:620 gog:1207658924"); every row of a game carries the game's links.
+// ("steam:620 gog:1207658924"); every row of a game carries the game's links. autoLinks lists, the
+// same way, the links Game Vault found automatically: they come back automatic (labeled, never
+// used to recognize a game in imports), not as ordinary links.
 //
 // Rows without externalId get a stable one derived from kind, platform, title and key, so the
 // same file can be imported again to update rows instead of duplicating them.
@@ -26,6 +28,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -36,7 +39,7 @@ import (
 var columns = []string{
 	"title", "platform", "kind", "status", "key", "redeemBy", "origin", "acquiredOn", "edition",
 	"grade", "contents", "location", "price", "currency", "notes", "links", "externalId", "barcode",
-	"system",
+	"system", "autoLinks",
 }
 
 var aliases = map[string]string{
@@ -193,7 +196,9 @@ func (Codec) Decode(r io.Reader) ([]game.ImportedCopy, []string, error) {
 		}
 
 		links, bad := parseLinks(get("links"))
-		for _, b := range bad {
+		autoLinks, badAuto := parseLinks(get("autoLinks"))
+
+		for _, b := range append(bad, badAuto...) {
 			warnings = append(warnings, fmt.Sprintf("row %d: link %q is not store:id (e.g. steam:620), ignored", row, b))
 		}
 
@@ -244,6 +249,7 @@ func (Codec) Decode(r io.Reader) ([]game.ImportedCopy, []string, error) {
 			ExternalID: ext,
 			Title:      title,
 			Links:      links,
+			AutoLinks:  autoLinks,
 			Details:    d,
 		})
 	}
@@ -307,7 +313,18 @@ func (Codec) Encode(w io.Writer, games []*game.Game) error {
 	}
 
 	for _, g := range games {
-		links := formatLinks(g.Links())
+		// Automatic links go in their own column, so an import keeps them automatic.
+		own, auto := game.Links{}, game.Links{}
+
+		for k, v := range g.Links() {
+			if slices.Contains(g.AutoLinks(), k) {
+				auto[k] = v
+			} else {
+				own[k] = v
+			}
+		}
+
+		links, autoLinks := formatLinks(own), formatLinks(auto)
 
 		for _, c := range g.Copies() {
 			ext := c.ExternalID
@@ -318,7 +335,7 @@ func (Codec) Encode(w io.Writer, games []*game.Game) error {
 			if err := cw.Write([]string{
 				g.Title(), c.Platform, string(c.Kind), string(c.Status), c.Key, string(c.RedeemBy), c.Origin,
 				string(c.AcquiredOn), c.Edition, string(c.Grade), contentsText(c.Contents), c.Location,
-				formatPrice(c.Price), c.Price.Currency, c.Notes, links, ext, string(c.Barcode), c.System(),
+				formatPrice(c.Price), c.Price.Currency, c.Notes, links, ext, string(c.Barcode), c.System(), autoLinks,
 			}); err != nil {
 				return err
 			}

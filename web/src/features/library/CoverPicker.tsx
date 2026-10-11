@@ -65,7 +65,7 @@ export default function CoverPicker({ game, system, photosOnly = false, onPick, 
           <p className="muted small">{t('coverPicker.intro')}</p>
           {error && <Alert tone="error">{error}</Alert>}
           {warnings.map((w) => <Alert key={w} tone="warn">{w}</Alert>)}
-          {unavailable && <p className="muted small">{t('coverPicker.providersUnavailable')} <a href="#/system">{t('coverPicker.seeSystem')}</a></p>}
+          {unavailable && <p className="muted small">{t('coverPicker.providersUnavailable')} <a href="#/system">{t('coverPicker.seeHealth')}</a></p>}
           {candidates === null && !error && <p className="muted">{t('common.loading')}</p>}
           {candidates && (
             <div className="posters picker-grid">

@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"slices"
 
 	"connectrpc.com/connect"
 
@@ -33,33 +34,14 @@ func (h *MediaHandler) ListProviders(ctx context.Context, req *connect.Request[p
 		return nil, toConnectError(err)
 	}
 
+	statuses := h.media.ProviderStatuses()
+
 	out := &pb.ListProvidersResponse{SecretPlaceholder: schema.SecretPlaceholder}
+
 	for _, v := range views {
-		out.Providers = append(out.Providers, providerToPB(v))
-	}
-
-	return connect.NewResponse(out), nil
-}
-
-// GetProviderStatus lists the providers' current provider-level problems.
-func (h *MediaHandler) GetProviderStatus(context.Context, *connect.Request[pb.GetProviderStatusRequest]) (*connect.Response[pb.GetProviderStatusResponse], error) {
-	out := &pb.GetProviderStatusResponse{}
-
-	for _, st := range h.media.ProviderStatuses() {
-		ids := make([]string, len(st.Providers))
-		for i, id := range st.Providers {
-			ids[i] = string(id)
-		}
-
-		out.Statuses = append(out.Statuses, &pb.ProviderStatus{
-			ProviderId:   string(st.Provider),
-			ProviderName: st.Name,
-			ProviderIds:  ids,
-			Kind:         string(st.Kind),
-			Message:      st.Message,
-			Since:        ts(st.Since),
-			Until:        ts(st.Until),
-		})
+		p := providerToPB(v)
+		p.Status = providerStatusToPB(statuses, v.ID())
+		out.Providers = append(out.Providers, p)
 	}
 
 	return connect.NewResponse(out), nil
@@ -148,4 +130,31 @@ func (h *MediaHandler) RefreshCovers(ctx context.Context, req *connect.Request[p
 	}
 
 	return connect.NewResponse(&pb.RefreshCoversResponse{Games: int32(n)}), nil
+}
+
+// providerStatusToPB returns the status of the service provider id belongs to, nil when it has no
+// problem.
+func providerStatusToPB(statuses []media.ProviderStatus, id provider.ID) *pb.ProviderStatus {
+	for _, st := range statuses {
+		if !slices.Contains(st.Providers, id) {
+			continue
+		}
+
+		ids := make([]string, len(st.Providers))
+		for i, p := range st.Providers {
+			ids[i] = string(p)
+		}
+
+		return &pb.ProviderStatus{
+			ProviderId:   string(st.Provider),
+			ProviderName: st.Name,
+			ProviderIds:  ids,
+			Kind:         string(st.Kind),
+			Message:      st.Message,
+			Since:        ts(st.Since),
+			Until:        ts(st.Until),
+		}
+	}
+
+	return nil
 }

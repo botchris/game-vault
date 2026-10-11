@@ -17,11 +17,14 @@ import (
 // externalSources maps the stores whose links IGDB knows to its external game source ids
 // (external_games.external_game_source; same values as the deprecated category enum). The uid is
 // the store's own id: the Steam AppID, the GOG product id, the Epic catalog item id.
+// steamSource is Steam's external game source id.
+const steamSource = 1
+
 var externalSources = []struct {
 	link   string
 	source int
 }{
-	{game.LinkSteam, 1},
+	{game.LinkSteam, steamSource},
 	{"gog", 5},
 	{"epic", 26},
 }
@@ -103,6 +106,10 @@ type gameJSON struct {
 		Name    string `json:"name"`
 		VideoID string `json:"video_id"`
 	} `json:"videos"`
+	ExternalGames []struct {
+		Source int    `json:"external_game_source"`
+		UID    string `json:"uid"`
+	} `json:"external_games"`
 }
 
 // ageRatingJSON is one rating, with its organization and category expanded.
@@ -203,8 +210,8 @@ var reUnsafe = regexp.MustCompile(`["\\]+`)
 
 // findByTitle searches the game's name on its systems and keeps a clear match: exactly the same
 // title (then the same ignoring edition tags), preferring games over their editions and add-ons.
-// The name is the title without edition and store tags (game.SearchTitle): IGDB names "Red Dead
-// Redemption", not the "GOTY" disc; only when that finds no match is the raw title searched too.
+// The name is the title without edition and store tags (game.SearchTitle): IGDB names "Example
+// West", not the "GOTY" disc; only when that finds no match is the raw title searched too.
 // Two different games with that title (a 1993 original and its 2016 reboot) give nothing: a wrong
 // sheet is worse than none.
 func (c *Client) findByTitle(ctx context.Context, s schema.Settings, q media.CoverQuery, fields []string) (*gameJSON, error) {

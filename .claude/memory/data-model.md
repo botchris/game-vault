@@ -6,7 +6,7 @@ metadata:
 ---
 - A **Game** owns **Copies** (kind key / library / physical). Sources import copies with a stable
   `ExternalID`; the consolidator matches by ExternalID, then any shared store link
-  (`Game.Links`, `{"steam": "620"}`; imports only fill stores the game has no link to), then
+  (`Game.Links`, `{"steam": "620"}`; imports fill stores the game has no link to and replace automatic links), then
   `game.MatchKey(title)`. No store is special in the domain: Steam's AppID became the `steam`
   link on 2026-10-09 (migration 0007, CSV column `links`, no backwards compatibility: the old export's column
   names are reported as unknown). `MatchKey` drops "<store> key" for every store, never a bare
@@ -53,3 +53,11 @@ metadata:
   names (`PC`, console names, `Other`) are stored in documents and cover file names: never rename
   them. The CSV `system` column is an override only when it differs from the copy's effective
   system; an import never clears one. See [[provider-chains]].
+- 2026-10-11: `Game.BorrowsPCBox()` (copies, no PC copy, a PC-store link) adds a PC entry to
+  `CoverFingerprints` and `editionSystems` without a real edition; `Edition(PC)` stays false.
+- 2026-10-11: automatic links (`Game.AddAutoLinks`, from `media.LinkFinder`: IGDB then Steam's title
+  search) are marked (`AutoLinks`), rejected when the user removes them (`RejectedLinks`, key+id),
+  replaced by imports, and excluded from the consolidator's link matching. Additive doc fields
+  (`autoLinks`, `rejectedLinks`, `autoLinkTriedAt`): an older binary reads the game but drops them
+  on its next save (automatic links become plain links or vanish with it), so a downgrade loses the
+  marks and the rejections. CSV column `autoLinks`; `UpdateGameRequest.links_set` guards links.

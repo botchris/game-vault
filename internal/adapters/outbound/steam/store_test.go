@@ -323,3 +323,94 @@ func TestCovers_titleSearch(t *testing.T) {
 		})
 	})
 }
+
+func TestStore_findLinks(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	disc := media.CoverQuery{
+		Title:     "Example Quest",
+		Platforms: []string{"PS4"},
+	}
+
+	t.Run("GIVEN a store with exactly that title", func(t *testing.T) {
+		s, _ := titleSearchStore(t, map[string]string{"Example Quest": `[{"type":"app","name":"Example Quest","id":4242}]`}, 0)
+
+		t.Run("THEN its AppID is the game's Steam link", func(t *testing.T) {
+			got, err := s.FindLinks(ctx, disc, schema.Settings{})
+			require.NoError(t, err)
+			assert.Equal(t, game.Links{game.LinkSteam: "4242"}, got)
+		})
+	})
+
+	t.Run("GIVEN a store with that title twice", func(t *testing.T) {
+		s, _ := titleSearchStore(t, map[string]string{"Example Quest": `[{"type":"app","name":"Example Quest","id":1},
+			{"type":"app","name":"EXAMPLE QUEST","id":2}]`}, 0)
+
+		t.Run("THEN no link is guessed", func(t *testing.T) {
+			got, err := s.FindLinks(ctx, disc, schema.Settings{})
+			require.NoError(t, err)
+			assert.Empty(t, got)
+		})
+	})
+
+	// Cases the review raised (a remake's 2005 namesake for a PS2 disc, a 1993 game for a PS1 one, a
+	// remaster found by MatchKey), with invented titles.
+	t.Run("GIVEN a PS2 disc whose title the store has exactly", func(t *testing.T) {
+		s, searched := titleSearchStore(t, map[string]string{"Example Horror 4": `[{"type":"app","name":"Example Horror 4","id":7}]`}, 0)
+
+		t.Run("THEN no link is saved, nor searched: Steam sells the PC game, often a later one", func(t *testing.T) {
+			got, err := s.FindLinks(ctx, media.CoverQuery{
+				Title:             "Example Horror 4",
+				PhysicalPlatforms: []string{"PS2"},
+				Platforms:         []string{"PS2"},
+			}, schema.Settings{})
+			require.NoError(t, err)
+			assert.Empty(t, got)
+			assert.Empty(t, *searched)
+		})
+	})
+
+	t.Run("GIVEN a PS1 disc, and handhelds", func(t *testing.T) {
+		s, searched := titleSearchStore(t, map[string]string{"EXAMPLE DOOM": `[{"type":"app","name":"EXAMPLE DOOM","id":8}]`}, 0)
+
+		t.Run("THEN no link is saved for any of them", func(t *testing.T) {
+			for _, platform := range []string{"PS1", "DS", "3DS", "PSP", "PS Vita", "Xbox 360", "Wii"} {
+				got, err := s.FindLinks(ctx, media.CoverQuery{
+					Title:     "EXAMPLE DOOM",
+					Platforms: []string{platform},
+				}, schema.Settings{})
+				require.NoError(t, err)
+				assert.Empty(t, got, platform)
+			}
+
+			assert.Empty(t, *searched)
+		})
+	})
+
+	t.Run("GIVEN a PS4 disc the store has only as a remaster", func(t *testing.T) {
+		s, _ := titleSearchStore(t, map[string]string{"Example Mafia": `[{"type":"app","name":"Example Mafia: Definitive Edition","id":9}]`}, 0)
+
+		t.Run("THEN no link is saved: only an exact title counts for a saved link", func(t *testing.T) {
+			got, err := s.FindLinks(ctx, media.CoverQuery{
+				Title:     "Example Mafia",
+				Platforms: []string{"PS4"},
+			}, schema.Settings{})
+			require.NoError(t, err)
+			assert.Empty(t, got)
+		})
+	})
+
+	t.Run("GIVEN a game linked to Steam already", func(t *testing.T) {
+		s, searched := titleSearchStore(t, nil, 0)
+
+		t.Run("THEN nothing is searched", func(t *testing.T) {
+			q := disc
+			q.Links = game.Links{game.LinkSteam: "620"}
+			got, err := s.FindLinks(ctx, q, schema.Settings{})
+			require.NoError(t, err)
+			assert.Empty(t, got)
+			assert.Empty(t, *searched)
+		})
+	})
+}

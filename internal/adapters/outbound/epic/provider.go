@@ -67,7 +67,7 @@ var (
 	ErrBadCode = errors.New("epic rejected the authorization code: codes work once and expire within minutes, get a new one from the login link")
 
 	// ErrSessionExpired means the stored session can no longer be refreshed.
-	ErrSessionExpired = errors.New("the Epic session expired: open the login link and paste a new authorization code")
+	ErrSessionExpired = source.SignedOut("the Epic session expired: open the login link and paste a new authorization code")
 
 	// ErrEmailCode means the user pasted the sign-in code Epic emails, not the authorization code.
 	ErrEmailCode = errors.New("that is the sign-in code Epic emails you, not the authorization code: after signing in, open the login link again and copy \"authorizationCode\" from the page it shows")

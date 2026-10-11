@@ -96,6 +96,7 @@ type cachedSearch struct {
 var (
 	_ media.CoverProvider = (*Store)(nil)
 	_ media.LinkSearcher  = (*Store)(nil)
+	_ media.LinkFinder    = (*Store)(nil)
 )
 
 // Descriptor implements media.CoverProvider.
@@ -121,7 +122,7 @@ func (s *Store) ImageHosts() []string {
 // waits for that pass so it is only spent on PC editions no other provider had art for (Steam allows
 // about 200 store requests per 5 minutes).
 func (s *Store) Applies(q media.CoverQuery) bool {
-	return q.ForPC() && (AppIDOf(q) != 0 || q.Fallback)
+	return q.ForPC() && (AppIDOf(q) != 0 || (q.Fallback && !q.LinksOnly))
 }
 
 // Covers returns the portrait library art first, then the landscape header. Recent apps keep
@@ -129,6 +130,10 @@ func (s *Store) Applies(q media.CoverQuery) bool {
 // asked to IStoreBrowseService (one free request); the legacy predictable URLs are the fallback.
 func (s *Store) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	appID := AppIDOf(q)
+	if appID == 0 && q.LinksOnly {
+		return nil, nil
+	}
+
 	if appID == 0 {
 		id, err := s.appIDByTitle(ctx, q.Title)
 		if err != nil || id == 0 {
@@ -167,10 +172,51 @@ func (s *Store) Covers(ctx context.Context, q media.CoverQuery, _ schema.Setting
 	return out, nil
 }
 
+// modernSystems are the systems whose games Steam's PC versions usually match: a PC copy, or one on
+// a console of the PS4 generation or later. Older consoles and handhelds often share a title with a
+// different game on Steam (a later remake, a remaster), so no link is saved for them.
+var modernSystems = []string{game.SystemPC, "PS4", "PS5", "Xbox One", "Xbox Series", "Switch"}
+
+// FindLinks implements media.LinkFinder: for a game not linked to Steam, with a copy on PC or a
+// modern console (or no copies), the AppID of the only store app with exactly its title (ignoring
+// case and trademark signs, not game.MatchKey: a saved link must not be a remaster), as its Steam
+// link.
+func (s *Store) FindLinks(ctx context.Context, q media.CoverQuery, _ schema.Settings) (game.Links, error) {
+	if AppIDOf(q) != 0 || !modernEnough(q) {
+		return nil, nil
+	}
+
+	id, err := s.uniqueApp(ctx, game.SearchTitle(q.Title), q.Title, false)
+	if err == nil && id == 0 && game.NormalizeTitle(q.Title) != game.SearchTitle(q.Title) {
+		id, err = s.uniqueApp(ctx, game.NormalizeTitle(q.Title), q.Title, false)
+	}
+
+	if err != nil || id == 0 {
+		return nil, err
+	}
+
+	return game.Links{game.LinkSteam: strconv.FormatInt(id, 10)}, nil
+}
+
+// modernEnough reports whether one of the game's copies is on PC or a modern console, or it has none.
+func modernEnough(q media.CoverQuery) bool {
+	if len(q.Platforms) == 0 {
+		return true
+	}
+
+	for _, p := range q.Platforms {
+		if slices.Contains(modernSystems, game.SystemOf(p)) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // appIDByTitle returns the AppID of the only store app with q's title, 0 when there is none or
-// several. MatchKey alone would take "Mafia: Definitive Edition" for "Mafia", so an exact title wins
-// first. The AppID is only used for this cover: it is never written as the game's link, so a wrong
-// guess cannot stick. An answer that says nothing about the game (429, 5xx, no connection) counts as
+// several, for a cover. MatchKey alone would take "Mafia: Definitive Edition" for "Mafia", so an
+// exact title wins first. This AppID only finds a cover and is not written as the game's link;
+// FindLinks, whose AppID is saved, accepts exact titles only. An answer that says nothing about the game (429, 5xx, no connection) counts as
 // rate-limited, so the edition is not marked missing for days.
 func (s *Store) appIDByTitle(ctx context.Context, title string) (int64, error) {
 	// The store names the game, not the edition a key is ("… GOTY"): its name is searched first. When
@@ -182,7 +228,7 @@ func (s *Store) appIDByTitle(ctx context.Context, title string) (int64, error) {
 	}
 
 	for _, term := range terms {
-		id, err := s.uniqueApp(ctx, term, title)
+		id, err := s.uniqueApp(ctx, term, title, true)
 		if err != nil || id != 0 {
 			return id, err
 		}
@@ -192,8 +238,9 @@ func (s *Store) appIDByTitle(ctx context.Context, title string) (int64, error) {
 }
 
 // uniqueApp searches the store for term and returns the AppID of the only app titled title: exactly
-// (ignoring case and trademark signs), or, when none is, by game.MatchKey; 0 when none or several.
-func (s *Store) uniqueApp(ctx context.Context, term, title string) (int64, error) {
+// (ignoring case and trademark signs), or, when none is and loose, by game.MatchKey; 0 when none or
+// several.
+func (s *Store) uniqueApp(ctx context.Context, term, title string, loose bool) (int64, error) {
 	matches, err := s.SearchLinks(ctx, term)
 
 	var se *apiclient.StatusError
@@ -208,12 +255,16 @@ func (s *Store) uniqueApp(ctx context.Context, term, title string) (int64, error
 		return 0, fmt.Errorf("steam store search is not answering, asking again later (%w): %w", err, provider.ErrUnavailable)
 	}
 
-	for _, same := range []func(string) bool{
+	matchers := []func(string) bool{
 		func(name string) bool {
 			return strings.EqualFold(game.NormalizeTitle(name), game.NormalizeTitle(title))
 		},
-		func(name string) bool { return game.MatchKey(name) == game.MatchKey(title) },
-	} {
+	}
+	if loose {
+		matchers = append(matchers, func(name string) bool { return game.MatchKey(name) == game.MatchKey(title) })
+	}
+
+	for _, same := range matchers {
 		var ids []int64
 
 		for _, m := range matches {

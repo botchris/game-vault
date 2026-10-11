@@ -127,7 +127,7 @@ func sampleGame(t *testing.T) *game.Game {
 				Edition:    "Collector's",
 				Condition:  "Complete",
 				Location:   "Shelf",
-				Barcode:    "5026555255042",
+				Barcode:    "2001234567893",
 				Notes:      "signed",
 			},
 			CreatedAt: docTime,
@@ -832,7 +832,7 @@ func TestMigration0009(t *testing.T) {
 			INSERT INTO copies (id, game_id, kind, platform, status, cd_key, redeem_by, origin, acquired_on, edition,
 			                    condition, location, barcode, notes, source_id, external_id, created_at, updated_at) VALUES
 			  ('c2', 'g1', 'physical', 'PS4', 'owned', '', '', 'GAME', '2021-07-11', 'Collector''s', 'Complete', 'Shelf',
-			   '5026555255042', 'signed', NULL, '', '2026-10-02T10:00:00Z', '2026-10-02T10:00:00Z'),
+			   '2001234567893', 'signed', NULL, '', '2026-10-02T10:00:00Z', '2026-10-02T10:00:00Z'),
 			  ('c1', 'g1', 'key', 'Steam', 'revealed', 'AAAA', '2027-01-01', 'Humble', '', '', '', '', '', '', 's1',
 			   'humble:A:hades:0', '2026-10-01T10:00:00Z', '2026-10-01T10:00:00Z');
 			INSERT INTO providers (id, kind, enabled, priority, settings, updated_at) VALUES
@@ -863,7 +863,7 @@ func TestMigration0009(t *testing.T) {
 				assert.Equal(t, "s1", hades.Copies()[0].SourceID)
 				assert.Equal(t, "AAAA", hades.Copies()[0].Key)
 				assert.Empty(t, hades.Copies()[1].SourceID, "a manual copy has no source")
-				assert.Equal(t, game.Barcode("5026555255042"), hades.Copies()[1].Barcode)
+				assert.Equal(t, game.Barcode("2001234567893"), hades.Copies()[1].Barcode)
 				assert.Equal(t, "Shelf", hades.Copies()[1].Location)
 			})
 

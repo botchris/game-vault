@@ -48,21 +48,21 @@ func TestMatchKey_concurrent(t *testing.T) {
 
 func TestSearchTitle(t *testing.T) {
 	for title, want := range map[string]string{
-		"Red Dead Redemption GOTY":                            "Red Dead Redemption",
-		"Red Dead Redemption 2":                               "Red Dead Redemption 2",
-		"Mafia: Definitive Edition":                           "Mafia",
-		"Example Game (PC Key)":                               "Example Game",
-		"Celeste™ (Steam Key)":                                "Celeste",
-		"Hades GOG Key":                                       "Hades",
-		"Slay the Spire - Deluxe Edition":                     "Slay the Spire",
+		"Example West GOTY":               "Example West",
+		"Example West 2":                  "Example West 2",
+		"Mafia: Definitive Edition":       "Mafia",
+		"Example Game (PC Key)":           "Example Game",
+		"Celeste™ (Steam Key)":            "Celeste",
+		"Hades GOG Key":                   "Hades",
+		"Slay the Spire - Deluxe Edition": "Slay the Spire",
 		"The Witcher 3: Wild Hunt – Game of the Year Edition": "The Witcher 3: Wild Hunt",
-		"Pokémon™ Épée":                                       "Pokémon Épée",
-		"Ratchet & Clank [PS4]":                               "Ratchet & Clank",
-		"Deluxe Edition":                                      "Deluxe Edition", // nothing left: keep the title
-		"  Spaced   Out  ":                                    "Spaced Out",
-		"Foo - Deluxe Edition: The Bar":                       "Foo: The Bar",
-		"Foo - Bar":                                           "Foo - Bar",
-		"Golden Sun":                                          "Golden Sun",
+		"Pokémon™ Épée":                 "Pokémon Épée",
+		"Ratchet & Clank [PS4]":         "Ratchet & Clank",
+		"Deluxe Edition":                "Deluxe Edition", // nothing left: keep the title
+		"  Spaced   Out  ":              "Spaced Out",
+		"Foo - Deluxe Edition: The Bar": "Foo: The Bar",
+		"Foo - Bar":                     "Foo - Bar",
+		"Golden Sun":                    "Golden Sun",
 		// Tag words that are part of the name are lost here; searches fall back to the raw title.
 		"Gold Rush!":            "Rush!",
 		"PC Building Simulator": "Building Simulator",
@@ -73,10 +73,10 @@ func TestSearchTitle(t *testing.T) {
 
 func TestNormalizeTitle(t *testing.T) {
 	for title, want := range map[string]string{
-		"Celeste™":            "Celeste",
-		"  Hades®  II ":       "Hades II",
-		"Example © Quest":     "Example Quest",
-		"Red Dead Redemption": "Red Dead Redemption",
+		"Celeste™":        "Celeste",
+		"  Hades®  II ":   "Hades II",
+		"Example © Quest": "Example Quest",
+		"Example West":    "Example West",
 	} {
 		assert.Equal(t, want, NormalizeTitle(title), title)
 	}

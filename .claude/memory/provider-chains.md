@@ -52,7 +52,7 @@ metadata:
   `media/details.go` when sheet gathering improves: sparse sheets with an older `LogicVersion` are
   refetched once (a version, not a date, so sheets an old server caches later are caught too). TheGamesDB searches covers and sheets on the copies'
   systems (`game.SystemOf`: "PlayStation Store" → PS4).
-- **Edition titles (2026-10-11, bug seen live):** "Red Dead Redemption GOTY" found nothing on IGDB
+- **Edition titles (2026-10-11, bug seen live):** an edition title ("Example West GOTY") found nothing on IGDB
   or Wikidata, silently. Searches now use `game.SearchTitle` (MatchKey's tags removed, casing kept),
   then the raw title if no match; `GameDetails.NotFoundBy` lists providers asked that found no game
   (footer "No clear match on …": no result or ambiguous; cached, not a warning; limited providers
@@ -66,3 +66,11 @@ metadata:
   fixes: providers without settings must return ErrBadSettings, never an empty success (it would
   clear a sibling's status); TheGamesDB 401/403/5xx/no answer and Wikimedia 403/5xx/no answer are
   provider-level; TestProvider sets/clears too; the picker gets `providers_unavailable`.
+- **PC box as last resort (2026-10-11, maintainer's request):** a console-only game with a PC-store
+  link (`game.IsPCStoreLink`) has a virtual PC edition at `/media/covers/{id}/PC`: first pass only
+  (store links only, `CoverQuery.LinksOnly`: no TheGamesDB, IGDB, Battle.net/Ubisoft/Steam title searches, no fallback pass, no add-on borrowing; an xbox link alone does not count with an Xbox edition), cached/marked under PC, fingerprinted by links; the web appends
+  PC last in `coverOrder` when `has_pc_store_link` and no PC edition, labelled "PC box".
+- **Health (2026-10-11, maintainer's request):** System → Health replaces the provider-status
+  section; `GetProviderStatus` is gone (status now in `Provider.status` from ListProviders). Checks:
+  providers (settings = error), sources (`source.ErrSignedOut` = error, failed scan / keep-alive =
+  warning), backups, disk. New checks implement `health.Check` and must stay cheap (no network).

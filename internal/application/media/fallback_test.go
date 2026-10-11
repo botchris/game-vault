@@ -324,3 +324,177 @@ func TestCovers_fallbackMisses(t *testing.T) {
 		})
 	})
 }
+
+func TestCovers_pcBoxForConsoleOnlyGames(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	ps4 := game.CopyDetails{
+		Kind:     game.KindPhysical,
+		Platform: "PS4",
+	}
+
+	t.Run("GIVEN a PS4-only game linked to Steam", func(t *testing.T) {
+		env := newFallbackEnv(t, ctx)
+		g := saveGame(t, ctx, env.games, "Console Quest", game.Links{"psn": "PPSA0001", game.LinkSteam: "100"}, ps4)
+
+		t.Run("WHEN its PC box is asked", func(t *testing.T) {
+			img, err := env.svc.EditionCover(ctx, g.ID(), game.SystemPC)
+
+			t.Run("THEN the PC store's art is served, and neither the box art database nor the fallback providers are asked", func(t *testing.T) {
+				assert.Equal(t, "https://img.test/store-100", cover(t, img, err))
+				assert.Zero(t, env.quota.calls.Load())
+				assert.Zero(t, env.perGame.calls.Load())
+			})
+		})
+	})
+
+	t.Run("GIVEN a PS4-only game linked to the PlayStation store only", func(t *testing.T) {
+		env := newFallbackEnv(t, ctx)
+		g := saveGame(t, ctx, env.games, "Console Quest", game.Links{"psn": "PPSA0002"}, ps4)
+
+		t.Run("WHEN its PC box is asked", func(t *testing.T) {
+			_, err := env.svc.EditionCover(ctx, g.ID(), game.SystemPC)
+
+			t.Run("THEN there is none, and nothing is asked", func(t *testing.T) {
+				require.ErrorIs(t, err, media.ErrNoCover)
+				assert.Zero(t, env.store.calls.Load())
+				assert.Zero(t, env.quota.calls.Load())
+			})
+		})
+	})
+}
+
+// missingStore applies to PC editions linked to Steam, like the Steam store, records the queries it
+// gets, and has no art.
+type missingStore struct {
+	calls   atomic.Int32
+	queries []media.CoverQuery
+}
+
+func (*missingStore) Descriptor() provider.Descriptor {
+	return provider.Descriptor{
+		ID:               "missing-store",
+		Kind:             provider.KindCover,
+		Name:             "Missing store",
+		EnabledByDefault: true,
+		DefaultOrder:     20,
+	}
+}
+
+func (*missingStore) Test(context.Context, schema.Settings) error { return nil }
+
+func (*missingStore) Applies(q media.CoverQuery) bool {
+	return q.ForPC() && q.Links[game.LinkSteam] != ""
+}
+
+func (s *missingStore) Covers(_ context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
+	s.calls.Add(1)
+	s.queries = append(s.queries, q)
+
+	return nil, nil
+}
+
+func TestCovers_pcBoxMisses(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	setup := func(t *testing.T) (*media.Service, game.Repository, *gamedata.Store, *missingStore, *perGameArt) {
+		t.Helper()
+
+		db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "gamevault.db"), "")
+		require.NoError(t, err)
+		t.Cleanup(func() { db.Close() })
+
+		assets, err := gamedata.Open(filepath.Join(t.TempDir(), "game-data"))
+		require.NoError(t, err)
+
+		games, store, perGame := sqlite.NewGameRepository(db), &missingStore{}, &perGameArt{}
+		svc := media.NewService(games, sqlite.NewProviderRepository(db), assets, nil, nil, echo{}, time.Now,
+			slog.New(slog.NewTextHandler(io.Discard, nil)), media.Providers{Covers: []media.CoverProvider{store, perGame}})
+
+		return svc, games, assets, store, perGame
+	}
+
+	t.Run("GIVEN a PS4-only game linked to Steam, whose store has no art", func(t *testing.T) {
+		svc, games, assets, store, perGame := setup(t)
+		g := saveGame(t, ctx, games, "Console Quest", game.Links{game.LinkSteam: "100"}, game.CopyDetails{
+			Kind:     game.KindPhysical,
+			Platform: "PS4",
+		})
+
+		t.Run("WHEN its PC box is asked twice", func(t *testing.T) {
+			_, err1 := svc.EditionCover(ctx, g.ID(), game.SystemPC)
+			_, err2 := svc.EditionCover(ctx, g.ID(), game.SystemPC)
+
+			t.Run("THEN the miss is marked under PC and the second answer comes from the marker", func(t *testing.T) {
+				require.ErrorIs(t, err1, media.ErrNoCover)
+				require.ErrorIs(t, err2, media.ErrNoCover)
+
+				_, marked := assets.CoverMissingSince(g.ID(), game.SystemPC)
+				assert.True(t, marked)
+				assert.Equal(t, int32(1), store.calls.Load())
+			})
+
+			t.Run("AND only store links were usable, with no fallback pass", func(t *testing.T) {
+				require.NotEmpty(t, store.queries)
+				assert.True(t, store.queries[0].LinksOnly)
+				assert.Zero(t, perGame.calls.Load())
+			})
+		})
+	})
+
+	t.Run("GIVEN a game with a real PC copy linked to Steam, whose store has no art", func(t *testing.T) {
+		svc, games, _, store, _ := setup(t)
+		g := saveGame(t, ctx, games, "PC Quest", game.Links{game.LinkSteam: "100"}, game.CopyDetails{
+			Kind:     game.KindLibrary,
+			Platform: "Steam",
+		})
+
+		t.Run("WHEN its PC cover is asked", func(t *testing.T) {
+			img, err := svc.EditionCover(ctx, g.ID(), game.SystemPC)
+
+			t.Run("THEN the fallback pass still runs, as for any real edition", func(t *testing.T) {
+				assert.Equal(t, "https://img.test/per-game", cover(t, img, err))
+				assert.False(t, store.queries[0].LinksOnly)
+			})
+		})
+	})
+
+	t.Run("GIVEN a PS4-only soundtrack linked to Steam, whose base game has a PC cover", func(t *testing.T) {
+		svc, games, _, store, _ := setup(t)
+		base := saveGame(t, ctx, games, "Base Quest", nil, game.CopyDetails{
+			Kind:     game.KindKey,
+			Platform: "Epic Games",
+		})
+		require.NoError(t, func() error {
+			g, err := games.Get(ctx, base.ID())
+			if err != nil {
+				return err
+			}
+
+			if err := g.SetEditionCover(game.SystemPC, game.EditionCover{URL: "https://img.test/base-pc"}, time.Now()); err != nil {
+				return err
+			}
+
+			return games.Save(ctx, g)
+		}())
+
+		_, err := svc.EditionCover(ctx, base.ID(), game.SystemPC)
+		require.NoError(t, err)
+
+		add := saveGame(t, ctx, games, "Base Quest Soundtrack", game.Links{game.LinkSteam: "100"}, game.CopyDetails{
+			Kind:     game.KindPhysical,
+			Platform: "PS4",
+		})
+
+		t.Run("WHEN its PC box is asked", func(t *testing.T) {
+			_, err := svc.EditionCover(ctx, add.ID(), game.SystemPC)
+
+			t.Run("THEN it does not borrow the base game's: a PC box is the store's art, or none", func(t *testing.T) {
+				require.ErrorIs(t, err, media.ErrNoCover)
+				assert.Equal(t, int32(1), store.calls.Load())
+			})
+		})
+	})
+}

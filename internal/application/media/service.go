@@ -132,6 +132,11 @@ type CoverQuery struct {
 	// Fallback is set on the second pass, after no store had art for a game it knows: providers
 	// that keep their quota for games without store art may then help too.
 	Fallback bool
+
+	// LinksOnly asks providers to find the game by its store links alone, never by searching its
+	// title: set for a virtual PC edition (game.Game.BorrowsPCBox), whose PC box must be the linked
+	// store's art and nothing a title search might confuse with it.
+	LinksOnly bool
 }
 
 // HasStoreLink reports whether the game is linked to a store, whose providers have its own art.
@@ -257,6 +262,15 @@ type StoreLinker interface {
 	LinkStore() game.Store
 }
 
+// LinkFinder is an optional port for providers that can name, without doubt, the store ids of the
+// game a query describes (IGDB's external games of a game it matched, Steam's only app with exactly
+// that title). Their answers become automatic links (see game.Game.AutoLinks).
+type LinkFinder interface {
+	// FindLinks returns the store links of the game q describes, from a match the provider trusts;
+	// none when it cannot tell. Errors are those of the provider's other calls (rate limits…).
+	FindLinks(ctx context.Context, q CoverQuery, settings schema.Settings) (game.Links, error)
+}
+
 // LinkSearcher is an optional port for providers that can also search their store's catalog by
 // title, so the user (and the add-on cover lookup) can link a game to it.
 type LinkSearcher interface {
@@ -297,6 +311,15 @@ type Service struct {
 
 	// status keeps the providers' current provider-level problems (see ProviderStatuses).
 	status statuses
+
+	// autoLinks remembers the automatic link searches a rate limit or a failure interrupted.
+	autoLinks autoLinkBackoff
+
+	// autoLinkQueue holds the games waiting for the automatic-links worker (RunAutoLinker).
+	autoLinkQueue *autoLinkQueue
+
+	// linker saves automatic links (the catalog); nil turns them off.
+	linker GameLinker
 }
 
 // Providers groups the provider implementations available to the service. Their DefaultOrder (then
@@ -316,20 +339,21 @@ type Providers struct {
 func NewService(games game.Repository, providers provider.Repository, store AssetStore, photos PhotoStore, details DetailsStore, fetch ImageFetcher,
 	now port.Clock, log *slog.Logger, impls Providers) *Service {
 	s := &Service{
-		games:        games,
-		providers:    providers,
-		store:        store,
-		photos:       photos,
-		details:      details,
-		fetch:        fetch,
-		now:          now,
-		log:          log,
-		impls:        map[provider.ID]Provider{},
-		covers:       map[provider.ID]CoverProvider{},
-		barcodes:     map[provider.ID]BarcodeProvider{},
-		metadata:     map[provider.ID]MetadataProvider{},
-		retryMissing: 7 * 24 * time.Hour,
-		slots:        make(chan struct{}, 6),
+		games:         games,
+		providers:     providers,
+		store:         store,
+		photos:        photos,
+		details:       details,
+		fetch:         fetch,
+		now:           now,
+		log:           log,
+		impls:         map[provider.ID]Provider{},
+		covers:        map[provider.ID]CoverProvider{},
+		barcodes:      map[provider.ID]BarcodeProvider{},
+		metadata:      map[provider.ID]MetadataProvider{},
+		retryMissing:  7 * 24 * time.Hour,
+		slots:         make(chan struct{}, 6),
+		autoLinkQueue: newAutoLinkQueue(),
 	}
 	for _, p := range impls.Covers {
 		id := p.Descriptor().ID
@@ -662,13 +686,19 @@ func (s *Service) resolve(ctx context.Context, id game.ID, system string) (Image
 	return img, err
 }
 
-// editionSystems returns the systems of g's editions, or the empty system of a game without copies.
+// editionSystems returns the systems of g's editions (and PC when it borrows a PC box, so that box's
+// "no cover found" marker is kept), or the empty system of a game without copies.
 func editionSystems(g *game.Game) []string {
-	if systems := g.Systems(); len(systems) > 0 {
-		return systems
+	systems := g.Systems()
+	if len(systems) == 0 {
+		return []string{""}
 	}
 
-	return []string{""}
+	if g.BorrowsPCBox() {
+		systems = append(systems, game.SystemPC)
+	}
+
+	return systems
 }
 
 // resolveEdition finds the cover of g's edition on system: the cover cached before editions (main
@@ -678,6 +708,14 @@ func (s *Service) resolveEdition(ctx context.Context, g *game.Game, system strin
 	edition, ok := g.Edition(system)
 	if system == "" && len(g.Copies()) == 0 {
 		edition, ok = g.MainEdition(), true // a game without copies: its cover is the one chosen for the game
+	}
+
+	// A console-only game linked to a PC store has a virtual PC edition: the store's PC box, which
+	// its console editions borrow as a last resort (labeled as a PC box). It has no copies, so no
+	// physical platform reaches the providers, and no chosen cover.
+	virtual := !ok && system == game.SystemPC && g.BorrowsPCBox()
+	if virtual {
+		edition, ok = game.Edition{System: game.SystemPC}, true
 	}
 
 	if !ok {
@@ -717,6 +755,7 @@ func (s *Service) resolveEdition(ctx context.Context, g *game.Game, system strin
 	}
 
 	q := QueryFor(g, system)
+	q.LinksOnly = virtual
 	look := newLookup()
 
 	// Providers that already said "no cover" while another one was limited are not asked again yet.
@@ -729,7 +768,12 @@ func (s *Service) resolveEdition(ctx context.Context, g *game.Game, system strin
 	// An add-on borrows its base game's cover before the fallback pass, so a DLC or soundtrack key
 	// does not spend title searches first. Not after a provider asked to slow down: it may have had
 	// the add-on's own art.
-	if errors.Is(err, ErrNoCover) && look.limited == nil && IsAddOn(g.Title()) {
+	// A virtual PC box is the store's art or nothing: it borrows no base game's.
+	if virtual {
+		look.triedAddOn = true
+	}
+
+	if errors.Is(err, ErrNoCover) && look.limited == nil && !look.triedAddOn && IsAddOn(g.Title()) {
 		if img, ok := s.addOnCover(ctx, g, system); ok {
 			return img, nil
 		}
@@ -737,7 +781,11 @@ func (s *Service) resolveEdition(ctx context.Context, g *game.Game, system strin
 		look.triedAddOn = true
 	}
 
-	if errors.Is(err, ErrNoCover) {
+	if errors.Is(err, ErrNoCover) && !virtual {
+		// A virtual PC edition asks the PC stores only: their art is the point, and the fallback
+		// pass would spend TheGamesDB's quota and title searches on a box the console editions only
+		// borrow.
+		//
 		// No provider had art for this edition in the first pass (a game only on Battle.net, a
 		// console edition of a Steam game, a key no store links…): ask the ones that kept out of it,
 		// which search by title or have one cover per game. Providers already asked are skipped, so
@@ -780,6 +828,9 @@ func (s *Service) resolveEdition(ctx context.Context, g *game.Game, system strin
 			s.log.Warn("marking missing cover", "error", err)
 		}
 	}
+
+	// A store link found now would give it the store's box: links found drop this marker.
+	s.enqueueAutoLink(g)
 
 	return Image{}, ErrNoCover
 }

@@ -31,7 +31,7 @@ var (
 	ErrNoToken = errors.New("example store: paste an API token (see the help below the field)")
 
 	// ErrSignedOut means the store rejected the token. User-facing errors say what to do.
-	ErrSignedOut = errors.New("example store did not accept the token: create a new one in your account settings and paste it")
+	ErrSignedOut = source.SignedOut("example store did not accept the token: create a new one in your account settings and paste it")
 )
 
 // Provider implements sync.Provider for Example Store accounts.

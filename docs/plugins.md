@@ -76,7 +76,9 @@ The Fanatical plugin is a real, small one: one source, `apiclient`, a fake-serve
 - **`Test(ctx, settings) error`** makes one cheap request to the real service. Nil means the
   settings work; the error says what is wrong and what to do.
 - **Errors the user sees** say what happened and how to fix it ("… paste a new token"), as
-  sentinel errors (`ErrSignedOut`) so callers can match them with `errors.Is`.
+  sentinel errors so callers can match them with `errors.Is`. A store that no longer accepts the
+  saved session or key returns `source.SignedOut("… sign in again …")`, which matches
+  `source.ErrSignedOut`: System → Health then shows it as an error that says to sign in again.
 - **Read only.** Never reveal, redeem, buy or change anything on the user's account.
 - **Settings**: secrets are `schema.FieldSecret`; credentials the plugin renews itself (refresh
   tokens, rotating cookies) are `schema.FieldState`, written back into the settings map so the

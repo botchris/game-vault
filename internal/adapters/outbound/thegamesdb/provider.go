@@ -126,7 +126,7 @@ func (p *Provider) ImageHosts() []string { return []string{"cdn.thegamesdb.net"}
 // Applies keeps the monthly allowance for physical copies, games no store knows, and store games no
 // store had art for (the fallback pass).
 func (p *Provider) Applies(q media.CoverQuery) bool {
-	return q.HasPhysical() || !q.HasStoreLink() || q.Fallback
+	return !q.LinksOnly && (q.HasPhysical() || !q.HasStoreLink() || q.Fallback) // it searches by title
 }
 
 // apiError builds an error for a non-200 answer, using TheGamesDB's own message when present

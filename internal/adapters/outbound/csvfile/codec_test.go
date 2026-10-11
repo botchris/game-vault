@@ -253,10 +253,46 @@ func TestSystem_column(t *testing.T) {
 			require.Len(t, copies, 2)
 
 			t.Run("THEN the export writes each copy's effective system, and the import keeps the user's choice only", func(t *testing.T) {
-				assert.Contains(t, b.String(), ",PS5\n")
-				assert.Contains(t, b.String(), ",PC\n")
+				assert.Contains(t, b.String(), ",PS5,\n") // system, then the empty autoLinks column
+				assert.Contains(t, b.String(), ",PC,\n")
 				assert.Equal(t, "PS5", copies[0].Details.System)
 				assert.Empty(t, copies[1].Details.System)
+			})
+		})
+	})
+}
+
+func TestAutoLinks_roundTrip(t *testing.T) {
+	t0 := time.Date(2026, 10, 11, 12, 0, 0, 0, time.UTC)
+
+	t.Run("GIVEN a game with a link of its own and one found automatically", func(t *testing.T) {
+		g, err := game.New("Console Quest", t0)
+		require.NoError(t, err)
+		_, err = g.AddCopy(game.CopyDetails{
+			Kind:     game.KindPhysical,
+			Platform: "PS4",
+		}, t0)
+		require.NoError(t, err)
+
+		info := g.Info()
+		info.Links = game.Links{"psn": "PPSA0001"}
+		_, err = g.UpdateInfo(info, t0)
+		require.NoError(t, err)
+		g.AddAutoLinks(game.Links{game.LinkSteam: "100"}, t0)
+
+		t.Run("WHEN it is exported and imported again", func(t *testing.T) {
+			var b strings.Builder
+			require.NoError(t, Codec{}.Encode(&b, []*game.Game{g}))
+
+			copies, warnings, err := Codec{}.Decode(strings.NewReader(b.String()))
+			require.NoError(t, err)
+			require.Len(t, copies, 1)
+
+			t.Run("THEN the automatic link travels in its own column and comes back automatic", func(t *testing.T) {
+				assert.Empty(t, warnings)
+				assert.Contains(t, b.String(), "autoLinks")
+				assert.Equal(t, game.Links{"psn": "PPSA0001"}, copies[0].Links)
+				assert.Equal(t, game.Links{game.LinkSteam: "100"}, copies[0].AutoLinks)
 			})
 		})
 	})

@@ -95,17 +95,19 @@ func gameToPB(g *game.Game) *pb.Game {
 	}
 
 	out := &pb.Game{
-		Id:         string(g.ID()),
-		Title:      g.Title(),
-		Links:      g.Links(),
-		Notes:      g.Notes(),
-		PlayStatus: playStatusToPB[g.PlayStatus()],
-		Rating:     int32(g.Rating()),
-		CreatedAt:  ts(g.CreatedAt()),
-		UpdatedAt:  ts(g.UpdatedAt()),
-		Fields:     fieldValuesToPB(g.Fields()),
-		Editions:   editionsToPB(g),
-		MainSystem: g.MainSystem(),
+		Id:             string(g.ID()),
+		Title:          g.Title(),
+		Links:          g.Links(),
+		Notes:          g.Notes(),
+		PlayStatus:     playStatusToPB[g.PlayStatus()],
+		Rating:         int32(g.Rating()),
+		CreatedAt:      ts(g.CreatedAt()),
+		UpdatedAt:      ts(g.UpdatedAt()),
+		Fields:         fieldValuesToPB(g.Fields()),
+		Editions:       editionsToPB(g),
+		MainSystem:     g.MainSystem(),
+		HasPcStoreLink: g.Links().HasPCStore(),
+		AutoLinks:      g.AutoLinks(),
 	}
 	for _, c := range g.Copies() {
 		details := detailsToPB(c.CopyDetails)

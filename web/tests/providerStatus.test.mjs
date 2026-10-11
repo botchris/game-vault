@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { describeStatus, renewsIn, statusFor } from '../src/lib/providerStatus.ts';
+import { describeStatus, renewsIn } from '../src/lib/providerStatus.ts';
 
 const t = (key, opts) => `${key}${opts ? ' ' + JSON.stringify(opts) : ''}`;
 const now = new Date('2026-10-11T12:00:00Z');
@@ -24,16 +24,10 @@ test('each kind of problem has its own translated reason', () => {
   assert.equal(describeStatus({ kind: 'new_kind', message: 'Its own words' }, undefined, now, t, 'en'), 'Its own words');
 });
 
-test('a provider is matched to its service status by any of the service ids', () => {
-  const statuses = [{ providerId: 'thegamesdb', providerIds: ['thegamesdb', 'thegamesdb-details'] }];
-  assert.equal(statusFor(statuses, 'thegamesdb-details'), statuses[0]);
-  assert.equal(statusFor(statuses, 'steam'), undefined);
-});
-
 test('every reason is translated in English and Spanish', () => {
   for (const lang of ['en', 'es']) {
     const s = JSON.parse(readFileSync(new URL(`../src/i18n/locales/${lang}.json`, import.meta.url))).providerStatus;
-    for (const key of ['title', 'intro', 'quota', 'rateLimited', 'unavailable', 'settings']) {
+    for (const key of ['quota', 'rateLimited', 'unavailable', 'settings']) {
       assert.ok(s[key], `${lang}: providerStatus.${key}`);
     }
   }

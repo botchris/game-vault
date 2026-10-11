@@ -61,3 +61,31 @@ func TestUpdateGame_playStatusAndRating(t *testing.T) {
 		})
 	})
 }
+
+func TestUpdateGame_linksOnlyWhenSet(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a game linked to Steam", func(t *testing.T) {
+		c := newServer(t, &fakeProvider{})
+		created, err := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{
+			Title: "Console Quest",
+			Links: map[string]string{"steam": "100"},
+		}))
+		require.NoError(t, err)
+
+		t.Run("WHEN a rating is saved without links_set, from a page that holds no links", func(t *testing.T) {
+			res, err := c.games.UpdateGame(ctx, connect.NewRequest(&pb.UpdateGameRequest{
+				Id:     created.Msg.Game.Id,
+				Title:  "Console Quest",
+				Rating: 4,
+			}))
+			require.NoError(t, err)
+
+			t.Run("THEN the links are untouched", func(t *testing.T) {
+				assert.Equal(t, int32(4), res.Msg.Game.Rating)
+				assert.Equal(t, map[string]string{"steam": "100"}, res.Msg.Game.Links)
+			})
+		})
+	})
+}

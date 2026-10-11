@@ -2,11 +2,13 @@ package media
 
 import (
 	"cmp"
+	"context"
 	"errors"
 	"slices"
 	"sync"
 	"time"
 
+	"gamevault/internal/application/health"
 	"gamevault/internal/domain/provider"
 )
 
@@ -172,6 +174,39 @@ func (s *Service) ProviderStatuses() []ProviderStatus {
 	slices.SortFunc(out, func(a, b ProviderStatus) int {
 		return cmp.Or(cmp.Compare(a.Name, b.Name), cmp.Compare(a.Provider, b.Provider))
 	})
+
+	return out
+}
+
+// Issues implements health.Check: the providers' current problems. Rejected settings are an error
+// (the provider stays useless until they are fixed); a used-up allowance, a rate limit or an outage a
+// warning (it ends on its own).
+func (s *Service) Issues(context.Context) []health.Issue {
+	statuses := s.ProviderStatuses()
+	out := make([]health.Issue, 0, len(statuses))
+
+	for _, st := range statuses {
+		level := health.LevelWarning
+		if st.Kind == StatusSettings {
+			level = health.LevelError
+		}
+
+		issue := health.Issue{
+			Key:     "provider:" + string(st.Provider),
+			Level:   level,
+			Kind:    health.KindProvider,
+			Source:  st.Name,
+			Reason:  "provider_" + string(st.Kind),
+			Message: st.Message,
+			Since:   st.Since,
+			Target:  health.TargetProviders,
+		}
+		if st.Kind == StatusQuota {
+			issue.Params = map[string]string{"until": st.Until.UTC().Format(time.RFC3339)}
+		}
+
+		out = append(out, issue)
+	}
 
 	return out
 }

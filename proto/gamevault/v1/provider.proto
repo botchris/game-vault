@@ -21,6 +21,8 @@ message Provider {
   int32 priority = 7;
   // Secrets are replaced by ListProvidersResponse.secret_placeholder.
   map<string, string> settings = 8;
+  // The provider's current provider-level problem; unset when it has none.
+  ProviderStatus status = 9;
 }
 
 message ListProvidersRequest {
@@ -67,7 +69,7 @@ message TestProviderResponse {
 
 // ProviderStatus is a provider's current problem: one that concerns the provider, not a game (its
 // allowance used up, too many requests, not answering, its settings rejected). Game sheets and the
-// cover picker do not show these; the System and Providers pages do.
+// cover picker do not show these; the Providers page and System → Health do.
 message ProviderStatus {
   // The service: its settings group, or the provider's id when it has none.
   string provider_id = 1;
@@ -83,17 +85,9 @@ message ProviderStatus {
   google.protobuf.Timestamp until = 7;
 }
 
-message GetProviderStatusRequest {}
-message GetProviderStatusResponse {
-  // Only providers with a current problem, by name.
-  repeated ProviderStatus statuses = 1;
-}
-
 // ProviderService configures the metadata provider chains.
 service ProviderService {
   rpc ListProviders(ListProvidersRequest) returns (ListProvidersResponse);
-  // GetProviderStatus lists the providers' current provider-level problems.
-  rpc GetProviderStatus(GetProviderStatusRequest) returns (GetProviderStatusResponse);
   rpc UpdateProvider(UpdateProviderRequest) returns (UpdateProviderResponse);
   rpc ReorderProviders(ReorderProvidersRequest) returns (ReorderProvidersResponse);
   rpc TestProvider(TestProviderRequest) returns (TestProviderResponse);

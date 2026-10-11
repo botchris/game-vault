@@ -17,6 +17,26 @@ type Links map[string]string
 // other than Steam's (Humble Bundle, Amazon) report AppIDs too.
 const LinkSteam = "steam"
 
+// pcStoreLinks are the link keys of the stores that sell PC games. A game linked to one has PC art
+// there even when the user owns it only on a console, which the console edition can borrow as a
+// last resort (see Game.BorrowsPCBox). cmd/gamevault checks that every PC store's cover provider
+// reads one of these keys.
+var pcStoreLinks = []string{LinkSteam, "gog", "epic", "ea", "battlenet", "ubisoft", "xbox", "amazon", "itch"}
+
+// IsPCStoreLink reports whether key is the link key of a store that sells PC games.
+func IsPCStoreLink(key string) bool { return slices.Contains(pcStoreLinks, key) }
+
+// HasPCStore reports whether the links name a game in a store that sells PC games.
+func (l Links) HasPCStore() bool {
+	for k, v := range l {
+		if v != "" && IsPCStoreLink(k) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // Store describes a store games can be linked to. The source that imports a store's library and the
 // providers that read its links declare the same Store.
 type Store struct {
@@ -75,28 +95,4 @@ func (l Links) clone() Links {
 	}
 
 	return maps.Clone(l)
-}
-
-// fill adds the links of o to l for stores l is not linked to yet, and returns the ones it added.
-// A link already set (by hand, or by an earlier import) is never replaced.
-func (l *Links) fill(o Links) Links {
-	var added Links
-
-	for _, k := range o.Keys() {
-		if _, ok := (*l)[k]; ok || o[k] == "" {
-			continue
-		}
-
-		if *l == nil {
-			*l = Links{}
-		}
-
-		if added == nil {
-			added = Links{}
-		}
-
-		(*l)[k], added[k] = o[k], o[k]
-	}
-
-	return added
 }

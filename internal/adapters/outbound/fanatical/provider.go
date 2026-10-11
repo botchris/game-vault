@@ -41,7 +41,7 @@ var (
 	ErrNoSession = errors.New("fanatical: paste the bsauth value from the site's Local Storage (see the help below the field)")
 
 	// ErrSignedOut means Fanatical rejected the session.
-	ErrSignedOut = errors.New("fanatical did not accept the session: sign in again on fanatical.com and paste the new bsauth value")
+	ErrSignedOut = source.SignedOut("fanatical did not accept the session: sign in again on fanatical.com and paste the new bsauth value")
 )
 
 // Provider implements sync.Provider for Fanatical accounts.
