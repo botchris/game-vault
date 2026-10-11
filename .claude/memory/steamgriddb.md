@@ -32,7 +32,10 @@ As of 2026-10-11:
   Bearer`, behind Cloudflare); `GET /grids/steam/620` with no header → 401
   `{"success":false,"errors":["Authentication Required"]}`. So paths and auth scheme are right.
 - Implementation: `internal/adapters/outbound/steamgriddb` (DefaultOrder 90, after IGDB; fallback pass
-  only, never `LinksOnly`; Steam AppID first, else exact-title search, one game; top 3 grids by score,
-  labelled community art; throttle 1 req/s, 3 s max wait, queue 3, 1 min back-off after 429/5xx).
+  only, never `LinksOnly`; Steam AppID first, else title search, one game named like the raw title,
+  or like it without store/key tags only (never edition words or years: review of PR #23); top 3
+  grids by score, labelled community art; throttle 1 req/s, 3 s max wait (turn and pace), queue 3,
+  8 s timeout, 1 min back-off after 429/5xx; a JSON 401/403 blocks that key for 1 h (Test bypasses);
+  HTML 401/403, odd shapes and 200 `success:false` are ErrUnavailable).
   **Awaits a test with a real key**: grid ordering, the 404 body for an unknown AppID, and whether
   `width`/`height` are present were only checked against fakes.

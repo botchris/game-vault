@@ -12,6 +12,8 @@ package steamgriddb
 import (
 	"cmp"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,6 +23,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"gamevault/internal/adapters/outbound/apiclient"
@@ -49,6 +52,14 @@ const (
 
 	// imageHost serves the grids and their thumbnails.
 	imageHost = "cdn2.steamgriddb.com"
+
+	// requestTimeout bounds one request: with the throttle's short queue, a cover never waits on
+	// SteamGridDB for more than a few seconds plus this.
+	requestTimeout = 8 * time.Second
+
+	// keyBackoff is how long a key SteamGridDB rejected is not sent again (unless the user tests it
+	// or enters another one), so a revoked key is not sent with every cover viewed.
+	keyBackoff = time.Hour
 )
 
 var (
@@ -73,6 +84,14 @@ type Covers struct {
 
 	// throttle keeps the requests one at a time and at least a second apart.
 	throttle *throttle
+
+	// now is the clock (time.Now when nil).
+	now func() time.Time
+
+	mu sync.Mutex
+
+	// rejected holds when SteamGridDB last rejected each key (by its hash).
+	rejected map[string]time.Time
 }
 
 var (
@@ -83,11 +102,12 @@ var (
 // NewCovers returns the provider with SteamGridDB's production endpoint.
 func NewCovers() *Covers {
 	api := apiclient.New(defaultBaseURL)
-	api.HTTP.Timeout = 20 * time.Second
+	api.HTTP.Timeout = requestTimeout
 
 	return &Covers{
 		API:      api,
 		throttle: newThrottle(minGap, time.Now, sleep),
+		now:      time.Now,
 	}
 }
 
@@ -139,7 +159,8 @@ func (p *Covers) Test(ctx context.Context, s schema.Settings) error {
 
 	var out []gameJSON
 
-	err = p.get(ctx, key, "/search/autocomplete/"+url.PathEscape("example"), nil, &out)
+	// A key rejected earlier is sent anyway: the user asks for a fresh answer.
+	err = p.send(ctx, key, "/search/autocomplete/"+url.PathEscape("example"), nil, &out, true)
 	if errors.Is(err, errNotFound) {
 		return nil // the key was accepted; the search just found nothing
 	}
@@ -254,9 +275,13 @@ func (p *Covers) grids(ctx context.Context, key, path string) ([]gridJSON, error
 	return out, nil
 }
 
-// findByTitle searches the game's title, without its edition and store tags (game.SearchTitle),
-// then as it is when that finds no match, and keeps the one game whose name is that title, ignoring
-// case and trademark signs. Two games with that name give nothing: a wrong box is worse than none.
+// findByTitle searches the game's title without its edition and store tags (game.SearchTitle),
+// which finds the game whatever the copy calls it, then the title as it is when that finds no match.
+// Among the results it keeps the one game named exactly like the copy (ignoring case and trademark
+// signs), or else like the copy without its store and key tags ("Example (Steam Key)"). Edition
+// words and years are never dropped for the match: "Example Remastered" or "Doom (2016)" is another
+// game than "Example" or "Doom", with another box. Two games with the name give nothing: a wrong box
+// is worse than none.
 func (p *Covers) findByTitle(ctx context.Context, key, title string) (*gameJSON, error) {
 	terms := []string{game.SearchTitle(title)}
 	if raw := game.NormalizeTitle(title); !strings.EqualFold(raw, terms[0]) {
@@ -279,7 +304,7 @@ func (p *Covers) findByTitle(ctx context.Context, key, title string) (*gameJSON,
 			return nil, err
 		}
 
-		if g := pick(out, term); g != nil {
+		if g := pick(out, title); g != nil {
 			return g, nil
 		}
 	}
@@ -287,29 +312,64 @@ func (p *Covers) findByTitle(ctx context.Context, key, title string) (*gameJSON,
 	return nil, nil
 }
 
-// pick returns the one game named term among the results, or nil when there is none or more than
-// one.
-func pick(games []gameJSON, term string) *gameJSON {
-	var match *gameJSON
+// pick returns the one game named title among the results, else the one named title without its
+// store tags; nil when there is none or more than one.
+func pick(games []gameJSON, title string) *gameJSON {
+	names := []string{game.NormalizeTitle(title)}
+	if bare := withoutStoreTags(title); !strings.EqualFold(bare, names[0]) {
+		names = append(names, bare)
+	}
 
-	for i, g := range games {
-		if !sameTitle(g.Name, term) || (match != nil && match.ID == g.ID) {
-			continue
+	for _, name := range names {
+		var match *gameJSON
+
+		for i, g := range games {
+			if !sameTitle(g.Name, name) || (match != nil && match.ID == g.ID) {
+				continue
+			}
+
+			if match != nil {
+				return nil // ambiguous
+			}
+
+			match = &games[i]
 		}
 
 		if match != nil {
-			return nil // ambiguous
+			return match
 		}
-
-		match = &games[i]
 	}
 
-	return match
+	return nil
 }
 
 // sameTitle compares titles ignoring case, trademark signs and repeated spaces.
 func sameTitle(a, b string) bool {
 	return strings.EqualFold(game.NormalizeTitle(a), game.NormalizeTitle(b))
+}
+
+// storeWords are what a seller adds to a key's title to say where it redeems or runs: stores,
+// systems and key words, never edition words or years.
+const storeWords = `steam|gog(\.com)?|epic(\s*games)?(\s*store)?|ubisoft(\s*connect)?|uplay|ea(\s*app)?|origin|` +
+	`battle\.?\s*net|rockstar(\s*games)?|microsoft(\s*store)?|xbox(\s*(one|360|series\s*[xs]))?|windows|mac|linux|pc|` +
+	`playstation(\s*[1-5])?|psn|ps\s*[1-5]|ps\s*vita|psp|nintendo(\s*(switch|eshop))?|switch|wii(\s*u)?|gamecube|n?3?ds|` +
+	`itch(\.io)?|amazon(\s*games)?|digital|download|cd|key|code|global|region\s*free`
+
+var (
+	// reStoreBrackets matches a bracket holding only store words: "(Steam Key)", "[PS2]", "(PC/Mac)".
+	reStoreBrackets = regexp.MustCompile(`(?i)\s*[(\[]\s*(?:(?:` + storeWords + `)\b[\s/,&+-]*)+[)\]]`)
+
+	// reStoreKeySuffix matches a trailing "Key", "Steam Key" or "- GOG CD Key".
+	reStoreKeySuffix = regexp.MustCompile(`(?i)[\s:–—-]*\b(?:(?:` + storeWords + `)\s*)*key\s*$`)
+)
+
+// withoutStoreTags returns the title without the store and key tags a seller adds, its edition
+// words and years kept ("Example Quest (Steam Key)" → "Example Quest", "Doom (2016)" unchanged).
+func withoutStoreTags(title string) string {
+	s := reStoreBrackets.ReplaceAllString(game.NormalizeTitle(title), " ")
+	s = reStoreKeySuffix.ReplaceAllString(s, "")
+
+	return strings.Join(strings.Fields(s), " ")
 }
 
 // candidates turns grids into cover candidates: portrait ones only, highest score first, at most
@@ -348,8 +408,20 @@ func candidates(grids []gridJSON, title string) []media.CoverCandidate {
 
 // get sends one GET request with the key, through the throttle, and decodes the answer's data into
 // out. It maps SteamGridDB's failures to the errors the media service understands (see mapError).
+// A key SteamGridDB rejected is not sent again for keyBackoff: ErrBadKey is returned at once.
 func (p *Covers) get(ctx context.Context, key, path string, query url.Values, out any) error {
-	return p.throttle.do(ctx, func() error {
+	return p.send(ctx, key, path, query, out, false)
+}
+
+// send is get; fresh sends a key rejected earlier anyway (Test), and clears the rejection when it
+// is accepted.
+func (p *Covers) send(ctx context.Context, key, path string, query url.Values, out any, fresh bool) error {
+	id := keyID(key)
+	if !fresh && p.rejectedRecently(id) {
+		return ErrBadKey
+	}
+
+	err := p.throttle.do(ctx, func() error {
 		var env envelope
 
 		err := p.API.Do(ctx, apiclient.Request{
@@ -367,16 +439,60 @@ func (p *Covers) get(ctx context.Context, key, path string, query url.Values, ou
 		}
 
 		if err := json.Unmarshal(env.Data, out); err != nil {
-			return fmt.Errorf("SteamGridDB: unexpected answer (the service may have changed): %w; if it persists, report this message", err)
+			return fmt.Errorf("SteamGridDB answered in an unexpected shape (%w): try again later; if it persists, report this message: %w",
+				err, provider.ErrUnavailable)
 		}
 
 		return nil
 	})
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	switch {
+	case errors.Is(err, ErrBadKey):
+		if p.rejected == nil {
+			p.rejected = map[string]time.Time{}
+		}
+
+		p.rejected[id] = p.clock()
+	case err == nil || errors.Is(err, errNotFound):
+		delete(p.rejected, id) // accepted
+	}
+
+	return err
 }
 
-// mapError turns the result of one request into the error the provider returns: a rejected key is
-// a settings problem, a 429 a rate limit, an outage (5xx, no answer, a web page instead of data)
-// provider.ErrUnavailable, and a 404 errNotFound.
+// rejectedRecently reports whether SteamGridDB rejected the key less than keyBackoff ago.
+func (p *Covers) rejectedRecently(id string) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	at, ok := p.rejected[id]
+
+	return ok && p.clock().Sub(at) < keyBackoff
+}
+
+func (p *Covers) clock() time.Time {
+	if p.now == nil {
+		return time.Now()
+	}
+
+	return p.now()
+}
+
+// keyID identifies a key without keeping it in clear.
+func keyID(key string) string {
+	sum := sha256.Sum256([]byte(key))
+
+	return hex.EncodeToString(sum[:])
+}
+
+// mapError turns the result of one request into the error the provider returns: a rejected key
+// (a JSON 401 or 403) is a settings problem, a 429 a rate limit, a JSON 404 errNotFound, and anything
+// else provider.ErrUnavailable: an outage (5xx, no answer), a web page instead of data (Cloudflare's
+// checks answer 401/403 pages too), or an answer of an unexpected shape, which says nothing about the
+// game either. Those keep a "report this message" text so a changed API can be reported.
 func mapError(ctx context.Context, err error, env envelope) error {
 	var se *apiclient.StatusError
 
@@ -385,13 +501,12 @@ func mapError(ctx context.Context, err error, env envelope) error {
 		return nil
 	case err == nil:
 		// A 200 with "success": false: keep SteamGridDB's own words so the user can report them.
-		return fmt.Errorf("SteamGridDB refused the request (%s): try again later; if it persists, report this message",
-			strings.Join(env.Errors, ", "))
+		return fmt.Errorf("SteamGridDB refused the request (%s): try again later; if it persists, report this message: %w",
+			strings.Join(env.Errors, ", "), provider.ErrUnavailable)
 	case ctx.Err() != nil:
 		return ctx.Err()
 	case errors.Is(err, apiclient.ErrNotJSON):
-		// Cloudflare's checks and maintenance pages are HTML: an outage, not an answer about the game.
-		return fmt.Errorf("SteamGridDB answered with a web page instead of data: try again later: %w", provider.ErrUnavailable)
+		return errWebPage
 	case !errors.As(err, &se):
 		var ue *url.Error
 		if errors.As(err, &ue) {
@@ -399,16 +514,30 @@ func mapError(ctx context.Context, err error, env envelope) error {
 		}
 
 		// The answer could not be decoded: the API may have changed.
-		return fmt.Errorf("SteamGridDB: %w; if it persists, report this message", err)
-	case se.Status == http.StatusUnauthorized, se.Status == http.StatusForbidden:
-		return ErrBadKey
-	case se.Status == http.StatusNotFound:
-		return errNotFound
+		return fmt.Errorf("SteamGridDB: %w: try again later; if it persists, report this message: %w", err, provider.ErrUnavailable)
 	case se.Status == http.StatusTooManyRequests:
 		return errTooManyRequests
 	case se.Status >= 500:
 		return fmt.Errorf("SteamGridDB is not answering (HTTP %d): try again later: %w", se.Status, provider.ErrUnavailable)
+	case !isAPIError(se.Body):
+		return errWebPage
+	case se.Status == http.StatusUnauthorized, se.Status == http.StatusForbidden:
+		return ErrBadKey
+	case se.Status == http.StatusNotFound:
+		return errNotFound
 	}
 
-	return fmt.Errorf("SteamGridDB: HTTP %d: %s: try again later; if it persists, report this message", se.Status, se.Body)
+	return fmt.Errorf("SteamGridDB: HTTP %d: %s: try again later; if it persists, report this message: %w",
+		se.Status, se.Body, provider.ErrUnavailable)
+}
+
+// errWebPage is an HTML page instead of the API's JSON (Cloudflare's checks, a maintenance notice):
+// an outage, not an answer about the key or the game.
+var errWebPage = fmt.Errorf("SteamGridDB answered with a web page instead of data: try again later: %w", provider.ErrUnavailable)
+
+// isAPIError reports whether an error answer's body is the API's own JSON ({"success": false, …}).
+func isAPIError(body string) bool {
+	var env envelope
+
+	return json.Unmarshal([]byte(body), &env) == nil && !env.Success
 }

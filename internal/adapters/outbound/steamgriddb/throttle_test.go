@@ -79,6 +79,37 @@ func TestThrottle(t *testing.T) {
 		})
 	})
 
+	t.Run("GIVEN a request under way that takes longer than a lookup may wait", func(t *testing.T) {
+		th := newThrottle(time.Millisecond, time.Now, sleep)
+		th.maxTurn = 20 * time.Millisecond
+
+		release := make(chan struct{})
+		started := make(chan struct{})
+
+		go th.do(ctx, func() error {
+			close(started)
+			<-release
+
+			return nil
+		})
+
+		<-started
+
+		t.Run("WHEN another lookup asks for its turn", func(t *testing.T) {
+			sent := false
+			begin := time.Now()
+			err := th.do(ctx, func() error { sent = true; return nil })
+
+			close(release)
+
+			t.Run("THEN it gives up quickly as rate-limited instead of hanging behind it", func(t *testing.T) {
+				require.ErrorIs(t, err, provider.ErrRateLimited)
+				assert.False(t, sent)
+				assert.Less(t, time.Since(begin), time.Second)
+			})
+		})
+	})
+
 	t.Run("GIVEN the provider with a throttle, and lookups asked all at once", func(t *testing.T) {
 		var inFlight, most, total atomic.Int32
 

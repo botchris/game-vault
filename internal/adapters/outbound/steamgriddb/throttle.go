@@ -40,6 +40,10 @@ type throttle struct {
 	now   func() time.Time
 	sleep func(ctx context.Context, d time.Duration) error
 
+	// maxTurn is the longest a caller waits for the request under way to end: with the client's
+	// timeout it bounds a lookup's wait even when SteamGridDB is slow.
+	maxTurn time.Duration
+
 	// turn holds a token while a request is under way: whoever puts one in may send.
 	turn chan struct{}
 
@@ -55,10 +59,11 @@ type throttle struct {
 // newThrottle returns a throttle on the given clock (time.Now and sleep in production).
 func newThrottle(gap time.Duration, now func() time.Time, sleep func(context.Context, time.Duration) error) *throttle {
 	return &throttle{
-		gap:   gap,
-		now:   now,
-		sleep: sleep,
-		turn:  make(chan struct{}, 1),
+		gap:     gap,
+		now:     now,
+		sleep:   sleep,
+		maxTurn: maxWait,
+		turn:    make(chan struct{}, 1),
 	}
 }
 
@@ -76,8 +81,13 @@ func (t *throttle) do(ctx context.Context, request func() error) error {
 	}
 	defer t.dequeue()
 
+	turnTimer := time.NewTimer(t.maxTurn)
+	defer turnTimer.Stop()
+
 	select {
 	case t.turn <- struct{}{}:
+	case <-turnTimer.C:
+		return errQueueFull // the request under way is slow
 	case <-ctx.Done():
 		return ctx.Err()
 	}

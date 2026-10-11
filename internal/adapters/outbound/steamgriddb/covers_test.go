@@ -199,7 +199,7 @@ func TestCovers(t *testing.T) {
 		Fallback: true,
 	}
 	discGame := media.CoverQuery{
-		Title:    "Example Quest GOTY",
+		Title:    "Example Quest [PS2]",
 		System:   "PS2",
 		Fallback: true,
 	}
@@ -282,7 +282,7 @@ func TestCovers(t *testing.T) {
 			got, err := f.covers().Covers(ctx, discGame, goodSettings)
 			require.NoError(t, err)
 
-			t.Run("THEN the title without its edition tag finds the game, not its sequel", func(t *testing.T) {
+			t.Run("THEN the title without its platform tag finds the game, not its sequel", func(t *testing.T) {
 				require.Len(t, got, 3)
 				assert.Equal(t, "Example Quest", got[0].Title)
 
@@ -290,6 +290,101 @@ func TestCovers(t *testing.T) {
 				require.Len(t, sent, 2)
 				assert.Equal(t, "/search/autocomplete/Example%20Quest?", sent[0])
 				assert.True(t, strings.HasPrefix(sent[1], "/grids/game/5001?"), sent[1])
+			})
+		})
+	})
+
+	t.Run("GIVEN titles whose edition words or year name another game than the original", func(t *testing.T) {
+		f := newFake(t)
+		// The edition words and the year are dropped from the first search, so it lists the
+		// original; the raw title's search lists it too, and nothing else.
+		f.answer("/search/autocomplete/Example", http.StatusOK, exampleSearch)
+		f.answer("/search/autocomplete/Example Remastered", http.StatusOK, exampleSearch)
+		f.answer("/search/autocomplete/Doom", http.StatusOK, `{"success":true,"data":[{"id":8001,"name":"Doom","types":["steam"],"verified":true}]}`)
+		f.answer("/search/autocomplete/Doom (2016)", http.StatusOK, `{"success":true,"data":[{"id":8001,"name":"Doom","types":["steam"],"verified":true}]}`)
+		f.answer("/grids/game/5001", http.StatusOK, exampleGrids)
+		f.answer("/grids/game/8001", http.StatusOK, exampleGrids)
+
+		for _, title := range []string{"Example Remastered", "Doom (2016)"} {
+			t.Run("WHEN the covers of "+title+" are asked", func(t *testing.T) {
+				got, err := f.covers().Covers(ctx, media.CoverQuery{
+					Title:    title,
+					Fallback: true,
+				}, goodSettings)
+
+				t.Run("THEN the original's art is not proposed: it is another game's box", func(t *testing.T) {
+					require.NoError(t, err)
+					assert.Empty(t, got)
+				})
+			})
+		}
+	})
+
+	t.Run("GIVEN a remaster only the raw title's search finds", func(t *testing.T) {
+		f := newFake(t)
+		f.answer("/search/autocomplete/Example", http.StatusOK, exampleSearch)
+		f.answer("/search/autocomplete/Example Remastered", http.StatusOK, `{"success":true,"data":[
+  {"id":7001,"name":"Example Remastered","types":["steam"],"verified":true},
+  {"id":5001,"name":"Example Quest","types":["steam"],"verified":true}
+]}`)
+		f.answer("/grids/game/7001", http.StatusOK, exampleGrids)
+
+		t.Run("WHEN its covers are asked", func(t *testing.T) {
+			got, err := f.covers().Covers(ctx, media.CoverQuery{
+				Title:    "Example Remastered",
+				Fallback: true,
+			}, goodSettings)
+			require.NoError(t, err)
+
+			t.Run("THEN the second search, with the raw title, finds the remaster", func(t *testing.T) {
+				require.NotEmpty(t, got)
+				assert.Equal(t, "Example Remastered", got[0].Title)
+
+				sent := f.sent()
+				require.Len(t, sent, 3)
+				assert.Equal(t, "/search/autocomplete/Example?", sent[0])
+				assert.Equal(t, "/search/autocomplete/Example%20Remastered?", sent[1])
+				assert.True(t, strings.HasPrefix(sent[2], "/grids/game/7001?"), sent[2])
+			})
+		})
+	})
+
+	t.Run("GIVEN a key whose title carries its store tag", func(t *testing.T) {
+		f := newFake(t)
+		f.answer("/search/autocomplete/Example Quest", http.StatusOK, exampleSearch)
+		f.answer("/grids/game/5001", http.StatusOK, exampleGrids)
+
+		t.Run("WHEN its covers are asked", func(t *testing.T) {
+			got, err := f.covers().Covers(ctx, media.CoverQuery{
+				Title:    "Example Quest (Steam Key)",
+				Fallback: true,
+			}, goodSettings)
+			require.NoError(t, err)
+
+			t.Run("THEN the game is found: a store tag is not part of its name", func(t *testing.T) {
+				require.NotEmpty(t, got)
+				assert.Equal(t, "Example Quest", got[0].Title)
+			})
+		})
+	})
+
+	t.Run("GIVEN a search that lists the same game twice", func(t *testing.T) {
+		f := newFake(t)
+		f.answer("/search/autocomplete/Example Quest", http.StatusOK, `{"success":true,"data":[
+  {"id":5001,"name":"Example Quest","types":["steam"],"verified":true},
+  {"id":5001,"name":"Example Quest","types":["gog"],"verified":true}
+]}`)
+		f.answer("/grids/game/5001", http.StatusOK, exampleGrids)
+
+		t.Run("WHEN its covers are asked", func(t *testing.T) {
+			got, err := f.covers().Covers(ctx, media.CoverQuery{
+				Title:    "Example Quest",
+				Fallback: true,
+			}, goodSettings)
+
+			t.Run("THEN it is one game, not an ambiguous search", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.NotEmpty(t, got)
 			})
 		})
 	})
@@ -379,6 +474,36 @@ func TestCovers_failures(t *testing.T) {
 			})
 		})
 
+		t.Run("WHEN covers are asked again with the same provider", func(t *testing.T) {
+			p := f.covers()
+			_, err := p.Covers(ctx, q, bad)
+			require.ErrorIs(t, err, ErrBadKey)
+
+			before := len(f.sent())
+			_, err = p.Covers(ctx, q, bad)
+
+			t.Run("THEN the rejected key is not sent again", func(t *testing.T) {
+				require.ErrorIs(t, err, ErrBadKey)
+				assert.Len(t, f.sent(), before)
+			})
+
+			t.Run("AND another key is tried at once", func(t *testing.T) {
+				f.answer("/grids/steam/620", http.StatusOK, noGrids)
+
+				_, err := p.Covers(ctx, q, goodSettings)
+				require.NoError(t, err)
+				assert.Len(t, f.sent(), before+1)
+			})
+
+			t.Run("AND the rejected key is tried again after a long back-off", func(t *testing.T) {
+				p.now = func() time.Time { return time.Now().Add(keyBackoff + time.Minute) }
+
+				_, err := p.Covers(ctx, q, bad)
+				require.ErrorIs(t, err, ErrBadKey)
+				assert.Len(t, f.sent(), before+2)
+			})
+		})
+
 		t.Run("WHEN the connection is tested", func(t *testing.T) {
 			err := f.covers().Test(ctx, bad)
 
@@ -387,6 +512,49 @@ func TestCovers_failures(t *testing.T) {
 				assert.Equal(t, "SteamGridDB rejected the API key: check it in the provider settings", err.Error())
 			})
 		})
+	})
+
+	t.Run("GIVEN a key SteamGridDB rejected earlier", func(t *testing.T) {
+		f := newFake(t)
+		p := f.covers()
+		bad := schema.Settings{
+			settingConsent: schema.ConsentGiven,
+			settingAPIKey:  "bogus",
+		}
+		_, err := p.Covers(ctx, q, bad)
+		require.ErrorIs(t, err, ErrBadKey)
+
+		t.Run("WHEN the connection is tested", func(t *testing.T) {
+			before := len(f.sent())
+			err := p.Test(ctx, bad)
+
+			t.Run("THEN Test still asks SteamGridDB: the user wants a fresh answer", func(t *testing.T) {
+				require.ErrorIs(t, err, ErrBadKey)
+				assert.Len(t, f.sent(), before+1)
+			})
+		})
+	})
+
+	t.Run("GIVEN a search path that answers 404", func(t *testing.T) {
+		for name, body := range map[string]string{
+			"with the API's JSON": gameNotFound,
+			"with a web page":     `<html><body>Not Found</body></html>`,
+		} {
+			t.Run("WHEN the connection is tested and the answer is "+name, func(t *testing.T) {
+				f := newFake(t)
+				f.answer("/search/autocomplete/example", http.StatusNotFound, body)
+				err := f.covers().Test(ctx, goodSettings)
+
+				t.Run("THEN only the API's own not-found answer counts as working", func(t *testing.T) {
+					if body == gameNotFound {
+						assert.NoError(t, err)
+						return
+					}
+
+					assert.ErrorIs(t, err, provider.ErrUnavailable)
+				})
+			})
+		}
 	})
 
 	t.Run("GIVEN a good API key", func(t *testing.T) {
@@ -407,11 +575,13 @@ func TestCovers_failures(t *testing.T) {
 		status int
 		body   string
 	}{
-		"rate-limits it (HTTP 429)":          {http.StatusTooManyRequests, `{"success":false,"errors":["Too many requests"]}`},
-		"is down (HTTP 502)":                 {http.StatusBadGateway, `<html><body>Bad gateway</body></html>`},
-		"is down (HTTP 503)":                 {http.StatusServiceUnavailable, `{"success":false,"errors":["Maintenance"]}`},
-		"answers a bot check (HTTP 200)":     {http.StatusOK, `<!DOCTYPE html><html><title>Just a moment...</title></html>`},
-		"answers a forbidden key (HTTP 403)": {http.StatusForbidden, `{"success":false,"errors":["Forbidden"]}`},
+		"rate-limits it (HTTP 429)":            {http.StatusTooManyRequests, `{"success":false,"errors":["Too many requests"]}`},
+		"is down (HTTP 502)":                   {http.StatusBadGateway, `<html><body>Bad gateway</body></html>`},
+		"is down (HTTP 503)":                   {http.StatusServiceUnavailable, `{"success":false,"errors":["Maintenance"]}`},
+		"answers a bot check (HTTP 200)":       {http.StatusOK, `<!DOCTYPE html><html><title>Just a moment...</title></html>`},
+		"answers a forbidden key (HTTP 403)":   {http.StatusForbidden, `{"success":false,"errors":["Forbidden"]}`},
+		"answers a Cloudflare page (HTTP 403)": {http.StatusForbidden, `<!DOCTYPE html><html><title>Attention Required! | Cloudflare</title></html>`},
+		"answers a Cloudflare page (HTTP 401)": {http.StatusUnauthorized, `<html><body>Unauthorized</body></html>`},
 	} {
 		t.Run("GIVEN SteamGridDB "+name, func(t *testing.T) {
 			f := newFake(t)
@@ -422,12 +592,16 @@ func TestCovers_failures(t *testing.T) {
 				require.Error(t, err)
 
 				t.Run("THEN it is a provider-level problem, so the edition is not marked missing", func(t *testing.T) {
-					if tc.status == http.StatusForbidden {
+					switch {
+					case !strings.HasPrefix(tc.body, "<") && tc.status == http.StatusForbidden:
 						assert.ErrorIs(t, err, provider.ErrBadSettings)
-						return
+					case tc.status == http.StatusTooManyRequests:
+						assert.ErrorIs(t, err, provider.ErrRateLimited)
+						assert.NotErrorIs(t, err, provider.ErrUnavailable)
+					default: // 5xx and web pages: the service, not the key or the game
+						assert.ErrorIs(t, err, provider.ErrUnavailable)
+						assert.NotErrorIs(t, err, provider.ErrBadSettings)
 					}
-
-					assert.ErrorIs(t, err, provider.ErrRateLimited)
 				})
 			})
 		})
@@ -460,14 +634,41 @@ func TestCovers_failures(t *testing.T) {
 			t.Run("WHEN covers are asked", func(t *testing.T) {
 				got, err := f.covers().Covers(ctx, q, goodSettings)
 
-				t.Run("THEN it fails for this game with a message to report, not as a settings or rate problem", func(t *testing.T) {
+				t.Run("THEN the service is unavailable (nothing is said about the game), with a message to report", func(t *testing.T) {
 					require.Error(t, err)
 					assert.Empty(t, got)
-					assert.NotErrorIs(t, err, provider.ErrRateLimited)
+					assert.ErrorIs(t, err, provider.ErrUnavailable)
 					assert.NotErrorIs(t, err, provider.ErrBadSettings)
 					assert.Contains(t, err.Error(), "report this message")
 				})
 			})
 		})
 	}
+}
+
+func TestWithoutStoreTags(t *testing.T) {
+	for title, want := range map[string]string{
+		"Example Quest (Steam Key)":      "Example Quest",
+		"Example Quest - GOG Key":        "Example Quest",
+		"Example Quest [PS2]":            "Example Quest",
+		"Example Quest (PC/Mac)":         "Example Quest",
+		"Example Quest™ Steam CD Key":    "Example Quest",
+		"Example Remastered":             "Example Remastered",
+		"Doom (2016)":                    "Doom (2016)",
+		"Example: Definitive Edition":    "Example: Definitive Edition",
+		"Example Quest (Director's Cut)": "Example Quest (Director's Cut)",
+		"Example Quest (Gold) Steam Key": "Example Quest (Gold)",
+	} {
+		assert.Equal(t, want, withoutStoreTags(title), title)
+	}
+}
+
+func TestNewCovers_boundedWait(t *testing.T) {
+	t.Run("GIVEN the production provider", func(t *testing.T) {
+		p := NewCovers()
+
+		t.Run("THEN one request cannot keep a cover waiting for long", func(t *testing.T) {
+			assert.LessOrEqual(t, p.API.HTTP.Timeout, 8*time.Second)
+		})
+	})
 }
