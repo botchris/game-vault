@@ -169,6 +169,35 @@ const storeNames = `steam|gog(\.com)?|epic(\s*games)?(\s*store)?|ubisoft(\s*conn
 	`battle\.?\s*net|rockstar(\s*games)?|microsoft(\s*store)?|xbox(\s*(one|series\s*[xs](\s*\|\s*[xs])?|live))?|` +
 	`windows|playstation(\s*[345])?|psn|ps[345]|nintendo(\s*(switch|eshop))?|switch|itch(\.io)?|amazon(\s*games)?`
 
+// Case-insensitive versions of MatchKey's tags, for SearchTitle, which keeps the title's casing.
+var (
+	reStoreKeyAnyCase = regexp.MustCompile(`(?i)` + reStoreKey.String())
+	reSuffixesAnyCase = regexp.MustCompile(`(?i)` + reSuffixes.String())
+
+	// reDangling matches separators left at either end once tags are gone ("Mafia: ", "Game - ").
+	reDangling = regexp.MustCompile(`^[\s:;,\-–—|/]+|[\s:;,\-–—|/]+$`)
+)
+
+// SearchTitle returns the title to search a game database for: the title without the edition and
+// store tags MatchKey ignores ("Red Dead Redemption GOTY" → "Red Dead Redemption", "Example Game (PC
+// Key)" → "Example Game"), its other words, numbers and casing kept. Databases name the game, not
+// the edition a copy is, so a search for the raw title often finds nothing. A title made only of tags
+// is returned as it is.
+func SearchTitle(title string) string {
+	s := reTrademarks.ReplaceAllString(title, "")
+	s = reBrackets.ReplaceAllString(s, " ")
+	s = reStoreKeyAnyCase.ReplaceAllString(s, " ")
+	s = reSuffixesAnyCase.ReplaceAllString(s, " ")
+	s = strings.Join(strings.Fields(s), " ")
+	s = reDangling.ReplaceAllString(s, "")
+
+	if s == "" {
+		return strings.Join(strings.Fields(title), " ")
+	}
+
+	return s
+}
+
 // MatchKey reduces a title to a comparable form, e.g. "Celeste™ (Steam Key)" → "celeste" and
 // "Hades GOG Key" → "hades": the store a key is for is not part of the game's name.
 // Two titles with the same match key are treated as the same game when consolidating.

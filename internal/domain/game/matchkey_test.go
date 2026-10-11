@@ -45,3 +45,22 @@ func TestMatchKey_concurrent(t *testing.T) {
 		})
 	})
 }
+
+func TestSearchTitle(t *testing.T) {
+	for title, want := range map[string]string{
+		"Red Dead Redemption GOTY":                            "Red Dead Redemption",
+		"Red Dead Redemption 2":                               "Red Dead Redemption 2",
+		"Mafia: Definitive Edition":                           "Mafia",
+		"Example Game (PC Key)":                               "Example Game",
+		"Celeste™ (Steam Key)":                                "Celeste",
+		"Hades GOG Key":                                       "Hades",
+		"Slay the Spire - Deluxe Edition":                     "Slay the Spire",
+		"The Witcher 3: Wild Hunt – Game of the Year Edition": "The Witcher 3: Wild Hunt",
+		"Pokémon™ Épée":                                       "Pokémon Épée",
+		"Ratchet & Clank [PS4]":                               "Ratchet & Clank",
+		"Deluxe Edition":                                      "Deluxe Edition", // nothing left: keep the title
+		"  Spaced   Out  ":                                    "Spaced Out",
+	} {
+		assert.Equal(t, want, SearchTitle(title), title)
+	}
+}

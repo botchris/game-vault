@@ -312,6 +312,61 @@ func TestDetails(t *testing.T) {
 	})
 }
 
+func TestDetails_editionTitles(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	disc := media.CoverQuery{
+		Title:             "Example West GOTY",
+		PhysicalPlatforms: []string{"Xbox 360"},
+		Platforms:         []string{"Xbox 360"},
+	}
+	west := entity{
+		labels: map[string]string{"mul": "Example West"},
+		claims: map[string][]string{
+			"P31":  {videoGame},
+			"P400": {"Q48263"},
+		},
+		sitelinks: map[string]string{"enwiki": "Example West"},
+	}
+
+	t.Run("GIVEN Wikidata knows the game by its name, without the edition tag", func(t *testing.T) {
+		f := newFakeWiki(t)
+		f.entities["Q500"] = west
+		f.searches["en:Example West"] = []string{"Q500"}
+		f.articles["en:Example West"] = article{extract: "Example West is a western."}
+
+		t.Run("WHEN the sheet of a GOTY disc is asked", func(t *testing.T) {
+			got, err := f.details().Details(ctx, disc, "en", nil)
+			require.NoError(t, err)
+
+			t.Run("THEN the name is searched and the game found", func(t *testing.T) {
+				require.NotNil(t, got)
+				assert.Equal(t, "Example West is a western.", got.Summary)
+				assert.Equal(t, []string{"en:Example West"}, f.searchLog())
+			})
+		})
+	})
+
+	t.Run("GIVEN Wikidata only knows the raw title", func(t *testing.T) {
+		f := newFakeWiki(t)
+		raw := west
+		raw.labels = map[string]string{"mul": "Example West GOTY"}
+		f.entities["Q501"] = raw
+		f.searches["en:Example West GOTY"] = []string{"Q501"}
+
+		t.Run("WHEN the sheet is asked", func(t *testing.T) {
+			got, err := f.details().Details(ctx, disc, "en", nil)
+			require.NoError(t, err)
+
+			t.Run("THEN the raw title is searched after the name found nothing", func(t *testing.T) {
+				require.NotNil(t, got)
+				assert.Equal(t, []string{"en:Example West", "en:Example West GOTY"}, f.searchLog())
+			})
+		})
+	})
+}
+
 func TestDetails_exactTitleFirst(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()

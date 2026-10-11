@@ -102,7 +102,7 @@ func TestCovers_titleSearch(t *testing.T) {
 	defer cancel()
 
 	pcKey := media.CoverQuery{
-		Title:     "Example Quest™",
+		Title:     "Example Quest™ GOTY",
 		System:    game.SystemPC,
 		Platforms: []string{"Epic Games"},
 		Fallback:  true,
@@ -110,7 +110,7 @@ func TestCovers_titleSearch(t *testing.T) {
 
 	t.Run("GIVEN a PC key without a Steam AppID, of a game the store has under the same title", func(t *testing.T) {
 		s, searched := titleSearchStore(t, map[string]string{
-			"Example Quest™": `[{"type":"app","name":"Example Quest","id":4242,"tiny_image":"https://img.test/4242.jpg"},
+			"Example Quest": `[{"type":"app","name":"Example Quest","id":4242,"tiny_image":"https://img.test/4242.jpg"},
 				{"type":"app","name":"Example Quest: Soundtrack","id":4243}]`,
 		}, 0)
 
@@ -123,7 +123,7 @@ func TestCovers_titleSearch(t *testing.T) {
 				require.Len(t, got, 2)
 				assert.Equal(t, "https://legacy.test/steam/apps/4242/library_600x900.jpg", got[0].URL)
 				assert.Equal(t, CoverProviderID, got[0].Provider)
-				assert.Equal(t, []string{"Example Quest™"}, *searched)
+				assert.Equal(t, []string{"Example Quest"}, *searched, "the game's name, without the edition tag")
 			})
 		})
 
@@ -139,7 +139,7 @@ func TestCovers_titleSearch(t *testing.T) {
 
 	t.Run("GIVEN titles the store has only inexactly, or twice", func(t *testing.T) {
 		s, _ := titleSearchStore(t, map[string]string{
-			"Example Quest™": `[{"type":"app","name":"Example Quest 2","id":4244}]`,
+			"Example Quest": `[{"type":"app","name":"Example Quest 2","id":4244}]`,
 			"Twin Quest": `[{"type":"app","name":"Twin Quest","id":1},
 				{"type":"app","name":"TWIN QUEST","id":2}]`,
 			"Remake Quest": `[{"type":"app","name":"Remake Quest: Definitive Edition","id":3},
@@ -147,7 +147,7 @@ func TestCovers_titleSearch(t *testing.T) {
 		}, 0)
 
 		for name, title := range map[string]string{
-			"an inexact title":                           "Example Quest™",
+			"an inexact title":                           "Example Quest™ GOTY",
 			"a title two apps have exactly":              "Twin Quest",
 			"a title only editions have, more than once": "Remake Quest",
 		} {
@@ -198,10 +198,10 @@ func TestCovers_titleSearch(t *testing.T) {
 	}
 
 	t.Run("GIVEN the same title searched twice in a row (Battle.net's covers, then Steam's)", func(t *testing.T) {
-		s, searched := titleSearchStore(t, map[string]string{"Example Quest™": `[]`}, 0)
+		s, searched := titleSearchStore(t, map[string]string{"Example Quest": `[]`}, 0)
 
 		t.Run("WHEN both searches run", func(t *testing.T) {
-			_, err := s.SearchLinks(ctx, "Example Quest™")
+			_, err := s.SearchLinks(ctx, "Example Quest")
 			require.NoError(t, err)
 
 			_, err = s.Covers(ctx, pcKey, schema.Settings{})

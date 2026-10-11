@@ -51,6 +51,9 @@ type fakeWiki struct {
 	// labelLanguages records the languages parameter of every wbgetentities request.
 	labelLanguages []string
 
+	// searched records every search as "<language>:<text>".
+	searched []string
+
 	// fail answers every Wikidata request with this API error (HTTP 200), or HTTP 429 when "429".
 	fail string
 }
@@ -108,6 +111,8 @@ func (f *fakeWiki) serve(w http.ResponseWriter, r *http.Request) {
 
 	switch q.Get("action") {
 	case "wbsearchentities":
+		f.searched = append(f.searched, q.Get("language")+":"+q.Get("search"))
+
 		var hits []map[string]any
 
 		for _, id := range f.searches[q.Get("language")+":"+q.Get("search")] {
@@ -274,6 +279,13 @@ func (f *fakeWiki) actions() []string {
 	defer f.mu.Unlock()
 
 	return append([]string(nil), f.requests...)
+}
+
+func (f *fakeWiki) searchLog() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return append([]string(nil), f.searched...)
 }
 
 func (f *fakeWiki) languagesAsked() []string {

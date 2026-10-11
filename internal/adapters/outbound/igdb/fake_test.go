@@ -91,10 +91,15 @@ type fakeIGDB struct {
 	// search without one.
 	platforms []string
 
-	// external answers external_games queries; search answers searches; byID answers "where id".
-	external string
-	search   string
-	byID     string
+	// external answers external_games queries; search answers searches (searchFor, when set, by
+	// search term, answering "[]" to others); byID answers "where id".
+	external  string
+	search    string
+	searchFor map[string]string
+	byID      string
+
+	// terms records every search term.
+	terms []string
 
 	// busy makes IGDB answer HTTP 429.
 	busy bool
@@ -122,6 +127,7 @@ func newFakeIGDB(t *testing.T) *fakeIGDB {
 var (
 	reWhere     = regexp.MustCompile(`where platforms = \(([0-9,]+)\);`)
 	reWhereSome = regexp.MustCompile(`\bwhere\b`)
+	reSearch    = regexp.MustCompile(`search "([^"]*)";`)
 )
 
 func (f *fakeIGDB) serve(w http.ResponseWriter, r *http.Request) {
@@ -180,7 +186,21 @@ func (f *fakeIGDB) serve(w http.ResponseWriter, r *http.Request) {
 			f.platforms = append(f.platforms, "")
 		}
 
-		w.Write([]byte(f.search))
+		term := ""
+		if m := reSearch.FindStringSubmatch(string(body)); m != nil {
+			term = m[1]
+		}
+
+		f.terms = append(f.terms, term)
+
+		switch answer, ok := f.searchFor[term]; {
+		case f.searchFor == nil:
+			w.Write([]byte(f.search))
+		case ok:
+			w.Write([]byte(answer))
+		default:
+			w.Write([]byte("[]"))
+		}
 	case strings.Contains(string(body), "where id"):
 		w.Write([]byte(f.byID))
 	default:
@@ -274,6 +294,13 @@ func (f *fakeIGDB) searchedPlatforms() []string {
 	defer f.mu.Unlock()
 
 	return append([]string(nil), f.platforms...)
+}
+
+func (f *fakeIGDB) searchTerms() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return append([]string(nil), f.terms...)
 }
 
 func (f *fakeIGDB) credentialLeaks() []string {

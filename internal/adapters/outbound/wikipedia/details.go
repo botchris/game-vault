@@ -260,36 +260,49 @@ func (d *Details) findGame(ctx context.Context, q media.CoverQuery, lang string)
 	return nil, nil
 }
 
-// candidates searches Wikidata for items labeled (or also known as) title, in English and in the UI
-// language, and keeps those whose matched name is the title: exactly (ignoring case and
-// punctuation, reported in exact) or as game.MatchKey compares titles.
+// candidates searches Wikidata for items labeled (or also known as) the game's name, in English and
+// in the UI language, and keeps those whose matched name is the title: exactly (ignoring case and
+// punctuation, reported in exact) or as game.MatchKey compares titles. The name searched is the title
+// without edition and store tags (game.SearchTitle: Wikidata labels "Red Dead Redemption", not the
+// "GOTY" disc); only when it finds no candidate is the raw title searched too.
 func (d *Details) candidates(ctx context.Context, title, lang string) (ids []string, exact map[string]bool, err error) {
 	langs := []string{"en"}
 	if lang != "en" {
 		langs = append(langs, lang)
 	}
 
+	terms := []string{game.SearchTitle(title)}
+	if raw := strings.Join(strings.Fields(title), " "); raw != terms[0] {
+		terms = append(terms, raw)
+	}
+
 	exact = map[string]bool{}
 
-	for _, l := range langs {
-		hits, err := d.search(ctx, title, l)
-		if err != nil {
-			return nil, nil, err
+	for _, term := range terms {
+		for _, l := range langs {
+			hits, err := d.search(ctx, term, l)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			for _, h := range hits {
+				strict := strictTitle(h.Label, title) || strictTitle(h.Match.Text, title)
+				if !strict && !looseTitle(h.Label, title) && !looseTitle(h.Match.Text, title) {
+					continue
+				}
+
+				if strict {
+					exact[h.ID] = true
+				}
+
+				if !slices.Contains(ids, h.ID) && len(ids) < maxCandidates {
+					ids = append(ids, h.ID)
+				}
+			}
 		}
 
-		for _, h := range hits {
-			strict := strictTitle(h.Label, title) || strictTitle(h.Match.Text, title)
-			if !strict && !looseTitle(h.Label, title) && !looseTitle(h.Match.Text, title) {
-				continue
-			}
-
-			if strict {
-				exact[h.ID] = true
-			}
-
-			if !slices.Contains(ids, h.ID) && len(ids) < maxCandidates {
-				ids = append(ids, h.ID)
-			}
+		if len(ids) > 0 {
+			break
 		}
 	}
 

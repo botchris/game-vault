@@ -174,7 +174,9 @@ func (s *Store) Covers(ctx context.Context, q media.CoverQuery, _ schema.Setting
 // link, so a wrong guess cannot stick. An answer that says nothing about the game (429, 5xx, no
 // connection) counts as rate-limited, so the edition is not marked missing for days.
 func (s *Store) appIDByTitle(ctx context.Context, title string) (int64, error) {
-	matches, err := s.SearchLinks(ctx, title)
+	// The store names the game, not the edition a key is ("… GOTY"): its name is searched, and the
+	// results are compared with the full title below.
+	matches, err := s.SearchLinks(ctx, game.SearchTitle(title))
 
 	var se *apiclient.StatusError
 

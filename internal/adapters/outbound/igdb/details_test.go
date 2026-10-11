@@ -194,6 +194,69 @@ func TestDetails(t *testing.T) {
 	})
 }
 
+func TestDetails_editionTitles(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	disc := media.CoverQuery{
+		Title:             "Example West GOTY",
+		PhysicalPlatforms: []string{"Xbox 360"},
+		Platforms:         []string{"Xbox 360"},
+	}
+
+	t.Run("GIVEN an IGDB that only finds the game by its name, without the edition tag", func(t *testing.T) {
+		f := newFakeIGDB(t)
+		f.searchFor = map[string]string{"Example West": `[
+			{"id": 1, "name": "Example West", "summary": "The game."},
+			{"id": 2, "name": "Example West: Game of the Year Edition", "summary": "Its edition.", "version_parent": 1},
+			{"id": 3, "name": "Example West 2", "summary": "The sequel."}]`}
+		d := NewDetails(f.client(time.Now))
+
+		t.Run("WHEN the sheet of a GOTY disc is asked", func(t *testing.T) {
+			got, err := d.Details(ctx, disc, "en", goodSettings)
+			require.NoError(t, err)
+
+			t.Run("THEN the name is searched and the main game wins over its edition and its sequel", func(t *testing.T) {
+				require.NotNil(t, got)
+				assert.Equal(t, "The game.", got.Summary)
+				assert.Equal(t, []string{"Example West"}, f.searchTerms(), "the raw title is not needed")
+			})
+		})
+	})
+
+	t.Run("GIVEN an IGDB that only finds the game by the raw title", func(t *testing.T) {
+		f := newFakeIGDB(t)
+		f.searchFor = map[string]string{"Example West GOTY": `[{"id": 1, "name": "Example West GOTY", "summary": "Odd entry."}]`}
+		d := NewDetails(f.client(time.Now))
+
+		t.Run("WHEN the sheet is asked", func(t *testing.T) {
+			got, err := d.Details(ctx, disc, "en", goodSettings)
+			require.NoError(t, err)
+
+			t.Run("THEN the raw title is searched after the name found nothing", func(t *testing.T) {
+				require.NotNil(t, got)
+				assert.Equal(t, "Odd entry.", got.Summary)
+				assert.Equal(t, []string{"Example West", "Example West GOTY"}, f.searchTerms())
+			})
+		})
+	})
+
+	t.Run("GIVEN a title without edition tags IGDB does not know", func(t *testing.T) {
+		f := newFakeIGDB(t)
+		f.searchFor = map[string]string{}
+		d := NewDetails(f.client(time.Now))
+
+		t.Run("WHEN the sheet is asked", func(t *testing.T) {
+			_, err := d.Details(ctx, media.CoverQuery{Title: "Plain Quest"}, "en", goodSettings)
+			require.NoError(t, err)
+
+			t.Run("THEN it is searched once", func(t *testing.T) {
+				assert.Equal(t, []string{"Plain Quest"}, f.searchTerms())
+			})
+		})
+	})
+}
+
 func TestDetails_severalGamesForOneLink(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()

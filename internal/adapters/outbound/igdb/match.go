@@ -201,18 +201,38 @@ func onlyMain(games []gameJSON) *gameJSON {
 // reUnsafe matches what may not appear in an Apicalypse string.
 var reUnsafe = regexp.MustCompile(`["\\]+`)
 
-// findByTitle searches the title on the game's systems and keeps a clear match: exactly the same
+// findByTitle searches the game's name on its systems and keeps a clear match: exactly the same
 // title (then the same ignoring edition tags), preferring games over their editions and add-ons.
+// The name is the title without edition and store tags (game.SearchTitle): IGDB names "Red Dead
+// Redemption", not the "GOTY" disc; only when that finds no match is the raw title searched too.
 // Two different games with that title (a 1993 original and its 2016 reboot) give nothing: a wrong
 // sheet is worse than none.
 func (c *Client) findByTitle(ctx context.Context, s schema.Settings, q media.CoverQuery, fields []string) (*gameJSON, error) {
-	title := strings.Join(strings.Fields(reUnsafe.ReplaceAllString(q.Title, " ")), " ")
-	if title == "" {
-		return nil, nil
+	clean := func(t string) string { return strings.Join(strings.Fields(reUnsafe.ReplaceAllString(t, " ")), " ") }
+
+	terms := []string{clean(game.SearchTitle(q.Title))}
+	if raw := clean(q.Title); raw != terms[0] {
+		terms = append(terms, raw)
 	}
 
+	for _, term := range terms {
+		if term == "" {
+			continue
+		}
+
+		g, err := c.searchTitle(ctx, s, q, term, fields)
+		if err != nil || g != nil {
+			return g, err
+		}
+	}
+
+	return nil, nil
+}
+
+// searchTitle runs one title search for term on q's systems and picks q's game among the results.
+func (c *Client) searchTitle(ctx context.Context, s schema.Settings, q media.CoverQuery, term string, fields []string) (*gameJSON, error) {
 	all := append(slices.Clone(fields), "version_parent", "parent_game")
-	body := fmt.Sprintf(`search "%s"; fields %s;`, title, strings.Join(all, ","))
+	body := fmt.Sprintf(`search "%s"; fields %s;`, term, strings.Join(all, ","))
 
 	var ids []string
 
