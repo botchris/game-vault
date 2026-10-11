@@ -12,11 +12,15 @@ metadata:
   English one; its `SummarySource` credit travels with the summary in `GameDetails.fill`. YouTube
   trailers are deduplicated by id. `detailsLogicVersion` is 2 (sparse sheets refetched once).
   See [[wikipedia]], [[igdb]].
-- **IGDB covers (2026-10-11):** per game, not per system: `Applies` = `q.ForPC() || q.Fallback`,
-  `DefaultOrder` 85 (after TheGamesDB 10 and every store, Xbox 80) so store art wins on PC.
-  `coverLogicChanged` was **not** bumped for it: enabling or reordering a cover provider already
-  retries the "no cover" markers, and a bump would spend TheGamesDB's quota on every miss. Bump it
-  only when the lookup logic itself changes.
+- **Fallback for every game (2026-10-11, maintainer's decision):** the cover fallback pass runs
+  whenever the first pass found nothing, not only for games with store links; the providers asked in
+  the first pass are skipped, so TheGamesDB (first pass for link-less games) spends nothing more.
+  The Choose cover dialog asks the fallback providers when the first round has no candidate. On
+  that pass: **Steam** searches its store by title for PC editions without an AppID (only exact
+  `game.MatchKey`, one app; never stored as a link; 429 → rate limit) and **IGDB** (DefaultOrder 85,
+  `Applies` = `q.Fallback`, enabled by default, silent without credentials) gives the game's cover
+  for any system. `coverLogicChanged` bumped to 2026-10-11 09:20 UTC for it (an earlier bump for
+  IGDB alone was reverted: enabling a provider already forgets the markers).
 - Media providers can keep learned state in `schema.FieldState` settings: they write it into the
   settings map they get, and the media service persists it with `provider.UpdateState` (wired for
   barcode lookups only so far; CeX's `country_hits`, see [[cex]]).
