@@ -7,12 +7,56 @@ export type Rgb = { r: number; g: number; b: number };
  */
 export const MIN_ALPHA = 128;
 
-/** The lightness range (0–1) of a backdrop: never washed out, never pitch black, badges stay legible. */
-export const MIN_LIGHTNESS = 0.2;
-export const MAX_LIGHTNESS = 0.42;
+/**
+ * The lightness range (0–1) of a backdrop: wide, so the band reads as the cover's own edge, but never
+ * a glaring white or a pitch black, so the badges stay legible on it.
+ */
+export const MIN_LIGHTNESS = 0.15;
+export const MAX_LIGHTNESS = 0.55;
 
-/** The highest saturation (0–1) of a backdrop, so a bright cover does not turn its band neon. */
-export const MAX_SATURATION = 0.7;
+/** The highest saturation (0–1) of a backdrop: only a neon edge is toned down. */
+export const MAX_SATURATION = 0.85;
+
+/** The aspect (width / height) of a cover cell. */
+export const CELL_ASPECT = 2 / 3;
+
+/**
+ * How close (as a ratio) an image's aspect must be to the cell's to count as filling it: the bands
+ * around it are then a pixel or two, invisible, so any colour does.
+ */
+const FILLS_CELL = 0.02;
+
+/**
+ * The pixels of an image's edges that touch the bands around it in a cell, from RGBA data `width` ×
+ * `height` pixels (the image may be scaled to any size; only the aspects say where the bands are).
+ * An image narrower than the cell (a Switch case) has bands left and right: its leftmost and
+ * rightmost `depth` columns. A wider one (a DS case, a banner) has bands above and below: its top and
+ * bottom `depth` rows. One that fills the cell gives its data as is.
+ */
+export function edgePixels(data: ArrayLike<number>, width: number, height: number, imageAspect: number,
+  cellAspect = CELL_ASPECT, depth = 2): number[] {
+  const ratio = imageAspect / cellAspect;
+  if (!(ratio > 0) || Math.abs(ratio - 1) <= FILLS_CELL) return Array.from(data);
+  const out: number[] = [];
+  const push = (x: number, y: number) => {
+    const i = (y * width + x) * 4;
+    out.push(data[i]!, data[i + 1]!, data[i + 2]!, data[i + 3]!);
+  };
+  if (ratio < 1) {
+    const d = Math.min(depth, Math.ceil(width / 2));
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < d; x++) push(x, y);
+      for (let x = width - d; x < width; x++) if (x >= d) push(x, y);
+    }
+  } else {
+    const d = Math.min(depth, Math.ceil(height / 2));
+    for (let y = 0; y < height; y++) {
+      if (y >= d && y < height - d) continue;
+      for (let x = 0; x < width; x++) push(x, y);
+    }
+  }
+  return out;
+}
 
 /**
  * The mean colour of RGBA pixel data (4 bytes per pixel, as a canvas's getImageData returns it),
@@ -47,9 +91,13 @@ export function backdropColor(c: Rgb): Rgb {
   });
 }
 
-/** The backdrop colour of RGBA pixel data as a CSS colour, or null when no pixel is opaque enough. */
-export function dominantColor(data: ArrayLike<number>): string | null {
-  const avg = averageColor(data);
+/**
+ * The backdrop colour of an image as a CSS colour: the average of the edges that touch the bands
+ * (see edgePixels), adjusted by backdropColor. Null when no edge pixel is opaque enough.
+ */
+export function dominantColor(data: ArrayLike<number>, width: number, height: number, imageAspect: number,
+  cellAspect = CELL_ASPECT): string | null {
+  const avg = averageColor(edgePixels(data, width, height, imageAspect, cellAspect));
   return avg ? toCss(backdropColor(avg)) : null;
 }
 

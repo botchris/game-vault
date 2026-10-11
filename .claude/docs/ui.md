@@ -18,7 +18,7 @@ because Simple Icons removed them).
   `CopyPhotos` (a copy's thumbnail strip, uploads with progress, the viewer with its photo footer).
 - `components/Cover.tsx`: edition cover with the borrowed-box fallback. `whole` (posters, the sheet's
   hero, the cover picker) shows the box uncropped through `WholeCover`: the same 2:3 cell everywhere,
-  the box contained and centred on a band of its dominant colour (`--cover-bg`, from
+  the box contained and centred on a band of the colour of its edges that meet it (`--cover-bg`, from
   `lib/coverColor.ts`, maths in `lib/dominantColor.ts`; neutral until known, never transitioned).
   `.cover-box` fills the cell and carries the colour, radius and shadow (`--cover-shadow`); overlays
   are `children` in `.cover-frame` over it. Never transform the cell itself (it would trap the badges

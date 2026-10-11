@@ -1,4 +1,4 @@
-import { ColorCache, dominantColor } from './dominantColor';
+import { CELL_ASPECT, ColorCache, dominantColor } from './dominantColor';
 
 // The colours are remembered in this browser so a revisit paints every band at once. Covers'
 // addresses carry the game's version, so an edited game gets a new entry and old ones age out.
@@ -27,7 +27,8 @@ export function knownCoverColor(url: string): string | undefined {
 }
 
 /**
- * The backdrop colour of a loaded image (see dominantColor), remembered by its address. Null when it
+ * The backdrop colour of a loaded image, taken from the edges that meet the bands of a cover cell
+ * (see dominantColor), remembered by its address. Null when it
  * cannot be read: no canvas, a cross-origin image (getImageData throws) or a fully transparent one.
  */
 export function coverColor(url: string, img: HTMLImageElement): string | null {
@@ -41,7 +42,9 @@ export function coverColor(url: string, img: HTMLImageElement): string | null {
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return null;
     ctx.drawImage(img, 0, 0, SAMPLE, SAMPLE);
-    color = dominantColor(ctx.getImageData(0, 0, SAMPLE, SAMPLE).data);
+    // The image is squeezed to a square sample; its natural aspect says which edges meet the bands.
+    const aspect = img.naturalWidth > 0 && img.naturalHeight > 0 ? img.naturalWidth / img.naturalHeight : CELL_ASPECT;
+    color = dominantColor(ctx.getImageData(0, 0, SAMPLE, SAMPLE).data, SAMPLE, SAMPLE, aspect);
   } catch {
     return null;
   }

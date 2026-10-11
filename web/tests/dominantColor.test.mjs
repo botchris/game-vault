@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  ColorCache, MAX_LIGHTNESS, MAX_SATURATION, MIN_LIGHTNESS, averageColor, backdropColor, dominantColor, hslToRgb, rgbToHsl, toCss,
+  CELL_ASPECT, ColorCache, MAX_LIGHTNESS, MAX_SATURATION, MIN_LIGHTNESS, averageColor, backdropColor, dominantColor, edgePixels, hslToRgb,
+  rgbToHsl, toCss,
 } from '../src/lib/dominantColor.ts';
 
 const px = (...pixels) => pixels.flat();
@@ -17,7 +18,7 @@ test('near-transparent pixels are skipped', () => {
 test('a fully transparent image has no colour', () => {
   assert.equal(averageColor(px([255, 255, 255, 0], [0, 0, 0, 10])), null);
   assert.equal(averageColor([]), null);
-  assert.equal(dominantColor(px([1, 2, 3, 0])), null);
+  assert.equal(dominantColor(px([1, 2, 3, 0]), 1, 1, CELL_ASPECT), null);
 });
 
 test('HSL conversions round-trip', () => {
@@ -36,6 +37,44 @@ test('a black cover gets a band no darker than the minimum', () => {
   assert.ok(Math.abs(l - MIN_LIGHTNESS) < 0.01, `lightness ${l}`);
 });
 
+// A width × height image whose pixel colour comes from color(x, y).
+function image(width, height, color) {
+  const data = [];
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) data.push(...color(x, y), 255);
+  return data;
+}
+const RED = [200, 30, 30];
+const BLUE = [30, 30, 200];
+const GREEN = [30, 160, 60];
+const hue = (css) => {
+  const [r, g, b] = css.match(/\d+/g).map(Number);
+  return rgbToHsl({ r, g, b }).h;
+};
+
+test('a tall image (bands left and right) takes its colour from its sides', () => {
+  const data = image(16, 16, (x) => (x < 2 || x >= 14 ? RED : BLUE));
+  const color = dominantColor(data, 16, 16, 105 / 170);
+  assert.ok(hue(color) < 5 || hue(color) > 355, color);
+});
+
+test('a wide image (bands above and below) takes its colour from its top and bottom', () => {
+  const data = image(16, 16, (_x, y) => (y < 2 || y >= 14 ? GREEN : RED));
+  const color = dominantColor(data, 16, 16, 10 / 9);
+  assert.ok(Math.abs(hue(color) - rgbToHsl({ r: GREEN[0], g: GREEN[1], b: GREEN[2] }).h) < 3, color);
+});
+
+test('the edge strips hold the right pixels', () => {
+  const data = image(4, 4, (x, y) => [x, y, 0]);
+  const cols = edgePixels(data, 4, 4, 0.5, CELL_ASPECT, 1);
+  assert.equal(cols.length, 8 * 4); // the first and last column, 4 rows each
+  for (let i = 0; i < cols.length; i += 4) assert.ok(cols[i] === 0 || cols[i] === 3);
+  const rows = edgePixels(data, 4, 4, 2, CELL_ASPECT, 1);
+  assert.equal(rows.length, 8 * 4);
+  for (let i = 0; i < rows.length; i += 4) assert.ok(rows[i + 1] === 0 || rows[i + 1] === 3);
+  assert.equal(edgePixels(data, 4, 4, CELL_ASPECT).length, data.length); // fills the cell: everything
+  assert.equal(edgePixels(px([1, 1, 1, 255]), 1, 1, 0.3, CELL_ASPECT, 2).length, 4); // never twice
+});
+
 test('a colour already in range keeps its hue and lightness, and a vivid one is toned down', () => {
   const mid = { r: 40, g: 70, b: 110 };
   const before = rgbToHsl(mid);
@@ -48,7 +87,7 @@ test('a colour already in range keeps its hue and lightness, and a vivid one is 
 
 test('the colour is CSS', () => {
   assert.equal(toCss({ r: 1, g: 2, b: 3 }), 'rgb(1 2 3)');
-  assert.match(dominantColor(px([120, 40, 40, 255])), /^rgb\(\d+ \d+ \d+\)$/);
+  assert.match(dominantColor(px([120, 40, 40, 255]), 1, 1, CELL_ASPECT), /^rgb\(\d+ \d+ \d+\)$/);
 });
 
 test('the cache forgets the oldest colour beyond its cap', () => {
