@@ -195,7 +195,7 @@ func (d *Details) Details(ctx context.Context, q media.CoverQuery, language stri
 // (or, with no system known or none on Wikidata, exactly one at all). A disambiguation must never
 // yield the wrong game.
 func (d *Details) findGame(ctx context.Context, q media.CoverQuery, lang string) (*item, error) {
-	ids, err := d.candidates(ctx, q.Title, lang)
+	ids, exact, err := d.candidates(ctx, q.Title, lang)
 	if err != nil || len(ids) == 0 {
 		return nil, err
 	}
@@ -205,12 +205,22 @@ func (d *Details) findGame(ctx context.Context, q media.CoverQuery, lang string)
 		return nil, err
 	}
 
-	var games []*item
+	var games, exactGames []*item
 
 	for _, id := range ids {
 		if it, ok := items[id]; ok && slices.Contains(it.refs(propInstanceOf), videoGame) {
 			games = append(games, it)
+
+			if exact[id] {
+				exactGames = append(exactGames, it)
+			}
 		}
+	}
+
+	// A game with exactly the title wins over those that only match loosely ("Mafia" over "Mafia:
+	// Definitive Edition", which game.MatchKey takes for the same).
+	if len(exactGames) > 0 {
+		games = exactGames
 	}
 
 	var wanted []string
@@ -251,24 +261,30 @@ func (d *Details) findGame(ctx context.Context, q media.CoverQuery, lang string)
 }
 
 // candidates searches Wikidata for items labeled (or also known as) title, in English and in the UI
-// language, and keeps those whose matched name is the title, ignoring case and punctuation.
-func (d *Details) candidates(ctx context.Context, title, lang string) ([]string, error) {
+// language, and keeps those whose matched name is the title: exactly (ignoring case and
+// punctuation, reported in exact) or as game.MatchKey compares titles.
+func (d *Details) candidates(ctx context.Context, title, lang string) (ids []string, exact map[string]bool, err error) {
 	langs := []string{"en"}
 	if lang != "en" {
 		langs = append(langs, lang)
 	}
 
-	var ids []string
+	exact = map[string]bool{}
 
 	for _, l := range langs {
 		hits, err := d.search(ctx, title, l)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		for _, h := range hits {
-			if !sameTitle(h.Label, title) && !sameTitle(h.Match.Text, title) {
+			strict := strictTitle(h.Label, title) || strictTitle(h.Match.Text, title)
+			if !strict && !looseTitle(h.Label, title) && !looseTitle(h.Match.Text, title) {
 				continue
+			}
+
+			if strict {
+				exact[h.ID] = true
 			}
 
 			if !slices.Contains(ids, h.ID) && len(ids) < maxCandidates {
@@ -277,7 +293,7 @@ func (d *Details) candidates(ctx context.Context, title, lang string) ([]string,
 		}
 	}
 
-	return ids, nil
+	return ids, exact, nil
 }
 
 // searchHit is one item wbsearchentities found.
@@ -631,16 +647,16 @@ func pick(labels map[string]string, ids []string) []string {
 
 var reNonAlnum = regexp.MustCompile(`[^\p{L}\p{N}]+`)
 
-// sameTitle compares titles ignoring case and punctuation, or else as game.MatchKey does (edition
-// tags, trademarks and accents ignored).
-func sameTitle(a, b string) bool {
-	if a == "" || b == "" {
-		return false
-	}
-
+// strictTitle compares titles ignoring case and punctuation only.
+func strictTitle(a, b string) bool {
 	strict := func(s string) string { return reNonAlnum.ReplaceAllString(strings.ToLower(s), "") }
 
-	return strict(a) == strict(b) || game.MatchKey(a) == game.MatchKey(b)
+	return a != "" && b != "" && strict(a) == strict(b)
+}
+
+// looseTitle compares titles as game.MatchKey does (edition tags, trademarks and accents ignored).
+func looseTitle(a, b string) bool {
+	return a != "" && b != "" && game.MatchKey(a) == game.MatchKey(b)
 }
 
 // capitalize upper-cases the first letter: Wikidata labels genres in lower case ("puzzle video

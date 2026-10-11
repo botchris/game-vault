@@ -312,6 +312,38 @@ func TestDetails(t *testing.T) {
 	})
 }
 
+func TestDetails_exactTitleFirst(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a game and its remake, whose titles only match loosely", func(t *testing.T) {
+		f := newFakeWiki(t)
+		exampleWorld(f)
+		f.entities["Q103"] = entity{
+			labels: map[string]string{"mul": "Example Quest: Definitive Edition"},
+			claims: map[string][]string{
+				"P31":  {videoGame},
+				"P400": {windows},
+			},
+			sitelinks: map[string]string{"enwiki": "Example Quest: Definitive Edition"},
+		}
+		f.searches["en:Example Quest"] = []string{"Q103", "Q100"}
+
+		t.Run("WHEN the original's sheet is asked", func(t *testing.T) {
+			got, err := f.details().Details(ctx, media.CoverQuery{
+				Title:     "Example Quest",
+				Platforms: []string{"Steam"},
+			}, "en", nil)
+			require.NoError(t, err)
+
+			t.Run("THEN the item with exactly that title is used, not the remake", func(t *testing.T) {
+				require.NotNil(t, got)
+				assert.Equal(t, "https://en.wikipedia.org/wiki/Example_Quest", got.SummarySource.URL)
+			})
+		})
+	})
+}
+
 func TestDetails_applies(t *testing.T) {
 	d := New("dev")
 
