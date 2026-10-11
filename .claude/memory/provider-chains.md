@@ -52,3 +52,7 @@ metadata:
   `media/details.go` when sheet gathering improves: sparse sheets with an older `LogicVersion` are
   refetched once (a version, not a date, so sheets an old server caches later are caught too). TheGamesDB searches covers and sheets on the copies'
   systems (`game.SystemOf`: "PlayStation Store" → PS4).
+- **Edition titles (2026-10-11, bug seen live):** "Red Dead Redemption GOTY" found nothing on IGDB
+  or Wikidata, silently. Searches now use `game.SearchTitle` (MatchKey's tags removed, casing kept),
+  then the raw title if no match; `GameDetails.NotFoundBy` lists providers asked that found no game
+  (footer "Not found on …", cached, not a warning).

@@ -22,7 +22,7 @@ const detailsTTL = 30 * 24 * time.Hour
 // was built without the improvement, so it is fetched again once when opened instead of waiting for
 // detailsTTL; a server still running the old code may cache such sheets after the upgrade's date, so
 // a version is used rather than a time. Increment it when sheet gathering improves.
-const detailsLogicVersion = 2 // 1: the fallback pass; 2: Wikipedia and IGDB
+const detailsLogicVersion = 3 // 1: the fallback pass; 2: Wikipedia and IGDB; 3: searches by the game's name
 
 // Video is a trailer: an HLS stream (Steam) or a YouTube video (IGDB, TheGamesDB).
 type Video struct {
@@ -79,6 +79,10 @@ type GameDetails struct {
 
 	// Sources lists the providers that contributed, in chain order.
 	Sources []provider.ID
+
+	// NotFoundBy lists the providers that were asked and know no such game (no match for the
+	// title), so the sheet can say they were tried. It is not a failure: the sheet stays cacheable.
+	NotFoundBy []provider.ID
 
 	// FallbackSkipped reports that the sheet is sparse and its fallback pass did not complete: it was
 	// not run (the background scan does not spend quota-limited providers' requests, a provider failed
@@ -341,7 +345,12 @@ func (s *Service) askChain(ctx context.Context, g *game.Game, chain []ProviderVi
 			continue
 		}
 
-		if d != nil && merged.fill(*d) {
+		if d == nil {
+			merged.NotFoundBy = append(merged.NotFoundBy, p.ID())
+			continue
+		}
+
+		if merged.fill(*d) {
 			merged.Sources = append(merged.Sources, p.ID())
 		}
 	}

@@ -48,6 +48,8 @@ message GameDetails {
   google.protobuf.Timestamp fetched_at = 16;
   // Credit for the summary when its license asks for it (Wikipedia's CC BY-SA); unset otherwise.
   Attribution summary_source = 17;
+  // Names of the providers asked that found no game for the title ("IGDB"): tried, not failed.
+  repeated string not_found_by = 18;
 }
 
 // Attribution credits the source of a text: shown with a link to the page and the license's name.

@@ -173,6 +173,8 @@ type GameDetails struct {
 	FetchedAt *timestamppb.Timestamp `protobuf:"bytes,16,opt,name=fetched_at,json=fetchedAt,proto3" json:"fetched_at,omitempty"`
 	// Credit for the summary when its license asks for it (Wikipedia's CC BY-SA); unset otherwise.
 	SummarySource *Attribution `protobuf:"bytes,17,opt,name=summary_source,json=summarySource,proto3" json:"summary_source,omitempty"`
+	// Names of the providers asked that found no game for the title ("IGDB"): tried, not failed.
+	NotFoundBy    []string `protobuf:"bytes,18,rep,name=not_found_by,json=notFoundBy,proto3" json:"not_found_by,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -322,6 +324,13 @@ func (x *GameDetails) GetFetchedAt() *timestamppb.Timestamp {
 func (x *GameDetails) GetSummarySource() *Attribution {
 	if x != nil {
 		return x.SummarySource
+	}
+	return nil
+}
+
+func (x *GameDetails) GetNotFoundBy() []string {
+	if x != nil {
+		return x.NotFoundBy
 	}
 	return nil
 }
@@ -528,7 +537,7 @@ const file_gamevault_v1_metadata_proto_rawDesc = "" +
 	"\n" +
 	"Screenshot\x12\x1b\n" +
 	"\tthumb_url\x18\x01 \x01(\tR\bthumbUrl\x12\x19\n" +
-	"\bfull_url\x18\x02 \x01(\tR\afullUrl\"\xf5\x04\n" +
+	"\bfull_url\x18\x02 \x01(\tR\afullUrl\"\x97\x05\n" +
 	"\vGameDetails\x12\x18\n" +
 	"\asummary\x18\x01 \x01(\tR\asummary\x12\x16\n" +
 	"\x06genres\x18\x02 \x03(\tR\x06genres\x12\x1e\n" +
@@ -555,7 +564,9 @@ const file_gamevault_v1_metadata_proto_rawDesc = "" +
 	"\blanguage\x18\x0f \x01(\tR\blanguage\x129\n" +
 	"\n" +
 	"fetched_at\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampR\tfetchedAt\x12@\n" +
-	"\x0esummary_source\x18\x11 \x01(\v2\x19.gamevault.v1.AttributionR\rsummarySource\"n\n" +
+	"\x0esummary_source\x18\x11 \x01(\v2\x19.gamevault.v1.AttributionR\rsummarySource\x12 \n" +
+	"\fnot_found_by\x18\x12 \x03(\tR\n" +
+	"notFoundBy\"n\n" +
 	"\vAttribution\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x10\n" +
 	"\x03url\x18\x02 \x01(\tR\x03url\x12\x18\n" +

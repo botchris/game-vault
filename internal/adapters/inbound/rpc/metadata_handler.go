@@ -72,6 +72,10 @@ func (h *MediaHandler) GetGameDetails(ctx context.Context, req *connect.Request[
 		out.Sources = append(out.Sources, h.media.ProviderName(s))
 	}
 
+	for _, p := range d.NotFoundBy {
+		out.NotFoundBy = append(out.NotFoundBy, h.media.ProviderName(p))
+	}
+
 	return connect.NewResponse(&pb.GetGameDetailsResponse{
 		Details:  out,
 		Warnings: warnings,

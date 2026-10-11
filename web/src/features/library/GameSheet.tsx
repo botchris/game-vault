@@ -152,6 +152,7 @@ export function SheetOverview({ game, details, warnings, loading, error, onRefre
       {details && (
         <p className="muted small sheet-footer">
           {details.sources.length > 0 && t('details.sources', { sources: details.sources.join(' + ') })}
+          {details.notFoundBy.length > 0 && `${details.sources.length > 0 ? ' · ' : ''}${t('details.notFoundBy', { providers: details.notFoundBy.join(', ') })}`}
           {details.fetchedAt && ` · ${t('details.updated', { date: fmt.dateTime(toDate(details.fetchedAt)) })}`}
           {' · '}<button className="link" onClick={onRefresh} disabled={loading}>{loading ? t('common.loading') : t('details.refresh')}</button>
         </p>

@@ -446,3 +446,51 @@ func TestGameDetails_summarySourceAndTrailers(t *testing.T) {
 		})
 	})
 }
+
+func TestGameDetails_notFoundBy(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a Steam game the store does not know, and a database that does", func(t *testing.T) {
+		env := newDetailsEnv(t, ctx, time.Now, nil)
+		g := saveGame(t, ctx, env.games, "Gone Quest", game.Links{game.LinkSteam: "10"}, game.CopyDetails{
+			Kind:     game.KindLibrary,
+			Platform: "Steam",
+		})
+
+		t.Run("WHEN its sheet is asked", func(t *testing.T) {
+			d, warnings, err := env.svc.GameDetails(ctx, g.ID(), "en", false)
+			require.NoError(t, err)
+
+			t.Run("THEN the store is listed as tried without a match, which is no failure", func(t *testing.T) {
+				assert.Equal(t, []provider.ID{"store-details"}, d.NotFoundBy)
+				assert.Empty(t, warnings)
+				assert.Equal(t, "A console adventure.", d.Summary)
+			})
+
+			t.Run("AND the sheet is cached with it", func(t *testing.T) {
+				cached, ok, err := env.details.Get(ctx, g.ID(), "en")
+				require.NoError(t, err)
+				require.True(t, ok)
+				assert.Equal(t, []provider.ID{"store-details"}, cached.NotFoundBy)
+			})
+		})
+	})
+
+	t.Run("GIVEN a game the store does not apply to", func(t *testing.T) {
+		env := newDetailsEnv(t, ctx, time.Now, nil)
+		g := saveGame(t, ctx, env.games, "Disc Quest", nil, game.CopyDetails{
+			Kind:     game.KindPhysical,
+			Platform: "PS4",
+		})
+
+		t.Run("WHEN its sheet is asked", func(t *testing.T) {
+			d, _, err := env.svc.GameDetails(ctx, g.ID(), "en", false)
+			require.NoError(t, err)
+
+			t.Run("THEN the store is not listed: it was not tried", func(t *testing.T) {
+				assert.Empty(t, d.NotFoundBy)
+			})
+		})
+	})
+}
