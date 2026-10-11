@@ -85,25 +85,28 @@ export function Cover({ game, system = '', className = '', onShown, whole = fals
  * (or remembered from an earlier load), with no transition: the grid never animates. The corners and
  * shadow sit on `.cover-box`, which fills the cell; `children` (badges, flags) are laid over it in
  * `.cover-frame`. Hover lifts those two, never the cell (see ui.md). A `placeholder` instead of `src`
- * fills the cell.
+ * fills the cell. `noReferrer` loads an image from another site without telling it where it is shown
+ * (the cover picker's preview of a pasted address).
  */
-export function WholeCover({ src, className = '', onError, placeholder, children }: {
+export function WholeCover({ src, className = '', onError, placeholder, noReferrer = false, children }: {
   src?: string;
   className?: string;
   onError?: () => void;
+  noReferrer?: boolean;
   placeholder?: ReactNode;
   children?: ReactNode;
 }) {
   // What was measured belongs to one address: a new src starts from what is remembered of it.
   const [measured, setMeasured] = useState<{ src: string; fills: boolean } | null>(null);
   const fills = !src ? true : measured?.src === src ? measured.fills : fits.get(src);
+  const referrer = noReferrer ? 'no-referrer' : undefined;
 
   return (
     <div className={`cover whole ${className}`}>
       <div className="cover-box">
-        {src && fills === false && <img className="cover-backdrop" src={src} alt="" aria-hidden="true" decoding="async" />}
+        {src && fills === false && <img className="cover-backdrop" src={src} alt="" aria-hidden="true" decoding="async" referrerPolicy={referrer} />}
         {src ? (
-          <img className="cover-image" src={src} alt="" loading="lazy" decoding="async" onError={onError}
+          <img className="cover-image" src={src} alt="" loading="lazy" decoding="async" onError={onError} referrerPolicy={referrer}
             onLoad={(e) => {
               const f = fillsCell(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight);
               fits.set(src, f);
