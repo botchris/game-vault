@@ -718,8 +718,8 @@ func (s *Service) resolveEdition(ctx context.Context, g *game.Game, system strin
 	// A provider that asked to slow down said nothing about the game: the edition has no cover this
 	// time, is not remembered as missing and does not borrow another's box, so the next request
 	// asks again.
-	if look.limited {
-		return Image{}, fmt.Errorf("%w: %w", ErrNoCover, provider.ErrRateLimited)
+	if look.limited != nil {
+		return Image{}, fmt.Errorf("%w: %w", ErrNoCover, look.limited)
 	}
 
 	// Add-ons (DLC, soundtracks…) rarely have art of their own: borrow the base game's.
@@ -766,8 +766,9 @@ type lookup struct {
 	// asked holds the providers already asked, so the fallback pass skips them.
 	asked map[provider.ID]bool
 
-	// limited reports that a provider asked to slow down (provider.ErrRateLimited).
-	limited bool
+	// limited is set when a provider asked to slow down: provider.ErrQuotaExhausted when every one
+	// that did had used up its allowance, else provider.ErrRateLimited (the shorter wait).
+	limited error
 }
 
 func newLookup() *lookup { return &lookup{asked: map[provider.ID]bool{}} }
@@ -790,9 +791,14 @@ func (s *Service) coverFromChain(ctx context.Context, ref GameRef, system string
 
 		candidates, err := impl.Covers(ctx, q, p.Settings())
 		if errors.Is(err, provider.ErrRateLimited) {
-			look.limited = true
+			switch {
+			case !errors.Is(err, provider.ErrQuotaExhausted):
+				look.limited = provider.ErrRateLimited // the shorter wait wins
+			case look.limited == nil:
+				look.limited = provider.ErrQuotaExhausted
+			}
 
-			s.log.Info("cover provider busy, asking again later", "provider", p.ID(), "game", ref.Title, "system", system)
+			s.log.Info("cover provider unavailable, asking again later", "provider", p.ID(), "game", ref.Title, "system", system, "error", err)
 
 			continue
 		}

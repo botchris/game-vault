@@ -302,7 +302,7 @@ func (s *Service) askChain(ctx context.Context, g *game.Game, chain []ProviderVi
 			pass.limited = true
 
 			pass.warnings = append(pass.warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
-			s.log.Info("metadata provider busy, asking again later", "provider", p.ID(), "game", g.Title())
+			s.log.Info("metadata provider unavailable, asking again later", "provider", p.ID(), "game", g.Title(), "error", err)
 
 			continue
 		}

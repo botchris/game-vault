@@ -29,6 +29,14 @@ func coverHandler(m *media.Service) http.Handler {
 		}
 
 		switch {
+		case errors.Is(err, provider.ErrQuotaExhausted):
+			// A provider used up its allowance: it stays so for hours or days, so browsers are told
+			// to wait an hour rather than retry every half minute.
+			w.Header().Set("Cache-Control", "no-store")
+			w.Header().Set("Retry-After", "3600")
+			http.Error(w, "cover lookups have used their allowance, try again later", http.StatusServiceUnavailable)
+
+			return
 		case errors.Is(err, provider.ErrRateLimited):
 			// A provider asked to slow down: no cover this time, but one may come on a later try.
 			w.Header().Set("Cache-Control", "no-store")

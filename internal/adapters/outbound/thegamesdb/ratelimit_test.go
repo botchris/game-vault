@@ -229,6 +229,32 @@ func TestThrottle_failsFast(t *testing.T) {
 	})
 }
 
+func TestThrottle_quotaDoesNotBackOff(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a request that fails because the key's allowance is used up", func(t *testing.T) {
+		clock := &fakeClock{now: time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC)}
+		th := newThrottle(minGap, clock.Now, clock.Sleep)
+		err := th.do(ctx, func() error { return &allowanceError{left: time.Hour} })
+		require.ErrorIs(t, err, provider.ErrQuotaExhausted)
+
+		t.Run("WHEN the next request comes", func(t *testing.T) {
+			sent := 0
+			err := th.do(ctx, func() error {
+				sent++
+				return nil
+			})
+
+			t.Run("THEN it only waits the usual gap, not the back-off", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.Equal(t, 1, sent)
+				assert.Equal(t, []time.Duration{minGap}, clock.sleeps)
+			})
+		})
+	})
+}
+
 func TestTest_skipsTheThrottle(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()

@@ -153,8 +153,14 @@ var (
 	reStoreKey   = regexp.MustCompile(`\b(` + storeNames + `)\s*(cd\s*)?key\b`)
 	reSuffixes   = regexp.MustCompile(`\b(key|pc|digital|game of the year|goty|definitive|complete|deluxe|ultimate|enhanced|remastered|director'?s cut|anniversary|gold|edition)\b`)
 	reNonAlnum   = regexp.MustCompile(`[^a-z0-9]+`)
-	stripMarks   = transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
 )
+
+// stripMarks returns a transformer that removes accents ("Pokémon" → "Pokemon"). A chain keeps
+// buffers between calls and is not safe for concurrent use, and titles are matched in parallel
+// (the media service's lookups), so each call builds its own.
+func stripMarks() transform.Transformer {
+	return transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC)
+}
 
 // storeNames are the stores a key can be for, as sellers write them in titles ("Celeste Steam Key",
 // "Hades - GOG Key"). Only "<store> key" is dropped: a bare store name can be part of the title
@@ -168,7 +174,7 @@ const storeNames = `steam|gog(\.com)?|epic(\s*games)?(\s*store)?|ubisoft(\s*conn
 // Two titles with the same match key are treated as the same game when consolidating.
 func MatchKey(title string) string {
 	s := reTrademarks.ReplaceAllString(title, "")
-	if t, _, err := transform.String(stripMarks, s); err == nil {
+	if t, _, err := transform.String(stripMarks(), s); err == nil {
 		s = t
 	}
 

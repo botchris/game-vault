@@ -2,6 +2,7 @@ package rpc_test
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"testing"
@@ -11,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gamevault/internal/domain/provider"
 	pb "gamevault/internal/gen/gamevault/v1"
 )
 
@@ -127,7 +129,7 @@ func TestCovers_rateLimited(t *testing.T) {
 		}))
 		require.NoError(t, err)
 
-		c.boxart.limited = true
+		c.boxart.limited = provider.ErrRateLimited
 
 		created, err := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{
 			Title: "Halo 3",
@@ -149,6 +151,47 @@ func TestCovers_rateLimited(t *testing.T) {
 			t.Run("THEN the answer says to try again later, and is not cached", func(t *testing.T) {
 				assert.Equal(t, http.StatusServiceUnavailable, res.StatusCode)
 				assert.Equal(t, "30", res.Header.Get("Retry-After"))
+				assert.Equal(t, "no-store", res.Header.Get("Cache-Control"))
+			})
+		})
+	})
+}
+
+func TestCovers_quotaExhausted(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a game with a PS3 disc and a box art provider whose allowance is used up", func(t *testing.T) {
+		c := newServer(t, &fakeProvider{})
+		_, err := c.providers.UpdateProvider(ctx, connect.NewRequest(&pb.UpdateProviderRequest{
+			Id:       "boxart",
+			Enabled:  true,
+			Settings: map[string]string{"api_key": "k"},
+		}))
+		require.NoError(t, err)
+
+		c.boxart.limited = fmt.Errorf("box art has used this month's request allowance; it renews in 12 days: %w", provider.ErrQuotaExhausted)
+
+		created, err := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{
+			Title: "Halo 3",
+			Copies: []*pb.CopyDetails{{
+				Kind:     pb.CopyKind_COPY_KIND_PHYSICAL,
+				Platform: "PS3",
+			}},
+		}))
+		require.NoError(t, err)
+
+		t.Run("WHEN the edition's cover is asked", func(t *testing.T) {
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/media/covers/"+created.Msg.Game.Id+"/PS3", nil)
+			require.NoError(t, err)
+
+			res, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			res.Body.Close()
+
+			t.Run("THEN the answer says to try again much later, and is not cached", func(t *testing.T) {
+				assert.Equal(t, http.StatusServiceUnavailable, res.StatusCode)
+				assert.Equal(t, "3600", res.Header.Get("Retry-After"))
 				assert.Equal(t, "no-store", res.Header.Get("Cache-Control"))
 			})
 		})
