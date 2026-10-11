@@ -488,6 +488,16 @@
     "thegamesdbDetails": {
       "description": "Descripción por plataforma (en inglés), géneros, compañías, clasificación por edades, jugadores y tráiler de YouTube, para juegos con copia física o sin vínculo con ninguna tienda. Usa la key de TheGamesDB de Carátulas; unas 2 peticiones por juego y luego se guarda."
     },
+    "igdb": {
+      "description": "Carátulas de IGDB, la base de datos de juegos de Twitch. La carátula de un juego es la misma en todos los sistemas, así que se usa para las ediciones de PC y, como último recurso, para ediciones sin carátula en ningún otro proveedor. Gratis para uso no comercial con tu propia aplicación de Twitch.",
+      "clientId": "Client ID",
+      "clientIdHelp": "1. Inicia sesión en la consola de desarrolladores de Twitch (página de arriba); Twitch te pide activar antes la verificación en dos pasos.\n2. Elige Register Your Application.\n3. Ponle el nombre que quieras (por ejemplo `Game Vault`), escribe `http://localhost` como OAuth Redirect URL y elige la categoría Application Integration y el tipo de cliente Confidential.\n4. Abre la aplicación y copia aquí su Client ID.",
+      "clientSecret": "Client Secret",
+      "clientSecretHelp": "1. En la misma aplicación de la consola de desarrolladores de Twitch, elige New Secret.\n2. Copia aquí el secreto. Twitch solo lo muestra una vez; uno nuevo sustituye al anterior."
+    },
+    "igdbDetails": {
+      "description": "Fichas de IGDB para cualquier juego: sinopsis (en inglés), géneros, compañías, fecha de lanzamiento, clasificación por edades, capturas y tráilers de YouTube. Usa la aplicación de Twitch de Carátulas; unas pocas peticiones por juego y luego se guarda."
+    },
     "epicCovers": {
       "description": "Carátula oficial de Epic Games Store, para los juegos importados de tu biblioteca de Epic. Gratis, sin clave."
     },

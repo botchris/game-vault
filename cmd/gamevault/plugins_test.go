@@ -13,6 +13,7 @@ import (
 	"gamevault/internal/adapters/outbound/epic"
 	"gamevault/internal/adapters/outbound/example"
 	"gamevault/internal/adapters/outbound/gog"
+	"gamevault/internal/adapters/outbound/igdb"
 	"gamevault/internal/adapters/outbound/steam"
 	"gamevault/internal/adapters/outbound/thegamesdb"
 	"gamevault/internal/adapters/outbound/ubisoft"
@@ -85,6 +86,16 @@ func TestCoverProviders_appliesBySystem(t *testing.T) {
 				System: "Xbox 360",
 				Links:  game.Links{xbox.LinkedStore.Key: "1"},
 			}, true})},
+		// IGDB's covers belong to the game, not to a system: PC editions, other systems as a last resort.
+		igdb.CoversID: {igdb.NewCovers(igdb.NewClient()), []coverRow{
+			{"a PC edition", media.CoverQuery{System: game.SystemPC}, true},
+			{"a game without copies", media.CoverQuery{}, true},
+			{"a PS3 edition", media.CoverQuery{System: "PS3"}, false},
+			{"a PS3 edition on the fallback pass", media.CoverQuery{
+				System:   "PS3",
+				Fallback: true,
+			}, true},
+		}},
 		ubisoft.CoverProviderID: {&ubisoft.Covers{}, append(storeRows(ubisoft.LinkedStore.Key),
 			coverRow{"its PC edition by a Ubisoft Connect copy", media.CoverQuery{
 				System:    game.SystemPC,

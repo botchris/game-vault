@@ -488,6 +488,16 @@
     "thegamesdbDetails": {
       "description": "Platform-specific overview (English), genres, companies, age rating, players and YouTube trailer, for games with a physical copy or not linked to any store. Uses the TheGamesDB key from Covers; about 2 requests per game, then cached."
     },
+    "igdb": {
+      "description": "Covers from IGDB, Twitch's game database. A game's cover is the same on every system, so it is used for PC editions and, as a last resort, for editions no other provider had art for. Free for non-commercial use with your own Twitch application.",
+      "clientId": "Client ID",
+      "clientIdHelp": "1. Sign in on the Twitch developer console (page above); Twitch asks you to turn on two-factor authentication first.\n2. Choose Register Your Application.\n3. Name it as you like (for example `Game Vault`), enter `http://localhost` as the OAuth Redirect URL, choose the Application Integration category and the Confidential client type.\n4. Open the application and copy its Client ID here.",
+      "clientSecret": "Client Secret",
+      "clientSecretHelp": "1. In the same application on the Twitch developer console, choose New Secret.\n2. Copy the secret here. Twitch shows it only once; a new secret replaces the old one."
+    },
+    "igdbDetails": {
+      "description": "Game sheets from IGDB for any game: summary (English), genres, companies, release date, age rating, screenshots and YouTube trailers. Uses the Twitch application from Covers; a few requests per game, then cached."
+    },
     "epicCovers": {
       "description": "Official box art from the Epic Games Store, for games imported from your Epic library. Free, no key needed."
     },
