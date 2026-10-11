@@ -50,7 +50,12 @@ func (s *countingStore) Covers(_ context.Context, q media.CoverQuery, _ schema.S
 
 // quotaArt follows TheGamesDB's quota rules and finds nothing; it counts the requests it would
 // spend.
-type quotaArt struct{ calls atomic.Int32 }
+type quotaArt struct {
+	calls atomic.Int32
+
+	// exhausted makes it answer that its allowance is used up.
+	exhausted atomic.Bool
+}
 
 func (*quotaArt) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
@@ -70,11 +75,22 @@ func (*quotaArt) Applies(q media.CoverQuery) bool {
 
 func (a *quotaArt) Covers(context.Context, media.CoverQuery, schema.Settings) ([]media.CoverCandidate, error) {
 	a.calls.Add(1)
+
+	if a.exhausted.Load() {
+		return nil, provider.ErrQuotaExhausted
+	}
+
 	return nil, nil
 }
 
 // perGameArt has one cover per game, for any system, and only on the fallback pass, like IGDB.
-type perGameArt struct{ calls atomic.Int32 }
+type perGameArt struct {
+	calls atomic.Int32
+
+	// none makes it know no cover; limited makes it ask to slow down.
+	none    atomic.Bool
+	limited atomic.Bool
+}
 
 func (*perGameArt) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
@@ -93,6 +109,13 @@ func (*perGameArt) Applies(q media.CoverQuery) bool { return q.Fallback }
 func (a *perGameArt) Covers(_ context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	a.calls.Add(1)
 
+	switch {
+	case a.limited.Load():
+		return nil, provider.ErrRateLimited
+	case a.none.Load():
+		return nil, nil
+	}
+
 	return []media.CoverCandidate{{
 		URL:      "https://img.test/per-game",
 		Label:    q.Title,
@@ -103,6 +126,7 @@ func (a *perGameArt) Covers(_ context.Context, q media.CoverQuery, _ schema.Sett
 type fallbackEnv struct {
 	svc     *media.Service
 	games   game.Repository
+	assets  *gamedata.Store
 	store   *countingStore
 	quota   *quotaArt
 	perGame *perGameArt
@@ -120,6 +144,7 @@ func newFallbackEnv(t *testing.T, ctx context.Context) fallbackEnv {
 
 	env := fallbackEnv{
 		games:   sqlite.NewGameRepository(db),
+		assets:  assets,
 		store:   &countingStore{},
 		quota:   &quotaArt{},
 		perGame: &perGameArt{},
@@ -209,6 +234,92 @@ func TestCovers_fallbackForGamesWithoutLinks(t *testing.T) {
 				require.Len(t, candidates, 1)
 				assert.Equal(t, provider.ID("store"), candidates[0].Provider)
 				assert.Zero(t, env.quota.calls.Load())
+			})
+		})
+	})
+}
+
+func TestCovers_fallbackMisses(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	console := game.CopyDetails{
+		Kind:     game.KindPhysical,
+		Platform: "PS4",
+	}
+
+	t.Run("GIVEN the box art database's allowance is used up and the fallback provider knows no cover", func(t *testing.T) {
+		env := newFallbackEnv(t, ctx)
+		env.quota.exhausted.Store(true)
+		env.perGame.none.Store(true)
+		g := saveGame(t, ctx, env.games, "Console Quest", nil, console)
+
+		t.Run("WHEN the cover is asked twice", func(t *testing.T) {
+			_, err1 := env.svc.EditionCover(ctx, g.ID(), "PS4")
+			_, err2 := env.svc.EditionCover(ctx, g.ID(), "PS4")
+
+			t.Run("THEN the fallback provider, which truly answered none, is asked only once", func(t *testing.T) {
+				require.ErrorIs(t, err1, media.ErrNoCover)
+				require.ErrorIs(t, err2, media.ErrNoCover)
+				assert.Equal(t, int32(1), env.perGame.calls.Load())
+			})
+
+			t.Run("AND no miss is remembered, since the box art database said nothing", func(t *testing.T) {
+				_, marked := env.assets.CoverMissingSince(g.ID(), "PS4")
+				assert.False(t, marked)
+				assert.Equal(t, int32(2), env.quota.calls.Load(), "the limited provider is asked again")
+			})
+		})
+
+		t.Run("WHEN the providers are reconfigured (retry missing covers)", func(t *testing.T) {
+			_, err := env.svc.RefreshCovers(ctx, true)
+			require.NoError(t, err)
+
+			_, _ = env.svc.EditionCover(ctx, g.ID(), "PS4")
+
+			t.Run("THEN the fallback provider is asked again", func(t *testing.T) {
+				assert.Equal(t, int32(2), env.perGame.calls.Load())
+			})
+		})
+	})
+
+	t.Run("GIVEN a fallback provider asking to slow down, after a first pass that found nothing", func(t *testing.T) {
+		env := newFallbackEnv(t, ctx)
+		env.perGame.limited.Store(true)
+		g := saveGame(t, ctx, env.games, "Console Quest", nil, console)
+
+		t.Run("WHEN the cover is asked", func(t *testing.T) {
+			_, err := env.svc.EditionCover(ctx, g.ID(), "PS4")
+
+			t.Run("THEN no miss is remembered: the next view asks again", func(t *testing.T) {
+				require.ErrorIs(t, err, media.ErrNoCover)
+
+				_, marked := env.assets.CoverMissingSince(g.ID(), "PS4")
+				assert.False(t, marked)
+			})
+		})
+	})
+
+	t.Run("GIVEN a link-less soundtrack key whose base game has a cover", func(t *testing.T) {
+		env := newFallbackEnv(t, ctx)
+		base := saveGame(t, ctx, env.games, "Key Quest", game.Links{game.LinkSteam: "10"}, game.CopyDetails{
+			Kind:     game.KindLibrary,
+			Platform: "Steam",
+		})
+		add := saveGame(t, ctx, env.games, "Key Quest Soundtrack", nil, game.CopyDetails{
+			Kind:     game.KindKey,
+			Platform: "Steam",
+		})
+
+		_, err := env.svc.EditionCover(ctx, base.ID(), game.SystemPC)
+		require.NoError(t, err)
+
+		t.Run("WHEN its cover is asked", func(t *testing.T) {
+			img, err := env.svc.EditionCover(ctx, add.ID(), game.SystemPC)
+
+			t.Run("THEN it borrows the base game's before any fallback search", func(t *testing.T) {
+				assert.Equal(t, "https://img.test/store-10", cover(t, img, err))
+				assert.Zero(t, env.perGame.calls.Load())
 			})
 		})
 	})
