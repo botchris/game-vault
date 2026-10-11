@@ -1,6 +1,7 @@
 package igdb
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"regexp"
@@ -143,8 +144,8 @@ func (c *Client) findByLinks(ctx context.Context, s schema.Settings, q media.Cov
 		return nil, nil
 	}
 
-	expanded := make([]string, 0, len(fields)+2)
-	expanded = append(expanded, "external_game_source", "uid")
+	expanded := make([]string, 0, len(fields)+4)
+	expanded = append(expanded, "external_game_source", "uid", "game.version_parent", "game.parent_game")
 
 	for _, f := range fields {
 		expanded = append(expanded, "game."+f)
@@ -161,14 +162,40 @@ func (c *Client) findByLinks(ctx context.Context, s schema.Settings, q media.Cov
 	}
 
 	for _, src := range externalSources {
+		var games []gameJSON
+
 		for _, e := range out {
 			if e.Source == src.source && e.Game != nil && e.Game.ID != 0 {
-				return e.Game, nil
+				games = append(games, *e.Game)
 			}
+		}
+
+		if len(games) > 0 {
+			// A store id IGDB lists under several games (a game and its editions) describes the
+			// main one; under two main games it is not trusted, and the title search decides.
+			return onlyMain(games), nil
 		}
 	}
 
 	return nil, nil
+}
+
+// onlyMain returns the one game among games that is neither an edition (version_parent) nor an
+// add-on (parent_game), or the only game when all are; nil when that is not a single game.
+func onlyMain(games []gameJSON) *gameJSON {
+	main := slices.DeleteFunc(slices.Clone(games), func(g gameJSON) bool { return g.VersionParent != 0 || g.ParentGame != 0 })
+	if len(main) == 0 {
+		main = games
+	}
+
+	slices.SortStableFunc(main, func(a, b gameJSON) int { return cmp.Compare(a.ID, b.ID) })
+
+	main = slices.CompactFunc(main, func(a, b gameJSON) bool { return a.ID == b.ID })
+	if len(main) != 1 {
+		return nil
+	}
+
+	return &main[0]
 }
 
 // reUnsafe matches what may not appear in an Apicalypse string.
@@ -229,16 +256,7 @@ func pick(games []gameJSON, title string) *gameJSON {
 
 		// An edition (version_parent) or an add-on (parent_game) shares its game's title: the
 		// game itself is the one to describe.
-		main := slices.DeleteFunc(slices.Clone(matches), func(g gameJSON) bool { return g.VersionParent != 0 || g.ParentGame != 0 })
-		if len(main) == 0 {
-			main = matches
-		}
-
-		if len(main) == 1 {
-			return &main[0]
-		}
-
-		return nil
+		return onlyMain(matches)
 	}
 
 	return nil

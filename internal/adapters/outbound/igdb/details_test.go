@@ -81,7 +81,7 @@ func TestDetails(t *testing.T) {
 				sent := f.sent("games")
 				require.Len(t, sent, 1)
 				assert.Contains(t, sent[0], `search "Example Quest";`)
-				assert.Contains(t, sent[0], `where platforms = (48);`)
+				assert.Equal(t, []string{"48"}, f.searchedPlatforms())
 				require.NotNil(t, got)
 				assert.Equal(t, "Example Quest is an invented adventure.", got.Summary)
 				assert.Empty(t, f.sent("external_games"), "a game without store links skips the link lookup")
@@ -105,7 +105,7 @@ func TestDetails(t *testing.T) {
 			t.Run("THEN the title is searched on PC instead", func(t *testing.T) {
 				sent := f.sent("games")
 				require.Len(t, sent, 1)
-				assert.Contains(t, sent[0], `where platforms = (6,14,3);`)
+				assert.Equal(t, []string{"6,14,3"}, f.searchedPlatforms())
 				require.NotNil(t, got)
 				assert.Equal(t, "Example Quest is an invented adventure.", got.Summary)
 			})
@@ -125,6 +125,7 @@ func TestDetails(t *testing.T) {
 			t.Run("THEN nothing is returned rather than the wrong game", func(t *testing.T) {
 				require.NoError(t, err)
 				assert.Nil(t, got)
+				assert.Equal(t, []string{""}, f.searchedPlatforms(), "no system known: no platform filter")
 			})
 		})
 	})
@@ -188,6 +189,51 @@ func TestDetails(t *testing.T) {
 
 			t.Run("THEN it is a rate limit, so the sheet is not cached", func(t *testing.T) {
 				require.ErrorIs(t, err, provider.ErrRateLimited)
+			})
+		})
+	})
+}
+
+func TestDetails_severalGamesForOneLink(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	q := media.CoverQuery{
+		Title: "Example Quest",
+		Links: game.Links{game.LinkSteam: "620"},
+	}
+
+	t.Run("GIVEN IGDB lists a Steam AppID under the game and its edition", func(t *testing.T) {
+		f := newFakeIGDB(t)
+		f.external = `[{"id": 5, "external_game_source": 1, "uid": "620", "game": {"id": 2, "name": "Example Quest: Deluxe", "summary": "An edition.", "version_parent": 1}},
+			{"id": 6, "external_game_source": 1, "uid": "620", "game": {"id": 1, "name": "Example Quest", "summary": "The game."}}]`
+		d := NewDetails(f.client(time.Now))
+
+		t.Run("WHEN the sheet is asked", func(t *testing.T) {
+			got, err := d.Details(ctx, q, "en", goodSettings)
+			require.NoError(t, err)
+
+			t.Run("THEN the game itself is described", func(t *testing.T) {
+				require.NotNil(t, got)
+				assert.Equal(t, "The game.", got.Summary)
+				assert.Contains(t, f.sent("external_games")[0], "game.version_parent")
+			})
+		})
+	})
+
+	t.Run("GIVEN IGDB lists a Steam AppID under two different games", func(t *testing.T) {
+		f := newFakeIGDB(t)
+		f.external = `[{"id": 5, "external_game_source": 1, "uid": "620", "game": {"id": 1, "name": "Example Quest", "summary": "One."}},
+			{"id": 6, "external_game_source": 1, "uid": "620", "game": {"id": 3, "name": "Example Quest Online", "summary": "Another."}}]`
+		d := NewDetails(f.client(time.Now))
+
+		t.Run("WHEN the sheet is asked", func(t *testing.T) {
+			got, err := d.Details(ctx, q, "en", goodSettings)
+			require.NoError(t, err)
+
+			t.Run("THEN the link is not trusted, and the title search decides", func(t *testing.T) {
+				assert.Nil(t, got)
+				assert.Len(t, f.sent("games"), 1)
 			})
 		})
 	})
