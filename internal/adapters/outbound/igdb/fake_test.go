@@ -4,6 +4,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -27,6 +29,9 @@ const (
   "Tip 1":   "Ensure you are sending Authorization and Client-ID as headers.",
   "Docs":    "https://api-docs.igdb.com/#authentication"
 }`
+
+	// syntaxError is IGDB's answer to a malformed query (HTTP 400).
+	syntaxError = `[{"title":"Syntax Error","status":400,"cause":"Expecting a STRING as input, surround your input with quotes starting at 'x' expecting {'{', 'f', '(', '[', 'true', 't', 'false', 'null', 'n'}"}]`
 
 	// exampleQuest is a full game, as an expanded games query returns it.
 	exampleQuest = `{
@@ -60,11 +65,27 @@ type fakeIGDB struct {
 	// tokenCalls counts the access tokens issued.
 	tokenCalls int
 
+	// expiresIn is the token lifetime Twitch announces; "" leaves the field out.
+	expiresIn string
+
+	// tokenDelay makes Twitch slow to answer, so concurrent lookups overlap.
+	tokenDelay time.Duration
+
+	// hangUp makes Twitch close the connection without answering.
+	hangUp bool
+
+	// leaks records credentials sent in a token request's URL instead of its body.
+	leaks []string
+
 	// valid holds the access tokens IGDB accepts.
 	valid map[string]bool
 
 	// bodies records every query sent to IGDB, by endpoint.
 	bodies map[string][]string
+
+	// platforms records the platform list of every search's where clause ("48", "6,14,3"); "" for a
+	// search without one.
+	platforms []string
 
 	// external answers external_games queries; search answers searches; byID answers "where id".
 	external string
@@ -79,11 +100,12 @@ func newFakeIGDB(t *testing.T) *fakeIGDB {
 	t.Helper()
 
 	f := &fakeIGDB{
-		valid:    map[string]bool{},
-		bodies:   map[string][]string{},
-		external: "[]",
-		search:   "[]",
-		byID:     "[]",
+		valid:     map[string]bool{},
+		bodies:    map[string][]string{},
+		external:  "[]",
+		search:    "[]",
+		byID:      "[]",
+		expiresIn: "5011271",
 	}
 	f.srv = httptest.NewServer(http.HandlerFunc(f.serve))
 	t.Cleanup(f.srv.Close)
@@ -91,33 +113,23 @@ func newFakeIGDB(t *testing.T) *fakeIGDB {
 	return f
 }
 
-func (f *fakeIGDB) serve(w http.ResponseWriter, r *http.Request) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
+// reWhere is the only where clause a search may have: IGDB answers anything malformed with a
+// syntax error, and so does the fake.
+var (
+	reWhere     = regexp.MustCompile(`where platforms = \(([0-9,]+)\);`)
+	reWhereSome = regexp.MustCompile(`\bwhere\b`)
+)
 
+func (f *fakeIGDB) serve(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	if r.URL.Path == "/oauth2/token" {
-		q := r.URL.Query()
-		switch {
-		case r.Method != http.MethodPost || q.Get("grant_type") != "client_credentials":
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(`{"status":400,"message":"unsupported grant type"}`))
-		case q.Get("client_id") != "good-id":
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(badClient))
-		case q.Get("client_secret") != "good-secret":
-			w.WriteHeader(http.StatusForbidden)
-			w.Write([]byte(badSecret))
-		default:
-			f.tokenCalls++
-			tok := "token-" + string(rune('0'+f.tokenCalls))
-			f.valid[tok] = true
-			w.Write([]byte(`{"access_token":"` + tok + `","expires_in":5011271,"token_type":"bearer"}`))
-		}
-
+		f.serveToken(w, r)
 		return
 	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
 
 	endpoint := strings.TrimPrefix(r.URL.Path, "/v4/")
 	body, _ := io.ReadAll(r.Body)
@@ -142,11 +154,77 @@ func (f *fakeIGDB) serve(w http.ResponseWriter, r *http.Request) {
 	case endpoint == "external_games":
 		w.Write([]byte(f.external))
 	case strings.Contains(string(body), "search "):
+		m := reWhere.FindStringSubmatch(string(body))
+
+		switch {
+		case m != nil:
+			f.platforms = append(f.platforms, m[1])
+		case reWhereSome.MatchString(string(body)):
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(syntaxError))
+
+			return
+		default:
+			f.platforms = append(f.platforms, "")
+		}
+
 		w.Write([]byte(f.search))
 	case strings.Contains(string(body), "where id"):
 		w.Write([]byte(f.byID))
 	default:
 		w.Write([]byte(`[{"id": 1}]`))
+	}
+}
+
+// serveToken is Twitch's token endpoint, which takes the credentials as a form.
+func (f *fakeIGDB) serveToken(w http.ResponseWriter, r *http.Request) {
+	f.mu.Lock()
+	delay, hangUp := f.tokenDelay, f.hangUp
+
+	for _, k := range []string{"client_id", "client_secret"} {
+		if r.URL.Query().Has(k) {
+			f.leaks = append(f.leaks, k)
+		}
+	}
+	f.mu.Unlock()
+
+	if hangUp {
+		if conn, _, err := w.(http.Hijacker).Hijack(); err == nil {
+			conn.Close()
+		}
+
+		return
+	}
+
+	time.Sleep(delay)
+
+	_ = r.ParseForm()
+	q := r.PostForm
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	switch {
+	case r.Method != http.MethodPost || q.Get("grant_type") != "client_credentials":
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`{"status":400,"message":"unsupported grant type"}`))
+	case q.Get("client_id") != "good-id":
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(badClient))
+	case q.Get("client_secret") != "good-secret":
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte(badSecret))
+	default:
+		f.tokenCalls++
+		tok := "token-" + strconv.Itoa(f.tokenCalls)
+		f.valid[tok] = true
+
+		expires := ""
+		if f.expiresIn != "" {
+			expires = `,"expires_in":` + f.expiresIn
+		}
+
+		w.Write([]byte(`{"access_token":"` + tok + `"` + expires + `,"token_type":"bearer"}`))
 	}
 }
 
@@ -170,6 +248,27 @@ func (f *fakeIGDB) tokens() int {
 	defer f.mu.Unlock()
 
 	return f.tokenCalls
+}
+
+func (f *fakeIGDB) searchedPlatforms() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return append([]string(nil), f.platforms...)
+}
+
+func (f *fakeIGDB) credentialLeaks() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return append([]string(nil), f.leaks...)
+}
+
+func (f *fakeIGDB) set(change func(f *fakeIGDB)) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	change(f)
 }
 
 func (f *fakeIGDB) sent(endpoint string) []string {

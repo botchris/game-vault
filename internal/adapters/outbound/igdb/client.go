@@ -19,6 +19,8 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/sync/singleflight"
+
 	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
@@ -76,6 +78,9 @@ type Client struct {
 
 	// tokens holds the access token of each Client ID and Secret (by their hash).
 	tokens map[string]token
+
+	// group makes concurrent callers needing a token share one request.
+	group singleflight.Group
 }
 
 // NewClient returns a client with IGDB's and Twitch's production endpoints.
@@ -107,9 +112,11 @@ func credentials(s schema.Settings) (id, secret, key string, err error) {
 	return id, secret, hex.EncodeToString(sum[:]), nil
 }
 
-// accessToken returns the cached token of the settings' credentials, or asks Twitch for one when
-// there is none, it is about to expire, or fresh is set.
-func (c *Client) accessToken(ctx context.Context, s schema.Settings, fresh bool) (string, error) {
+// accessToken returns the cached token of the settings' credentials. It asks Twitch for a new one
+// when there is none, it is about to expire, or it is stale: the token IGDB just refused (empty when
+// none was). Concurrent callers share one request, and a caller holding a refused token that another
+// one already replaced gets the replacement without asking again.
+func (c *Client) accessToken(ctx context.Context, s schema.Settings, stale string) (string, error) {
 	id, secret, key, err := credentials(s)
 	if err != nil {
 		return "", err
@@ -119,23 +126,47 @@ func (c *Client) accessToken(ctx context.Context, s schema.Settings, fresh bool)
 	tok, ok := c.tokens[key]
 	c.mu.Unlock()
 
-	if ok && !fresh && c.now().Before(tok.renewAt) {
+	if ok && tok.value != stale && c.now().Before(tok.renewAt) {
 		return tok.value, nil
 	}
 
+	// The key is a hash of the credentials, so concurrent callers with the same ones share the
+	// request; it runs to completion even if the first caller gives up, as the others still wait.
+	v, err, _ := c.group.Do(key, func() (any, error) {
+		c.mu.Lock()
+		tok, ok := c.tokens[key]
+		c.mu.Unlock()
+
+		if ok && tok.value != stale && c.now().Before(tok.renewAt) {
+			return tok.value, nil // renewed by the request that just finished
+		}
+
+		return c.newToken(context.WithoutCancel(ctx), id, secret, key)
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return v.(string), nil
+}
+
+// newToken asks Twitch for an app access token and caches it under key. The credentials go in a
+// form body, never in the URL: a transport error names the URL, and errors reach warnings and logs.
+func (c *Client) newToken(ctx context.Context, id, secret, key string) (string, error) {
 	var out struct {
 		AccessToken string `json:"access_token"`
 		ExpiresIn   int64  `json:"expires_in"`
 	}
 
-	err = c.Auth.Do(ctx, apiclient.Request{
+	err := c.Auth.Do(ctx, apiclient.Request{
 		Method: http.MethodPost,
 		Path:   "/oauth2/token",
-		Query: url.Values{
+		Header: http.Header{"Content-Type": {"application/x-www-form-urlencoded"}},
+		Text: url.Values{
 			"client_id":     {id},
 			"client_secret": {secret},
 			"grant_type":    {"client_credentials"},
-		},
+		}.Encode(),
 	}, &out)
 
 	switch {
@@ -146,14 +177,20 @@ func (c *Client) accessToken(ctx context.Context, s schema.Settings, fresh bool)
 		// secret" for a wrong secret.
 		return "", ErrBadCredentials
 	case err != nil:
-		return "", fmt.Errorf("asking Twitch for an access token: %w", err)
+		// Not wrapped: nothing of the request, which carries the secret, may reach the message.
+		return "", errTwitchUnreachable
 	case out.AccessToken == "":
 		return "", errors.New("the access token was missing from Twitch's answer: try again later")
 	}
 
-	// Renew shortly before it expires: five minutes early, or halfway for a short-lived token.
+	// Renew shortly before it expires: five minutes early, or halfway for a short-lived token. A
+	// missing or zero lifetime counts as an hour rather than asking for a token on every query.
 	life := time.Duration(out.ExpiresIn) * time.Second
-	tok = token{
+	if life <= 0 {
+		life = time.Hour
+	}
+
+	tok := token{
 		value:   out.AccessToken,
 		renewAt: c.now().Add(life - min(5*time.Minute, life/2)),
 	}
@@ -165,24 +202,16 @@ func (c *Client) accessToken(ctx context.Context, s schema.Settings, fresh bool)
 	return tok.value, nil
 }
 
-// forget drops the cached token of the settings' credentials.
-func (c *Client) forget(s schema.Settings) {
-	if _, _, key, err := credentials(s); err == nil {
-		c.mu.Lock()
-		delete(c.tokens, key)
-		c.mu.Unlock()
-	}
-}
+// errTwitchUnreachable means the token request got no answer (no connection, a timeout).
+var errTwitchUnreachable = errors.New("could not reach Twitch to sign in to IGDB: check the connection and try again later")
 
 // query sends an Apicalypse query to an IGDB endpoint ("games", "external_games") and decodes the
 // answer into out. A token IGDB refuses (it expired early, or was revoked) is renewed once and the
 // query sent again.
 func (c *Client) query(ctx context.Context, s schema.Settings, endpoint, body string, out any) error {
-	err := c.send(ctx, s, endpoint, body, out, false)
+	refused, err := c.send(ctx, s, endpoint, body, out, "")
 	if errors.Is(err, errTokenRefused) {
-		c.forget(s)
-
-		err = c.send(ctx, s, endpoint, body, out, true)
+		_, err = c.send(ctx, s, endpoint, body, out, refused)
 		if errors.Is(err, errTokenRefused) {
 			// A token Twitch just issued that IGDB still refuses belongs to other credentials.
 			return ErrBadCredentials
@@ -195,11 +224,12 @@ func (c *Client) query(ctx context.Context, s schema.Settings, endpoint, body st
 // errTokenRefused is IGDB's HTTP 401 to an access token.
 var errTokenRefused = errors.New("IGDB refused the access token")
 
-// send makes one attempt of query.
-func (c *Client) send(ctx context.Context, s schema.Settings, endpoint, body string, out any, fresh bool) error {
-	tok, err := c.accessToken(ctx, s, fresh)
+// send makes one attempt of query with the current token (a new one if stale is the cached one),
+// and returns the token it used.
+func (c *Client) send(ctx context.Context, s schema.Settings, endpoint, body string, out any, stale string) (string, error) {
+	tok, err := c.accessToken(ctx, s, stale)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	id, _, _, _ := credentials(s) // already checked by accessToken
@@ -218,26 +248,36 @@ func (c *Client) send(ctx context.Context, s schema.Settings, endpoint, body str
 
 	var se *apiclient.StatusError
 	if !errors.As(err, &se) {
-		return err
+		return tok, err
 	}
 
 	switch se.Status {
 	case http.StatusUnauthorized:
-		return errTokenRefused
+		return tok, errTokenRefused
 	case http.StatusTooManyRequests:
-		return errTooManyRequests
+		return tok, errTooManyRequests
 	case http.StatusForbidden:
-		return ErrBadCredentials
+		return tok, ErrBadCredentials
 	}
 
 	// IGDB explains a refused query in the body ([{"title":"Syntax Error","cause":"…"}]): keep it so
 	// the user can paste it back.
-	return fmt.Errorf("HTTP %d: %s", se.Status, se.Body)
+	return tok, fmt.Errorf("HTTP %d: %s: try again later; if it persists, report this message", se.Status, se.Body)
 }
 
 // Test checks the credentials with a new access token and one minimal query.
 func (c *Client) Test(ctx context.Context, s schema.Settings) error {
-	if _, err := c.accessToken(ctx, s, true); err != nil {
+	// The cached token, if any, counts as stale: the check must reach Twitch with these credentials.
+	_, _, key, err := credentials(s)
+	if err != nil {
+		return err
+	}
+
+	c.mu.Lock()
+	cached := c.tokens[key].value
+	c.mu.Unlock()
+
+	if _, err := c.accessToken(ctx, s, cached); err != nil {
 		return err
 	}
 
@@ -275,8 +315,18 @@ func newLimiter(gap time.Duration, open int, now func() time.Time) *limiter {
 	}
 }
 
-// do runs fn when its turn comes.
+// do runs fn when its turn comes: first an open slot, then a start time at least gap after the
+// previous one. Reserving the time only once the slot is held keeps requests that waited for a slot
+// from starting in a burst when it frees.
 func (l *limiter) do(ctx context.Context, fn func() error) error {
+	select {
+	case l.open <- struct{}{}:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	defer func() { <-l.open }()
+
 	l.mu.Lock()
 	now := l.now()
 	start := l.next
@@ -303,14 +353,6 @@ func (l *limiter) do(ctx context.Context, fn func() error) error {
 			return ctx.Err()
 		}
 	}
-
-	select {
-	case l.open <- struct{}{}:
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-
-	defer func() { <-l.open }()
 
 	return fn()
 }
