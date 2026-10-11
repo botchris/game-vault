@@ -339,24 +339,19 @@ input[type="checkbox"], input[type="radio"] { min-height: 0; accent-color: var(-
   background: linear-gradient(160deg, var(--surface-3), var(--surface-2) 70%);
 }
 .cover-placeholder span { font-size: 30px; font-weight: 800; font-stretch: 125%; color: var(--muted); }
-/* A box shown whole (WholeCover): the cell keeps its 2:3 slot and stays empty; the box stands at its
-   bottom with its own proportions, like a box on a shelf. --box-w and --box-h are the box's share of
-   the cell, set once the image's size is known. Only the box has corners and a shadow (each place sets
-   --cover-shadow); the frame over it holds the badges, so they sit on the box. Until the image has
-   loaded both are invisible (the cell is reserved, so nothing moves), then they appear at once: the
-   grid never animates. */
+/* A box shown whole (WholeCover): every cell keeps the same 2:3 size and the box is contained and
+   centred in it, on a band of its own dominant colour (--cover-bg, set once the image has been read;
+   a neutral surface until then, with no transition: the grid never animates). The box layer fills the
+   cell and carries the colour, the corners and the shadow (each place sets --cover-shadow); the frame
+   over it holds the badges. Hover lifts both, never the cell itself. */
 .cover.whole { background: none; border-radius: 0; overflow: visible; }
-.cover-box, .cover-frame {
-  position: absolute; bottom: 0; left: calc((100% - var(--box-w, 100%)) / 2);
-  width: var(--box-w, 100%); height: var(--box-h, 100%);
-}
+.cover-box, .cover-frame { position: absolute; inset: 0; }
 .cover-box {
-  border-radius: 8px; overflow: hidden; background: var(--surface-2); box-shadow: var(--cover-shadow, none); opacity: 0;
+  border-radius: 8px; overflow: hidden; background: var(--cover-bg, var(--surface-2)); box-shadow: var(--cover-shadow, none);
   transition: transform 200ms var(--ease-out), box-shadow 200ms var(--ease-out);
 }
-.cover-frame { z-index: 2; pointer-events: none; visibility: hidden; transition: transform 200ms var(--ease-out); }
-.cover.whole.shown .cover-box { opacity: 1; }
-.cover.whole.shown .cover-frame { visibility: visible; }
+.cover.whole .cover-box img { object-fit: contain; }
+.cover-frame { z-index: 2; pointer-events: none; transition: transform 200ms var(--ease-out); }
 /* A box borrowed from another edition: named, so the edition's own badge is not contradicted. */
 .cover-borrowed {
   position: absolute; left: 6px; bottom: 6px; max-width: calc(100% - 12px);
@@ -368,8 +363,6 @@ input[type="checkbox"], input[type="radio"] { min-height: 0; accent-color: var(-
 .poster-art .cover-borrowed { bottom: 36px; }
 @media (max-width: 860px) {
   .poster-art .cover-borrowed { bottom: 28px; left: 4px; }
-  /* On a phone two flags wrap and fill a short box (a DS case): the label would cover them. */
-  .cover-frame:has(.poster-flags > .flag + .flag) .cover-borrowed { display: none; }
 }
 /* Too small to carry a label (list rows, scan thumbnails) or blurred behind the sheet's hero. */
 .row-cover .cover-borrowed, .scan-row-thumb .cover-borrowed, .scan-added .cover-borrowed, .hero-backdrop .cover-borrowed { display: none; }

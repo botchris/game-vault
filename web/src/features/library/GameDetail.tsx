@@ -178,7 +178,7 @@ function GameDetailBody({ game, system, onClose, onOpenGame, onEdition, onPlatfo
             <button className="icon-button" onClick={onClose} aria-label={t('common.close')}><Icon name="close" size={20} /></button>
           </div>
           <div className="hero-cover">
-            <Cover game={game} system={current} onShown={setShownBox} whole maxAspect={Infinity} />
+            <Cover game={game} system={current} onShown={setShownBox} whole />
             {current && borrowed && (
               <p className="cover-note">{shownBox ? t('edition.borrowedHelp', { system: shownBox }) : t('edition.noBox')}</p>
             )}
