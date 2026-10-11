@@ -73,6 +73,9 @@ Once it is running:
 2. **Providers** — box art and game sheets work out of the box (Steam, Wikipedia); optionally add a free
    [TheGamesDB](https://thegamesdb.net) key for the box art of physical games, and a free Twitch
    application for [IGDB](https://www.igdb.com)'s game sheets and covers.
+   - ⚠️ [SteamGridDB](https://www.steamgriddb.com) community covers, off by default and **at your
+     own risk**: its terms do not allow automated use, and it could revoke your key or suspend your
+     account. You need your own free API key and must accept that risk in its settings first.
 3. **Scan** — add your discs by scanning their barcodes.
 
 To stop it, press `Ctrl+C`. To update, pull the latest code and run `task run` again.

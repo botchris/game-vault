@@ -74,3 +74,7 @@ metadata:
   section; `GetProviderStatus` is gone (status now in `Provider.status` from ListProviders). Checks:
   providers (settings = error), sources (`source.ErrSignedOut` = error, failed scan / keep-alive =
   warning), backups, disk. New checks implement `health.Check` and must stay cheap (no network).
+- **SteamGridDB (2026-10-11, maintainer's decision):** cover provider after IGDB (DefaultOrder 90),
+  fallback pass only, never `LinksOnly`, disabled by default behind a risk consent and the user's
+  key; `coverLogicChanged` not bumped (enabling a provider already forgets the misses). See
+  [[steamgriddb]].
