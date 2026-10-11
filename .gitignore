@@ -1,7 +1,6 @@
 # Runtime data: the database (game keys, store sessions, cookies, API keys), downloaded images,
-# logs and backups. Back it up, never commit it. The whole directory is ignored, with no
-# exceptions, so nothing in it can be added by accident.
-# Runtime data (database, images, logs, backups) is personal: only the empty folder is published.
+# logs and backups. Back it up, never commit it. Everything in it is ignored; only the empty
+# folder is published, through its .gitkeep.
 /config/*
 !/config/.gitkeep
 
