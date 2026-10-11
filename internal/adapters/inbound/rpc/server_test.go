@@ -1180,8 +1180,9 @@ func TestGetProviderStatus(t *testing.T) {
 			res, err := c.covers.ListCoverCandidates(ctx, connect.NewRequest(&pb.ListCoverCandidatesRequest{GameId: g.Msg.Game.Id}))
 			require.NoError(t, err)
 
-			t.Run("THEN it shows no warning about the provider", func(t *testing.T) {
+			t.Run("THEN it shows no warning about the provider, only that providers are unavailable", func(t *testing.T) {
 				assert.Empty(t, res.Msg.Warnings)
+				assert.True(t, res.Msg.ProvidersUnavailable)
 			})
 
 			t.Run("AND the provider status reports the used-up allowance until it renews", func(t *testing.T) {

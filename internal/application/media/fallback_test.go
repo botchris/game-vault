@@ -198,7 +198,7 @@ func TestCovers_fallbackForGamesWithoutLinks(t *testing.T) {
 		})
 
 		t.Run("WHEN its cover candidates are listed", func(t *testing.T) {
-			candidates, warnings, err := env.svc.CoverCandidates(ctx, g.ID(), game.SystemPC)
+			candidates, warnings, _, err := env.svc.CoverCandidates(ctx, g.ID(), game.SystemPC)
 			require.NoError(t, err)
 
 			t.Run("THEN the fallback providers are offered too, since nothing else had one", func(t *testing.T) {
@@ -227,7 +227,7 @@ func TestCovers_fallbackForGamesWithoutLinks(t *testing.T) {
 		})
 
 		t.Run("WHEN its cover candidates are listed", func(t *testing.T) {
-			candidates, _, err := env.svc.CoverCandidates(ctx, g.ID(), game.SystemPC)
+			candidates, _, _, err := env.svc.CoverCandidates(ctx, g.ID(), game.SystemPC)
 			require.NoError(t, err)
 
 			t.Run("THEN only the store is offered, so no quota is spent", func(t *testing.T) {

@@ -113,7 +113,7 @@ func TestProviderStatus_covers(t *testing.T) {
 		})
 
 		t.Run("WHEN the cover picker lists candidates", func(t *testing.T) {
-			_, warnings, err := svc.CoverCandidates(ctx, g.ID(), "PS4")
+			_, warnings, _, err := svc.CoverCandidates(ctx, g.ID(), "PS4")
 			require.NoError(t, err)
 
 			t.Run("THEN the provider-level problem is not a warning on the game", func(t *testing.T) {
@@ -124,7 +124,7 @@ func TestProviderStatus_covers(t *testing.T) {
 		t.Run("WHEN the provider fails for this game only", func(t *testing.T) {
 			art.set(errors.New("server error 500 for this game: try again later"))
 
-			_, warnings, err := svc.CoverCandidates(ctx, g.ID(), "PS4")
+			_, warnings, _, err := svc.CoverCandidates(ctx, g.ID(), "PS4")
 			require.NoError(t, err)
 
 			t.Run("THEN that failure is still shown", func(t *testing.T) {
@@ -146,7 +146,7 @@ func TestProviderStatus_covers(t *testing.T) {
 		t.Run("WHEN it asks to slow down and the time it was given passes", func(t *testing.T) {
 			art.set(provider.ErrRateLimited)
 
-			_, _, err := svc.CoverCandidates(ctx, g.ID(), "PS4")
+			_, _, _, err := svc.CoverCandidates(ctx, g.ID(), "PS4")
 			require.NoError(t, err)
 
 			busy := svc.ProviderStatuses()
@@ -168,7 +168,7 @@ func TestProviderStatus_covers(t *testing.T) {
 			for cause, want := range kinds {
 				art.set(cause)
 
-				_, warnings, err := svc.CoverCandidates(ctx, g.ID(), "PS4")
+				_, warnings, _, err := svc.CoverCandidates(ctx, g.ID(), "PS4")
 				require.NoError(t, err)
 
 				st := svc.ProviderStatuses()
@@ -226,6 +226,246 @@ func TestProviderStatus_details(t *testing.T) {
 
 			t.Run("THEN the failure is shown, and no provider status is set", func(t *testing.T) {
 				assert.Len(t, warnings, 1)
+				assert.Empty(t, env.svc.ProviderStatuses())
+			})
+		})
+	})
+}
+
+// serviceProvider is a cover or details provider of a service (settings group) whose answer the
+// test sets: err, or a cover / a sheet when nil.
+type serviceProvider struct {
+	id    provider.ID
+	name  string
+	group string
+	kind  provider.Kind
+
+	mu  sync.Mutex
+	err error
+}
+
+func (p *serviceProvider) Descriptor() provider.Descriptor {
+	return provider.Descriptor{
+		ID:               p.id,
+		Kind:             p.kind,
+		Name:             p.name,
+		SettingsGroup:    p.group,
+		EnabledByDefault: true,
+		DefaultOrder:     10,
+	}
+}
+
+func (p *serviceProvider) set(err error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	p.err = err
+}
+
+func (p *serviceProvider) answer() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	return p.err
+}
+
+func (p *serviceProvider) Test(context.Context, schema.Settings) error { return p.answer() }
+
+func (*serviceProvider) Applies(media.CoverQuery) bool { return true }
+
+func (p *serviceProvider) Covers(context.Context, media.CoverQuery, schema.Settings) ([]media.CoverCandidate, error) {
+	if err := p.answer(); err != nil {
+		return nil, err
+	}
+
+	return []media.CoverCandidate{{
+		URL:      "https://img.test/" + string(p.id),
+		Provider: p.id,
+	}}, nil
+}
+
+func (p *serviceProvider) Details(context.Context, media.CoverQuery, string, schema.Settings) (*media.GameDetails, error) {
+	if err := p.answer(); err != nil {
+		return nil, err
+	}
+
+	return &media.GameDetails{Summary: "A sheet."}, nil
+}
+
+type serviceEnv struct {
+	svc     *media.Service
+	games   game.Repository
+	details media.DetailsStore
+	covers  *serviceProvider
+	sheets  *serviceProvider
+	game    *game.Game
+}
+
+// newServiceEnv builds a media service with one service's covers and details sharing a settings
+// group, and a PS4 disc.
+func newServiceEnv(t *testing.T, ctx context.Context) serviceEnv {
+	t.Helper()
+
+	db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "gamevault.db"), "")
+	require.NoError(t, err)
+	t.Cleanup(func() { db.Close() })
+
+	assets, err := gamedata.Open(filepath.Join(t.TempDir(), "game-data"))
+	require.NoError(t, err)
+
+	env := serviceEnv{
+		games:   sqlite.NewGameRepository(db),
+		details: sqlite.NewDetailsStore(db),
+		covers: &serviceProvider{
+			id:    "db",
+			name:  "Database",
+			group: "db",
+			kind:  provider.KindCover,
+		},
+		sheets: &serviceProvider{
+			id:    "db-details",
+			name:  "Database",
+			group: "db",
+			kind:  provider.KindMetadata,
+		},
+	}
+	env.svc = media.NewService(env.games, sqlite.NewProviderRepository(db), assets, nil, env.details, echo{}, time.Now,
+		slog.New(slog.NewTextHandler(io.Discard, nil)), media.Providers{
+			Covers:   []media.CoverProvider{env.covers},
+			Metadata: []media.MetadataProvider{env.sheets},
+		})
+	env.game = saveGame(t, ctx, env.games, "Disc Quest", nil, game.CopyDetails{
+		Kind:     game.KindPhysical,
+		Platform: "PS4",
+	})
+
+	return env
+}
+
+func TestProviderStatus_service(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	rejected := provider.BadSettings("the key was rejected: check it in the provider settings")
+
+	t.Run("GIVEN a service whose details reject the key", func(t *testing.T) {
+		env := newServiceEnv(t, ctx)
+		env.sheets.set(rejected)
+
+		t.Run("WHEN a sheet is asked", func(t *testing.T) {
+			_, warnings, err := env.svc.GameDetails(ctx, env.game.ID(), "en", false)
+			require.NoError(t, err)
+
+			t.Run("THEN the sheet has no warning and the service's status says its settings are rejected", func(t *testing.T) {
+				assert.Empty(t, warnings)
+
+				st := env.svc.ProviderStatuses()
+				require.Len(t, st, 1)
+				assert.Equal(t, media.StatusSettings, st[0].Kind)
+				assert.Equal(t, provider.ID("db"), st[0].Provider)
+				assert.Equal(t, []provider.ID{"db", "db-details"}, st[0].Providers)
+			})
+		})
+
+		t.Run("WHEN its covers, without a key either, answer the same", func(t *testing.T) {
+			env.covers.set(rejected)
+			_, _, unavailable, err := env.svc.CoverCandidates(ctx, env.game.ID(), "PS4")
+			require.NoError(t, err)
+
+			t.Run("THEN the status stays, and the picker is told providers are unavailable", func(t *testing.T) {
+				assert.Len(t, env.svc.ProviderStatuses(), 1)
+				assert.True(t, unavailable)
+			})
+		})
+
+		t.Run("WHEN its covers really answer with the same settings", func(t *testing.T) {
+			env.covers.set(nil)
+			_, _, unavailable, err := env.svc.CoverCandidates(ctx, env.game.ID(), "PS4")
+			require.NoError(t, err)
+
+			t.Run("THEN the settings work after all: the status is cleared", func(t *testing.T) {
+				assert.Empty(t, env.svc.ProviderStatuses())
+				assert.False(t, unavailable)
+			})
+		})
+	})
+
+	t.Run("GIVEN a service in trouble", func(t *testing.T) {
+		env := newServiceEnv(t, ctx)
+		env.covers.set(provider.ErrUnavailable)
+
+		_, _, _, err := env.svc.CoverCandidates(ctx, env.game.ID(), "PS4")
+		require.NoError(t, err)
+		require.Len(t, env.svc.ProviderStatuses(), 1)
+
+		t.Run("WHEN its settings are saved", func(t *testing.T) {
+			_, err := env.svc.ConfigureProvider(ctx, "db", true, schema.Settings{})
+			require.NoError(t, err)
+
+			t.Run("THEN the status is cleared until the next answer tells", func(t *testing.T) {
+				assert.Empty(t, env.svc.ProviderStatuses())
+			})
+		})
+
+		t.Run("WHEN its connection is tested and fails, then works", func(t *testing.T) {
+			env.covers.set(rejected)
+			require.Error(t, env.svc.TestProvider(ctx, "db", schema.Settings{}))
+			failed := env.svc.ProviderStatuses()
+
+			env.covers.set(nil)
+			require.NoError(t, env.svc.TestProvider(ctx, "db", schema.Settings{}))
+
+			t.Run("THEN the test sets the status, and a successful one clears it", func(t *testing.T) {
+				require.Len(t, failed, 1)
+				assert.Equal(t, media.StatusSettings, failed[0].Kind)
+				assert.Empty(t, env.svc.ProviderStatuses())
+			})
+		})
+	})
+
+	t.Run("GIVEN two services with the same name in trouble", func(t *testing.T) {
+		env := newServiceEnv(t, ctx)
+		env.covers.group, env.sheets.group = "", "" // like Steam's covers and details
+
+		env.covers.set(provider.ErrRateLimited)
+		env.sheets.set(provider.ErrRateLimited)
+
+		_, _, _, err := env.svc.CoverCandidates(ctx, env.game.ID(), "PS4")
+		require.NoError(t, err)
+		_, _, err = env.svc.GameDetails(ctx, env.game.ID(), "en", false)
+		require.NoError(t, err)
+
+		t.Run("WHEN their statuses are listed", func(t *testing.T) {
+			st := env.svc.ProviderStatuses()
+
+			t.Run("THEN they come by name, then by id, always in the same order", func(t *testing.T) {
+				require.Len(t, st, 2)
+				assert.Equal(t, provider.ID("db"), st[0].Provider)
+				assert.Equal(t, provider.ID("db-details"), st[1].Provider)
+			})
+		})
+	})
+
+	t.Run("GIVEN answers and listings at the same time", func(t *testing.T) {
+		env := newServiceEnv(t, ctx)
+
+		t.Run("WHEN they run concurrently", func(t *testing.T) {
+			var wg sync.WaitGroup
+
+			for i := range 20 {
+				wg.Go(func() {
+					if i%2 == 0 {
+						_ = env.svc.TestProvider(ctx, "db", schema.Settings{})
+						return
+					}
+
+					_ = env.svc.ProviderStatuses()
+				})
+			}
+
+			wg.Wait()
+
+			t.Run("THEN nothing breaks", func(t *testing.T) {
 				assert.Empty(t, env.svc.ProviderStatuses())
 			})
 		})

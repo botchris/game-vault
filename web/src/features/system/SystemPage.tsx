@@ -1,14 +1,14 @@
 import { Fragment, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { errorMessage, providerClient, systemClient, valuationClient } from '../../api/client';
+import { errorMessage, systemClient, valuationClient } from '../../api/client';
 import { Alert, useFormatters } from '../../components/ui';
-import type { ProviderStatus } from '../../gen/gamevault/v1/provider_pb';
 import type { Backup, GetStatusResponse } from '../../gen/gamevault/v1/system_pb';
 import type { SyncReport } from '../../gen/gamevault/v1/source_pb';
 import type { GetCollectionValueResponse } from '../../gen/gamevault/v1/valuation_pb';
 import { currencyList, formatAmount, regionCurrency } from '../../lib/money';
 import { downloadBytes, toDate } from '../../lib/model';
 import { describeStatus } from '../../lib/providerStatus';
+import { useProviderStatus } from '../../lib/useProviderStatus';
 import { useAppData } from '../../state/AppData';
 import SecurityCard from './SecurityCard';
 
@@ -34,7 +34,7 @@ export default function SystemPage() {
   const [backups, setBackups] = useState<Backup[]>([]);
   const [photoStore, setPhotoStore] = useState(0n);
   const [value, setValue] = useState<GetCollectionValueResponse | null>(null);
-  const [providerStatus, setProviderStatus] = useState<ProviderStatus[]>([]);
+  const [providerStatus] = useProviderStatus();
   const [busy, setBusy] = useState('');
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string; report?: SyncReport } | null>(null);
 
@@ -46,8 +46,6 @@ export default function SystemPage() {
       })]);
     setValue(val);
     setStatus(st);
-    // Best effort: the page works without it, and it only lists problems.
-    providerClient.getProviderStatus({}).then((res) => setProviderStatus(res.statuses), () => setProviderStatus([]));
     setBackups(bk.backups);
     setPhotoStore(bk.photoStoreBytes);
     if (prefs.preferences?.currency) setCurrency(prefs.preferences.currency);
@@ -117,7 +115,10 @@ export default function SystemPage() {
             {providerStatus.map((s) => (
               <Fragment key={s.providerId}>
                 <dt>{s.providerName}</dt>
-                <dd title={s.message}>{describeStatus(s, toDate(s.until) ?? undefined, new Date(), t, i18n.language)}</dd>
+                <dd>
+                  {describeStatus(s, toDate(s.until) ?? undefined, new Date(), t, i18n.language)}
+                  <span className="muted small provider-status-message">{s.message}</span>
+                </dd>
               </Fragment>
             ))}
           </dl>

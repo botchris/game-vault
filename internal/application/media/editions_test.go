@@ -227,14 +227,14 @@ func TestEditionCovers(t *testing.T) {
 		})
 
 		t.Run("WHEN the candidates of the PC edition are listed THEN only the PC store proposes", func(t *testing.T) {
-			candidates, _, err := env.svc.CoverCandidates(ctx, g.ID(), "PC")
+			candidates, _, _, err := env.svc.CoverCandidates(ctx, g.ID(), "PC")
 			require.NoError(t, err)
 			require.Len(t, candidates, 1)
 			assert.Equal(t, provider.ID("pc-store"), candidates[0].Provider)
 		})
 
 		t.Run("WHEN the candidates of a system the game has no copy on are listed THEN it is an error", func(t *testing.T) {
-			_, _, err := env.svc.CoverCandidates(ctx, g.ID(), "Switch")
+			_, _, _, err := env.svc.CoverCandidates(ctx, g.ID(), "Switch")
 			assert.ErrorIs(t, err, media.ErrNoEdition)
 		})
 	})

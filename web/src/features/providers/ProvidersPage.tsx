@@ -5,6 +5,7 @@ import { Alert } from '../../components/ui';
 import type { Provider, ProviderStatus } from '../../gen/gamevault/v1/provider_pb';
 import { toDate } from '../../lib/model';
 import { describeStatus, statusFor } from '../../lib/providerStatus';
+import { useProviderStatus } from '../../lib/useProviderStatus';
 import { useAppData } from '../../state/AppData';
 import ProviderDialog from './ProviderDialog';
 import { forgetPriceProviders } from '../../lib/usePriceProviders';
@@ -17,13 +18,7 @@ export default function ProvidersPage() {
   const { reloadGames } = useAppData();
   const [notice, setNotice] = useState<Notice>(null);
   const [busy, setBusy] = useState(false);
-  const [statuses, setStatuses] = useState<ProviderStatus[]>([]);
-
-  const loadStatuses = useCallback(() => {
-    providerClient.getProviderStatus({}).then((res) => setStatuses(res.statuses), () => setStatuses([]));
-  }, []);
-
-  useEffect(loadStatuses, [loadStatuses]);
+  const [statuses, loadStatuses] = useProviderStatus();
 
   const refresh = async (missingOnly: boolean) => {
     if (!missingOnly && !confirm(t('providers.confirmRedownload'))) return;
@@ -165,9 +160,12 @@ function ProviderChain(props: {
               {(() => {
                 const st = statusFor(props.statuses, p.id);
                 return st && (
-                  <span className="badge warn provider-status" title={st.message}>
-                    {describeStatus(st, toDate(st.until) ?? undefined, new Date(), t, i18n.language)}
-                  </span>
+                  <>
+                    <span className="badge warn provider-status">
+                      {describeStatus(st, toDate(st.until) ?? undefined, new Date(), t, i18n.language)}
+                    </span>
+                    <span className="muted small provider-status-message">{st.message}</span>
+                  </>
                 );
               })()}
             </div>

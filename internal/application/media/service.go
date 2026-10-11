@@ -587,7 +587,12 @@ func (s *Service) TestProvider(ctx context.Context, id provider.ID, settings sch
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 
-	return s.impls[id].Test(ctx, merged)
+	// The check is an answer like any other: a success clears the service's status, a
+	// provider-level problem sets it.
+	err = s.impls[id].Test(ctx, merged)
+	s.noteResult(id, err)
+
+	return err
 }
 
 // chain returns the enabled cover providers in priority order.
@@ -895,11 +900,13 @@ func (s *Service) fetchAndCache(ctx context.Context, g GameRef, system, url stri
 // CoverCandidates asks every enabled provider that applies to the game's edition on system (the
 // main edition when system is empty) for images, for the "choose cover" dialog. When none has any,
 // the providers that keep to the fallback pass are asked too, as when the cover is resolved.
-// Failing providers are reported as warnings.
-func (s *Service) CoverCandidates(ctx context.Context, id game.ID, system string) ([]CoverCandidate, []string, error) {
+// Providers failing for this game are reported as warnings; unavailable reports that a provider had
+// a provider-level problem (see ProviderStatuses), which is not a warning on the game.
+func (s *Service) CoverCandidates(ctx context.Context, id game.ID, system string) (candidates []CoverCandidate, warnings []string,
+	unavailable bool, err error) {
 	g, err := s.games.Get(ctx, id)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
 	if system == "" {
@@ -907,24 +914,19 @@ func (s *Service) CoverCandidates(ctx context.Context, id game.ID, system string
 	}
 
 	if _, ok := g.Edition(system); !ok && len(g.Copies()) > 0 {
-		return nil, nil, fmt.Errorf("%w (%s)", ErrNoEdition, system)
+		return nil, nil, false, fmt.Errorf("%w (%s)", ErrNoEdition, system)
 	}
 
 	chain, err := s.chain(ctx)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
 	q := QueryFor(g, system)
-
-	var (
-		out      []CoverCandidate
-		warnings []string
-		asked    = map[provider.ID]bool{}
-	)
+	asked := map[provider.ID]bool{}
 
 	for _, fallback := range []bool{false, true} {
-		if fallback && len(out) > 0 {
+		if fallback && len(candidates) > 0 {
 			break
 		}
 
@@ -944,18 +946,20 @@ func (s *Service) CoverCandidates(ctx context.Context, id game.ID, system string
 			if err != nil {
 				// A provider-level problem (busy, allowance used up, rejected key) is the provider's
 				// status, shown on the System and Providers pages, not a warning on every game.
-				if !providerLevel(err) {
+				if providerLevel(err) {
+					unavailable = true
+				} else {
 					warnings = append(warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
 				}
 
 				continue
 			}
 
-			out = append(out, c...)
+			candidates = append(candidates, c...)
 		}
 	}
 
-	return out, warnings, nil
+	return candidates, warnings, unavailable, nil
 }
 
 // RefreshCovers drops cached covers so they are resolved again on next view. With missingOnly, only

@@ -74,6 +74,10 @@ func providerLevel(err error) bool {
 
 // noteResult records what a provider's answer says about the provider: a provider-level problem sets
 // its status, a successful answer clears it, and any other error (a failure for one game) leaves it.
+// Providers answer success only when they did reach the service (one without its settings returns
+// provider.ErrBadSettings, not an empty answer), so a sibling that sent nothing never clears a
+// status. Answers are recorded as they arrive, not in request order: a slow request sent with the
+// old settings that ends after new ones were saved can set "settings" again, until the next answer.
 func (s *Service) noteResult(id provider.ID, err error) {
 	impl, ok := s.impls[id]
 	if !ok {
@@ -164,7 +168,10 @@ func (s *Service) ProviderStatuses() []ProviderStatus {
 		out = append(out, st)
 	}
 
-	slices.SortFunc(out, func(a, b ProviderStatus) int { return cmp.Compare(a.Name, b.Name) })
+	// Services may share a name (Steam's covers and details): the id keeps the order stable.
+	slices.SortFunc(out, func(a, b ProviderStatus) int {
+		return cmp.Or(cmp.Compare(a.Name, b.Name), cmp.Compare(a.Provider, b.Provider))
+	})
 
 	return out
 }

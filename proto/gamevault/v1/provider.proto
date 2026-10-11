@@ -65,7 +65,6 @@ message TestProviderResponse {
   reserved "remaining_quota";
 }
 
-// ProviderService configures the metadata provider chains.
 // ProviderStatus is a provider's current problem: one that concerns the provider, not a game (its
 // allowance used up, too many requests, not answering, its settings rejected). Game sheets and the
 // cover picker do not show these; the System and Providers pages do.
@@ -90,6 +89,7 @@ message GetProviderStatusResponse {
   repeated ProviderStatus statuses = 1;
 }
 
+// ProviderService configures the metadata provider chains.
 service ProviderService {
   rpc ListProviders(ListProvidersRequest) returns (ListProvidersResponse);
   // GetProviderStatus lists the providers' current provider-level problems.
@@ -115,8 +115,12 @@ message ListCoverCandidatesRequest {
 }
 message ListCoverCandidatesResponse {
   repeated CoverCandidate candidates = 1;
-  // Providers that failed (e.g. quota used up), as human-readable messages.
+  // Providers that failed for this game, as human-readable messages. Provider-level problems (quota
+  // used up, too many requests, not answering, settings rejected) are not listed: see
+  // GetProviderStatus.
   repeated string warnings = 2;
+  // A provider had a provider-level problem, so some candidates may be missing.
+  bool providers_unavailable = 3;
 }
 
 message RefreshCoversRequest {

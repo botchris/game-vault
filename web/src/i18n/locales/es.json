@@ -612,7 +612,9 @@
     "photos": "Fotos de tus copias",
     "photo": "Foto de tu copia",
     "paste": "Usar esta imagen",
-    "none": "Ningún proveedor tiene carátula para este juego. Vincúlalo con una tienda (Editar → Vínculos con tiendas) o pega la URL de una imagen."
+    "none": "Ningún proveedor tiene carátula para este juego. Vincúlalo con una tienda (Editar → Vínculos con tiendas) o pega la URL de una imagen.",
+    "providersUnavailable": "Algunos proveedores no están disponibles ahora mismo.",
+    "seeSystem": "Ver Sistema"
   },
   "scan": {
     "title": "Escanear",

@@ -533,7 +533,6 @@ func (x *TestProviderResponse) GetMessage() string {
 	return ""
 }
 
-// ProviderService configures the metadata provider chains.
 // ProviderStatus is a provider's current problem: one that concerns the provider, not a game (its
 // allowance used up, too many requests, not answering, its settings rejected). Game sheets and the
 // cover picker do not show these; the System and Providers pages do.
@@ -848,10 +847,14 @@ func (x *ListCoverCandidatesRequest) GetSystem() string {
 type ListCoverCandidatesResponse struct {
 	state      protoimpl.MessageState `protogen:"open.v1"`
 	Candidates []*CoverCandidate      `protobuf:"bytes,1,rep,name=candidates,proto3" json:"candidates,omitempty"`
-	// Providers that failed (e.g. quota used up), as human-readable messages.
-	Warnings      []string `protobuf:"bytes,2,rep,name=warnings,proto3" json:"warnings,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// Providers that failed for this game, as human-readable messages. Provider-level problems (quota
+	// used up, too many requests, not answering, settings rejected) are not listed: see
+	// GetProviderStatus.
+	Warnings []string `protobuf:"bytes,2,rep,name=warnings,proto3" json:"warnings,omitempty"`
+	// A provider had a provider-level problem, so some candidates may be missing.
+	ProvidersUnavailable bool `protobuf:"varint,3,opt,name=providers_unavailable,json=providersUnavailable,proto3" json:"providers_unavailable,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *ListCoverCandidatesResponse) Reset() {
@@ -896,6 +899,13 @@ func (x *ListCoverCandidatesResponse) GetWarnings() []string {
 		return x.Warnings
 	}
 	return nil
+}
+
+func (x *ListCoverCandidatesResponse) GetProvidersUnavailable() bool {
+	if x != nil {
+		return x.ProvidersUnavailable
+	}
+	return false
 }
 
 type RefreshCoversRequest struct {
@@ -1054,12 +1064,13 @@ const file_gamevault_v1_provider_proto_rawDesc = "" +
 	"\rprovider_name\x18\x05 \x01(\tR\fproviderName\"M\n" +
 	"\x1aListCoverCandidatesRequest\x12\x17\n" +
 	"\agame_id\x18\x01 \x01(\tR\x06gameId\x12\x16\n" +
-	"\x06system\x18\x02 \x01(\tR\x06system\"w\n" +
+	"\x06system\x18\x02 \x01(\tR\x06system\"\xac\x01\n" +
 	"\x1bListCoverCandidatesResponse\x12<\n" +
 	"\n" +
 	"candidates\x18\x01 \x03(\v2\x1c.gamevault.v1.CoverCandidateR\n" +
 	"candidates\x12\x1a\n" +
-	"\bwarnings\x18\x02 \x03(\tR\bwarnings\"9\n" +
+	"\bwarnings\x18\x02 \x03(\tR\bwarnings\x123\n" +
+	"\x15providers_unavailable\x18\x03 \x01(\bR\x14providersUnavailable\"9\n" +
 	"\x14RefreshCoversRequest\x12!\n" +
 	"\fmissing_only\x18\x01 \x01(\bR\vmissingOnly\"-\n" +
 	"\x15RefreshCoversResponse\x12\x14\n" +
