@@ -4,8 +4,17 @@ description: Plex-style provider chains, TheGamesDB quota rules, the fallback pa
 metadata:
   type: project
 ---
-- Chains for covers, barcodes and metadata. Default order = registration order in
-  `cmd/gamevault/main.go`; new providers are appended to existing users' chains.
+- Chains for covers, barcodes and metadata. Default order = each provider's `DefaultOrder` (ties
+  broken by registration order in `cmd/gamevault/plugins.go`); new providers are appended to
+  existing users' chains, which the user reorders on the Providers page.
+- **Metadata default (2026-10-11):** Steam (10) → Wikipedia (12) → IGDB (15) → TheGamesDB (20).
+  First provider wins each field, so Wikipedia's summary (UI language, else English) beats IGDB's
+  English one; its `SummarySource` credit travels with the summary in `GameDetails.fill`. YouTube
+  trailers are deduplicated by id. `detailsLogicVersion` is 2 (sparse sheets refetched once).
+  See [[wikipedia]], [[igdb]].
+- **IGDB covers (2026-10-11):** per game, not per system: `Applies` = `q.ForPC() || q.Fallback`,
+  `DefaultOrder` 85 (after TheGamesDB 10 and every store, Xbox 80) so store art wins on PC.
+  `coverLogicChanged` bumped to 2026-10-11 08:50 UTC.
 - Media providers can keep learned state in `schema.FieldState` settings: they write it into the
   settings map they get, and the media service persists it with `provider.UpdateState` (wired for
   barcode lookups only so far; CeX's `country_hits`, see [[cex]]).
