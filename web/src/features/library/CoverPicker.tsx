@@ -54,7 +54,7 @@ export default function CoverPicker({ game, system, photosOnly = false, onPick, 
             {photos.filter((p) => !broken.includes(photoUrl(p.id, true))).map((p) => (
               <button key={p.id} className={`poster ${edition?.coverPhotoId === p.id ? 'selected' : ''}`} title={p.caption} aria-label={p.caption || t('coverPicker.photo')}
                 onClick={() => onPick({ case: 'photoId', value: p.id })}>
-                <WholeCover src={photoUrl(p.id, true)} maxAspect={Infinity} onError={breaks(photoUrl(p.id, true))} />
+                <WholeCover src={photoUrl(p.id, true)} onError={breaks(photoUrl(p.id, true))} />
               </button>
             ))}
           </div>
@@ -78,7 +78,7 @@ export default function CoverPicker({ game, system, photosOnly = false, onPick, 
               </button>
               {candidates.filter((c) => !broken.includes(proxiedImage(c.thumbUrl || c.url))).map((c) => (
                 <button key={c.url} className={`poster ${edition?.coverUrl === c.url ? 'selected' : ''}`} onClick={() => onPick({ case: 'url', value: c.url })} title={c.label}>
-                  <WholeCover src={proxiedImage(c.thumbUrl || c.url)} maxAspect={Infinity} onError={breaks(proxiedImage(c.thumbUrl || c.url))} />
+                  <WholeCover src={proxiedImage(c.thumbUrl || c.url)} onError={breaks(proxiedImage(c.thumbUrl || c.url))} />
                   <div className="poster-caption">
                     <span className="poster-title">{c.label || c.providerName}</span>
                     <span className="muted small">{c.providerName}</span>

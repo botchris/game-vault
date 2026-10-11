@@ -60,7 +60,7 @@ export default function PosterGrid({ items, grouping, onOpen, onSystem, activeSy
           <li key={item.key} className="poster-card">
             {/* The title button stretches over the whole card; the badges sit above it. */}
             <span className="poster-art">
-              {/* The box is shown whole; flags and badges sit on the box, not on the cell around it. */}
+              {/* The box is shown whole on a band of its own colour; flags and badges sit on the cell. */}
               <Cover game={item.game} system={item.system} whole>
                 <span className="poster-flags">
                   {days !== null && days <= 30 && <span className="flag danger">{t('common.daysLeft', { count: days })}</span>}
