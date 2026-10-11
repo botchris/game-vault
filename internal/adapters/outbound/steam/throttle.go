@@ -8,9 +8,10 @@ import (
 	"gamevault/internal/domain/provider"
 )
 
-// Steam's store allows about 200 requests per 5 minutes (one every 1.5 s) before answering HTTP 429
-// (see .claude/memory/steam.md). The store search (covers by title, Battle.net's covers, the link
-// search) and the art lookups share one throttle: one request at a time, a short burst for the few
+// Steam's store host (store.steampowered.com) allows about 200 requests per 5 minutes (one every
+// 1.5 s) before answering HTTP 429 (see .claude/memory/steam.md). Its requests (the store search for
+// covers by title, Battle.net's covers and the link search; the app details of game sheets) share one
+// throttle; the art lookups go to the Web API, which has its own higher limits, and are not paced: one request at a time, a short burst for the few
 // covers of a page, then one every storeGap; a request that would wait longer than storeMaxWait is
 // answered rate-limited at once (no "missing" marker: it is asked again later), like TheGamesDB's.
 const (
@@ -59,9 +60,16 @@ func (t *throttle) do(ctx context.Context, fn func() error) error {
 		return fn()
 	}
 
+	// Waiting for the turn counts against maxWait too: a slow request ahead must not hold callers
+	// until their context ends.
+	timer := time.NewTimer(t.maxWait)
 	select {
 	case t.turn <- struct{}{}:
+		timer.Stop()
+	case <-timer.C:
+		return errBusy
 	case <-ctx.Done():
+		timer.Stop()
 		return ctx.Err()
 	}
 

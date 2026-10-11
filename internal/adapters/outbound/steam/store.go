@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -138,15 +139,7 @@ func (s *Store) Covers(ctx context.Context, q media.CoverQuery, _ schema.Setting
 	}
 
 	urls := s.CoverURLs(appID)
-
-	library, header, err := s.assetURLs(ctx, appID)
-	if errors.Is(err, errBusy) {
-		// Not the legacy guess: for a recent app it does not exist, and the edition would be marked
-		// missing. Asked again later.
-		return nil, err
-	}
-
-	if err == nil && (library != "" || header != "") {
+	if library, header, err := s.assetURLs(ctx, appID); err == nil && (library != "" || header != "") {
 		urls = []string{library, header}
 	}
 
@@ -255,14 +248,9 @@ func (s *Store) assetURLs(ctx context.Context, appID int64) (library, header str
 		} `json:"response"`
 	}
 
-	err = s.throttle.do(ctx, func() error {
-		return s.API.Get(ctx, "/IStoreBrowseService/GetItems/v1/", url.Values{"input_json": {input}}, &out)
-	})
-	if errors.Is(err, errBusy) {
-		return "", "", err
-	}
-
-	if err != nil {
+	// The Web API (api.steampowered.com) has its own, much higher limits than the store host: not
+	// throttled, so a fresh library's Steam covers fill in at once.
+	if err := s.API.Get(ctx, "/IStoreBrowseService/GetItems/v1/", url.Values{"input_json": {input}}, &out); err != nil {
 		return "", "", fmt.Errorf("steam store items: %w", err)
 	}
 
@@ -320,8 +308,12 @@ func (s *Store) SearchLinks(ctx context.Context, query string) ([]media.LinkMatc
 		now = s.now
 	}
 
+	// The year Battle.net drops ("… (2016)"), case and spaces do not change the answer: one key, so
+	// Battle.net's search and Steam's title search of one game share it.
+	query = searchTerm(query)
+
 	s.mu.Lock()
-	hit, ok := s.searches[query]
+	hit, ok := s.searches[strings.ToLower(query)]
 	s.mu.Unlock()
 
 	if ok && now().Sub(hit.at) < searchTTL {
@@ -338,13 +330,21 @@ func (s *Store) SearchLinks(ctx context.Context, query string) ([]media.LinkMatc
 		s.searches = map[string]cachedSearch{} // simplest bound: start over
 	}
 
-	s.searches[query] = cachedSearch{
+	s.searches[strings.ToLower(query)] = cachedSearch{
 		matches: matches,
 		at:      now(),
 	}
 	s.mu.Unlock()
 
 	return slices.Clone(matches), nil
+}
+
+var reYearSuffix = regexp.MustCompile(`\s*\(\d{4}\)\s*$`)
+
+// searchTerm is what the store is searched for: the query trimmed, without a trailing year in
+// parentheses.
+func searchTerm(query string) string {
+	return strings.Join(strings.Fields(reYearSuffix.ReplaceAllString(query, "")), " ")
 }
 
 // search asks the store's search for query, through the throttle.

@@ -22,8 +22,8 @@ metadata:
   game's cover for any system. Review round (2026-10-11): providers' "no cover" answers in a
   limited lookup are kept 24 h in memory per edition (`media/misses.go`); add-ons borrow the base
   game's cover before the fallback pass; configuring a sibling of a cover provider retries missing
-  covers; Steam's store search and art lookups share a throttle (burst 10, 1.5 s, 5 s max wait) and a
-  10-min search cache; 5xx/no answer from Steam's search, Twitch or IGDB count as rate limits. `coverLogicChanged` bumped to 2026-10-11 09:20 UTC for it (an earlier bump for
+  covers; Steam's store host (search, appdetails) is throttled (burst 10, 1.5 s, 5 s max wait; art
+  lookups on the Web API are not) with a 10-min search cache; 5xx/no answer from Steam's search, Twitch or IGDB count as rate limits. `coverLogicChanged` bumped to 2026-10-11 09:20 UTC for it (an earlier bump for
   IGDB alone was reverted: enabling a provider already forgets the markers).
 - Media providers can keep learned state in `schema.FieldState` settings: they write it into the
   settings map they get, and the media service persists it with `provider.UpdateState` (wired for

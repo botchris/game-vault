@@ -3,6 +3,7 @@ package steam
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html"
 	"net/http"
@@ -97,7 +98,12 @@ func (d *Details) fetch(ctx context.Context, appID int64, lang string) (app appD
 
 	var out map[string]appDetails
 
-	err = d.store.Site.Get(ctx, "/api/appdetails", params, &out)
+	// The store host allows about 200 requests per 5 minutes, shared with the store search.
+	err = d.store.throttle.do(ctx, func() error { return d.store.Site.Get(ctx, "/api/appdetails", params, &out) })
+	if errors.Is(err, errBusy) {
+		return appDetails{}, false, err
+	}
+
 	if apiclient.IsStatus(err, http.StatusTooManyRequests) {
 		return appDetails{}, false, fmt.Errorf("steam store: too many requests, try again in a few minutes")
 	}

@@ -91,6 +91,34 @@ func TestThrottle(t *testing.T) {
 		})
 	})
 
+	t.Run("GIVEN a request holding the turn for longer than the longest wait", func(t *testing.T) {
+		th := newThrottle(0, 10, 50*time.Millisecond, time.Now, func(context.Context, time.Duration) error { return nil })
+		release := make(chan struct{})
+		started := make(chan struct{})
+
+		go func() {
+			_ = th.do(ctx, func() error {
+				close(started)
+				<-release
+
+				return nil
+			})
+		}()
+
+		<-started
+		t.Cleanup(func() { close(release) })
+
+		t.Run("WHEN another one comes", func(t *testing.T) {
+			begin := time.Now()
+			err := th.do(ctx, func() error { return nil })
+
+			t.Run("THEN it fails fast as a rate limit instead of blocking until its context ends", func(t *testing.T) {
+				require.ErrorIs(t, err, provider.ErrRateLimited)
+				assert.Less(t, time.Since(begin), time.Second)
+			})
+		})
+	})
+
 	t.Run("GIVEN slow requests sent concurrently", func(t *testing.T) {
 		th := newThrottle(0, 10, time.Second, time.Now, func(context.Context, time.Duration) error { return nil })
 

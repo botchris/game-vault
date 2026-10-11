@@ -213,19 +213,56 @@ func TestCovers_titleSearch(t *testing.T) {
 		})
 	})
 
-	t.Run("GIVEN the Steam requests are already queued past the longest wait", func(t *testing.T) {
-		s, _ := titleSearchStore(t, nil, 0)
+	t.Run("GIVEN a title with a year, which Battle.net searches without it", func(t *testing.T) {
+		s, searched := titleSearchStore(t, map[string]string{"Year Quest": `[]`}, 0)
+
+		t.Run("WHEN Battle.net's search and Steam's title search run", func(t *testing.T) {
+			_, err := s.SearchLinks(ctx, "Year Quest")
+			require.NoError(t, err)
+
+			q := pcKey
+			q.Title = "  year quest (2016) "
+			_, err = s.Covers(ctx, q, schema.Settings{})
+			require.NoError(t, err)
+
+			t.Run("THEN they share one request", func(t *testing.T) {
+				assert.Equal(t, []string{"Year Quest"}, *searched)
+			})
+		})
+	})
+
+	t.Run("GIVEN the store host's requests are already queued past the longest wait", func(t *testing.T) {
+		s, searched := titleSearchStore(t, nil, 0)
 		s.throttle = newThrottle(time.Hour, 1, time.Second, time.Now, func(context.Context, time.Duration) error { return nil })
 		require.NoError(t, s.throttle.do(ctx, func() error { return nil }))
 
 		t.Run("WHEN a linked game's covers are asked", func(t *testing.T) {
-			_, err := s.Covers(ctx, media.CoverQuery{
+			got, err := s.Covers(ctx, media.CoverQuery{
 				Title:  "Portal 2",
 				System: game.SystemPC,
 				Links:  game.Links{game.LinkSteam: "620"},
 			}, schema.Settings{})
 
-			t.Run("THEN it is a rate limit rather than the legacy guess, which may not exist", func(t *testing.T) {
+			t.Run("THEN the art lookup is not held up: the Web API has its own, higher limits", func(t *testing.T) {
+				require.NoError(t, err)
+				require.Len(t, got, 2)
+				assert.Equal(t, "https://legacy.test/steam/apps/620/library_600x900.jpg", got[0].URL, "browse API down in this fake: the guessed URLs, as before")
+			})
+		})
+
+		t.Run("WHEN a title is searched", func(t *testing.T) {
+			_, err := s.SearchLinks(ctx, "Example Quest")
+
+			t.Run("THEN the store host's throttle answers rate-limited without a request", func(t *testing.T) {
+				require.ErrorIs(t, err, provider.ErrRateLimited)
+				assert.Empty(t, *searched)
+			})
+		})
+
+		t.Run("WHEN a Steam sheet is asked", func(t *testing.T) {
+			_, err := NewDetails(s).Details(ctx, media.CoverQuery{Links: game.Links{game.LinkSteam: "620"}}, "en", schema.Settings{})
+
+			t.Run("THEN the store page waits its turn too: rate-limited, so the sheet is not cached", func(t *testing.T) {
 				require.ErrorIs(t, err, provider.ErrRateLimited)
 			})
 		})
