@@ -62,4 +62,7 @@ metadata:
   quota/busy/ErrUnavailable, and ErrBadSettings) never reach game sheets or the cover picker; the
   media service keeps the last one per settings group in memory (`media/status.go`, cleared by a
   success, new settings or its Until) and `GetProviderStatus` feeds the System page section and the
-  Providers page badges. TheGamesDB's allowance error implements `provider.Resumer`.
+  Providers page badges. TheGamesDB's allowance error implements `provider.Resumer`. Review
+  fixes: providers without settings must return ErrBadSettings, never an empty success (it would
+  clear a sibling's status); TheGamesDB 401/403/5xx/no answer and Wikimedia 403/5xx/no answer are
+  provider-level; TestProvider sets/clears too; the picker gets `providers_unavailable`.
