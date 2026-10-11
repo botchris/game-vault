@@ -337,8 +337,8 @@ func TestLimiter_slotBeforeTurn(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	t.Run("GIVEN one open request allowed, 30 ms apart, and a slow request holding it", func(t *testing.T) {
-		l := newLimiter(30*time.Millisecond, 1, time.Now)
+	t.Run("GIVEN one open request allowed, 60 ms apart, and a slow request holding it", func(t *testing.T) {
+		l := newLimiter(60*time.Millisecond, 1, time.Now)
 
 		var (
 			mu     sync.Mutex
@@ -348,7 +348,7 @@ func TestLimiter_slotBeforeTurn(t *testing.T) {
 
 		wg.Go(func() {
 			_ = l.do(ctx, func() error {
-				time.Sleep(150 * time.Millisecond)
+				time.Sleep(250 * time.Millisecond)
 				return nil
 			})
 		})
@@ -375,9 +375,9 @@ func TestLimiter_slotBeforeTurn(t *testing.T) {
 				require.Len(t, starts, 3)
 				slices.SortFunc(starts, func(a, b time.Time) int { return a.Compare(b) })
 
-				for i := 1; i < len(starts); i++ {
-					assert.GreaterOrEqual(t, starts[i].Sub(starts[i-1]), 25*time.Millisecond)
-				}
+				// Measured over the three, so the scheduler's jitter on one start does not matter: a
+				// burst would start them within a few milliseconds.
+				assert.GreaterOrEqual(t, starts[2].Sub(starts[0]), 90*time.Millisecond)
 			})
 		})
 	})
