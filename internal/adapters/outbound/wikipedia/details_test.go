@@ -92,6 +92,12 @@ func TestDetails(t *testing.T) {
 				assert.Equal(t, "2011-04-18", got.ReleaseDate, "the earliest publication date")
 			})
 
+			t.Run("THEN labels are asked in the UI language, then English, then the neutral mul", func(t *testing.T) {
+				for _, langs := range f.languagesAsked() {
+					assert.Equal(t, "es|en|mul", langs)
+				}
+			})
+
 			t.Run("THEN every request names Game Vault and how to reach it", func(t *testing.T) {
 				for _, ua := range f.userAgents() {
 					assert.Equal(t, "GameVault/1.2.3 (https://github.com/botchris/game-vault)", ua)
@@ -109,6 +115,30 @@ func TestDetails(t *testing.T) {
 				assert.Equal(t, "https://en.wikipedia.org/wiki/Example_Quest", got.SummarySource.URL)
 				assert.Equal(t, []string{"Invented Publishing"}, got.Publishers)
 				assert.Equal(t, []string{"Puzzle video game"}, got.Genres)
+			})
+		})
+
+		t.Run("WHEN the UI language is regional", func(t *testing.T) {
+			got, err := d.Details(ctx, pcGame, "es-MX", nil)
+			require.NoError(t, err)
+
+			t.Run("THEN its primary language's Wikipedia is used", func(t *testing.T) {
+				require.NotNil(t, got)
+				assert.Equal(t, "https://es.wikipedia.org/wiki/Example_Quest_(videojuego)", got.SummarySource.URL)
+				assert.Equal(t, []string{"Editorial Inventada"}, got.Publishers)
+			})
+		})
+
+		t.Run("WHEN the UI language has a script subtag and no article", func(t *testing.T) {
+			got, err := d.Details(ctx, pcGame, "zh-Hans", nil)
+			require.NoError(t, err)
+
+			t.Run("THEN it falls back to English, asking labels in zh first", func(t *testing.T) {
+				require.NotNil(t, got)
+				assert.Equal(t, "https://en.wikipedia.org/wiki/Example_Quest", got.SummarySource.URL)
+
+				langs := f.languagesAsked()
+				assert.Equal(t, "zh|en|mul", langs[len(langs)-1])
 			})
 		})
 
@@ -252,9 +282,10 @@ func TestDetails(t *testing.T) {
 		t.Run("WHEN a sheet is asked", func(t *testing.T) {
 			_, err := d.Details(ctx, pcGame, "en", nil)
 
-			t.Run("THEN its message is reported", func(t *testing.T) {
+			t.Run("THEN its message is reported, with what to do", func(t *testing.T) {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "The API answered internal_api_error_DBQueryError.")
+				assert.Contains(t, err.Error(), "try again later; if it persists, report this message")
 			})
 		})
 
@@ -275,6 +306,82 @@ func TestDetails(t *testing.T) {
 
 			t.Run("THEN it is a rate limit too", func(t *testing.T) {
 				require.ErrorIs(t, err, provider.ErrRateLimited)
+			})
+		})
+	})
+}
+
+func TestDetails_applies(t *testing.T) {
+	d := New("dev")
+
+	for _, tc := range []struct {
+		name string
+		q    media.CoverQuery
+		want bool
+	}{
+		{"a game without store links", media.CoverQuery{Title: "Example Quest"}, true},
+		{"a game linked to another store", media.CoverQuery{Links: map[string]string{"gog": "1"}}, true},
+		{"a game linked to Steam, whose localized summary always wins", media.CoverQuery{Links: map[string]string{"steam": "620"}}, false},
+		{"a game linked to Steam on the fallback pass (Steam had nothing)", media.CoverQuery{
+			Links:    map[string]string{"steam": "620"},
+			Fallback: true,
+		}, true},
+	} {
+		assert.Equal(t, tc.want, d.Applies(tc.q), tc.name)
+	}
+}
+
+func TestDetails_releaseDatePrecision(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	for _, tc := range []struct {
+		name  string
+		dates []string
+		want  string
+	}{
+		{"a full date beats the bare year it falls in", []string{"9:+2011-00-00T00:00:00Z", "+2011-04-19T00:00:00Z"}, "2011-04-19"},
+		{"listed the other way round too", []string{"+2011-04-19T00:00:00Z", "9:+2011-00-00T00:00:00Z"}, "2011-04-19"},
+		{"a month beats its year, a day its month", []string{"9:+2011-00-00T00:00:00Z", "10:+2011-04-00T00:00:00Z", "+2011-04-19T00:00:00Z"}, "2011-04-19"},
+		{"an earlier year still wins", []string{"+2011-04-19T00:00:00Z", "9:+2010-00-00T00:00:00Z"}, "2010"},
+		{"the earliest full date wins", []string{"+2011-04-19T00:00:00Z", "+2011-04-18T00:00:00Z"}, "2011-04-18"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFakeWiki(t)
+			exampleWorld(f)
+			e := f.entities["Q100"]
+			e.dates = tc.dates
+			f.entities["Q100"] = e
+
+			got, err := f.details().Details(ctx, media.CoverQuery{
+				Title:     "Example Quest",
+				Platforms: []string{"Steam"},
+			}, "en", nil)
+			require.NoError(t, err)
+			require.NotNil(t, got)
+			assert.Equal(t, tc.want, got.ReleaseDate)
+		})
+	}
+}
+
+func TestDetails_refused(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN Wikimedia refuses the client (no User-Agent, or blocked)", func(t *testing.T) {
+		f := newFakeWiki(t)
+		exampleWorld(f)
+		d := f.details()
+		d.Wikidata.UserAgent = ""
+
+		t.Run("WHEN a sheet is asked", func(t *testing.T) {
+			_, err := d.Details(ctx, media.CoverQuery{Title: "Example Quest"}, "en", nil)
+
+			t.Run("THEN the error says it was refused and what to do, and is not a rate limit", func(t *testing.T) {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "HTTP 403")
+				assert.Contains(t, err.Error(), "try again later; if it persists, report this message")
+				assert.NotErrorIs(t, err, provider.ErrRateLimited)
 			})
 		})
 	})

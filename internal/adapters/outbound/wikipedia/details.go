@@ -128,8 +128,12 @@ func (d *Details) Descriptor() provider.Descriptor {
 	}
 }
 
-// Applies implements media.MetadataProvider: Wikipedia has no quota, so it is asked about every game.
-func (d *Details) Applies(media.CoverQuery) bool { return true }
+// Applies implements media.MetadataProvider. A game linked to Steam gets Steam's localized sheet,
+// whose summary always wins, so Wikipedia's 4-5 requests would be wasted on it (the background scan
+// asks for every game): it only helps there on the fallback pass, when Steam had nothing.
+func (d *Details) Applies(q media.CoverQuery) bool {
+	return q.Links[game.LinkSteam] == "" || q.Fallback
+}
 
 // Test implements media.Provider with one search on Wikidata.
 func (d *Details) Test(ctx context.Context, _ schema.Settings) error {
@@ -142,13 +146,22 @@ func (d *Details) Test(ctx context.Context, _ schema.Settings) error {
 
 var reLanguage = regexp.MustCompile(`^[a-z]{2,3}$`)
 
+// wikiLanguage returns the Wikipedia language of a UI language: its primary subtag ("pt-BR" → "pt",
+// "zh-Hans" → "zh"). The language names a host and a site, so anything but a plain code is English.
+func wikiLanguage(language string) string {
+	primary, _, _ := strings.Cut(strings.ToLower(strings.TrimSpace(language)), "-")
+	primary, _, _ = strings.Cut(primary, "_")
+
+	if !reLanguage.MatchString(primary) {
+		return "en"
+	}
+
+	return primary
+}
+
 // Details implements media.MetadataProvider.
 func (d *Details) Details(ctx context.Context, q media.CoverQuery, language string, _ schema.Settings) (*media.GameDetails, error) {
-	// The language names a host and a site: anything but a plain code falls back to English.
-	lang := strings.ToLower(language)
-	if !reLanguage.MatchString(lang) {
-		lang = "en"
-	}
+	lang := wikiLanguage(language)
 
 	item, err := d.findGame(ctx, q, lang)
 	if err != nil || item == nil {
@@ -339,9 +352,10 @@ func (it *item) refs(props ...string) []string {
 }
 
 // releaseDate returns the earliest publication date, as precise as Wikidata knows it ("2011-04-18",
-// "2011-04" or "2011").
+// "2011-04" or "2011"). Dates are compared at the precision they share, and on a tie the more
+// precise one wins: a bare "2011" never hides "2011-04-19".
 func (it *item) releaseDate() string {
-	best, bestTime := "", ""
+	best := ""
 
 	for _, c := range it.Claims[propPublication] {
 		var v struct {
@@ -353,11 +367,9 @@ func (it *item) releaseDate() string {
 			continue
 		}
 
-		t := v.Time[1:11]
-
 		var date string
 
-		switch {
+		switch t := v.Time[1:11]; {
 		case v.Precision >= 11:
 			date = t
 		case v.Precision == 10:
@@ -368,8 +380,14 @@ func (it *item) releaseDate() string {
 			continue
 		}
 
-		if bestTime == "" || t < bestTime {
-			best, bestTime = date, t
+		if best == "" {
+			best = date
+			continue
+		}
+
+		n := min(len(date), len(best))
+		if date[:n] < best[:n] || (date[:n] == best[:n] && len(date) > len(best)) {
+			best = date
 		}
 	}
 
@@ -507,7 +525,7 @@ func (d *Details) get(ctx context.Context, c *apiclient.Client, q url.Values, ou
 	case apiclient.IsStatus(err, http.StatusTooManyRequests):
 		return fmt.Errorf("HTTP %d: %w", http.StatusTooManyRequests, provider.ErrRateLimited)
 	case apiclient.IsStatus(err, http.StatusForbidden):
-		return fmt.Errorf("the Wikimedia servers refused the request (HTTP 403), try again later: %w", err)
+		return fmt.Errorf("the Wikimedia servers refused the request (HTTP %d): try again later; if it persists, report this message", http.StatusForbidden)
 	case err != nil:
 		return err
 	case apiErr.Error == nil:
@@ -517,7 +535,7 @@ func (d *Details) get(ctx context.Context, c *apiclient.Client, q url.Values, ou
 		return fmt.Errorf("%s: %w", apiErr.Error.Info, provider.ErrRateLimited)
 	}
 
-	return fmt.Errorf("%s (%s)", apiErr.Error.Info, apiErr.Error.Code)
+	return fmt.Errorf("%s (%s): try again later; if it persists, report this message", apiErr.Error.Info, apiErr.Error.Code)
 }
 
 // errCanceled is returned when the context ends while a request waits for its turn.

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -47,6 +48,9 @@ type fakeWiki struct {
 	// requests records every request's action.
 	requests []string
 
+	// labelLanguages records the languages parameter of every wbgetentities request.
+	labelLanguages []string
+
 	// fail answers every Wikidata request with this API error (HTTP 200), or HTTP 429 when "429".
 	fail string
 }
@@ -72,6 +76,16 @@ func (f *fakeWiki) serve(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	f.agents = append(f.agents, r.UserAgent())
 	f.requests = append(f.requests, q.Get("action"))
+
+	// Real behavior: Wikimedia refuses requests without a User-Agent (and blocks generic library
+	// agents) with an HTML page.
+	if r.UserAgent() == "" || strings.HasPrefix(r.UserAgent(), "Go-http-client") {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte("<html><body>Please set a user-agent and respect our robot policy https://w.wiki/4wJS.</body></html>"))
+
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
@@ -119,6 +133,7 @@ func (f *fakeWiki) serve(w http.ResponseWriter, r *http.Request) {
 			"success":    1,
 		})
 	case "wbgetentities":
+		f.labelLanguages = append(f.labelLanguages, q.Get("languages"))
 		f.serveEntities(w, strings.Split(q.Get("ids"), "|"), strings.Split(q.Get("languages"), "|"))
 	default:
 		w.Write([]byte(`{"error":{"code":"badvalue","info":"Unrecognized value for parameter \"action\"."}}`))
@@ -170,6 +185,12 @@ func (f *fakeWiki) serveEntities(w http.ResponseWriter, ids, languages []string)
 		}
 
 		for _, d := range e.dates {
+			precision := 11
+			if p, rest, ok := strings.Cut(d, ":+"); ok {
+				precision, _ = strconv.Atoi(p)
+				d = "+" + rest
+			}
+
 			claims["P577"] = append(claims["P577"], map[string]any{
 				"mainsnak": map[string]any{
 					"snaktype": "value",
@@ -178,7 +199,7 @@ func (f *fakeWiki) serveEntities(w http.ResponseWriter, ids, languages []string)
 						"type": "time",
 						"value": map[string]any{
 							"time":      d,
-							"precision": 11,
+							"precision": precision,
 						},
 					},
 				},
@@ -253,6 +274,13 @@ func (f *fakeWiki) actions() []string {
 	defer f.mu.Unlock()
 
 	return append([]string(nil), f.requests...)
+}
+
+func (f *fakeWiki) languagesAsked() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return append([]string(nil), f.labelLanguages...)
 }
 
 func (f *fakeWiki) setFail(code string) {
