@@ -367,6 +367,25 @@ func TestDetails_editionTitles(t *testing.T) {
 	})
 }
 
+func TestDetails_trademarkedTitleSearchedOnce(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a trademarked title Wikidata does not know", func(t *testing.T) {
+		f := newFakeWiki(t)
+
+		t.Run("WHEN its sheet is asked", func(t *testing.T) {
+			got, err := f.details().Details(ctx, media.CoverQuery{Title: "Plain Quest™"}, "en", nil)
+			require.NoError(t, err)
+
+			t.Run("THEN it is searched once: the trademark sign alone makes no other title", func(t *testing.T) {
+				assert.Nil(t, got)
+				assert.Equal(t, []string{"en:Plain Quest"}, f.searchLog())
+			})
+		})
+	})
+}
+
 func TestDetails_exactTitleFirst(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()

@@ -1,6 +1,7 @@
 package steam
 
 import (
+	"cmp"
 	"context"
 	"net/http"
 	"net/http/httptest"
@@ -84,7 +85,7 @@ func titleSearchStore(t *testing.T, items map[string]string, status int) (*Store
 				return
 			}
 			// Real answer shape of the store search (values invented).
-			w.Write([]byte(`{"total":2,"items":` + items[r.URL.Query().Get("term")] + `}`))
+			w.Write([]byte(`{"total":2,"items":` + cmp.Or(items[r.URL.Query().Get("term")], "[]") + `}`))
 		default:
 			w.WriteHeader(http.StatusInternalServerError) // browse API down: legacy paths
 		}
@@ -164,6 +165,41 @@ func TestCovers_titleSearch(t *testing.T) {
 		}
 	})
 
+	t.Run("GIVEN a title whose tag-like word is part of the name", func(t *testing.T) {
+		s, searched := titleSearchStore(t, map[string]string{
+			"Rush!":      `[]`,
+			"Gold Rush!": `[{"type":"app","name":"Gold Rush!","id":5050}]`,
+		}, 0)
+
+		t.Run("WHEN its covers are asked", func(t *testing.T) {
+			q := pcKey
+			q.Title = "Gold Rush!"
+			got, err := s.Covers(ctx, q, schema.Settings{})
+			require.NoError(t, err)
+
+			t.Run("THEN the raw title is searched after the name found no match", func(t *testing.T) {
+				require.NotEmpty(t, got)
+				assert.Equal(t, "https://legacy.test/steam/apps/5050/library_600x900.jpg", got[0].URL)
+				assert.Equal(t, []string{"Rush!", "Gold Rush!"}, *searched)
+			})
+		})
+	})
+
+	t.Run("GIVEN a trademarked title without tags", func(t *testing.T) {
+		s, searched := titleSearchStore(t, map[string]string{"Plain Quest": `[]`}, 0)
+
+		t.Run("WHEN its covers are asked", func(t *testing.T) {
+			q := pcKey
+			q.Title = "Plain Quest™"
+			_, err := s.Covers(ctx, q, schema.Settings{})
+			require.NoError(t, err)
+
+			t.Run("THEN it is searched once", func(t *testing.T) {
+				assert.Equal(t, []string{"Plain Quest"}, *searched)
+			})
+		})
+	})
+
 	t.Run("GIVEN a title the store has exactly, and also as a remake", func(t *testing.T) {
 		s, _ := titleSearchStore(t, map[string]string{
 			"Mafia": `[{"type":"app","name":"Mafia: Definitive Edition","id":1030840},
@@ -207,8 +243,8 @@ func TestCovers_titleSearch(t *testing.T) {
 			_, err = s.Covers(ctx, pcKey, schema.Settings{})
 			require.NoError(t, err)
 
-			t.Run("THEN the store is asked once", func(t *testing.T) {
-				assert.Len(t, *searched, 1)
+			t.Run("THEN the store is asked once for that name (then for the raw title, as nothing matched)", func(t *testing.T) {
+				assert.Equal(t, []string{"Example Quest", "Example Quest GOTY"}, *searched)
 			})
 		})
 	})

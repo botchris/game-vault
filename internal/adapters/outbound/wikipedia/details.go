@@ -272,7 +272,7 @@ func (d *Details) candidates(ctx context.Context, title, lang string) (ids []str
 	}
 
 	terms := []string{game.SearchTitle(title)}
-	if raw := strings.Join(strings.Fields(title), " "); raw != terms[0] {
+	if raw := game.NormalizeTitle(title); raw != terms[0] { // a ™ alone is no other title
 		terms = append(terms, raw)
 	}
 

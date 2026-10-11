@@ -1,6 +1,7 @@
 package igdb
 
 import (
+	"cmp"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -193,14 +194,12 @@ func (f *fakeIGDB) serve(w http.ResponseWriter, r *http.Request) {
 
 		f.terms = append(f.terms, term)
 
-		switch answer, ok := f.searchFor[term]; {
-		case f.searchFor == nil:
-			w.Write([]byte(f.search))
-		case ok:
-			w.Write([]byte(answer))
-		default:
-			w.Write([]byte("[]"))
+		answer := f.search
+		if f.searchFor != nil { // answers by term; unknown terms find nothing
+			answer = cmp.Or(f.searchFor[term], "[]")
 		}
+
+		w.Write([]byte(answer))
 	case strings.Contains(string(body), "where id"):
 		w.Write([]byte(f.byID))
 	default:

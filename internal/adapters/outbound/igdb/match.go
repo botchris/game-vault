@@ -211,7 +211,7 @@ func (c *Client) findByTitle(ctx context.Context, s schema.Settings, q media.Cov
 	clean := func(t string) string { return strings.Join(strings.Fields(reUnsafe.ReplaceAllString(t, " ")), " ") }
 
 	terms := []string{clean(game.SearchTitle(q.Title))}
-	if raw := clean(q.Title); raw != terms[0] {
+	if raw := clean(game.NormalizeTitle(q.Title)); raw != terms[0] { // a ™ alone is no other title
 		terms = append(terms, raw)
 	}
 

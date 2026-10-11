@@ -176,7 +176,16 @@ var (
 
 	// reDangling matches separators left at either end once tags are gone ("Mafia: ", "Game - ").
 	reDangling = regexp.MustCompile(`^[\s:;,\-–—|/]+|[\s:;,\-–—|/]+$`)
+
+	// reSeparatorRun matches two or more separators in a row left inside a title ("Foo - : The Bar").
+	reSeparatorRun = regexp.MustCompile(`\s*[:;,\-–—|/](\s*[:;,\-–—|/])+\s*`)
 )
+
+// NormalizeTitle drops trademark signs and repeated spaces, which stores add or leave out: two
+// titles that differ only in those are the same text to search for.
+func NormalizeTitle(title string) string {
+	return strings.Join(strings.Fields(reTrademarks.ReplaceAllString(title, "")), " ")
+}
 
 // SearchTitle returns the title to search a game database for: the title without the edition and
 // store tags MatchKey ignores ("Red Dead Redemption GOTY" → "Red Dead Redemption", "Example Game (PC
@@ -189,10 +198,11 @@ func SearchTitle(title string) string {
 	s = reStoreKeyAnyCase.ReplaceAllString(s, " ")
 	s = reSuffixesAnyCase.ReplaceAllString(s, " ")
 	s = strings.Join(strings.Fields(s), " ")
+	s = reSeparatorRun.ReplaceAllString(s, ": ")
 	s = reDangling.ReplaceAllString(s, "")
 
 	if s == "" {
-		return strings.Join(strings.Fields(title), " ")
+		return NormalizeTitle(title)
 	}
 
 	return s

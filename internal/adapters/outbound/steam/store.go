@@ -167,16 +167,34 @@ func (s *Store) Covers(ctx context.Context, q media.CoverQuery, _ schema.Setting
 	return out, nil
 }
 
-// appIDByTitle searches the store for title and returns the AppID of the only app with exactly that
-// title (ignoring case and trademark signs), or, when none has it, of the only one with the same
-// game.MatchKey; 0 when there is none or several. MatchKey alone would take "Mafia: Definitive
-// Edition" for "Mafia". The AppID is only used for this cover: it is never written as the game's
-// link, so a wrong guess cannot stick. An answer that says nothing about the game (429, 5xx, no
-// connection) counts as rate-limited, so the edition is not marked missing for days.
+// appIDByTitle returns the AppID of the only store app with q's title, 0 when there is none or
+// several. MatchKey alone would take "Mafia: Definitive Edition" for "Mafia", so an exact title wins
+// first. The AppID is only used for this cover: it is never written as the game's link, so a wrong
+// guess cannot stick. An answer that says nothing about the game (429, 5xx, no connection) counts as
+// rate-limited, so the edition is not marked missing for days.
 func (s *Store) appIDByTitle(ctx context.Context, title string) (int64, error) {
-	// The store names the game, not the edition a key is ("… GOTY"): its name is searched, and the
-	// results are compared with the full title below.
-	matches, err := s.SearchLinks(ctx, game.SearchTitle(title))
+	// The store names the game, not the edition a key is ("… GOTY"): its name is searched first. When
+	// that finds no single match and stripping changed the title ("Gold Rush!" became "Rush!"), the
+	// raw title gets a second chance. Results are always compared with the full title.
+	terms := []string{game.SearchTitle(title)}
+	if raw := game.NormalizeTitle(title); raw != terms[0] {
+		terms = append(terms, raw)
+	}
+
+	for _, term := range terms {
+		id, err := s.uniqueApp(ctx, term, title)
+		if err != nil || id != 0 {
+			return id, err
+		}
+	}
+
+	return 0, nil
+}
+
+// uniqueApp searches the store for term and returns the AppID of the only app titled title: exactly
+// (ignoring case and trademark signs), or, when none is, by game.MatchKey; 0 when none or several.
+func (s *Store) uniqueApp(ctx context.Context, term, title string) (int64, error) {
+	matches, err := s.SearchLinks(ctx, term)
 
 	var se *apiclient.StatusError
 
@@ -191,7 +209,9 @@ func (s *Store) appIDByTitle(ctx context.Context, title string) (int64, error) {
 	}
 
 	for _, same := range []func(string) bool{
-		func(name string) bool { return strings.EqualFold(plainTitle(name), plainTitle(title)) },
+		func(name string) bool {
+			return strings.EqualFold(game.NormalizeTitle(name), game.NormalizeTitle(title))
+		},
 		func(name string) bool { return game.MatchKey(name) == game.MatchKey(title) },
 	} {
 		var ids []int64
@@ -216,12 +236,6 @@ func (s *Store) appIDByTitle(ctx context.Context, title string) (int64, error) {
 	}
 
 	return 0, nil
-}
-
-// plainTitle drops trademark signs and repeated spaces, which stores add or leave out.
-func plainTitle(s string) string {
-	s = strings.NewReplacer("™", "", "®", "", "©", "").Replace(s)
-	return strings.Join(strings.Fields(s), " ")
 }
 
 // Test implements media.Provider: it asks Steam's store browse API for the art of Portal 2 (app

@@ -241,6 +241,21 @@ func TestDetails_editionTitles(t *testing.T) {
 		})
 	})
 
+	t.Run("GIVEN a trademarked title without edition tags IGDB does not know", func(t *testing.T) {
+		f := newFakeIGDB(t)
+		f.searchFor = map[string]string{}
+		d := NewDetails(f.client(time.Now))
+
+		t.Run("WHEN the sheet is asked", func(t *testing.T) {
+			_, err := d.Details(ctx, media.CoverQuery{Title: "Plain Quest™"}, "en", goodSettings)
+			require.NoError(t, err)
+
+			t.Run("THEN it is searched once: the trademark sign alone makes no other title", func(t *testing.T) {
+				assert.Equal(t, []string{"Plain Quest"}, f.searchTerms())
+			})
+		})
+	})
+
 	t.Run("GIVEN a title without edition tags IGDB does not know", func(t *testing.T) {
 		f := newFakeIGDB(t)
 		f.searchFor = map[string]string{}

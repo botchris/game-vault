@@ -60,7 +60,24 @@ func TestSearchTitle(t *testing.T) {
 		"Ratchet & Clank [PS4]":                               "Ratchet & Clank",
 		"Deluxe Edition":                                      "Deluxe Edition", // nothing left: keep the title
 		"  Spaced   Out  ":                                    "Spaced Out",
+		"Foo - Deluxe Edition: The Bar":                       "Foo: The Bar",
+		"Foo - Bar":                                           "Foo - Bar",
+		"Golden Sun":                                          "Golden Sun",
+		// Tag words that are part of the name are lost here; searches fall back to the raw title.
+		"Gold Rush!":            "Rush!",
+		"PC Building Simulator": "Building Simulator",
 	} {
 		assert.Equal(t, want, SearchTitle(title), title)
+	}
+}
+
+func TestNormalizeTitle(t *testing.T) {
+	for title, want := range map[string]string{
+		"Celeste™":            "Celeste",
+		"  Hades®  II ":       "Hades II",
+		"Example © Quest":     "Example Quest",
+		"Red Dead Redemption": "Red Dead Redemption",
+	} {
+		assert.Equal(t, want, NormalizeTitle(title), title)
 	}
 }
