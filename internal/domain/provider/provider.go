@@ -52,6 +52,42 @@ func (quotaExhausted) Error() string {
 // Is makes errors.Is(ErrQuotaExhausted, ErrRateLimited) true without ErrRateLimited's message.
 func (quotaExhausted) Is(target error) bool { return target == ErrRateLimited }
 
+// ErrUnavailable means the service is not answering (a 5xx, no connection). It is a kind of
+// ErrRateLimited, so errors.Is matches both: like a rate limit, the answer says nothing about the
+// game and nothing is remembered from it.
+var ErrUnavailable error = unavailable{}
+
+// unavailable is ErrUnavailable's type: its own message, matching ErrRateLimited too.
+type unavailable struct{}
+
+func (unavailable) Error() string { return "the service is not answering: try again later" }
+
+// Is makes errors.Is(ErrUnavailable, ErrRateLimited) true without ErrRateLimited's message.
+func (unavailable) Is(target error) bool { return target == ErrRateLimited }
+
+// ErrBadSettings means the service rejects the provider's settings (an unknown key, wrong
+// credentials): a problem of the provider, not of a game. Providers return it through BadSettings,
+// with a message that says what to fix.
+var ErrBadSettings = errors.New("the service rejects the provider's settings: check them in the provider settings")
+
+// BadSettings returns an error with msg that matches ErrBadSettings.
+func BadSettings(msg string) error { return badSettings(msg) }
+
+// badSettings is BadSettings' type.
+type badSettings string
+
+func (e badSettings) Error() string { return string(e) }
+
+// Is makes errors.Is(e, ErrBadSettings) true.
+func (badSettings) Is(target error) bool { return target == ErrBadSettings }
+
+// Resumer is implemented by errors that know when the service answers again (a monthly allowance
+// that renews at a known time).
+type Resumer interface {
+	// ResumesAt returns when the service answers again.
+	ResumesAt() time.Time
+}
+
 // Descriptor describes a provider implementation and the settings it needs.
 type Descriptor struct {
 	ID             ID

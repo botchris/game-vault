@@ -23,8 +23,13 @@ type ImportedCopy struct {
 
 	// Links are the stores the source knows the game by (a Humble key reports its Steam AppID).
 	// They are added to the game where it has no link to that store yet.
-	Links   Links
-	Details CopyDetails
+	Links Links
+
+	// AutoLinks are links found automatically that an export carried (see Game.AutoLinks): they are
+	// added as automatic links where the game has none and the user did not reject them, and never
+	// used to recognize the game.
+	AutoLinks Links
+	Details   CopyDetails
 
 	// System is the exact system the copy is played on, when the source knows it (PS4 or PS5 for a
 	// PlayStation Store game). It wins over the one the platform implies, never over the user's.
@@ -109,7 +114,7 @@ func (c *Consolidator) index(g *Game) {
 		}
 	}
 
-	c.indexLinks(g, g.links)
+	c.indexLinks(g, g.consolidationLinks()) // automatic links never merge games
 
 	if k := g.MatchKey(); k != "" {
 		if _, ok := c.byMatchKey[k]; !ok {
@@ -176,7 +181,11 @@ func (c *Consolidator) Apply(sourceID string, imported []ImportedCopy, now time.
 				changed = true
 			}
 
-			if added := g.links.fill(in.Links); len(added) > 0 {
+			if added := g.AddAutoLinks(in.AutoLinks, now); len(added) > 0 {
+				changed = true
+			}
+
+			if added := g.importLinks(in.Links); len(added) > 0 {
 				c.indexLinks(g, added)
 
 				changed = true
@@ -207,7 +216,8 @@ func (c *Consolidator) Apply(sourceID string, imported []ImportedCopy, now time.
 			r.GamesCreated++
 		}
 
-		g.links.fill(in.Links)
+		g.importLinks(in.Links)
+		g.AddAutoLinks(in.AutoLinks, now)
 
 		from := copyOrigin{
 			sourceID:     sourceID,

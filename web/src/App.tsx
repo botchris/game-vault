@@ -10,6 +10,8 @@ import ProvidersPage from './features/providers/ProvidersPage';
 import ScanPage from './features/scan/ScanPage';
 import SourcesPage from './features/sources/SourcesPage';
 import SystemPage from './features/system/SystemPage';
+import { dotLabel, worstLevel } from './lib/health';
+import { HealthProvider, useHealth } from './state/Health';
 import { AppDataProvider, useAppData } from './state/AppData';
 
 const ROUTES = ['library', 'scan', 'sources', 'providers', 'fields', 'system', 'logs', 'settings'] as const;
@@ -27,7 +29,7 @@ const SETTINGS: { route: Route; icon: IconName }[] = [
 /** Tiny hash router: #/library, #/scan, #/sources… */
 function useRoute(): Route {
   const read = (): Route => {
-    const r = window.location.hash.replace(/^#\/?/, '') as Route;
+    const r = window.location.hash.replace(/^#\/?/, '').split('/')[0] as Route; // "#/sources/<id>" is Sources
     return ROUTES.includes(r) ? r : 'library';
   };
   const [route, setRoute] = useState(read);
@@ -46,7 +48,9 @@ export default function App() {
   return (
     <AuthGate>
       <AppDataProvider>
-        <Shell />
+        <HealthProvider>
+          <Shell />
+        </HealthProvider>
       </AppDataProvider>
     </AuthGate>
   );
@@ -58,6 +62,8 @@ function Shell() {
   const { games, loading, error } = useAppData();
   const { principal, logout } = useAuth();
   const inSettings = SETTINGS.some((s) => s.route === route) || route === 'settings';
+  // A dot on System (and on Settings on phones) when something needs attention, colored by the worst.
+  const health = worstLevel(useHealth().issues);
 
   return (
     <div className="shell">
@@ -67,7 +73,7 @@ function Shell() {
           <NavLink route="library" icon="library" active={route === 'library'} count={games.length} />
           <NavLink route="scan" icon="scan" active={route === 'scan'} />
           <p className="side-group">{t('nav.settings')}</p>
-          {SETTINGS.map((s) => <NavLink key={s.route} route={s.route} icon={s.icon} active={route === s.route} />)}
+          {SETTINGS.map((s) => <NavLink key={s.route} route={s.route} icon={s.icon} active={route === s.route} dot={s.route === 'system' ? health : null} />)}
         </nav>
         <div className="side-foot">
           {principal.method === 'session' && (
@@ -93,7 +99,7 @@ function Shell() {
             {route === 'fields' && <FieldsPage />}
             {route === 'system' && <SystemPage />}
             {route === 'logs' && <LogsPage />}
-            {route === 'settings' && <SettingsIndex />}
+            {route === 'settings' && <SettingsIndex health={health} />}
           </>
         )}
       </main>
@@ -101,35 +107,45 @@ function Shell() {
       <nav className="bottom-nav" aria-label={t('nav.main')}>
         <BottomLink route="library" icon="library" active={route === 'library'} />
         <BottomLink route="scan" icon="scan" active={route === 'scan'} />
-        <BottomLink route="settings" icon="settings" active={inSettings} label={t('nav.settings')} />
+        <BottomLink route="settings" icon="settings" active={inSettings} label={t('nav.settings')} dot={health} />
       </nav>
     </div>
   );
 }
 
-function NavLink({ route, icon, active, count }: { route: Route; icon: IconName; active: boolean; count?: number }) {
+/** A dot saying something needs attention on a page, colored by its level, labelled "System: error". */
+function HealthDot({ level, page }: { level: 'error' | 'warning' | null | undefined; page: string }) {
+  const { t } = useTranslation();
+  if (!level) return null;
+  const label = dotLabel(level, page, t);
+  return <span className={`health-dot ${level}`} role="img" aria-label={label} title={label} />;
+}
+
+function NavLink({ route, icon, active, count, dot }: { route: Route; icon: IconName; active: boolean; count?: number; dot?: 'error' | 'warning' | null }) {
   const { t, i18n } = useTranslation();
   return (
     <a href={`#/${route}`} className={`side-link ${active ? 'active' : ''}`} aria-current={active ? 'page' : undefined}>
       <Icon name={icon} />
       <span>{t(`nav.${route}`)}</span>
       {count !== undefined && <span className="side-count">{count.toLocaleString(i18n.language)}</span>}
+      {dot && <span className="side-dot"><HealthDot level={dot} page={t(`nav.${route}`)} /></span>}
     </a>
   );
 }
 
-function BottomLink({ route, icon, active, label }: { route: Route; icon: IconName; active: boolean; label?: string }) {
+function BottomLink({ route, icon, active, label, dot }: { route: Route; icon: IconName; active: boolean; label?: string; dot?: 'error' | 'warning' | null }) {
   const { t } = useTranslation();
   return (
     <a href={`#/${route}`} className={active ? 'active' : ''} aria-current={active ? 'page' : undefined}>
       <Icon name={icon} size={22} />
       <span>{label ?? t(`nav.${route}`)}</span>
+      {dot && <span className="bottom-dot"><HealthDot level={dot} page={label ?? t(`nav.${route}`)} /></span>}
     </a>
   );
 }
 
 /** Phone-only list of settings pages (the sidebar shows them on larger screens). */
-function SettingsIndex() {
+function SettingsIndex({ health }: { health: 'error' | 'warning' | null }) {
   const { t } = useTranslation();
   const { principal, logout } = useAuth();
   return (
@@ -138,7 +154,7 @@ function SettingsIndex() {
       <ul className="settings-list">
         {SETTINGS.map((s) => (
           <li key={s.route}>
-            <a href={`#/${s.route}`}><Icon name={s.icon} /><span>{t(`nav.${s.route}`)}</span></a>
+            <a href={`#/${s.route}`}><Icon name={s.icon} /><span>{t(`nav.${s.route}`)}</span>{s.route === 'system' && <HealthDot level={health} page={t('nav.system')} />}</a>
           </li>
         ))}
       </ul>

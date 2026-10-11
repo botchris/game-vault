@@ -24,6 +24,12 @@ type Game struct {
 	copies     []Copy
 	createdAt  time.Time
 	updatedAt  time.Time
+
+	// autoLinks marks the links found automatically; rejectedLinks holds the automatic links the
+	// user removed; autoLinkTriedAt is the last automatic search (see AutoLinks).
+	autoLinks       map[string]bool
+	rejectedLinks   map[LinkRef]bool
+	autoLinkTriedAt time.Time
 }
 
 // New creates a game with no copies.
@@ -164,6 +170,7 @@ func (g *Game) UpdateInfo(i Info, now time.Time) (linksChanged bool, err error) 
 	}
 
 	linksChanged = !i.Links.Equal(g.links)
+	g.applyUserLinks(i.Links)
 	g.title, g.links, g.notes = i.Title, i.Links, i.Notes
 	g.playStatus, g.rating = i.PlayStatus, i.Rating
 	g.fields = i.Fields.compact()
@@ -266,7 +273,27 @@ func (g *Game) Absorb(other *Game, now time.Time) {
 	}
 
 	other.copies = nil
-	g.links.fill(other.links)
+
+	// Links taken from the other game keep its automatic marks, and a link that is not automatic wins
+	// over an automatic one for the same store; both games' rejections stay.
+	for _, k := range other.links.Keys() {
+		if g.links[k] == "" || (g.autoLinks[k] && !other.autoLinks[k]) {
+			delete(g.autoLinks, k)
+
+			if g.links == nil {
+				g.links = Links{}
+			}
+
+			g.links[k] = other.links[k]
+			if other.autoLinks[k] {
+				g.markAuto(k)
+			}
+		}
+	}
+
+	for r := range other.rejectedLinks {
+		g.reject(r.Key, r.ID)
+	}
 
 	// Covers chosen for this game win; the other's fill the systems this game chose none for.
 	for system, c := range other.covers {

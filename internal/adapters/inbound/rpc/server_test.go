@@ -27,6 +27,7 @@ import (
 	appauth "gamevault/internal/application/auth"
 	"gamevault/internal/application/catalog"
 	"gamevault/internal/application/fields"
+	"gamevault/internal/application/health"
 	"gamevault/internal/application/logs"
 	"gamevault/internal/application/media"
 	"gamevault/internal/application/sync"
@@ -239,7 +240,13 @@ func (f *fakeBoxDetails) Details(_ context.Context, q media.CoverQuery, _ string
 	}
 
 	return &media.GameDetails{
-		Summary:    "English overview.",
+		Summary: "English overview.",
+		SummarySource: media.Attribution{
+			Name:       "Encyclopedia",
+			URL:        "https://encyclopedia.test/portal-2",
+			License:    "CC BY-SA 4.0",
+			LicenseURL: "https://creativecommons.org/licenses/by-sa/4.0/",
+		},
 		Publishers: []string{"Valve"},
 		Videos:     []media.Video{{YouTubeID: "abc123"}},
 	}, nil
@@ -295,6 +302,7 @@ type clients struct {
 	sources   gamevaultv1connect.SourceServiceClient
 	system    gamevaultv1connect.SystemServiceClient
 	logs      gamevaultv1connect.LogServiceClient
+	health    gamevaultv1connect.HealthServiceClient
 	baseURL   string
 	images    *fakeImages
 	dataDir   string
@@ -350,6 +358,8 @@ func newServer(t *testing.T, p sync.Provider) clients {
 	logsSvc := logs.NewService(sqlite.NewSettingsRepository(db), logFiles, logFiles)
 	authSvc := appauth.NewService(sqlite.NewAuthRepository(db), sqlite.NewSettingsRepository(db), passwordhash.Bcrypt{Cost: 4}, noCerts{}, time.Now, log)
 	syncSvc := sync.NewService(sources, games, db, nil, time.Now, log, p)
+	systemSvc := system.NewService(games, db, sqlite.NewSettingsRepository(db), nil, time.Now, log, system.Status{Version: "test"},
+		filepath.Join(dir, "backups"), 3)
 	h := rpc.NewHTTPHandler(rpc.Handlers{
 		Auth:        rpc.NewAuthHandler(authSvc),
 		AuthService: authSvc,
@@ -360,9 +370,9 @@ func newServer(t *testing.T, p sync.Provider) clients {
 		Fields:      rpc.NewFieldHandler(fields.NewService(sqlite.NewSettingsRepository(db), games, db, time.Now)),
 		Games:       rpc.NewGameHandler(catalog.NewService(games, db, time.Now, mediaSvc, photos, sqlite.NewSettingsRepository(db)), mediaSvc, syncSvc),
 		Sources:     rpc.NewSourceHandler(syncSvc),
-		System: rpc.NewSystemHandler(
-			system.NewService(games, db, sqlite.NewSettingsRepository(db), nil, time.Now, log, system.Status{Version: "test"}, filepath.Join(dir, "backups"), 3),
+		System: rpc.NewSystemHandler(systemSvc,
 			transfer.NewService(games, db, sqlite.NewSettingsRepository(db), time.Now, csvfile.Codec{}, nil)),
+		Health: rpc.NewHealthHandler(health.NewService(mediaSvc, syncSvc, systemSvc)),
 	}, rpc.Options{Log: log})
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
@@ -372,6 +382,7 @@ func newServer(t *testing.T, p sync.Provider) clients {
 		sources:   gamevaultv1connect.NewSourceServiceClient(http.DefaultClient, srv.URL),
 		system:    gamevaultv1connect.NewSystemServiceClient(http.DefaultClient, srv.URL),
 		logs:      gamevaultv1connect.NewLogServiceClient(http.DefaultClient, srv.URL),
+		health:    gamevaultv1connect.NewHealthServiceClient(http.DefaultClient, srv.URL),
 		baseURL:   srv.URL,
 		providers: gamevaultv1connect.NewProviderServiceClient(http.DefaultClient, srv.URL),
 		covers:    gamevaultv1connect.NewCoverServiceClient(http.DefaultClient, srv.URL),
@@ -555,9 +566,10 @@ func TestCoversAndLogs(t *testing.T) {
 
 	links := map[string]string{game.LinkSteam: found.Msg.Matches[0].Id}
 	if _, err := c.games.UpdateGame(ctx, connect.NewRequest(&pb.UpdateGameRequest{
-		Id:    id,
-		Title: "Halo 3",
-		Links: links,
+		Id:       id,
+		Title:    "Halo 3",
+		Links:    links,
+		LinksSet: true,
 	})); err != nil {
 		t.Fatal(err)
 	}
@@ -782,14 +794,14 @@ func TestBarcodeScanFlow(t *testing.T) {
 		t.Fatalf("second scan: %+v %v", again.Msg, err)
 	}
 
-	// An unknown code (Red Dead Redemption, Xbox 360 PAL): no match; the user types the title.
-	unknown, err := c.lookup.IdentifyBarcode(ctx, connect.NewRequest(&pb.IdentifyBarcodeRequest{Barcode: "5026555255042"}))
+	// An unknown code (an invented Xbox 360 disc): no match; the user types the title.
+	unknown, err := c.lookup.IdentifyBarcode(ctx, connect.NewRequest(&pb.IdentifyBarcodeRequest{Barcode: "2001234567893"}))
 	if err != nil || unknown.Msg.Match != nil || len(unknown.Msg.Owned) != 0 {
 		t.Fatalf("unknown code: %+v %v", unknown.Msg, err)
 	}
 
 	sugg, err := c.lookup.SuggestGames(ctx, connect.NewRequest(&pb.SuggestGamesRequest{
-		Title:    "Red Dead Redemption",
+		Title:    "Example West",
 		Platform: "xbox 360",
 	}))
 	if err != nil || len(sugg.Msg.Suggestions) != 1 || sugg.Msg.Suggestions[0].Platform != "Xbox 360" {
@@ -797,10 +809,10 @@ func TestBarcodeScanFlow(t *testing.T) {
 	}
 
 	// The game exists already (e.g. on Steam): it is offered so the disc becomes one more copy.
-	c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{Title: "Red Dead Redemption"}))
+	c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{Title: "Example West"}))
 
 	sugg, _ = c.lookup.SuggestGames(ctx, connect.NewRequest(&pb.SuggestGamesRequest{
-		Title:    "red dead redemption",
+		Title:    "example west",
 		Platform: "Xbox 360",
 	}))
 	if len(sugg.Msg.Existing) != 1 {
@@ -808,7 +820,7 @@ func TestBarcodeScanFlow(t *testing.T) {
 	}
 
 	// A misread code is rejected.
-	_, err = c.lookup.IdentifyBarcode(ctx, connect.NewRequest(&pb.IdentifyBarcodeRequest{Barcode: "5026555255043"}))
+	_, err = c.lookup.IdentifyBarcode(ctx, connect.NewRequest(&pb.IdentifyBarcodeRequest{Barcode: "2001234567894"}))
 	if connect.CodeOf(err) != connect.CodeInvalidArgument {
 		t.Fatalf("bad check digit: want InvalidArgument, got %v", err)
 	}
@@ -880,6 +892,10 @@ func TestGameDetailsChain(t *testing.T) {
 		t.Fatalf("merged details: %+v", d)
 	}
 
+	if d.SummarySource != nil {
+		t.Fatalf("the credit goes with the box art provider's summary, which lost: %+v", d.SummarySource)
+	}
+
 	// Cached: no second call; refresh asks again.
 	detailsCalls := func(c clients) int { return c.boxDet.calls }
 	before := detailsCalls(c)
@@ -904,9 +920,10 @@ func TestGameDetailsChain(t *testing.T) {
 
 	// Changing the Steam AppID invalidates the cached sheet.
 	c.games.UpdateGame(ctx, connect.NewRequest(&pb.UpdateGameRequest{
-		Id:    g.Msg.Game.Id,
-		Title: "Portal 2",
-		Links: nil,
+		Id:       g.Msg.Game.Id,
+		Title:    "Portal 2",
+		Links:    nil,
+		LinksSet: true,
 	}))
 
 	res, _ = c.metadata.GetGameDetails(ctx, connect.NewRequest(&pb.GetGameDetailsRequest{
@@ -915,6 +932,11 @@ func TestGameDetailsChain(t *testing.T) {
 	}))
 	if res.Msg.Details.Summary != "English overview." {
 		t.Fatalf("without AppID only the box art provider applies: %+v", res.Msg.Details)
+	}
+
+	if src := res.Msg.Details.SummarySource; src.GetName() != "Encyclopedia" || src.GetUrl() != "https://encyclopedia.test/portal-2" ||
+		src.GetLicense() != "CC BY-SA 4.0" || src.GetLicenseUrl() != "https://creativecommons.org/licenses/by-sa/4.0/" {
+		t.Fatalf("the summary's credit must reach the UI: %+v", src)
 	}
 }
 
@@ -1127,4 +1149,109 @@ func (fakePrices) Estimate(_ context.Context, _ schema.Settings, code game.Barco
 			Currency: "EUR",
 		},
 	}, nil
+}
+
+// allowanceUsedUp is a quota error that knows when the allowance renews.
+type allowanceUsedUp struct{ until time.Time }
+
+func (e allowanceUsedUp) Error() string        { return "the allowance is used up until it renews" }
+func (e allowanceUsedUp) Unwrap() error        { return provider.ErrQuotaExhausted }
+func (e allowanceUsedUp) ResumesAt() time.Time { return e.until }
+
+func TestProviderStatusAndHealth(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a box art service whose allowance is used up, and a PS3 disc", func(t *testing.T) {
+		c := newServer(t, &fakeProvider{})
+		_, err := c.providers.UpdateProvider(ctx, connect.NewRequest(&pb.UpdateProviderRequest{
+			Id:       "boxart",
+			Enabled:  true,
+			Settings: map[string]string{"api_key": "k"},
+		}))
+		require.NoError(t, err)
+
+		g, err := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{
+			Title: "Halo 3",
+			Copies: []*pb.CopyDetails{{
+				Kind:     pb.CopyKind_COPY_KIND_PHYSICAL,
+				Platform: "PS3",
+			}},
+		}))
+		require.NoError(t, err)
+
+		renews := time.Now().Add(27 * 24 * time.Hour).Truncate(time.Second)
+		c.boxart.limited = allowanceUsedUp{until: renews}
+
+		t.Run("WHEN the cover picker lists candidates", func(t *testing.T) {
+			res, err := c.covers.ListCoverCandidates(ctx, connect.NewRequest(&pb.ListCoverCandidatesRequest{GameId: g.Msg.Game.Id}))
+			require.NoError(t, err)
+
+			t.Run("THEN it shows no warning about the provider, only that providers are unavailable", func(t *testing.T) {
+				assert.Empty(t, res.Msg.Warnings)
+				assert.True(t, res.Msg.ProvidersUnavailable)
+			})
+
+			t.Run("AND the provider's status in the chain reports the used-up allowance until it renews", func(t *testing.T) {
+				list, err := c.providers.ListProviders(ctx, connect.NewRequest(&pb.ListProvidersRequest{Kind: "cover"}))
+				require.NoError(t, err)
+
+				var s *pb.ProviderStatus
+
+				for _, p := range list.Msg.Providers {
+					if p.Id == "boxart" {
+						s = p.Status
+					} else {
+						assert.Nil(t, p.Status, p.Id)
+					}
+				}
+
+				require.NotNil(t, s)
+				assert.Equal(t, "boxart", s.ProviderId)
+				assert.Equal(t, "Box art", s.ProviderName)
+				assert.Contains(t, s.ProviderIds, "boxart")
+				assert.Equal(t, "quota", s.Kind)
+				assert.Equal(t, "the allowance is used up until it renews", s.Message)
+				assert.True(t, s.Until.AsTime().Equal(renews))
+				assert.NotNil(t, s.Since)
+			})
+
+			t.Run("AND the health lists it as a warning pointing to Providers", func(t *testing.T) {
+				res, err := c.health.GetHealth(ctx, connect.NewRequest(&pb.GetHealthRequest{}))
+				require.NoError(t, err)
+				require.Len(t, res.Msg.Issues, 1)
+
+				i := res.Msg.Issues[0]
+				assert.Equal(t, "provider:boxart", i.Key)
+				assert.Equal(t, "warning", i.Level)
+				assert.Equal(t, "provider", i.Kind)
+				assert.Equal(t, "Box art", i.Source)
+				assert.Equal(t, "the allowance is used up until it renews", i.Message)
+				assert.Equal(t, "providers", i.Target)
+				assert.Equal(t, "provider_quota", i.Reason)
+				assert.NotEmpty(t, i.Params["until"])
+				assert.NotNil(t, i.Since)
+			})
+		})
+
+		t.Run("WHEN the service answers again", func(t *testing.T) {
+			c.boxart.limited = nil
+
+			_, err := c.covers.ListCoverCandidates(ctx, connect.NewRequest(&pb.ListCoverCandidatesRequest{GameId: g.Msg.Game.Id}))
+			require.NoError(t, err)
+
+			t.Run("THEN no status is reported, and the health is clear", func(t *testing.T) {
+				list, err := c.providers.ListProviders(ctx, connect.NewRequest(&pb.ListProvidersRequest{Kind: "cover"}))
+				require.NoError(t, err)
+
+				for _, p := range list.Msg.Providers {
+					assert.Nil(t, p.Status, p.Id)
+				}
+
+				res, err := c.health.GetHealth(ctx, connect.NewRequest(&pb.GetHealthRequest{}))
+				require.NoError(t, err)
+				assert.Empty(t, res.Msg.Issues)
+			})
+		})
+	})
 }

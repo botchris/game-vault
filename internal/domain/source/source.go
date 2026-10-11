@@ -49,7 +49,23 @@ const (
 var (
 	ErrNotFound    = errors.New("source not found")
 	ErrUnknownType = errors.New("unknown source type")
+
+	// ErrSignedOut means the store no longer accepts the saved session or key (it expired, was
+	// rotated elsewhere or revoked): the user must sign in again. Sources return it through
+	// SignedOut, with a message that says how.
+	ErrSignedOut = errors.New("the store no longer accepts the saved session: sign in again in Sources")
 )
+
+// SignedOut returns an error with msg that matches ErrSignedOut.
+func SignedOut(msg string) error { return signedOut(msg) }
+
+// signedOut is SignedOut's type.
+type signedOut string
+
+func (e signedOut) Error() string { return string(e) }
+
+// Is makes errors.Is(e, ErrSignedOut) true.
+func (signedOut) Is(target error) bool { return target == ErrSignedOut }
 
 // ValidationError reports input that breaks a domain rule.
 type ValidationError struct{ msg string }
@@ -85,9 +101,18 @@ func (d TypeDescriptor) Masked(s Settings) Settings { return d.Fields.Masked(s) 
 
 // SyncReport is the outcome of one scan.
 type SyncReport struct {
-	StartedAt       time.Time
-	FinishedAt      time.Time
-	Err             string
+	StartedAt  time.Time
+	FinishedAt time.Time
+	Err        string
+
+	// SignedOut reports that the scan failed because the store no longer accepts the session
+	// (ErrSignedOut): the user must sign in again.
+	SignedOut bool
+
+	// FailingSince is when the scans started failing: this scan's end for a first failure, the
+	// first failure's for the next ones; zero for a successful scan.
+	FailingSince time.Time
+
 	Fetched         int
 	CopiesAdded     int
 	CopiesUpdated   int

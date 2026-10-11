@@ -187,7 +187,8 @@ func (p *Provider) get(ctx context.Context, path string, q url.Values, out any) 
 	}
 
 	if se.Status == http.StatusUnauthorized || se.Status == http.StatusForbidden {
-		return fmt.Errorf("steam rejected the API key (HTTP %d)", se.Status)
+		// The user must act (a new key): like a sign-out, it is an error in System → Health.
+		return source.SignedOut(fmt.Sprintf("steam rejected the API key (HTTP %d): create a new one at steamcommunity.com/dev/apikey and paste it", se.Status))
 	}
 
 	return fmt.Errorf("steam %s: HTTP %d", path, se.Status)

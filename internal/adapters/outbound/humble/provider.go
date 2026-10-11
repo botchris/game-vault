@@ -6,7 +6,6 @@ package humble
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -31,7 +30,7 @@ const (
 )
 
 // ErrUnauthorized means Humble rejected the session cookie.
-var ErrUnauthorized = errors.New("humble bundle rejected the session cookie; copy _simpleauth_sess again from your browser")
+var ErrUnauthorized = source.SignedOut("humble bundle rejected the session cookie; copy _simpleauth_sess again from your browser")
 
 // Provider implements sync.Provider for Humble Bundle.
 type Provider struct {

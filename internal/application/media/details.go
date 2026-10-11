@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"strconv"
 	"time"
 
@@ -21,9 +22,9 @@ const detailsTTL = 30 * 24 * time.Hour
 // was built without the improvement, so it is fetched again once when opened instead of waiting for
 // detailsTTL; a server still running the old code may cache such sheets after the upgrade's date, so
 // a version is used rather than a time. Increment it when sheet gathering improves.
-const detailsLogicVersion = 1 // 1: the fallback pass
+const detailsLogicVersion = 3 // 1: the fallback pass; 2: Wikipedia and IGDB; 3: searches by the game's name
 
-// Video is a trailer: an HLS stream (Steam) or a YouTube video (TheGamesDB).
+// Video is a trailer: an HLS stream (Steam) or a YouTube video (IGDB, TheGamesDB).
 type Video struct {
 	Title     string
 	Thumbnail string
@@ -43,9 +44,26 @@ type Screenshot struct {
 	FullAsset  string
 }
 
+// Attribution credits the source of a text whose license asks for it (Wikipedia's CC BY-SA: name the
+// source, link to it and name the license). The zero value means no credit is needed.
+type Attribution struct {
+	// Name is the source as the UI names it ("Wikipedia").
+	Name string
+
+	// URL is the page the text comes from.
+	URL string
+
+	// License names the text's license ("CC BY-SA 4.0").
+	License string
+
+	// LicenseURL is the license's text (https://creativecommons.org/licenses/by-sa/4.0/).
+	LicenseURL string
+}
+
 // GameDetails is the descriptive sheet of a game, as gathered from the metadata providers.
 type GameDetails struct {
 	Summary       string // plain text; paragraphs separated by blank lines
+	SummarySource Attribution
 	Genres        []string
 	Developers    []string
 	Publishers    []string
@@ -61,6 +79,10 @@ type GameDetails struct {
 
 	// Sources lists the providers that contributed, in chain order.
 	Sources []provider.ID
+
+	// NotFoundBy lists the providers that were asked and know no such game (no match for the
+	// title), so the sheet can say they were tried. It is not a failure: the sheet stays cacheable.
+	NotFoundBy []provider.ID
 
 	// FallbackSkipped reports that the sheet is sparse and its fallback pass did not complete: it was
 	// not run (the background scan does not spend quota-limited providers' requests, a provider failed
@@ -99,7 +121,10 @@ func (d *GameDetails) fill(o GameDetails) bool {
 		}
 	}
 
-	str(&d.Summary, o.Summary)
+	if d.Summary == "" && o.Summary != "" {
+		d.Summary, d.SummarySource, used = o.Summary, o.SummarySource, true // the credit goes with its text
+	}
+
 	list(&d.Genres, o.Genres)
 	list(&d.Developers, o.Developers)
 	list(&d.Publishers, o.Publishers)
@@ -113,8 +138,14 @@ func (d *GameDetails) fill(o GameDetails) bool {
 		d.Metacritic, d.MetacriticURL, used = o.Metacritic, o.MetacriticURL, true
 	}
 
-	if len(o.Videos) > 0 { // trailers from every source are useful: Steam HLS + TheGamesDB YouTube
-		d.Videos, used = append(d.Videos, o.Videos...), true
+	// Trailers from every source are useful (Steam HLS, IGDB and TheGamesDB YouTube), but a YouTube
+	// video two databases know is shown once.
+	for _, v := range o.Videos {
+		if v.YouTubeID != "" && slices.ContainsFunc(d.Videos, func(have Video) bool { return have.YouTubeID == v.YouTubeID }) {
+			continue
+		}
+
+		d.Videos, used = append(d.Videos, v), true
 	}
 
 	if len(d.Screenshots) == 0 && len(o.Screenshots) > 0 {
@@ -210,6 +241,7 @@ func (s *Service) GameDetails(ctx context.Context, id game.ID, language string, 
 
 	r := v.(out)
 	s.registerAssets(ctx, ref, &r.d)
+	s.enqueueAutoLink(g) // a console game may have a store sheet to find
 
 	return r.d, r.warnings, nil
 }
@@ -227,10 +259,16 @@ func (s *Service) fresh(d GameDetails) bool {
 
 // detailsPass is what one pass over the metadata chain left behind.
 type detailsPass struct {
+	// warnings are the failures for this game shown on the sheet; provider-level problems are the
+	// providers' status instead (see ProviderStatuses).
 	warnings []string
 
 	// limited reports that a provider asked to slow down.
 	limited bool
+
+	// failed reports that a provider failed, whether the failure is shown (warnings) or a
+	// provider-level problem (rejected settings).
+	failed bool
 
 	// asked holds the providers already asked, so a later pass does not ask them again.
 	asked map[provider.ID]bool
@@ -267,10 +305,10 @@ func (s *Service) fetchDetails(ctx context.Context, id game.ID, language string,
 	// be wasted.
 	completed := false
 
-	if fallback && merged.sparse() && len(pass.warnings) == 0 {
+	if fallback && merged.sparse() && !pass.failed && !pass.limited {
 		q.Fallback = true
 		s.askChain(ctx, g, chain, q, &merged, &pass)
-		completed = len(pass.warnings) == 0
+		completed = !pass.failed && !pass.limited
 	}
 	// A sparse sheet whose fallback did not complete (skipped, or a provider failed in either pass)
 	// may be cached, but the next opening runs the passes again instead of keeping it for detailsTTL.
@@ -278,7 +316,7 @@ func (s *Service) fetchDetails(ctx context.Context, id game.ID, language string,
 	// Cache even an empty sheet so unknown games are not looked up on every view; failures are not
 	// cached. Nor is a sheet a provider was too busy to fill: cached, it would lack that provider's
 	// part until the cache expires.
-	if !pass.limited && (len(pass.warnings) == 0 || !merged.empty()) {
+	if !pass.limited && (!pass.failed || !merged.empty()) {
 		if err := s.details.Put(ctx, id, merged); err != nil {
 			s.log.Warn("caching details", "error", err)
 		}
@@ -298,23 +336,36 @@ func (s *Service) askChain(ctx context.Context, g *game.Game, chain []ProviderVi
 		pass.asked[p.ID()] = true
 
 		d, err := impl.Details(ctx, q, merged.Language, p.Settings())
+		s.noteResult(p.ID(), err)
+
+		// Provider-level problems (busy, allowance used up, rejected settings) are the provider's
+		// status, not a warning on every sheet; a rate limit still keeps the sheet out of the cache.
 		if errors.Is(err, provider.ErrRateLimited) {
 			pass.limited = true
 
-			pass.warnings = append(pass.warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
 			s.log.Info("metadata provider unavailable, asking again later", "provider", p.ID(), "game", g.Title(), "error", err)
 
 			continue
 		}
 
 		if err != nil {
-			pass.warnings = append(pass.warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
+			pass.failed = true
+
+			if !providerLevel(err) {
+				pass.warnings = append(pass.warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
+			}
+
 			s.log.Warn("metadata provider failed", "provider", p.ID(), "game", g.Title(), "error", err)
 
 			continue
 		}
 
-		if d != nil && merged.fill(*d) {
+		if d == nil {
+			merged.NotFoundBy = append(merged.NotFoundBy, p.ID())
+			continue
+		}
+
+		if merged.fill(*d) {
 			merged.Sources = append(merged.Sources, p.ID())
 		}
 	}

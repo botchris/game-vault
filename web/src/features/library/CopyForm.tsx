@@ -155,7 +155,7 @@ export default function CopyForm({ initial, managedBy, sourceSystem, onSubmit, o
               </div>
               <label>
                 {t('copy.barcode')}
-                <input className="mono" inputMode="numeric" value={d.barcode} onChange={(e) => set('barcode', e.target.value)} placeholder="5 026555 255042" />
+                <input className="mono" inputMode="numeric" value={d.barcode} onChange={(e) => set('barcode', e.target.value)} placeholder="2 001234 567893" />
               </label>
             </>
           )}

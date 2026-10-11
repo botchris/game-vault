@@ -237,3 +237,82 @@ func TestEditions_gameWithoutCopies(t *testing.T) {
 		})
 	})
 }
+
+func TestPCBox_endToEnd(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	c := newServer(t, &fakeProvider{})
+	_, err := c.providers.UpdateProvider(ctx, connect.NewRequest(&pb.UpdateProviderRequest{
+		Id:       "boxart",
+		Enabled:  true,
+		Settings: map[string]string{"api_key": "k"},
+	}))
+	require.NoError(t, err)
+
+	ps4Disc := []*pb.CopyDetails{{
+		Kind:     pb.CopyKind_COPY_KIND_PHYSICAL,
+		Platform: "PS4",
+	}}
+
+	t.Run("GIVEN a PS4-only game linked to the PlayStation store and Steam", func(t *testing.T) {
+		created, err := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{
+			Title:  "Console Quest",
+			Links:  map[string]string{"psn": "PPSA0001", "steam": "100"},
+			Copies: ps4Disc,
+		}))
+		require.NoError(t, err)
+
+		g := created.Msg.Game
+		asked := c.boxart.asked
+
+		t.Run("THEN the game says it has a PC-store link", func(t *testing.T) {
+			assert.True(t, g.HasPcStoreLink)
+			assert.Equal(t, []string{"PS4"}, editionSystems(g), "no PC edition is made up")
+		})
+
+		t.Run("WHEN its PC box is asked", func(t *testing.T) {
+			status, body := getMedia(t, c.baseURL+"/media/covers/"+g.Id+"/PC")
+
+			t.Run("THEN Steam's art is served, and the box art database is not asked", func(t *testing.T) {
+				assert.Equal(t, http.StatusOK, status)
+				assert.NotEmpty(t, body)
+				assert.Equal(t, asked, c.boxart.asked)
+			})
+		})
+
+		t.Run("WHEN the Steam link is removed", func(t *testing.T) {
+			_, err := c.games.UpdateGame(ctx, connect.NewRequest(&pb.UpdateGameRequest{
+				Id:       g.Id,
+				Title:    "Console Quest",
+				Links:    map[string]string{"psn": "PPSA0001"},
+				LinksSet: true,
+			}))
+			require.NoError(t, err)
+
+			status, _ := getMedia(t, c.baseURL+"/media/covers/"+g.Id+"/PC")
+
+			t.Run("THEN the cached PC box goes with it: there is none", func(t *testing.T) {
+				assert.Equal(t, http.StatusNotFound, status)
+			})
+		})
+	})
+
+	t.Run("GIVEN a PS4-only game linked to the PlayStation store only", func(t *testing.T) {
+		created, err := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{
+			Title:  "Console Quest",
+			Links:  map[string]string{"psn": "PPSA0002"},
+			Copies: ps4Disc,
+		}))
+		require.NoError(t, err)
+
+		t.Run("WHEN its PC box is asked", func(t *testing.T) {
+			status, _ := getMedia(t, c.baseURL+"/media/covers/"+created.Msg.Game.Id+"/PC")
+
+			t.Run("THEN there is none", func(t *testing.T) {
+				assert.False(t, created.Msg.Game.HasPcStoreLink)
+				assert.Equal(t, http.StatusNotFound, status)
+			})
+		})
+	})
+}

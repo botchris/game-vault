@@ -2,7 +2,7 @@
 // implements media.AssetStore:
 //
 //	config/game-data/
-//	  Red Dead Redemption [019b11c2-…]/
+//	  Example West [019b11c2-…]/
 //	    cover-ps3-1a2b3c4d.jpg   the cover of each edition, by system (cover-….missing when the
 //	                             last lookup found nothing); cover.jpg is a cover from before editions
 //	    assets.json          where each sheet image came from, to download it again if missing

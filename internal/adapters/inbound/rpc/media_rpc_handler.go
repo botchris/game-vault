@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"slices"
 
 	"connectrpc.com/connect"
 
@@ -33,9 +34,14 @@ func (h *MediaHandler) ListProviders(ctx context.Context, req *connect.Request[p
 		return nil, toConnectError(err)
 	}
 
+	statuses := h.media.ProviderStatuses()
+
 	out := &pb.ListProvidersResponse{SecretPlaceholder: schema.SecretPlaceholder}
+
 	for _, v := range views {
-		out.Providers = append(out.Providers, providerToPB(v))
+		p := providerToPB(v)
+		p.Status = providerStatusToPB(statuses, v.ID())
+		out.Providers = append(out.Providers, p)
 	}
 
 	return connect.NewResponse(out), nil
@@ -86,7 +92,7 @@ func (h *MediaHandler) TestProvider(ctx context.Context, req *connect.Request[pb
 
 // ListCoverCandidates returns the covers the providers propose for a game.
 func (h *MediaHandler) ListCoverCandidates(ctx context.Context, req *connect.Request[pb.ListCoverCandidatesRequest]) (*connect.Response[pb.ListCoverCandidatesResponse], error) {
-	candidates, warnings, err := h.media.CoverCandidates(ctx, game.ID(req.Msg.GameId), req.Msg.System)
+	candidates, warnings, unavailable, err := h.media.CoverCandidates(ctx, game.ID(req.Msg.GameId), req.Msg.System)
 	if err != nil {
 		return nil, toConnectError(err)
 	}
@@ -99,7 +105,10 @@ func (h *MediaHandler) ListCoverCandidates(ctx context.Context, req *connect.Req
 		}
 	}
 
-	out := &pb.ListCoverCandidatesResponse{Warnings: warnings}
+	out := &pb.ListCoverCandidatesResponse{
+		Warnings:             warnings,
+		ProvidersUnavailable: unavailable,
+	}
 	for _, c := range candidates {
 		out.Candidates = append(out.Candidates, &pb.CoverCandidate{
 			Url:          c.URL,
@@ -121,4 +130,31 @@ func (h *MediaHandler) RefreshCovers(ctx context.Context, req *connect.Request[p
 	}
 
 	return connect.NewResponse(&pb.RefreshCoversResponse{Games: int32(n)}), nil
+}
+
+// providerStatusToPB returns the status of the service provider id belongs to, nil when it has no
+// problem.
+func providerStatusToPB(statuses []media.ProviderStatus, id provider.ID) *pb.ProviderStatus {
+	for _, st := range statuses {
+		if !slices.Contains(st.Providers, id) {
+			continue
+		}
+
+		ids := make([]string, len(st.Providers))
+		for i, p := range st.Providers {
+			ids[i] = string(p)
+		}
+
+		return &pb.ProviderStatus{
+			ProviderId:   string(st.Provider),
+			ProviderName: st.Name,
+			ProviderIds:  ids,
+			Kind:         string(st.Kind),
+			Message:      st.Message,
+			Since:        ts(st.Since),
+			Until:        ts(st.Until),
+		}
+	}
+
+	return nil
 }

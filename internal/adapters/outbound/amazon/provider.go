@@ -73,7 +73,7 @@ var (
 	ErrBadCode = errors.New("amazon rejected the code: it works once, expires within minutes and only with the sign-in link of this Game Vault since it last started. Reload the page, open the sign-in link again and paste the new address")
 
 	// ErrSignedOut means the stored session can no longer be used.
-	ErrSignedOut = errors.New("the Amazon session is no longer valid (the Game Vault device may have been removed from your Amazon account): open the sign-in link and paste a new address")
+	ErrSignedOut = source.SignedOut("the Amazon session is no longer valid (the Game Vault device may have been removed from your Amazon account): open the sign-in link and paste a new address")
 
 	reCode  = regexp.MustCompile(`openid\.oa2\.authorization_code=([^&#\s"]+)`)
 	reSteam = regexp.MustCompile(`store\.steampowered\.com/app/(\d+)`)

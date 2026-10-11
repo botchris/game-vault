@@ -176,8 +176,11 @@ The model gains a middle level instead, like Discogs' master and release:
 - **Sorting:** the same sorts as today. Ties are broken by system, and the copies sort counts the
   edition's copies.
 - **Missing box art:** when an edition's cover URL answers 404, the card tries the main edition's
-  cover, then the other editions'. It labels the borrowed image ("PC box", translated), and the
-  edition's own system badge stays prominent.
+  cover, then the other editions', then, as a last resort for a game with copies but no PC edition
+  that is linked to a PC store (added 2026-10-11), that store's PC box at `/media/covers/{id}/PC`
+  (a virtual PC edition found by the store links alone; an Xbox link does not count for a game with
+  an Xbox edition). It labels the borrowed image ("PC box", translated), and the edition's own
+  system badge stays prominent.
 
 ### Game sheet
 

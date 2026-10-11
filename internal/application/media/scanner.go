@@ -84,6 +84,8 @@ func (s *Service) RunDetailsScanner(ctx context.Context, pause time.Duration) {
 	}
 
 	for {
+		s.autoLinkPass(ctx)
+
 		fetched := 0
 
 		for _, lang := range s.langs.active(s.now()) {
@@ -102,6 +104,24 @@ func (s *Service) RunDetailsScanner(ctx context.Context, pause time.Duration) {
 		if !wait(time.Hour) {
 			return
 		}
+	}
+}
+
+// autoLinkPass queues for the automatic-links worker the games without a Steam link that are due
+// (see AutoLink). It only queues, so the details scan that follows is never held back.
+func (s *Service) autoLinkPass(ctx context.Context) {
+	if !s.hasLinkFinders() {
+		return
+	}
+
+	games, err := s.games.List(ctx)
+	if err != nil {
+		s.log.Warn("automatic links: listing games", "error", err)
+		return
+	}
+
+	for _, g := range games {
+		s.enqueueAutoLink(g)
 	}
 }
 

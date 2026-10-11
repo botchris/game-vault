@@ -12,7 +12,7 @@ import {
 } from '../../lib/model';
 import type { LinkStore } from '../../gen/gamevault/v1/game_pb';
 import { useAppData } from '../../state/AppData';
-import { FieldInputs, applyField, cleanFields, sameFields, useFieldValidity } from '../fields/FieldInput';
+import { FieldInputs, applyField, cleanFields, sameFields, useFieldValidity, type FieldValues } from '../fields/FieldInput';
 import { FieldList } from '../fields/FieldList';
 import CopyForm from './CopyForm';
 import CopyPhotos from './CopyPhotos';
@@ -22,6 +22,7 @@ import GamePicker from './GamePicker';
 import { SheetFacts, SheetOverview, useGameDetails } from './GameSheet';
 import LinkSearchDialog from './LinkSearchDialog';
 import PlayControls from './PlayControls';
+import { isAutoLink, rebaseRecord } from '../../lib/links';
 
 interface Props {
   gameId: string;
@@ -114,7 +115,9 @@ function GameDetailBody({ game, system, onClose, onOpenGame, onEdition, onPlatfo
   };
 
   const updateGame = (patch: GamePatch) => run(async () => {
-    putGame((await gameClient.updateGame({ ...gameInfo(game), ...patch })).game!);
+    // Links are sent as set only by the Edit tab's save (a patch with links): any other save may come
+    // from a page loaded before a link was added automatically, and must not remove it.
+    putGame((await gameClient.updateGame({ ...gameInfo(game), ...patch, linksSet: 'links' in patch })).game!);
   });
 
   const details = sheet.details;
@@ -450,10 +453,12 @@ function EditTab({ game, busy, onSave, setDialog, run, onDeleted }: {
   onDeleted: () => void;
 }) {
   const { t } = useTranslation();
-  const { dropGame, fields } = useAppData();
+  const { dropGame, putGame, fields } = useAppData();
   const gameDefs = fields.filter((f) => f.scope === 'game');
   const infoOf = (g: Game) => ({ title: g.title, links: { ...g.links }, notes: g.notes, fields: { ...g.fields } });
   const [info, setInfo] = useState(() => infoOf(game));
+  // What the form last took from the game: telling it apart from info says what the user changed.
+  const [base, setBase] = useState(() => infoOf(game));
   // Discard remounts the field inputs, so text they kept locally (an invalid number) goes too.
   const [discarded, setDiscarded] = useState(0);
   // A field holding invalid text (a number, a year) blocks Save until it is fixed or cleared.
@@ -467,6 +472,21 @@ function EditTab({ game, busy, onSave, setDialog, run, onDeleted }: {
     gameClient.listLinkStores({}).then((res) => setStores(res.stores), () => setStores([]));
   }, []);
 
+  // The game as it is now, so the links shown include any found automatically since the page loaded.
+  useEffect(() => {
+    gameClient.getGame({ id: game.id }).then((res) => { if (res.game) putGame(res.game); }, () => {});
+    // Only when the tab opens for a game: later changes arrive through the game itself.
+  }, [game.id]);
+
+  // When the game changes while the tab is open (reloaded above, a link found automatically, this
+  // form's own save), the form takes the new values and keeps only what the user changed in it, so
+  // neither their typing nor the new links are lost.
+  useEffect(() => {
+    const next = infoOf(game);
+    setInfo((x) => rebaseInfo(base, x, next));
+    setBase(next);
+  }, [game]);
+
   // One row per store the game is linked to, plus the searchable ones (to link it by title), in the
   // server's order; a link to a store nobody describes any more keeps a row named by its key.
   const shown = (key: string) => key in info.links || stores.some((s) => s.key === key && s.searchable);
@@ -479,10 +499,18 @@ function EditTab({ game, busy, onSave, setDialog, run, onDeleted }: {
   const addable = stores.filter((s) => !shown(s.key));
   const setLink = (key: string, id: string) => setInfo({ ...info, links: { ...info.links, [key]: id } });
 
-  const save = (e: FormEvent) => {
+  const save = async (e: FormEvent) => {
     e.preventDefault();
     if (fieldsInvalid) return;
-    onSave({ ...info, links: cleanLinks(info.links), fields: cleanFields(info.fields) });
+    // Links found automatically since the game was last read are kept: only the user's edits apply.
+    let current = game;
+    try {
+      current = (await gameClient.getGame({ id: game.id })).game ?? game;
+    } catch {
+      // Saving on what the page has is still right for every link the user did not touch.
+    }
+    const edited = rebaseInfo(base, info, infoOf(current));
+    await onSave({ ...edited, links: cleanLinks(edited.links), fields: cleanFields(edited.fields) });
   };
 
   const deleteGame = () => {
@@ -507,7 +535,12 @@ function EditTab({ game, busy, onSave, setDialog, run, onDeleted }: {
             const id = (info.links[store.key] ?? '').trim();
             return (
               <label key={store.key} className="store-link">
-                <span>{store.name}</span>
+                <span>
+                  {store.name}
+                  {isAutoLink(game, store.key, info.links[store.key]) && (
+                    <span className="badge auto-link" title={t('game.autoLinkHelp')}>{t('game.autoLink')}</span>
+                  )}
+                </span>
                 <span className="row tight">
                   <input value={info.links[store.key] ?? ''} placeholder={t('game.linkPlaceholder')} spellCheck={false}
                     onChange={(e) => setLink(store.key, e.target.value)} />
@@ -558,6 +591,19 @@ function EditTab({ game, busy, onSave, setDialog, run, onDeleted }: {
 }
 
 /** Links without the cleared stores (an empty id unlinks). */
+type GameInfo = { title: string; links: Record<string, string>; notes: string; fields: FieldValues };
+
+/** The form's info rebased on the game as it is now (see rebaseRecord): what the user changed since
+ *  `base` stays, the rest is `current`'s. */
+function rebaseInfo(base: GameInfo, edited: GameInfo, current: GameInfo): GameInfo {
+  return {
+    title: edited.title !== base.title ? edited.title : current.title,
+    notes: edited.notes !== base.notes ? edited.notes : current.notes,
+    links: rebaseRecord(base.links, edited.links, current.links, (a, b) => a.trim() === b.trim()),
+    fields: rebaseRecord(base.fields, edited.fields, current.fields, (a, b) => sameFields({ v: a }, { v: b })),
+  };
+}
+
 function cleanLinks(links: Record<string, string>): Record<string, string> {
   return Object.fromEntries(Object.entries(links).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v !== ''));
 }

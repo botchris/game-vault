@@ -77,6 +77,7 @@
       "pending": "Pending keys",
       "expiring": "Expiring soon",
       "redundant": "Keys you don't need",
+      "several": "On several platforms",
       "label": "Quick filters"
     },
     "markRedeemed_one": "Mark {{count}} key as redeemed",
@@ -151,7 +152,9 @@
     "previousGame": "Previous game",
     "nextGame": "Next game",
     "previousGameKey": "Previous game (←)",
-    "nextGameKey": "Next game (→)"
+    "nextGameKey": "Next game (→)",
+    "autoLink": "automatic",
+    "autoLinkHelp": "Found automatically from IGDB or a Steam search. Clear it if it is wrong: it will not be added again."
   },
   "play": {
     "label": "Play status",
@@ -449,7 +452,7 @@
       "apiKeyHelp": "Request a free key on TheGamesDB forums (page above).\nKeys have a monthly request allowance; Test checks the key without spending it, and tells you when it is used up."
     },
     "steam": {
-      "description": "Steam library art for games linked to Steam. No key and no quota."
+      "description": "Steam library art for games linked to Steam, and for PC games without a Steam link that the Steam store has under exactly the same title (searched only when no other provider had art). No key and no quota."
     },
     "barcodes": "Barcodes",
     "barcodesIntro": "Used by Scan to identify a disc from the barcode on its box. Unknown codes are identified once by title and then remembered.",
@@ -488,6 +491,19 @@
     "thegamesdbDetails": {
       "description": "Platform-specific overview (English), genres, companies, age rating, players and YouTube trailer, for games with a physical copy or not linked to any store. Uses the TheGamesDB key from Covers; about 2 requests per game, then cached."
     },
+    "igdb": {
+      "description": "Covers from IGDB, Twitch's game database, as a last resort for any edition no other provider had art for. A game's cover is the same on every system, so a console edition may get the PC box, which beats none. Turn it on once you have entered your Twitch application (free for non-commercial use); editions without a cover are then looked up again.",
+      "clientId": "Client ID",
+      "clientIdHelp": "1. Sign in on the Twitch developer console (page above); Twitch asks you to turn on two-factor authentication first.\n2. Choose Register Your Application.\n3. Name it as you like (for example `Game Vault`), enter `http://localhost` as the OAuth Redirect URL, choose the Application Integration category and the Confidential client type.\n4. Open the application and copy its Client ID here.",
+      "clientSecret": "Client Secret",
+      "clientSecretHelp": "1. In the same application on the Twitch developer console, choose New Secret.\n2. Copy the secret here. Twitch shows it only once; a new secret replaces the old one."
+    },
+    "igdbDetails": {
+      "description": "Game sheets from IGDB for any game: summary (English), genres, companies, release date, age rating, screenshots and YouTube trailers. Uses the Twitch application from Covers; a few requests per game, then cached."
+    },
+    "wikipediaDetails": {
+      "description": "Wikipedia article and Wikidata facts for any game it can identify without doubt: the article's introduction in your language (English when there is none), developers, publishers, release date and genres. Shown with a link to the article (CC BY-SA). Free, no key."
+    },
     "epicCovers": {
       "description": "Official box art from the Epic Games Store, for games imported from your Epic library. Free, no key needed."
     },
@@ -516,6 +532,40 @@
     },
     "valuations": "Prices",
     "valuationsIntro": "Second-hand prices of your physical copies with a barcode. Every enabled source is asked, each copy on its own date about once a month; the order is only how they are listed."
+  },
+  "health": {
+    "title": "Health",
+    "intro": "Problems that need your attention. They clear on their own once fixed.",
+    "none": "No issues found",
+    "unavailable": "Health is unavailable right now: it is checked again in a few minutes.",
+    "error": "error",
+    "warning": "warning",
+    "open": "Fix it",
+    "dot": "{{page}}: {{level}}",
+    "kinds": {
+      "backups": "Backups",
+      "disk": "Disk space"
+    },
+    "reasons": {
+      "provider_quota": "Monthly allowance used up; renews {{until}}",
+      "provider_rate_limited": "Too many requests; trying again in a few minutes",
+      "provider_unavailable": "Not answering; trying again in a few minutes",
+      "provider_settings": "Rejects its settings: check them on the Providers page",
+      "source_signed_out": "Signed out: sign in again in Sources",
+      "source_sync_failed": "The last scan failed",
+      "source_keepalive_failed": "Keeping the session alive failed",
+      "source_list_failed": "The sources could not be read to check them",
+      "backup_failed": "The last backup failed: make one now in Backups below",
+      "backup_stale": "No backup in {{days}} days",
+      "disk_low": "Only {{free}} free ({{percent}}%) on the disk with the data",
+      "disk_critical": "Almost no space left: {{free}} free on the disk with the data"
+    }
+  },
+  "providerStatus": {
+    "quota": "monthly allowance used up; renews {{when}}",
+    "rateLimited": "too many requests; trying again in a few minutes",
+    "unavailable": "not answering; trying again in a few minutes",
+    "settings": "rejects its settings; check them on the Providers page"
   },
   "fields": {
     "title": "Fields",
@@ -591,12 +641,14 @@
     "photos": "Photos of your copies",
     "photo": "Photo of your copy",
     "paste": "Use this image",
-    "none": "No provider has a cover for this game. Link it to a store (Edit → Store links) or paste an image URL."
+    "none": "No provider has a cover for this game. Link it to a store (Edit → Store links) or paste an image URL.",
+    "providersUnavailable": "Some providers are unavailable right now.",
+    "seeHealth": "See System → Health"
   },
   "scan": {
     "title": "Scan",
     "intro": "Add physical games by their barcode: point the camera at box after box, use a USB or Bluetooth reader, or type the code. Each box joins the list below; Send adds them all at once.",
-    "placeholder": "Barcode, e.g. 5 026555 255042",
+    "placeholder": "Barcode, e.g. 2 001234 567893",
     "placeholderCamera": "Or type the code",
     "lookup": "Look up",
     "invalid": "\"{{code}}\" is not a valid barcode (check the digits).",
@@ -729,6 +781,8 @@
     },
     "loading": "Loading details…",
     "summary": "Summary",
+    "summarySource": "Source: {{source}}",
+    "summaryLicense": "License:",
     "trailers": "Trailers",
     "trailer": "Trailer",
     "screenshots": "Screenshots",
@@ -740,6 +794,7 @@
     "storePage": "Store page",
     "website": "Website",
     "sources": "Details from {{sources}}",
+    "notFoundBy": "No clear match on {{providers}}",
     "updated": "updated {{date}}",
     "refresh": "Refresh details",
     "empty": "No provider has details for this game yet.",

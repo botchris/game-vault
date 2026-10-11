@@ -3,6 +3,7 @@ syntax = "proto3";
 package gamevault.v1;
 
 import "gamevault/v1/source.proto";
+import "google/protobuf/timestamp.proto";
 
 option go_package = "gamevault/internal/gen/gamevault/v1;gamevaultv1";
 
@@ -20,6 +21,8 @@ message Provider {
   int32 priority = 7;
   // Secrets are replaced by ListProvidersResponse.secret_placeholder.
   map<string, string> settings = 8;
+  // The provider's current provider-level problem; unset when it has none.
+  ProviderStatus status = 9;
 }
 
 message ListProvidersRequest {
@@ -64,6 +67,24 @@ message TestProviderResponse {
   reserved "remaining_quota";
 }
 
+// ProviderStatus is a provider's current problem: one that concerns the provider, not a game (its
+// allowance used up, too many requests, not answering, its settings rejected). Game sheets and the
+// cover picker do not show these; the Providers page and System → Health do.
+message ProviderStatus {
+  // The service: its settings group, or the provider's id when it has none.
+  string provider_id = 1;
+  string provider_name = 2;
+  // The registered providers of the service (its covers, details…).
+  repeated string provider_ids = 3;
+  // "quota", "rate_limited", "unavailable" or "settings".
+  string kind = 4;
+  // The provider's own explanation, in English.
+  string message = 5;
+  google.protobuf.Timestamp since = 6;
+  // When the problem is expected to end (the allowance renews…); it is not reported after that.
+  google.protobuf.Timestamp until = 7;
+}
+
 // ProviderService configures the metadata provider chains.
 service ProviderService {
   rpc ListProviders(ListProvidersRequest) returns (ListProvidersResponse);
@@ -88,8 +109,12 @@ message ListCoverCandidatesRequest {
 }
 message ListCoverCandidatesResponse {
   repeated CoverCandidate candidates = 1;
-  // Providers that failed (e.g. quota used up), as human-readable messages.
+  // Providers that failed for this game, as human-readable messages. Provider-level problems (quota
+  // used up, too many requests, not answering, settings rejected) are not listed: see
+  // GetProviderStatus.
   repeated string warnings = 2;
+  // A provider had a provider-level problem, so some candidates may be missing.
+  bool providers_unavailable = 3;
 }
 
 message RefreshCoversRequest {

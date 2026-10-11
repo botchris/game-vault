@@ -6,13 +6,15 @@ import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegen
 import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
 import type { SettingField } from "./source_pb";
 import { file_gamevault_v1_source } from "./source_pb";
+import type { Timestamp } from "@bufbuild/protobuf/wkt";
+import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file gamevault/v1/provider.proto.
  */
 export const file_gamevault_v1_provider: GenFile = /*@__PURE__*/
-  fileDesc("ChtnYW1ldmF1bHQvdjEvcHJvdmlkZXIucHJvdG8SDGdhbWV2YXVsdC52MSKDAgoIUHJvdmlkZXISCgoCaWQYASABKAkSDAoEa2luZBgCIAEoCRIMCgRuYW1lGAMgASgJEhcKD2Rlc2NyaXB0aW9uX2tleRgEIAEoCRIqCgZmaWVsZHMYBSADKAsyGi5nYW1ldmF1bHQudjEuU2V0dGluZ0ZpZWxkEg8KB2VuYWJsZWQYBiABKAgSEAoIcHJpb3JpdHkYByABKAUSNgoIc2V0dGluZ3MYCCADKAsyJC5nYW1ldmF1bHQudjEuUHJvdmlkZXIuU2V0dGluZ3NFbnRyeRovCg1TZXR0aW5nc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEiJAoUTGlzdFByb3ZpZGVyc1JlcXVlc3QSDAoEa2luZBgBIAEoCSJeChVMaXN0UHJvdmlkZXJzUmVzcG9uc2USKQoJcHJvdmlkZXJzGAEgAygLMhYuZ2FtZXZhdWx0LnYxLlByb3ZpZGVyEhoKEnNlY3JldF9wbGFjZWhvbGRlchgCIAEoCSKqAQoVVXBkYXRlUHJvdmlkZXJSZXF1ZXN0EgoKAmlkGAEgASgJEg8KB2VuYWJsZWQYAiABKAgSQwoIc2V0dGluZ3MYAyADKAsyMS5nYW1ldmF1bHQudjEuVXBkYXRlUHJvdmlkZXJSZXF1ZXN0LlNldHRpbmdzRW50cnkaLwoNU2V0dGluZ3NFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBIkIKFlVwZGF0ZVByb3ZpZGVyUmVzcG9uc2USKAoIcHJvdmlkZXIYASABKAsyFi5nYW1ldmF1bHQudjEuUHJvdmlkZXIiNAoXUmVvcmRlclByb3ZpZGVyc1JlcXVlc3QSDAoEa2luZBgBIAEoCRILCgNpZHMYAiADKAkiRQoYUmVvcmRlclByb3ZpZGVyc1Jlc3BvbnNlEikKCXByb3ZpZGVycxgBIAMoCzIWLmdhbWV2YXVsdC52MS5Qcm92aWRlciKVAQoTVGVzdFByb3ZpZGVyUmVxdWVzdBIKCgJpZBgBIAEoCRJBCghzZXR0aW5ncxgCIAMoCzIvLmdhbWV2YXVsdC52MS5UZXN0UHJvdmlkZXJSZXF1ZXN0LlNldHRpbmdzRW50cnkaLwoNU2V0dGluZ3NFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBIk8KFFRlc3RQcm92aWRlclJlc3BvbnNlEg8KB3N1Y2Nlc3MYASABKAgSDwoHbWVzc2FnZRgCIAEoCUoECAMQBFIPcmVtYWluaW5nX3F1b3RhImsKDkNvdmVyQ2FuZGlkYXRlEgsKA3VybBgBIAEoCRIRCgl0aHVtYl91cmwYAiABKAkSDQoFbGFiZWwYAyABKAkSEwoLcHJvdmlkZXJfaWQYBCABKAkSFQoNcHJvdmlkZXJfbmFtZRgFIAEoCSI9ChpMaXN0Q292ZXJDYW5kaWRhdGVzUmVxdWVzdBIPCgdnYW1lX2lkGAEgASgJEg4KBnN5c3RlbRgCIAEoCSJhChtMaXN0Q292ZXJDYW5kaWRhdGVzUmVzcG9uc2USMAoKY2FuZGlkYXRlcxgBIAMoCzIcLmdhbWV2YXVsdC52MS5Db3ZlckNhbmRpZGF0ZRIQCgh3YXJuaW5ncxgCIAMoCSIsChRSZWZyZXNoQ292ZXJzUmVxdWVzdBIUCgxtaXNzaW5nX29ubHkYASABKAgiJgoVUmVmcmVzaENvdmVyc1Jlc3BvbnNlEg0KBWdhbWVzGAEgASgFMoIDCg9Qcm92aWRlclNlcnZpY2USWAoNTGlzdFByb3ZpZGVycxIiLmdhbWV2YXVsdC52MS5MaXN0UHJvdmlkZXJzUmVxdWVzdBojLmdhbWV2YXVsdC52MS5MaXN0UHJvdmlkZXJzUmVzcG9uc2USWwoOVXBkYXRlUHJvdmlkZXISIy5nYW1ldmF1bHQudjEuVXBkYXRlUHJvdmlkZXJSZXF1ZXN0GiQuZ2FtZXZhdWx0LnYxLlVwZGF0ZVByb3ZpZGVyUmVzcG9uc2USYQoQUmVvcmRlclByb3ZpZGVycxIlLmdhbWV2YXVsdC52MS5SZW9yZGVyUHJvdmlkZXJzUmVxdWVzdBomLmdhbWV2YXVsdC52MS5SZW9yZGVyUHJvdmlkZXJzUmVzcG9uc2USVQoMVGVzdFByb3ZpZGVyEiEuZ2FtZXZhdWx0LnYxLlRlc3RQcm92aWRlclJlcXVlc3QaIi5nYW1ldmF1bHQudjEuVGVzdFByb3ZpZGVyUmVzcG9uc2Uy1AEKDENvdmVyU2VydmljZRJqChNMaXN0Q292ZXJDYW5kaWRhdGVzEiguZ2FtZXZhdWx0LnYxLkxpc3RDb3ZlckNhbmRpZGF0ZXNSZXF1ZXN0GikuZ2FtZXZhdWx0LnYxLkxpc3RDb3ZlckNhbmRpZGF0ZXNSZXNwb25zZRJYCg1SZWZyZXNoQ292ZXJzEiIuZ2FtZXZhdWx0LnYxLlJlZnJlc2hDb3ZlcnNSZXF1ZXN0GiMuZ2FtZXZhdWx0LnYxLlJlZnJlc2hDb3ZlcnNSZXNwb25zZUIxWi9nYW1ldmF1bHQvaW50ZXJuYWwvZ2VuL2dhbWV2YXVsdC92MTtnYW1ldmF1bHR2MWIGcHJvdG8z", [file_gamevault_v1_source]);
+  fileDesc("ChtnYW1ldmF1bHQvdjEvcHJvdmlkZXIucHJvdG8SDGdhbWV2YXVsdC52MSKxAgoIUHJvdmlkZXISCgoCaWQYASABKAkSDAoEa2luZBgCIAEoCRIMCgRuYW1lGAMgASgJEhcKD2Rlc2NyaXB0aW9uX2tleRgEIAEoCRIqCgZmaWVsZHMYBSADKAsyGi5nYW1ldmF1bHQudjEuU2V0dGluZ0ZpZWxkEg8KB2VuYWJsZWQYBiABKAgSEAoIcHJpb3JpdHkYByABKAUSNgoIc2V0dGluZ3MYCCADKAsyJC5nYW1ldmF1bHQudjEuUHJvdmlkZXIuU2V0dGluZ3NFbnRyeRIsCgZzdGF0dXMYCSABKAsyHC5nYW1ldmF1bHQudjEuUHJvdmlkZXJTdGF0dXMaLwoNU2V0dGluZ3NFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBIiQKFExpc3RQcm92aWRlcnNSZXF1ZXN0EgwKBGtpbmQYASABKAkiXgoVTGlzdFByb3ZpZGVyc1Jlc3BvbnNlEikKCXByb3ZpZGVycxgBIAMoCzIWLmdhbWV2YXVsdC52MS5Qcm92aWRlchIaChJzZWNyZXRfcGxhY2Vob2xkZXIYAiABKAkiqgEKFVVwZGF0ZVByb3ZpZGVyUmVxdWVzdBIKCgJpZBgBIAEoCRIPCgdlbmFibGVkGAIgASgIEkMKCHNldHRpbmdzGAMgAygLMjEuZ2FtZXZhdWx0LnYxLlVwZGF0ZVByb3ZpZGVyUmVxdWVzdC5TZXR0aW5nc0VudHJ5Gi8KDVNldHRpbmdzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4ASJCChZVcGRhdGVQcm92aWRlclJlc3BvbnNlEigKCHByb3ZpZGVyGAEgASgLMhYuZ2FtZXZhdWx0LnYxLlByb3ZpZGVyIjQKF1Jlb3JkZXJQcm92aWRlcnNSZXF1ZXN0EgwKBGtpbmQYASABKAkSCwoDaWRzGAIgAygJIkUKGFJlb3JkZXJQcm92aWRlcnNSZXNwb25zZRIpCglwcm92aWRlcnMYASADKAsyFi5nYW1ldmF1bHQudjEuUHJvdmlkZXIilQEKE1Rlc3RQcm92aWRlclJlcXVlc3QSCgoCaWQYASABKAkSQQoIc2V0dGluZ3MYAiADKAsyLy5nYW1ldmF1bHQudjEuVGVzdFByb3ZpZGVyUmVxdWVzdC5TZXR0aW5nc0VudHJ5Gi8KDVNldHRpbmdzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4ASJPChRUZXN0UHJvdmlkZXJSZXNwb25zZRIPCgdzdWNjZXNzGAEgASgIEg8KB21lc3NhZ2UYAiABKAlKBAgDEARSD3JlbWFpbmluZ19xdW90YSLHAQoOUHJvdmlkZXJTdGF0dXMSEwoLcHJvdmlkZXJfaWQYASABKAkSFQoNcHJvdmlkZXJfbmFtZRgCIAEoCRIUCgxwcm92aWRlcl9pZHMYAyADKAkSDAoEa2luZBgEIAEoCRIPCgdtZXNzYWdlGAUgASgJEikKBXNpbmNlGAYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIpCgV1bnRpbBgHIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiawoOQ292ZXJDYW5kaWRhdGUSCwoDdXJsGAEgASgJEhEKCXRodW1iX3VybBgCIAEoCRINCgVsYWJlbBgDIAEoCRITCgtwcm92aWRlcl9pZBgEIAEoCRIVCg1wcm92aWRlcl9uYW1lGAUgASgJIj0KGkxpc3RDb3ZlckNhbmRpZGF0ZXNSZXF1ZXN0Eg8KB2dhbWVfaWQYASABKAkSDgoGc3lzdGVtGAIgASgJIoABChtMaXN0Q292ZXJDYW5kaWRhdGVzUmVzcG9uc2USMAoKY2FuZGlkYXRlcxgBIAMoCzIcLmdhbWV2YXVsdC52MS5Db3ZlckNhbmRpZGF0ZRIQCgh3YXJuaW5ncxgCIAMoCRIdChVwcm92aWRlcnNfdW5hdmFpbGFibGUYAyABKAgiLAoUUmVmcmVzaENvdmVyc1JlcXVlc3QSFAoMbWlzc2luZ19vbmx5GAEgASgIIiYKFVJlZnJlc2hDb3ZlcnNSZXNwb25zZRINCgVnYW1lcxgBIAEoBTKCAwoPUHJvdmlkZXJTZXJ2aWNlElgKDUxpc3RQcm92aWRlcnMSIi5nYW1ldmF1bHQudjEuTGlzdFByb3ZpZGVyc1JlcXVlc3QaIy5nYW1ldmF1bHQudjEuTGlzdFByb3ZpZGVyc1Jlc3BvbnNlElsKDlVwZGF0ZVByb3ZpZGVyEiMuZ2FtZXZhdWx0LnYxLlVwZGF0ZVByb3ZpZGVyUmVxdWVzdBokLmdhbWV2YXVsdC52MS5VcGRhdGVQcm92aWRlclJlc3BvbnNlEmEKEFJlb3JkZXJQcm92aWRlcnMSJS5nYW1ldmF1bHQudjEuUmVvcmRlclByb3ZpZGVyc1JlcXVlc3QaJi5nYW1ldmF1bHQudjEuUmVvcmRlclByb3ZpZGVyc1Jlc3BvbnNlElUKDFRlc3RQcm92aWRlchIhLmdhbWV2YXVsdC52MS5UZXN0UHJvdmlkZXJSZXF1ZXN0GiIuZ2FtZXZhdWx0LnYxLlRlc3RQcm92aWRlclJlc3BvbnNlMtQBCgxDb3ZlclNlcnZpY2USagoTTGlzdENvdmVyQ2FuZGlkYXRlcxIoLmdhbWV2YXVsdC52MS5MaXN0Q292ZXJDYW5kaWRhdGVzUmVxdWVzdBopLmdhbWV2YXVsdC52MS5MaXN0Q292ZXJDYW5kaWRhdGVzUmVzcG9uc2USWAoNUmVmcmVzaENvdmVycxIiLmdhbWV2YXVsdC52MS5SZWZyZXNoQ292ZXJzUmVxdWVzdBojLmdhbWV2YXVsdC52MS5SZWZyZXNoQ292ZXJzUmVzcG9uc2VCMVovZ2FtZXZhdWx0L2ludGVybmFsL2dlbi9nYW1ldmF1bHQvdjE7Z2FtZXZhdWx0djFiBnByb3RvMw", [file_gamevault_v1_source, file_google_protobuf_timestamp]);
 
 /**
  * Provider is a metadata provider and the user's configuration of it. Providers of the same kind
@@ -65,6 +67,13 @@ export type Provider = Message<"gamevault.v1.Provider"> & {
    * @generated from field: map<string, string> settings = 8;
    */
   settings: { [key: string]: string };
+
+  /**
+   * The provider's current provider-level problem; unset when it has none.
+   *
+   * @generated from field: gamevault.v1.ProviderStatus status = 9;
+   */
+  status?: ProviderStatus | undefined;
 };
 
 /**
@@ -253,6 +262,67 @@ export const TestProviderResponseSchema: GenMessage<TestProviderResponse> = /*@_
   messageDesc(file_gamevault_v1_provider, 8);
 
 /**
+ * ProviderStatus is a provider's current problem: one that concerns the provider, not a game (its
+ * allowance used up, too many requests, not answering, its settings rejected). Game sheets and the
+ * cover picker do not show these; the Providers page and System → Health do.
+ *
+ * @generated from message gamevault.v1.ProviderStatus
+ */
+export type ProviderStatus = Message<"gamevault.v1.ProviderStatus"> & {
+  /**
+   * The service: its settings group, or the provider's id when it has none.
+   *
+   * @generated from field: string provider_id = 1;
+   */
+  providerId: string;
+
+  /**
+   * @generated from field: string provider_name = 2;
+   */
+  providerName: string;
+
+  /**
+   * The registered providers of the service (its covers, details…).
+   *
+   * @generated from field: repeated string provider_ids = 3;
+   */
+  providerIds: string[];
+
+  /**
+   * "quota", "rate_limited", "unavailable" or "settings".
+   *
+   * @generated from field: string kind = 4;
+   */
+  kind: string;
+
+  /**
+   * The provider's own explanation, in English.
+   *
+   * @generated from field: string message = 5;
+   */
+  message: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp since = 6;
+   */
+  since?: Timestamp | undefined;
+
+  /**
+   * When the problem is expected to end (the allowance renews…); it is not reported after that.
+   *
+   * @generated from field: google.protobuf.Timestamp until = 7;
+   */
+  until?: Timestamp | undefined;
+};
+
+/**
+ * Describes the message gamevault.v1.ProviderStatus.
+ * Use `create(ProviderStatusSchema)` to create a new message.
+ */
+export const ProviderStatusSchema: GenMessage<ProviderStatus> = /*@__PURE__*/
+  messageDesc(file_gamevault_v1_provider, 9);
+
+/**
  * CoverCandidate is an image proposed by a cover provider.
  *
  * @generated from message gamevault.v1.CoverCandidate
@@ -289,7 +359,7 @@ export type CoverCandidate = Message<"gamevault.v1.CoverCandidate"> & {
  * Use `create(CoverCandidateSchema)` to create a new message.
  */
 export const CoverCandidateSchema: GenMessage<CoverCandidate> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_provider, 9);
+  messageDesc(file_gamevault_v1_provider, 10);
 
 /**
  * @generated from message gamevault.v1.ListCoverCandidatesRequest
@@ -313,7 +383,7 @@ export type ListCoverCandidatesRequest = Message<"gamevault.v1.ListCoverCandidat
  * Use `create(ListCoverCandidatesRequestSchema)` to create a new message.
  */
 export const ListCoverCandidatesRequestSchema: GenMessage<ListCoverCandidatesRequest> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_provider, 10);
+  messageDesc(file_gamevault_v1_provider, 11);
 
 /**
  * @generated from message gamevault.v1.ListCoverCandidatesResponse
@@ -325,11 +395,20 @@ export type ListCoverCandidatesResponse = Message<"gamevault.v1.ListCoverCandida
   candidates: CoverCandidate[];
 
   /**
-   * Providers that failed (e.g. quota used up), as human-readable messages.
+   * Providers that failed for this game, as human-readable messages. Provider-level problems (quota
+   * used up, too many requests, not answering, settings rejected) are not listed: see
+   * GetProviderStatus.
    *
    * @generated from field: repeated string warnings = 2;
    */
   warnings: string[];
+
+  /**
+   * A provider had a provider-level problem, so some candidates may be missing.
+   *
+   * @generated from field: bool providers_unavailable = 3;
+   */
+  providersUnavailable: boolean;
 };
 
 /**
@@ -337,7 +416,7 @@ export type ListCoverCandidatesResponse = Message<"gamevault.v1.ListCoverCandida
  * Use `create(ListCoverCandidatesResponseSchema)` to create a new message.
  */
 export const ListCoverCandidatesResponseSchema: GenMessage<ListCoverCandidatesResponse> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_provider, 11);
+  messageDesc(file_gamevault_v1_provider, 12);
 
 /**
  * @generated from message gamevault.v1.RefreshCoversRequest
@@ -357,7 +436,7 @@ export type RefreshCoversRequest = Message<"gamevault.v1.RefreshCoversRequest"> 
  * Use `create(RefreshCoversRequestSchema)` to create a new message.
  */
 export const RefreshCoversRequestSchema: GenMessage<RefreshCoversRequest> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_provider, 12);
+  messageDesc(file_gamevault_v1_provider, 13);
 
 /**
  * @generated from message gamevault.v1.RefreshCoversResponse
@@ -374,7 +453,7 @@ export type RefreshCoversResponse = Message<"gamevault.v1.RefreshCoversResponse"
  * Use `create(RefreshCoversResponseSchema)` to create a new message.
  */
 export const RefreshCoversResponseSchema: GenMessage<RefreshCoversResponse> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_provider, 13);
+  messageDesc(file_gamevault_v1_provider, 14);
 
 /**
  * ProviderService configures the metadata provider chains.

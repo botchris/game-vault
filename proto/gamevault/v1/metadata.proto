@@ -46,6 +46,22 @@ message GameDetails {
   repeated string sources = 14;
   string language = 15;
   google.protobuf.Timestamp fetched_at = 16;
+  // Credit for the summary when its license asks for it (Wikipedia's CC BY-SA); unset otherwise.
+  Attribution summary_source = 17;
+  // Names of the providers asked that found no game for the title ("IGDB"): tried, not failed.
+  repeated string not_found_by = 18;
+}
+
+// Attribution credits the source of a text: shown with a link to the page and the license's name.
+message Attribution {
+  // The source as the UI names it ("Wikipedia").
+  string name = 1;
+  // The page the text comes from.
+  string url = 2;
+  // The text's license ("CC BY-SA 4.0").
+  string license = 3;
+  // The license's text (https://creativecommons.org/licenses/by-sa/4.0/).
+  string license_url = 4;
 }
 
 message GetGameDetailsRequest {

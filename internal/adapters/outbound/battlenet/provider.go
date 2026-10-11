@@ -47,7 +47,7 @@ var (
 	ErrNoCookies = errors.New("battle.net: paste the cookies of account.battle.net (see the help below the field)")
 
 	// ErrSignedOut means Battle.net no longer accepts the cookies.
-	ErrSignedOut = errors.New("battle.net did not accept the cookies: sign in again on account.battle.net and paste them again")
+	ErrSignedOut = source.SignedOut("battle.net did not accept the cookies: sign in again on account.battle.net and paste them again")
 )
 
 // Provider implements sync.Provider for Battle.net accounts.

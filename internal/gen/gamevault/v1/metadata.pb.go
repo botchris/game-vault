@@ -168,9 +168,13 @@ type GameDetails struct {
 	Videos      []*Video      `protobuf:"bytes,12,rep,name=videos,proto3" json:"videos,omitempty"`
 	Screenshots []*Screenshot `protobuf:"bytes,13,rep,name=screenshots,proto3" json:"screenshots,omitempty"`
 	// Names of the providers that contributed, in chain order ("Steam", "TheGamesDB").
-	Sources       []string               `protobuf:"bytes,14,rep,name=sources,proto3" json:"sources,omitempty"`
-	Language      string                 `protobuf:"bytes,15,opt,name=language,proto3" json:"language,omitempty"`
-	FetchedAt     *timestamppb.Timestamp `protobuf:"bytes,16,opt,name=fetched_at,json=fetchedAt,proto3" json:"fetched_at,omitempty"`
+	Sources   []string               `protobuf:"bytes,14,rep,name=sources,proto3" json:"sources,omitempty"`
+	Language  string                 `protobuf:"bytes,15,opt,name=language,proto3" json:"language,omitempty"`
+	FetchedAt *timestamppb.Timestamp `protobuf:"bytes,16,opt,name=fetched_at,json=fetchedAt,proto3" json:"fetched_at,omitempty"`
+	// Credit for the summary when its license asks for it (Wikipedia's CC BY-SA); unset otherwise.
+	SummarySource *Attribution `protobuf:"bytes,17,opt,name=summary_source,json=summarySource,proto3" json:"summary_source,omitempty"`
+	// Names of the providers asked that found no game for the title ("IGDB"): tried, not failed.
+	NotFoundBy    []string `protobuf:"bytes,18,rep,name=not_found_by,json=notFoundBy,proto3" json:"not_found_by,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -317,6 +321,93 @@ func (x *GameDetails) GetFetchedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *GameDetails) GetSummarySource() *Attribution {
+	if x != nil {
+		return x.SummarySource
+	}
+	return nil
+}
+
+func (x *GameDetails) GetNotFoundBy() []string {
+	if x != nil {
+		return x.NotFoundBy
+	}
+	return nil
+}
+
+// Attribution credits the source of a text: shown with a link to the page and the license's name.
+type Attribution struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The source as the UI names it ("Wikipedia").
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// The page the text comes from.
+	Url string `protobuf:"bytes,2,opt,name=url,proto3" json:"url,omitempty"`
+	// The text's license ("CC BY-SA 4.0").
+	License string `protobuf:"bytes,3,opt,name=license,proto3" json:"license,omitempty"`
+	// The license's text (https://creativecommons.org/licenses/by-sa/4.0/).
+	LicenseUrl    string `protobuf:"bytes,4,opt,name=license_url,json=licenseUrl,proto3" json:"license_url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Attribution) Reset() {
+	*x = Attribution{}
+	mi := &file_gamevault_v1_metadata_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Attribution) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Attribution) ProtoMessage() {}
+
+func (x *Attribution) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_metadata_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Attribution.ProtoReflect.Descriptor instead.
+func (*Attribution) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_metadata_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *Attribution) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Attribution) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
+func (x *Attribution) GetLicense() string {
+	if x != nil {
+		return x.License
+	}
+	return ""
+}
+
+func (x *Attribution) GetLicenseUrl() string {
+	if x != nil {
+		return x.LicenseUrl
+	}
+	return ""
+}
+
 type GetGameDetailsRequest struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
 	GameId string                 `protobuf:"bytes,1,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`
@@ -330,7 +421,7 @@ type GetGameDetailsRequest struct {
 
 func (x *GetGameDetailsRequest) Reset() {
 	*x = GetGameDetailsRequest{}
-	mi := &file_gamevault_v1_metadata_proto_msgTypes[3]
+	mi := &file_gamevault_v1_metadata_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -342,7 +433,7 @@ func (x *GetGameDetailsRequest) String() string {
 func (*GetGameDetailsRequest) ProtoMessage() {}
 
 func (x *GetGameDetailsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_metadata_proto_msgTypes[3]
+	mi := &file_gamevault_v1_metadata_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -355,7 +446,7 @@ func (x *GetGameDetailsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetGameDetailsRequest.ProtoReflect.Descriptor instead.
 func (*GetGameDetailsRequest) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_metadata_proto_rawDescGZIP(), []int{3}
+	return file_gamevault_v1_metadata_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *GetGameDetailsRequest) GetGameId() string {
@@ -390,7 +481,7 @@ type GetGameDetailsResponse struct {
 
 func (x *GetGameDetailsResponse) Reset() {
 	*x = GetGameDetailsResponse{}
-	mi := &file_gamevault_v1_metadata_proto_msgTypes[4]
+	mi := &file_gamevault_v1_metadata_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -402,7 +493,7 @@ func (x *GetGameDetailsResponse) String() string {
 func (*GetGameDetailsResponse) ProtoMessage() {}
 
 func (x *GetGameDetailsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_gamevault_v1_metadata_proto_msgTypes[4]
+	mi := &file_gamevault_v1_metadata_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -415,7 +506,7 @@ func (x *GetGameDetailsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetGameDetailsResponse.ProtoReflect.Descriptor instead.
 func (*GetGameDetailsResponse) Descriptor() ([]byte, []int) {
-	return file_gamevault_v1_metadata_proto_rawDescGZIP(), []int{4}
+	return file_gamevault_v1_metadata_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GetGameDetailsResponse) GetDetails() *GameDetails {
@@ -446,7 +537,7 @@ const file_gamevault_v1_metadata_proto_rawDesc = "" +
 	"\n" +
 	"Screenshot\x12\x1b\n" +
 	"\tthumb_url\x18\x01 \x01(\tR\bthumbUrl\x12\x19\n" +
-	"\bfull_url\x18\x02 \x01(\tR\afullUrl\"\xb3\x04\n" +
+	"\bfull_url\x18\x02 \x01(\tR\afullUrl\"\x97\x05\n" +
 	"\vGameDetails\x12\x18\n" +
 	"\asummary\x18\x01 \x01(\tR\asummary\x12\x16\n" +
 	"\x06genres\x18\x02 \x03(\tR\x06genres\x12\x1e\n" +
@@ -472,7 +563,16 @@ const file_gamevault_v1_metadata_proto_rawDesc = "" +
 	"\asources\x18\x0e \x03(\tR\asources\x12\x1a\n" +
 	"\blanguage\x18\x0f \x01(\tR\blanguage\x129\n" +
 	"\n" +
-	"fetched_at\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampR\tfetchedAt\"f\n" +
+	"fetched_at\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampR\tfetchedAt\x12@\n" +
+	"\x0esummary_source\x18\x11 \x01(\v2\x19.gamevault.v1.AttributionR\rsummarySource\x12 \n" +
+	"\fnot_found_by\x18\x12 \x03(\tR\n" +
+	"notFoundBy\"n\n" +
+	"\vAttribution\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x10\n" +
+	"\x03url\x18\x02 \x01(\tR\x03url\x12\x18\n" +
+	"\alicense\x18\x03 \x01(\tR\alicense\x12\x1f\n" +
+	"\vlicense_url\x18\x04 \x01(\tR\n" +
+	"licenseUrl\"f\n" +
 	"\x15GetGameDetailsRequest\x12\x17\n" +
 	"\agame_id\x18\x01 \x01(\tR\x06gameId\x12\x1a\n" +
 	"\blanguage\x18\x02 \x01(\tR\blanguage\x12\x18\n" +
@@ -495,27 +595,29 @@ func file_gamevault_v1_metadata_proto_rawDescGZIP() []byte {
 	return file_gamevault_v1_metadata_proto_rawDescData
 }
 
-var file_gamevault_v1_metadata_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_gamevault_v1_metadata_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_gamevault_v1_metadata_proto_goTypes = []any{
 	(*Video)(nil),                  // 0: gamevault.v1.Video
 	(*Screenshot)(nil),             // 1: gamevault.v1.Screenshot
 	(*GameDetails)(nil),            // 2: gamevault.v1.GameDetails
-	(*GetGameDetailsRequest)(nil),  // 3: gamevault.v1.GetGameDetailsRequest
-	(*GetGameDetailsResponse)(nil), // 4: gamevault.v1.GetGameDetailsResponse
-	(*timestamppb.Timestamp)(nil),  // 5: google.protobuf.Timestamp
+	(*Attribution)(nil),            // 3: gamevault.v1.Attribution
+	(*GetGameDetailsRequest)(nil),  // 4: gamevault.v1.GetGameDetailsRequest
+	(*GetGameDetailsResponse)(nil), // 5: gamevault.v1.GetGameDetailsResponse
+	(*timestamppb.Timestamp)(nil),  // 6: google.protobuf.Timestamp
 }
 var file_gamevault_v1_metadata_proto_depIdxs = []int32{
 	0, // 0: gamevault.v1.GameDetails.videos:type_name -> gamevault.v1.Video
 	1, // 1: gamevault.v1.GameDetails.screenshots:type_name -> gamevault.v1.Screenshot
-	5, // 2: gamevault.v1.GameDetails.fetched_at:type_name -> google.protobuf.Timestamp
-	2, // 3: gamevault.v1.GetGameDetailsResponse.details:type_name -> gamevault.v1.GameDetails
-	3, // 4: gamevault.v1.MetadataService.GetGameDetails:input_type -> gamevault.v1.GetGameDetailsRequest
-	4, // 5: gamevault.v1.MetadataService.GetGameDetails:output_type -> gamevault.v1.GetGameDetailsResponse
-	5, // [5:6] is the sub-list for method output_type
-	4, // [4:5] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	6, // 2: gamevault.v1.GameDetails.fetched_at:type_name -> google.protobuf.Timestamp
+	3, // 3: gamevault.v1.GameDetails.summary_source:type_name -> gamevault.v1.Attribution
+	2, // 4: gamevault.v1.GetGameDetailsResponse.details:type_name -> gamevault.v1.GameDetails
+	4, // 5: gamevault.v1.MetadataService.GetGameDetails:input_type -> gamevault.v1.GetGameDetailsRequest
+	5, // 6: gamevault.v1.MetadataService.GetGameDetails:output_type -> gamevault.v1.GetGameDetailsResponse
+	6, // [6:7] is the sub-list for method output_type
+	5, // [5:6] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_gamevault_v1_metadata_proto_init() }
@@ -529,7 +631,7 @@ func file_gamevault_v1_metadata_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gamevault_v1_metadata_proto_rawDesc), len(file_gamevault_v1_metadata_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

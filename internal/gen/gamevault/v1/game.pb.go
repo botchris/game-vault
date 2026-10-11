@@ -1207,7 +1207,15 @@ type Game struct {
 	Editions []*Edition `protobuf:"bytes,16,rep,name=editions,proto3" json:"editions,omitempty"`
 	// The system the user chose for the main edition; empty: the default rule (an edition with a
 	// physical copy, then the most copies, then by system).
-	MainSystem    string `protobuf:"bytes,17,opt,name=main_system,json=mainSystem,proto3" json:"main_system,omitempty"`
+	MainSystem string `protobuf:"bytes,17,opt,name=main_system,json=mainSystem,proto3" json:"main_system,omitempty"`
+	// The game is linked to a store that sells PC games (Steam, GOG, Epic…). A game without a PC
+	// edition may then borrow that store's PC box as a last resort, served at
+	// GET /media/covers/{id}/PC and labelled as a PC box.
+	HasPcStoreLink bool `protobuf:"varint,18,opt,name=has_pc_store_link,json=hasPcStoreLink,proto3" json:"has_pc_store_link,omitempty"`
+	// The keys of the links Game Vault found automatically (an IGDB match, a Steam title search),
+	// labelled in the UI. Removing one in UpdateGame rejects it: it is never added again, unless the
+	// user sets it by hand.
+	AutoLinks     []string `protobuf:"bytes,19,rep,name=auto_links,json=autoLinks,proto3" json:"auto_links,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1338,6 +1346,20 @@ func (x *Game) GetMainSystem() string {
 		return x.MainSystem
 	}
 	return ""
+}
+
+func (x *Game) GetHasPcStoreLink() bool {
+	if x != nil {
+		return x.HasPcStoreLink
+	}
+	return false
+}
+
+func (x *Game) GetAutoLinks() []string {
+	if x != nil {
+		return x.AutoLinks
+	}
+	return nil
 }
 
 type ListGamesRequest struct {
@@ -1653,13 +1675,17 @@ type UpdateGameRequest struct {
 	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Title string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
 	Notes string                 `protobuf:"bytes,4,opt,name=notes,proto3" json:"notes,omitempty"`
-	// The game's links, replacing the current ones (an empty map unlinks every store).
+	// The game's links, replacing the current ones (an empty map unlinks every store), only when
+	// links_set: other saves (a rating, a play status) may come from a page loaded before a link was
+	// added automatically, and must not remove it.
 	Links map[string]string `protobuf:"bytes,6,rep,name=links,proto3" json:"links,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// Like every field here, these replace the current values: send them back unchanged to keep them.
 	PlayStatus PlayStatus `protobuf:"varint,7,opt,name=play_status,json=playStatus,proto3,enum=gamevault.v1.PlayStatus" json:"play_status,omitempty"`
 	Rating     int32      `protobuf:"varint,8,opt,name=rating,proto3" json:"rating,omitempty"`
 	// The game's custom field values, replacing the current ones.
-	Fields        map[string]*FieldValue `protobuf:"bytes,9,rep,name=fields,proto3" json:"fields,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Fields map[string]*FieldValue `protobuf:"bytes,9,rep,name=fields,proto3" json:"fields,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Apply links: set by the Edit tab's save. Without it the links stay as they are.
+	LinksSet      bool `protobuf:"varint,10,opt,name=links_set,json=linksSet,proto3" json:"links_set,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1741,6 +1767,13 @@ func (x *UpdateGameRequest) GetFields() map[string]*FieldValue {
 		return x.Fields
 	}
 	return nil
+}
+
+func (x *UpdateGameRequest) GetLinksSet() bool {
+	if x != nil {
+		return x.LinksSet
+	}
+	return false
 }
 
 type UpdateGameResponse struct {
@@ -3951,7 +3984,7 @@ const file_gamevault_v1_game_proto_rawDesc = "" +
 	"\x06system\x18\x01 \x01(\tR\x06system\x12\x1b\n" +
 	"\tcover_url\x18\x02 \x01(\tR\bcoverUrl\x12$\n" +
 	"\x0ecover_photo_id\x18\x03 \x01(\tR\fcoverPhotoId\x12\x12\n" +
-	"\x04main\x18\x04 \x01(\bR\x04main\"\xfd\x05\n" +
+	"\x04main\x18\x04 \x01(\bR\x04main\"\xc7\x06\n" +
 	"\x04Game\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x14\n" +
@@ -3971,7 +4004,10 @@ const file_gamevault_v1_game_proto_rawDesc = "" +
 	"\x06fields\x18\x0f \x03(\v2\x1e.gamevault.v1.Game.FieldsEntryR\x06fields\x121\n" +
 	"\beditions\x18\x10 \x03(\v2\x15.gamevault.v1.EditionR\beditions\x12\x1f\n" +
 	"\vmain_system\x18\x11 \x01(\tR\n" +
-	"mainSystem\x1a8\n" +
+	"mainSystem\x12)\n" +
+	"\x11has_pc_store_link\x18\x12 \x01(\bR\x0ehasPcStoreLink\x12\x1d\n" +
+	"\n" +
+	"auto_links\x18\x13 \x03(\tR\tautoLinks\x1a8\n" +
 	"\n" +
 	"LinksEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
@@ -4002,7 +4038,7 @@ const file_gamevault_v1_game_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12.\n" +
 	"\x05value\x18\x02 \x01(\v2\x18.gamevault.v1.FieldValueR\x05value:\x028\x01J\x04\b\x02\x10\x03J\x04\b\x05\x10\x06R\fsteam_app_idR\tcover_url\"<\n" +
 	"\x12CreateGameResponse\x12&\n" +
-	"\x04game\x18\x01 \x01(\v2\x12.gamevault.v1.GameR\x04game\"\xdd\x03\n" +
+	"\x04game\x18\x01 \x01(\v2\x12.gamevault.v1.GameR\x04game\"\xfa\x03\n" +
 	"\x11UpdateGameRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x14\n" +
@@ -4011,7 +4047,9 @@ const file_gamevault_v1_game_proto_rawDesc = "" +
 	"\vplay_status\x18\a \x01(\x0e2\x18.gamevault.v1.PlayStatusR\n" +
 	"playStatus\x12\x16\n" +
 	"\x06rating\x18\b \x01(\x05R\x06rating\x12C\n" +
-	"\x06fields\x18\t \x03(\v2+.gamevault.v1.UpdateGameRequest.FieldsEntryR\x06fields\x1a8\n" +
+	"\x06fields\x18\t \x03(\v2+.gamevault.v1.UpdateGameRequest.FieldsEntryR\x06fields\x12\x1b\n" +
+	"\tlinks_set\x18\n" +
+	" \x01(\bR\blinksSet\x1a8\n" +
 	"\n" +
 	"LinksEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +

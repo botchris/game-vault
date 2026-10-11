@@ -27,7 +27,7 @@ import (
 // coverLogicChanged is when the way covers are found last improved (e.g. add-ons borrowing their
 // base game's cover). "No cover found" markers older than this are ignored, so games are retried
 // with the new logic instead of waiting for the marker to expire. Bump it with such changes.
-var coverLogicChanged = time.Date(2026, 10, 10, 0, 0, 0, 0, time.UTC) // covers per edition (system)
+var coverLogicChanged = time.Date(2026, 10, 11, 9, 20, 0, 0, time.UTC) // fallback pass for every game, Steam title search, IGDB
 
 // ErrNoCover means no image could be found for the game.
 var ErrNoCover = errors.New("no cover available")
@@ -132,6 +132,11 @@ type CoverQuery struct {
 	// Fallback is set on the second pass, after no store had art for a game it knows: providers
 	// that keep their quota for games without store art may then help too.
 	Fallback bool
+
+	// LinksOnly asks providers to find the game by its store links alone, never by searching its
+	// title: set for a virtual PC edition (game.Game.BorrowsPCBox), whose PC box must be the linked
+	// store's art and nothing a title search might confuse with it.
+	LinksOnly bool
 }
 
 // HasStoreLink reports whether the game is linked to a store, whose providers have its own art.
@@ -257,6 +262,15 @@ type StoreLinker interface {
 	LinkStore() game.Store
 }
 
+// LinkFinder is an optional port for providers that can name, without doubt, the store ids of the
+// game a query describes (IGDB's external games of a game it matched, Steam's only app with exactly
+// that title). Their answers become automatic links (see game.Game.AutoLinks).
+type LinkFinder interface {
+	// FindLinks returns the store links of the game q describes, from a match the provider trusts;
+	// none when it cannot tell. Errors are those of the provider's other calls (rate limits…).
+	FindLinks(ctx context.Context, q CoverQuery, settings schema.Settings) (game.Links, error)
+}
+
 // LinkSearcher is an optional port for providers that can also search their store's catalog by
 // title, so the user (and the add-on cover lookup) can link a game to it.
 type LinkSearcher interface {
@@ -291,6 +305,21 @@ type Service struct {
 	retryMissing time.Duration // how long a "not found" result is trusted
 	group        singleflight.Group
 	slots        chan struct{} // limits concurrent cover downloads (not provider lookups)
+
+	// misses remembers providers' "no cover" answers that could not become a marker.
+	misses misses
+
+	// status keeps the providers' current provider-level problems (see ProviderStatuses).
+	status statuses
+
+	// autoLinks remembers the automatic link searches a rate limit or a failure interrupted.
+	autoLinks autoLinkBackoff
+
+	// autoLinkQueue holds the games waiting for the automatic-links worker (RunAutoLinker).
+	autoLinkQueue *autoLinkQueue
+
+	// linker saves automatic links (the catalog); nil turns them off.
+	linker GameLinker
 }
 
 // Providers groups the provider implementations available to the service. Their DefaultOrder (then
@@ -310,20 +339,21 @@ type Providers struct {
 func NewService(games game.Repository, providers provider.Repository, store AssetStore, photos PhotoStore, details DetailsStore, fetch ImageFetcher,
 	now port.Clock, log *slog.Logger, impls Providers) *Service {
 	s := &Service{
-		games:        games,
-		providers:    providers,
-		store:        store,
-		photos:       photos,
-		details:      details,
-		fetch:        fetch,
-		now:          now,
-		log:          log,
-		impls:        map[provider.ID]Provider{},
-		covers:       map[provider.ID]CoverProvider{},
-		barcodes:     map[provider.ID]BarcodeProvider{},
-		metadata:     map[provider.ID]MetadataProvider{},
-		retryMissing: 7 * 24 * time.Hour,
-		slots:        make(chan struct{}, 6),
+		games:         games,
+		providers:     providers,
+		store:         store,
+		photos:        photos,
+		details:       details,
+		fetch:         fetch,
+		now:           now,
+		log:           log,
+		impls:         map[provider.ID]Provider{},
+		covers:        map[provider.ID]CoverProvider{},
+		barcodes:      map[provider.ID]BarcodeProvider{},
+		metadata:      map[provider.ID]MetadataProvider{},
+		retryMissing:  7 * 24 * time.Hour,
+		slots:         make(chan struct{}, 6),
+		autoLinkQueue: newAutoLinkQueue(),
 	}
 	for _, p := range impls.Covers {
 		id := p.Descriptor().ID
@@ -489,7 +519,8 @@ func (s *Service) find(ctx context.Context, id provider.ID) (ProviderView, error
 }
 
 // ConfigureProvider enables/disables a provider and updates its settings. Changing a cover
-// provider forgets "no cover found" results, so games without a cover are looked up again.
+// provider, or a provider whose settings a cover provider shares, forgets "no cover found" results,
+// so games without a cover are looked up again.
 func (s *Service) ConfigureProvider(ctx context.Context, id provider.ID, enabled bool, settings schema.Settings) (ProviderView, error) {
 	v, err := s.find(ctx, id)
 	if err != nil {
@@ -504,10 +535,15 @@ func (s *Service) ConfigureProvider(ctx context.Context, id provider.ID, enabled
 		return v, err
 	}
 
+	// New settings (a new key) may have solved the provider's problem: the next answer tells.
+	s.status.forget(statusKey(v.Descriptor))
+
 	sib, err := s.siblings(ctx, v.Descriptor.SettingsGroup, id)
 	if err != nil {
 		return v, err
 	}
+
+	coverChanged := v.Kind() == provider.KindCover
 
 	for _, c := range sib { // keep shared credentials in sync
 		c.ShareSettings(v.Settings(), s.now())
@@ -515,9 +551,12 @@ func (s *Service) ConfigureProvider(ctx context.Context, id provider.ID, enabled
 		if err := s.providers.Save(ctx, c); err != nil {
 			return v, err
 		}
+
+		// Credentials entered from the details tab also reach a cover provider of the same service.
+		coverChanged = coverChanged || c.Kind() == provider.KindCover
 	}
 
-	if v.Kind() == provider.KindCover {
+	if coverChanged {
 		if _, err := s.RefreshCovers(ctx, true); err != nil {
 			s.log.Warn("forgetting missing covers", "error", err)
 		}
@@ -572,7 +611,12 @@ func (s *Service) TestProvider(ctx context.Context, id provider.ID, settings sch
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 
-	return s.impls[id].Test(ctx, merged)
+	// The check is an answer like any other: a success clears the service's status, a
+	// provider-level problem sets it.
+	err = s.impls[id].Test(ctx, merged)
+	s.noteResult(id, err)
+
+	return err
 }
 
 // chain returns the enabled cover providers in priority order.
@@ -642,13 +686,19 @@ func (s *Service) resolve(ctx context.Context, id game.ID, system string) (Image
 	return img, err
 }
 
-// editionSystems returns the systems of g's editions, or the empty system of a game without copies.
+// editionSystems returns the systems of g's editions (and PC when it borrows a PC box, so that box's
+// "no cover found" marker is kept), or the empty system of a game without copies.
 func editionSystems(g *game.Game) []string {
-	if systems := g.Systems(); len(systems) > 0 {
-		return systems
+	systems := g.Systems()
+	if len(systems) == 0 {
+		return []string{""}
 	}
 
-	return []string{""}
+	if g.BorrowsPCBox() {
+		systems = append(systems, game.SystemPC)
+	}
+
+	return systems
 }
 
 // resolveEdition finds the cover of g's edition on system: the cover cached before editions (main
@@ -658,6 +708,14 @@ func (s *Service) resolveEdition(ctx context.Context, g *game.Game, system strin
 	edition, ok := g.Edition(system)
 	if system == "" && len(g.Copies()) == 0 {
 		edition, ok = g.MainEdition(), true // a game without copies: its cover is the one chosen for the game
+	}
+
+	// A console-only game linked to a PC store has a virtual PC edition: the store's PC box, which
+	// its console editions borrow as a last resort (labeled as a PC box). It has no copies, so no
+	// physical platform reaches the providers, and no chosen cover.
+	virtual := !ok && system == game.SystemPC && g.BorrowsPCBox()
+	if virtual {
+		edition, ok = game.Edition{System: game.SystemPC}, true
 	}
 
 	if !ok {
@@ -697,12 +755,42 @@ func (s *Service) resolveEdition(ctx context.Context, g *game.Game, system strin
 	}
 
 	q := QueryFor(g, system)
+	q.LinksOnly = virtual
 	look := newLookup()
 
+	// Providers that already said "no cover" while another one was limited are not asked again yet.
+	for _, id := range s.misses.fresh(g.ID(), system, s.now()) {
+		look.asked[id] = true
+	}
+
 	img, err := s.coverFromChain(ctx, ref, system, q, look)
-	if errors.Is(err, ErrNoCover) && q.HasStoreLink() {
-		// No provider that knows the game's stores had art for this edition (a game only on
-		// Battle.net, a console edition of a Steam game…): ask the ones that kept out of it.
+
+	// An add-on borrows its base game's cover before the fallback pass, so a DLC or soundtrack key
+	// does not spend title searches first. Not after a provider asked to slow down: it may have had
+	// the add-on's own art.
+	// A virtual PC box is the store's art or nothing: it borrows no base game's.
+	if virtual {
+		look.triedAddOn = true
+	}
+
+	if errors.Is(err, ErrNoCover) && look.limited == nil && !look.triedAddOn && IsAddOn(g.Title()) {
+		if img, ok := s.addOnCover(ctx, g, system); ok {
+			return img, nil
+		}
+
+		look.triedAddOn = true
+	}
+
+	if errors.Is(err, ErrNoCover) && !virtual {
+		// A virtual PC edition asks the PC stores only: their art is the point, and the fallback
+		// pass would spend TheGamesDB's quota and title searches on a box the console editions only
+		// borrow.
+		//
+		// No provider had art for this edition in the first pass (a game only on Battle.net, a
+		// console edition of a Steam game, a key no store links…): ask the ones that kept out of it,
+		// which search by title or have one cover per game. Providers already asked are skipped, so
+		// a game without store links, which TheGamesDB already got in the first pass, costs it
+		// nothing more.
 		q.Fallback = true
 		img, err = s.coverFromChain(ctx, ref, system, q, look)
 	}
@@ -719,12 +807,18 @@ func (s *Service) resolveEdition(ctx context.Context, g *game.Game, system strin
 	// time, is not remembered as missing and does not borrow another's box, so the next request
 	// asks again.
 	if look.limited != nil {
+		// Those that did answer "no cover" are remembered, so the next views only ask the limited
+		// ones until the edition can be marked missing.
+		s.misses.remember(g.ID(), system, look.none, s.now())
+
 		return Image{}, fmt.Errorf("%w: %w", ErrNoCover, look.limited)
 	}
 
 	// Add-ons (DLC, soundtracks…) rarely have art of their own: borrow the base game's.
-	if img, ok := s.addOnCover(ctx, g, system); ok {
-		return img, nil
+	if !look.triedAddOn {
+		if img, ok := s.addOnCover(ctx, g, system); ok {
+			return img, nil
+		}
 	}
 
 	if len(look.asked) > 0 {
@@ -734,6 +828,9 @@ func (s *Service) resolveEdition(ctx context.Context, g *game.Game, system strin
 			s.log.Warn("marking missing cover", "error", err)
 		}
 	}
+
+	// A store link found now would give it the store's box: links found drop this marker.
+	s.enqueueAutoLink(g)
 
 	return Image{}, ErrNoCover
 }
@@ -769,6 +866,12 @@ type lookup struct {
 	// limited is set when a provider asked to slow down: provider.ErrQuotaExhausted when every one
 	// that did had used up its allowance, else provider.ErrRateLimited (the shorter wait).
 	limited error
+
+	// none holds the providers that answered without any candidate.
+	none []provider.ID
+
+	// triedAddOn reports that the add-on already looked for its base game's cover.
+	triedAddOn bool
 }
 
 func newLookup() *lookup { return &lookup{asked: map[provider.ID]bool{}} }
@@ -790,6 +893,8 @@ func (s *Service) coverFromChain(ctx context.Context, ref GameRef, system string
 		look.asked[p.ID()] = true
 
 		candidates, err := impl.Covers(ctx, q, p.Settings())
+		s.noteResult(p.ID(), err)
+
 		if errors.Is(err, provider.ErrRateLimited) {
 			switch {
 			case !errors.Is(err, provider.ErrQuotaExhausted):
@@ -806,6 +911,10 @@ func (s *Service) coverFromChain(ctx context.Context, ref GameRef, system string
 		if err != nil {
 			s.log.Warn("cover provider failed", "provider", p.ID(), "game", ref.Title, "error", err)
 			continue
+		}
+
+		if len(candidates) == 0 {
+			look.none = append(look.none, p.ID())
 		}
 
 		for _, c := range candidates[:min(len(candidates), 2)] {
@@ -840,12 +949,15 @@ func (s *Service) fetchAndCache(ctx context.Context, g GameRef, system, url stri
 }
 
 // CoverCandidates asks every enabled provider that applies to the game's edition on system (the
-// main edition when system is empty) for images, for the "choose cover" dialog. Failing providers
-// are reported as warnings.
-func (s *Service) CoverCandidates(ctx context.Context, id game.ID, system string) ([]CoverCandidate, []string, error) {
+// main edition when system is empty) for images, for the "choose cover" dialog. When none has any,
+// the providers that keep to the fallback pass are asked too, as when the cover is resolved.
+// Providers failing for this game are reported as warnings; unavailable reports that a provider had
+// a provider-level problem (see ProviderStatuses), which is not a warning on the game.
+func (s *Service) CoverCandidates(ctx context.Context, id game.ID, system string) (candidates []CoverCandidate, warnings []string,
+	unavailable bool, err error) {
 	g, err := s.games.Get(ctx, id)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
 	if system == "" {
@@ -853,43 +965,60 @@ func (s *Service) CoverCandidates(ctx context.Context, id game.ID, system string
 	}
 
 	if _, ok := g.Edition(system); !ok && len(g.Copies()) > 0 {
-		return nil, nil, fmt.Errorf("%w (%s)", ErrNoEdition, system)
+		return nil, nil, false, fmt.Errorf("%w (%s)", ErrNoEdition, system)
 	}
 
 	chain, err := s.chain(ctx)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
 	q := QueryFor(g, system)
+	asked := map[provider.ID]bool{}
 
-	var (
-		out      []CoverCandidate
-		warnings []string
-	)
-
-	for _, p := range chain {
-		impl := s.covers[p.ID()]
-		if !impl.Applies(q) {
-			continue
+	for _, fallback := range []bool{false, true} {
+		if fallback && len(candidates) > 0 {
+			break
 		}
 
-		c, err := impl.Covers(ctx, q, p.Settings())
-		if err != nil {
-			warnings = append(warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
-			continue
-		}
+		q.Fallback = fallback
 
-		out = append(out, c...)
+		for _, p := range chain {
+			impl := s.covers[p.ID()]
+			if asked[p.ID()] || !impl.Applies(q) {
+				continue
+			}
+
+			asked[p.ID()] = true
+
+			c, err := impl.Covers(ctx, q, p.Settings())
+			s.noteResult(p.ID(), err)
+
+			if err != nil {
+				// A provider-level problem (busy, allowance used up, rejected key) is the provider's
+				// status, shown on the System and Providers pages, not a warning on every game.
+				if providerLevel(err) {
+					unavailable = true
+				} else {
+					warnings = append(warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
+				}
+
+				continue
+			}
+
+			candidates = append(candidates, c...)
+		}
 	}
 
-	return out, warnings, nil
+	return candidates, warnings, unavailable, nil
 }
 
 // RefreshCovers drops cached covers so they are resolved again on next view. With missingOnly, only
 // the editions' "not found" markers are dropped (cheap: real covers stay cached). It returns how many
 // games were affected.
 func (s *Service) RefreshCovers(ctx context.Context, missingOnly bool) (int, error) {
+	s.misses.forget("", "")
+
 	games, err := s.games.List(ctx)
 	if err != nil {
 		return 0, err
@@ -945,6 +1074,8 @@ func (s *Service) RefreshCovers(ctx context.Context, missingOnly bool) (int, err
 // copies) it also drops the cover cached before editions, which the main edition would otherwise
 // adopt instead of resolving the new one; other editions leave it for the main edition to adopt.
 func (s *Service) InvalidateEdition(ctx context.Context, id game.ID, system string) error {
+	s.misses.forget(id, system)
+
 	if err := s.store.DeleteCover(id, system); err != nil {
 		return err
 	}
@@ -979,6 +1110,8 @@ func (s *Service) DropLegacyCover(_ context.Context, id game.ID) error {
 // Invalidate drops the game's cover, details and downloaded images (implements catalog.CoverCache):
 // they depend on the custom cover URL and the game's links, and must go when the game is deleted.
 func (s *Service) Invalidate(ctx context.Context, id game.ID) error {
+	s.misses.forget(id, "*")
+
 	if s.details != nil {
 		if err := s.details.Delete(ctx, id); err != nil {
 			return err
@@ -1100,6 +1233,7 @@ func (s *Service) IdentifyBarcode(ctx context.Context, raw string) (BarcodeResul
 	for _, p := range chain {
 		settings := p.Settings()
 		matches, err := s.barcodes[p.ID()].Lookup(ctx, code, settings)
+		s.noteResult(p.ID(), err)
 
 		// A provider may have learned something worth keeping (state fields), even when it failed.
 		if p.UpdateState(p.Descriptor, settings, s.now()) {

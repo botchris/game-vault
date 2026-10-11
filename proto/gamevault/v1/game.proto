@@ -232,6 +232,14 @@ message Game {
   // The system the user chose for the main edition; empty: the default rule (an edition with a
   // physical copy, then the most copies, then by system).
   string main_system = 17;
+  // The game is linked to a store that sells PC games (Steam, GOG, Epic…). A game without a PC
+  // edition may then borrow that store's PC box as a last resort, served at
+  // GET /media/covers/{id}/PC and labelled as a PC box.
+  bool has_pc_store_link = 18;
+  // The keys of the links Game Vault found automatically (an IGDB match, a Steam title search),
+  // labelled in the UI. Removing one in UpdateGame rejects it: it is never added again, unless the
+  // user sets it by hand.
+  repeated string auto_links = 19;
 }
 
 message ListGamesRequest {
@@ -274,13 +282,17 @@ message UpdateGameRequest {
   string id = 1;
   string title = 2;
   string notes = 4;
-  // The game's links, replacing the current ones (an empty map unlinks every store).
+  // The game's links, replacing the current ones (an empty map unlinks every store), only when
+  // links_set: other saves (a rating, a play status) may come from a page loaded before a link was
+  // added automatically, and must not remove it.
   map<string, string> links = 6;
   // Like every field here, these replace the current values: send them back unchanged to keep them.
   PlayStatus play_status = 7;
   int32 rating = 8;
   // The game's custom field values, replacing the current ones.
   map<string, FieldValue> fields = 9;
+  // Apply links: set by the Edit tab's save. Without it the links stay as they are.
+  bool links_set = 10;
 }
 message UpdateGameResponse {
   Game game = 1;

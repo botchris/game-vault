@@ -169,7 +169,7 @@ test('a row whose copy failed to save is to review until it is changed', () => {
 test('send items are split into requests at row boundaries, keeping one new game together', () => {
   let rows = [];
   for (let i = 0; i < 3; i++) {
-    rows = addCode(rows, ['5030934110075', '5026555255042', '3307215643006'][i], `r${i}`).rows;
+    rows = addCode(rows, ['5030934110075', '2001234567893', '3307215643006'][i], `r${i}`).rows;
     rows = settle(rows, `r${i}`, answer({ barcode: rows[0].code }));
   }
   rows = amend(rows, 'r0', { title: 'Halo 3' });

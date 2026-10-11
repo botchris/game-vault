@@ -72,7 +72,7 @@ var (
 	ErrBadCode = errors.New("microsoft rejected the code: codes work once and expire within minutes, open the login link again and paste the new address")
 
 	// ErrSessionExpired means the stored session can no longer be refreshed.
-	ErrSessionExpired = errors.New("the Microsoft session expired: open the login link and paste a new address")
+	ErrSessionExpired = source.SignedOut("the Microsoft session expired: open the login link and paste a new address")
 
 	reCode = regexp.MustCompile(`[?&#]code=([^&#\s"]+)`)
 )

@@ -292,10 +292,31 @@ func (g *Game) AdoptGameCover(coverURL string, photo PhotoID) {
 	}
 }
 
+// BorrowsPCBox reports whether the game's console editions may borrow a PC box as a last resort: the
+// game has copies but none on PC, and it is linked to a PC store, whose art is then served as a
+// virtual PC edition (GET /media/covers/{id}/PC), labeled as a PC box, never as the console's.
+//
+// The Microsoft Store sells for PC and Xbox under one id: for a game with an Xbox edition its art is
+// that edition's own, so an Xbox link alone does not make a PC box of it.
+func (g *Game) BorrowsPCBox() bool {
+	if len(g.copies) == 0 || g.hasSystem(SystemPC) {
+		return false
+	}
+
+	links := g.links
+	if slices.ContainsFunc(g.copies, func(c Copy) bool { return strings.HasPrefix(c.System(), "Xbox") }) {
+		links = maps.Clone(g.links)
+		delete(links, "xbox")
+	}
+
+	return links.HasPCStore()
+}
+
 // CoverFingerprints returns, per system of the game, a summary of what that edition's cover depends
 // on: its chosen cover, the platforms of its copies (physical ones apart) and the store links. A
-// game without copies has one entry, on the empty system, for the cover chosen for the game. When
-// a fingerprint changes, that edition's cached cover may be stale.
+// game without copies has one entry, on the empty system, for the cover chosen for the game; a game
+// that borrows a PC box (BorrowsPCBox) has one on PC, for its store links. When a fingerprint
+// changes, or appears or goes, that edition's cached cover may be stale.
 func (g *Game) CoverFingerprints() map[string]string {
 	links := make([]string, 0, len(g.links))
 	for _, k := range g.links.Keys() {
@@ -340,6 +361,10 @@ func (g *Game) CoverFingerprints() map[string]string {
 		slices.Sort(platforms)
 
 		out[system] = fingerprint(system, platforms)
+	}
+
+	if g.BorrowsPCBox() {
+		out[SystemPC] = fingerprint(SystemPC, nil)
 	}
 
 	return out

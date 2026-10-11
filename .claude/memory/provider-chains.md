@@ -4,8 +4,27 @@ description: Plex-style provider chains, TheGamesDB quota rules, the fallback pa
 metadata:
   type: project
 ---
-- Chains for covers, barcodes and metadata. Default order = registration order in
-  `cmd/gamevault/main.go`; new providers are appended to existing users' chains.
+- Chains for covers, barcodes and metadata. Default order = each provider's `DefaultOrder` (ties
+  broken by registration order in `cmd/gamevault/plugins.go`); new providers are appended to
+  existing users' chains, which the user reorders on the Providers page.
+- **Metadata default (2026-10-11):** Steam (10) → Wikipedia (12) → IGDB (15) → TheGamesDB (20).
+  First provider wins each field, so Wikipedia's summary (UI language, else English) beats IGDB's
+  English one; its `SummarySource` credit travels with the summary in `GameDetails.fill`. YouTube
+  trailers are deduplicated by id. `detailsLogicVersion` is 2 (sparse sheets refetched once).
+  See [[wikipedia]], [[igdb]].
+- **Fallback for every game (2026-10-11, maintainer's decision):** the cover fallback pass runs
+  whenever the first pass found nothing, not only for games with store links; the providers asked in
+  the first pass are skipped, so TheGamesDB (first pass for link-less games) spends nothing more.
+  The Choose cover dialog asks the fallback providers when the first round has no candidate. On
+  that pass: **Steam** searches its store by title for PC editions without an AppID (only exact
+  `game.MatchKey`, one app; never stored as a link; 429 → rate limit) and **IGDB** (DefaultOrder 85,
+  `Applies` = `q.Fallback`, starts disabled (needs credentials), silent without them) gives the
+  game's cover for any system. Review round (2026-10-11): providers' "no cover" answers in a
+  limited lookup are kept 24 h in memory per edition (`media/misses.go`); add-ons borrow the base
+  game's cover before the fallback pass; configuring a sibling of a cover provider retries missing
+  covers; Steam's store host (search, appdetails) is throttled (burst 10, 1.5 s, 5 s max wait; art
+  lookups on the Web API are not) with a 10-min search cache; 5xx/no answer from Steam's search, Twitch or IGDB count as rate limits. `coverLogicChanged` bumped to 2026-10-11 09:20 UTC for it (an earlier bump for
+  IGDB alone was reverted: enabling a provider already forgets the markers).
 - Media providers can keep learned state in `schema.FieldState` settings: they write it into the
   settings map they get, and the media service persists it with `provider.UpdateState` (wired for
   barcode lookups only so far; CeX's `country_hits`, see [[cex]]).
@@ -33,3 +52,25 @@ metadata:
   `media/details.go` when sheet gathering improves: sparse sheets with an older `LogicVersion` are
   refetched once (a version, not a date, so sheets an old server caches later are caught too). TheGamesDB searches covers and sheets on the copies'
   systems (`game.SystemOf`: "PlayStation Store" → PS4).
+- **Edition titles (2026-10-11, bug seen live):** an edition title ("Example West GOTY") found nothing on IGDB
+  or Wikidata, silently. Searches now use `game.SearchTitle` (MatchKey's tags removed, casing kept),
+  then the raw title if no match; `GameDetails.NotFoundBy` lists providers asked that found no game
+  (footer "No clear match on …": no result or ambiguous; cached, not a warning; limited providers
+  are not listed). Raw-title fallback compares after `game.NormalizeTitle` (™ alone is no other
+  title); Steam's cover search has the fallback too.
+- **Provider status (2026-10-11, maintainer's request):** provider-level errors (ErrRateLimited incl.
+  quota/busy/ErrUnavailable, and ErrBadSettings) never reach game sheets or the cover picker; the
+  media service keeps the last one per settings group in memory (`media/status.go`, cleared by a
+  success, new settings or its Until) and `GetProviderStatus` feeds the System page section and the
+  Providers page badges. TheGamesDB's allowance error implements `provider.Resumer`. Review
+  fixes: providers without settings must return ErrBadSettings, never an empty success (it would
+  clear a sibling's status); TheGamesDB 401/403/5xx/no answer and Wikimedia 403/5xx/no answer are
+  provider-level; TestProvider sets/clears too; the picker gets `providers_unavailable`.
+- **PC box as last resort (2026-10-11, maintainer's request):** a console-only game with a PC-store
+  link (`game.IsPCStoreLink`) has a virtual PC edition at `/media/covers/{id}/PC`: first pass only
+  (store links only, `CoverQuery.LinksOnly`: no TheGamesDB, IGDB, Battle.net/Ubisoft/Steam title searches, no fallback pass, no add-on borrowing; an xbox link alone does not count with an Xbox edition), cached/marked under PC, fingerprinted by links; the web appends
+  PC last in `coverOrder` when `has_pc_store_link` and no PC edition, labelled "PC box".
+- **Health (2026-10-11, maintainer's request):** System → Health replaces the provider-status
+  section; `GetProviderStatus` is gone (status now in `Provider.status` from ListProviders). Checks:
+  providers (settings = error), sources (`source.ErrSignedOut` = error, failed scan / keep-alive =
+  warning), backups, disk. New checks implement `health.Check` and must stay cheap (no network).

@@ -13,12 +13,14 @@ import (
 	"gamevault/internal/adapters/outbound/fanatical"
 	"gamevault/internal/adapters/outbound/gog"
 	"gamevault/internal/adapters/outbound/humble"
+	"gamevault/internal/adapters/outbound/igdb"
 	"gamevault/internal/adapters/outbound/itch"
 	"gamevault/internal/adapters/outbound/playstation"
 	"gamevault/internal/adapters/outbound/steam"
 	"gamevault/internal/adapters/outbound/thegamesdb"
 	"gamevault/internal/adapters/outbound/ubisoft"
 	"gamevault/internal/adapters/outbound/upcitemdb"
+	"gamevault/internal/adapters/outbound/wikipedia"
 	"gamevault/internal/adapters/outbound/xbox"
 	"gamevault/internal/application/plugin"
 )
@@ -46,6 +48,8 @@ func newPlugins(log *slog.Logger) (*plugin.Registry, error) {
 		fanatical.Plugin(),
 		// Game databases
 		thegamesdb.Plugin(),
+		wikipedia.Plugin(version),
+		igdb.Plugin(),
 		// Barcode lookups
 		cex.Plugin(),
 		ebay.Plugin(),

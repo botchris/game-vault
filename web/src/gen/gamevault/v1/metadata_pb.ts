@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file gamevault/v1/metadata.proto.
  */
 export const file_gamevault_v1_metadata: GenFile = /*@__PURE__*/
-  fileDesc("ChtnYW1ldmF1bHQvdjEvbWV0YWRhdGEucHJvdG8SDGdhbWV2YXVsdC52MSJSCgVWaWRlbxINCgV0aXRsZRgBIAEoCRIVCg10aHVtYm5haWxfdXJsGAIgASgJEg8KB2hsc191cmwYAyABKAkSEgoKeW91dHViZV9pZBgEIAEoCSIxCgpTY3JlZW5zaG90EhEKCXRodW1iX3VybBgBIAEoCRIQCghmdWxsX3VybBgCIAEoCSKIAwoLR2FtZURldGFpbHMSDwoHc3VtbWFyeRgBIAEoCRIOCgZnZW5yZXMYAiADKAkSEgoKZGV2ZWxvcGVycxgDIAMoCRISCgpwdWJsaXNoZXJzGAQgAygJEhQKDHJlbGVhc2VfZGF0ZRgFIAEoCRISCgphZ2VfcmF0aW5nGAYgASgJEg8KB3BsYXllcnMYByABKAkSEgoKbWV0YWNyaXRpYxgIIAEoBRIWCg5tZXRhY3JpdGljX3VybBgJIAEoCRIPCgd3ZWJzaXRlGAogASgJEhEKCXN0b3JlX3VybBgLIAEoCRIjCgZ2aWRlb3MYDCADKAsyEy5nYW1ldmF1bHQudjEuVmlkZW8SLQoLc2NyZWVuc2hvdHMYDSADKAsyGC5nYW1ldmF1bHQudjEuU2NyZWVuc2hvdBIPCgdzb3VyY2VzGA4gAygJEhAKCGxhbmd1YWdlGA8gASgJEi4KCmZldGNoZWRfYXQYECABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIksKFUdldEdhbWVEZXRhaWxzUmVxdWVzdBIPCgdnYW1lX2lkGAEgASgJEhAKCGxhbmd1YWdlGAIgASgJEg8KB3JlZnJlc2gYAyABKAgiVgoWR2V0R2FtZURldGFpbHNSZXNwb25zZRIqCgdkZXRhaWxzGAEgASgLMhkuZ2FtZXZhdWx0LnYxLkdhbWVEZXRhaWxzEhAKCHdhcm5pbmdzGAIgAygJMm4KD01ldGFkYXRhU2VydmljZRJbCg5HZXRHYW1lRGV0YWlscxIjLmdhbWV2YXVsdC52MS5HZXRHYW1lRGV0YWlsc1JlcXVlc3QaJC5nYW1ldmF1bHQudjEuR2V0R2FtZURldGFpbHNSZXNwb25zZUIxWi9nYW1ldmF1bHQvaW50ZXJuYWwvZ2VuL2dhbWV2YXVsdC92MTtnYW1ldmF1bHR2MWIGcHJvdG8z", [file_google_protobuf_timestamp]);
+  fileDesc("ChtnYW1ldmF1bHQvdjEvbWV0YWRhdGEucHJvdG8SDGdhbWV2YXVsdC52MSJSCgVWaWRlbxINCgV0aXRsZRgBIAEoCRIVCg10aHVtYm5haWxfdXJsGAIgASgJEg8KB2hsc191cmwYAyABKAkSEgoKeW91dHViZV9pZBgEIAEoCSIxCgpTY3JlZW5zaG90EhEKCXRodW1iX3VybBgBIAEoCRIQCghmdWxsX3VybBgCIAEoCSLRAwoLR2FtZURldGFpbHMSDwoHc3VtbWFyeRgBIAEoCRIOCgZnZW5yZXMYAiADKAkSEgoKZGV2ZWxvcGVycxgDIAMoCRISCgpwdWJsaXNoZXJzGAQgAygJEhQKDHJlbGVhc2VfZGF0ZRgFIAEoCRISCgphZ2VfcmF0aW5nGAYgASgJEg8KB3BsYXllcnMYByABKAkSEgoKbWV0YWNyaXRpYxgIIAEoBRIWCg5tZXRhY3JpdGljX3VybBgJIAEoCRIPCgd3ZWJzaXRlGAogASgJEhEKCXN0b3JlX3VybBgLIAEoCRIjCgZ2aWRlb3MYDCADKAsyEy5nYW1ldmF1bHQudjEuVmlkZW8SLQoLc2NyZWVuc2hvdHMYDSADKAsyGC5nYW1ldmF1bHQudjEuU2NyZWVuc2hvdBIPCgdzb3VyY2VzGA4gAygJEhAKCGxhbmd1YWdlGA8gASgJEi4KCmZldGNoZWRfYXQYECABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjEKDnN1bW1hcnlfc291cmNlGBEgASgLMhkuZ2FtZXZhdWx0LnYxLkF0dHJpYnV0aW9uEhQKDG5vdF9mb3VuZF9ieRgSIAMoCSJOCgtBdHRyaWJ1dGlvbhIMCgRuYW1lGAEgASgJEgsKA3VybBgCIAEoCRIPCgdsaWNlbnNlGAMgASgJEhMKC2xpY2Vuc2VfdXJsGAQgASgJIksKFUdldEdhbWVEZXRhaWxzUmVxdWVzdBIPCgdnYW1lX2lkGAEgASgJEhAKCGxhbmd1YWdlGAIgASgJEg8KB3JlZnJlc2gYAyABKAgiVgoWR2V0R2FtZURldGFpbHNSZXNwb25zZRIqCgdkZXRhaWxzGAEgASgLMhkuZ2FtZXZhdWx0LnYxLkdhbWVEZXRhaWxzEhAKCHdhcm5pbmdzGAIgAygJMm4KD01ldGFkYXRhU2VydmljZRJbCg5HZXRHYW1lRGV0YWlscxIjLmdhbWV2YXVsdC52MS5HZXRHYW1lRGV0YWlsc1JlcXVlc3QaJC5nYW1ldmF1bHQudjEuR2V0R2FtZURldGFpbHNSZXNwb25zZUIxWi9nYW1ldmF1bHQvaW50ZXJuYWwvZ2VuL2dhbWV2YXVsdC92MTtnYW1ldmF1bHR2MWIGcHJvdG8z", [file_google_protobuf_timestamp]);
 
 /**
  * Video is a trailer: an HLS stream (play with a <video> element or hls.js) or a YouTube video.
@@ -171,6 +171,20 @@ export type GameDetails = Message<"gamevault.v1.GameDetails"> & {
    * @generated from field: google.protobuf.Timestamp fetched_at = 16;
    */
   fetchedAt?: Timestamp | undefined;
+
+  /**
+   * Credit for the summary when its license asks for it (Wikipedia's CC BY-SA); unset otherwise.
+   *
+   * @generated from field: gamevault.v1.Attribution summary_source = 17;
+   */
+  summarySource?: Attribution | undefined;
+
+  /**
+   * Names of the providers asked that found no game for the title ("IGDB"): tried, not failed.
+   *
+   * @generated from field: repeated string not_found_by = 18;
+   */
+  notFoundBy: string[];
 };
 
 /**
@@ -179,6 +193,48 @@ export type GameDetails = Message<"gamevault.v1.GameDetails"> & {
  */
 export const GameDetailsSchema: GenMessage<GameDetails> = /*@__PURE__*/
   messageDesc(file_gamevault_v1_metadata, 2);
+
+/**
+ * Attribution credits the source of a text: shown with a link to the page and the license's name.
+ *
+ * @generated from message gamevault.v1.Attribution
+ */
+export type Attribution = Message<"gamevault.v1.Attribution"> & {
+  /**
+   * The source as the UI names it ("Wikipedia").
+   *
+   * @generated from field: string name = 1;
+   */
+  name: string;
+
+  /**
+   * The page the text comes from.
+   *
+   * @generated from field: string url = 2;
+   */
+  url: string;
+
+  /**
+   * The text's license ("CC BY-SA 4.0").
+   *
+   * @generated from field: string license = 3;
+   */
+  license: string;
+
+  /**
+   * The license's text (https://creativecommons.org/licenses/by-sa/4.0/).
+   *
+   * @generated from field: string license_url = 4;
+   */
+  licenseUrl: string;
+};
+
+/**
+ * Describes the message gamevault.v1.Attribution.
+ * Use `create(AttributionSchema)` to create a new message.
+ */
+export const AttributionSchema: GenMessage<Attribution> = /*@__PURE__*/
+  messageDesc(file_gamevault_v1_metadata, 3);
 
 /**
  * @generated from message gamevault.v1.GetGameDetailsRequest
@@ -209,7 +265,7 @@ export type GetGameDetailsRequest = Message<"gamevault.v1.GetGameDetailsRequest"
  * Use `create(GetGameDetailsRequestSchema)` to create a new message.
  */
 export const GetGameDetailsRequestSchema: GenMessage<GetGameDetailsRequest> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_metadata, 3);
+  messageDesc(file_gamevault_v1_metadata, 4);
 
 /**
  * @generated from message gamevault.v1.GetGameDetailsResponse
@@ -233,7 +289,7 @@ export type GetGameDetailsResponse = Message<"gamevault.v1.GetGameDetailsRespons
  * Use `create(GetGameDetailsResponseSchema)` to create a new message.
  */
 export const GetGameDetailsResponseSchema: GenMessage<GetGameDetailsResponse> = /*@__PURE__*/
-  messageDesc(file_gamevault_v1_metadata, 4);
+  messageDesc(file_gamevault_v1_metadata, 5);
 
 /**
  * MetadataService serves game details from the metadata provider chain.

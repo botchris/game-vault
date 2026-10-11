@@ -46,8 +46,9 @@ non-2xx answers, which `StatusError` keeps only as a snippet.
      interval generous; the service adds jitter.
    - Browser cookies: use `internal/adapters/outbound/browsersession` (parsing pasted cookies,
      a cookie jar for the site's domain, remembering renewed cookies).
-3. Errors: sentinel errors with the fix in the message (`ErrSignedOut = errors.New("… sign in again
-   on … and paste …")`); wrap the service's own message for anything unexpected
+3. Errors: sentinel errors with the fix in the message; a store that no longer accepts the session
+   or key is `ErrSignedOut = source.SignedOut("… sign in again on … and paste …")` (it matches
+   `source.ErrSignedOut`, which System → Health reports as an error); wrap the service's own message for anything unexpected
    (`fmt.Errorf("<name> library: %s", msg)`) so the user can paste it back to you.
 4. `provider_test.go` against a fake server: happy path with pagination, filtering (subscription,
    DLC…), rotation persisted across a "restart" (a new Provider value), and the signed-out / bad

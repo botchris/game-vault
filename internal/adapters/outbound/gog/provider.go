@@ -67,7 +67,7 @@ var (
 	ErrBadCode = errors.New("gog rejected the code: codes work once and expire quickly, open the login link again and paste the new address")
 
 	// ErrSessionExpired means the stored session can no longer be refreshed.
-	ErrSessionExpired = errors.New("the GOG session expired: open the login link and paste a new code")
+	ErrSessionExpired = source.SignedOut("the GOG session expired: open the login link and paste a new code")
 
 	reCodeParam = regexp.MustCompile(`[?&]code=([^&#\s"]+)`)
 )

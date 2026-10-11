@@ -3,9 +3,12 @@ import { useTranslation } from 'react-i18next';
 import { coverClient, errorMessage, providerClient } from '../../api/client';
 import { Alert } from '../../components/ui';
 import type { Provider } from '../../gen/gamevault/v1/provider_pb';
+import { toDate } from '../../lib/model';
+import { describeStatus } from '../../lib/providerStatus';
 import { useAppData } from '../../state/AppData';
 import ProviderDialog from './ProviderDialog';
 import { forgetPriceProviders } from '../../lib/usePriceProviders';
+import { useHealth } from '../../state/Health';
 
 type Notice = { tone: 'ok' | 'error'; text: string } | null;
 
@@ -15,6 +18,8 @@ export default function ProvidersPage() {
   const { reloadGames } = useAppData();
   const [notice, setNotice] = useState<Notice>(null);
   const [busy, setBusy] = useState(false);
+  const { issues } = useHealth();
+  const healthKey = issues.filter((i) => i.kind === 'provider').map((i) => `${i.key}:${i.reason}`).join(',');
 
   const refresh = async (missingOnly: boolean) => {
     if (!missingOnly && !confirm(t('providers.confirmRedownload'))) return;
@@ -38,7 +43,7 @@ export default function ProvidersPage() {
       </div>
       {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
 
-      <ProviderChain kind="cover" title={t('providers.covers')} intro={t('providers.coversIntro')} onNotice={setNotice}
+      <ProviderChain kind="cover" healthKey={healthKey} title={t('providers.covers')} intro={t('providers.coversIntro')} onNotice={setNotice}
         onChanged={reloadGames} // covers may resolve differently now
         pinned={{ name: t('providers.custom.name'), description: t('providers.custom.description') }}
         actions={<>
@@ -46,12 +51,12 @@ export default function ProvidersPage() {
           <button onClick={() => refresh(false)} disabled={busy}>{t('providers.redownload')}</button>
         </>} />
 
-      <ProviderChain kind="barcode" title={t('providers.barcodes')} intro={t('providers.barcodesIntro')} onNotice={setNotice}
+      <ProviderChain kind="barcode" healthKey={healthKey} title={t('providers.barcodes')} intro={t('providers.barcodesIntro')} onNotice={setNotice}
         pinned={{ name: t('providers.local.name'), description: t('providers.local.description') }} />
 
-      <ProviderChain kind="metadata" title={t('providers.metadata')} intro={t('providers.metadataIntro')} onNotice={setNotice} />
+      <ProviderChain kind="metadata" healthKey={healthKey} title={t('providers.metadata')} intro={t('providers.metadataIntro')} onNotice={setNotice} />
 
-      <ProviderChain kind="valuation" title={t('providers.valuations')} intro={t('providers.valuationsIntro')} onNotice={setNotice}
+      <ProviderChain kind="valuation" healthKey={healthKey} title={t('providers.valuations')} intro={t('providers.valuationsIntro')} onNotice={setNotice}
         onChanged={async () => forgetPriceProviders()} />
     </div>
   );
@@ -65,9 +70,12 @@ function ProviderChain(props: {
   actions?: React.ReactNode;
   onNotice: (n: Notice) => void;
   onChanged?: () => Promise<void>;
+  /** Changes when the providers' health issues change. */
+  healthKey: string;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { kind, onNotice, onChanged } = props;
+  const { reload: reloadHealth } = useHealth();
   const [providers, setProviders] = useState<Provider[]>([]);
   const [placeholder, setPlaceholder] = useState('');
   const [editing, setEditing] = useState<Provider | null>(null);
@@ -83,15 +91,18 @@ function ProviderChain(props: {
     }
   }, [kind, onNotice]);
 
+  // The chain is read again when the providers' health changes (an allowance renewed, a key fixed),
+  // so its badges follow without polling every chain.
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, props.healthKey]);
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
     onNotice(null);
     try {
       await fn();
+      reloadHealth(); // new settings may fix a provider's problem
       await onChanged?.();
     } catch (e) {
       onNotice({ tone: 'error', text: errorMessage(e) });
@@ -145,6 +156,17 @@ function ProviderChain(props: {
             <div className="chain-body">
               <strong>{p.name}</strong>
               <span className="muted small">{t(p.descriptionKey)}</span>
+              {(() => {
+                const st = p.status;
+                return st && (
+                  <>
+                    <span className="badge warn provider-status">
+                      {describeStatus(st, toDate(st.until) ?? undefined, new Date(), t, i18n.language)}
+                    </span>
+                    <span className="muted small provider-status-message">{st.message}</span>
+                  </>
+                );
+              })()}
             </div>
             <div className="chain-actions">
               <button className="icon" title={t('providers.moveUp')} disabled={busy || i === 0} onClick={() => move(i, -1)}>▲</button>

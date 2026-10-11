@@ -2,10 +2,15 @@ package steam
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
+	"regexp"
+	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"gamevault/internal/adapters/outbound/apiclient"
@@ -61,11 +66,37 @@ type Store struct {
 
 	// AssetsURL is the CDN prefix the hashed paths are relative to.
 	AssetsURL string
+
+	// throttle paces the requests to the store (see storeGap); nil sends them at once.
+	throttle *throttle
+
+	// now is the clock of the search cache; nil means time.Now.
+	now func() time.Time
+
+	mu sync.Mutex
+
+	// searches caches recent store searches by query (see searchTTL).
+	searches map[string]cachedSearch
+}
+
+// searchTTL is how long a store search's answer is reused. Within one cover lookup the same title
+// may be searched twice (Battle.net's covers, then Steam's title search on the fallback pass): the
+// second one costs nothing. Short enough that the user's own link searches stay current.
+const searchTTL = 10 * time.Minute
+
+// maxSearches bounds the search cache.
+const maxSearches = 500
+
+// cachedSearch is a store search's answer and when it was received.
+type cachedSearch struct {
+	matches []media.LinkMatch
+	at      time.Time
 }
 
 var (
 	_ media.CoverProvider = (*Store)(nil)
 	_ media.LinkSearcher  = (*Store)(nil)
+	_ media.LinkFinder    = (*Store)(nil)
 )
 
 // Descriptor implements media.CoverProvider.
@@ -86,17 +117,30 @@ func (s *Store) ImageHosts() []string {
 		"cdn.akamai.steamstatic.com", "shared.akamai.steamstatic.com"}
 }
 
-// Applies reports whether the game is linked to Steam and the query is for its PC edition (or names
-// no system).
-func (s *Store) Applies(q media.CoverQuery) bool { return q.ForPC() && AppIDOf(q) != 0 }
+// Applies reports whether the query is for a PC edition (or names no system) of a game linked to
+// Steam, or, on the fallback pass, of any game: Steam's store is then searched by title. The search
+// waits for that pass so it is only spent on PC editions no other provider had art for (Steam allows
+// about 200 store requests per 5 minutes).
+func (s *Store) Applies(q media.CoverQuery) bool {
+	return q.ForPC() && (AppIDOf(q) != 0 || (q.Fallback && !q.LinksOnly))
+}
 
 // Covers returns the portrait library art first, then the landscape header. Recent apps keep
 // their images under hashed paths (…/apps/<id>/<hash>/library_600x900.jpg), so the real paths are
 // asked to IStoreBrowseService (one free request); the legacy predictable URLs are the fallback.
 func (s *Store) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	appID := AppIDOf(q)
-	if appID == 0 {
+	if appID == 0 && q.LinksOnly {
 		return nil, nil
+	}
+
+	if appID == 0 {
+		id, err := s.appIDByTitle(ctx, q.Title)
+		if err != nil || id == 0 {
+			return nil, err
+		}
+
+		appID = id
 	}
 
 	urls := s.CoverURLs(appID)
@@ -128,6 +172,123 @@ func (s *Store) Covers(ctx context.Context, q media.CoverQuery, _ schema.Setting
 	return out, nil
 }
 
+// modernSystems are the systems whose games Steam's PC versions usually match: a PC copy, or one on
+// a console of the PS4 generation or later. Older consoles and handhelds often share a title with a
+// different game on Steam (a later remake, a remaster), so no link is saved for them.
+var modernSystems = []string{game.SystemPC, "PS4", "PS5", "Xbox One", "Xbox Series", "Switch"}
+
+// FindLinks implements media.LinkFinder: for a game not linked to Steam, with a copy on PC or a
+// modern console (or no copies), the AppID of the only store app with exactly its title (ignoring
+// case and trademark signs, not game.MatchKey: a saved link must not be a remaster), as its Steam
+// link.
+func (s *Store) FindLinks(ctx context.Context, q media.CoverQuery, _ schema.Settings) (game.Links, error) {
+	if AppIDOf(q) != 0 || !modernEnough(q) {
+		return nil, nil
+	}
+
+	id, err := s.uniqueApp(ctx, game.SearchTitle(q.Title), q.Title, false)
+	if err == nil && id == 0 && game.NormalizeTitle(q.Title) != game.SearchTitle(q.Title) {
+		id, err = s.uniqueApp(ctx, game.NormalizeTitle(q.Title), q.Title, false)
+	}
+
+	if err != nil || id == 0 {
+		return nil, err
+	}
+
+	return game.Links{game.LinkSteam: strconv.FormatInt(id, 10)}, nil
+}
+
+// modernEnough reports whether one of the game's copies is on PC or a modern console, or it has none.
+func modernEnough(q media.CoverQuery) bool {
+	if len(q.Platforms) == 0 {
+		return true
+	}
+
+	for _, p := range q.Platforms {
+		if slices.Contains(modernSystems, game.SystemOf(p)) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// appIDByTitle returns the AppID of the only store app with q's title, 0 when there is none or
+// several, for a cover. MatchKey alone would take "Mafia: Definitive Edition" for "Mafia", so an
+// exact title wins first. This AppID only finds a cover and is not written as the game's link;
+// FindLinks, whose AppID is saved, accepts exact titles only. An answer that says nothing about the game (429, 5xx, no connection) counts as
+// rate-limited, so the edition is not marked missing for days.
+func (s *Store) appIDByTitle(ctx context.Context, title string) (int64, error) {
+	// The store names the game, not the edition a key is ("… GOTY"): its name is searched first. When
+	// that finds no single match and stripping changed the title ("Gold Rush!" became "Rush!"), the
+	// raw title gets a second chance. Results are always compared with the full title.
+	terms := []string{game.SearchTitle(title)}
+	if raw := game.NormalizeTitle(title); raw != terms[0] {
+		terms = append(terms, raw)
+	}
+
+	for _, term := range terms {
+		id, err := s.uniqueApp(ctx, term, title, true)
+		if err != nil || id != 0 {
+			return id, err
+		}
+	}
+
+	return 0, nil
+}
+
+// uniqueApp searches the store for term and returns the AppID of the only app titled title: exactly
+// (ignoring case and trademark signs), or, when none is and loose, by game.MatchKey; 0 when none or
+// several.
+func (s *Store) uniqueApp(ctx context.Context, term, title string, loose bool) (int64, error) {
+	matches, err := s.SearchLinks(ctx, term)
+
+	var se *apiclient.StatusError
+
+	switch {
+	case err == nil:
+	case errors.Is(err, provider.ErrRateLimited):
+		return 0, err
+	case errors.As(err, &se) && se.Status != http.StatusTooManyRequests && se.Status < 500:
+		return 0, err
+	default:
+		return 0, fmt.Errorf("steam store search is not answering, asking again later (%w): %w", err, provider.ErrUnavailable)
+	}
+
+	matchers := []func(string) bool{
+		func(name string) bool {
+			return strings.EqualFold(game.NormalizeTitle(name), game.NormalizeTitle(title))
+		},
+	}
+	if loose {
+		matchers = append(matchers, func(name string) bool { return game.MatchKey(name) == game.MatchKey(title) })
+	}
+
+	for _, same := range matchers {
+		var ids []int64
+
+		for _, m := range matches {
+			id, err := strconv.ParseInt(m.ID, 10, 64)
+			if err != nil || id <= 0 || !same(m.Name) || slices.Contains(ids, id) {
+				continue
+			}
+
+			ids = append(ids, id)
+		}
+
+		switch len(ids) {
+		case 0:
+			continue
+		case 1:
+			return ids[0], nil
+		default:
+			return 0, nil // two games with that title: neither is used
+		}
+	}
+
+	return 0, nil
+}
+
 // Test implements media.Provider: it asks Steam's store browse API for the art of Portal 2 (app
 // 620), so only transport errors and HTTP errors (including rate limits) fail it.
 func (s *Store) Test(ctx context.Context, _ schema.Settings) error {
@@ -153,6 +314,9 @@ func (s *Store) assetURLs(ctx context.Context, appID int64) (library, header str
 			} `json:"store_items"`
 		} `json:"response"`
 	}
+
+	// The Web API (api.steampowered.com) has its own, much higher limits than the store host: not
+	// throttled, so a fresh library's Steam covers fill in at once.
 	if err := s.API.Get(ctx, "/IStoreBrowseService/GetItems/v1/", url.Values{"input_json": {input}}, &out); err != nil {
 		return "", "", fmt.Errorf("steam store items: %w", err)
 	}
@@ -187,6 +351,8 @@ func NewStore() *Store {
 		API:       api,
 		CDNURL:    defaultCDNURL,
 		AssetsURL: defaultAssetsURL,
+		throttle:  newThrottle(storeGap, storeBurst, storeMaxWait, time.Now, sleep),
+		now:       time.Now,
 	}
 }
 
@@ -201,8 +367,55 @@ func (s *Store) CoverURLs(appID int64) []string {
 // LinkStore implements media.LinkSearcher.
 func (s *Store) LinkStore() game.Store { return LinkedStore }
 
-// SearchLinks implements media.LinkSearcher: it searches the Steam store by title.
+// SearchLinks implements media.LinkSearcher: it searches the Steam store by title. Answers are reused
+// for searchTTL.
 func (s *Store) SearchLinks(ctx context.Context, query string) ([]media.LinkMatch, error) {
+	now := time.Now
+	if s.now != nil {
+		now = s.now
+	}
+
+	// The year Battle.net drops ("… (2016)"), case and spaces do not change the answer: one key, so
+	// Battle.net's search and Steam's title search of one game share it.
+	query = searchTerm(query)
+
+	s.mu.Lock()
+	hit, ok := s.searches[strings.ToLower(query)]
+	s.mu.Unlock()
+
+	if ok && now().Sub(hit.at) < searchTTL {
+		return slices.Clone(hit.matches), nil
+	}
+
+	matches, err := s.search(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	s.mu.Lock()
+	if s.searches == nil || len(s.searches) >= maxSearches {
+		s.searches = map[string]cachedSearch{} // simplest bound: start over
+	}
+
+	s.searches[strings.ToLower(query)] = cachedSearch{
+		matches: matches,
+		at:      now(),
+	}
+	s.mu.Unlock()
+
+	return slices.Clone(matches), nil
+}
+
+var reYearSuffix = regexp.MustCompile(`\s*\(\d{4}\)\s*$`)
+
+// searchTerm is what the store is searched for: the query trimmed, without a trailing year in
+// parentheses.
+func searchTerm(query string) string {
+	return strings.Join(strings.Fields(reYearSuffix.ReplaceAllString(query, "")), " ")
+}
+
+// search asks the store's search for query, through the throttle.
+func (s *Store) search(ctx context.Context, query string) ([]media.LinkMatch, error) {
 	q := url.Values{"term": {query}, "l": {"english"}, "cc": {"US"}}
 
 	var out struct {
@@ -213,7 +426,13 @@ func (s *Store) SearchLinks(ctx context.Context, query string) ([]media.LinkMatc
 			TinyImage string `json:"tiny_image"`
 		} `json:"items"`
 	}
-	if err := s.Site.Get(ctx, "/api/storesearch/", q, &out); err != nil {
+
+	err := s.throttle.do(ctx, func() error { return s.Site.Get(ctx, "/api/storesearch/", q, &out) })
+	if errors.Is(err, errBusy) {
+		return nil, err
+	}
+
+	if err != nil {
 		return nil, fmt.Errorf("steam store search: %w", err)
 	}
 

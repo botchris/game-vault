@@ -92,3 +92,11 @@ func TestProvider_UpdateState(t *testing.T) {
 		})
 	})
 }
+
+func TestTemporaryErrors(t *testing.T) {
+	assert.ErrorIs(t, ErrUnavailable, ErrRateLimited, "an outage is a kind of rate limit")
+	assert.NotErrorIs(t, ErrRateLimited, ErrUnavailable)
+	assert.ErrorIs(t, BadSettings("the key was rejected: check it"), ErrBadSettings)
+	assert.Equal(t, "the key was rejected: check it", BadSettings("the key was rejected: check it").Error())
+	assert.NotErrorIs(t, BadSettings("x"), ErrRateLimited)
+}

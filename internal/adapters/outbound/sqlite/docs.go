@@ -57,10 +57,24 @@ type gameDoc struct {
 	PlayStatus string              `json:"playStatus,omitempty"`
 	Rating     int                 `json:"rating,omitempty"`
 
-	Fields    map[string]fieldValueDoc `json:"fields,omitempty"`
-	CreatedAt string                   `json:"createdAt"`
-	UpdatedAt string                   `json:"updatedAt"`
-	Copies    []copyDoc                `json:"copies,omitempty"`
+	Fields map[string]fieldValueDoc `json:"fields,omitempty"`
+
+	// AutoLinks are the keys of the links found automatically, RejectedLinks the automatic links
+	// the user removed, AutoLinkTriedAt the last automatic search (see game.Game.AutoLinks). Added
+	// to version 3 without changing it: older documents simply have none.
+	AutoLinks       []string     `json:"autoLinks,omitempty"`
+	RejectedLinks   []linkRefDoc `json:"rejectedLinks,omitempty"`
+	AutoLinkTriedAt string       `json:"autoLinkTriedAt,omitempty"`
+
+	CreatedAt string    `json:"createdAt"`
+	UpdatedAt string    `json:"updatedAt"`
+	Copies    []copyDoc `json:"copies,omitempty"`
+}
+
+// linkRefDoc is the stored form of a game.LinkRef.
+type linkRefDoc struct {
+	Key string `json:"key"`
+	ID  string `json:"id"`
 }
 
 // coverDoc is the stored form of a game.EditionCover: a URL or a photo id.
@@ -151,6 +165,8 @@ type syncReportDoc struct {
 	StartedAt       time.Time `json:"startedAt"`
 	FinishedAt      time.Time `json:"finishedAt"`
 	Err             string    `json:"error,omitempty"`
+	SignedOut       bool      `json:"signedOut,omitempty"`
+	FailingSince    time.Time `json:"failingSince,omitzero"`
 	Fetched         int       `json:"fetched"`
 	CopiesAdded     int       `json:"copiesAdded"`
 	CopiesUpdated   int       `json:"copiesUpdated"`
@@ -181,6 +197,7 @@ func encode(doc any) (string, error) {
 
 func encodeGame(g *game.Game) (string, error) {
 	info := g.Info()
+
 	doc := gameDoc{
 		V:          gameDocVersion,
 		Title:      info.Title,
@@ -191,8 +208,19 @@ func encodeGame(g *game.Game) (string, error) {
 		PlayStatus: string(info.PlayStatus),
 		Rating:     int(info.Rating),
 		Fields:     fieldsToDoc(g.Fields()),
+		AutoLinks:  g.AutoLinks(),
 		CreatedAt:  formatTime(g.CreatedAt()),
 		UpdatedAt:  formatTime(g.UpdatedAt()),
+	}
+	if t := g.AutoLinkTriedAt(); !t.IsZero() {
+		doc.AutoLinkTriedAt = formatTime(t)
+	}
+
+	for _, r := range g.RejectedLinks() {
+		doc.RejectedLinks = append(doc.RejectedLinks, linkRefDoc{
+			Key: r.Key,
+			ID:  r.ID,
+		})
 	}
 
 	for _, c := range g.Copies() {
@@ -307,6 +335,16 @@ func decodeGame(id game.ID, raw string) (*game.Game, error) {
 	} else {
 		g.RestoreEditions(coversFromDoc(doc.Covers), doc.MainSystem)
 	}
+
+	rejected := make([]game.LinkRef, 0, len(doc.RejectedLinks))
+	for _, r := range doc.RejectedLinks {
+		rejected = append(rejected, game.LinkRef{
+			Key: r.Key,
+			ID:  r.ID,
+		})
+	}
+
+	g.RestoreLinkOrigins(doc.AutoLinks, rejected, parseTime(doc.AutoLinkTriedAt))
 
 	return g, nil
 }

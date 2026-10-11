@@ -6,6 +6,8 @@ import Lightbox from '../../components/Lightbox';
 import { Alert, useFormatters } from '../../components/ui';
 import VideoPlayer from '../../components/VideoPlayer';
 import type { GameDetails } from '../../gen/gamevault/v1/metadata_pb';
+import { httpsUrl } from '../../lib/links';
+import { sheetFooterParts } from '../../lib/sheetFooter';
 import { toDate, type Game } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
 import { FieldList, hasFieldList } from '../fields/FieldList';
@@ -112,6 +114,7 @@ export function SheetOverview({ game, details, warnings, loading, error, onRefre
         <section>
           <h3>{t('details.summary')}</h3>
           <Summary text={details.summary} />
+          {details.summarySource?.name && <SummarySource source={details.summarySource} />}
         </section>
       )}
       {game.notes && (
@@ -149,12 +152,30 @@ export function SheetOverview({ game, details, warnings, loading, error, onRefre
 
       {details && (
         <p className="muted small sheet-footer">
-          {details.sources.length > 0 && t('details.sources', { sources: details.sources.join(' + ') })}
-          {details.fetchedAt && ` · ${t('details.updated', { date: fmt.dateTime(toDate(details.fetchedAt)) })}`}
-          {' · '}<button className="link" onClick={onRefresh} disabled={loading}>{loading ? t('common.loading') : t('details.refresh')}</button>
+          {sheetFooterParts(details, details.fetchedAt ? fmt.dateTime(toDate(details.fetchedAt)) : undefined, t).map((part) => `${part} · `)}
+          <button className="link" onClick={onRefresh} disabled={loading}>{loading ? t('common.loading') : t('details.refresh')}</button>
         </p>
       )}
     </div>
+  );
+}
+
+/** Credits the summary's source, as its license asks: a link to the page and to the license. */
+function SummarySource({ source }: { source: { name: string; url: string; license: string; licenseUrl: string } }) {
+  const { t } = useTranslation();
+  const page = httpsUrl(source.url);
+  const licenseUrl = httpsUrl(source.licenseUrl);
+  const label = t('details.summarySource', { source: source.name });
+  return (
+    <p className="muted small summary-source">
+      {page ? <a href={page} target="_blank" rel="noreferrer">{label}</a> : label}
+      {source.license && (
+        <>
+          {' · '}{t('details.summaryLicense')}{' '}
+          {licenseUrl ? <a href={licenseUrl} target="_blank" rel="noreferrer license">{source.license}</a> : source.license}
+        </>
+      )}
+    </p>
   );
 }
 

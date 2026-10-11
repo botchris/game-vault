@@ -45,7 +45,7 @@ func DateOf(t time.Time) Date { return Date(t.Format(time.DateOnly)) }
 // UPC-A codes are stored as EAN-13 (with a leading 0) so both spellings compare equal.
 type Barcode string
 
-// ParseBarcode validates a barcode, ignoring spaces and dashes ("5 026555 255042").
+// ParseBarcode validates a barcode, ignoring spaces and dashes ("2 001234 567893").
 // An empty string is a valid empty Barcode.
 func ParseBarcode(s string) (Barcode, error) {
 	digits := strings.Map(func(r rune) rune {
@@ -168,6 +168,45 @@ func stripMarks() transform.Transformer {
 const storeNames = `steam|gog(\.com)?|epic(\s*games)?(\s*store)?|ubisoft(\s*connect)?|uplay|ea(\s*app)?|origin|` +
 	`battle\.?\s*net|rockstar(\s*games)?|microsoft(\s*store)?|xbox(\s*(one|series\s*[xs](\s*\|\s*[xs])?|live))?|` +
 	`windows|playstation(\s*[345])?|psn|ps[345]|nintendo(\s*(switch|eshop))?|switch|itch(\.io)?|amazon(\s*games)?`
+
+// Case-insensitive versions of MatchKey's tags, for SearchTitle, which keeps the title's casing.
+var (
+	reStoreKeyAnyCase = regexp.MustCompile(`(?i)` + reStoreKey.String())
+	reSuffixesAnyCase = regexp.MustCompile(`(?i)` + reSuffixes.String())
+
+	// reDangling matches separators left at either end once tags are gone ("Mafia: ", "Game - ").
+	reDangling = regexp.MustCompile(`^[\s:;,\-–—|/]+|[\s:;,\-–—|/]+$`)
+
+	// reSeparatorRun matches two or more separators in a row left inside a title ("Foo - : The Bar").
+	reSeparatorRun = regexp.MustCompile(`\s*[:;,\-–—|/](\s*[:;,\-–—|/])+\s*`)
+)
+
+// NormalizeTitle drops trademark signs and repeated spaces, which stores add or leave out: two
+// titles that differ only in those are the same text to search for.
+func NormalizeTitle(title string) string {
+	return strings.Join(strings.Fields(reTrademarks.ReplaceAllString(title, "")), " ")
+}
+
+// SearchTitle returns the title to search a game database for: the title without the edition and
+// store tags MatchKey ignores ("Example West GOTY" → "Example West", "Example Game (PC
+// Key)" → "Example Game"), its other words, numbers and casing kept. Databases name the game, not
+// the edition a copy is, so a search for the raw title often finds nothing. A title made only of tags
+// is returned as it is.
+func SearchTitle(title string) string {
+	s := reTrademarks.ReplaceAllString(title, "")
+	s = reBrackets.ReplaceAllString(s, " ")
+	s = reStoreKeyAnyCase.ReplaceAllString(s, " ")
+	s = reSuffixesAnyCase.ReplaceAllString(s, " ")
+	s = strings.Join(strings.Fields(s), " ")
+	s = reSeparatorRun.ReplaceAllString(s, ": ")
+	s = reDangling.ReplaceAllString(s, "")
+
+	if s == "" {
+		return NormalizeTitle(title)
+	}
+
+	return s
+}
 
 // MatchKey reduces a title to a comparable form, e.g. "Celeste™ (Steam Key)" → "celeste" and
 // "Hades GOG Key" → "hades": the store a key is for is not part of the game's name.

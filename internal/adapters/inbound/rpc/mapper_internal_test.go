@@ -3,6 +3,7 @@ package rpc
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -82,6 +83,24 @@ func TestFieldValuesToPB_skipsEmptyValues(t *testing.T) {
 				require.Len(t, got, 1)
 				assert.Equal(t, "x", got["text"].GetText())
 			})
+		})
+	})
+}
+
+func TestGameToPB_autoLinks(t *testing.T) {
+	now := time.Date(2026, 10, 11, 12, 0, 0, 0, time.UTC)
+
+	t.Run("GIVEN a game with a link found automatically", func(t *testing.T) {
+		g := game.Rehydrate("g1", game.Info{
+			Title: "Console Quest",
+			Links: game.Links{"psn": "PPSA0001"},
+		}, nil, now, now)
+		g.AddAutoLinks(game.Links{game.LinkSteam: "100"}, now)
+
+		t.Run("THEN the API names it, for the UI's badge", func(t *testing.T) {
+			got := gameToPB(g)
+			assert.Equal(t, []string{game.LinkSteam}, got.AutoLinks)
+			assert.Equal(t, "100", got.Links[game.LinkSteam])
 		})
 	})
 }

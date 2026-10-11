@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package gamevault.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "gamevault/internal/gen/gamevault/v1;gamevaultv1";
+
+// HealthIssue is something that needs the user's attention: a provider out of allowance, a source
+// signed out, a failed backup, a disk filling up.
+message HealthIssue {
+  // Identifies the issue ("provider:thegamesdb", "source:<id>:sync").
+  string key = 1;
+  // "error" (stopped working until the user acts) or "warning".
+  string level = 2;
+  // "provider", "source", "backups" or "disk".
+  string kind = 3;
+  // What has the problem: the provider's or source's name; empty for the backups and the disk,
+  // which clients name in their language by kind.
+  string source = 4;
+  // What happened and what to do, in English: the detail under the translated reason (often the
+  // service's own words).
+  string message = 5;
+  // When the problem was first seen; unset when unknown.
+  google.protobuf.Timestamp since = 6;
+  // Where it can be fixed: "providers", "sources", "system/backups"; empty when nowhere.
+  string target = 7;
+  // Narrows the target (a source's id).
+  string target_id = 8;
+  // A code clients translate: "provider_quota", "provider_rate_limited", "provider_unavailable",
+  // "provider_settings", "source_signed_out", "source_sync_failed", "source_keepalive_failed",
+  // "source_list_failed", "backup_failed", "backup_stale", "disk_low", "disk_critical".
+  string reason = 9;
+  // The reason's values: "until" (RFC 3339) for provider_quota, "days" for backup_stale, "free",
+  // "percent" and "path" for the disk.
+  map<string, string> params = 10;
+}
+
+message GetHealthRequest {}
+message GetHealthResponse {
+  // Errors first, then by kind and source.
+  repeated HealthIssue issues = 1;
+}
+
+// HealthService reports what needs the user's attention (System → Health).
+service HealthService {
+  rpc GetHealth(GetHealthRequest) returns (GetHealthResponse);
+}

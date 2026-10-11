@@ -70,6 +70,16 @@ func TestCovers(t *testing.T) {
 	if fmt.Sprint(urls) != want {
 		t.Fatalf("candidates:\n got %v\nwant %s", urls, want)
 	}
+
+	// A virtual PC box uses the store link alone: the space's art, no store search by title.
+	got, err = c.Covers(context.Background(), media.CoverQuery{
+		Title:     "Assassin's Creed® Origins",
+		Links:     game.Links{"ubisoft": "space-with-art"},
+		LinksOnly: true,
+	}, nil)
+	if err != nil || len(got) != 1 || got[0].URL != srv.URL+"/space-with-art/spaceCardAsset/boxArt_mobile.jpg" {
+		t.Fatalf("links only: %v %v", got, err)
+	}
 }
 
 func TestCovers_Test(t *testing.T) {

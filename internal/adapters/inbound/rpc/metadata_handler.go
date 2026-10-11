@@ -34,6 +34,14 @@ func (h *MediaHandler) GetGameDetails(ctx context.Context, req *connect.Request[
 		Language:      d.Language,
 		FetchedAt:     ts(d.FetchedAt),
 	}
+	if src := d.SummarySource; src.Name != "" {
+		out.SummarySource = &pb.Attribution{
+			Name:       src.Name,
+			Url:        src.URL,
+			License:    src.License,
+			LicenseUrl: src.LicenseURL,
+		}
+	}
 	// Images are served from the game's folder; the remote originals are only used to fill it.
 	id := game.ID(req.Msg.GameId)
 
@@ -62,6 +70,10 @@ func (h *MediaHandler) GetGameDetails(ctx context.Context, req *connect.Request[
 
 	for _, s := range d.Sources {
 		out.Sources = append(out.Sources, h.media.ProviderName(s))
+	}
+
+	for _, p := range d.NotFoundBy {
+		out.NotFoundBy = append(out.NotFoundBy, h.media.ProviderName(p))
 	}
 
 	return connect.NewResponse(&pb.GetGameDetailsResponse{

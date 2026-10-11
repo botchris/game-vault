@@ -123,11 +123,14 @@ func TestRateLimitedProvider(t *testing.T) {
 			d, warnings, err := svc.GameDetails(ctx, g.ID(), "en", false)
 			require.NoError(t, err)
 
-			t.Run("THEN it shows what the other provider knows and says TheGamesDB is busy for now", func(t *testing.T) {
+			t.Run("THEN it shows what the other provider knows; TheGamesDB's status, not the sheet, says it is busy", func(t *testing.T) {
 				assert.Equal(t, []string{"Shooter"}, d.Genres)
-				require.Len(t, warnings, 1)
-				assert.Contains(t, warnings[0], "too many requests")
-				assert.NotContains(t, warnings[0], "TheGamesDB: TheGamesDB")
+				assert.Empty(t, warnings)
+
+				st := svc.ProviderStatuses()
+				require.NotEmpty(t, st)
+				assert.Equal(t, media.StatusRateLimited, st[0].Kind)
+				assert.Contains(t, st[0].Message, "too many requests")
 			})
 
 			t.Run("AND the sheet is not cached", func(t *testing.T) {
@@ -148,6 +151,10 @@ func TestRateLimitedProvider(t *testing.T) {
 				assert.Equal(t, "https://cdn.test/large/front/1.jpg", cover(t, img, coverErr))
 				assert.Empty(t, warnings)
 				assert.Equal(t, "Finish the fight.", d.Summary)
+
+				t.Run("AND its status is cleared", func(t *testing.T) {
+					assert.Empty(t, svc.ProviderStatuses())
+				})
 			})
 		})
 	})
@@ -162,25 +169,29 @@ func TestQuotaExhaustedProvider(t *testing.T) {
 		remaining int
 		refresh   int
 		cause     error
-		warning   string
+		message   string
+		kind      media.StatusKind
 	}{
 		{
 			"this month's allowance used up", 0, 1036800, provider.ErrQuotaExhausted,
-			"TheGamesDB: the API key has used this month's allowance: covers and sheets resume when it renews in 12 days",
+			"the API key has used this month's allowance: covers and sheets resume when it renews in 12 days",
+			media.StatusQuota,
 		},
 		{
 			"an unknown key", 0, 0, provider.ErrRateLimited,
-			"TheGamesDB: the API key was not recognized: check it in the provider settings",
+			"the API key was not recognized: check it in the provider settings",
+			media.StatusSettings,
 		},
 	} {
-		testUnavailableTheGamesDB(t, ctx, quota.name, quota.remaining, quota.refresh, quota.cause, quota.warning)
+		testUnavailableTheGamesDB(t, ctx, quota.name, quota.remaining, quota.refresh, quota.cause, quota.message, quota.kind)
 	}
 }
 
 // testUnavailableTheGamesDB checks a TheGamesDB that answers HTTP 429 and whose API/Limit reports
-// remaining and refresh: covers fail with cause, the sheet shows warning, and nothing is remembered
-// from it.
-func testUnavailableTheGamesDB(t *testing.T, ctx context.Context, name string, remaining, refresh int, cause error, warning string) {
+// remaining and refresh: covers fail with cause, TheGamesDB's status says message (of kind), the
+// sheet shows no warning, and nothing is remembered from it.
+func testUnavailableTheGamesDB(t *testing.T, ctx context.Context, name string, remaining, refresh int, cause error, message string,
+	kind media.StatusKind) {
 	t.Helper()
 
 	t.Run("GIVEN TheGamesDB answering 429 with "+name+", and a game with a PS3 disc", func(t *testing.T) {
@@ -229,12 +240,16 @@ func testUnavailableTheGamesDB(t *testing.T, ctx context.Context, name string, r
 			d, warnings, err := svc.GameDetails(ctx, g.ID(), "en", false)
 			require.NoError(t, err)
 
-			t.Run("THEN it shows what the other provider knows and says why TheGamesDB has nothing", func(t *testing.T) {
+			t.Run("THEN it shows what the other provider knows, without TheGamesDB's provider-level problem", func(t *testing.T) {
 				assert.Equal(t, []string{"Shooter"}, d.Genres)
-				require.Len(t, warnings, 1)
-				assert.Equal(t, warning, warnings[0])
-				assert.NotContains(t, warnings[0], "busy")
-				assert.NotContains(t, warnings[0], "too many requests")
+				assert.Empty(t, warnings)
+			})
+
+			t.Run("AND TheGamesDB's status says why it has nothing", func(t *testing.T) {
+				st := svc.ProviderStatuses()
+				require.Len(t, st, 1)
+				assert.Equal(t, kind, st[0].Kind)
+				assert.Equal(t, message, st[0].Message)
 			})
 
 			t.Run("AND the sheet is not cached", func(t *testing.T) {

@@ -121,7 +121,7 @@ func (h *GameHandler) UpdateGame(ctx context.Context, req *connect.Request[pb.Up
 		Fields:     fieldValuesFromPB(req.Msg.Fields),
 	}
 
-	g, err := h.catalog.UpdateGame(ctx, game.ID(req.Msg.Id), info)
+	g, err := h.catalog.UpdateGameInfo(ctx, game.ID(req.Msg.Id), info, req.Msg.LinksSet)
 
 	return gameResp(g, err, func(g *pb.Game) *pb.UpdateGameResponse { return &pb.UpdateGameResponse{Game: g} })
 }

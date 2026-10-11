@@ -194,9 +194,10 @@ func TestGameDetails_fallbackPass(t *testing.T) {
 			d, warnings, err := env.svc.GameDetails(ctx, g.ID(), "en", false)
 			require.NoError(t, err)
 
-			t.Run("THEN it is empty this time and says the provider is busy", func(t *testing.T) {
+			t.Run("THEN it is empty this time; the provider's status, not the sheet, says it is busy", func(t *testing.T) {
 				assert.Empty(t, d.Summary)
-				assert.Len(t, warnings, 1)
+				assert.Empty(t, warnings)
+				assert.Len(t, env.svc.ProviderStatuses(), 1)
 			})
 
 			t.Run("AND nothing is cached, so the next view asks again", func(t *testing.T) {
@@ -334,6 +335,186 @@ func TestGameDetails_sparseSheetWithAFailedFallback(t *testing.T) {
 			t.Run("THEN the fallback pass fills it", func(t *testing.T) {
 				assert.Empty(t, warnings)
 				assert.Equal(t, "A console adventure.", d.Summary)
+			})
+		})
+	})
+}
+
+// sheetDetails is a metadata provider that knows every game and answers a fixed sheet.
+type sheetDetails struct {
+	id    provider.ID
+	order int
+	sheet media.GameDetails
+}
+
+func (p *sheetDetails) Descriptor() provider.Descriptor {
+	return provider.Descriptor{
+		ID:               p.id,
+		Kind:             provider.KindMetadata,
+		Name:             string(p.id),
+		EnabledByDefault: true,
+		DefaultOrder:     p.order,
+	}
+}
+
+func (*sheetDetails) Test(context.Context, schema.Settings) error { return nil }
+
+func (*sheetDetails) Applies(media.CoverQuery) bool { return true }
+
+func (p *sheetDetails) Details(context.Context, media.CoverQuery, string, schema.Settings) (*media.GameDetails, error) {
+	sheet := p.sheet
+	return &sheet, nil
+}
+
+func TestGameDetails_summarySourceAndTrailers(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN an encyclopedia whose summary needs credit, then a game database, both with a trailer", func(t *testing.T) {
+		db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "gamevault.db"), "")
+		require.NoError(t, err)
+		t.Cleanup(func() { db.Close() })
+
+		assets, err := gamedata.Open(filepath.Join(t.TempDir(), "game-data"))
+		require.NoError(t, err)
+
+		credit := media.Attribution{
+			Name:       "Wikipedia",
+			URL:        "https://en.wikipedia.org/wiki/Example_Quest",
+			License:    "CC BY-SA 4.0",
+			LicenseURL: "https://creativecommons.org/licenses/by-sa/4.0/",
+		}
+		encyclopedia := &sheetDetails{
+			id:    "encyclopedia",
+			order: 1,
+			sheet: media.GameDetails{
+				Summary:       "Example Quest is a game.",
+				SummarySource: credit,
+				Videos:        []media.Video{{YouTubeID: "yt-shared"}},
+			},
+		}
+		database := &sheetDetails{
+			id:    "database",
+			order: 2,
+			sheet: media.GameDetails{
+				Summary:     "A game database's summary.",
+				Genres:      []string{"Adventure"},
+				Screenshots: []media.Screenshot{{FullURL: "https://cdn.test/1.jpg"}},
+				Videos:      []media.Video{{YouTubeID: "yt-shared"}, {YouTubeID: "yt-own"}},
+			},
+		}
+
+		games, details := sqlite.NewGameRepository(db), sqlite.NewDetailsStore(db)
+		svc := media.NewService(games, sqlite.NewProviderRepository(db), assets, nil, details, echo{}, time.Now,
+			slog.New(slog.NewTextHandler(io.Discard, nil)), media.Providers{
+				Metadata: []media.MetadataProvider{database, encyclopedia},
+			})
+		g := saveGame(t, ctx, games, "Example Quest", nil, game.CopyDetails{
+			Kind:     game.KindPhysical,
+			Platform: "PS4",
+		})
+
+		t.Run("WHEN the sheet is asked", func(t *testing.T) {
+			d, warnings, err := svc.GameDetails(ctx, g.ID(), "en", false)
+			require.NoError(t, err)
+			require.Empty(t, warnings)
+
+			t.Run("THEN the first summary wins together with its credit", func(t *testing.T) {
+				assert.Equal(t, "Example Quest is a game.", d.Summary)
+				assert.Equal(t, credit, d.SummarySource)
+
+				t.Run("AND the later provider fills the gaps", func(t *testing.T) {
+					assert.Equal(t, []string{"Adventure"}, d.Genres)
+					assert.Len(t, d.Screenshots, 1)
+				})
+
+				t.Run("AND a trailer both know is listed once", func(t *testing.T) {
+					ids := make([]string, 0, len(d.Videos))
+					for _, v := range d.Videos {
+						ids = append(ids, v.YouTubeID)
+					}
+
+					assert.Equal(t, []string{"yt-shared", "yt-own"}, ids)
+				})
+			})
+
+			t.Run("AND the credit is cached with the sheet", func(t *testing.T) {
+				cached, ok, err := details.Get(ctx, g.ID(), "en")
+				require.NoError(t, err)
+				require.True(t, ok)
+				assert.Equal(t, credit, cached.SummarySource)
+			})
+		})
+	})
+}
+
+func TestGameDetails_notFoundBy(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a Steam game the store does not know, and a database that does", func(t *testing.T) {
+		env := newDetailsEnv(t, ctx, time.Now, nil)
+		g := saveGame(t, ctx, env.games, "Gone Quest", game.Links{game.LinkSteam: "10"}, game.CopyDetails{
+			Kind:     game.KindLibrary,
+			Platform: "Steam",
+		})
+
+		t.Run("WHEN its sheet is asked", func(t *testing.T) {
+			d, warnings, err := env.svc.GameDetails(ctx, g.ID(), "en", false)
+			require.NoError(t, err)
+
+			t.Run("THEN the store is listed as tried without a match, which is no failure", func(t *testing.T) {
+				assert.Equal(t, []provider.ID{"store-details"}, d.NotFoundBy)
+				assert.Empty(t, warnings)
+				assert.Equal(t, "A console adventure.", d.Summary)
+			})
+
+			t.Run("AND the sheet is cached with it", func(t *testing.T) {
+				cached, ok, err := env.details.Get(ctx, g.ID(), "en")
+				require.NoError(t, err)
+				require.True(t, ok)
+				assert.Equal(t, []provider.ID{"store-details"}, cached.NotFoundBy)
+			})
+		})
+	})
+
+	t.Run("GIVEN a game the store does not apply to", func(t *testing.T) {
+		env := newDetailsEnv(t, ctx, time.Now, nil)
+		g := saveGame(t, ctx, env.games, "Disc Quest", nil, game.CopyDetails{
+			Kind:     game.KindPhysical,
+			Platform: "PS4",
+		})
+
+		t.Run("WHEN its sheet is asked", func(t *testing.T) {
+			d, _, err := env.svc.GameDetails(ctx, g.ID(), "en", false)
+			require.NoError(t, err)
+
+			t.Run("THEN the store is not listed: it was not tried", func(t *testing.T) {
+				assert.Empty(t, d.NotFoundBy)
+			})
+		})
+	})
+}
+
+func TestGameDetails_notFoundByLeavesOutLimitedProviders(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a disc whose only provider asks to slow down", func(t *testing.T) {
+		env := newDetailsEnv(t, ctx, time.Now, nil)
+		env.quota.limited.Store(true)
+		g := saveGame(t, ctx, env.games, "Disc Quest", nil, game.CopyDetails{
+			Kind:     game.KindPhysical,
+			Platform: "PS4",
+		})
+
+		t.Run("WHEN its sheet is asked", func(t *testing.T) {
+			d, warnings, err := env.svc.GameDetails(ctx, g.ID(), "en", false)
+			require.NoError(t, err)
+
+			t.Run("THEN it is not \"no clear match\" (it said nothing about the game), nor a warning on the game", func(t *testing.T) {
+				assert.Empty(t, warnings)
+				assert.Empty(t, d.NotFoundBy)
 			})
 		})
 	})

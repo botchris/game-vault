@@ -1,8 +1,10 @@
 package main
 
 import (
+	"cmp"
 	"io"
 	"log/slog"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,9 +15,11 @@ import (
 	"gamevault/internal/adapters/outbound/epic"
 	"gamevault/internal/adapters/outbound/example"
 	"gamevault/internal/adapters/outbound/gog"
+	"gamevault/internal/adapters/outbound/igdb"
 	"gamevault/internal/adapters/outbound/steam"
 	"gamevault/internal/adapters/outbound/thegamesdb"
 	"gamevault/internal/adapters/outbound/ubisoft"
+	"gamevault/internal/adapters/outbound/wikipedia"
 	"gamevault/internal/adapters/outbound/xbox"
 	"gamevault/internal/application/media"
 	"gamevault/internal/application/plugin/plugintest"
@@ -74,17 +78,50 @@ func TestCoverProviders_appliesBySystem(t *testing.T) {
 		p    media.CoverProvider
 		rows []coverRow
 	}{
-		steam.CoverProviderID:     {&steam.Store{}, storeRows(game.LinkSteam)},
-		gog.CoverProviderID:       {&gog.Covers{}, storeRows(gog.LinkedStore.Key)},
-		epic.CoverProviderID:      {&epic.Covers{}, storeRows(epic.LinkedStore.Key)},
-		eaapp.CoverProviderID:     {&eaapp.Covers{}, storeRows(eaapp.LinkedStore.Key)},
-		battlenet.CoverProviderID: {&battlenet.Covers{}, storeRows(battlenet.LinkedStore.Key)},
-		example.CoverProviderID:   {&example.Covers{}, storeRows(example.LinkedStore.Key)},
+		// Steam also searches its store by title for a PC edition without an AppID, on the fallback pass.
+		steam.CoverProviderID: {&steam.Store{}, append(storeRows(game.LinkSteam),
+			coverRow{"a PC edition not linked to it, on the fallback pass", media.CoverQuery{
+				System:   game.SystemPC,
+				Fallback: true,
+			}, true},
+			coverRow{"a PS3 edition not linked to it, on the fallback pass", media.CoverQuery{
+				System:   "PS3",
+				Fallback: true,
+			}, false},
+			coverRow{"a PC edition not linked to it, with store links only", media.CoverQuery{
+				System:    game.SystemPC,
+				Fallback:  true,
+				LinksOnly: true,
+			}, false})},
+		gog.CoverProviderID:   {&gog.Covers{}, storeRows(gog.LinkedStore.Key)},
+		epic.CoverProviderID:  {&epic.Covers{}, storeRows(epic.LinkedStore.Key)},
+		eaapp.CoverProviderID: {&eaapp.Covers{}, storeRows(eaapp.LinkedStore.Key)},
+		battlenet.CoverProviderID: {&battlenet.Covers{}, append(storeRows(battlenet.LinkedStore.Key),
+			coverRow{"a virtual PC edition (store links only): it searches by title", media.CoverQuery{
+				System:    game.SystemPC,
+				Links:     game.Links{battlenet.LinkedStore.Key: "1"},
+				LinksOnly: true,
+			}, false})},
+		example.CoverProviderID: {&example.Covers{}, storeRows(example.LinkedStore.Key)},
 		xbox.CoverProviderID: {&xbox.Covers{}, append(storeRows(xbox.LinkedStore.Key),
 			coverRow{"its Xbox 360 edition", media.CoverQuery{
 				System: "Xbox 360",
 				Links:  game.Links{xbox.LinkedStore.Key: "1"},
 			}, true})},
+		// IGDB's covers belong to the game, not to a system: any edition, as a last resort.
+		igdb.CoversID: {igdb.NewCovers(igdb.NewClient()), []coverRow{
+			{"a PC edition", media.CoverQuery{System: game.SystemPC}, false},
+			{"a game without copies", media.CoverQuery{}, false},
+			{"a PS3 edition", media.CoverQuery{System: "PS3"}, false},
+			{"a PC edition on the fallback pass", media.CoverQuery{
+				System:   game.SystemPC,
+				Fallback: true,
+			}, true},
+			{"a PS3 edition on the fallback pass", media.CoverQuery{
+				System:   "PS3",
+				Fallback: true,
+			}, true},
+		}},
 		ubisoft.CoverProviderID: {&ubisoft.Covers{}, append(storeRows(ubisoft.LinkedStore.Key),
 			coverRow{"its PC edition by a Ubisoft Connect copy", media.CoverQuery{
 				System:    game.SystemPC,
@@ -116,4 +153,58 @@ func TestCoverProviders_appliesBySystem(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestMetadataChain_defaultOrder checks the game sheet chain a new install starts with: the store
+// page first, then Wikipedia (a summary in the UI language), IGDB, and TheGamesDB last.
+func TestMetadataChain_defaultOrder(t *testing.T) {
+	t.Run("GIVEN the metadata providers compiled into Game Vault", func(t *testing.T) {
+		plugins, err := newPlugins(slog.New(slog.NewTextHandler(io.Discard, nil)))
+		require.NoError(t, err)
+
+		t.Run("WHEN they are put in their default order", func(t *testing.T) {
+			chain := plugins.Media().Metadata
+			slices.SortStableFunc(chain, func(a, b media.MetadataProvider) int {
+				return cmp.Compare(a.Descriptor().DefaultOrder, b.Descriptor().DefaultOrder)
+			})
+
+			ids := make([]provider.ID, 0, len(chain))
+			for _, p := range chain {
+				ids = append(ids, p.Descriptor().ID)
+			}
+
+			t.Run("THEN Steam comes first, then Wikipedia, IGDB and TheGamesDB", func(t *testing.T) {
+				assert.Equal(t, []provider.ID{steam.DetailsProviderID, wikipedia.DetailsID, igdb.DetailsID, thegamesdb.DetailsID}, ids)
+			})
+		})
+	})
+}
+
+// TestCoverProviders_pcStoreLinks checks that every store whose cover provider has art for PC
+// editions reads a link key the domain counts as a PC store: console-only games linked to it borrow
+// its PC box (game.Game.BorrowsPCBox), and the web shows it only when the server says so.
+func TestCoverProviders_pcStoreLinks(t *testing.T) {
+	t.Run("GIVEN the cover providers compiled into Game Vault", func(t *testing.T) {
+		plugins, err := newPlugins(slog.New(slog.NewTextHandler(io.Discard, nil)))
+		require.NoError(t, err)
+
+		for _, p := range plugins.Media().Covers {
+			linker, ok := p.(media.StoreLinker)
+			if !ok {
+				continue
+			}
+
+			key := linker.LinkStore().Key
+			if !p.Applies(media.CoverQuery{
+				System: game.SystemPC,
+				Links:  game.Links{key: "1"},
+			}) {
+				continue
+			}
+
+			t.Run("THEN "+string(p.Descriptor().ID)+"'s link is a PC store link", func(t *testing.T) {
+				assert.True(t, game.IsPCStoreLink(key), key)
+			})
+		}
+	})
 }

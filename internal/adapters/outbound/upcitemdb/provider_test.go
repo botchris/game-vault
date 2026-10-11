@@ -17,7 +17,7 @@ func TestLookup(t *testing.T) {
 		switch r.URL.Query().Get("upc") {
 		case "3307215643006": // real answer for Assassin's Creed III, PS3 PAL
 			w.Write([]byte(`{"code":"OK","total":1,"items":[{"title":"Assassin's Creed Iii Ed. Special Ps3(sp)","brand":"Sony","images":[]}]}`))
-		case "5026555255042":
+		case "2001234567893":
 			w.Write([]byte(`{"code":"OK","total":0,"items":[]}`))
 		default:
 			w.WriteHeader(http.StatusTooManyRequests)
@@ -36,7 +36,7 @@ func TestLookup(t *testing.T) {
 		t.Fatalf("lookup: %+v %v", m, err)
 	}
 
-	if m, err := p.Lookup(context.Background(), "5026555255042", schema.Settings{}); err != nil || len(m) != 0 {
+	if m, err := p.Lookup(context.Background(), "2001234567893", schema.Settings{}); err != nil || len(m) != 0 {
 		t.Fatalf("unknown code must be no match, not an error: %+v %v", m, err)
 	}
 

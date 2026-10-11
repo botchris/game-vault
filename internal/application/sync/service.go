@@ -3,6 +3,7 @@
 package sync
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -87,6 +88,20 @@ type Service struct {
 	// already warned about in this process: a source sends the same one on every scan, so repeats
 	// are only logged at debug level. Guarded by running.
 	warnedSystems map[string]bool
+
+	// aliveMu guards aliveFailures.
+	aliveMu gosync.Mutex
+
+	// aliveFailures holds the sources whose last keep-alive failed, for the health check; a
+	// successful one removes the entry. In memory: a restart retries within minutes.
+	aliveFailures map[source.ID]keepAliveFailure
+}
+
+// keepAliveFailure is a keep-alive that failed.
+type keepAliveFailure struct {
+	message   string
+	signedOut bool
+	since     time.Time
 }
 
 // NewService builds the service. Each provider is registered under its descriptor's type. covers
@@ -107,6 +122,7 @@ func NewService(sources source.Repository, games game.Repository, tx port.TxMana
 		providers:     m,
 		log:           log,
 		warnedSystems: map[string]bool{},
+		aliveFailures: map[source.ID]keepAliveFailure{},
 	}
 }
 
@@ -254,6 +270,8 @@ func (s *Service) Update(ctx context.Context, id source.ID, cfg source.Config) (
 		return SourceView{}, err
 	}
 
+	s.forgetKeepAlive(id) // new settings get their chance
+
 	return s.view(ctx, src)
 }
 
@@ -280,6 +298,8 @@ func (s *Service) prepare(ctx context.Context, d source.TypeDescriptor, src *sou
 // Delete removes a source. Its copies become manual copies unless deleteCopies is set, in which
 // case they are removed too, along with any game left without copies.
 func (s *Service) Delete(ctx context.Context, id source.ID, deleteCopies bool) error {
+	defer s.forgetKeepAlive(id)
+
 	var (
 		stale = staleEditions{}
 		gone  []game.ID
@@ -513,7 +533,10 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 
 	if syncErr != nil {
 		report.Err = syncErr.Error()
+		report.SignedOut = errors.Is(syncErr, source.ErrSignedOut)
 	} else {
+		s.forgetKeepAlive(src.ID()) // the session works after all
+
 		for _, k := range newlyWarned {
 			s.warnedSystems[k] = true
 		}
@@ -523,6 +546,12 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 	}
 
 	report.FinishedAt = s.now()
+	if syncErr != nil {
+		report.FailingSince = report.FinishedAt
+		if prev := src.LastSync(); prev != nil && !prev.Success() {
+			report.FailingSince = cmp.Or(prev.FailingSince, prev.FinishedAt) // the same trouble going on
+		}
+	}
 
 	// Saved on the source as it is now: the user may have removed items or changed its settings
 	// while the store was answering. Only the scan's own results (its report and any session the
@@ -678,9 +707,12 @@ func (s *Service) keepAlive(ctx context.Context, id source.ID, k KeepAliver) {
 	ctx, cancel := context.WithTimeout(ctx, testTimeout)
 	defer cancel()
 
-	if err := k.KeepAlive(ctx, settings); err != nil {
+	err = k.KeepAlive(ctx, settings)
+	if err != nil {
 		s.log.Warn("keep-alive failed", "source", src.Name(), "error", err)
 	}
+
+	s.noteKeepAlive(id, err)
 
 	if src.UpdateState(d, settings, s.now()) {
 		if err := s.sources.Save(ctx, src); err != nil {

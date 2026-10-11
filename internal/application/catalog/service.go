@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"time"
 
 	"gamevault/internal/application/port"
 	"gamevault/internal/domain/field"
@@ -154,9 +155,20 @@ func (s *Service) CreateGame(ctx context.Context, info game.Info, copies []game.
 
 // UpdateGame changes a game's own attributes and drops its cached cover when its links changed.
 func (s *Service) UpdateGame(ctx context.Context, id game.ID, info game.Info) (*game.Game, error) {
+	return s.UpdateGameInfo(ctx, id, info, true)
+}
+
+// UpdateGameInfo changes the game's own attributes. The links are applied only when linksSet: a
+// save that is not about them (a rating, a play status) may come from a page loaded before an
+// automatic link was added, and would otherwise read as its removal and reject it.
+func (s *Service) UpdateGameInfo(ctx context.Context, id game.ID, info game.Info, linksSet bool) (*game.Game, error) {
 	var linksChanged bool
 
 	g, err := s.mutate(ctx, id, func(ctx context.Context, g *game.Game) error {
+		if !linksSet {
+			info.Links = g.Links() // as they are now, whatever the page held
+		}
+
 		set, err := s.fieldSet(ctx)
 		if err != nil {
 			return err
@@ -175,6 +187,23 @@ func (s *Service) UpdateGame(ctx context.Context, id game.ID, info game.Info) (*
 	}
 
 	return g, err
+}
+
+// AddAutoLinks adds store links found automatically (see game.Game.AddAutoLinks) and records the
+// search, reading and saving the game in one transaction, so an edit made meanwhile is never lost
+// and a link the user set or rejected meanwhile wins. It returns the links added; the editions whose
+// covers they change are invalidated.
+func (s *Service) AddAutoLinks(ctx context.Context, id game.ID, links game.Links, now time.Time) (game.Links, error) {
+	var added game.Links
+
+	_, err := s.mutateEditions(ctx, id, func(_ context.Context, g *game.Game) error {
+		added = g.AddAutoLinks(links, now)
+		g.MarkAutoLinkTried(now)
+
+		return nil
+	})
+
+	return added, err
 }
 
 // DeleteGame removes a game with all its copies and its cached cover.

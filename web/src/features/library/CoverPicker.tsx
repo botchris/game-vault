@@ -30,6 +30,7 @@ export default function CoverPicker({ game, system, photosOnly = false, onPick, 
     .filter((p, i, all) => all.findIndex((x) => x.id === p.id) === i);
   const [candidates, setCandidates] = useState<CoverCandidate[] | null>(photosOnly ? [] : null);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [unavailable, setUnavailable] = useState(false);
   const [error, setError] = useState('');
   const [pasted, setPasted] = useState('');
   // Images that failed to load: their tiles are left out rather than shown empty yet clickable.
@@ -40,7 +41,7 @@ export default function CoverPicker({ game, system, photosOnly = false, onPick, 
   useEffect(() => {
     if (photosOnly) return;
     coverClient.listCoverCandidates({ gameId: game.id, system })
-      .then((res) => { setCandidates(res.candidates); setWarnings(res.warnings); })
+      .then((res) => { setCandidates(res.candidates); setWarnings(res.warnings); setUnavailable(res.providersUnavailable); })
       .catch((e) => setError(errorMessage(e)));
   }, [game.id, system, photosOnly]);
 
@@ -64,6 +65,7 @@ export default function CoverPicker({ game, system, photosOnly = false, onPick, 
           <p className="muted small">{t('coverPicker.intro')}</p>
           {error && <Alert tone="error">{error}</Alert>}
           {warnings.map((w) => <Alert key={w} tone="warn">{w}</Alert>)}
+          {unavailable && <p className="muted small">{t('coverPicker.providersUnavailable')} <a href="#/system">{t('coverPicker.seeHealth')}</a></p>}
           {candidates === null && !error && <p className="muted">{t('common.loading')}</p>}
           {candidates && (
             <div className="posters picker-grid">

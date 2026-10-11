@@ -13,6 +13,7 @@ import (
 
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
 )
 
@@ -172,6 +173,93 @@ func TestCovers_editionSystem(t *testing.T) {
 			_, err := p.Covers(ctx, q, schema.Settings{settingAPIKey: "good"})
 			require.NoError(t, err)
 			assert.Contains(t, (*calls)[len(*calls)-1], "filter%5Bplatform%5D=12")
+		})
+	})
+}
+
+func TestProvider_transportErrorsHideTheKey(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN TheGamesDB closes the connection without answering", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			conn, _, err := w.(http.Hijacker).Hijack()
+			if err == nil {
+				conn.Close()
+			}
+		}))
+		t.Cleanup(srv.Close)
+
+		p := testProvider(srv)
+		s := schema.Settings{settingAPIKey: "s3cr3t-key"}
+
+		t.Run("WHEN the key is tested and covers are searched", func(t *testing.T) {
+			testErr := p.Test(ctx, s)
+			_, coversErr := p.Covers(ctx, media.CoverQuery{
+				Title:             "Halo 3",
+				PhysicalPlatforms: []string{"Xbox 360"},
+			}, s)
+
+			t.Run("THEN no error carries the key, which TheGamesDB takes in the query", func(t *testing.T) {
+				require.Error(t, testErr)
+				require.Error(t, coversErr)
+				assert.NotContains(t, testErr.Error(), "s3cr3t-key")
+				assert.NotContains(t, coversErr.Error(), "s3cr3t-key")
+			})
+		})
+	})
+}
+
+func TestProvider_providerLevelErrors(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	q := media.CoverQuery{
+		Title:             "Halo 3",
+		PhysicalPlatforms: []string{"Xbox 360"},
+	}
+
+	for _, tc := range []struct {
+		name   string
+		status int
+		body   string
+		want   error
+	}{
+		{"a rejected key with TheGamesDB's message", http.StatusForbidden, `{"code":403,"status":"Invalid API key was provided."}`, provider.ErrBadSettings},
+		{"a rejected key without a message", http.StatusUnauthorized, ``, provider.ErrBadSettings},
+		{"a server error", http.StatusBadGateway, `<html>502 Bad Gateway</html>`, provider.ErrUnavailable},
+	} {
+		t.Run("GIVEN TheGamesDB answering "+tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tc.status)
+				w.Write([]byte(tc.body))
+			}))
+			t.Cleanup(srv.Close)
+
+			t.Run("WHEN covers are searched", func(t *testing.T) {
+				_, err := testProvider(srv).Covers(ctx, q, schema.Settings{settingAPIKey: "k"})
+
+				t.Run("THEN it is a problem of the provider, not of the game", func(t *testing.T) {
+					require.ErrorIs(t, err, tc.want)
+				})
+			})
+		})
+	}
+
+	t.Run("GIVEN TheGamesDB closing the connection", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if conn, _, err := w.(http.Hijacker).Hijack(); err == nil {
+				conn.Close()
+			}
+		}))
+		t.Cleanup(srv.Close)
+
+		t.Run("WHEN covers are searched", func(t *testing.T) {
+			_, err := testProvider(srv).Covers(ctx, q, schema.Settings{settingAPIKey: "k"})
+
+			t.Run("THEN it is an outage", func(t *testing.T) {
+				require.ErrorIs(t, err, provider.ErrUnavailable)
+			})
 		})
 	})
 }

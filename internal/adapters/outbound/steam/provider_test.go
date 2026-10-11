@@ -91,9 +91,10 @@ func TestTest_countsWithoutDownloading(t *testing.T) {
 		t.Run("WHEN the connection is tested", func(t *testing.T) {
 			err := p.Test(ctx, settings)
 
-			t.Run("THEN it says the key was rejected", func(t *testing.T) {
+			t.Run("THEN it says the key was rejected, as a sign-out the user must act on", func(t *testing.T) {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "rejected the API key")
+				assert.ErrorIs(t, err, source.ErrSignedOut)
 			})
 		})
 	})

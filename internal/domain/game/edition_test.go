@@ -2,6 +2,7 @@ package game
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -446,5 +447,110 @@ func TestCoverWithoutCopies(t *testing.T) {
 			kept.Absorb(other, t0)
 			assert.Equal(t, map[string]EditionCover{"PS3": {URL: "https://example.test/ps3.jpg"}}, kept.Covers())
 		})
+	})
+}
+
+func TestPCBox(t *testing.T) {
+	t0 := time.Date(2026, 10, 11, 12, 0, 0, 0, time.UTC)
+
+	t.Run("GIVEN a PS4-only game linked to the PlayStation store and Steam", func(t *testing.T) {
+		g, err := New("Console Quest", t0)
+		require.NoError(t, err)
+		_, err = g.AddCopy(on(KindLibrary, "PS4"), t0)
+		require.NoError(t, err)
+
+		info := g.Info()
+		info.Links = Links{
+			"psn":     "PPSA0001",
+			LinkSteam: "100",
+		}
+		_, err = g.UpdateInfo(info, t0)
+		require.NoError(t, err)
+
+		t.Run("THEN it has a PC-store link and borrows a PC box, with its own cover inputs", func(t *testing.T) {
+			assert.True(t, g.Links().HasPCStore())
+			assert.True(t, g.BorrowsPCBox())
+			assert.Contains(t, g.CoverFingerprints(), SystemPC)
+		})
+
+		t.Run("WHEN the Steam link changes THEN the PC box changed too", func(t *testing.T) {
+			before := g.CoverFingerprints()
+			info := g.Info()
+			info.Links = Links{
+				"psn":     "PPSA0001",
+				LinkSteam: "1",
+			}
+			_, err := g.UpdateInfo(info, t0)
+			require.NoError(t, err)
+			assert.Contains(t, ChangedSystems(before, g.CoverFingerprints()), SystemPC)
+		})
+
+		t.Run("WHEN the Steam link goes THEN there is no PC box any more, which counts as a change", func(t *testing.T) {
+			before := g.CoverFingerprints()
+			info := g.Info()
+			info.Links = Links{"psn": "PPSA0001"}
+			_, err := g.UpdateInfo(info, t0)
+			require.NoError(t, err)
+
+			assert.False(t, g.BorrowsPCBox())
+			assert.NotContains(t, g.CoverFingerprints(), SystemPC)
+			assert.Contains(t, ChangedSystems(before, g.CoverFingerprints()), SystemPC)
+		})
+	})
+
+	t.Run("GIVEN a game with a PC edition, and one without copies", func(t *testing.T) {
+		pc, err := New("Celeste", t0)
+		require.NoError(t, err)
+		_, err = pc.AddCopy(on(KindLibrary, "Steam"), t0)
+		require.NoError(t, err)
+
+		bare, err := New("Bare Quest", t0)
+		require.NoError(t, err)
+
+		for _, g := range []*Game{pc, bare} {
+			info := g.Info()
+			info.Links = Links{LinkSteam: "504230"}
+			_, err := g.UpdateInfo(info, t0)
+			require.NoError(t, err)
+		}
+
+		t.Run("THEN neither borrows a PC box: one has its own, the other only its game cover", func(t *testing.T) {
+			assert.False(t, pc.BorrowsPCBox())
+			assert.False(t, bare.BorrowsPCBox())
+		})
+	})
+
+	t.Run("GIVEN an Xbox 360 game linked to the Microsoft Store only", func(t *testing.T) {
+		g, err := New("Console Quest", t0)
+		require.NoError(t, err)
+		_, err = g.AddCopy(on(KindPhysical, "Xbox 360"), t0)
+		require.NoError(t, err)
+
+		info := g.Info()
+		info.Links = Links{"xbox": "9N0000000001"}
+		_, err = g.UpdateInfo(info, t0)
+		require.NoError(t, err)
+
+		t.Run("THEN it borrows no PC box: that store's art is the Xbox edition's own, not a PC box", func(t *testing.T) {
+			assert.False(t, g.BorrowsPCBox())
+			assert.NotContains(t, g.CoverFingerprints(), SystemPC)
+		})
+
+		t.Run("WHEN it is also linked to Steam THEN it does", func(t *testing.T) {
+			info := g.Info()
+			info.Links = Links{
+				"xbox":    "9N0000000001",
+				LinkSteam: "100",
+			}
+			_, err := g.UpdateInfo(info, t0)
+			require.NoError(t, err)
+			assert.True(t, g.BorrowsPCBox())
+		})
+	})
+
+	t.Run("GIVEN links of console stores only", func(t *testing.T) {
+		assert.False(t, Links{"psn": "1", "nintendo": "2"}.HasPCStore())
+		assert.True(t, IsPCStoreLink("gog"))
+		assert.False(t, IsPCStoreLink("psn"))
 	})
 }
