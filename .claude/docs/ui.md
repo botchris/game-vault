@@ -18,11 +18,12 @@ because Simple Icons removed them).
   `CopyPhotos` (a copy's thumbnail strip, uploads with progress, the viewer with its photo footer).
 - `components/Cover.tsx`: edition cover with the borrowed-box fallback. `whole` (posters, the sheet's
   hero, the cover picker) shows the box uncropped through `WholeCover`: the same 2:3 cell everywhere,
-  the box contained and centred on a band of the colour of its edges that meet it (`--cover-bg`, from
-  `lib/coverColor.ts`, maths in `lib/dominantColor.ts`; neutral until known, never transitioned).
-  `.cover-box` fills the cell and carries the colour, radius and shadow (`--cover-shadow`); overlays
-  are `children` in `.cover-frame` over it. Never transform the cell itself (it would trap the badges
-  under the stretched title button); lift the box and frame.
+  the box contained and centred. When it does not fill the cell (`lib/coverFit.ts`, ~2% tolerance), a
+  `.cover-backdrop` copy of the same image (cover, scale 1.15, blur, darkened) fills the gaps; it is
+  mounted only after the first load tells the shape, never transitioned. `.cover-box` fills the cell
+  (`contain: paint`) and carries the radius and shadow (`--cover-shadow`); overlays are `children` in
+  `.cover-frame` over it. Never transform the cell itself (it would trap the badges under the
+  stretched title button); lift the box and frame.
 - `lib/editions.ts`: editions, library filters, cover order (pure, Node-tested).
 - `components/Lightbox.tsx`: the one image viewer (screenshots, copy photos). Props: ready URLs,
   index, `onIndex`, `onClose`, optional `label` and `footer`. Buttons for previous / next, zoom,

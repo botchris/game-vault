@@ -345,17 +345,22 @@ input[type="checkbox"], input[type="radio"] { min-height: 0; accent-color: var(-
 }
 .cover-placeholder span { font-size: 30px; font-weight: 800; font-stretch: 125%; color: var(--muted); }
 /* A box shown whole (WholeCover): every cell keeps the same 2:3 size and the box is contained and
-   centred in it, on a band of its own dominant colour (--cover-bg, set once the image has been read;
-   a neutral surface until then, with no transition: the grid never animates). The box layer fills the
-   cell and carries the colour, the corners and the shadow (each place sets --cover-shadow); the frame
-   over it holds the badges. Hover lifts both, never the cell itself. */
+   centred in it. When it leaves gaps, a blurred, darkened copy of the same image (already cached, so
+   no extra request) covers the cell behind it; it is mounted only once the image's shape is known,
+   with no transition: the grid never animates. The box layer fills the cell and carries the corners
+   and the shadow (each place sets --cover-shadow); `contain: paint` keeps the blur inside it. The
+   frame over it holds the badges. Hover lifts both, never the cell itself. */
 .cover.whole { background: none; border-radius: 0; overflow: visible; }
 .cover-box, .cover-frame { position: absolute; inset: 0; }
 .cover-box {
-  border-radius: 8px; overflow: hidden; background: var(--cover-bg, var(--surface-2)); box-shadow: var(--cover-shadow, none);
+  border-radius: 8px; overflow: hidden; contain: paint; background: var(--surface-2); box-shadow: var(--cover-shadow, none);
   transition: transform 200ms var(--ease-out), box-shadow 200ms var(--ease-out);
 }
-.cover.whole .cover-box img { object-fit: contain; }
+.cover.whole .cover-image { position: relative; object-fit: contain; }
+.cover.whole .cover-backdrop {
+  position: absolute; inset: 0; object-fit: cover; pointer-events: none;
+  transform: scale(1.15); filter: blur(18px) saturate(1.2) brightness(0.75);
+}
 .cover-frame { z-index: 2; pointer-events: none; transition: transform 200ms var(--ease-out); }
 /* A box borrowed from another edition: named, so the edition's own badge is not contradicted. */
 .cover-borrowed {
