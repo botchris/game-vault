@@ -41,6 +41,30 @@ func (h *MediaHandler) ListProviders(ctx context.Context, req *connect.Request[p
 	return connect.NewResponse(out), nil
 }
 
+// GetProviderStatus lists the providers' current provider-level problems.
+func (h *MediaHandler) GetProviderStatus(context.Context, *connect.Request[pb.GetProviderStatusRequest]) (*connect.Response[pb.GetProviderStatusResponse], error) {
+	out := &pb.GetProviderStatusResponse{}
+
+	for _, st := range h.media.ProviderStatuses() {
+		ids := make([]string, len(st.Providers))
+		for i, id := range st.Providers {
+			ids[i] = string(id)
+		}
+
+		out.Statuses = append(out.Statuses, &pb.ProviderStatus{
+			ProviderId:   string(st.Provider),
+			ProviderName: st.Name,
+			ProviderIds:  ids,
+			Kind:         string(st.Kind),
+			Message:      st.Message,
+			Since:        ts(st.Since),
+			Until:        ts(st.Until),
+		})
+	}
+
+	return connect.NewResponse(out), nil
+}
+
 // UpdateProvider enables or disables a provider and saves its settings.
 func (h *MediaHandler) UpdateProvider(ctx context.Context, req *connect.Request[pb.UpdateProviderRequest]) (*connect.Response[pb.UpdateProviderResponse], error) {
 	v, err := h.media.ConfigureProvider(ctx, provider.ID(req.Msg.Id), req.Msg.Enabled, schema.Settings(req.Msg.Settings))

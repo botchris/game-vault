@@ -530,6 +530,14 @@
     "valuations": "Precios",
     "valuationsIntro": "Precios de segunda mano de tus copias físicas con código de barras. Se consultan todas las fuentes activadas, cada copia en su propia fecha, más o menos una vez al mes; el orden solo indica cómo se muestran."
   },
+  "providerStatus": {
+    "title": "Estado de los proveedores",
+    "intro": "Problemas de un proveedor, no de un juego: sus carátulas y fichas vuelven solas cuando terminan.",
+    "quota": "cupo mensual agotado; se renueva {{when}}",
+    "rateLimited": "demasiadas peticiones; se reintenta en unos minutos",
+    "unavailable": "no responde; se reintenta en unos minutos",
+    "settings": "rechaza su configuración; revísala en Proveedores"
+  },
   "fields": {
     "title": "Campos",
     "intro": "Tus propios campos para juegos y copias: dónde lo compraste, cuánto tardaste, una nota, una estantería… Aparecen en la ficha del juego, en este orden, y puedes buscar y filtrar por ellos.",

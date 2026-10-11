@@ -1143,3 +1143,74 @@ func (fakePrices) Estimate(_ context.Context, _ schema.Settings, code game.Barco
 		},
 	}, nil
 }
+
+// allowanceUsedUp is a quota error that knows when the allowance renews.
+type allowanceUsedUp struct{ until time.Time }
+
+func (e allowanceUsedUp) Error() string        { return "the allowance is used up until it renews" }
+func (e allowanceUsedUp) Unwrap() error        { return provider.ErrQuotaExhausted }
+func (e allowanceUsedUp) ResumesAt() time.Time { return e.until }
+
+func TestGetProviderStatus(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a box art service whose allowance is used up, and a PS3 disc", func(t *testing.T) {
+		c := newServer(t, &fakeProvider{})
+		_, err := c.providers.UpdateProvider(ctx, connect.NewRequest(&pb.UpdateProviderRequest{
+			Id:       "boxart",
+			Enabled:  true,
+			Settings: map[string]string{"api_key": "k"},
+		}))
+		require.NoError(t, err)
+
+		g, err := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{
+			Title: "Halo 3",
+			Copies: []*pb.CopyDetails{{
+				Kind:     pb.CopyKind_COPY_KIND_PHYSICAL,
+				Platform: "PS3",
+			}},
+		}))
+		require.NoError(t, err)
+
+		renews := time.Now().Add(27 * 24 * time.Hour).Truncate(time.Second)
+		c.boxart.limited = allowanceUsedUp{until: renews}
+
+		t.Run("WHEN the cover picker lists candidates", func(t *testing.T) {
+			res, err := c.covers.ListCoverCandidates(ctx, connect.NewRequest(&pb.ListCoverCandidatesRequest{GameId: g.Msg.Game.Id}))
+			require.NoError(t, err)
+
+			t.Run("THEN it shows no warning about the provider", func(t *testing.T) {
+				assert.Empty(t, res.Msg.Warnings)
+			})
+
+			t.Run("AND the provider status reports the used-up allowance until it renews", func(t *testing.T) {
+				st, err := c.providers.GetProviderStatus(ctx, connect.NewRequest(&pb.GetProviderStatusRequest{}))
+				require.NoError(t, err)
+				require.Len(t, st.Msg.Statuses, 1)
+
+				s := st.Msg.Statuses[0]
+				assert.Equal(t, "boxart", s.ProviderId)
+				assert.Equal(t, "Box art", s.ProviderName)
+				assert.Contains(t, s.ProviderIds, "boxart")
+				assert.Equal(t, "quota", s.Kind)
+				assert.Equal(t, "the allowance is used up until it renews", s.Message)
+				assert.True(t, s.Until.AsTime().Equal(renews))
+				assert.NotNil(t, s.Since)
+			})
+		})
+
+		t.Run("WHEN the service answers again", func(t *testing.T) {
+			c.boxart.limited = nil
+
+			_, err := c.covers.ListCoverCandidates(ctx, connect.NewRequest(&pb.ListCoverCandidatesRequest{GameId: g.Msg.Game.Id}))
+			require.NoError(t, err)
+
+			t.Run("THEN no status is reported", func(t *testing.T) {
+				st, err := c.providers.GetProviderStatus(ctx, connect.NewRequest(&pb.GetProviderStatusRequest{}))
+				require.NoError(t, err)
+				assert.Empty(t, st.Msg.Statuses)
+			})
+		})
+	})
+}

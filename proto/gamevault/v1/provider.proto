@@ -3,6 +3,7 @@ syntax = "proto3";
 package gamevault.v1;
 
 import "gamevault/v1/source.proto";
+import "google/protobuf/timestamp.proto";
 
 option go_package = "gamevault/internal/gen/gamevault/v1;gamevaultv1";
 
@@ -65,8 +66,34 @@ message TestProviderResponse {
 }
 
 // ProviderService configures the metadata provider chains.
+// ProviderStatus is a provider's current problem: one that concerns the provider, not a game (its
+// allowance used up, too many requests, not answering, its settings rejected). Game sheets and the
+// cover picker do not show these; the System and Providers pages do.
+message ProviderStatus {
+  // The service: its settings group, or the provider's id when it has none.
+  string provider_id = 1;
+  string provider_name = 2;
+  // The registered providers of the service (its covers, details…).
+  repeated string provider_ids = 3;
+  // "quota", "rate_limited", "unavailable" or "settings".
+  string kind = 4;
+  // The provider's own explanation, in English.
+  string message = 5;
+  google.protobuf.Timestamp since = 6;
+  // When the problem is expected to end (the allowance renews…); it is not reported after that.
+  google.protobuf.Timestamp until = 7;
+}
+
+message GetProviderStatusRequest {}
+message GetProviderStatusResponse {
+  // Only providers with a current problem, by name.
+  repeated ProviderStatus statuses = 1;
+}
+
 service ProviderService {
   rpc ListProviders(ListProvidersRequest) returns (ListProvidersResponse);
+  // GetProviderStatus lists the providers' current provider-level problems.
+  rpc GetProviderStatus(GetProviderStatusRequest) returns (GetProviderStatusResponse);
   rpc UpdateProvider(UpdateProviderRequest) returns (UpdateProviderResponse);
   rpc ReorderProviders(ReorderProvidersRequest) returns (ReorderProvidersResponse);
   rpc TestProvider(TestProviderRequest) returns (TestProviderResponse);

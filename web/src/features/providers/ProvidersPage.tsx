@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { coverClient, errorMessage, providerClient } from '../../api/client';
 import { Alert } from '../../components/ui';
-import type { Provider } from '../../gen/gamevault/v1/provider_pb';
+import type { Provider, ProviderStatus } from '../../gen/gamevault/v1/provider_pb';
+import { toDate } from '../../lib/model';
+import { describeStatus, statusFor } from '../../lib/providerStatus';
 import { useAppData } from '../../state/AppData';
 import ProviderDialog from './ProviderDialog';
 import { forgetPriceProviders } from '../../lib/usePriceProviders';
@@ -15,6 +17,13 @@ export default function ProvidersPage() {
   const { reloadGames } = useAppData();
   const [notice, setNotice] = useState<Notice>(null);
   const [busy, setBusy] = useState(false);
+  const [statuses, setStatuses] = useState<ProviderStatus[]>([]);
+
+  const loadStatuses = useCallback(() => {
+    providerClient.getProviderStatus({}).then((res) => setStatuses(res.statuses), () => setStatuses([]));
+  }, []);
+
+  useEffect(loadStatuses, [loadStatuses]);
 
   const refresh = async (missingOnly: boolean) => {
     if (!missingOnly && !confirm(t('providers.confirmRedownload'))) return;
@@ -39,6 +48,7 @@ export default function ProvidersPage() {
       {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
 
       <ProviderChain kind="cover" title={t('providers.covers')} intro={t('providers.coversIntro')} onNotice={setNotice}
+        statuses={statuses} onSaved={loadStatuses}
         onChanged={reloadGames} // covers may resolve differently now
         pinned={{ name: t('providers.custom.name'), description: t('providers.custom.description') }}
         actions={<>
@@ -47,11 +57,14 @@ export default function ProvidersPage() {
         </>} />
 
       <ProviderChain kind="barcode" title={t('providers.barcodes')} intro={t('providers.barcodesIntro')} onNotice={setNotice}
+        statuses={statuses} onSaved={loadStatuses}
         pinned={{ name: t('providers.local.name'), description: t('providers.local.description') }} />
 
-      <ProviderChain kind="metadata" title={t('providers.metadata')} intro={t('providers.metadataIntro')} onNotice={setNotice} />
+      <ProviderChain kind="metadata" title={t('providers.metadata')} intro={t('providers.metadataIntro')} onNotice={setNotice}
+        statuses={statuses} onSaved={loadStatuses} />
 
       <ProviderChain kind="valuation" title={t('providers.valuations')} intro={t('providers.valuationsIntro')} onNotice={setNotice}
+        statuses={statuses} onSaved={loadStatuses}
         onChanged={async () => forgetPriceProviders()} />
     </div>
   );
@@ -65,8 +78,12 @@ function ProviderChain(props: {
   actions?: React.ReactNode;
   onNotice: (n: Notice) => void;
   onChanged?: () => Promise<void>;
+  /** Current provider-level problems, shown as a badge on the affected providers. */
+  statuses: ProviderStatus[];
+  /** Called after settings are saved: new settings may have solved a problem. */
+  onSaved: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { kind, onNotice, onChanged } = props;
   const [providers, setProviders] = useState<Provider[]>([]);
   const [placeholder, setPlaceholder] = useState('');
@@ -145,6 +162,14 @@ function ProviderChain(props: {
             <div className="chain-body">
               <strong>{p.name}</strong>
               <span className="muted small">{t(p.descriptionKey)}</span>
+              {(() => {
+                const st = statusFor(props.statuses, p.id);
+                return st && (
+                  <span className="badge warn provider-status" title={st.message}>
+                    {describeStatus(st, toDate(st.until) ?? undefined, new Date(), t, i18n.language)}
+                  </span>
+                );
+              })()}
             </div>
             <div className="chain-actions">
               <button className="icon" title={t('providers.moveUp')} disabled={busy || i === 0} onClick={() => move(i, -1)}>▲</button>
@@ -160,7 +185,7 @@ function ProviderChain(props: {
       </ol>
       {editing && (
         <ProviderDialog provider={editing} placeholder={placeholder} onClose={() => setEditing(null)}
-          onSaved={() => { setEditing(null); run(load); }} />
+          onSaved={() => { setEditing(null); run(load); props.onSaved(); }} />
       )}
     </section>
   );

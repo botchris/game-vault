@@ -530,6 +530,14 @@
     "valuations": "Prices",
     "valuationsIntro": "Second-hand prices of your physical copies with a barcode. Every enabled source is asked, each copy on its own date about once a month; the order is only how they are listed."
   },
+  "providerStatus": {
+    "title": "Provider status",
+    "intro": "Problems of a provider, not of a game: covers and sheets from it resume on their own when they end.",
+    "quota": "monthly allowance used up; renews {{when}}",
+    "rateLimited": "too many requests; trying again in a few minutes",
+    "unavailable": "not answering; trying again in a few minutes",
+    "settings": "rejects its settings; check them on the Providers page"
+  },
   "fields": {
     "title": "Fields",
     "intro": "Your own fields for games and copies: where you bought it, how long it took, a rating, a shelf… They appear in the game sheet, in this order, and you can search and filter by them.",

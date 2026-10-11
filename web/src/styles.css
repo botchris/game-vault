@@ -892,6 +892,7 @@ button.link.edition-main:hover:not(:disabled) { color: #fff; }
 .chain-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); flex-wrap: wrap; }
 .chain-item.pinned { background: var(--surface-2); }
 .chain-item.disabled .chain-body { opacity: .55; }
+.chain-body .provider-status { align-self: flex-start; margin-top: 4px; white-space: normal; }
 .chain-rank { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); font-weight: 650; font-size: 12px; flex: none; }
 .chain-body { flex: 1 1 260px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .chain-actions { display: flex; align-items: center; gap: 6px; }
