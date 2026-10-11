@@ -27,7 +27,7 @@ import (
 // coverLogicChanged is when the way covers are found last improved (e.g. add-ons borrowing their
 // base game's cover). "No cover found" markers older than this are ignored, so games are retried
 // with the new logic instead of waiting for the marker to expire. Bump it with such changes.
-var coverLogicChanged = time.Date(2026, 10, 11, 8, 50, 0, 0, time.UTC) // IGDB covers
+var coverLogicChanged = time.Date(2026, 10, 10, 0, 0, 0, 0, time.UTC) // covers per edition (system)
 
 // ErrNoCover means no image could be found for the game.
 var ErrNoCover = errors.New("no cover available")

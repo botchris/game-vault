@@ -14,7 +14,9 @@ metadata:
   See [[wikipedia]], [[igdb]].
 - **IGDB covers (2026-10-11):** per game, not per system: `Applies` = `q.ForPC() || q.Fallback`,
   `DefaultOrder` 85 (after TheGamesDB 10 and every store, Xbox 80) so store art wins on PC.
-  `coverLogicChanged` bumped to 2026-10-11 08:50 UTC.
+  `coverLogicChanged` was **not** bumped for it: enabling or reordering a cover provider already
+  retries the "no cover" markers, and a bump would spend TheGamesDB's quota on every miss. Bump it
+  only when the lookup logic itself changes.
 - Media providers can keep learned state in `schema.FieldState` settings: they write it into the
   settings map they get, and the media service persists it with `provider.UpdateState` (wired for
   barcode lookups only so far; CeX's `country_hits`, see [[cex]]).
