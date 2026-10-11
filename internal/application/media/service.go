@@ -1355,6 +1355,11 @@ func (s *Service) ProxyImage(ctx context.Context, rawURL string) (Image, error) 
 	return s.fetch.Fetch(ctx, u.String())
 }
 
+// imageHostAllowed reports whether a provider declares host. Disabled providers count too, on
+// purpose: the store-link search (media.LinkSearcher) shows thumbnails from stores whose cover
+// provider may be off, and a cover already proposed must keep showing while the chain changes. The
+// list is fixed at build time (a few image CDNs), so this opens no other address; covers the user
+// pastes as a URL are downloaded by the server, not through this proxy.
 func (s *Service) imageHostAllowed(host string) bool {
 	for _, impl := range s.impls {
 		if h, ok := impl.(ImageHoster); ok && slices.Contains(h.ImageHosts(), strings.ToLower(host)) {

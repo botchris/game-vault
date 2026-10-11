@@ -5,19 +5,24 @@ import { FieldHelp } from '../../components/FieldHelp';
 import { Alert, Modal } from '../../components/ui';
 import type { Provider } from '../../gen/gamevault/v1/provider_pb';
 import { SettingField_Kind } from '../../gen/gamevault/v1/source_pb';
+import { initialEnabled, type DialogIntent } from '../../lib/providerForm';
 
 /** Configure a provider's credentials, test them and enable it. */
-export default function ProviderDialog({ provider, placeholder, onClose, onSaved }: {
+export default function ProviderDialog({ provider, intent = 'configure', placeholder, onClose, onSaved }: {
   provider: Provider;
+  intent?: DialogIntent;
   placeholder: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const { t } = useTranslation();
   const [settings, setSettings] = useState<Record<string, string>>(() => ({ ...provider.settings }));
-  const [enabled, setEnabled] = useState(true);
+  const [enabled, setEnabled] = useState(() => initialEnabled(provider.enabled, intent));
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
+  // A required risk not accepted yet blocks testing and saving (the server refuses it too).
+  const consents = provider.fields.filter((f) => f.kind === SettingField_Kind.CONSENT);
+  const consentMissing = consents.some((f) => f.required && settings[f.key] !== 'yes');
 
   const test = async () => {
     setBusy(true);
@@ -47,15 +52,26 @@ export default function ProviderDialog({ provider, placeholder, onClose, onSaved
   return (
     <Modal title={provider.name} onClose={onClose}
       footer={<>
-        <button type="button" onClick={test} disabled={busy}>{busy ? t('common.working') : t('sources.test')}</button>
+        <button type="button" onClick={test} disabled={busy || consentMissing}>{busy ? t('common.working') : t('sources.test')}</button>
         <span className="spacer" />
         <button type="button" onClick={onClose}>{t('common.cancel')}</button>
-        <button type="submit" form="provider-form" className="primary" disabled={busy}>{t('common.save')}</button>
+        <button type="submit" form="provider-form" className="primary" disabled={busy || (enabled && consentMissing)}>{t('common.save')}</button>
       </>}>
       <form id="provider-form" onSubmit={save}>
+        {consents.map((f) => (
+          <section key={f.key} className="risk-notice" role="alert">
+            <h3 className="risk-title">{t('providers.riskTitle')}</h3>
+            {f.helpKey && <FieldHelp text={t(f.helpKey)} url={f.helpUrl} linkLabel={t('providers.readTerms')} />}
+            <label className="check risk-accept">
+              <input type="checkbox" checked={settings[f.key] === 'yes'}
+                onChange={(e) => setSettings({ ...settings, [f.key]: e.target.checked ? 'yes' : '' })} />
+              {t(f.labelKey)}
+            </label>
+          </section>
+        ))}
         <p className="muted">{t(provider.descriptionKey)}</p>
         <div className="grid">
-          {provider.fields.map((f) => (
+          {provider.fields.filter((f) => f.kind !== SettingField_Kind.CONSENT).map((f) => (
             <div key={f.key} className="span2 field">
               <label htmlFor={`provider-${f.key}`}>{t(f.labelKey)}{f.required && ' *'}</label>
               <input id={`provider-${f.key}`} type={f.kind === SettingField_Kind.SECRET ? 'password' : 'text'} autoComplete="off" required={f.required}

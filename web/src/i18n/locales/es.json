@@ -445,6 +445,8 @@
     "retried_other": "Se volverán a buscar {{count}} juegos.",
     "redownloaded_one": "{{count}} carátula borrada; se descargará de nuevo.",
     "redownloaded_other": "{{count}} carátulas borradas; se descargarán de nuevo.",
+    "riskTitle": "Riesgo para tu cuenta",
+    "readTerms": "Leer las condiciones",
     "testOk": "La conexión funciona.",
     "thegamesdb": {
       "description": "Carátulas de la caja según la plataforma (la caja de Xbox 360 para un disco de Xbox 360). Se usa para juegos con copia física, juegos que ninguna tienda conoce y juegos de tienda sin carátula en ninguna tienda. Una petición por juego y luego se guarda.",
@@ -497,6 +499,13 @@
       "clientIdHelp": "1. Inicia sesión en la consola de desarrolladores de Twitch (página de arriba); Twitch te pide activar antes la verificación en dos pasos.\n2. Elige Register Your Application.\n3. Ponle el nombre que quieras (por ejemplo `Game Vault`), escribe `http://localhost` como OAuth Redirect URL y elige la categoría Application Integration y el tipo de cliente Confidential.\n4. Abre la aplicación y copia aquí su Client ID.",
       "clientSecret": "Client Secret",
       "clientSecretHelp": "1. En la misma aplicación de la consola de desarrolladores de Twitch, elige New Secret.\n2. Copia aquí el secreto. Twitch solo lo muestra una vez; uno nuevo sustituye al anterior."
+    },
+    "steamgriddb": {
+      "description": "Carátulas hechas por la comunidad de SteamGridDB, bajo tu responsabilidad: sus condiciones prohíben el uso automatizado. Se consulta en último lugar, solo para ediciones sin carátula en ningún otro proveedor, por AppID de Steam o por título exacto, una petición por segundo. Son carátulas verticales hechas por fans, marcadas como arte de la comunidad. Necesita tu propia clave de API gratuita y empieza desactivado.",
+      "consent": "Entiendo el riesgo y lo uso bajo mi responsabilidad",
+      "consentHelp": "SteamGridDB ofrece una API con claves personales, pero sus Condiciones de uso solo permiten el uso personal y no comercial \"solely as permitted by the normal functionality of the Service\" (solo como lo permite el funcionamiento normal del servicio), y prohíben \"make any automated use of the Site, the Service or the related systems\" (hacer cualquier uso automatizado del sitio, del servicio o de sus sistemas). Game Vault busca carátulas con esa API igual que lanzadores de código abierto como Playnite, Heroic y Lutris. SteamGridDB podría considerarlo un incumplimiento de sus condiciones y revocar tu clave o suspender tu cuenta.\nGame Vault solo lee, una petición cada vez y como mucho una por segundo, y solo para juegos sin carátula en ningún otro proveedor. Los autores de Game Vault no se hacen responsables de lo que SteamGridDB haga con tu clave o tu cuenta. Si no te parece aceptable, deja este proveedor desactivado.",
+      "apiKey": "Clave de API",
+      "apiKeyHelp": "1. Abre steamgriddb.com e inicia sesión con Steam.\n2. Abre Preferences → API (la página de arriba).\n3. Elige Generate API Key y copia aquí la clave.\nNo la compartas nunca: actúa sobre tu cuenta de SteamGridDB."
     },
     "igdbDetails": {
       "description": "Fichas de IGDB para cualquier juego: sinopsis (en inglés), géneros, compañías, fecha de lanzamiento, clasificación por edades, capturas y tráilers de YouTube. Usa la aplicación de Twitch de Carátulas; unas pocas peticiones por juego y luego se guarda."

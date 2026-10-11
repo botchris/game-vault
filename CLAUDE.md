@@ -124,8 +124,11 @@ on every push to main and pull request; it does not replace the steps below.
   (Heroic, Legendary, Playnite, Lutris…), and only read.
   The one exception, decided by the user on 2026-10-09, is Fanatical (its terms forbid taking
   site data into databases): it requires a ticked risk consent (`schema.FieldConsent`), warns in
-  the UI and the README, scans manually by default and only reads. Any other store like it needs
-  the user's explicit decision first; never add one on your own.
+  the UI and the README, scans manually by default and only reads. The second, decided by the
+  user on 2026-10-11, is SteamGridDB's cover provider (its terms forbid any automated use): the
+  user's own API key, a ticked risk consent quoting the clause, disabled by default, fallback pass
+  only, one request a second, warnings in the README and `docs/technical.md`. Any other store or
+  service like them needs the user's explicit decision first; never add one on your own.
 - Requests that run unattended (keep-alives, scheduled scans) are jittered so they never follow a
   fixed rhythm (see `internal/application/sync`).
 - The server listens on 127.0.0.1 by default. Requests through a proxy or with a host name in `Host`
