@@ -449,7 +449,7 @@
       "apiKeyHelp": "Request a free key on TheGamesDB forums (page above).\nKeys have a monthly request allowance; Test checks the key without spending it, and tells you when it is used up."
     },
     "steam": {
-      "description": "Steam library art for games linked to Steam. No key and no quota."
+      "description": "Steam library art for games linked to Steam, and for PC games without a Steam link that the Steam store has under exactly the same title (searched only when no other provider had art). No key and no quota."
     },
     "barcodes": "Barcodes",
     "barcodesIntro": "Used by Scan to identify a disc from the barcode on its box. Unknown codes are identified once by title and then remembered.",
@@ -489,7 +489,7 @@
       "description": "Platform-specific overview (English), genres, companies, age rating, players and YouTube trailer, for games with a physical copy or not linked to any store. Uses the TheGamesDB key from Covers; about 2 requests per game, then cached."
     },
     "igdb": {
-      "description": "Covers from IGDB, Twitch's game database. A game's cover is the same on every system, so it is used for PC editions and, as a last resort, for editions no other provider had art for. Free for non-commercial use with your own Twitch application.",
+      "description": "Covers from IGDB, Twitch's game database, as a last resort for any edition no other provider had art for. A game's cover is the same on every system, so a console edition may get the PC box, which beats none. On by default, it does nothing until you enter your Twitch application (free for non-commercial use).",
       "clientId": "Client ID",
       "clientIdHelp": "1. Sign in on the Twitch developer console (page above); Twitch asks you to turn on two-factor authentication first.\n2. Choose Register Your Application.\n3. Name it as you like (for example `Game Vault`), enter `http://localhost` as the OAuth Redirect URL, choose the Application Integration category and the Confidential client type.\n4. Open the application and copy its Client ID here.",
       "clientSecret": "Client Secret",

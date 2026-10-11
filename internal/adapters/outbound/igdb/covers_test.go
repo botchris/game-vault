@@ -20,10 +20,14 @@ func TestCovers_applies(t *testing.T) {
 		q    media.CoverQuery
 		want bool
 	}{
-		{"a PC edition", media.CoverQuery{System: game.SystemPC}, true},
-		{"a game without copies", media.CoverQuery{}, true},
-		{"a PS4 edition", media.CoverQuery{System: "PS4"}, false},
-		{"a PS4 edition no store had art for", media.CoverQuery{
+		{"a PC edition, first pass", media.CoverQuery{System: game.SystemPC}, false},
+		{"a game without copies, first pass", media.CoverQuery{}, false},
+		{"a PS4 edition, first pass", media.CoverQuery{System: "PS4"}, false},
+		{"a PC edition no provider had art for", media.CoverQuery{
+			System:   game.SystemPC,
+			Fallback: true,
+		}, true},
+		{"a PS4 edition no provider had art for", media.CoverQuery{
 			System:   "PS4",
 			Fallback: true,
 		}, true},
@@ -43,9 +47,10 @@ func TestCovers(t *testing.T) {
 
 		t.Run("WHEN its covers are asked", func(t *testing.T) {
 			got, err := c.Covers(ctx, media.CoverQuery{
-				Title:  "Example Quest",
-				System: game.SystemPC,
-				Links:  game.Links{game.LinkSteam: "620"},
+				Title:    "Example Quest",
+				System:   game.SystemPC,
+				Links:    game.Links{game.LinkSteam: "620"},
+				Fallback: true,
 			}, goodSettings)
 			require.NoError(t, err)
 
@@ -56,6 +61,25 @@ func TestCovers(t *testing.T) {
 				assert.Equal(t, "Example Quest · 2011", got[0].Label)
 				assert.Equal(t, "Example Quest", got[0].Title)
 				assert.Equal(t, CoversID, got[0].Provider)
+			})
+		})
+	})
+
+	t.Run("GIVEN IGDB is enabled (the default) but has no credentials yet", func(t *testing.T) {
+		f := newFakeIGDB(t)
+		c := NewCovers(f.client(time.Now))
+
+		t.Run("WHEN covers are asked", func(t *testing.T) {
+			got, err := c.Covers(ctx, media.CoverQuery{
+				Title:    "Example Quest",
+				Fallback: true,
+			}, nil)
+
+			t.Run("THEN it quietly does nothing: no error, no request", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.Empty(t, got)
+				assert.Zero(t, f.tokens())
+				assert.Empty(t, f.sent("games"))
 			})
 		})
 	})

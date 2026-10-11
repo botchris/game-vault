@@ -17,8 +17,8 @@ const CoversID provider.ID = "igdb"
 var coverFields = []string{"name", "first_release_date", "cover.image_id"}
 
 // Covers implements media.CoverProvider. IGDB's covers belong to the game, not to a system (often
-// the PC or the first release's box), so they fill PC editions and, on the fallback pass, editions
-// no other provider had art for.
+// the PC or the first release's box), so they are a last resort for any edition: the fallback pass,
+// after no other provider had art for it. A game's cover on a console edition beats no box.
 type Covers struct{ c *Client }
 
 var (
@@ -38,6 +38,8 @@ func (p *Covers) Descriptor() provider.Descriptor {
 		DescriptionKey: "providers.igdb.description",
 		Fields:         fields(),
 		SettingsGroup:  string(CoversID),
+		// Enabled by default: it does nothing until the Twitch credentials are entered.
+		EnabledByDefault: true,
 		// After TheGamesDB and every store (Xbox is 80): a store's own art fits its edition better.
 		DefaultOrder: 85,
 	}
@@ -46,15 +48,21 @@ func (p *Covers) Descriptor() provider.Descriptor {
 // Test implements media.Provider.
 func (p *Covers) Test(ctx context.Context, s schema.Settings) error { return p.c.Test(ctx, s) }
 
-// Applies implements media.CoverProvider: a game's cover fits its PC edition (or a game without
-// copies); a console edition only gets it when nothing else had art for it.
-func (p *Covers) Applies(q media.CoverQuery) bool { return q.ForPC() || q.Fallback }
+// Applies implements media.CoverProvider: only on the fallback pass, for any system. The media
+// service runs that pass whenever the first one found nothing, so an edition no other provider
+// applies to still gets it.
+func (p *Covers) Applies(q media.CoverQuery) bool { return q.Fallback }
 
 // ImageHosts implements media.ImageHoster.
 func (p *Covers) ImageHosts() []string { return []string{"images.igdb.com"} }
 
 // Covers implements media.CoverProvider.
 func (p *Covers) Covers(ctx context.Context, q media.CoverQuery, s schema.Settings) ([]media.CoverCandidate, error) {
+	// Enabled by default, it stays silent until configured rather than failing every lookup.
+	if _, _, _, err := credentials(s); err != nil {
+		return nil, nil
+	}
+
 	g, err := p.c.find(ctx, s, q, coverFields)
 	if err != nil || g == nil || g.Cover.ImageID == "" {
 		return nil, err

@@ -3,6 +3,7 @@ package steam
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -86,9 +87,13 @@ func (s *Store) ImageHosts() []string {
 		"cdn.akamai.steamstatic.com", "shared.akamai.steamstatic.com"}
 }
 
-// Applies reports whether the game is linked to Steam and the query is for its PC edition (or names
-// no system).
-func (s *Store) Applies(q media.CoverQuery) bool { return q.ForPC() && AppIDOf(q) != 0 }
+// Applies reports whether the query is for a PC edition (or names no system) of a game linked to
+// Steam, or, on the fallback pass, of any game: Steam's store is then searched by title. The search
+// waits for that pass so it is only spent on PC editions no other provider had art for (Steam allows
+// about 200 store requests per 5 minutes).
+func (s *Store) Applies(q media.CoverQuery) bool {
+	return q.ForPC() && (AppIDOf(q) != 0 || q.Fallback)
+}
 
 // Covers returns the portrait library art first, then the landscape header. Recent apps keep
 // their images under hashed paths (…/apps/<id>/<hash>/library_600x900.jpg), so the real paths are
@@ -96,7 +101,12 @@ func (s *Store) Applies(q media.CoverQuery) bool { return q.ForPC() && AppIDOf(q
 func (s *Store) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	appID := AppIDOf(q)
 	if appID == 0 {
-		return nil, nil
+		id, err := s.appIDByTitle(ctx, q.Title)
+		if err != nil || id == 0 {
+			return nil, err
+		}
+
+		appID = id
 	}
 
 	urls := s.CoverURLs(appID)
@@ -126,6 +136,43 @@ func (s *Store) Covers(ctx context.Context, q media.CoverQuery, _ schema.Setting
 	}
 
 	return out, nil
+}
+
+// appIDByTitle searches the store for title and returns the AppID of the only app with the same
+// title (game.MatchKey), 0 when there is none or several. The AppID is only used for this cover: it
+// is never written as the game's link, so a wrong guess cannot stick.
+func (s *Store) appIDByTitle(ctx context.Context, title string) (int64, error) {
+	matches, err := s.SearchLinks(ctx, title)
+	if apiclient.IsStatus(err, http.StatusTooManyRequests) {
+		return 0, fmt.Errorf("steam store search: HTTP %d: %w", http.StatusTooManyRequests, provider.ErrRateLimited)
+	}
+
+	if err != nil {
+		return 0, err
+	}
+
+	key := game.MatchKey(title)
+
+	var found int64
+
+	for _, m := range matches {
+		if game.MatchKey(m.Name) != key {
+			continue
+		}
+
+		id, err := strconv.ParseInt(m.ID, 10, 64)
+		if err != nil || id <= 0 || id == found {
+			continue
+		}
+
+		if found != 0 {
+			return 0, nil // two games with that title: neither is used
+		}
+
+		found = id
+	}
+
+	return found, nil
 }
 
 // Test implements media.Provider: it asks Steam's store browse API for the art of Portal 2 (app

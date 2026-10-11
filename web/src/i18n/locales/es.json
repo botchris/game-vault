@@ -449,7 +449,7 @@
       "apiKeyHelp": "Pide una clave gratuita en los foros de TheGamesDB (página de arriba).\nLas claves tienen un cupo mensual de peticiones; Probar comprueba la clave sin gastarlo y te avisa si se ha agotado."
     },
     "steam": {
-      "description": "Carátulas de la biblioteca de Steam para juegos vinculados con Steam. Sin key ni cuota."
+      "description": "Carátulas de la biblioteca de Steam para juegos vinculados con Steam, y para juegos de PC sin vínculo con Steam que la tienda tiene exactamente con el mismo título (solo se busca si ningún otro proveedor tiene carátula). Sin key ni cuota."
     },
     "barcodes": "Códigos de barras",
     "barcodesIntro": "Los usa Escanear para identificar un disco por el código de barras de la caja. Los códigos desconocidos se identifican una vez por título y quedan recordados.",
@@ -489,7 +489,7 @@
       "description": "Descripción por plataforma (en inglés), géneros, compañías, clasificación por edades, jugadores y tráiler de YouTube, para juegos con copia física o sin vínculo con ninguna tienda. Usa la key de TheGamesDB de Carátulas; unas 2 peticiones por juego y luego se guarda."
     },
     "igdb": {
-      "description": "Carátulas de IGDB, la base de datos de juegos de Twitch. La carátula de un juego es la misma en todos los sistemas, así que se usa para las ediciones de PC y, como último recurso, para ediciones sin carátula en ningún otro proveedor. Gratis para uso no comercial con tu propia aplicación de Twitch.",
+      "description": "Carátulas de IGDB, la base de datos de juegos de Twitch, como último recurso para cualquier edición sin carátula en ningún otro proveedor. La carátula de un juego es la misma en todos los sistemas, así que una edición de consola puede recibir la caja de PC, mejor que ninguna. Activado por defecto, no hace nada hasta que introduces tu aplicación de Twitch (gratis para uso no comercial).",
       "clientId": "Client ID",
       "clientIdHelp": "1. Inicia sesión en la consola de desarrolladores de Twitch (página de arriba); Twitch te pide activar antes la verificación en dos pasos.\n2. Elige Register Your Application.\n3. Ponle el nombre que quieras (por ejemplo `Game Vault`), escribe `http://localhost` como OAuth Redirect URL y elige la categoría Application Integration y el tipo de cliente Confidential.\n4. Abre la aplicación y copia aquí su Client ID.",
       "clientSecret": "Client Secret",

@@ -78,7 +78,16 @@ func TestCoverProviders_appliesBySystem(t *testing.T) {
 		p    media.CoverProvider
 		rows []coverRow
 	}{
-		steam.CoverProviderID:     {&steam.Store{}, storeRows(game.LinkSteam)},
+		// Steam also searches its store by title for a PC edition without an AppID, on the fallback pass.
+		steam.CoverProviderID: {&steam.Store{}, append(storeRows(game.LinkSteam),
+			coverRow{"a PC edition not linked to it, on the fallback pass", media.CoverQuery{
+				System:   game.SystemPC,
+				Fallback: true,
+			}, true},
+			coverRow{"a PS3 edition not linked to it, on the fallback pass", media.CoverQuery{
+				System:   "PS3",
+				Fallback: true,
+			}, false})},
 		gog.CoverProviderID:       {&gog.Covers{}, storeRows(gog.LinkedStore.Key)},
 		epic.CoverProviderID:      {&epic.Covers{}, storeRows(epic.LinkedStore.Key)},
 		eaapp.CoverProviderID:     {&eaapp.Covers{}, storeRows(eaapp.LinkedStore.Key)},
@@ -89,11 +98,15 @@ func TestCoverProviders_appliesBySystem(t *testing.T) {
 				System: "Xbox 360",
 				Links:  game.Links{xbox.LinkedStore.Key: "1"},
 			}, true})},
-		// IGDB's covers belong to the game, not to a system: PC editions, other systems as a last resort.
+		// IGDB's covers belong to the game, not to a system: any edition, as a last resort.
 		igdb.CoversID: {igdb.NewCovers(igdb.NewClient()), []coverRow{
-			{"a PC edition", media.CoverQuery{System: game.SystemPC}, true},
-			{"a game without copies", media.CoverQuery{}, true},
+			{"a PC edition", media.CoverQuery{System: game.SystemPC}, false},
+			{"a game without copies", media.CoverQuery{}, false},
 			{"a PS3 edition", media.CoverQuery{System: "PS3"}, false},
+			{"a PC edition on the fallback pass", media.CoverQuery{
+				System:   game.SystemPC,
+				Fallback: true,
+			}, true},
 			{"a PS3 edition on the fallback pass", media.CoverQuery{
 				System:   "PS3",
 				Fallback: true,
