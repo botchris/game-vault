@@ -643,7 +643,13 @@
     "paste": "Usar esta imagen",
     "none": "Ningún proveedor tiene carátula para este juego. Vincúlalo con una tienda (Editar → Vínculos con tiendas) o pega la URL de una imagen.",
     "providersUnavailable": "Algunos proveedores no están disponibles ahora mismo.",
-    "seeHealth": "Ver Sistema → Estado"
+    "seeHealth": "Ver Sistema → Estado",
+    "searchGoogle": "Buscar en Google Imágenes",
+    "searchSteamGridDb": "Buscar en SteamGridDB",
+    "findHelp": "Busca una carátula, ábrela a tamaño completo y luego arrástrala aquí o pega su dirección.",
+    "smallPreview": "Eso es una vista previa pequeña. Abre la imagen y copia su dirección para tenerla a tamaño completo.",
+    "preview": "Vista previa de la dirección de la imagen",
+    "previewFailed": "Esta imagen no se puede cargar; revisa la dirección."
   },
   "scan": {
     "title": "Escanear",

@@ -643,7 +643,13 @@
     "paste": "Use this image",
     "none": "No provider has a cover for this game. Link it to a store (Edit → Store links) or paste an image URL.",
     "providersUnavailable": "Some providers are unavailable right now.",
-    "seeHealth": "See System → Health"
+    "seeHealth": "See System → Health",
+    "searchGoogle": "Search Google Images",
+    "searchSteamGridDb": "Search SteamGridDB",
+    "findHelp": "Find a cover, open it at full size, then drag it here or paste its address.",
+    "smallPreview": "That's a small preview. Open the image and copy its address for full size.",
+    "preview": "Preview of the image address",
+    "previewFailed": "This image can't be loaded; check the address."
   },
   "scan": {
     "title": "Scan",
