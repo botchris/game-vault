@@ -194,9 +194,10 @@ func TestGameDetails_fallbackPass(t *testing.T) {
 			d, warnings, err := env.svc.GameDetails(ctx, g.ID(), "en", false)
 			require.NoError(t, err)
 
-			t.Run("THEN it is empty this time and says the provider is busy", func(t *testing.T) {
+			t.Run("THEN it is empty this time; the provider's status, not the sheet, says it is busy", func(t *testing.T) {
 				assert.Empty(t, d.Summary)
-				assert.Len(t, warnings, 1)
+				assert.Empty(t, warnings)
+				assert.Len(t, env.svc.ProviderStatuses(), 1)
 			})
 
 			t.Run("AND nothing is cached, so the next view asks again", func(t *testing.T) {
@@ -511,8 +512,8 @@ func TestGameDetails_notFoundByLeavesOutLimitedProviders(t *testing.T) {
 			d, warnings, err := env.svc.GameDetails(ctx, g.ID(), "en", false)
 			require.NoError(t, err)
 
-			t.Run("THEN it is a warning, not \"no clear match\": it said nothing about the game", func(t *testing.T) {
-				assert.Len(t, warnings, 1)
+			t.Run("THEN it is not \"no clear match\" (it said nothing about the game), nor a warning on the game", func(t *testing.T) {
+				assert.Empty(t, warnings)
 				assert.Empty(t, d.NotFoundBy)
 			})
 		})

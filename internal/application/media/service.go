@@ -294,6 +294,9 @@ type Service struct {
 
 	// misses remembers providers' "no cover" answers that could not become a marker.
 	misses misses
+
+	// status keeps the providers' current provider-level problems (see ProviderStatuses).
+	status statuses
 }
 
 // Providers groups the provider implementations available to the service. Their DefaultOrder (then
@@ -507,6 +510,9 @@ func (s *Service) ConfigureProvider(ctx context.Context, id provider.ID, enabled
 	if err := s.providers.Save(ctx, v.Provider); err != nil {
 		return v, err
 	}
+
+	// New settings (a new key) may have solved the provider's problem: the next answer tells.
+	s.status.forget(statusKey(v.Descriptor))
 
 	sib, err := s.siblings(ctx, v.Descriptor.SettingsGroup, id)
 	if err != nil {
@@ -831,6 +837,8 @@ func (s *Service) coverFromChain(ctx context.Context, ref GameRef, system string
 		look.asked[p.ID()] = true
 
 		candidates, err := impl.Covers(ctx, q, p.Settings())
+		s.noteResult(p.ID(), err)
+
 		if errors.Is(err, provider.ErrRateLimited) {
 			switch {
 			case !errors.Is(err, provider.ErrQuotaExhausted):
@@ -931,8 +939,15 @@ func (s *Service) CoverCandidates(ctx context.Context, id game.ID, system string
 			asked[p.ID()] = true
 
 			c, err := impl.Covers(ctx, q, p.Settings())
+			s.noteResult(p.ID(), err)
+
 			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
+				// A provider-level problem (busy, allowance used up, rejected key) is the provider's
+				// status, shown on the System and Providers pages, not a warning on every game.
+				if !providerLevel(err) {
+					warnings = append(warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
+				}
+
 				continue
 			}
 
@@ -1163,6 +1178,7 @@ func (s *Service) IdentifyBarcode(ctx context.Context, raw string) (BarcodeResul
 	for _, p := range chain {
 		settings := p.Settings()
 		matches, err := s.barcodes[p.ID()].Lookup(ctx, code, settings)
+		s.noteResult(p.ID(), err)
 
 		// A provider may have learned something worth keeping (state fields), even when it failed.
 		if p.UpdateState(p.Descriptor, settings, s.now()) {

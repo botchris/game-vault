@@ -1,0 +1,170 @@
+package media
+
+import (
+	"cmp"
+	"errors"
+	"slices"
+	"sync"
+	"time"
+
+	"gamevault/internal/domain/provider"
+)
+
+// StatusKind is the kind of temporary, provider-level problem a ProviderStatus reports.
+type StatusKind string
+
+// Values of StatusKind.
+const (
+	StatusQuota       StatusKind = "quota"        // the request allowance is used up until it renews
+	StatusRateLimited StatusKind = "rate_limited" // the service asked to slow down, or is busy
+	StatusUnavailable StatusKind = "unavailable"  // the service is not answering
+	StatusSettings    StatusKind = "settings"     // the service rejects the provider's settings
+)
+
+// How long a problem is shown when the error does not say when it ends (provider.Resumer).
+const (
+	statusRateLimitedFor = 5 * time.Minute
+	statusOtherFor       = time.Hour
+)
+
+// ProviderStatus is a provider's current problem: one that concerns the provider, not a game, so the
+// System and Providers pages show it instead of every game sheet.
+type ProviderStatus struct {
+	// Provider names the service: its settings group, or its id when it has none.
+	Provider provider.ID
+
+	// Name is the provider's display name.
+	Name string
+
+	// Providers lists the registered providers of the service (covers, details…).
+	Providers []provider.ID
+
+	Kind StatusKind
+
+	// Message is the provider's own explanation, in English.
+	Message string
+
+	// Since is when the problem was first seen; Until is when it is expected to end, after which it
+	// is no longer reported.
+	Since time.Time
+	Until time.Time
+}
+
+// statuses keeps the providers' current problems in memory, by service.
+type statuses struct {
+	mu      sync.Mutex
+	entries map[provider.ID]ProviderStatus
+}
+
+// statusKey names the service a provider belongs to.
+func statusKey(d provider.Descriptor) provider.ID {
+	if d.SettingsGroup != "" {
+		return provider.ID(d.SettingsGroup)
+	}
+
+	return d.ID
+}
+
+// providerLevel reports whether err is a problem of the provider rather than of a game: a rate limit
+// (busy, quota, outage) or rejected settings. Those are reported in the provider's status, not on
+// game sheets or in the cover picker.
+func providerLevel(err error) bool {
+	return errors.Is(err, provider.ErrRateLimited) || errors.Is(err, provider.ErrBadSettings)
+}
+
+// noteResult records what a provider's answer says about the provider: a provider-level problem sets
+// its status, a successful answer clears it, and any other error (a failure for one game) leaves it.
+func (s *Service) noteResult(id provider.ID, err error) {
+	impl, ok := s.impls[id]
+	if !ok {
+		return
+	}
+
+	d := impl.Descriptor()
+	key := statusKey(d)
+
+	s.status.mu.Lock()
+	defer s.status.mu.Unlock()
+
+	if err == nil {
+		delete(s.status.entries, key)
+		return
+	}
+
+	if !providerLevel(err) {
+		return
+	}
+
+	now := s.now()
+	st := ProviderStatus{
+		Provider: key,
+		Name:     d.Name,
+		Message:  err.Error(),
+		Since:    now,
+	}
+
+	switch {
+	case errors.Is(err, provider.ErrQuotaExhausted):
+		st.Kind, st.Until = StatusQuota, now.Add(statusOtherFor)
+	case errors.Is(err, provider.ErrBadSettings):
+		st.Kind, st.Until = StatusSettings, now.Add(statusOtherFor)
+	case errors.Is(err, provider.ErrUnavailable):
+		st.Kind, st.Until = StatusUnavailable, now.Add(statusRateLimitedFor)
+	default:
+		st.Kind, st.Until = StatusRateLimited, now.Add(statusRateLimitedFor)
+	}
+
+	var r provider.Resumer
+	if errors.As(err, &r) && r.ResumesAt().After(now) {
+		st.Until = r.ResumesAt()
+	}
+
+	if prev, ok := s.status.entries[key]; ok && prev.Kind == st.Kind && now.Before(prev.Until) {
+		st.Since = prev.Since // the same problem going on
+	}
+
+	if s.status.entries == nil {
+		s.status.entries = map[provider.ID]ProviderStatus{}
+	}
+
+	s.status.entries[key] = st
+}
+
+// forget drops a service's status.
+func (st *statuses) forget(key provider.ID) {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+
+	delete(st.entries, key)
+}
+
+// ProviderStatuses returns the providers' current problems, by name.
+func (s *Service) ProviderStatuses() []ProviderStatus {
+	now := s.now()
+
+	s.status.mu.Lock()
+	defer s.status.mu.Unlock()
+
+	out := make([]ProviderStatus, 0, len(s.status.entries))
+
+	for key, st := range s.status.entries {
+		if !now.Before(st.Until) {
+			delete(s.status.entries, key)
+			continue
+		}
+
+		st.Providers = nil
+
+		for _, id := range s.order {
+			if statusKey(s.impls[id].Descriptor()) == key {
+				st.Providers = append(st.Providers, id)
+			}
+		}
+
+		out = append(out, st)
+	}
+
+	slices.SortFunc(out, func(a, b ProviderStatus) int { return cmp.Compare(a.Name, b.Name) })
+
+	return out
+}

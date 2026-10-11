@@ -258,10 +258,16 @@ func (s *Service) fresh(d GameDetails) bool {
 
 // detailsPass is what one pass over the metadata chain left behind.
 type detailsPass struct {
+	// warnings are the failures for this game shown on the sheet; provider-level problems are the
+	// providers' status instead (see ProviderStatuses).
 	warnings []string
 
 	// limited reports that a provider asked to slow down.
 	limited bool
+
+	// failed reports that a provider failed, whether the failure is shown (warnings) or a
+	// provider-level problem (rejected settings).
+	failed bool
 
 	// asked holds the providers already asked, so a later pass does not ask them again.
 	asked map[provider.ID]bool
@@ -298,10 +304,10 @@ func (s *Service) fetchDetails(ctx context.Context, id game.ID, language string,
 	// be wasted.
 	completed := false
 
-	if fallback && merged.sparse() && len(pass.warnings) == 0 {
+	if fallback && merged.sparse() && !pass.failed && !pass.limited {
 		q.Fallback = true
 		s.askChain(ctx, g, chain, q, &merged, &pass)
-		completed = len(pass.warnings) == 0
+		completed = !pass.failed && !pass.limited
 	}
 	// A sparse sheet whose fallback did not complete (skipped, or a provider failed in either pass)
 	// may be cached, but the next opening runs the passes again instead of keeping it for detailsTTL.
@@ -309,7 +315,7 @@ func (s *Service) fetchDetails(ctx context.Context, id game.ID, language string,
 	// Cache even an empty sheet so unknown games are not looked up on every view; failures are not
 	// cached. Nor is a sheet a provider was too busy to fill: cached, it would lack that provider's
 	// part until the cache expires.
-	if !pass.limited && (len(pass.warnings) == 0 || !merged.empty()) {
+	if !pass.limited && (!pass.failed || !merged.empty()) {
 		if err := s.details.Put(ctx, id, merged); err != nil {
 			s.log.Warn("caching details", "error", err)
 		}
@@ -329,17 +335,25 @@ func (s *Service) askChain(ctx context.Context, g *game.Game, chain []ProviderVi
 		pass.asked[p.ID()] = true
 
 		d, err := impl.Details(ctx, q, merged.Language, p.Settings())
+		s.noteResult(p.ID(), err)
+
+		// Provider-level problems (busy, allowance used up, rejected settings) are the provider's
+		// status, not a warning on every sheet; a rate limit still keeps the sheet out of the cache.
 		if errors.Is(err, provider.ErrRateLimited) {
 			pass.limited = true
 
-			pass.warnings = append(pass.warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
 			s.log.Info("metadata provider unavailable, asking again later", "provider", p.ID(), "game", g.Title(), "error", err)
 
 			continue
 		}
 
 		if err != nil {
-			pass.warnings = append(pass.warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
+			pass.failed = true
+
+			if !providerLevel(err) {
+				pass.warnings = append(pass.warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
+			}
+
 			s.log.Warn("metadata provider failed", "provider", p.ID(), "game", g.Title(), "error", err)
 
 			continue
