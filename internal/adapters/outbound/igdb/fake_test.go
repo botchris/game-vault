@@ -74,6 +74,10 @@ type fakeIGDB struct {
 	// hangUp makes Twitch close the connection without answering.
 	hangUp bool
 
+	// tokenDown makes Twitch answer HTTP 503; apiDown makes IGDB answer HTTP 502.
+	tokenDown bool
+	apiDown   bool
+
 	// leaks records credentials sent in a token request's URL instead of its body.
 	leaks []string
 
@@ -143,6 +147,14 @@ func (f *fakeIGDB) serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if f.apiDown {
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusBadGateway)
+		w.Write([]byte("<html>502 Bad Gateway</html>"))
+
+		return
+	}
+
 	if f.busy {
 		w.WriteHeader(http.StatusTooManyRequests)
 		w.Write([]byte(`{"message":"Too Many Requests"}`))
@@ -179,7 +191,7 @@ func (f *fakeIGDB) serve(w http.ResponseWriter, r *http.Request) {
 // serveToken is Twitch's token endpoint, which takes the credentials as a form.
 func (f *fakeIGDB) serveToken(w http.ResponseWriter, r *http.Request) {
 	f.mu.Lock()
-	delay, hangUp := f.tokenDelay, f.hangUp
+	delay, hangUp, down := f.tokenDelay, f.hangUp, f.tokenDown
 
 	for _, k := range []string{"client_id", "client_secret"} {
 		if r.URL.Query().Has(k) {
@@ -187,6 +199,13 @@ func (f *fakeIGDB) serveToken(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	f.mu.Unlock()
+
+	if down {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		w.Write([]byte(`{"status":503,"message":"service unavailable"}`))
+
+		return
+	}
 
 	if hangUp {
 		if conn, _, err := w.(http.Hijacker).Hijack(); err == nil {

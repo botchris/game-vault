@@ -169,9 +169,13 @@ func (c *Client) newToken(ctx context.Context, id, secret, key string) (string, 
 		}.Encode(),
 	}, &out)
 
+	var se *apiclient.StatusError
+
 	switch {
 	case apiclient.IsStatus(err, http.StatusTooManyRequests):
 		return "", errTooManyRequests
+	case errors.As(err, &se) && se.Status >= 500:
+		return "", errTwitchDown
 	case apiclient.IsStatus(err, http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden):
 		// Twitch answers 400 "invalid client" for an unknown Client ID and 403 "invalid client
 		// secret" for a wrong secret.
@@ -202,8 +206,15 @@ func (c *Client) newToken(ctx context.Context, id, secret, key string) (string, 
 	return tok.value, nil
 }
 
-// errTwitchUnreachable means the token request got no answer (no connection, a timeout).
-var errTwitchUnreachable = errors.New("could not reach Twitch to sign in to IGDB: check the connection and try again later")
+// Twitch outages say nothing about a game: like rate limits, nothing is remembered from them (no
+// "no cover" marker, no cached sheet), so an outage does not leave editions without covers for days.
+var (
+	// errTwitchUnreachable means the token request got no answer (no connection, a timeout).
+	errTwitchUnreachable = fmt.Errorf("could not reach Twitch to sign in to IGDB: check the connection and try again later: %w", provider.ErrRateLimited)
+
+	// errTwitchDown means Twitch answered the token request with a server error (5xx).
+	errTwitchDown = fmt.Errorf("signing in to IGDB failed: Twitch is not answering: try again later: %w", provider.ErrRateLimited)
+)
 
 // query sends an Apicalypse query to an IGDB endpoint ("games", "external_games") and decodes the
 // answer into out. A token IGDB refuses (it expired early, or was revoked) is renewed once and the
@@ -247,8 +258,15 @@ func (c *Client) send(ctx context.Context, s schema.Settings, endpoint, body str
 	})
 
 	var se *apiclient.StatusError
-	if !errors.As(err, &se) {
+
+	switch {
+	case err == nil, errors.Is(err, provider.ErrRateLimited), errors.Is(err, apiclient.ErrNotJSON):
 		return tok, err
+	case !errors.As(err, &se):
+		// No answer (no connection, a timeout): it says nothing about the game.
+		return tok, fmt.Errorf("IGDB is not answering, try again later (%w): %w", err, provider.ErrRateLimited)
+	case se.Status >= 500:
+		return tok, fmt.Errorf("IGDB is not answering (HTTP %d): try again later: %w", se.Status, provider.ErrRateLimited)
 	}
 
 	switch se.Status {

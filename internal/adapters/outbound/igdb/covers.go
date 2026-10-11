@@ -38,8 +38,8 @@ func (p *Covers) Descriptor() provider.Descriptor {
 		DescriptionKey: "providers.igdb.description",
 		Fields:         fields(),
 		SettingsGroup:  string(CoversID),
-		// Enabled by default: it does nothing until the Twitch credentials are entered.
-		EnabledByDefault: true,
+		// Disabled until the user enters a Twitch application, like every provider that needs
+		// credentials; enabling it retries the editions marked without cover.
 		// After TheGamesDB and every store (Xbox is 80): a store's own art fits its edition better.
 		DefaultOrder: 85,
 	}
@@ -58,7 +58,8 @@ func (p *Covers) ImageHosts() []string { return []string{"images.igdb.com"} }
 
 // Covers implements media.CoverProvider.
 func (p *Covers) Covers(ctx context.Context, q media.CoverQuery, s schema.Settings) ([]media.CoverCandidate, error) {
-	// Enabled by default, it stays silent until configured rather than failing every lookup.
+	// Without credentials it stays silent rather than failing every lookup (a sibling may enable it
+	// before the key is entered).
 	if _, _, _, err := credentials(s); err != nil {
 		return nil, nil
 	}

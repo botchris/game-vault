@@ -10,6 +10,7 @@ import (
 
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/provider"
 )
 
 func TestCovers_applies(t *testing.T) {
@@ -34,6 +35,60 @@ func TestCovers_applies(t *testing.T) {
 	} {
 		assert.Equal(t, tc.want, c.Applies(tc.q), tc.name)
 	}
+}
+
+func TestCovers_startsDisabled(t *testing.T) {
+	t.Run("GIVEN the IGDB cover provider, which needs a Twitch application", func(t *testing.T) {
+		t.Run("THEN it starts disabled, like every provider that needs credentials", func(t *testing.T) {
+			assert.False(t, NewCovers(NewClient()).Descriptor().EnabledByDefault)
+		})
+	})
+}
+
+func TestCovers_outages(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	q := media.CoverQuery{
+		Title:    "Example Quest",
+		Fallback: true,
+	}
+
+	for name, setup := range map[string]func(f *fakeIGDB){
+		"Twitch is down (HTTP 503)": func(f *fakeIGDB) { f.tokenDown = true },
+		"Twitch hangs up":           func(f *fakeIGDB) { f.hangUp = true },
+		"IGDB is down (HTTP 502)":   func(f *fakeIGDB) { f.apiDown = true },
+	} {
+		t.Run("GIVEN "+name, func(t *testing.T) {
+			f := newFakeIGDB(t)
+			f.set(setup)
+			c := NewCovers(f.client(time.Now))
+
+			t.Run("WHEN covers are asked", func(t *testing.T) {
+				_, err := c.Covers(ctx, q, goodSettings)
+
+				t.Run("THEN it counts as limited, so the edition is not marked missing for days", func(t *testing.T) {
+					require.ErrorIs(t, err, provider.ErrRateLimited)
+					assert.Contains(t, err.Error(), "try again later")
+				})
+			})
+		})
+	}
+
+	t.Run("GIVEN Twitch answers HTTP 503", func(t *testing.T) {
+		f := newFakeIGDB(t)
+		f.set(func(f *fakeIGDB) { f.tokenDown = true })
+
+		t.Run("WHEN the connection is tested", func(t *testing.T) {
+			err := f.client(time.Now).Test(ctx, goodSettings)
+
+			t.Run("THEN it says Twitch is not answering, not to check the connection", func(t *testing.T) {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "Twitch is not answering: try again later")
+				assert.NotContains(t, err.Error(), "check the connection")
+			})
+		})
+	})
 }
 
 func TestCovers(t *testing.T) {
