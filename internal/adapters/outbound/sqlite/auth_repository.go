@@ -112,6 +112,86 @@ func (r *AuthRepository) DeleteExpiredSessions(ctx context.Context, now time.Tim
 	return err
 }
 
+// tokenRow is a *sql.Row or *sql.Rows positioned on an access token.
+type tokenRow interface {
+	// Scan copies the row's columns into dest.
+	Scan(dest ...any) error
+}
+
+const accessTokenColumns = `id, name, token_hash, created_at, last_used_at`
+
+func scanAccessToken(row tokenRow) (auth.AccessToken, error) {
+	var (
+		t             auth.AccessToken
+		created, used string
+	)
+
+	err := row.Scan(&t.ID, &t.Name, &t.Hash, &created, &used)
+	t.CreatedAt, t.LastUsedAt = parseTime(created), parseTime(used)
+
+	return t, err
+}
+
+// AccessTokens returns every access token, newest first.
+func (r *AuthRepository) AccessTokens(ctx context.Context) ([]auth.AccessToken, error) {
+	rows, err := r.db.conn(ctx).QueryContext(ctx, `SELECT `+accessTokenColumns+` FROM access_tokens ORDER BY created_at DESC, id DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []auth.AccessToken
+
+	for rows.Next() {
+		t, err := scanAccessToken(rows)
+		if err != nil {
+			return nil, err
+		}
+
+		out = append(out, t)
+	}
+
+	return out, rows.Err()
+}
+
+// AccessTokenByHash returns the access token whose secret has that hash, or auth.ErrNotFound.
+func (r *AuthRepository) AccessTokenByHash(ctx context.Context, hash string) (auth.AccessToken, error) {
+	t, err := scanAccessToken(r.db.conn(ctx).QueryRowContext(ctx, `SELECT `+accessTokenColumns+` FROM access_tokens WHERE token_hash = ?`, hash))
+	if errors.Is(err, sql.ErrNoRows) {
+		return t, auth.ErrNotFound
+	}
+
+	return t, err
+}
+
+// SaveAccessToken creates an access token.
+func (r *AuthRepository) SaveAccessToken(ctx context.Context, t auth.AccessToken) error {
+	_, err := r.db.conn(ctx).ExecContext(ctx, `INSERT INTO access_tokens (`+accessTokenColumns+`) VALUES (?, ?, ?, ?, ?)`,
+		t.ID, t.Name, t.Hash, formatTime(t.CreatedAt), optionalTime(t.LastUsedAt))
+
+	return err
+}
+
+// TouchAccessToken records when an access token was last used.
+func (r *AuthRepository) TouchAccessToken(ctx context.Context, id string, at time.Time) error {
+	_, err := r.db.conn(ctx).ExecContext(ctx, `UPDATE access_tokens SET last_used_at = ? WHERE id = ?`, formatTime(at), id)
+	return err
+}
+
+// DeleteAccessToken removes an access token, or returns auth.ErrNotFound when there is none with that id.
+func (r *AuthRepository) DeleteAccessToken(ctx context.Context, id string) error {
+	res, err := r.db.conn(ctx).ExecContext(ctx, `DELETE FROM access_tokens WHERE id = ?`, id)
+	if err != nil {
+		return err
+	}
+
+	if n, err := res.RowsAffected(); err == nil && n == 0 {
+		return auth.ErrNotFound
+	}
+
+	return nil
+}
+
 const keyAuth = "auth"
 
 // authSettingsJSON is how the security settings are stored. The legacy fields come from versions

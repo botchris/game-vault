@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gamevault/internal/domain/auth"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 )
@@ -186,6 +187,38 @@ func TestMigration0010(t *testing.T) {
 
 			t.Run("THEN it was copied before game documents start being written as version 3", func(t *testing.T) {
 				assert.FileExists(t, filepath.Join(backups, "pre-migration-0010.db"))
+			})
+		})
+	})
+}
+
+func TestMigration0011(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a database migrated up to 0010", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "old.db")
+		backups := filepath.Join(dir, "backups")
+
+		db, err := openUpTo(ctx, path, "", "0010")
+		require.NoError(t, err)
+		db.Close()
+
+		t.Run("WHEN this version opens it", func(t *testing.T) {
+			db, err := Open(ctx, path, backups)
+			require.NoError(t, err)
+
+			defer db.Close()
+
+			t.Run("THEN it was copied first, and access tokens can be stored", func(t *testing.T) {
+				assert.FileExists(t, filepath.Join(backups, "pre-migration-0011.db"))
+				assert.NoError(t, NewAuthRepository(db).SaveAccessToken(ctx, auth.AccessToken{
+					ID:        "t1",
+					Name:      "Extension, laptop",
+					Hash:      auth.HashToken("gvt_one"),
+					CreatedAt: time.Now(),
+				}))
 			})
 		})
 	})

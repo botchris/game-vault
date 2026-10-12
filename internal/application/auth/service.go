@@ -4,9 +4,7 @@ package auth
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"errors"
 	"log/slog"
 	"slices"
@@ -119,11 +117,6 @@ func (s *Service) ResetAuthentication(ctx context.Context) error {
 	return s.settings.SaveAuth(ctx, settings)
 }
 
-func hashToken(token string) string {
-	sum := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(sum[:])
-}
-
 // Authenticate recognizes the caller: a valid session, or a trusted network when authentication
 // is not required there.
 func (s *Service) Authenticate(ctx context.Context, r auth.Request) (auth.Principal, error) {
@@ -151,7 +144,7 @@ func (s *Service) fromSession(ctx context.Context, r auth.Request) (auth.Princip
 		return auth.Principal{}, false
 	}
 
-	sess, err := s.repo.Session(ctx, hashToken(r.SessionToken))
+	sess, err := s.repo.Session(ctx, auth.HashToken(r.SessionToken))
 
 	now := s.now()
 	if err != nil || sess.Expired(now) {
@@ -285,7 +278,7 @@ func (s *Service) newSession(ctx context.Context, u auth.User, r auth.Request) (
 	token := base64.RawURLEncoding.EncodeToString(buf)
 	now := s.now()
 	err := s.repo.SaveSession(ctx, auth.Session{
-		TokenHash:  hashToken(token),
+		TokenHash:  auth.HashToken(token),
 		UserID:     u.ID,
 		CreatedAt:  now,
 		ExpiresAt:  now.Add(sessionTTL),
@@ -309,7 +302,7 @@ func (s *Service) Logout(ctx context.Context, token string) error {
 		return nil
 	}
 
-	return s.repo.DeleteSession(ctx, hashToken(token))
+	return s.repo.DeleteSession(ctx, auth.HashToken(token))
 }
 
 // ChangePassword sets a new password, and optionally a new username. Signed-in users must give
