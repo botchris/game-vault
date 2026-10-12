@@ -6,9 +6,15 @@ import { startRun } from './lib/engine.js';
 import { RECIPE_VERSION, validate } from './lib/recipe.js';
 import { hostsGranted, originAllowed, rememberAllowed } from './lib/capture.js';
 import { enableOrigin, registerBridge } from './lib/bridges.js';
+import { createLookup, storeForUrl, syncStoreScripts } from './lib/ownership.js';
 
 const running = new Map(); // request id → { cancel, tab, port }
 const pending = new Map(); // confirmation id → { resolve, windowId }
+
+// "What you own" on store pages: the store content scripts ask here, and only the background
+// talks to the user's Game Vault (with the token, which pages never see).
+const ownership = createLookup({ storage: chrome.storage.local, fetch: (url, init) => fetch(url, init), now: () => Date.now() });
+const syncStores = () => syncStoreScripts(chrome).catch(() => {});
 
 const coded = (code, message) => Object.assign(new Error(message ?? code), { code });
 
@@ -173,6 +179,7 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
 // does on an update or a reload of the extension).
 const reregister = async () => {
   for (const origin of await enabledOrigins()) await registerBridge(origin).catch(() => {});
+  await syncStores();
 };
 chrome.runtime.onStartup?.addListener(reregister);
 chrome.runtime.onInstalled?.addListener(reregister);
@@ -186,4 +193,26 @@ chrome.permissions.onAdded?.addListener(async (added) => {
   if (!(added.origins ?? []).includes(`${protocol}//${hostname}/*`)) return;
   await chrome.storage.local.remove('pendingEnable');
   await enableOrigin(pendingEnable.origin, pendingEnable.tabId).catch(() => {});
+});
+
+// Lookups from the store content scripts: only from this extension's own scripts, in a tab, on a
+// store page.
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg?.op !== 'ownership') return undefined;
+  if (sender.id !== chrome.runtime.id || !sender.tab || !storeForUrl(sender.url ?? '')) {
+    sendResponse({ status: 'unavailable', reason: 'denied' });
+    return undefined;
+  }
+  ownership.check(msg.items).then(sendResponse, () => sendResponse({ status: 'unavailable', reason: 'unreachable' }));
+  return true; // the answer comes later
+});
+
+// The store scripts follow the option and the browser's permissions; changed settings drop the
+// cached answers (another address, another token).
+chrome.permissions.onAdded?.addListener(syncStores);
+chrome.permissions.onRemoved?.addListener(syncStores);
+chrome.storage.onChanged?.addListener((changes, area) => {
+  if (area !== 'local' || !(changes.ownership || changes.origins)) return;
+  ownership.clear();
+  syncStores();
 });

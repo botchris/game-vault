@@ -17,5 +17,22 @@
   "moreCopies": {
     "message": "+$COUNT$",
     "placeholders": { "count": { "content": "$1", "example": "2" } }
-  }
+  },
+  "popupEnableOn": { "message": "Activar en $ORIGIN$", "placeholders": { "origin": { "content": "$1", "example": "http://127.0.0.1:8080" } } },
+  "popupEnableHelp": { "message": "Solo en tu propio Game Vault: permite que esa dirección pida a la extensión conectar tiendas." },
+  "popupEnabledHere": { "message": "Activada en esta dirección. Usa Conectar en los ajustes de una fuente." },
+  "popupAddresses": { "message": "Direcciones de Game Vault activadas" },
+  "popupRemove": { "message": "Quitar" },
+  "popupForget": { "message": "Olvidar $HOST$", "placeholders": { "host": { "content": "$1", "example": "www.humblebundle.com" } } },
+  "popupNoAddresses": { "message": "Ninguna todavía: abre tu Game Vault y actívala aquí." },
+  "popupVersion": { "message": "Versión $VERSION$", "placeholders": { "version": { "content": "$1", "example": "1.1.0" } } },
+  "ownershipTitle": { "message": "Lo que tienes, en las tiendas" },
+  "ownershipToggle": { "message": "Mostrar lo que tengo en las tiendas" },
+  "ownershipAddress": { "message": "Dirección de Game Vault" },
+  "ownershipToken": { "message": "Token de acceso (opcional)" },
+  "ownershipTokenHelp": { "message": "Hace falta cuando este navegador no está en una red de confianza: créalo en Game Vault, Sistema → Seguridad. Solo se leen páginas de Steam, GOG, Humble Bundle y Fanatical, y solo se envían los identificadores y títulos que muestran, y solo a tu Game Vault." },
+  "ownershipNoAddress": { "message": "Activa antes la extensión en tu Game Vault." },
+  "ownershipStores": { "message": "Se muestra en: $STORES$", "placeholders": { "stores": { "content": "$1", "example": "Steam, GOG" } } },
+  "ownershipNoStores": { "message": "El navegador no ha permitido las tiendas: desactiva la opción y vuelve a activarla." },
+  "ownershipInsecure": { "message": "Esta dirección usa http sin cifrar: el token de acceso viajaría sin cifrar por la red. Usa una dirección https para Game Vault, o deja el token vacío en una red de confianza." }
 }

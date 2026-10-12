@@ -17,5 +17,22 @@
   "moreCopies": {
     "message": "+$COUNT$",
     "placeholders": { "count": { "content": "$1", "example": "2" } }
-  }
+  },
+  "popupEnableOn": { "message": "Enable on $ORIGIN$", "placeholders": { "origin": { "content": "$1", "example": "http://127.0.0.1:8080" } } },
+  "popupEnableHelp": { "message": "Only on your own Game Vault: this lets that address ask the extension to connect stores." },
+  "popupEnabledHere": { "message": "Enabled on this address. Use Connect in a source's settings." },
+  "popupAddresses": { "message": "Enabled Game Vault addresses" },
+  "popupRemove": { "message": "Remove" },
+  "popupForget": { "message": "Forget $HOST$", "placeholders": { "host": { "content": "$1", "example": "www.humblebundle.com" } } },
+  "popupNoAddresses": { "message": "None yet: open your Game Vault and enable it here." },
+  "popupVersion": { "message": "Version $VERSION$", "placeholders": { "version": { "content": "$1", "example": "1.1.0" } } },
+  "ownershipTitle": { "message": "What you own, on store pages" },
+  "ownershipToggle": { "message": "Show what I own on store pages" },
+  "ownershipAddress": { "message": "Game Vault address" },
+  "ownershipToken": { "message": "Access token (optional)" },
+  "ownershipTokenHelp": { "message": "Needed when this browser is not on a trusted network: create one in Game Vault, System → Security. Only Steam, GOG, Humble Bundle and Fanatical pages are read, and only the game ids and titles they show are sent, only to your Game Vault." },
+  "ownershipNoAddress": { "message": "Enable the extension on your Game Vault first." },
+  "ownershipStores": { "message": "Shown on: $STORES$", "placeholders": { "stores": { "content": "$1", "example": "Steam, GOG" } } },
+  "ownershipNoStores": { "message": "The browser has not allowed the store sites: turn the option off and on again." },
+  "ownershipInsecure": { "message": "This address uses plain http: the access token would travel unencrypted over the network. Use an https address for Game Vault, or leave the token empty on a trusted network." }
 }
