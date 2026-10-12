@@ -8,6 +8,7 @@ one line here. Update a file instead of adding a duplicate; date facts about ext
 ## Working rules
 - [Public project](memory/public-project.md) — public repo: no personal data (own library, counts, accounts, test results) in PRs, commits, docs, specs, comments or memory
 - [Multilingual](memory/multilingual.md) — English default, Spanish optional, more later: language-dependent features follow the UI language, fall back to English, never Spanish-first
+- [UI copy](memory/ui-no-product-references.md) — never name or compare with other products (Plex, Playnite…) in UI text; integrated services are fine
 - [Go style feedback](memory/go-style-feedback.md) — always load `write-go` before Go; blank line between documented members; every interface method documented; one struct field per line
 
 ## Status
