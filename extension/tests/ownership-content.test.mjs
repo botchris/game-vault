@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { countKind, done, follow, notOwned, ns, owned, pageWindow, sample, settle } from './helpers.mjs';
+import { countKind, deferred, done, follow, makeT, notOwned, ns, owned, pageWindow, sample, settle } from './helpers.mjs';
 
 test('a product page gets one label, asked for once, even while the page keeps changing', async (tt) => {
   const url = { current: 'https://store.steampowered.com/app/4410/Lantern_Keep/' };
@@ -57,4 +57,108 @@ test('when Game Vault cannot answer, the label says unavailable, never "not in y
     assert.equal(countKind(window.document, 'unavailable'), 1);
     assert.equal(countKind(window.document, 'not-owned'), 0);
   }
+});
+
+const byTitle = async (items) => ({ status: 'ok', results: items.map((item) => owned(item.title)) });
+const tooltip = (doc) => ns.rootOf(doc.querySelector('[data-gamevault]'))?.querySelector('.gv')?.getAttribute('title') ?? '';
+
+test('a title the store rewrites in place, label kept, is asked about again and its label replaced', async (tt) => {
+  const url = { current: 'https://www.fanatical.com/en/game/copper-coast' };
+  const window = pageWindow(sample('fanatical-game.html'), url.current);
+  const { sent, ctl } = follow(window, url, byTitle);
+  done(tt, window, ctl);
+  await settle();
+  const h1 = window.document.querySelector('h1.product-name');
+  h1.firstChild.data = 'Paper Comet'; // the text node changes; the label's host is untouched
+  await settle();
+  assert.deepEqual(sent.map((items) => items[0].title), ['Copper Coast', 'Paper Comet']);
+  assert.equal(window.document.querySelectorAll('[data-gamevault]').length, 1);
+  assert.match(tooltip(window.document), /Paper Comet/);
+});
+
+test('a page that never stops changing is still labelled, after the longest wait', async (tt) => {
+  const url = { current: 'https://store.steampowered.com/app/4410/Lantern_Keep/' };
+  const window = pageWindow(sample('steam-app.html'), url.current);
+  const { sent, ctl } = follow(window, url, byTitle, { debounceMs: 30, maxWaitMs: 80 });
+  done(tt, window, ctl);
+  const busy = setInterval(() => window.document.body.append(window.document.createElement('i')), 5);
+  tt.after(() => clearInterval(busy));
+  await settle(250);
+  assert.equal(sent.length, 1, 'asked while the page was still changing');
+  assert.equal(countKind(window.document, 'owned'), 1);
+});
+
+test('stop() disconnects the observer and clears the pending timer', () => {
+  const observers = [];
+  class FakeObserver {
+    constructor(callback) {
+      this.callback = callback;
+      this.connected = false;
+      observers.push(this);
+    }
+
+    observe() {
+      this.connected = true;
+    }
+
+    disconnect() {
+      this.connected = false;
+    }
+  }
+  const timers = new Set();
+  const ctl = ns.start({
+    doc: { documentElement: {} },
+    url: () => 'https://example.com/',
+    send: async () => undefined,
+    t: makeT('en'),
+    MutationObserver: FakeObserver,
+    setTimer: (fn) => {
+      const handle = { fn };
+      timers.add(handle);
+      return handle;
+    },
+    clearTimer: (handle) => timers.delete(handle),
+  });
+  assert.equal(observers.length, 1);
+  assert.ok(observers[0].connected);
+  assert.equal(timers.size, 1, 'the first scan is scheduled');
+  ctl.stop();
+  assert.equal(observers[0].connected, false);
+  assert.equal(timers.size, 0);
+});
+
+test('an answer that arrives after the address changed is dropped', async (tt) => {
+  const url = { current: 'https://store.steampowered.com/app/4410/Lantern_Keep/' };
+  const window = pageWindow(sample('steam-app.html'), url.current);
+  const answer = deferred();
+  const { sent, ctl } = follow(window, url, () => answer.promise);
+  done(tt, window, ctl);
+  await settle();
+  assert.equal(sent.length, 1);
+  url.current = 'https://store.steampowered.com/';
+  answer.resolve({ status: 'ok', results: [owned('Lantern Keep')] });
+  await settle();
+  assert.equal(window.document.querySelectorAll('[data-gamevault]').length, 0);
+  assert.equal(sent.length, 1, 'the new address is no product page: nothing more to ask');
+});
+
+test('a scan asked for while one is waiting for Game Vault runs after it, not alongside', async (tt) => {
+  const url = { current: 'https://www.fanatical.com/en/game/copper-coast' };
+  const window = pageWindow(sample('fanatical-game.html'), url.current);
+  const answers = [deferred(), deferred()];
+  const { sent, ctl } = follow(window, url, () => answers[sent.length - 1].promise);
+  done(tt, window, ctl);
+  await settle();
+  assert.equal(sent.length, 1);
+  window.document.querySelector('h1.product-name').firstChild.data = 'Paper Comet';
+  await ctl.scan();
+  await settle();
+  assert.equal(sent.length, 1, 'no second lookup while the first is unanswered');
+  answers[0].resolve({ status: 'ok', results: [owned('Copper Coast')] });
+  await settle();
+  assert.deepEqual(sent.map((items) => items[0].title), ['Copper Coast', 'Paper Comet'], 'the waiting scan ran afterwards');
+  answers[1].resolve({ status: 'ok', results: [owned('Paper Comet')] });
+  await settle();
+  assert.equal(window.document.querySelectorAll('[data-gamevault]').length, 1);
+  assert.match(tooltip(window.document), /Paper Comet/);
 });

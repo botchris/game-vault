@@ -1,18 +1,30 @@
 // Labels on store pages: what they say (pure models, tested in Node) and how they are drawn (a
 // closed shadow root with its own styles: the store's styles do not reach in, ours do not leak out).
-// The store's own scripts share the page's DOM, so nothing they can read says what the user owns:
-// a label's host carries an empty data-gamevault marker and its kind stays in the extension.
+// The store's own scripts share the page's DOM and its layout, so nothing they can read from outside
+// the closed shadow root may depend on the answer: every host carries the same empty data-gamevault
+// marker and the same inline style, with a fixed width and height (the text is cut to fit and the
+// full detail is a tooltip inside the shadow root), and its kind stays in the extension. Even the
+// invisible "already checked" mark is a host of that same box, so a label's presence and size are
+// the same whatever the user owns. Store rules cannot hide or resize the host: its declarations
+// are !important, and inline !important beats any stylesheet.
 (() => {
   const ns = (globalThis.gvOwnership ??= {});
   const MAX_COPIES = 3;
   const roots = new WeakMap(); // host → its closed shadow root, for the extension's own tests
   const kinds = new WeakMap(); // host → its label's kind (owned, possible, not-owned, unavailable, none)
+  const sheets = new WeakMap(); // document → the labels' constructed style sheet
+
+  /** The host's inline style: the same for every answer (see above). */
+  ns.HOST_STYLE = 'all: initial !important; display: inline-block !important; box-sizing: border-box !important; '
+    + 'width: 280px !important; height: 24px !important; overflow: hidden !important; '
+    + 'vertical-align: middle !important; margin: 0 0 0 10px !important;';
 
   ns.LABEL_CSS = `
-    .gv { display: inline-flex; align-items: center; gap: 6px; max-width: 36em; padding: 3px 10px; border-radius: 999px;
-      font: 600 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; text-decoration: none; white-space: nowrap;
-      overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; }
+    .gv { display: flex; align-items: center; gap: 6px; width: 100%; height: 100%; padding: 0 10px; border-radius: 999px;
+      font: 600 12px/24px system-ui, -apple-system, "Segoe UI", sans-serif; text-decoration: none; box-sizing: border-box; }
     .gv::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+    .text { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .none { visibility: hidden; }
     .owned { background: #181c2c; color: #ffffff; }
     .possible { background: #edf0f5; color: #181c2c; outline: 1px dashed #181c2c; outline-offset: -1px; }
     .muted { background: #edf0f5; color: #4b5266; }
@@ -59,40 +71,66 @@
     }
     if (r.status === 'possible' && r.candidates?.length) {
       const titles = r.candidates.map((c) => c.title);
-      return { kind: 'possible', tone: 'possible', text: t('labelPossible', [titles.join(', ')]), title: titles.join('\n'), href: r.candidates[0].url };
+      return { kind: 'possible', tone: 'possible', text: t('labelPossible', [titles.join(', ')]), href: r.candidates[0].url };
     }
     return { kind: 'not-owned', tone: 'muted', text: t('labelNotOwned') };
   };
 
   /**
+   * Gives a shadow root the labels' styles: a constructed sheet, which a store's style-src policy
+   * does not govern, or a <style> where constructed sheets are missing.
+   */
+  function addStyles(doc, root) {
+    const Sheet = doc.defaultView?.CSSStyleSheet;
+    if (typeof Sheet === 'function' && Array.isArray(root.adoptedStyleSheets)) {
+      try {
+        let sheet = sheets.get(doc);
+        if (!sheet) {
+          sheet = new Sheet();
+          sheet.replaceSync(ns.LABEL_CSS);
+          sheets.set(doc, sheet);
+        }
+        root.adoptedStyleSheets = [sheet];
+        return;
+      } catch {
+        // An engine that has the API but refuses it: fall back to a <style>.
+      }
+    }
+    const style = doc.createElement('style');
+    style.textContent = ns.LABEL_CSS;
+    root.append(style);
+  }
+
+  /**
    * Draws a label at the end of parent, in a closed shadow root, and returns its host and root.
    * Text is set as text, never as HTML, and only http(s) links are kept. A model of kind 'none' is
-   * an invisible mark that only says "already checked".
+   * an invisible mark that only says "already checked", in the same box as any label.
    */
   ns.renderLabel = (doc, parent, model) => {
     const host = doc.createElement('span');
     host.setAttribute('data-gamevault', '');
-    host.setAttribute('style', model.kind === 'none'
-      ? 'display: none !important;'
-      : `all: initial; display: ${model.block ? 'block' : 'inline-block'}; vertical-align: middle; margin: ${model.block ? '6px 0 0' : '0 0 0 10px'};`);
+    host.setAttribute('style', ns.HOST_STYLE);
     kinds.set(host, model.kind);
     const root = host.attachShadow({ mode: 'closed' });
     roots.set(host, root);
-    if (model.kind !== 'none') {
-      const style = doc.createElement('style');
-      style.textContent = ns.LABEL_CSS;
-      const href = /^https?:\/\//.test(model.href ?? '') ? model.href : '';
-      const el = doc.createElement(href ? 'a' : 'span');
-      el.className = `gv ${model.tone}`;
-      el.textContent = model.text;
-      if (model.title) el.title = model.title;
-      if (href) {
-        el.href = href;
-        el.target = '_blank';
-        el.rel = 'noopener noreferrer';
-      }
-      root.append(style, el);
+    addStyles(doc, root);
+    const visible = model.kind !== 'none';
+    const href = visible && /^https?:\/\//.test(model.href ?? '') ? model.href : '';
+    const el = doc.createElement(href ? 'a' : 'span');
+    el.className = visible ? `gv ${model.tone}` : 'gv none';
+    if (visible) {
+      const text = doc.createElement('span');
+      text.className = 'text';
+      text.textContent = model.text;
+      el.append(text);
+      el.title = [model.text, model.title].filter(Boolean).join('\n');
     }
+    if (href) {
+      el.href = href;
+      el.target = '_blank';
+      el.rel = 'noopener noreferrer';
+    }
+    root.append(el);
     parent.append(host);
     return { host, root };
   };

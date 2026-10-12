@@ -66,9 +66,10 @@ export const notOwned = () => ({ status: 'not_owned', game: null, candidates: []
 
 /**
  * Follows window's page as the content script does; url.current is the address, send answers
- * lookups. Returns the lookups sent and the controller.
+ * lookups, options override start()'s other dependencies (t, debounceMs, maxWaitMs…). Returns the
+ * lookups sent and the controller.
  */
-export function follow(window, url, send, t = makeT('en')) {
+export function follow(window, url, send, options = {}) {
   const sent = [];
   const ctl = ns.start({
     doc: window.document,
@@ -77,13 +78,23 @@ export function follow(window, url, send, t = makeT('en')) {
       sent.push(items);
       return send(items);
     },
-    t,
+    t: makeT('en'),
     MutationObserver: window.MutationObserver,
     setTimer: (fn, ms) => setTimeout(fn, ms),
     clearTimer: (h) => clearTimeout(h),
     debounceMs: 5,
+    ...options,
   });
   return { sent, ctl };
+}
+
+/** A promise with its resolve function, for answers the test releases when it wants. */
+export function deferred() {
+  let resolve;
+  const promise = new Promise((r) => {
+    resolve = r;
+  });
+  return { promise, resolve };
 }
 
 /** Stops the controller and closes the window when the test ends. */

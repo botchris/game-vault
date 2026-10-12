@@ -15,8 +15,11 @@
   /** An element's text on one line. Labels live in shadow roots, so they never add to it. */
   ns.textOf = (el) => (el?.textContent ?? '').replace(/\s+/g, ' ').trim();
 
+  /** The label host (or invisible "checked" mark) the extension put in this element, or null. */
+  ns.labelOf = (el) => (el ? [...el.children].find((c) => c.hasAttribute('data-gamevault')) ?? null : null);
+
   /** Whether the extension already put a label (or an invisible "checked" mark) in this element. */
-  ns.hasLabel = (el) => Boolean(el) && [...el.children].some((c) => c.hasAttribute('data-gamevault'));
+  ns.hasLabel = (el) => ns.labelOf(el) !== null;
 
   function productId(doc, found) {
     const { page, match } = found;
