@@ -1,0 +1,21 @@
+{
+  "labelOwned": { "message": "En tu colección" },
+  "labelNotOwned": { "message": "No está en tu colección" },
+  "labelPossible": {
+    "message": "Posible: $TITLES$",
+    "placeholders": { "titles": { "content": "$1", "example": "Harbor Lights, Harbor Lights (2019)" } }
+  },
+  "labelUnavailable": { "message": "Game Vault no disponible" },
+  "unavailableUnreachable": { "message": "Game Vault no ha respondido. ¿Está en marcha y su dirección es correcta en la extensión?" },
+  "unavailableToken": { "message": "Game Vault ha rechazado el token de acceso. Crea uno nuevo en Sistema → Seguridad y pégalo en la extensión." },
+  "unavailableSignIn": { "message": "Game Vault necesita un token de acceso desde este navegador. Créalo en Sistema → Seguridad y pégalo en la extensión." },
+  "unavailableSetup": { "message": "Elige la dirección de tu Game Vault en el menú de la extensión y activa \"Mostrar lo que tengo en las tiendas\"." },
+  "kindDisc": { "message": "disco" },
+  "kindKey": { "message": "clave" },
+  "kindKeyPending": { "message": "clave sin canjear" },
+  "kindLibrary": { "message": "biblioteca" },
+  "moreCopies": {
+    "message": "+$COUNT$",
+    "placeholders": { "count": { "content": "$1", "example": "2" } }
+  }
+}

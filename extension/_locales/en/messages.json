@@ -1,0 +1,21 @@
+{
+  "labelOwned": { "message": "In your collection", "description": "Label next to a game's title on a store page when Game Vault has it." },
+  "labelNotOwned": { "message": "Not in your collection" },
+  "labelPossible": {
+    "message": "Possible: $TITLES$",
+    "placeholders": { "titles": { "content": "$1", "example": "Harbor Lights, Harbor Lights (2019)" } }
+  },
+  "labelUnavailable": { "message": "Game Vault unavailable" },
+  "unavailableUnreachable": { "message": "Game Vault did not answer. Is it running, and is its address right in the extension?" },
+  "unavailableToken": { "message": "Game Vault refused the access token. Create a new one in System → Security and paste it in the extension." },
+  "unavailableSignIn": { "message": "Game Vault needs an access token from this browser. Create one in System → Security and paste it in the extension." },
+  "unavailableSetup": { "message": "Choose your Game Vault address in the extension's menu and turn on \"Show what I own on store pages\"." },
+  "kindDisc": { "message": "disc" },
+  "kindKey": { "message": "key" },
+  "kindKeyPending": { "message": "key not redeemed" },
+  "kindLibrary": { "message": "library" },
+  "moreCopies": {
+    "message": "+$COUNT$",
+    "placeholders": { "count": { "content": "$1", "example": "2" } }
+  }
+}

@@ -2,6 +2,7 @@
   "manifest_version": 3,
   "name": "Game Vault Connector",
   "version": "1.0.0",
+  "default_locale": "en",
   "description": "Connects your stores to your own Game Vault in one click: you sign in on each store's page and the extension hands the session to your Game Vault tab.",
   "permissions": ["cookies", "webNavigation", "scripting", "tabs", "storage"],
   "optional_host_permissions": ["https://*/*", "http://*/*"],
