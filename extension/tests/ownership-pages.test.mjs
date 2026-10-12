@@ -75,6 +75,15 @@ for (const b of bundles) {
   });
 }
 
+test("Humble's language sites are the same store", () => {
+  for (const url of ['https://es.humblebundle.com/store/invented-game?hmb_source=search_bar', 'https://humblebundle.com/store/invented-game', 'https://de.humblebundle.com/games/invented-bundle']) {
+    assert.equal(ns.pageFor(url)?.store.store, 'humble', url);
+  }
+  for (const url of ['https://humblebundle.com.example/store/invented-game', 'https://eshumblebundle.com/store/invented-game']) {
+    assert.equal(ns.storeForUrl(url), null, url);
+  }
+});
+
 test('Fanatical pick-and-mix pages are bundles too', () => {
   assert.equal(ns.pageFor('https://www.fanatical.com/en/pick-and-mix/invented-build-your-own').page.kind, 'bundle');
   assert.equal(ns.pageFor('https://www.fanatical.com/es/bundle/invented-mystery-bundle').page.kind, 'bundle');

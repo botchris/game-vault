@@ -1,7 +1,8 @@
 // Store pages where Game Vault Connector shows what you own. Data, not code: when a store changes
 // its pages, fix the patterns and selectors here and the sample page in tests/samples/. A page's
-// `path` is a regular expression on the address's path; every selector list is tried in order and
-// the first that matches wins. Steam, GOG and Humble were checked on the live sites on 2026-10-12.
+// `path` is a regular expression on the address's path; a store with a `domain` is also every site
+// of that domain (language sites); every selector list is tried in order and the first that matches
+// wins. Steam, GOG and Humble were checked on the live sites on 2026-10-12.
 // Loaded as a content script (a classic script) and imported by the background and the tests, so
 // it only adds to globalThis.gvOwnership.
 (() => {
@@ -40,6 +41,8 @@
       store: 'humble',
       name: 'Humble Bundle',
       host: 'www.humblebundle.com',
+      // Humble serves its translations on language sites (es.humblebundle.com…).
+      domain: 'humblebundle.com',
       pages: [
         {
           kind: 'product',
@@ -76,7 +79,11 @@
     },
   ];
 
-  /** The store a page address belongs to (by exact host name), or null. */
+  /** Whether a host name belongs to a store: its host, or any site of its domain when it has one. */
+  ns.storeHasHost = (store, host) =>
+    host === store.host || (Boolean(store.domain) && (host === store.domain || host.endsWith(`.${store.domain}`)));
+
+  /** The store a page address belongs to (by host name), or null. */
   ns.storeForUrl = (url) => {
     let host;
     try {
@@ -84,7 +91,7 @@
     } catch {
       return null;
     }
-    return ns.STORES.find((s) => s.host === host) ?? null;
+    return ns.STORES.find((s) => ns.storeHasHost(s, host)) ?? null;
   };
 
   /** The store page an address is, with the path's match (ids in the path), or null. */

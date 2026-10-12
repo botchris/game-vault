@@ -124,12 +124,12 @@ test('a sheet link is only ever an address on the chosen Game Vault', async () =
 });
 
 test('turning the option off gives back only the store sites no sign-in uses', () => {
-  assert.deepEqual(removableOrigins({ [GV]: ['www.humblebundle.com'] }), STORE_ORIGINS.filter((o) => o !== 'https://www.humblebundle.com/*'));
+  assert.deepEqual(removableOrigins({ [GV]: ['www.humblebundle.com'] }), STORE_ORIGINS.filter((o) => o !== 'https://*.humblebundle.com/*'));
   assert.deepEqual(removableOrigins(undefined), STORE_ORIGINS);
 });
 
 test('each store gets its own content script, made of the four ownership files', () => {
-  assert.deepEqual(STORE_ORIGINS, ['https://store.steampowered.com/*', 'https://www.gog.com/*', 'https://www.humblebundle.com/*', 'https://www.fanatical.com/*']);
+  assert.deepEqual(STORE_ORIGINS, ['https://store.steampowered.com/*', 'https://www.gog.com/*', 'https://*.humblebundle.com/*', 'https://www.fanatical.com/*']);
   assert.deepEqual(scriptFor({ store: 'gog', host: 'www.gog.com' }), {
     id: 'ownership-gog',
     matches: ['https://www.gog.com/*'],

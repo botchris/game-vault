@@ -22,7 +22,7 @@ const PROCEDURE = '/gamevault.v1.OwnershipService/CheckOwnership';
 const SHEET = /^#\/game\/[A-Za-z0-9-]{1,64}$/;
 
 /** The host permission a store needs. */
-export const storeOrigin = (store) => `https://${store.host}/*`;
+export const storeOrigin = (store) => (store.domain ? `https://*.${store.domain}/*` : `https://${store.host}/*`);
 
 /** Every store's host permission, asked for together when the option is turned on. */
 export const STORE_ORIGINS = STORES.map(storeOrigin);
@@ -44,8 +44,8 @@ export async function grantedStores(api) {
 
 /** The store host permissions no sign-in needs: those no Game Vault address has a confirmed sign-in on. */
 export function removableOrigins(grants) {
-  const used = new Set(Object.values(grants ?? {}).flat());
-  return STORES.filter((s) => !used.has(s.host)).map(storeOrigin);
+  const used = Object.values(grants ?? {}).flat();
+  return STORES.filter((s) => !used.some((host) => globalThis.gvOwnership.storeHasHost(s, host))).map(storeOrigin);
 }
 
 /**
