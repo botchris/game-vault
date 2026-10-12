@@ -15,7 +15,7 @@ metadata:
 - **Fallback for every game (2026-10-11, maintainer's decision):** the cover fallback pass runs
   whenever the first pass found nothing, not only for games with store links; the providers asked in
   the first pass are skipped, so TheGamesDB (first pass for link-less games) spends nothing more.
-  The Choose cover dialog asks the fallback providers when the first round has no candidate. On
+  The Choose cover dialog always asks the fallback providers too (since 2026-10-12). On
   that pass: **Steam** searches its store by title for PC editions without an AppID (only exact
   `game.MatchKey`, one app; never stored as a link; 429 → rate limit) and **IGDB** (DefaultOrder 85,
   `Applies` = `q.Fallback`, starts disabled (needs credentials), silent without them) gives the
@@ -78,3 +78,9 @@ metadata:
   fallback pass only, never `LinksOnly`, disabled by default behind a risk consent and the user's
   key; `coverLogicChanged` not bumped (enabling a provider already forgets the misses). See
   [[steamgriddb]].
+- **Picker and exact titles (2026-10-12, maintainer's ruling):** Choose cover always asks the
+  fallback-pass providers too (one request each per opening; first-pass candidates first, then the
+  fallback ones, each in chain order; cached per edition while the dialog is open); automatic
+  resolution unchanged. Exact title matches (Steam incl. FindLinks, IGDB, Wikipedia, SteamGridDB,
+  TheGamesDB) use `game.SameTitle`: word lists compared, case/accents/punctuation ignored, "&" = "and"
+  ("A - B" = "A: B", "Re-Volt" ≠ "Revolt", "F.E.A.R." ≠ "Fear"; empty never equal).

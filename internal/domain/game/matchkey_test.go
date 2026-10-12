@@ -81,3 +81,33 @@ func TestNormalizeTitle(t *testing.T) {
 		assert.Equal(t, want, NormalizeTitle(title), title)
 	}
 }
+
+func TestSameTitle(t *testing.T) {
+	for _, tc := range []struct {
+		a    string
+		b    string
+		want bool
+	}{
+		{"Example - A Wild Adventure", "Example: A Wild Adventure", true},
+		{"EXAMPLE QUEST™", "Example Quest", true},
+		{"Example Quest: Part 2", "Example Quest Part 2", true},
+		{"Pokémon Example", "Pokemon Example", true},
+		{"Example Remastered", "Example", false},
+		{"Doom (2016)", "Doom", false},
+		{"Example Quest 2", "Example Quest", false},
+		{"Re-Volt", "Revolt", false},
+		{"F.E.A.R.", "Fear", false},
+		{"Hit Man", "Hitman", false},
+		{"Ratchet & Clank", "Ratchet and Clank", true},
+		{"Señor Café", "senor cafe", true},
+		{"Ørn", "Orn", true},
+		{"Bjæl Straße", "bjael strasse", true},
+		{"Łódź Quest", "Lodz Quest", true},
+		{"ファイナルクエスト", "ドラゴンクエスト", false},
+		{"ファイナル・クエスト", "ファイナル クエスト", true},
+		{"", "", false},
+		{"!!!", "???", false},
+	} {
+		assert.Equal(t, tc.want, SameTitle(tc.a, tc.b), "%q vs %q", tc.a, tc.b)
+	}
+}

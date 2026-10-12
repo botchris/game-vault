@@ -261,8 +261,8 @@ func (d *Details) findGame(ctx context.Context, q media.CoverQuery, lang string)
 }
 
 // candidates searches Wikidata for items labeled (or also known as) the game's name, in English and
-// in the UI language, and keeps those whose matched name is the title: exactly (ignoring case and
-// punctuation, reported in exact) or as game.MatchKey compares titles. The name searched is the title
+// in the UI language, and keeps those whose matched name is the title: exactly (ignoring case, accents
+// and punctuation, reported in exact) or as game.MatchKey compares titles. The name searched is the title
 // without edition and store tags (game.SearchTitle: Wikidata labels "Example West", not the
 // "GOTY" disc); only when it finds no candidate is the raw title searched too.
 func (d *Details) candidates(ctx context.Context, title, lang string) (ids []string, exact map[string]bool, err error) {
@@ -286,7 +286,7 @@ func (d *Details) candidates(ctx context.Context, title, lang string) (ids []str
 			}
 
 			for _, h := range hits {
-				strict := strictTitle(h.Label, title) || strictTitle(h.Match.Text, title)
+				strict := game.SameTitle(h.Label, title) || game.SameTitle(h.Match.Text, title)
 				if !strict && !looseTitle(h.Label, title) && !looseTitle(h.Match.Text, title) {
 					continue
 				}
@@ -670,15 +670,6 @@ func pick(labels map[string]string, ids []string) []string {
 	}
 
 	return out
-}
-
-var reNonAlnum = regexp.MustCompile(`[^\p{L}\p{N}]+`)
-
-// strictTitle compares titles ignoring case and punctuation only.
-func strictTitle(a, b string) bool {
-	strict := func(s string) string { return reNonAlnum.ReplaceAllString(strings.ToLower(s), "") }
-
-	return a != "" && b != "" && strict(a) == strict(b)
 }
 
 // looseTitle compares titles as game.MatchKey does (edition tags, trademarks and accents ignored).

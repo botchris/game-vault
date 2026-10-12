@@ -138,6 +138,24 @@ func TestCovers_titleSearch(t *testing.T) {
 		})
 	})
 
+	t.Run("GIVEN a title with ' - ' where the store names the game with ': '", func(t *testing.T) {
+		s, _ := titleSearchStore(t, map[string]string{
+			"Example - A Wild Adventure": `[{"type":"app","name":"Example: A Wild Adventure","id":4300,"tiny_image":"https://img.test/4300.jpg"}]`,
+		}, 0)
+
+		t.Run("WHEN its covers are asked", func(t *testing.T) {
+			q := pcKey
+			q.Title = "Example - A Wild Adventure"
+			got, err := s.Covers(ctx, q, schema.Settings{})
+			require.NoError(t, err)
+
+			t.Run("THEN it is the same title: only the punctuation differs", func(t *testing.T) {
+				require.NotEmpty(t, got)
+				assert.Equal(t, "https://legacy.test/steam/apps/4300/library_600x900.jpg", got[0].URL)
+			})
+		})
+	})
+
 	t.Run("GIVEN titles the store has only inexactly, or twice", func(t *testing.T) {
 		s, _ := titleSearchStore(t, map[string]string{
 			"Example Quest": `[{"type":"app","name":"Example Quest 2","id":4244}]`,

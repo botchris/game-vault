@@ -155,3 +155,27 @@ func TestCovers(t *testing.T) {
 		})
 	})
 }
+
+func TestPick_punctuation(t *testing.T) {
+	t.Run("GIVEN search results named with ': ' for a title written with ' - '", func(t *testing.T) {
+		games := []gameJSON{
+			{
+				ID:   1,
+				Name: "Example: A Wild Adventure",
+			},
+			{
+				ID:   2,
+				Name: "Example: A Wild Adventure Remastered",
+			},
+		}
+
+		t.Run("WHEN the game is picked", func(t *testing.T) {
+			got := pick(games, "Example - A Wild Adventure")
+
+			t.Run("THEN it is the game with every word, whatever the punctuation", func(t *testing.T) {
+				require.NotNil(t, got)
+				assert.Equal(t, int64(1), got.ID)
+			})
+		})
+	})
+}

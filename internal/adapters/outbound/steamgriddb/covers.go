@@ -277,11 +277,11 @@ func (p *Covers) grids(ctx context.Context, key, path string) ([]gridJSON, error
 
 // findByTitle searches the game's title without its edition and store tags (game.SearchTitle),
 // which finds the game whatever the copy calls it, then the title as it is when that finds no match.
-// Among the results it keeps the one game named exactly like the copy (ignoring case and trademark
-// signs), or else like the copy without its store and key tags ("Example (Steam Key)"). Edition
-// words and years are never dropped for the match: "Example Remastered" or "Doom (2016)" is another
-// game than "Example" or "Doom", with another box. Two games with the name give nothing: a wrong box
-// is worse than none.
+// Among the results it keeps the one game named exactly like the copy (game.SameTitle: the same
+// words, ignoring case, accents and punctuation), or else like the copy without its store and key
+// tags ("Example (Steam Key)"). Edition words and years are never dropped for the match: "Example
+// Remastered" or "Doom (2016)" is another game than "Example" or "Doom", with another box. Two games
+// with the name give nothing: a wrong box is worse than none.
 func (p *Covers) findByTitle(ctx context.Context, key, title string) (*gameJSON, error) {
 	terms := []string{game.SearchTitle(title)}
 	if raw := game.NormalizeTitle(title); !strings.EqualFold(raw, terms[0]) {
@@ -316,7 +316,7 @@ func (p *Covers) findByTitle(ctx context.Context, key, title string) (*gameJSON,
 // store tags; nil when there is none or more than one.
 func pick(games []gameJSON, title string) *gameJSON {
 	names := []string{game.NormalizeTitle(title)}
-	if bare := withoutStoreTags(title); !strings.EqualFold(bare, names[0]) {
+	if bare := withoutStoreTags(title); !game.SameTitle(bare, names[0]) {
 		names = append(names, bare)
 	}
 
@@ -324,7 +324,7 @@ func pick(games []gameJSON, title string) *gameJSON {
 		var match *gameJSON
 
 		for i, g := range games {
-			if !sameTitle(g.Name, name) || (match != nil && match.ID == g.ID) {
+			if !game.SameTitle(g.Name, name) || (match != nil && match.ID == g.ID) {
 				continue
 			}
 
@@ -341,11 +341,6 @@ func pick(games []gameJSON, title string) *gameJSON {
 	}
 
 	return nil
-}
-
-// sameTitle compares titles ignoring case, trademark signs and repeated spaces.
-func sameTitle(a, b string) bool {
-	return strings.EqualFold(game.NormalizeTitle(a), game.NormalizeTitle(b))
 }
 
 // storeWords are what a seller adds to a key's title to say where it redeems or runs: stores,

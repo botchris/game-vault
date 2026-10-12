@@ -363,8 +363,6 @@ func (p *Provider) Covers(ctx context.Context, q media.CoverQuery, s schema.Sett
 		thumb = large
 	}
 
-	want, wantStrict := game.MatchKey(q.Title), strictKey(q.Title)
-
 	var strict, exact, others []media.CoverCandidate
 
 	for _, g := range out.Data.Games {
@@ -390,9 +388,9 @@ func (p *Provider) Covers(ctx context.Context, q media.CoverQuery, s schema.Sett
 				Provider: ID,
 			}
 			switch {
-			case strictKey(g.Title) == wantStrict:
+			case game.SameTitle(g.Title, q.Title):
 				strict = append(strict, c)
-			case game.MatchKey(g.Title) == want:
+			case sameMatchKey(g.Title, q.Title):
 				exact = append(exact, c) // same game, other release: "[Platinum]", "(PAL)"...
 			default:
 				others = append(others, c)
@@ -407,6 +405,10 @@ func (p *Provider) Covers(ctx context.Context, q media.CoverQuery, s schema.Sett
 	return all[:min(len(all), maxCandidates)], nil
 }
 
-// strictKey compares titles ignoring case and punctuation only, so "Call of Duty: Modern Warfare 2"
-// equals "Call Of Duty Modern Warfare 2" but not "... (Platinum)".
-func strictKey(title string) string { return norm(title) }
+// sameMatchKey compares titles as game.MatchKey does (edition tags ignored), never calling two titles
+// the same when neither has a key: titles in other scripts reduce to an empty one.
+func sameMatchKey(a, b string) bool {
+	k := game.MatchKey(a)
+
+	return k != "" && k == game.MatchKey(b)
+}

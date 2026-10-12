@@ -266,7 +266,7 @@ func (c *Client) searchTitle(ctx context.Context, s schema.Settings, q media.Cov
 // pick chooses the game titled title among search results (see findByTitle).
 func pick(games []gameJSON, title string) *gameJSON {
 	for _, same := range []func(string) bool{
-		func(t string) bool { return strictKey(t) == strictKey(title) },
+		func(t string) bool { return game.SameTitle(t, title) },
 		func(t string) bool { return game.MatchKey(t) == game.MatchKey(title) },
 	} {
 		var matches []gameJSON
@@ -288,12 +288,6 @@ func pick(games []gameJSON, title string) *gameJSON {
 
 	return nil
 }
-
-var reNonAlnum = regexp.MustCompile(`[^a-z0-9]+`)
-
-// strictKey compares titles ignoring case and punctuation only, so "Example Quest: Part 2" equals
-// "Example Quest Part 2" but not "Example Quest (Remastered)".
-func strictKey(title string) string { return reNonAlnum.ReplaceAllString(strings.ToLower(title), "") }
 
 // imageURL is the address of an IGDB image in a size ("cover_big", "screenshot_big", "1080p").
 func imageURL(size, imageID string) string {

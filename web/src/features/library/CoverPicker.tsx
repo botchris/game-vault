@@ -6,6 +6,7 @@ import { Icon } from '../../components/Icon';
 import { Alert, Modal } from '../../components/ui';
 import type { Game } from '../../gen/gamevault/v1/game_pb';
 import type { CoverCandidate } from '../../gen/gamevault/v1/provider_pb';
+import { cachedRequest } from '../../lib/requestCache';
 import { googleImagesUrl, imageFromTransfer, isHttpUrl, isSmallPreview, steamGridDbUrl, type DroppedImage } from '../../lib/coverSearch';
 
 /** What the picker chose for the edition's cover (SetEditionCoverRequest.cover). */
@@ -15,8 +16,7 @@ export type CoverChoice = { case: 'url'; value: string } | { case: 'photoId'; va
  * "Choose cover", Plex style, for one edition of the game: the photos of the edition's copies, then
  * what every enabled provider proposes for its system, then an image address to paste. Picking one
  * pins it as that edition's cover; "Automatic" clears the pin and lets the provider chain decide.
- * Two links search Google Images and SteamGridDB in a new tab (the server never queries them: their
- * terms forbid it); an image dragged from that tab, or its address pasted anywhere in the picker,
+ * Two links search Google Images and SteamGridDB's site in a new tab; an image dragged from that tab, or its address pasted anywhere in the picker,
  * fills the address field, previewed by the browser before the server downloads it.
  */
 export default function CoverPicker({ game, system, photosOnly = false, onPick, onClose }: {
@@ -49,6 +49,9 @@ export default function CoverPicker({ game, system, photosOnly = false, onPick, 
   const [previewSrc, setPreviewSrc] = useState('');
   const [failedSrc, setFailedSrc] = useState('');
   const urlInput = useRef<HTMLInputElement>(null);
+  // Candidates per edition for the dialog's life: StrictMode's second effect run and switching back
+  // to an edition reuse the answer instead of spending provider quota again.
+  const requests = useRef(new Map<string, ReturnType<typeof coverClient.listCoverCandidates>>());
   const valid = isHttpUrl(pasted);
   const smallHint = onlyPreview || (pasted.trim() !== '' && isSmallPreview(pasted));
 
@@ -102,9 +105,11 @@ export default function CoverPicker({ game, system, photosOnly = false, onPick, 
 
   useEffect(() => {
     if (photosOnly) return;
-    coverClient.listCoverCandidates({ gameId: game.id, system })
-      .then((res) => { setCandidates(res.candidates); setWarnings(res.warnings); setUnavailable(res.providersUnavailable); })
-      .catch((e) => setError(errorMessage(e)));
+    let current = true; // a later edition's answer, or an unmounted dialog, ignores this one
+    cachedRequest(requests.current, `${game.id}\u0000${system}`, () => coverClient.listCoverCandidates({ gameId: game.id, system }))
+      .then((res) => { if (current) { setCandidates(res.candidates); setWarnings(res.warnings); setUnavailable(res.providersUnavailable); } })
+      .catch((e) => { if (current) setError(errorMessage(e)); });
+    return () => { current = false; };
   }, [game.id, system, photosOnly]);
 
   return (

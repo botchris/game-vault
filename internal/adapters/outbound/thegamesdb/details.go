@@ -261,8 +261,8 @@ func (g tgdbGame) richness() int {
 // edition tags), the most complete one. Entries for other games are never used.
 func pickGame(games []tgdbGame, title string) (tgdbGame, bool) {
 	for _, same := range []func(string) bool{
-		func(t string) bool { return strictKey(t) == strictKey(title) },
-		func(t string) bool { return game.MatchKey(t) == game.MatchKey(title) },
+		func(t string) bool { return game.SameTitle(t, title) },
+		func(t string) bool { return sameMatchKey(t, title) },
 	} {
 		best, found := tgdbGame{}, false
 		for _, g := range games {

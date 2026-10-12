@@ -21,7 +21,12 @@ import (
 )
 
 // countingStore has art for the PC edition of games linked to Steam, like the Steam store.
-type countingStore struct{ calls atomic.Int32 }
+type countingStore struct {
+	calls atomic.Int32
+
+	// fallbackAsked records whether it was ever asked with the fallback pass's query.
+	fallbackAsked atomic.Bool
+}
 
 func (*countingStore) Descriptor() provider.Descriptor {
 	return provider.Descriptor{
@@ -42,6 +47,10 @@ func (*countingStore) Applies(q media.CoverQuery) bool {
 func (s *countingStore) Covers(_ context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	s.calls.Add(1)
 
+	if q.Fallback {
+		s.fallbackAsked.Store(true)
+	}
+
 	return []media.CoverCandidate{{
 		URL:      "https://img.test/store-" + q.Links[game.LinkSteam],
 		Provider: "store",
@@ -55,6 +64,9 @@ type quotaArt struct {
 
 	// exhausted makes it answer that its allowance is used up.
 	exhausted atomic.Bool
+
+	// art makes it find a box.
+	art atomic.Bool
 }
 
 func (*quotaArt) Descriptor() provider.Descriptor {
@@ -78,6 +90,13 @@ func (a *quotaArt) Covers(context.Context, media.CoverQuery, schema.Settings) ([
 
 	if a.exhausted.Load() {
 		return nil, provider.ErrQuotaExhausted
+	}
+
+	if a.art.Load() {
+		return []media.CoverCandidate{{
+			URL:      "https://img.test/quota",
+			Provider: "quota",
+		}}, nil
 	}
 
 	return nil, nil
@@ -227,13 +246,53 @@ func TestCovers_fallbackForGamesWithoutLinks(t *testing.T) {
 		})
 
 		t.Run("WHEN its cover candidates are listed", func(t *testing.T) {
+			env.quota.art.Store(true)
+
 			candidates, _, _, err := env.svc.CoverCandidates(ctx, g.ID(), game.SystemPC)
 			require.NoError(t, err)
 
-			t.Run("THEN only the store is offered, so no quota is spent", func(t *testing.T) {
-				require.Len(t, candidates, 1)
-				assert.Equal(t, provider.ID("store"), candidates[0].Provider)
-				assert.Zero(t, env.quota.calls.Load())
+			t.Run("THEN the fallback providers are offered too, after the store's art", func(t *testing.T) {
+				ids := make([]provider.ID, 0, len(candidates))
+				for _, c := range candidates {
+					ids = append(ids, c.Provider)
+				}
+
+				assert.Equal(t, []provider.ID{"store", "quota", "per-game"}, ids)
+			})
+
+			t.Run("AND each provider is asked once: one request of the quota per picker", func(t *testing.T) {
+				assert.Equal(t, int32(1), env.quota.calls.Load())
+				assert.Equal(t, int32(1), env.perGame.calls.Load())
+			})
+
+			t.Run("AND the store, which applies to the first pass, gets the first pass's query", func(t *testing.T) {
+				assert.False(t, env.store.fallbackAsked.Load())
+			})
+		})
+	})
+}
+
+func TestCoverCandidates_providerOnBothPasses(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a disc, which the quota-limited provider applies to on both passes", func(t *testing.T) {
+		env := newFallbackEnv(t, ctx)
+		env.quota.art.Store(true)
+		g := saveGame(t, ctx, env.games, "Disc Quest", nil, game.CopyDetails{
+			Kind:     game.KindPhysical,
+			Platform: "PS4",
+		})
+
+		t.Run("WHEN its cover candidates are listed", func(t *testing.T) {
+			candidates, _, _, err := env.svc.CoverCandidates(ctx, g.ID(), "PS4")
+			require.NoError(t, err)
+
+			t.Run("THEN it is asked once, its box first, then the fallback-only provider's", func(t *testing.T) {
+				assert.Equal(t, int32(1), env.quota.calls.Load())
+				require.Len(t, candidates, 2)
+				assert.Equal(t, provider.ID("quota"), candidates[0].Provider)
+				assert.Equal(t, provider.ID("per-game"), candidates[1].Provider)
 			})
 		})
 	})

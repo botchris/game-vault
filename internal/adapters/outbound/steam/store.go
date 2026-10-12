@@ -178,9 +178,9 @@ func (s *Store) Covers(ctx context.Context, q media.CoverQuery, _ schema.Setting
 var modernSystems = []string{game.SystemPC, "PS4", "PS5", "Xbox One", "Xbox Series", "Switch"}
 
 // FindLinks implements media.LinkFinder: for a game not linked to Steam, with a copy on PC or a
-// modern console (or no copies), the AppID of the only store app with exactly its title (ignoring
-// case and trademark signs, not game.MatchKey: a saved link must not be a remaster), as its Steam
-// link.
+// modern console (or no copies), the AppID of the only store app with exactly its title
+// (game.SameTitle: the same words, ignoring case, accents and punctuation; never game.MatchKey: a
+// saved link must not be a remaster), as its Steam link.
 func (s *Store) FindLinks(ctx context.Context, q media.CoverQuery, _ schema.Settings) (game.Links, error) {
 	if AppIDOf(q) != 0 || !modernEnough(q) {
 		return nil, nil
@@ -238,8 +238,8 @@ func (s *Store) appIDByTitle(ctx context.Context, title string) (int64, error) {
 }
 
 // uniqueApp searches the store for term and returns the AppID of the only app titled title: exactly
-// (ignoring case and trademark signs), or, when none is and loose, by game.MatchKey; 0 when none or
-// several.
+// (game.SameTitle: the same words, ignoring case, accents and punctuation), or, when none is and
+// loose, by game.MatchKey; 0 when none or several.
 func (s *Store) uniqueApp(ctx context.Context, term, title string, loose bool) (int64, error) {
 	matches, err := s.SearchLinks(ctx, term)
 
@@ -257,7 +257,7 @@ func (s *Store) uniqueApp(ctx context.Context, term, title string, loose bool) (
 
 	matchers := []func(string) bool{
 		func(name string) bool {
-			return strings.EqualFold(game.NormalizeTitle(name), game.NormalizeTitle(title))
+			return game.SameTitle(name, title)
 		},
 	}
 	if loose {

@@ -208,6 +208,38 @@ func SearchTitle(title string) string {
 	return s
 }
 
+// reNotLetterOrDigit matches what separates the words SameTitle compares.
+var reNotLetterOrDigit = regexp.MustCompile(`[^\p{L}\p{N}]+`)
+
+// letterFolds maps the letters that do not decompose into a base letter and an accent.
+var letterFolds = strings.NewReplacer("ø", "o", "æ", "ae", "œ", "oe", "ß", "ss", "ł", "l", "đ", "d", "ð", "d", "þ", "th", "ı", "i")
+
+// SameTitle reports whether two titles name the same game exactly: the same words in the same
+// order, ignoring case, accents, trademark signs, punctuation and spacing ("&" counts as "and").
+// "Example - A Wild Adventure" is "Example: A Wild Adventure", but every word and number counts
+// and words are not glued together: "Example Remastered" is not "Example", "Doom (2016)" is not
+// "Doom", "Re-Volt" is not "Revolt". Titles without any word are never the same. Providers use it
+// to match a search result to a game; MatchKey is the looser comparison that also ignores edition
+// and store tags.
+func SameTitle(a, b string) bool {
+	wa, wb := titleWords(a), titleWords(b)
+
+	return len(wa) > 0 && slices.Equal(wa, wb)
+}
+
+// titleWords returns the words SameTitle compares: lower case, without accents, split on anything
+// but letters and digits.
+func titleWords(title string) []string {
+	s := strings.ToLower(reTrademarks.ReplaceAllString(title, ""))
+	if t, _, err := transform.String(stripMarks(), s); err == nil {
+		s = t
+	}
+
+	s = strings.ReplaceAll(letterFolds.Replace(s), "&", " and ")
+
+	return strings.Fields(reNotLetterOrDigit.ReplaceAllString(s, " "))
+}
+
 // MatchKey reduces a title to a comparable form, e.g. "Celeste™ (Steam Key)" → "celeste" and
 // "Hades GOG Key" → "hades": the store a key is for is not part of the game's name.
 // Two titles with the same match key are treated as the same game when consolidating.
