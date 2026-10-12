@@ -5,7 +5,8 @@
 //     NPSSO token it shows;
 //  2. the NPSSO gives an authorization code, exchanged for a session (a refresh token);
 //  3. scans read the games bought with the account (PS4 and PS5, no PS Plus games) from the
-//     GraphQL API of PlayStation's game library website.
+//     GraphQL API of PlayStation's game library website, and leave out apps, demos, soundtracks
+//     and videos (see nongames.go).
 //
 // It only reads: nothing is bought, downloaded or changed in the account.
 package playstation
@@ -16,6 +17,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -100,19 +102,28 @@ type accessToken struct {
 type Provider struct {
 	AuthURL    string
 	LibraryURL string
-	Client     *http.Client
-	Now        func() time.Time
+
+	// GameListURL is the PlayStation app's played-titles list, read to tell games from apps.
+	GameListURL string
+
+	Client *http.Client
+	Now    func() time.Time
+
+	// Log receives the titles left out as non-games. Optional.
+	Log *slog.Logger
 
 	mu     gosync.Mutex
 	tokens map[string]accessToken // refresh token → access token
 }
 
 // NewProvider returns the PlayStation source with its production endpoints.
-func NewProvider() *Provider {
+func NewProvider(log *slog.Logger) *Provider {
 	return &Provider{
-		AuthURL:    defaultAuthURL,
-		LibraryURL: defaultLibraryURL,
-		Now:        time.Now,
+		AuthURL:     defaultAuthURL,
+		LibraryURL:  defaultLibraryURL,
+		GameListURL: defaultGameListURL,
+		Now:         time.Now,
+		Log:         log,
 		Client: &http.Client{
 			Timeout: 30 * time.Second,
 			// The authorization step answers with a redirect to the app's custom scheme: read it, do not follow it.
@@ -390,12 +401,7 @@ func (p *Provider) page(ctx context.Context, token, hash string, start int) ([]t
 
 var errQueryRetired = errors.New("playstation library: the library query is no longer registered by Sony")
 
-func (p *Provider) purchased(ctx context.Context, settings source.Settings) ([]title, error) {
-	token, err := p.accessToken(ctx, settings)
-	if err != nil {
-		return nil, err
-	}
-
+func (p *Provider) purchased(ctx context.Context, token string) ([]title, error) {
 	var lastErr error
 
 	for _, hash := range purchasedQueryHashes {
@@ -453,11 +459,11 @@ func platformName(p string) string {
 }
 
 // mapTitles turns purchased titles into copies, one per game and platform; PS Plus games and
-// inactive entitlements are left out.
-func mapTitles(titles []title) []game.ImportedCopy {
+// inactive entitlements are left out. Titles that are not games (named so, or found in nonGames)
+// are reported as withdrawn, so a copy imported before they were told apart is removed, and their
+// names are listed in skipped.
+func mapTitles(titles []title, nonGames *nonGameIndex) (out []game.ImportedCopy, skipped []string) {
 	seen := map[string]bool{}
-
-	var out []game.ImportedCopy
 
 	for _, t := range titles {
 		name := strings.TrimSpace(t.Name)
@@ -483,6 +489,18 @@ func mapTitles(titles []title) []game.ImportedCopy {
 		}
 
 		seen[id] = true
+
+		if nonGameName(name) || (nonGames != nil && nonGames.has(t)) {
+			out = append(out, game.ImportedCopy{
+				ExternalID: "psn:" + id,
+				Title:      name,
+				Withdrawn:  true,
+			})
+			skipped = append(skipped, name)
+
+			continue
+		}
+
 		platform := platformName(t.Platform)
 
 		// The system is set on purpose although it equals the platform's system: Sony says which
@@ -508,26 +526,40 @@ func mapTitles(titles []title) []game.ImportedCopy {
 
 	sort.Slice(out, func(i, j int) bool { return out[i].Title < out[j].Title })
 
-	return out
+	return out, skipped
 }
 
-// Test implements sync.Provider.
+// Test implements sync.Provider: it signs in and reads the purchases, without the played titles.
 func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
-	_, _, err := p.Fetch(ctx, settings)
+	token, err := p.accessToken(ctx, settings)
+	if err != nil {
+		return err
+	}
+
+	_, err = p.purchased(ctx, token)
+
 	return err
 }
 
 // Fetch implements sync.Provider.
 func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.ImportedCopy, []string, error) {
-	titles, err := p.purchased(ctx, settings)
+	token, err := p.accessToken(ctx, settings)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	copies := mapTitles(titles)
+	titles, err := p.purchased(ctx, token)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	copies, skipped := mapTitles(titles, p.playedNonGames(ctx, token))
+	if len(skipped) > 0 && p.Log != nil {
+		p.Log.Info("playstation: skipped titles that are not games", "count", len(skipped), "titles", strings.Join(skipped, "; "))
+	}
 
 	var warnings []string
-	if len(copies) == 0 {
+	if len(copies) == len(skipped) {
 		warnings = append(warnings, "PlayStation returned no games bought with this account (PS Plus games are not imported)")
 	}
 
