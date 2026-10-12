@@ -263,17 +263,17 @@
     "testing": "Testing…",
     "syncingHint": "Large accounts can take a few minutes; progress is written to the server log.",
     "epic": {
-      "description": "Imports the games in your Epic Games Store library, including the free weekly games you claimed. It signs in like the Epic launcher does (the same way Heroic and Legendary work) and only reads your library.",
+      "description": "Imports the games in your Epic Games Store library, including the free weekly games you claimed. It signs in like the Epic launcher does and only reads your library.",
       "authCode": "Authorization code",
       "authCodeHelp": "1. Open the page above and sign in to Epic. If Epic emails you a sign-in code, it goes on Epic's page, not here.\n2. Epic then shows a short text. Copy the value of `authorizationCode` (32 letters and digits), or the whole text, and paste it here.\n3. Press Test connection or Save right away: codes work once and expire within minutes.\nOnly needed the first time, or if the session expires after a long time without scans."
     },
     "gog": {
-      "description": "Imports the games in your GOG library. It signs in like the GOG Galaxy client does (the same way Heroic and Playnite work) and only reads your library.",
+      "description": "Imports the games in your GOG library. It signs in like the GOG Galaxy client does and only reads your library.",
       "authCode": "Login code",
       "authCodeHelp": "1. Open the page above and sign in to GOG.\n2. GOG then opens an almost blank page whose address starts with `embed.gog.com/on_login_success`.\n3. Copy that whole address from the address bar and paste it here (or just the part after `code=`).\n4. Press Test connection or Save right away: codes work once and expire quickly.\nOnly needed the first time, or if the session expires."
     },
     "battlenet": {
-      "description": "Imports the games in your Battle.net account (Blizzard and Activision titles, including classic games like Diablo II). Battle.net has no public library API and its sign-in has a captcha, so it reuses your browser's session on account.battle.net, the way Playnite does. It only reads your account.",
+      "description": "Imports the games in your Battle.net account (Blizzard and Activision titles, including classic games like Diablo II). Battle.net has no public library API and its sign-in has a captcha, so it reuses your browser's session on account.battle.net. It only reads your account.",
       "cookies": "Cookies of account.battle.net",
       "cookiesHelp": "1. Open the page above and sign in to Battle.net.\n2. Open DevTools (F12, or Cmd+Option+I on a Mac) → Network, and reload the page.\n3. Click the first request (`overview`) → Headers → Request Headers → `Cookie`.\n4. Right-click its value → Copy value, and paste it here.\nGame Vault renews the session by itself: paste new cookies only if a scan says you are signed out."
     },
@@ -283,12 +283,12 @@
       "cookiesHelp": "1. Sign in on ea.com in your browser.\n2. Open the page above. It should show a short text with `access_token`; if it says `login_required`, you are not signed in.\n3. Open DevTools (F12, or Cmd+Option+I on a Mac) → Network, and reload the page.\n4. Click the `auth?client_id=…` request → Headers → Request Headers → `Cookie`.\n5. Right-click its value → Copy value, and paste it here.\nNever share that page or the cookies: they give access to your EA account."
     },
     "ubisoft": {
-      "description": "Imports the PC games in your Ubisoft Connect library (console games linked to the account are skipped). Ubisoft has no public library API and its sign-in has a captcha, so it reuses the session of Ubisoft's website, the way Lutris does. It only reads your account.",
+      "description": "Imports the PC games in your Ubisoft Connect library (console games linked to the account are skipped). Ubisoft has no public library API and its sign-in has a captcha, so it reuses the session of Ubisoft's website. It only reads your account.",
       "loginData": "Login data of connect.ubisoft.com",
       "loginDataHelp": "1. Open the page above in a private window and sign in to Ubisoft with \"Remember me\" ticked. A private window keeps this login apart from your normal browser session: Ubisoft replaces the remember-me ticket every time Game Vault uses it, which would sign that browser out.\n2. On that page, open DevTools (F12, or Cmd+Option+I on a Mac) → Application → Local Storage → `https://connect.ubisoft.com`.\n3. Click the `PRODrememberMe` entry and copy its whole value.\n4. Paste it here, then close the private window without signing out (signing out would revoke the ticket).\nPaste a value once: after Game Vault uses it, the copied value stops working and Game Vault keeps the new ticket by itself. Never share that value: it gives access to your Ubisoft account."
     },
     "xbox": {
-      "description": "Imports the games your Microsoft account owns in the Microsoft Store / Xbox (purchases and redeemed codes, for console and PC). Game Pass games, trials and add-ons are skipped. It signs in like the Xbox app does (the way Playnite works) and only reads your account.",
+      "description": "Imports the games your Microsoft account owns in the Microsoft Store / Xbox (purchases and redeemed codes, for console and PC). Game Pass games, trials and add-ons are skipped. It signs in like the Xbox app does and only reads your account.",
       "code": "Sign-in address",
       "codeHelp": "1. Open the page above and sign in with your Microsoft account (the one you use on Xbox).\n2. Microsoft then opens an almost blank page whose address starts with `login.live.com/oauth20_desktop.srf?code=`.\n3. Copy that whole address from the address bar and paste it here (or just the part after `code=`).\n4. Press Test connection or Save right away: codes work once and expire within minutes.\nOnly needed the first time, or if the session expires after a long time without scans. Never share that address: it gives access to your Microsoft account."
     },
@@ -321,7 +321,7 @@
       "itch": "Games you bought or claimed, with a personal API key"
     },
     "amazon": {
-      "description": "Imports the games in your Amazon Games library: the ones you bought and the ones you claimed with Prime Gaming. It signs in like the Amazon Games launcher does (the way Heroic and nile work) and only reads your library. Prime Gaming codes for other stores (GOG, Epic…) are not part of it: those games appear when you scan that store.",
+      "description": "Imports the games in your Amazon Games library: the ones you bought and the ones you claimed with Prime Gaming. It signs in like the Amazon Games launcher does and only reads your library. Prime Gaming codes for other stores (GOG, Epic…) are not part of it: those games appear when you scan that store.",
       "code": "Address after signing in",
       "codeHelp": "1. Open the page above and sign in to Amazon.\n2. You land on amazon.com: copy the whole address from the browser's address bar (it contains `openid.oa2.authorization_code=`) and paste it here.\n3. Press Test connection or Save right away: the address works once and expires within minutes.\nThe link is new every time Game Vault starts: if it fails, reload this page and open it again.\nGame Vault appears as an Amazon Games device in your Amazon account; removing it there signs Game Vault out."
     },
@@ -329,7 +329,7 @@
     "fanatical": {
       "description": "Imports the game keys you bought on Fanatical, with the store each key is for (Steam, Epic, GOG…), its redeem deadline and the key itself once you have revealed it on Fanatical. Read-only: keys are never revealed or redeemed. DLC, software, books, audio and vouchers are not imported.",
       "consent": "I understand the risk and use this at my own responsibility",
-      "consentHelp": "Fanatical has no official way for other apps to read your account, and its Terms and Conditions do not allow it: they forbid to \"take data from our website for your or third party databases or data harvests without our consent\". Game Vault reads your key list the way the Playnite Fanatical plugin does. Fanatical could consider this a breach of its terms and suspend or close your account.\nGame Vault only reads, once per scan, and scans only when you ask unless you schedule it. The authors of Game Vault are not responsible for what Fanatical does with your account. If you are not comfortable with that, do not add this source.",
+      "consentHelp": "Fanatical has no official way for other apps to read your account, and its Terms and Conditions do not allow it: they forbid to \"take data from our website for your or third party databases or data harvests without our consent\". Game Vault reads your key list with your own session, the way the website does. Fanatical could consider this a breach of its terms and suspend or close your account.\nGame Vault only reads, once per scan, and scans only when you ask unless you schedule it. The authors of Game Vault are not responsible for what Fanatical does with your account. If you are not comfortable with that, do not add this source.",
       "session": "Session data (bsauth)",
       "sessionHelp": "1. Open the page above and sign in to Fanatical.\n2. Open DevTools (F12, or Cmd+Option+I on a Mac) → Application → Local Storage → `https://www.fanatical.com`.\n3. Copy the value of `bsauth` (it starts with `{\"authenticated\":true`) and paste it here.\nThe session expires after a while: paste a new value when scans say you are signed out. Never share it: it gives access to your Fanatical account."
     },
@@ -423,7 +423,7 @@
   },
   "providers": {
     "title": "Metadata providers",
-    "intro": "Like Plex agents: for each kind of data, enabled providers are tried from top to bottom and the first one with an answer wins. The others act as fallbacks.",
+    "intro": "For each kind of data, enabled providers are tried from top to bottom and the first one with an answer wins. The others act as fallbacks.",
     "covers": "Covers",
     "coversIntro": "Each provider only applies to the games it can cover, so keyed providers do not spend their quota on games another source covers better.",
     "custom": {
@@ -503,7 +503,7 @@
     "steamgriddb": {
       "description": "Community-made box art from SteamGridDB, at your own risk: its terms forbid automated use. Asked last, only for editions no other provider had art for, by Steam AppID or by exact title, one request a second. Covers are fan-made portrait grids, labelled as community art. Needs your own free API key and starts off.",
       "consent": "I understand the risk and use this at my own responsibility",
-      "consentHelp": "SteamGridDB offers an API with personal keys, but its Terms of Use only allow personal, non-commercial use \"solely as permitted by the normal functionality of the Service\", and forbid you to \"make any automated use of the Site, the Service or the related systems\". Game Vault looks up covers through that API the way open-source launchers such as Playnite, Heroic and Lutris do. SteamGridDB could consider this a breach of its terms and revoke your key or suspend your account.\nGame Vault only reads, one request at a time and at most one a second, and only for games no other provider had a cover for. The authors of Game Vault are not responsible for what SteamGridDB does with your key or account. If you are not comfortable with that, leave this provider off.",
+      "consentHelp": "SteamGridDB offers an API with personal keys, but its Terms of Use only allow personal, non-commercial use \"solely as permitted by the normal functionality of the Service\", and forbid you to \"make any automated use of the Site, the Service or the related systems\". Game Vault looks up covers through that API with your key. SteamGridDB could consider this a breach of its terms and revoke your key or suspend your account.\nGame Vault only reads, one request at a time and at most one a second, and only for games no other provider had a cover for. The authors of Game Vault are not responsible for what SteamGridDB does with your key or account. If you are not comfortable with that, leave this provider off.",
       "apiKey": "API key",
       "apiKeyHelp": "1. Open steamgriddb.com and sign in with Steam.\n2. Open Preferences → API (the page above).\n3. Choose Generate API Key and copy the key here.\nNever share it: it acts on your SteamGridDB account."
     },

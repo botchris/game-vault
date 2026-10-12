@@ -263,17 +263,17 @@
     "testing": "Probando…",
     "syncingHint": "Las cuentas grandes pueden tardar unos minutos; el progreso se escribe en el log del servidor.",
     "epic": {
-      "description": "Importa los juegos de tu biblioteca de Epic Games Store, incluidos los gratuitos semanales que hayas reclamado. Inicia sesión igual que el launcher de Epic (como hacen Heroic y Legendary) y solo lee tu biblioteca.",
+      "description": "Importa los juegos de tu biblioteca de Epic Games Store, incluidos los gratuitos semanales que hayas reclamado. Inicia sesión igual que el launcher de Epic y solo lee tu biblioteca.",
       "authCode": "Código de autorización",
       "authCodeHelp": "1. Abre la página de arriba e inicia sesión en Epic. Si Epic te manda un código por email, ese va en la página de Epic, no aquí.\n2. Epic muestra entonces un texto corto. Copia el valor de `authorizationCode` (32 letras y números), o el texto entero, y pégalo aquí.\n3. Pulsa Probar conexión o Guardar enseguida: los códigos sirven una vez y caducan en minutos.\nSolo hace falta la primera vez, o si la sesión caduca tras mucho tiempo sin escanear."
     },
     "gog": {
-      "description": "Importa los juegos de tu biblioteca de GOG. Inicia sesión igual que el cliente GOG Galaxy (como hacen Heroic y Playnite) y solo lee tu biblioteca.",
+      "description": "Importa los juegos de tu biblioteca de GOG. Inicia sesión igual que el cliente GOG Galaxy y solo lee tu biblioteca.",
       "authCode": "Código de inicio de sesión",
       "authCodeHelp": "1. Abre la página de arriba e inicia sesión en GOG.\n2. GOG abre entonces una página casi en blanco cuya dirección empieza por `embed.gog.com/on_login_success`.\n3. Copia esa dirección entera de la barra del navegador y pégala aquí (o solo lo que va después de `code=`).\n4. Pulsa Probar conexión o Guardar enseguida: los códigos sirven una vez y caducan rápido.\nSolo hace falta la primera vez, o si la sesión caduca."
     },
     "battlenet": {
-      "description": "Importa los juegos de tu cuenta de Battle.net (títulos de Blizzard y Activision, incluidos clásicos como Diablo II). Battle.net no tiene API pública de biblioteca y su inicio de sesión tiene captcha, así que reutiliza la sesión de tu navegador en account.battle.net, como hace Playnite. Solo lee tu cuenta.",
+      "description": "Importa los juegos de tu cuenta de Battle.net (títulos de Blizzard y Activision, incluidos clásicos como Diablo II). Battle.net no tiene API pública de biblioteca y su inicio de sesión tiene captcha, así que reutiliza la sesión de tu navegador en account.battle.net. Solo lee tu cuenta.",
       "cookies": "Cookies de account.battle.net",
       "cookiesHelp": "1. Abre la página de arriba e inicia sesión en Battle.net.\n2. Abre las DevTools (F12, o Cmd+Opción+I en Mac) → Red (Network), y recarga la página.\n3. Pulsa la primera petición (`overview`) → Encabezados → Encabezados de solicitud → `Cookie`.\n4. Clic derecho en su valor → Copiar valor, y pégalo aquí.\nGame Vault renueva la sesión solo: pega cookies nuevas solo si un escaneo dice que la sesión se ha cerrado."
     },
@@ -283,12 +283,12 @@
       "cookiesHelp": "1. Inicia sesión en ea.com en tu navegador.\n2. Abre la página de arriba. Debería mostrar un texto corto con `access_token`; si dice `login_required`, no has iniciado sesión.\n3. Abre las DevTools (F12, o Cmd+Opción+I en Mac) → Red (Network), y recarga la página.\n4. Pulsa la petición `auth?client_id=…` → Encabezados → Encabezados de solicitud → `Cookie`.\n5. Clic derecho en su valor → Copiar valor, y pégalo aquí.\nNo compartas nunca esa página ni las cookies: dan acceso a tu cuenta de EA."
     },
     "ubisoft": {
-      "description": "Importa los juegos de PC de tu biblioteca de Ubisoft Connect (los juegos de consola vinculados a la cuenta se omiten). Ubisoft no tiene API pública de biblioteca y su inicio de sesión tiene captcha, así que reutiliza la sesión de la web de Ubisoft, como hace Lutris. Solo lee tu cuenta.",
+      "description": "Importa los juegos de PC de tu biblioteca de Ubisoft Connect (los juegos de consola vinculados a la cuenta se omiten). Ubisoft no tiene API pública de biblioteca y su inicio de sesión tiene captcha, así que reutiliza la sesión de la web de Ubisoft. Solo lee tu cuenta.",
       "loginData": "Datos de sesión de connect.ubisoft.com",
       "loginDataHelp": "1. Abre la página de arriba en una ventana privada e inicia sesión en Ubisoft con \"Recordarme\" marcado. La ventana privada separa este inicio de sesión del de tu navegador habitual: Ubisoft sustituye el ticket \"recuérdame\" cada vez que Game Vault lo usa, y eso cerraría la sesión de ese navegador.\n2. En esa página, abre las DevTools (F12, o Cmd+Opción+I en Mac) → Aplicación → Almacenamiento local → `https://connect.ubisoft.com`.\n3. Pulsa la entrada `PRODrememberMe` y copia su valor entero.\n4. Pégalo aquí y cierra la ventana privada sin cerrar sesión (cerrar sesión invalidaría el ticket).\nCada valor sirve una vez: cuando Game Vault lo usa, el valor copiado deja de valer y Game Vault guarda solo el ticket nuevo. No compartas nunca ese valor: da acceso a tu cuenta de Ubisoft."
     },
     "xbox": {
-      "description": "Importa los juegos que tu cuenta Microsoft posee en la Microsoft Store / Xbox (compras y códigos canjeados, de consola y PC). Se omiten los juegos de Game Pass, las pruebas y los complementos. Inicia sesión como la app de Xbox (igual que Playnite) y solo lee tu cuenta.",
+      "description": "Importa los juegos que tu cuenta Microsoft posee en la Microsoft Store / Xbox (compras y códigos canjeados, de consola y PC). Se omiten los juegos de Game Pass, las pruebas y los complementos. Inicia sesión como la app de Xbox y solo lee tu cuenta.",
       "code": "Dirección tras iniciar sesión",
       "codeHelp": "1. Abre la página de arriba e inicia sesión con tu cuenta Microsoft (la que usas en Xbox).\n2. Microsoft abre entonces una página casi en blanco cuya dirección empieza por `login.live.com/oauth20_desktop.srf?code=`.\n3. Copia esa dirección entera de la barra del navegador y pégala aquí (o solo lo que va después de `code=`).\n4. Pulsa Probar conexión o Guardar enseguida: los códigos sirven una vez y caducan en minutos.\nSolo hace falta la primera vez, o si la sesión caduca tras mucho tiempo sin escanear. No compartas nunca esa dirección: da acceso a tu cuenta Microsoft."
     },
@@ -321,7 +321,7 @@
       "itch": "Los juegos que compraste o reclamaste, con una clave de API personal"
     },
     "amazon": {
-      "description": "Importa los juegos de tu biblioteca de Amazon Games: los que compraste y los que reclamaste con Prime Gaming. Inicia sesión como el launcher de Amazon Games (como Heroic y nile) y solo lee tu biblioteca. Los códigos de Prime Gaming para otras tiendas (GOG, Epic…) no están aquí: esos juegos aparecen al escanear esa tienda.",
+      "description": "Importa los juegos de tu biblioteca de Amazon Games: los que compraste y los que reclamaste con Prime Gaming. Inicia sesión como el launcher de Amazon Games y solo lee tu biblioteca. Los códigos de Prime Gaming para otras tiendas (GOG, Epic…) no están aquí: esos juegos aparecen al escanear esa tienda.",
       "code": "Dirección tras iniciar sesión",
       "codeHelp": "1. Abre la página de arriba e inicia sesión en Amazon.\n2. Acabarás en amazon.com: copia la dirección completa de la barra del navegador (contiene `openid.oa2.authorization_code=`) y pégala aquí.\n3. Pulsa Probar conexión o Guardar enseguida: la dirección solo sirve una vez y caduca en unos minutos.\nEl enlace cambia cada vez que Game Vault arranca: si falla, recarga esta página y ábrelo de nuevo.\nGame Vault aparece como un dispositivo de Amazon Games en tu cuenta de Amazon; si lo quitas allí, Game Vault pierde la sesión."
     },
@@ -329,7 +329,7 @@
     "fanatical": {
       "description": "Importa las claves de juegos que compraste en Fanatical, con la tienda de cada clave (Steam, Epic, GOG…), su fecha límite para canjearla y la propia clave si ya la revelaste en Fanatical. Solo lectura: nunca revela ni canjea claves. No importa DLC, programas, libros, audio ni vales.",
       "consent": "Entiendo el riesgo y lo uso bajo mi responsabilidad",
-      "consentHelp": "Fanatical no ofrece ninguna forma oficial de que otras aplicaciones lean tu cuenta, y sus Términos y Condiciones no lo permiten: prohíben \"take data from our website for your or third party databases or data harvests without our consent\" (tomar datos de su web para bases de datos propias o de terceros sin su consentimiento). Game Vault lee tu lista de claves igual que el plugin de Fanatical para Playnite. Fanatical podría considerarlo un incumplimiento de sus condiciones y suspender o cerrar tu cuenta.\nGame Vault solo lee, una vez por escaneo, y solo escanea cuando tú lo pides salvo que lo programes. Los autores de Game Vault no se hacen responsables de lo que Fanatical haga con tu cuenta. Si no te parece aceptable, no añadas esta fuente.",
+      "consentHelp": "Fanatical no ofrece ninguna forma oficial de que otras aplicaciones lean tu cuenta, y sus Términos y Condiciones no lo permiten: prohíben \"take data from our website for your or third party databases or data harvests without our consent\" (tomar datos de su web para bases de datos propias o de terceros sin su consentimiento). Game Vault lee tu lista de claves con tu propia sesión, igual que la web. Fanatical podría considerarlo un incumplimiento de sus condiciones y suspender o cerrar tu cuenta.\nGame Vault solo lee, una vez por escaneo, y solo escanea cuando tú lo pides salvo que lo programes. Los autores de Game Vault no se hacen responsables de lo que Fanatical haga con tu cuenta. Si no te parece aceptable, no añadas esta fuente.",
       "session": "Datos de sesión (bsauth)",
       "sessionHelp": "1. Abre la página de arriba e inicia sesión en Fanatical.\n2. Abre las DevTools (F12, o Cmd+Opción+I en Mac) → Aplicación → Almacenamiento local → `https://www.fanatical.com`.\n3. Copia el valor de `bsauth` (empieza por `{\"authenticated\":true`) y pégalo aquí.\nLa sesión caduca al cabo de un tiempo: pega un valor nuevo cuando los escaneos digan que no has iniciado sesión. No lo compartas nunca: da acceso a tu cuenta de Fanatical."
     },
@@ -423,7 +423,7 @@
   },
   "providers": {
     "title": "Proveedores de metadatos",
-    "intro": "Como los agentes de Plex: para cada tipo de dato se prueban los proveedores activos de arriba abajo y se usa el primero que responde. Los demás hacen de reserva.",
+    "intro": "Para cada tipo de dato se prueban los proveedores activos de arriba abajo y se usa el primero que responde. Los demás hacen de reserva.",
     "covers": "Carátulas",
     "coversIntro": "Cada proveedor solo se aplica a los juegos que puede cubrir, así los que tienen cuota no la gastan en juegos que otro cubre mejor.",
     "custom": {
@@ -503,7 +503,7 @@
     "steamgriddb": {
       "description": "Carátulas hechas por la comunidad de SteamGridDB, bajo tu responsabilidad: sus condiciones prohíben el uso automatizado. Se consulta en último lugar, solo para ediciones sin carátula en ningún otro proveedor, por AppID de Steam o por título exacto, una petición por segundo. Son carátulas verticales hechas por fans, marcadas como arte de la comunidad. Necesita tu propia clave de API gratuita y empieza desactivado.",
       "consent": "Entiendo el riesgo y lo uso bajo mi responsabilidad",
-      "consentHelp": "SteamGridDB ofrece una API con claves personales, pero sus Condiciones de uso solo permiten el uso personal y no comercial \"solely as permitted by the normal functionality of the Service\" (solo como lo permite el funcionamiento normal del servicio), y prohíben \"make any automated use of the Site, the Service or the related systems\" (hacer cualquier uso automatizado del sitio, del servicio o de sus sistemas). Game Vault busca carátulas con esa API igual que lanzadores de código abierto como Playnite, Heroic y Lutris. SteamGridDB podría considerarlo un incumplimiento de sus condiciones y revocar tu clave o suspender tu cuenta.\nGame Vault solo lee, una petición cada vez y como mucho una por segundo, y solo para juegos sin carátula en ningún otro proveedor. Los autores de Game Vault no se hacen responsables de lo que SteamGridDB haga con tu clave o tu cuenta. Si no te parece aceptable, deja este proveedor desactivado.",
+      "consentHelp": "SteamGridDB ofrece una API con claves personales, pero sus Condiciones de uso solo permiten el uso personal y no comercial \"solely as permitted by the normal functionality of the Service\" (solo como lo permite el funcionamiento normal del servicio), y prohíben \"make any automated use of the Site, the Service or the related systems\" (hacer cualquier uso automatizado del sitio, del servicio o de sus sistemas). Game Vault busca carátulas con esa API y tu clave. SteamGridDB podría considerarlo un incumplimiento de sus condiciones y revocar tu clave o suspender tu cuenta.\nGame Vault solo lee, una petición cada vez y como mucho una por segundo, y solo para juegos sin carátula en ningún otro proveedor. Los autores de Game Vault no se hacen responsables de lo que SteamGridDB haga con tu clave o tu cuenta. Si no te parece aceptable, deja este proveedor desactivado.",
       "apiKey": "Clave de API",
       "apiKeyHelp": "1. Abre steamgriddb.com e inicia sesión con Steam.\n2. Abre Preferences → API (la página de arriba).\n3. Elige Generate API Key y copia aquí la clave.\nNo la compartas nunca: actúa sobre tu cuenta de SteamGridDB."
     },
