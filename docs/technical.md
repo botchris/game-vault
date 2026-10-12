@@ -188,6 +188,15 @@ nothing else into the build context, so `config/` can never end up in an image.
 |---|---|
 | `task docker:build` | Image for this machine's architecture as `botchrishub/game-vault:dev`, loaded into the local Docker |
 | `task docker:publish` | Only on a commit with a release tag and no uncommitted changes. Asks for confirmation, builds both architectures with a `docker-container` buildx builder (`gamevault`, created once) and pushes the release's tags. Run `docker login` first. `IMAGE=…` publishes elsewhere |
+| `task docker:publish:dev` | Any commit with no uncommitted changes. Asks for confirmation, builds both architectures like `docker:publish` and pushes them as `botchrishub/game-vault:dev`, replacing the previous dev image. The app shows the commit's `git describe` version (`0.5.0-3-gabc1234`). Run `docker login` first |
+
+**Dev image.** To try unfinished changes on a real server without releasing a version, run the
+**Publish dev image** workflow by hand (GitHub → Actions → Publish dev image → Run workflow, on the
+branch to build): the same checks as CI, then `task docker:publish:dev`. The `dev` tag is
+overwritten every time, so no versions pile up; version tags and `latest` only come from releases.
+A server that follows `botchrishub/game-vault:dev` gets the new build with `docker pull` and a
+recreated container. The image `task docker:build` loads locally has the same name: pull again to
+go back to the published one.
 
 The image sets `GAMEVAULT_ADDR=0.0.0.0:8080` (inside a container the port mapping decides who can
 reach it), `GAMEVAULT_CONFIG_DIR=/config` (a volume) and `GAMEVAULT_UI_DIR=/app/web/dist`.

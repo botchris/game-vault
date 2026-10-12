@@ -1,0 +1,75 @@
+# Publishes a test image by hand: Actions → "Publish dev image" → Run workflow, choosing the branch
+# to build. It runs the same checks as CI, then `task docker:publish:dev`, which pushes
+# botchrishub/game-vault:dev for linux/amd64 and linux/arm64. The dev tag is overwritten every
+# time, so trying unfinished changes on a real server adds no versions; releases (version tags,
+# latest) are untouched and still come from release.yml.
+#
+# Uses the same secrets and environment as release.yml.
+name: Publish dev image
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Two runs publish one after the other; the last one started wins the dev tag.
+concurrency:
+  group: dev-image
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    name: Checks
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    name: Publish the dev image
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: docker-hub
+    steps:
+      # The whole history: the version shown in the app comes from `git describe`.
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/toolchain
+
+      # Retried like the release's login: Docker Hub sometimes stops answering for a moment.
+      - name: Log in to Docker Hub
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          for attempt in 1 2 3 4 5; do
+            if echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin; then
+              exit 0
+            fi
+            echo "::warning::Docker Hub login failed (attempt $attempt of 5); retrying"
+            sleep $((attempt * 15))
+          done
+          exit 1
+
+      # --yes answers the confirmation prompt the task shows when run by hand.
+      - name: task docker:publish:dev
+        run: |
+          for attempt in 1 2 3; do
+            if task docker:publish:dev --yes; then
+              exit 0
+            fi
+            echo "::warning::Publishing failed (attempt $attempt of 3); retrying"
+            sleep $((attempt * 30))
+          done
+          exit 1
+
+      - name: Summary
+        run: |
+          {
+            echo "### Game Vault dev image published"
+            echo
+            echo "Branch: ${GITHUB_REF_NAME}, commit $(git rev-parse --short HEAD), version $(git describe --tags --match 'v[0-9]*' --always | sed 's/^v//')"
+            echo
+            echo "Image: botchrishub/game-vault:dev"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -25,3 +25,7 @@ SemVer git tags starting at `v0.1.0`, read with `git describe`; `task release --
   tag: CI checks first (ci.yml as a reusable workflow), then `task docker:publish --yes` in the
   `docker-hub` environment with the repository secrets `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN`
   (the user creates them; never ask for or handle the token). So pushing a tag = publishing.
+- Since 2026-10-12 (user's request, to stop piling up unstable versions): a `dev` tag overwritten
+  on every publish, from any clean commit — `task docker:publish:dev`, or the hand-run
+  `.github/workflows/dev-image.yml` (CI checks, then the task, same environment and secrets).
+  Version tags and `latest` stay release-only. It is still publishing: only on the user's go-ahead.

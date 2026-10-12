@@ -138,6 +138,24 @@ tasks:
         --build-arg VERSION={{.VERSION}} --build-arg REVISION={{.REVISION}}
         {{.TAGS}} --push .
 
+  docker:publish:dev:
+    desc: Push this commit's image to Docker Hub as {{.IMAGE}}:dev (overwritten every time), for linux/amd64 and linux/arm64, to try changes before a release (run `docker login` first)
+    preconditions:
+      - sh: test -z "$(git status --porcelain)"
+        msg: There are uncommitted changes; the image must match a commit exactly.
+    prompt: 'Publish Game Vault {{.VERSION}} to Docker Hub as {{.IMAGE}}:dev, replacing the current dev image?'
+    cmds:
+      - task: build:web
+      - task: build:release
+        vars: { TARGETS: 'linux/amd64 linux/arm64' }
+      - task: docker:builder
+      # The version is the commit's `git describe` (0.5.0-3-gabc1234), so System shows which
+      # build the dev image is; only the dev tag moves, never a version tag or latest.
+      - >-
+        docker buildx build --builder gamevault --platform linux/amd64,linux/arm64 -f build/Dockerfile
+        --build-arg VERSION={{.VERSION}} --build-arg REVISION={{.REVISION}}
+        -t {{.IMAGE}}:dev --push .
+
   docker:builder:
     internal: true
     desc: Create the buildx builder that can push images for several platforms at once

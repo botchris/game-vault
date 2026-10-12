@@ -34,6 +34,7 @@ dependencies: the host only needs Docker and Task.
 | Release binaries (linux, darwin, windows) | `task build:release` |
 | Tag a release (SemVer, from a clean main) | `task release -- X.Y.Z` — creates a local tag only |
 | Docker image: try locally / publish a tagged release | `task docker:build` / `task docker:publish`. Pushing a `v*` tag makes GitHub Actions (`.github/workflows/release.yml`) run the checks and `task docker:publish`, so **pushing a tag publishes**: never push tags, or run the task, without the user's go-ahead |
+| Docker image for testing (`:dev`, overwritten each time) | `task docker:publish:dev`, or the hand-run "Publish dev image" workflow (`.github/workflows/dev-image.yml`). It publishes too: only on the user's go-ahead |
 
 The server binary is cross-compiled for the host (`CGO_ENABLED=0`, pure-Go SQLite) and runs on
 the host: access without a password from trusted networks relies on the real client address, which
