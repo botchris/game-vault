@@ -187,3 +187,17 @@ test('a scan that finishes after stop() schedules nothing more', async (tt) => {
   assert.equal(sent.length, 1);
   assert.equal(window.document.querySelectorAll('[data-gamevault]').length, 0, 'no label drawn after stop()');
 });
+
+test('a lookup answered after stop(), at the same address, draws nothing', async (tt) => {
+  const url = { current: 'https://store.steampowered.com/app/4410/Lantern_Keep/' };
+  const window = pageWindow(sample('steam-app.html'), url.current);
+  const answer = deferred();
+  const { sent, ctl } = follow(window, url, () => answer.promise);
+  done(tt, window, ctl);
+  await settle();
+  assert.equal(sent.length, 1);
+  ctl.stop();
+  answer.resolve({ status: 'ok', results: [owned('Lantern Keep')] });
+  await settle();
+  assert.equal(window.document.querySelectorAll('[data-gamevault]').length, 0, 'no label drawn after stop()');
+});

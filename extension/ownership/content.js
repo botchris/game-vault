@@ -67,6 +67,7 @@
           again = true;
           return;
         }
+        if (stopped) return; // the page was left while Game Vault answered: draw nothing
         fresh.forEach((e, i) => {
           if (ns.hasLabel(e.element)) return;
           const { host } = ns.renderLabel(doc, e.element, ns.labelModel(answerAt(outcome, i), t));
