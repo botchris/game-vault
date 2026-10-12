@@ -34,5 +34,13 @@
   "ownershipNoAddress": { "message": "Activa antes la extensión en tu Game Vault." },
   "ownershipStores": { "message": "Se muestra en: $STORES$", "placeholders": { "stores": { "content": "$1", "example": "Steam, GOG" } } },
   "ownershipNoStores": { "message": "El navegador no ha permitido las tiendas: desactiva la opción y vuelve a activarla." },
-  "ownershipInsecure": { "message": "Esta dirección usa http sin cifrar: el token de acceso viajaría sin cifrar por la red. Usa una dirección https para Game Vault, o deja el token vacío en una red de confianza." }
+  "ownershipInsecure": { "message": "Esta dirección usa http sin cifrar: el token de acceso viajaría sin cifrar por la red. Usa una dirección https para Game Vault, o deja el token vacío en una red de confianza." },
+  "markOwned": { "message": "Lo tienes en $SYSTEMS$", "placeholders": { "systems": { "content": "$1", "example": "PC, PS4" } } },
+  "markPendingKey": { "message": "Clave sin canjear ($SYSTEMS$)", "placeholders": { "systems": { "content": "$1", "example": "PC" } } },
+  "markPossible": { "message": "Puede que lo tengas" },
+  "summaryOwned": {
+    "message": "Tienes $OWNED$ de $TOTAL$",
+    "placeholders": { "owned": { "content": "$1", "example": "4" }, "total": { "content": "$2", "example": "9" } }
+  },
+  "summaryPossible": { "message": "$COUNT$ posibles", "placeholders": { "count": { "content": "$1", "example": "2" } } }
 }

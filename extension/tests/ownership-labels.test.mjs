@@ -199,3 +199,67 @@ test('every visible label handles clicks and keys the same way, so the page cann
   assert.equal(new Set(outcomes).size, 1, outcomes.join('\n'));
   assert.deepEqual(JSON.parse(outcomes[0]), [true, true, true]);
 });
+
+test('bundle marks say where a game is owned, or that only a key waits; never a link', () => {
+  const answer = (result) => ({ status: 'ok', result });
+  const both = ns.markModel(answer({ status: 'owned', candidates: [], game: game('Lantern Keep', [
+    disc('PS4'), { platform: 'Steam', system: 'PC', kind: 'library', pendingKey: false },
+  ]) }), t);
+  assert.equal(both.text, 'Owned on PS4, PC');
+  assert.equal(both.href, undefined, 'store cards are often links: no link inside them');
+  assert.equal(ns.markModel(answer({ status: 'owned', candidates: [], game: game('Echo Valley', [
+    { platform: 'Steam', system: 'PC', kind: 'key', pendingKey: true },
+  ]) }), t).text, 'Key not redeemed (PC)');
+  assert.equal(ns.markModel(answer({ status: 'possible', game: null, candidates: [game('Harbor Lights')] }), t).text, 'Maybe owned');
+  assert.equal(ns.markModel(answer({ status: 'not_owned', game: null, candidates: [] }), t).kind, 'none');
+  assert.equal(ns.markModel({ status: 'unavailable', reason: 'unreachable' }, t).kind, 'none');
+});
+
+test('the bundle summary counts different titles, possible ones apart, and says unavailable when unanswered', () => {
+  const items = ['Lantern Keep', 'Paper Comet', 'lantern keep', 'Harbor Lights'].map((title) => ({ title }));
+  const results = [{ status: 'not_owned' }, { status: 'possible' }, { status: 'owned' }, { status: 'not_owned' }];
+  const ok = ns.summaryModel({ status: 'ok', results }, items, t);
+  assert.equal(ok.kind, 'summary');
+  assert.equal(ok.text, 'You own 1 of 3 · 1 possible');
+  const down = ns.summaryModel({ status: 'unavailable', reason: 'token' }, items, t);
+  assert.equal(down.kind, 'summary');
+  assert.equal(down.text, 'Game Vault unavailable');
+  assert.match(down.title, /access token/);
+});
+
+test('every bundle mark and the summary look and act the same from outside, whatever the answer', async (tt) => {
+  const window = pageWindow('<!doctype html><html><body><div id="c"></div></body></html>', 'https://www.humblebundle.com/games/invented-games-bundle');
+  tt.after(() => window.happyDOM.close());
+  window.open = () => null;
+  const heard = [];
+  for (const type of ['click', 'keydown']) window.document.addEventListener(type, (event) => heard.push(event.type));
+  const ok = (result) => ({ status: 'ok', result });
+  const marks = {
+    owned: ns.markModel(ok({ status: 'owned', candidates: [], game: game('Lantern Keep', [{ platform: 'Steam', system: 'PC', kind: 'library', pendingKey: false }]) }), t),
+    possible: ns.markModel(ok({ status: 'possible', game: null, candidates: [game('Harbor Lights')] }), t),
+    notOwned: ns.markModel(ok({ status: 'not_owned', game: null, candidates: [] }), t),
+    unavailable: ns.markModel({ status: 'unavailable', reason: 'unreachable' }, t),
+    summary: ns.summaryModel({ status: 'ok', results: [{ status: 'owned' }] }, [{ title: 'Lantern Keep' }], t),
+  };
+  const shapes = Object.entries(marks).map(([name, model]) => {
+    const { host, root } = ns.renderLabel(window.document, window.document.getElementById('c'), model);
+    const stops = focusable(root);
+    assert.equal(stops.length, 1, `${name}: one Tab stop, even when it shows nothing`);
+    const events = [
+      new window.MouseEvent('click', { bubbles: true, composed: true, cancelable: true }),
+      new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true, cancelable: true }),
+      new window.KeyboardEvent('keydown', { key: ' ', bubbles: true, composed: true, cancelable: true }),
+    ];
+    for (const event of events) stops[0].dispatchEvent(event);
+    return JSON.stringify([
+      host.getAttributeNames().sort(), host.getAttribute('data-gamevault'), host.getAttribute('style'),
+      stops[0].tagName, stops[0].getAttribute('role'), stops[0].getAttribute('tabindex'),
+      events.map((event) => event.defaultPrevented),
+    ]);
+  });
+  assert.deepEqual(heard, [], 'nothing leaves a mark');
+  assert.equal(new Set(shapes).size, 1, shapes.join('\n'));
+  assert.equal(labelText(window.document.querySelector('[data-gamevault]')), 'Owned on PC');
+  assert.equal(window.document.querySelectorAll('[data-gamevault]')[2].shadowRoot, null);
+  assert.equal(labelText(window.document.querySelectorAll('[data-gamevault]')[2]), '', 'the "none" mark is empty inside');
+});

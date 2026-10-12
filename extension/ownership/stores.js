@@ -48,6 +48,12 @@
           title: ['h1.human_name-view', '.product-header-view h1'],
           anchor: ['h1.human_name-view', '.product-header-view h1'],
         },
+        {
+          kind: 'bundle',
+          path: '^/games/[^/?#]+',
+          items: { selectors: ['.tier-item-view'], title: ['.item-title', '.item-title-text'] },
+          summary: ['.bundle-logo-text', '.heading-medium', 'h1'],
+        },
       ],
     },
     {
@@ -60,6 +66,12 @@
           path: '^/[a-z]{2}(?:-[a-z]{2})?/game/[^/?#]+',
           title: ['h1.product-name', 'main h1'],
           anchor: ['h1.product-name', 'main h1'],
+        },
+        {
+          kind: 'bundle',
+          path: '^/[a-z]{2}(?:-[a-z]{2})?/(?:bundle|pick-and-mix)/[^/?#]+',
+          items: { selectors: ['.bundle-game-card', '.pnm-product-card'], title: ['.bundle-game-card__title', '.card-title', 'h3', 'h4'] },
+          summary: ['main h1', 'h1'],
         },
       ],
     },

@@ -36,6 +36,35 @@
       }
     };
 
+    // A bundle's summary counts every game on it, so all of them are asked about whenever new ones
+    // appear (the background's cache answers the ones already asked). Every game gets a host
+    // whatever the answer, so the page cannot tell which ones are owned.
+    async function labelBundle(read, href) {
+      const fresh = read.items.filter((e) => {
+        const host = ns.labelOf(e.element);
+        if (!host) return true;
+        const key = asked.get(host);
+        if (key === undefined || key === keyOf(e.item)) return false;
+        host.remove(); // the card shows another game now: its mark is stale
+        return true;
+      });
+      if (!fresh.length && ns.hasLabel(read.summary)) return;
+      const items = read.items.map((e) => e.item);
+      const outcome = await ask(items);
+      if (url() !== href) {
+        again = true;
+        return;
+      }
+      if (stopped) return;
+      read.items.forEach((e, i) => {
+        if (ns.hasLabel(e.element)) return;
+        const { host } = ns.renderLabel(doc, e.element, ns.markModel(answerAt(outcome, i), t));
+        asked.set(host, keyOf(e.item));
+      });
+      for (const old of [...read.summary.children].filter((c) => ns.kindOf(c) === 'summary')) old.remove();
+      ns.renderLabel(doc, read.summary, ns.summaryModel(outcome, items, t));
+    }
+
     async function scan() {
       if (running) {
         again = true;
@@ -52,6 +81,10 @@
         const found = ns.pageFor(href);
         const read = found && ns.readPage(doc, found);
         if (!read) return;
+        if (read.kind === 'bundle') {
+          await labelBundle(read, href);
+          return;
+        }
         const fresh = read.items.filter((e) => {
           const host = ns.labelOf(e.element);
           if (!host) return true;

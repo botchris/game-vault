@@ -48,3 +48,34 @@ test('a GOG product id that is not a number is not sent; the title still is', as
   t.after(() => window.happyDOM.close());
   assert.deepEqual(ns.readPage(window.document, ns.pageFor(url)).items[0].item, { title: 'Echo Valley' });
 });
+
+const bundles = [
+  {
+    file: 'humble-bundle.html',
+    url: 'https://www.humblebundle.com/games/invented-games-bundle',
+    titles: ['Lantern Keep', 'Paper Comet', 'Harbor Lights', 'Night Ferry', 'Lantern Keep'],
+    summary: 'Invented Games Bundle',
+  },
+  {
+    file: 'fanatical-bundle.html',
+    url: 'https://www.fanatical.com/en/bundle/invented-mystery-bundle',
+    titles: ['Echo Valley', 'Copper Coast', 'Glass Orchard'],
+    summary: 'Invented Mystery Bundle',
+  },
+];
+
+for (const b of bundles) {
+  test(`${b.file}: the bundle page gives each game and the heading its summary goes in`, async (t) => {
+    const window = pageWindow(sample(b.file), b.url);
+    t.after(() => window.happyDOM.close());
+    const read = ns.readPage(window.document, ns.pageFor(b.url));
+    assert.equal(read.kind, 'bundle');
+    assert.deepEqual(read.items.map((e) => e.item), b.titles.map((title) => ({ title })));
+    assert.equal(ns.textOf(read.summary), b.summary);
+  });
+}
+
+test('Fanatical pick-and-mix pages are bundles too', () => {
+  assert.equal(ns.pageFor('https://www.fanatical.com/en/pick-and-mix/invented-build-your-own').page.kind, 'bundle');
+  assert.equal(ns.pageFor('https://www.fanatical.com/es/bundle/invented-mystery-bundle').page.kind, 'bundle');
+});

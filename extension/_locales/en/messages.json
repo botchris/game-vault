@@ -34,5 +34,13 @@
   "ownershipNoAddress": { "message": "Enable the extension on your Game Vault first." },
   "ownershipStores": { "message": "Shown on: $STORES$", "placeholders": { "stores": { "content": "$1", "example": "Steam, GOG" } } },
   "ownershipNoStores": { "message": "The browser has not allowed the store sites: turn the option off and on again." },
-  "ownershipInsecure": { "message": "This address uses plain http: the access token would travel unencrypted over the network. Use an https address for Game Vault, or leave the token empty on a trusted network." }
+  "ownershipInsecure": { "message": "This address uses plain http: the access token would travel unencrypted over the network. Use an https address for Game Vault, or leave the token empty on a trusted network." },
+  "markOwned": { "message": "Owned on $SYSTEMS$", "placeholders": { "systems": { "content": "$1", "example": "PC, PS4" } } },
+  "markPendingKey": { "message": "Key not redeemed ($SYSTEMS$)", "placeholders": { "systems": { "content": "$1", "example": "PC" } } },
+  "markPossible": { "message": "Maybe owned" },
+  "summaryOwned": {
+    "message": "You own $OWNED$ of $TOTAL$",
+    "placeholders": { "owned": { "content": "$1", "example": "4" }, "total": { "content": "$2", "example": "9" } }
+  },
+  "summaryPossible": { "message": "$COUNT$ possible", "placeholders": { "count": { "content": "$1", "example": "2" } } }
 }

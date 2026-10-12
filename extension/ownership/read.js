@@ -51,6 +51,15 @@
       if (!item.id && !item.title) return null;
       return { kind: 'product', items: [{ item, element: anchor }] };
     }
+    if (page.kind === 'bundle') {
+      const summary = ns.first(doc, page.summary);
+      const items = [];
+      for (const element of doc.querySelectorAll(page.items.selectors.join(', '))) {
+        const title = ns.textOf(ns.first(element, page.items.title));
+        if (title) items.push({ item: { title }, element });
+      }
+      return summary && items.length ? { kind: 'bundle', items, summary } : null;
+    }
     return null; // a kind of page this version does not read
   };
 })();

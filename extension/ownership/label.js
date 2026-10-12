@@ -28,7 +28,8 @@
       font: 600 12px/24px system-ui, -apple-system, "Segoe UI", sans-serif; text-decoration: none; box-sizing: border-box; }
     .gv::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
     .text { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-    .none { visibility: hidden; }
+    .gv.none { background: transparent; color: transparent; }
+    .gv.none::before { content: none; }
     .owned { background: #181c2c; color: #ffffff; }
     .possible { background: #edf0f5; color: #181c2c; outline: 1px dashed #181c2c; outline-offset: -1px; }
     .muted { background: #edf0f5; color: #4b5266; }
@@ -128,9 +129,54 @@
   }
 
   /**
+   * The mark on one game of a bundle: "Owned on PC", "Key not redeemed (PC)", "Maybe owned"; an
+   * empty "checked" mark when it is not owned or Game Vault could not answer (the summary says
+   * which), so the game is not asked about on every change. Marks carry no link: store cards are
+   * often links themselves.
+   */
+  ns.markModel = (answer, t) => {
+    const r = answer?.status === 'ok' ? answer.result : null;
+    if (r?.status === 'owned' && r.game) {
+      const copies = r.game.copies ?? [];
+      const systems = [...new Set(copies.map((c) => c.system || c.platform))].join(', ');
+      const pendingOnly = copies.length > 0 && copies.every((c) => c.pendingKey);
+      return { kind: 'owned', tone: 'owned', block: true, text: t(pendingOnly ? 'markPendingKey' : 'markOwned', [systems]), title: r.game.title };
+    }
+    if (r?.status === 'possible') {
+      return { kind: 'possible', tone: 'possible', block: true, text: t('markPossible'), title: (r.candidates ?? []).map((c) => c.title).join('\n') };
+    }
+    return { kind: 'none' };
+  };
+
+  /**
+   * The summary next to a bundle's heading: "You own 4 of 9" over its different titles (a game in two
+   * tiers counts once), possible ones apart; unavailable when Game Vault could not answer.
+   */
+  ns.summaryModel = (outcome, items, t) => {
+    if (outcome?.status !== 'ok') return { ...ns.unavailableModel(outcome?.reason, t), kind: 'summary' };
+    const rank = { owned: 2, possible: 1 };
+    const best = new Map();
+    items.forEach((item, i) => {
+      const key = (item.title ?? '').toLowerCase();
+      const status = outcome.results?.[i]?.status;
+      if (!best.has(key) || (rank[status] ?? 0) > (rank[best.get(key)] ?? 0)) best.set(key, status);
+    });
+    const count = (s) => [...best.values()].filter((v) => v === s).length;
+    const text = t('summaryOwned', [String(count('owned')), String(best.size)]);
+    const possible = count('possible');
+    return {
+      kind: 'summary',
+      tone: count('owned') ? 'owned' : 'muted',
+      text: possible ? `${text} · ${t('summaryPossible', [String(possible)])}` : text,
+    };
+  };
+
+  /**
    * Draws a label at the end of parent, in a closed shadow root, and returns its host and root.
    * Text is set as text, never as HTML, and only http(s) addresses are opened. A model of kind
-   * 'none' is an invisible mark that only says "already checked", in the same box as any label.
+   * 'none' is a mark that only says "already checked": the same element in the same box as any
+   * label, with the same Tab stop and handlers, merely empty and transparent inside, so the page
+   * cannot tell it from a visible one.
    */
   ns.renderLabel = (doc, parent, model) => {
     const host = doc.createElement('span');
@@ -141,20 +187,17 @@
     roots.set(host, root);
     addStyles(doc, root);
     const el = doc.createElement('span');
-    if (model.kind === 'none') {
-      el.className = 'gv none';
-    } else {
-      const href = /^https?:\/\//.test(model.href ?? '') ? model.href : '';
-      el.className = `gv ${model.tone}${href ? ' opens' : ''}`;
-      el.setAttribute('role', 'button');
-      el.setAttribute('tabindex', '0');
-      el.title = [model.text, model.title].filter(Boolean).join('\n');
-      const text = doc.createElement('span');
-      text.className = 'text';
-      text.textContent = model.text;
-      el.append(text);
-      handleActivation(doc, el, href);
-    }
+    const href = /^https?:\/\//.test(model.href ?? '') ? model.href : '';
+    const empty = model.kind === 'none';
+    el.className = `gv ${empty ? 'none' : model.tone}${href ? ' opens' : ''}`;
+    el.setAttribute('role', 'button');
+    el.setAttribute('tabindex', '0');
+    if (!empty) el.title = [model.text, model.title].filter(Boolean).join('\n');
+    const text = doc.createElement('span');
+    text.className = 'text';
+    text.textContent = empty ? '' : model.text;
+    el.append(text);
+    handleActivation(doc, el, href);
     root.append(el);
     parent.append(host);
     return { host, root };
