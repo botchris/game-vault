@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/netip"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -36,12 +38,19 @@ func (c *clock) Now() time.Time { return c.now }
 func newService(t *testing.T, ctx context.Context, c *clock) *appauth.Service {
 	t.Helper()
 
+	return newServiceLogging(t, ctx, c, io.Discard)
+}
+
+// newServiceLogging is newService with its log written to w.
+func newServiceLogging(t *testing.T, ctx context.Context, c *clock, w io.Writer) *appauth.Service {
+	t.Helper()
+
 	db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "gamevault.db"), "")
 	require.NoError(t, err)
 	t.Cleanup(func() { db.Close() })
 
 	return appauth.NewService(sqlite.NewAuthRepository(db), sqlite.NewSettingsRepository(db), plainHasher{}, noCerts{}, c.Now,
-		slog.New(slog.NewTextHandler(io.Discard, nil)))
+		slog.New(slog.NewTextHandler(w, nil)))
 }
 
 func lastUsed(t *testing.T, ctx context.Context, svc *appauth.Service) time.Time {
@@ -77,7 +86,7 @@ func TestAccessTokens(t *testing.T) {
 		})
 
 		t.Run("WHEN it authenticates a request", func(t *testing.T) {
-			p, err := svc.AuthenticateToken(ctx, secret)
+			p, err := svc.AuthenticateToken(ctx, auth.Request{}, secret)
 			require.NoError(t, err)
 
 			t.Run("THEN the caller is the token", func(t *testing.T) {
@@ -95,7 +104,7 @@ func TestAccessTokens(t *testing.T) {
 		t.Run("WHEN it is used again within the minute", func(t *testing.T) {
 			first := c.now
 			c.now = c.now.Add(30 * time.Second)
-			_, err := svc.AuthenticateToken(ctx, secret)
+			_, err := svc.AuthenticateToken(ctx, auth.Request{}, secret)
 			require.NoError(t, err)
 
 			t.Run("THEN the last use is not written again", func(t *testing.T) {
@@ -105,7 +114,7 @@ func TestAccessTokens(t *testing.T) {
 
 		t.Run("WHEN it is used in a later minute", func(t *testing.T) {
 			c.now = c.now.Add(31 * time.Second)
-			_, err := svc.AuthenticateToken(ctx, secret)
+			_, err := svc.AuthenticateToken(ctx, auth.Request{}, secret)
 			require.NoError(t, err)
 
 			t.Run("THEN the last use moves, kept to the minute", func(t *testing.T) {
@@ -115,7 +124,7 @@ func TestAccessTokens(t *testing.T) {
 
 		t.Run("WHEN it is revoked", func(t *testing.T) {
 			require.NoError(t, svc.RevokeAccessToken(ctx, tok.ID))
-			_, err := svc.AuthenticateToken(ctx, secret)
+			_, err := svc.AuthenticateToken(ctx, auth.Request{}, secret)
 
 			t.Run("THEN it stops working at once", func(t *testing.T) {
 				assert.ErrorIs(t, err, auth.ErrUnauthenticated)
@@ -141,34 +150,87 @@ func TestAccessTokens_throttling(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	c := &clock{now: time.Date(2026, 10, 12, 9, 0, 0, 0, time.UTC)}
-	svc := newService(t, ctx, c)
-	_, secret, err := svc.CreateAccessToken(ctx, "Extension, laptop")
-	require.NoError(t, err)
+	newScene := func(t *testing.T) (*clock, *appauth.Service, string) {
+		t.Helper()
+
+		c := &clock{now: time.Date(2026, 10, 12, 9, 0, 0, 0, time.UTC)}
+		svc := newService(t, ctx, c)
+		_, secret, err := svc.CreateAccessToken(ctx, "Extension, laptop")
+		require.NoError(t, err)
+
+		return c, svc, secret
+	}
 
 	t.Run("GIVEN ten wrong tokens", func(t *testing.T) {
+		c, svc, secret := newScene(t)
+
 		for i := range 10 {
-			_, err := svc.AuthenticateToken(ctx, fmt.Sprintf("gvt_guess%d", i))
+			_, err := svc.AuthenticateToken(ctx, auth.Request{}, fmt.Sprintf("gvt_guess%d", i))
 			require.ErrorIs(t, err, auth.ErrUnauthenticated)
 		}
 
 		t.Run("THEN even the right token waits", func(t *testing.T) {
-			_, err := svc.AuthenticateToken(ctx, secret)
+			_, err := svc.AuthenticateToken(ctx, auth.Request{}, secret)
 			assert.ErrorIs(t, err, auth.ErrTooManyAttempts)
 		})
 
-		t.Run("AND so does signing in with a password, since both count together", func(t *testing.T) {
+		t.Run("AND signing in with a password is not blocked, since tokens count apart", func(t *testing.T) {
 			_, _, err := svc.Login(ctx, auth.Request{}, "admin", "correct horse")
-			assert.ErrorIs(t, err, auth.ErrTooManyAttempts)
+			assert.ErrorIs(t, err, auth.ErrBadCredentials)
 		})
 
 		t.Run("WHEN the window has passed", func(t *testing.T) {
 			c.now = c.now.Add(16 * time.Minute)
-			_, err := svc.AuthenticateToken(ctx, secret)
+			_, err := svc.AuthenticateToken(ctx, auth.Request{}, secret)
 
 			t.Run("THEN the right token works again", func(t *testing.T) {
 				assert.NoError(t, err)
 			})
+		})
+	})
+
+	t.Run("GIVEN ten wrong passwords", func(t *testing.T) {
+		_, svc, secret := newScene(t)
+
+		for range 10 {
+			_, _, err := svc.Login(ctx, auth.Request{}, "admin", "wrong")
+			require.ErrorIs(t, err, auth.ErrBadCredentials)
+		}
+
+		t.Run("THEN signing in with a password waits", func(t *testing.T) {
+			_, _, err := svc.Login(ctx, auth.Request{}, "admin", "correct horse")
+			assert.ErrorIs(t, err, auth.ErrTooManyAttempts)
+		})
+
+		t.Run("AND a valid token still works", func(t *testing.T) {
+			_, err := svc.AuthenticateToken(ctx, auth.Request{}, secret)
+			assert.NoError(t, err)
+		})
+	})
+}
+
+func TestAccessTokens_log(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	var out strings.Builder
+
+	svc := newServiceLogging(t, ctx, &clock{now: time.Date(2026, 10, 12, 9, 0, 0, 0, time.UTC)}, &out)
+
+	t.Run("GIVEN an unknown token from a client", func(t *testing.T) {
+		const secret = "gvt_unknownSecretValue"
+
+		_, err := svc.AuthenticateToken(ctx, auth.Request{ClientIP: netip.MustParseAddr("203.0.113.9")}, secret)
+		require.ErrorIs(t, err, auth.ErrUnauthenticated)
+
+		t.Run("THEN the log names the client", func(t *testing.T) {
+			assert.Contains(t, out.String(), "unknown access token")
+			assert.Contains(t, out.String(), "client=203.0.113.9")
+		})
+
+		t.Run("AND never the token nor its hash", func(t *testing.T) {
+			assert.NotContains(t, out.String(), "unknownSecretValue")
+			assert.NotContains(t, out.String(), auth.HashToken(secret))
 		})
 	})
 }

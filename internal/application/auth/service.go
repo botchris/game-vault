@@ -67,8 +67,35 @@ type Service struct {
 	// a real user and does not reveal which usernames exist.
 	dummyHash string
 
+	// logins counts failed password sign-ins and tokens unknown access tokens. They are apart so
+	// a flood of junk tokens never locks the owner out of signing in, and wrong passwords never
+	// stop a valid token.
+	logins failureLog
+	tokens failureLog
+}
+
+// failureLog throttles one kind of credential: maxFailures failures within failureWindow and it
+// refuses every attempt, right or wrong, until the oldest failure leaves the window.
+type failureLog struct {
 	mu       gosync.Mutex
 	failures []time.Time
+}
+
+func (l *failureLog) throttled(now time.Time) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	cutoff := now.Add(-failureWindow)
+	l.failures = slices.DeleteFunc(l.failures, func(t time.Time) bool { return t.Before(cutoff) })
+
+	return len(l.failures) >= maxFailures
+}
+
+func (l *failureLog) record(now time.Time) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	l.failures = append(l.failures, now)
 }
 
 // NewService builds the service. It takes the clock and the hasher as parameters so tests control time
@@ -245,7 +272,7 @@ func (s *Service) Setup(ctx context.Context, r auth.Request, username, password 
 
 // Login checks credentials and opens a session. Failed attempts are throttled globally.
 func (s *Service) Login(ctx context.Context, r auth.Request, username, password string) (string, auth.Principal, error) {
-	if s.throttled() {
+	if s.logins.throttled(s.now()) {
 		return "", auth.Principal{}, auth.ErrTooManyAttempts
 	}
 
@@ -259,7 +286,7 @@ func (s *Service) Login(ctx context.Context, r auth.Request, username, password 
 	}
 
 	if !ok {
-		s.recordFailure()
+		s.logins.record(s.now())
 		s.log.Warn("failed login", "username", username, "client", r.ClientIP.String())
 
 		return "", auth.Principal{}, auth.ErrBadCredentials
@@ -344,19 +371,20 @@ func (s *Service) RevokeAccessToken(ctx context.Context, id string) error {
 	return nil
 }
 
-// AuthenticateToken recognizes a caller by an access token. Unknown tokens count towards the
-// sign-in throttling, like wrong passwords, and while it is on even a valid token waits. The
+// AuthenticateToken recognizes a caller by an access token. Unknown tokens are throttled like
+// wrong passwords, but counted apart from them: while the token throttling is on even a valid
+// token waits, and password sign-in is unaffected. The
 // token is looked up on every request, so revoking one takes effect at once; its last use is
 // kept to the minute and written at most once a minute.
-func (s *Service) AuthenticateToken(ctx context.Context, secret string) (auth.Principal, error) {
-	if s.throttled() {
+func (s *Service) AuthenticateToken(ctx context.Context, r auth.Request, secret string) (auth.Principal, error) {
+	if s.tokens.throttled(s.now()) {
 		return auth.Principal{}, auth.ErrTooManyAttempts
 	}
 
 	t, err := s.repo.AccessTokenByHash(ctx, auth.HashToken(secret))
 	if errors.Is(err, auth.ErrNotFound) {
-		s.recordFailure()
-		s.log.Warn("unknown access token") // never log the token, nor its hash
+		s.tokens.record(s.now())
+		s.log.Warn("unknown access token", "client", r.ClientIP.String()) // never log the token, nor its hash
 
 		return auth.Principal{}, auth.ErrUnauthenticated
 	}
@@ -467,22 +495,9 @@ func (s *Service) UpdateSettings(ctx context.Context, in auth.Settings) (auth.Se
 	return in, nil
 }
 
-func (s *Service) throttled() bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	cutoff := s.now().Add(-failureWindow)
-	s.failures = slices.DeleteFunc(s.failures, func(t time.Time) bool { return t.Before(cutoff) })
-
-	return len(s.failures) >= maxFailures
-}
-
-func (s *Service) recordFailure() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.failures = append(s.failures, s.now())
-}
+// ThrottleWindow is how long failed attempts count; adapters use it as the longest wait to
+// announce (Retry-After).
+func ThrottleWindow() time.Duration { return failureWindow }
 
 func truncate(s string, n int) string {
 	if len(s) > n {

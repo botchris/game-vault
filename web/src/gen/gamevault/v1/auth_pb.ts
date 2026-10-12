@@ -21,7 +21,8 @@ export const file_gamevault_v1_auth: GenFile = /*@__PURE__*/
  */
 export type Principal = Message<"gamevault.v1.Principal"> & {
   /**
-   * "trusted" (a trusted network, no sign-in) or "session" (signed in with the password).
+   * "trusted" (a trusted network, no sign-in) or "session" (signed in with the password). Never
+   * "token": access tokens cannot call AuthService, so they never see a Principal.
    *
    * @generated from field: string method = 1;
    */

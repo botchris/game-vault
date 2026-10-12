@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/netip"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -93,7 +94,8 @@ func accessToken(r *http.Request) (string, bool) {
 // identifies the caller: neither a session cookie nor a trusted network adds to it, and the
 // proxy and host name rules are unaffected (a token never makes a request trusted).
 func serveWithToken(svc *appauth.Service, next http.Handler, w http.ResponseWriter, r *http.Request, token string) {
-	path := r.URL.Path
+	// The escaped path is compared, so an encoded "/" ("%2F") is not mistaken for the procedure.
+	path := r.URL.EscapedPath()
 	if !slices.Contains(tokenProcedures, path) {
 		denyUnauthenticated(w, path)
 		return
@@ -103,7 +105,7 @@ func serveWithToken(svc *appauth.Service, next http.Handler, w http.ResponseWrit
 	req.SessionToken = ""
 	ctx := context.WithValue(r.Context(), ctxRequest, req)
 
-	p, err := svc.AuthenticateToken(ctx, token)
+	p, err := svc.AuthenticateToken(ctx, req, token)
 	switch {
 	case err == nil:
 		next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, ctxPrincipal, p)))
@@ -116,8 +118,11 @@ func serveWithToken(svc *appauth.Service, next http.Handler, w http.ResponseWrit
 	}
 }
 
+// denyThrottled answers a throttled request. Retry-After is the whole window, the longest the
+// caller may have to wait.
 func denyThrottled(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Retry-After", strconv.Itoa(int(appauth.ThrottleWindow()/time.Second)))
 	w.WriteHeader(http.StatusTooManyRequests)
 	w.Write([]byte(`{"code":"resource_exhausted","message":"too many failed attempts; wait a few minutes"}`))
 }

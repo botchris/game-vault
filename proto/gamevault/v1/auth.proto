@@ -8,7 +8,8 @@ import "google/protobuf/timestamp.proto";
 
 // Principal is the authenticated caller.
 message Principal {
-  // "trusted" (a trusted network, no sign-in) or "session" (signed in with the password).
+  // "trusted" (a trusted network, no sign-in) or "session" (signed in with the password). Never
+  // "token": access tokens cannot call AuthService, so they never see a Principal.
   string method = 1;
   string name = 2;
 }

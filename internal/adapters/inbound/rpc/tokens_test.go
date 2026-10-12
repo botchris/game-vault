@@ -143,30 +143,126 @@ func TestAccessTokens_guessing(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	c := newServer(t, &fakeProvider{})
-	local := gamevaultv1connect.NewAuthServiceClient(http.DefaultClient, c.baseURL)
-	guess := func(secret string) error {
-		_, err := gamevaultv1connect.NewOwnershipServiceClient(bearer(secret, "gamevault.example:8080", nil), c.baseURL).
-			CheckOwnership(ctx, connect.NewRequest(&pb.CheckOwnershipRequest{}))
+	type scene struct {
+		local  gamevaultv1connect.AuthServiceClient
+		secret string
+		guess  func(secret string) error
+		raw    func(secret string) *http.Response
+	}
+
+	newScene := func(t *testing.T) scene {
+		t.Helper()
+
+		c := newServer(t, &fakeProvider{})
+		local := gamevaultv1connect.NewAuthServiceClient(http.DefaultClient, c.baseURL)
+		created, err := local.CreateAccessToken(ctx, connect.NewRequest(&pb.CreateAccessTokenRequest{Name: "Extension, laptop"}))
+		require.NoError(t, err)
+
+		return scene{
+			local:  local,
+			secret: created.Msg.Secret,
+			guess: func(secret string) error {
+				_, err := gamevaultv1connect.NewOwnershipServiceClient(bearer(secret, "gamevault.example:8080", nil), c.baseURL).
+					CheckOwnership(ctx, connect.NewRequest(&pb.CheckOwnershipRequest{}))
+
+				return err
+			},
+			raw: func(secret string) *http.Response {
+				req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+gamevaultv1connect.OwnershipServiceCheckOwnershipProcedure,
+					strings.NewReader("{}"))
+				require.NoError(t, err)
+				req.Header.Set("Content-Type", "application/json")
+
+				res, err := bearer(secret, "gamevault.example:8080", nil).Do(req)
+				require.NoError(t, err)
+				res.Body.Close()
+
+				return res
+			},
+		}
+	}
+
+	login := func(local gamevaultv1connect.AuthServiceClient, password string) error {
+		_, err := local.Login(ctx, connect.NewRequest(&pb.LoginRequest{
+			Username: "admin",
+			Password: password,
+		}))
 
 		return err
 	}
 
 	t.Run("GIVEN ten wrong tokens from a host name", func(t *testing.T) {
+		sc := newScene(t)
+
 		for i := range 10 {
-			require.Equal(t, connect.CodeUnauthenticated, connect.CodeOf(guess(fmt.Sprintf("gvt_guess%d", i))))
+			require.Equal(t, connect.CodeUnauthenticated, connect.CodeOf(sc.guess(fmt.Sprintf("gvt_guess%d", i))))
 		}
 
 		t.Run("THEN the next attempt is told to wait", func(t *testing.T) {
-			assert.Equal(t, connect.CodeResourceExhausted, connect.CodeOf(guess("gvt_guess10")))
+			assert.Equal(t, connect.CodeResourceExhausted, connect.CodeOf(sc.guess("gvt_guess10")))
 		})
 
-		t.Run("AND signing in with a password waits too", func(t *testing.T) {
-			_, err := local.Login(ctx, connect.NewRequest(&pb.LoginRequest{
-				Username: "admin",
-				Password: "correct horse",
-			}))
-			assert.Equal(t, connect.CodeResourceExhausted, connect.CodeOf(err))
+		t.Run("AND the answer says how long, at most", func(t *testing.T) {
+			res := sc.raw("gvt_guess11")
+			assert.Equal(t, http.StatusTooManyRequests, res.StatusCode)
+			assert.Equal(t, "900", res.Header.Get("Retry-After"))
 		})
+
+		t.Run("AND even the right token waits", func(t *testing.T) {
+			assert.Equal(t, connect.CodeResourceExhausted, connect.CodeOf(sc.guess(sc.secret)))
+		})
+
+		t.Run("AND signing in with a password is not blocked, since tokens count apart", func(t *testing.T) {
+			assert.Equal(t, connect.CodeUnauthenticated, connect.CodeOf(login(sc.local, "correct horse")))
+		})
+	})
+
+	t.Run("GIVEN ten wrong passwords", func(t *testing.T) {
+		sc := newScene(t)
+
+		for range 10 {
+			require.Equal(t, connect.CodeUnauthenticated, connect.CodeOf(login(sc.local, "wrong")))
+		}
+
+		t.Run("THEN signing in with a password waits", func(t *testing.T) {
+			assert.Equal(t, connect.CodeResourceExhausted, connect.CodeOf(login(sc.local, "correct horse")))
+		})
+
+		t.Run("AND a valid token still works", func(t *testing.T) {
+			assert.NoError(t, sc.guess(sc.secret))
+		})
+	})
+}
+
+func TestAccessTokens_pathGate(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	c := newServer(t, &fakeProvider{})
+	local := gamevaultv1connect.NewAuthServiceClient(http.DefaultClient, c.baseURL)
+	created, err := local.CreateAccessToken(ctx, connect.NewRequest(&pb.CreateAccessTokenRequest{Name: "Extension, laptop"}))
+	require.NoError(t, err)
+
+	t.Run("GIVEN a valid token on paths that only look like the ownership lookup, or are public", func(t *testing.T) {
+		for _, path := range []string{
+			"/gamevault.v1.OwnershipService/CheckOwnership/",
+			"/gamevault.v1.ownershipservice/CheckOwnership",
+			"/gamevault.v1.OwnershipService%2FCheckOwnership",
+			"/gamevault.v1.OwnershipService/../GameService/ListGames",
+			gamevaultv1connect.AuthServiceGetAuthStatusProcedure,
+			"/",
+		} {
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, strings.NewReader("{}"))
+			require.NoError(t, err)
+			req.Header.Set("Content-Type", "application/json")
+
+			res, err := bearer(created.Msg.Secret, "", nil).Do(req)
+			require.NoError(t, err)
+			res.Body.Close()
+
+			t.Run("THEN it is refused as unauthenticated: "+path, func(t *testing.T) {
+				assert.Equal(t, http.StatusUnauthorized, res.StatusCode)
+			})
+		}
 	})
 }

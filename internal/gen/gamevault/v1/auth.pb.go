@@ -25,7 +25,8 @@ const (
 // Principal is the authenticated caller.
 type Principal struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// "trusted" (a trusted network, no sign-in) or "session" (signed in with the password).
+	// "trusted" (a trusted network, no sign-in) or "session" (signed in with the password). Never
+	// "token": access tokens cannot call AuthService, so they never see a Principal.
 	Method        string `protobuf:"bytes,1,opt,name=method,proto3" json:"method,omitempty"`
 	Name          string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	unknownFields protoimpl.UnknownFields
