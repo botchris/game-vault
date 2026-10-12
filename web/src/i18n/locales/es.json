@@ -85,6 +85,7 @@
     "markRedeemedHelp": "Las tiendas no dicen si una clave se canjeó. Estas claves están reveladas y el juego ya está en la biblioteca de esa plataforma, así que casi seguro que lo están.",
     "markedRedeemed_one": "{{count}} clave marcada como canjeada.",
     "markedRedeemed_other": "{{count}} claves marcadas como canjeadas.",
+    "checkOwnership": "¿Lo tengo?",
     "addGame": "Añadir juego",
     "showing": "{{shown}} de {{total}} juegos",
     "showingEditions": "{{editions}} de {{games}}",
@@ -215,6 +216,29 @@
     "copies_one": "{{count}} copia",
     "copies_other": "{{count}} copias",
     "noMatches": "No hay juegos que coincidan."
+  },
+  "ownership": {
+    "title": "¿Lo tengo?",
+    "intro": "Pega una lista de títulos, uno por línea: los juegos de un bundle, unas ofertas, una lista de deseos. Se limpian viñetas, numeración, precios y líneas de DLC o banda sonora. No se guarda nada.",
+    "placeholder": "Pega los títulos aquí…",
+    "check": "Comprobar",
+    "checking": "Comprobando…",
+    "results": "Resultados",
+    "nothing": "Nada que comprobar: pega antes algunos títulos.",
+    "skipped_one": "{{count}} línea omitida por ser DLC o banda sonora.",
+    "skipped_other": "{{count}} líneas omitidas por ser DLC o banda sonora.",
+    "summary": "Tienes {{owned}} de {{total}}",
+    "possibleCount_one": "{{count}} posible",
+    "possibleCount_other": "{{count}} posibles",
+    "copyMissing": "Copiar los que no tengo",
+    "copied": "Copiado",
+    "maybe": "Quizá:",
+    "pendingKey": "clave sin canjear",
+    "status": {
+      "owned": "Lo tienes",
+      "possible": "Posible",
+      "not_owned": "No lo tienes"
+    }
   },
   "newGame": {
     "firstCopy": "Primera copia",

@@ -14,6 +14,8 @@ import {
 import FilterPanel from './FilterPanel';
 import GameDetail, { type SheetNav } from './GameDetail';
 import NewGameDialog from './NewGameDialog';
+import OwnershipDialog from './OwnershipDialog';
+import { gameIdFromHash } from '../../lib/gameRoute';
 import { Stars } from './PlayControls';
 import PosterGrid, { ItemBadges, moreStoresId } from './PosterGrid';
 
@@ -75,6 +77,7 @@ export default function LibraryPage() {
   // The open sheet: a game and the edition it was opened on ('' for the main one).
   const [open, setOpen] = useState<{ id: string; system: string } | null>(null);
   const [creating, setCreating] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
   const sentinel = useRef<HTMLDivElement>(null);
 
@@ -136,6 +139,18 @@ export default function LibraryPage() {
     return () => io.disconnect();
   }, [filtered.length, view]);
 
+  // "#/game/<id>" (links from the bundle checker and the browser extension) opens that game's
+  // sheet, now and whenever the address changes.
+  useEffect(() => {
+    const follow = () => {
+      const id = gameIdFromHash(window.location.hash);
+      if (id) setOpen({ id, system: '' });
+    };
+    follow();
+    window.addEventListener('hashchange', follow);
+    return () => window.removeEventListener('hashchange', follow);
+  }, []);
+
   const visible = filtered.slice(0, shown);
 
   // The open sheet moves through the list as the library shows it (search, filters, sort), loading
@@ -185,6 +200,9 @@ export default function LibraryPage() {
           })
           : t('library.showing', { shown: filtered.length.toLocaleString(i18n.language), total: games.length.toLocaleString(i18n.language) })}</span>
         <span className="spacer" />
+        <button onClick={() => setChecking(true)} title={t('library.checkOwnership')} aria-label={t('library.checkOwnership')}>
+          <Icon name="check" size={18} /><span className="hide-narrow">{t('library.checkOwnership')}</span>
+        </button>
         <button className="primary" onClick={() => setCreating(true)}><Icon name="plus" size={18} /><span className="hide-narrow">{t('library.addGame')}</span></button>
       </header>
 
@@ -268,9 +286,13 @@ export default function LibraryPage() {
         </div>
       </div>
 
-      {open && <GameDetail gameId={open.id} system={open.system} onClose={() => setOpen(null)} onOpenGame={(id) => setOpen({ id, system: '' })} nav={nav}
+      {open && <GameDetail gameId={open.id} system={open.system} onClose={() => {
+        setOpen(null);
+        if (gameIdFromHash(window.location.hash)) history.replaceState(null, '', '#/library');
+      }} onOpenGame={(id) => setOpen({ id, system: '' })} nav={nav}
         onEdition={(system) => setOpen((o) => (o ? { ...o, system } : o))}
         onPlatform={(p) => { setOpen(null); setFilters((f) => ({ ...f, platforms: [p] })); }} />}
+      {checking && <OwnershipDialog onClose={() => setChecking(false)} />}
       {creating && <NewGameDialog onClose={() => setCreating(false)} onCreated={(id) => { setCreating(false); setOpen({ id, system: '' }); }} />}
     </div>
   );

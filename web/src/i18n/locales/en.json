@@ -85,6 +85,7 @@
     "markRedeemedHelp": "Stores never tell whether a key was redeemed. These keys are revealed and the game is already in that platform's library, so they almost certainly were.",
     "markedRedeemed_one": "{{count}} key marked as redeemed.",
     "markedRedeemed_other": "{{count}} keys marked as redeemed.",
+    "checkOwnership": "Do I own it?",
     "addGame": "Add game",
     "showing": "{{shown}} of {{total}} games",
     "showingEditions": "{{editions}} of {{games}}",
@@ -215,6 +216,29 @@
     "copies_one": "{{count}} copy",
     "copies_other": "{{count}} copies",
     "noMatches": "No matching games."
+  },
+  "ownership": {
+    "title": "Do I own it?",
+    "intro": "Paste a list of titles, one per line: a bundle's games, a sale, a wishlist. Bullets, numbering, prices and DLC or soundtrack lines are cleaned up. Nothing is saved.",
+    "placeholder": "Paste titles here…",
+    "check": "Check",
+    "checking": "Checking…",
+    "results": "Results",
+    "nothing": "Nothing to check: paste some titles first.",
+    "skipped_one": "{{count}} line skipped as DLC or soundtrack.",
+    "skipped_other": "{{count}} lines skipped as DLC or soundtrack.",
+    "summary": "You own {{owned}} of {{total}}",
+    "possibleCount_one": "{{count}} possible",
+    "possibleCount_other": "{{count}} possible",
+    "copyMissing": "Copy the ones I don't own",
+    "copied": "Copied",
+    "maybe": "Maybe:",
+    "pendingKey": "key not redeemed",
+    "status": {
+      "owned": "Owned",
+      "possible": "Possible",
+      "not_owned": "Not owned"
+    }
   },
   "newGame": {
     "firstCopy": "First copy",
