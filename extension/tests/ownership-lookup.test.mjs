@@ -181,3 +181,12 @@ test('an answer that arrives after clear() is not cached', async () => {
   await lookup.check([{ title: 'Lantern Keep' }]);
   assert.equal(calls.length, 2, 'asked again: the answer from before clear() was not kept');
 });
+
+test('a redirect is never followed, so the token is not re-sent elsewhere, and reads as unreachable', async () => {
+  const { lookup, calls } = setup();
+  await lookup.check([{ title: 'Lantern Keep' }]);
+  assert.equal(calls[0].init.redirect, 'error', 'an SSO proxy sending to /login would get the token');
+  // With redirect: 'error', fetch rejects on a 3xx answer.
+  const refused = setup({ answer: () => { throw new TypeError('Failed to fetch: unexpected redirect'); } });
+  assert.deepEqual(await refused.lookup.check([{ title: 'Lantern Keep' }]), { status: 'unavailable', reason: 'unreachable' });
+});

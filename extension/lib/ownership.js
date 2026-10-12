@@ -181,6 +181,9 @@ export function createLookup({ storage, fetch, now }) {
           res = await fetch(origin + PROCEDURE, {
             method: 'POST',
             credentials: 'omit',
+            // A redirect (an authenticating proxy sending to its sign-in page) would carry the
+            // token to another address: fetch rejects instead, and Game Vault reads as unreachable.
+            redirect: 'error',
             headers: {
               'Content-Type': 'application/json',
               'Connect-Protocol-Version': '1',
