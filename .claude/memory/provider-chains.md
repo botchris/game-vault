@@ -79,6 +79,8 @@ metadata:
   key; `coverLogicChanged` not bumped (enabling a provider already forgets the misses). See
   [[steamgriddb]].
 - **Picker and exact titles (2026-10-12, maintainer's ruling):** Choose cover always asks the
-  fallback-pass providers too (one request each per opening, listed in chain order); automatic
-  resolution unchanged. Exact title matches (Steam, IGDB, Wikipedia, SteamGridDB) use
-  `game.SameTitle`: punctuation and separators ignored ("A - B" = "A: B"), every word and number kept.
+  fallback-pass providers too (one request each per opening; first-pass candidates first, then the
+  fallback ones, each in chain order; cached per edition while the dialog is open); automatic
+  resolution unchanged. Exact title matches (Steam incl. FindLinks, IGDB, Wikipedia, SteamGridDB,
+  TheGamesDB) use `game.SameTitle`: word lists compared, case/accents/punctuation ignored, "&" = "and"
+  ("A - B" = "A: B", "Re-Volt" ≠ "Revolt", "F.E.A.R." ≠ "Fear"; empty never equal).

@@ -41,5 +41,5 @@ As of 2026-10-11:
   `width`/`height` are present were only checked against fakes.
 - **Bug fixed 2026-10-12:** a title with " - " where SteamGridDB uses ": " found nothing (exact match
   was case/™-insensitive only), and the picker never asked fallback providers when a store had art.
-  Now `game.SameTitle` (letters and digits only, accents ignored, every word kept) for every exact
+  Now `game.SameTitle` (the same words, ignoring case, accents and punctuation) for every exact
   match, and the picker always asks the fallback-pass providers.
