@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { authClient, errorMessage } from '../../api/client';
 import { Alert, useFormatters } from '../../components/ui';
 import type { AccessToken } from '../../gen/gamevault/v1/auth_pb';
+import { copyText } from '../../lib/clipboard';
 import { toDate } from '../../lib/model';
 
 /** Access tokens for the browser extension: create one (its secret is shown once), list, revoke. */
@@ -81,20 +82,7 @@ export default function AccessTokens() {
   };
 
   const copy = async () => {
-    let ok = false;
-    try {
-      await navigator.clipboard.writeText(secret);
-      ok = true;
-    } catch {
-      // No clipboard API (plain http on the network): select the field and try the legacy command.
-      secretInput.current?.focus();
-      secretInput.current?.select();
-      try {
-        ok = document.execCommand('copy');
-      } catch {
-        ok = false;
-      }
-    }
+    const ok = await copyText(secret, secretInput.current);
     setCopied(ok);
     setHint(!ok);
     setAnnounce(ok ? t('security.tokens.copied') : t('security.tokens.copyManually'));

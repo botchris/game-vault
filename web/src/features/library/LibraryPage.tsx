@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { errorMessage, gameClient } from '../../api/client';
 import { Cover } from '../../components/Cover';
@@ -15,7 +15,7 @@ import FilterPanel from './FilterPanel';
 import GameDetail, { type SheetNav } from './GameDetail';
 import NewGameDialog from './NewGameDialog';
 import OwnershipDialog from './OwnershipDialog';
-import { gameIdFromHash } from '../../lib/gameRoute';
+import { gameHash, gameIdFromHash } from '../../lib/gameRoute';
 import { Stars } from './PlayControls';
 import PosterGrid, { ItemBadges, moreStoresId } from './PosterGrid';
 
@@ -62,7 +62,7 @@ const isExpiring = (g: Game) => {
 
 export default function LibraryPage() {
   const { t, i18n } = useTranslation();
-  const { games, reloadGames, detailsCached, fields } = useAppData();
+  const { games, loading, reloadGames, detailsCached, fields } = useAppData();
   const [q, setQ] = useState('');
   const [quick, setQuick] = useState<Quick>(null);
   const [letter, setLetter] = useState('');
@@ -140,16 +140,57 @@ export default function LibraryPage() {
   }, [filtered.length, view]);
 
   // "#/game/<id>" (links from the bundle checker and the browser extension) opens that game's
-  // sheet, now and whenever the address changes.
+  // sheet, now and whenever the address changes. `byAddress` is true while the open sheet came from an
+  // address, so going back closes it; `pushed` is true when the app added that history entry
+  // itself, so closing goes back to the entry before it instead of adding a second "#/library".
+  const byAddress = useRef(false);
+  const pushed = useRef(false);
   useEffect(() => {
     const follow = () => {
       const id = gameIdFromHash(window.location.hash);
-      if (id) setOpen({ id, system: '' });
+      if (id) {
+        byAddress.current = true;
+        setOpen({ id, system: '' });
+      } else if (byAddress.current) {
+        byAddress.current = false;
+        pushed.current = false;
+        setOpen(null);
+      }
     };
     follow();
     window.addEventListener('hashchange', follow);
     return () => window.removeEventListener('hashchange', follow);
   }, []);
+
+  /** Every way of closing the sheet: clears a game address so a reload does not reopen it. */
+  const closeSheet = useCallback(() => {
+    setOpen(null);
+    const wasPushed = pushed.current;
+    byAddress.current = false;
+    pushed.current = false;
+    if (!gameIdFromHash(window.location.hash)) return;
+    if (wasPushed) history.back();
+    else history.replaceState(null, '', '#/library');
+  }, []);
+
+  // An address naming a game that does not exist (deleted, mistyped) opens nothing and is cleared.
+  useEffect(() => {
+    if (loading || !open || !byAddress.current || games.some((g) => g.id === open.id)) return;
+    closeSheet();
+  }, [loading, open, games, closeSheet]);
+
+  /** Opens a game from a link inside the app (the checker): the address names it, and opens it
+   *  even when the address is already that one. */
+  const openFromLink = (id: string) => {
+    setChecking(false);
+    const hash = gameHash(id);
+    if (window.location.hash !== hash) {
+      pushed.current = true;
+      window.location.hash = hash;
+    }
+    byAddress.current = true;
+    setOpen({ id, system: '' });
+  };
 
   const visible = filtered.slice(0, shown);
 
@@ -286,13 +327,10 @@ export default function LibraryPage() {
         </div>
       </div>
 
-      {open && <GameDetail gameId={open.id} system={open.system} onClose={() => {
-        setOpen(null);
-        if (gameIdFromHash(window.location.hash)) history.replaceState(null, '', '#/library');
-      }} onOpenGame={(id) => setOpen({ id, system: '' })} nav={nav}
+      {open && <GameDetail gameId={open.id} system={open.system} onClose={closeSheet} onOpenGame={(id) => setOpen({ id, system: '' })} nav={nav}
         onEdition={(system) => setOpen((o) => (o ? { ...o, system } : o))}
-        onPlatform={(p) => { setOpen(null); setFilters((f) => ({ ...f, platforms: [p] })); }} />}
-      {checking && <OwnershipDialog onClose={() => setChecking(false)} />}
+        onPlatform={(p) => { closeSheet(); setFilters((f) => ({ ...f, platforms: [p] })); }} />}
+      {checking && <OwnershipDialog onClose={() => setChecking(false)} onOpenGame={openFromLink} />}
       {creating && <NewGameDialog onClose={() => setCreating(false)} onCreated={(id) => { setCreating(false); setOpen({ id, system: '' }); }} />}
     </div>
   );

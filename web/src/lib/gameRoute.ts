@@ -7,3 +7,8 @@ const GAME_HASH = /^#\/game\/([A-Za-z0-9-]{1,64})\/?$/;
 export function gameIdFromHash(hash: string): string {
   return GAME_HASH.exec(hash)?.[1] ?? '';
 }
+
+/** The address of a game's sheet. */
+export function gameHash(id: string): string {
+  return `#/game/${id}`;
+}

@@ -1,29 +1,41 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { errorMessage, ownershipClient } from '../../api/client';
 import { PlatformBadge } from '../../components/PlatformBadge';
 import { Alert, Modal } from '../../components/ui';
+import { copyText } from '../../lib/clipboard';
 import { CopyKind } from '../../lib/model';
-import { chunk, cleanTitles, notOwnedText, summarize, toRows, type GameLike, type ResultLike, type Row } from '../../lib/ownership';
+import { ShortAnswerError, checkAll, cleanTitles, notOwnedText, summarize, type GameLike, type Row } from '../../lib/ownership';
 
 const KINDS: Record<string, CopyKind> = { key: CopyKind.KEY, library: CopyKind.LIBRARY, physical: CopyKind.PHYSICAL };
 const MARKS: Record<Row['status'], string> = { owned: '✓', possible: '?', not_owned: '–' };
 
 /** "Do I own it?": checks a pasted list of titles (a bundle, a sale) against the catalog. Nothing is
  *  saved. On phones it is full screen, with the list above the results. */
-export default function OwnershipDialog({ onClose }: { onClose: () => void }) {
+export default function OwnershipDialog({ onClose, onOpenGame }: { onClose: () => void; onOpenGame: (id: string) => void }) {
   const { t } = useTranslation();
   const [text, setText] = useState('');
   const [rows, setRows] = useState<Row[] | null>(null);
   const [skipped, setSkipped] = useState(0);
+  const [tooLong, setTooLong] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  // The text to copy by hand when the browser refuses to copy.
+  const [manual, setManual] = useState('');
+  const manualField = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (!manual) return;
+    manualField.current?.focus();
+    manualField.current?.select();
+  }, [manual]);
 
   const check = async (e: FormEvent) => {
     e.preventDefault();
     const cleaned = cleanTitles(text);
     setSkipped(cleaned.skipped);
+    setTooLong(cleaned.tooLong);
+    setManual('');
     setError('');
     setCopied(false);
     if (!cleaned.titles.length) {
@@ -32,27 +44,18 @@ export default function OwnershipDialog({ onClose }: { onClose: () => void }) {
       return;
     }
     setBusy(true);
-    try {
-      const results: ResultLike[] = [];
-      for (const part of chunk(cleaned.titles)) {
-        results.push(...(await ownershipClient.checkOwnership({ items: part.map((title) => ({ title })) })).results);
-      }
-      setRows(toRows(cleaned.titles, results));
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setBusy(false);
-    }
+    const done = await checkAll(cleaned.titles, async (part) => (await ownershipClient.checkOwnership({ items: part.map((title) => ({ title })) })).results);
+    setRows(done.rows.length ? done.rows : null);
+    if (done.error) setError(done.error instanceof ShortAnswerError ? t('ownership.shortAnswer') : errorMessage(done.error));
+    setBusy(false);
   };
 
   const copyMissing = async () => {
     if (!rows) return;
-    try {
-      await navigator.clipboard.writeText(notOwnedText(rows));
-      setCopied(true);
-    } catch (err) {
-      setError(errorMessage(err));
-    }
+    const text = notOwnedText(rows);
+    const ok = await copyText(text);
+    setCopied(ok);
+    setManual(ok ? '' : text);
   };
 
   const sum = rows ? summarize(rows) : null;
@@ -70,24 +73,34 @@ export default function OwnershipDialog({ onClose }: { onClose: () => void }) {
           <label>
             <span className="muted small">{t('ownership.intro')}</span>
             <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder={t('ownership.placeholder')}
-              spellCheck={false} autoFocus />
+              spellCheck={false} autoFocus={!window.matchMedia('(max-width: 860px)').matches} />
           </label>
         </form>
-        <section className="ownership-results" aria-live="polite" aria-label={t('ownership.results')}>
-          {error && <Alert tone="error">{error}</Alert>}
+        <section className="ownership-results" aria-label={t('ownership.results')}>
+          <div role="status" aria-live="polite">
+            {error && <Alert tone="error">{error}</Alert>}
+            {sum && <p className="ownership-summary-line">{t('ownership.summary', { owned: sum.owned, total: sum.total })}</p>}
+          </div>
           {skipped > 0 && <p className="muted small">{t('ownership.skipped', { count: skipped })}</p>}
+          {tooLong > 0 && <p className="muted small">{t('ownership.tooLong', { count: tooLong })}</p>}
           {rows && sum && (
             <>
               <div className="ownership-summary">
-                <span>{t('ownership.summary', { owned: sum.owned, total: sum.total })}</span>
                 {sum.possible > 0 && <span className="muted">{t('ownership.possibleCount', { count: sum.possible })}</span>}
                 <span className="spacer" />
                 {sum.owned + sum.possible < sum.total && (
                   <button type="button" onClick={copyMissing}>{copied ? t('ownership.copied') : t('ownership.copyMissing')}</button>
                 )}
               </div>
+              {manual && (
+                <label className="ownership-manual">
+                  <span className="muted small">{t('ownership.copyManually')}</span>
+                  <textarea ref={manualField} readOnly value={manual} rows={Math.min(8, manual.split('\n').length)} spellCheck={false}
+                    onFocus={(e) => e.currentTarget.select()} />
+                </label>
+              )}
               <ul className="ownership-rows">
-                {rows.map((r, i) => <ResultRow key={i} row={r} onOpen={onClose} />)}
+                {rows.map((r, i) => <ResultRow key={i} row={r} onOpen={onOpenGame} />)}
               </ul>
             </>
           )}
@@ -97,7 +110,7 @@ export default function OwnershipDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-function ResultRow({ row, onOpen }: { row: Row; onOpen: () => void }) {
+function ResultRow({ row, onOpen }: { row: Row; onOpen: (id: string) => void }) {
   const { t } = useTranslation();
   const label = t(`ownership.status.${row.status}`);
   return (
@@ -124,8 +137,15 @@ function ResultRow({ row, onOpen }: { row: Row; onOpen: () => void }) {
   );
 }
 
-/** A link to a game's sheet ("#/game/<id>"): the library opens it once the dialog closes. */
-function GameLink({ game, onOpen }: { game: GameLike; onOpen: () => void }) {
+/** A link to a game's sheet ("#/game/<id>"). A plain click opens the sheet through the library, so it
+ *  opens even when the address does not change; a modified or middle click keeps the browser's own
+ *  behaviour (new tab, new window) and leaves the dialog open. */
+function GameLink({ game, onOpen }: { game: GameLike; onOpen: (id: string) => void }) {
   const href = game.path.startsWith('#/game/') ? game.path : '#/library';
-  return <a href={href} onClick={onOpen}>{game.title}</a>;
+  const click = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    onOpen(game.id);
+  };
+  return <a href={href} onClick={click}>{game.title}</a>;
 }

@@ -520,7 +520,10 @@ td.title { font-weight: 500; min-width: 220px; }
 .ownership { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 20px; align-items: start; }
 .ownership-input label { display: flex; flex-direction: column; gap: 8px; }
 .ownership-input textarea { width: 100%; min-height: 340px; font-size: 15px; resize: vertical; }
-.ownership-summary { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; font-weight: 700; }
+.ownership-summary-line { margin: 0 0 8px; font-weight: 700; }
+.ownership-summary { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.ownership-manual { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.ownership-manual textarea { width: 100%; font-size: 14px; resize: vertical; }
 .ownership-rows { list-style: none; margin: 0; padding: 0; }
 .ownership-rows li { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 2px 8px; padding: 9px 0; border-bottom: 1px solid var(--border); }
 .ownership-rows .state { grid-row: span 2; font-weight: 800; }
@@ -530,10 +533,14 @@ td.title { font-weight: 500; min-width: 220px; }
 .ownership-title { font-weight: 600; overflow-wrap: anywhere; }
 .ownership-detail { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); }
 
+@media (max-width: 860px) {
+  .ownership-input textarea { font-size: 16px; }
+}
+
 @media (max-width: 640px) {
   .ownership { grid-template-columns: 1fr; }
   .ownership-input textarea { min-height: 140px; }
-  .modal.phone-full { height: 100dvh; max-height: 100dvh; border-radius: 0; }
+  .modal.phone-full { height: 100dvh; max-height: 100dvh; border-radius: 0; padding-top: env(safe-area-inset-top); }
   .modal.phone-full .modal-body { flex: 1; }
 }
 
