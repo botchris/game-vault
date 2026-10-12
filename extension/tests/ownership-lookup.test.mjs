@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { CACHE_MS, MAX_ITEMS, STORE_ORIGINS, createLookup, removableOrigins, scriptFor, tokenInClear } from '../lib/ownership.js';
+import { CACHE_MS, MAX_ITEMS, STORE_ORIGINS, createLookup, nextOwnership, removableOrigins, scriptFor, tokenInClear } from '../lib/ownership.js';
 
 const GV = 'http://127.0.0.1:8093';
 const json = (body, status = 200) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
@@ -25,7 +25,7 @@ function setup(opts = {}) {
     },
     now: () => clock,
   });
-  return { lookup, calls, tick: (ms) => { clock += ms; } };
+  return { lookup, calls, data, tick: (ms) => { clock += ms; } };
 }
 
 test('a lookup goes only to the chosen Game Vault, with the token, no cookies, and only what the page showed', async () => {
@@ -146,4 +146,38 @@ test('a token travels unencrypted only to a plain http address off this computer
   for (const origin of ['https://gamevault.lan', 'https://192.168.1.20', 'http://127.0.0.1:8080', 'http://127.4.5.6', 'http://localhost:8080', 'http://[::1]:8080', '', 'not an address', undefined]) {
     assert.equal(tokenInClear(origin), false, String(origin));
   }
+});
+
+test('another Game Vault address forgets the token and turns the option off', () => {
+  const saved = { enabled: true, origin: GV, token: 'gvt_test' };
+  assert.equal(nextOwnership(saved, GV), saved, 'same address: unchanged');
+  assert.deepEqual(nextOwnership(saved, 'http://192.168.1.20:8080'), { enabled: false, origin: 'http://192.168.1.20:8080', token: '' });
+  assert.deepEqual(nextOwnership(saved, ''), { enabled: false, origin: '', token: '' }, 'its address was removed');
+  assert.deepEqual(nextOwnership(undefined, GV), { enabled: false, origin: GV, token: '' }, 'never set up');
+});
+
+test('a token changed without clear() is not answered from the old token\'s cache', async () => {
+  const { lookup, calls, data } = setup();
+  await lookup.check([{ title: 'Lantern Keep' }]);
+  data.ownership = { ...data.ownership, token: 'gvt_other' };
+  await lookup.check([{ title: 'Lantern Keep' }]);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].init.headers.Authorization, 'Bearer gvt_other');
+});
+
+test('an answer that arrives after clear() is not cached', async () => {
+  let release;
+  const gate = new Promise((r) => { release = r; });
+  let first = true;
+  const { lookup, calls } = setup({ answer: async (body) => {
+    if (first) { first = false; await gate; }
+    return json({ results: body.items.map(() => ({ status: 'not_owned' })) });
+  } });
+  const pending = lookup.check([{ title: 'Lantern Keep' }]);
+  await new Promise((r) => setImmediate(r));
+  lookup.clear(); // settings changed while Game Vault was answering
+  release();
+  await pending;
+  await lookup.check([{ title: 'Lantern Keep' }]);
+  assert.equal(calls.length, 2, 'asked again: the answer from before clear() was not kept');
 });

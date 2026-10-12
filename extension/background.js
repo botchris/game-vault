@@ -16,6 +16,12 @@ const pending = new Map(); // confirmation id → { resolve, windowId }
 const ownership = createLookup({ storage: chrome.storage.local, fetch: (url, init) => fetch(url, init), now: () => Date.now() });
 const syncStores = () => syncStoreScripts(chrome).catch(() => {});
 
+// The token lives in chrome.storage.local: only the extension's own pages may read it, never a
+// content script (where the browser can say so; content scripts here never read storage).
+try {
+  chrome.storage.local.setAccessLevel?.({ accessLevel: 'TRUSTED_CONTEXTS' })?.catch?.(() => {});
+} catch { /* not supported by this browser */ }
+
 const coded = (code, message) => Object.assign(new Error(message ?? code), { code });
 
 async function enabledOrigins() {
@@ -196,10 +202,10 @@ chrome.permissions.onAdded?.addListener(async (added) => {
 });
 
 // Lookups from the store content scripts: only from this extension's own scripts, in a tab, on a
-// store page.
+// store page. Every other message is denied, except the confirmation window's answer (handled above).
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg?.op !== 'ownership') return undefined;
-  if (sender.id !== chrome.runtime.id || !sender.tab || !storeForUrl(sender.url ?? '')) {
+  if (msg?.op === 'confirm' && sender.url?.startsWith(chrome.runtime.getURL('confirm.html'))) return undefined;
+  if (msg?.op !== 'ownership' || sender.id !== chrome.runtime.id || !sender.tab || !storeForUrl(sender.url ?? '')) {
     sendResponse({ status: 'unavailable', reason: 'denied' });
     return undefined;
   }

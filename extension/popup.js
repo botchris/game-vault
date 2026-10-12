@@ -1,6 +1,6 @@
 // The extension's menu: the Game Vault addresses enabled for sign-ins, and the store-page option.
 import { bridgeId, enableOrigin } from './lib/bridges.js';
-import { STORE_ORIGINS, grantedStores, removableOrigins, tokenInClear } from './lib/ownership.js';
+import { STORE_ORIGINS, grantedStores, nextOwnership, removableOrigins, tokenInClear } from './lib/ownership.js';
 
 const $ = (id) => document.getElementById(id);
 const load = async (k, d) => (await chrome.storage.local.get(k))[k] ?? d;
@@ -88,8 +88,19 @@ async function render() {
   await renderOwnership(origins);
 }
 
+/** Moves the option to another address: the token is forgotten and the option turned off (see nextOwnership). */
+async function chooseOrigin(origin) {
+  const saved = await load('ownership', undefined);
+  const ownership = nextOwnership(saved, origin);
+  if (ownership !== saved) await chrome.storage.local.set({ ownership });
+  return ownership;
+}
+
 async function renderOwnership(origins) {
-  const ownership = await load('ownership', {});
+  const saved = await load('ownership', {});
+  // The saved address was removed: another one (or none) is chosen, without the old token.
+  const ownership = await chooseOrigin(origins.includes(saved.origin) ? saved.origin : origins[0] ?? '');
+  const { origin } = ownership;
   const select = $('own-origin');
   select.textContent = '';
   for (const o of origins) {
@@ -98,7 +109,6 @@ async function renderOwnership(origins) {
     opt.textContent = o;
     select.append(opt);
   }
-  const origin = origins.includes(ownership.origin) ? ownership.origin : origins[0] ?? '';
   select.value = origin;
   select.disabled = !origins.length;
   $('own-enabled').checked = Boolean(ownership.enabled);
@@ -106,7 +116,6 @@ async function renderOwnership(origins) {
   $('own-token').value = ownership.token ?? '';
   // Plain http off this computer: anyone on the network could read the token on its way.
   $('own-insecure').hidden = !tokenInClear(origin);
-  if (origin && origin !== ownership.origin) await saveOwnership({ origin });
   const stores = await grantedStores(chrome);
   $('own-status').textContent = !origins.length ? t('ownershipNoAddress')
     : !ownership.enabled ? ''
@@ -114,7 +123,7 @@ async function renderOwnership(origins) {
 }
 
 $('own-origin').onchange = async (e) => {
-  await saveOwnership({ origin: e.target.value });
+  await chooseOrigin(e.target.value);
   render();
 };
 $('own-token').onchange = (e) => saveOwnership({ token: e.target.value.trim() });

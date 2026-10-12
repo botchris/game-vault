@@ -48,13 +48,18 @@ export function removableOrigins(grants) {
   return STORES.filter((s) => !used.has(s.host)).map(storeOrigin);
 }
 
-/** Registers the content script of each store the browser allows while the option is on, and unregisters the rest. */
+/**
+ * Registers the content script of each store the browser allows while the option is on for an
+ * address that is still enabled, and unregisters the rest.
+ */
 export async function syncStoreScripts(api) {
   const { ownership } = await api.storage.local.get('ownership');
+  const { origins = [] } = await api.storage.local.get('origins');
+  const on = Boolean(ownership?.enabled) && Boolean(ownership.origin) && origins.includes(ownership.origin);
   const registered = new Set((await api.scripting.getRegisteredContentScripts({ ids: STORES.map(scriptId) })).map((s) => s.id));
   for (const store of STORES) {
     const id = scriptId(store);
-    const wanted = Boolean(ownership?.enabled) && await api.permissions.contains({ origins: [storeOrigin(store)] });
+    const wanted = on && await api.permissions.contains({ origins: [storeOrigin(store)] });
     if (wanted && !registered.has(id)) await api.scripting.registerContentScripts([scriptFor(store)]);
     if (!wanted && registered.has(id)) await api.scripting.unregisterContentScripts({ ids: [id] });
   }
@@ -76,6 +81,16 @@ export function tokenInClear(origin) {
   return !(host === 'localhost' || host === '[::1]' || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host));
 }
 
+/**
+ * The store-page settings after choosing a Game Vault address (by the user, or because the saved
+ * one was removed). A token belongs to the address it was saved for: another address forgets it
+ * and turns the option off, so it is never sent to another server.
+ */
+export function nextOwnership(prev, origin) {
+  if (prev && prev.origin === origin) return prev;
+  return { ...prev, enabled: false, origin, token: '' };
+}
+
 /** Only what a page shows is sent: a store's id for the game, its title. */
 function cleanItem(it) {
   const text = (v, n) => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, n) : '');
@@ -91,7 +106,8 @@ function cleanItem(it) {
   return out;
 }
 
-const keyOf = (origin, item) => [origin, item.store ?? '', item.id ?? '', (item.title ?? '').toLowerCase()].join('\u0000');
+// The token is part of the key (in memory only): an answer given to another token is never reused.
+const keyOf = (origin, token, item) => [origin, token, item.store ?? '', item.id ?? '', (item.title ?? '').toLowerCase()].join('\u0000');
 
 /** The sheet's address on the chosen Game Vault; anything else becomes its home page. */
 const sheetUrl = (origin, path) => (SHEET.test(path ?? '') ? `${origin}/${path}` : `${origin}/`);
@@ -125,14 +141,20 @@ function resultOf(r, origin) {
  */
 export function createLookup({ storage, fetch, now }) {
   const cache = new Map();
+  // Bumped by clear(): a check that was waiting for Game Vault when the settings changed does not
+  // cache what it gets.
+  let generation = 0;
   const unavailable = (reason) => ({ status: 'unavailable', reason });
+  const clear = () => {
+    cache.clear();
+    generation++;
+  };
 
   return {
-    clear() {
-      cache.clear();
-    },
+    clear,
 
     async check(raw) {
+      const started = generation;
       const { ownership } = await storage.get('ownership');
       const { origins = [] } = await storage.get('origins');
       if (!ownership?.enabled || !ownership.origin || !origins.includes(ownership.origin)) return unavailable('setup');
@@ -142,7 +164,7 @@ export function createLookup({ storage, fetch, now }) {
       const results = new Array(items.length);
       const missing = [];
       items.forEach((item, i) => {
-        const hit = cache.get(keyOf(origin, item));
+        const hit = cache.get(keyOf(origin, token, item));
         if (hit && now() - hit.at < CACHE_MS) results[i] = hit.result;
         else missing.push(i);
       });
@@ -165,7 +187,7 @@ export function createLookup({ storage, fetch, now }) {
           return unavailable('unreachable');
         }
         if (res.status === 401) {
-          cache.clear();
+          clear();
           return unavailable(token ? 'token' : 'signin');
         }
         if (!res.ok) return unavailable('unreachable');
@@ -178,7 +200,7 @@ export function createLookup({ storage, fetch, now }) {
         if (!Array.isArray(got) || got.length !== part.length) return unavailable('unreachable');
         part.forEach((idx, j) => {
           results[idx] = resultOf(got[j], origin);
-          cache.set(keyOf(origin, items[idx]), { result: results[idx], at: now() });
+          if (generation === started) cache.set(keyOf(origin, token, items[idx]), { result: results[idx], at: now() });
         });
       }
       return { status: 'ok', results };

@@ -18,7 +18,7 @@ function ev() {
   };
 }
 
-function fakeChrome({ data = {}, granted = [] } = {}) {
+function fakeChrome({ data = {}, granted = [], setAccessLevel } = {}) {
   const c = {
     data,
     granted: new Set(granted),
@@ -34,6 +34,7 @@ function fakeChrome({ data = {}, granted = [] } = {}) {
         get: async (k) => ({ [k]: data[k] }),
         set: async (o) => { Object.assign(data, o); },
         remove: async (k) => { delete data[k]; },
+        ...(setAccessLevel ? { setAccessLevel } : {}),
       },
       onChanged: ev(),
     },
@@ -137,4 +138,32 @@ test('other pages, other extensions and non-tabs get no lookup', async (t) => {
     assert.deepEqual(answer, { status: 'unavailable', reason: 'denied' }, sender.url);
   }
   assert.equal(fetched, 0);
+});
+
+test('a store page asking for anything but a lookup is denied', async () => {
+  const chrome = await load({ data: { origins: [GV], ownership: { enabled: true, origin: GV } } });
+  for (const msg of [{ op: 'connect', recipe: {} }, { op: 'confirm', id: 'x', allow: true }, { op: 'hello' }, null]) {
+    const answer = await ask(chrome, msg, { id: 'ext', url: 'https://store.steampowered.com/app/4410/', tab: { id: 3 } });
+    assert.deepEqual(answer, { status: 'unavailable', reason: 'denied' }, JSON.stringify(msg));
+  }
+});
+
+test('the store scripts are registered only while the chosen address is still enabled', async () => {
+  const chrome = await load({ data: { origins: [GV], ownership: { enabled: true, origin: GV } }, granted: [STEAM] });
+  changed(chrome);
+  await flush();
+  assert.deepEqual(ownershipScripts(chrome), ['ownership-steam']);
+  chrome.data.origins = [];
+  chrome.storage.onChanged.fire({ origins: { newValue: [] } }, 'local');
+  await flush();
+  assert.deepEqual(ownershipScripts(chrome), []);
+});
+
+test("only the extension's own pages may read its storage, where the browser supports it", async () => {
+  const levels = [];
+  await load({ setAccessLevel: async (o) => { levels.push(o); } });
+  assert.deepEqual(levels, [{ accessLevel: 'TRUSTED_CONTEXTS' }]);
+  await load({ setAccessLevel: async () => { throw new Error('not supported'); } });
+  await load({ setAccessLevel: () => { throw new Error('not supported'); } });
+  await flush();
 });
