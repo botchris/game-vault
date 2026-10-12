@@ -62,14 +62,11 @@ test('labels render in a closed shadow root with their own styles, text as text,
   assert.match(labelCss(root), /\.gv/);
   assert.equal(h1.textContent, 'Lantern Keep', 'the title the reader sees is unchanged');
   assert.ok(ns.hasLabel(h1));
-  const a = root.querySelector('a');
-  assert.equal(a.textContent, '<b>In</b> your collection');
+  const label = root.querySelector('.gv');
+  assert.equal(label.textContent, '<b>In</b> your collection');
   assert.equal(labelText(host), '<b>In</b> your collection');
   assert.equal(root.querySelector('b'), null);
-  assert.equal(a.getAttribute('target'), '_blank');
-  assert.equal(a.getAttribute('rel'), 'noopener noreferrer');
-  const { root: other } = ns.renderLabel(window.document, h1, { kind: 'possible', tone: 'possible', text: 'x', href: 'javascript:alert(1)' });
-  assert.equal(other.querySelector('a'), null, 'not a web address: no link');
+  assert.equal(root.querySelector('a'), null, 'no link: a link would be a Tab stop only some answers have');
 });
 
 test('the page cannot tell what a label says: its marker is empty and its kind stays with the extension', async (tt) => {
@@ -133,4 +130,51 @@ test('where constructed style sheets are missing, the label carries a <style> in
   window.CSSStyleSheet = undefined;
   const { root: fallback } = ns.renderLabel(window.document, window.document.getElementById('t'), models.owned);
   assert.match(fallback.querySelector('style').textContent, /\.gv/);
+});
+
+/** The elements of a label's shadow root that take a Tab stop. */
+const focusable = (root) => [...root.querySelectorAll('a[href], button, input, select, textarea, [tabindex]')];
+
+test('every visible label takes exactly one Tab stop, of the same element, role and tabindex', async (tt) => {
+  const window = pageWindow('<!doctype html><html><body><h1 id="t">Lantern Keep</h1></body></html>', 'https://store.steampowered.com/app/4410/');
+  tt.after(() => window.happyDOM.close());
+  const shapes = ['owned', 'possible', 'notOwned', 'unavailable'].map((name) => {
+    const { root } = ns.renderLabel(window.document, window.document.getElementById('t'), models[name]);
+    const stops = focusable(root);
+    assert.equal(stops.length, 1, name);
+    const [el] = stops;
+    return JSON.stringify([el.tagName, el.getAttribute('role'), el.getAttribute('tabindex'), el.getAttributeNames().sort()]);
+  });
+  assert.equal(new Set(shapes).size, 1, shapes.join('\n'));
+  assert.deepEqual(JSON.parse(shapes[0]).slice(1, 3), ['button', '0']);
+});
+
+test('owned and possible open the game on click or Enter, without an opener; the others do nothing', async (tt) => {
+  const window = pageWindow('<!doctype html><html><body><h1 id="t">Lantern Keep</h1></body></html>', 'https://store.steampowered.com/app/4410/');
+  tt.after(() => window.happyDOM.close());
+  const opened = [];
+  window.open = (...args) => {
+    opened.push(args);
+    return null;
+  };
+  const press = (name, how) => {
+    const el = ns.renderLabel(window.document, window.document.getElementById('t'), models[name]).root.querySelector('[tabindex]');
+    if (how === 'click') el.click();
+    else el.dispatchEvent(new window.KeyboardEvent('keydown', { key: how, bubbles: true }));
+  };
+  press('owned', 'click');
+  press('possible', 'Enter');
+  press('owned', ' ');
+  press('owned', 'a');
+  assert.deepEqual(opened, [
+    [`${GV}/#/game/g1`, '_blank', 'noopener,noreferrer'],
+    [`${GV}/#/game/g1`, '_blank', 'noopener,noreferrer'],
+    [`${GV}/#/game/g1`, '_blank', 'noopener,noreferrer'],
+  ]);
+  opened.length = 0;
+  press('notOwned', 'click');
+  press('unavailable', 'Enter');
+  const hostile = ns.renderLabel(window.document, window.document.getElementById('t'), { ...models.owned, href: 'javascript:alert(1)' });
+  hostile.root.querySelector('[tabindex]').click();
+  assert.deepEqual(opened, [], 'nothing to open, and never a non-web address');
 });

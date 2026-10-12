@@ -5,7 +5,10 @@
 // marker and the same inline style, with a fixed width and height (the text is cut to fit and the
 // full detail is a tooltip inside the shadow root), and its kind stays in the extension. Even the
 // invisible "already checked" mark is a host of that same box, so a label's presence and size are
-// the same whatever the user owns. Store rules cannot hide or resize the host: its declarations
+// the same whatever the user owns. Focus would tell too, so every visible label is the same
+// focusable element (a span with role="button" and tabindex="0", one Tab stop) and the address it
+// opens is kept here, not in the DOM: owned and possible open it on click or Enter, the others do
+// nothing. Store rules cannot hide or resize the host: its declarations
 // are !important, and inline !important beats any stylesheet.
 (() => {
   const ns = (globalThis.gvOwnership ??= {});
@@ -28,8 +31,9 @@
     .owned { background: #181c2c; color: #ffffff; }
     .possible { background: #edf0f5; color: #181c2c; outline: 1px dashed #181c2c; outline-offset: -1px; }
     .muted { background: #edf0f5; color: #4b5266; }
-    a.gv:hover { filter: brightness(1.15); }
-    a.gv:focus-visible { outline: 2px solid #ffb020; outline-offset: 2px; }
+    .gv.opens { cursor: pointer; }
+    .gv.opens:hover { filter: brightness(1.15); }
+    .gv:focus-visible { outline: 2px solid #ffb020; outline-offset: 2px; }
   `;
 
   function kindWord(copy, t) {
@@ -101,10 +105,19 @@
     root.append(style);
   }
 
+  /** Opens a Game Vault page in a new tab that cannot reach back into the store page. */
+  function opener(doc, href) {
+    return (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      doc.defaultView?.open(href, '_blank', 'noopener,noreferrer');
+    };
+  }
+
   /**
    * Draws a label at the end of parent, in a closed shadow root, and returns its host and root.
-   * Text is set as text, never as HTML, and only http(s) links are kept. A model of kind 'none' is
-   * an invisible mark that only says "already checked", in the same box as any label.
+   * Text is set as text, never as HTML, and only http(s) addresses are opened. A model of kind
+   * 'none' is an invisible mark that only says "already checked", in the same box as any label.
    */
   ns.renderLabel = (doc, parent, model) => {
     const host = doc.createElement('span');
@@ -114,21 +127,26 @@
     const root = host.attachShadow({ mode: 'closed' });
     roots.set(host, root);
     addStyles(doc, root);
-    const visible = model.kind !== 'none';
-    const href = visible && /^https?:\/\//.test(model.href ?? '') ? model.href : '';
-    const el = doc.createElement(href ? 'a' : 'span');
-    el.className = visible ? `gv ${model.tone}` : 'gv none';
-    if (visible) {
+    const el = doc.createElement('span');
+    if (model.kind === 'none') {
+      el.className = 'gv none';
+    } else {
+      const href = /^https?:\/\//.test(model.href ?? '') ? model.href : '';
+      el.className = `gv ${model.tone}${href ? ' opens' : ''}`;
+      el.setAttribute('role', 'button');
+      el.setAttribute('tabindex', '0');
+      el.title = [model.text, model.title].filter(Boolean).join('\n');
       const text = doc.createElement('span');
       text.className = 'text';
       text.textContent = model.text;
       el.append(text);
-      el.title = [model.text, model.title].filter(Boolean).join('\n');
-    }
-    if (href) {
-      el.href = href;
-      el.target = '_blank';
-      el.rel = 'noopener noreferrer';
+      if (href) {
+        const open = opener(doc, href);
+        el.addEventListener('click', open);
+        el.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') open(event);
+        });
+      }
     }
     root.append(el);
     parent.append(host);

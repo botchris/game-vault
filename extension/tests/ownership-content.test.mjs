@@ -162,3 +162,27 @@ test('a scan asked for while one is waiting for Game Vault runs after it, not al
   assert.equal(window.document.querySelectorAll('[data-gamevault]').length, 1);
   assert.match(tooltip(window.document), /Paper Comet/);
 });
+
+test('a scan that finishes after stop() schedules nothing more', async (tt) => {
+  const url = { current: 'https://store.steampowered.com/app/4410/Lantern_Keep/' };
+  const window = pageWindow(sample('steam-app.html'), url.current);
+  const answer = deferred();
+  let timersAfterStop = 0;
+  let stopped = false;
+  const { sent, ctl } = follow(window, url, () => answer.promise, {
+    setTimer: (fn, ms) => {
+      if (stopped) timersAfterStop++;
+      return setTimeout(fn, ms);
+    },
+  });
+  done(tt, window, ctl);
+  await settle();
+  assert.equal(sent.length, 1);
+  url.current = 'https://store.steampowered.com/app/4411/'; // a rescan would be due
+  ctl.stop();
+  stopped = true;
+  answer.resolve({ status: 'ok', results: [owned('Lantern Keep')] });
+  await settle();
+  assert.equal(timersAfterStop, 0);
+  assert.equal(sent.length, 1);
+});
