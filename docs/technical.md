@@ -667,8 +667,10 @@ Like Sonarr and Radarr, there is one user with a password and a few settings, in
   never makes a request trusted, and the proxy and host-name rules are unchanged. Other
   `Authorization` headers, such as an authenticating proxy's, are ignored. Unknown tokens are
   throttled with their own counter, apart from the password's, so a flood of bad tokens cannot lock
-  out password sign-ins: 10 failures in 15 minutes, and while it lasts even a valid token waits
-  (HTTP 429, `Retry-After: 900`). The last use is written at most once a minute; revoking takes
+  out password sign-ins: after 10 failures in 15 minutes, unknown tokens are told to wait (HTTP 429,
+  `Retry-After: 900`). A valid token is always served, even while unknown ones are throttled: the
+  token is looked up by its hash first (no timing leak), so junk tokens cannot keep the owner's
+  extension out. The last use is written at most once a minute; revoking takes
   effect on the next request (tokens are read from the database on every request).
 - A request counts as coming from a trusted network only if its TCP peer is in one, it carries no
   proxy headers (`X-Forwarded-For`, `Forwarded`, `X-Forwarded-Host`, `X-Real-IP`), and its

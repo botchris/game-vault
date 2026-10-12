@@ -169,9 +169,15 @@ func TestAccessTokens_throttling(t *testing.T) {
 			require.ErrorIs(t, err, auth.ErrUnauthenticated)
 		}
 
-		t.Run("THEN even the right token waits", func(t *testing.T) {
-			_, err := svc.AuthenticateToken(ctx, auth.Request{}, secret)
+		t.Run("THEN another wrong token is told to wait", func(t *testing.T) {
+			_, err := svc.AuthenticateToken(ctx, auth.Request{}, "gvt_guess10")
 			assert.ErrorIs(t, err, auth.ErrTooManyAttempts)
+		})
+
+		t.Run("AND the right token is still served, so junk tokens never lock the owner out", func(t *testing.T) {
+			p, err := svc.AuthenticateToken(ctx, auth.Request{}, secret)
+			require.NoError(t, err)
+			assert.Equal(t, auth.MethodToken, p.Method)
 		})
 
 		t.Run("AND signing in with a password is not blocked, since tokens count apart", func(t *testing.T) {
@@ -231,6 +237,16 @@ func TestAccessTokens_log(t *testing.T) {
 		t.Run("AND never the token nor its hash", func(t *testing.T) {
 			assert.NotContains(t, out.String(), "unknownSecretValue")
 			assert.NotContains(t, out.String(), auth.HashToken(secret))
+		})
+	})
+
+	t.Run("WHEN unknown tokens keep coming after the throttling is on", func(t *testing.T) {
+		for i := range 30 {
+			_, _ = svc.AuthenticateToken(ctx, auth.Request{}, fmt.Sprintf("gvt_flood%d", i))
+		}
+
+		t.Run("THEN only the attempts before it are logged, not every refused one", func(t *testing.T) {
+			assert.Equal(t, 10, strings.Count(out.String(), "unknown access token"))
 		})
 	})
 }

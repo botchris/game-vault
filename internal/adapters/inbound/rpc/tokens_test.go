@@ -208,8 +208,8 @@ func TestAccessTokens_guessing(t *testing.T) {
 			assert.Equal(t, "900", res.Header.Get("Retry-After"))
 		})
 
-		t.Run("AND even the right token waits", func(t *testing.T) {
-			assert.Equal(t, connect.CodeResourceExhausted, connect.CodeOf(sc.guess(sc.secret)))
+		t.Run("AND the right token is still served, so junk tokens never lock the owner out", func(t *testing.T) {
+			assert.NoError(t, sc.guess(sc.secret))
 		})
 
 		t.Run("AND signing in with a password is not blocked, since tokens count apart", func(t *testing.T) {
