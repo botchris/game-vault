@@ -56,12 +56,17 @@ export async function syncStoreScripts(api) {
   const { ownership } = await api.storage.local.get('ownership');
   const { origins = [] } = await api.storage.local.get('origins');
   const on = Boolean(ownership?.enabled) && Boolean(ownership.origin) && origins.includes(ownership.origin);
-  const registered = new Set((await api.scripting.getRegisteredContentScripts({ ids: STORES.map(scriptId) })).map((s) => s.id));
+  const registered = new Map((await api.scripting.getRegisteredContentScripts({ ids: STORES.map(scriptId) })).map((s) => [s.id, s]));
   for (const store of STORES) {
     const id = scriptId(store);
+    const want = scriptFor(store);
     const wanted = on && await api.permissions.contains({ origins: [storeOrigin(store)] });
-    if (wanted && !registered.has(id)) await api.scripting.registerContentScripts([scriptFor(store)]);
-    if (!wanted && registered.has(id)) await api.scripting.unregisterContentScripts({ ids: [id] });
+    const old = registered.get(id);
+    // Registrations outlive updates of the extension: one from an older version (other sites or
+    // files) is replaced.
+    const stale = old && (String(old.matches) !== String(want.matches) || String(old.js) !== String(want.js));
+    if (old && (!wanted || stale)) await api.scripting.unregisterContentScripts({ ids: [id] });
+    if (wanted && (!old || stale)) await api.scripting.registerContentScripts([want]);
   }
 }
 

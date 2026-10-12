@@ -107,6 +107,16 @@ test('a permission taken back in the browser, or the option turned off, removes 
   assert.deepEqual(ownershipScripts(chrome), []);
 });
 
+test('a store script registered by an older version is replaced by the current one', async () => {
+  const HUMBLE = 'https://*.humblebundle.com/*';
+  const chrome = await load({ data: { origins: [GV], ownership: { enabled: true, origin: GV } }, granted: [HUMBLE] });
+  chrome.registered.set('ownership-humble', { id: 'ownership-humble', matches: ['https://www.humblebundle.com/*'], js: ['ownership/content.js'] });
+  chrome.runtime.onInstalled.fire({ reason: 'update' });
+  await flush();
+  assert.deepEqual(chrome.registered.get('ownership-humble').matches, [HUMBLE]);
+  assert.deepEqual(chrome.registered.get('ownership-humble').js, ['ownership/stores.js', 'ownership/read.js', 'ownership/label.js', 'ownership/content.js']);
+});
+
 test('a store page gets its answer from the chosen Game Vault through the background', async (t) => {
   const chrome = await load({ data: { origins: [GV], ownership: { enabled: true, origin: GV, token: 'gvt_test' } } });
   const sent = [];
