@@ -21,6 +21,10 @@ Game Vault puts your whole collection in one catalog that runs on your own compu
 - **Keys are tracked:** which ones you have not redeemed, which expire soon, and which you don't
   need because you already own the game on that platform (so you can gift them). Steam keys get a
   direct "redeem" link.
+- **Do I already own it?** Paste a bundle's games, or any list of titles, to see which ones you have.
+  With the browser extension, Steam, GOG, Humble Bundle and Fanatical pages show whether a game is in
+  your collection, and bundle pages how many of their games you own. If the extension talks to Game
+  Vault from another device, use HTTPS or a private tunnel.
 - **A proper catalog:**
   - box art for every game, found automatically, or chosen by you from several sources, a web
     search or a photo of your own copy;

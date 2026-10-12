@@ -52,7 +52,8 @@ Vault open and a search. It should appear where the question is asked:
 - **Matching, in order:**
   1. a store link (including automatic links) equal to `{store, id}`;
   2. then the word-based exact title match (`game.SameTitle`) on the title, ignoring edition and
-     store tags only where the existing rules allow.
+     store tags only where the existing rules allow;
+  3. a single match found only after dropping edition and store tags is **possible**, never owned.
 - **Status:**
   - **owned** when exactly one game matches;
   - **possible** with up to 5 candidates when several match;
