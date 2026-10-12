@@ -109,5 +109,8 @@ func TestSameTitle(t *testing.T) {
 		{"!!!", "???", false},
 	} {
 		assert.Equal(t, tc.want, SameTitle(tc.a, tc.b), "%q vs %q", tc.a, tc.b)
+
+		ka, kb := TitleKey(tc.a), TitleKey(tc.b)
+		assert.Equal(t, tc.want, ka != "" && ka == kb, "keys of %q vs %q", tc.a, tc.b)
 	}
 }

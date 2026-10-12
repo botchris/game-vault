@@ -22,7 +22,7 @@ internal/
     game/             Game aggregate, Copy entity, value objects, Consolidator domain service
     source/           Source aggregate (scanned accounts), settings schema, sync reports
     settings/         Runtime settings edited from the UI (log level and rotation)
-    auth/             Access control: request identity, principals, settings, users, sessions
+    auth/             Access control: request identity, principals, settings, users, sessions, access tokens
     provider/         Metadata provider configuration: kind, order, enabled, settings
     schema/           Settings schema shared by sources and providers (fields, secret masking)
   application/        Use cases; declares the ports it needs
@@ -37,6 +37,7 @@ internal/
                       plugintest/ checks every registered plugin
     logs/             Log viewer and rotation settings. Declares the Sink and Files ports
     auth/             Authenticate, setup, login, password, settings. Declares the Hasher port
+    ownership/        "Do I own it?": store links, exact titles, current copies (read only)
   adapters/
     inbound/rpc/      Driving adapter: ConnectRPC handlers, proto↔domain mapping, static UI
     outbound/humble/, steam/, epic/, gog/, battlenet/, eaapp/, ubisoft/, xbox/, playstation/,
@@ -64,6 +65,7 @@ web/                  React client
   src/api/            Connect clients
   src/features/       library/, scan/, sources/, providers/, system/, logs/ pages
   src/i18n/           i18next setup and locales (en.json, es.json)
+extension/            Browser extension (Game Vault Connector): sign-in recipes (lib/), store labels (ownership/), tests with a fake chrome
 ```
 
 Dependencies only point inwards. `domain` imports nothing from the project, `application` imports `domain`, and adapters import both.
@@ -289,6 +291,64 @@ Game Vault tab that asked. It never signs in for the user and never works around
   extension, a hint links to `extension/README.md`. Every credential field also accepts what is
   naturally copied (a whole address, the JSON a page shows, a whole `Cookie` header…).
 
+## Do I own it?
+
+One lookup answers "do I already have it?" for store pages, bundles and pasted lists.
+
+- **Lookup.** `OwnershipService/CheckOwnership` (`internal/application/ownership`) takes up to 200
+  items, each `{store, id}` (a link key such as `steam` or `gog` and the game's id there), a
+  `{title}`, or both, and answers each, in order: **owned** (one game), **possible** (up to five
+  candidates) or **not owned**. Matching: a store link equal to `{store, id}` (automatic links
+  included), then the exact title (`game.SameTitle`, indexed by `game.TitleKey`), then the title
+  without edition and store tags (`game.MatchKey`), which only ever says possible: a single match
+  found only that way is "possible", never "owned". Only current
+  copies count: sold, given away and expired ones are left out, and a game with no other copy is
+  not owned. An owned game comes with its copies (platform, system, kind, pending key) and
+  `#/game/<id>`, the address that opens its sheet in the web UI. The lookup only reads (no
+  provider or network calls, nothing saved); a request is at most 256 KiB.
+- **Bundle checker.** Library → **Do I own it?** cleans a pasted list (`web/src/lib/ownership.ts`:
+  one title per line; bullets, numbering, prices, discounts and currency signs removed; lines
+  marked as DLC or soundtrack skipped and counted; blank, overlong and duplicate lines dropped),
+  checks it 200 titles at a time and lists every title as owned (badges, pending key, a link to
+  the sheet), possible (its candidates) or not owned, with "You own N of M" and **Copy the ones I
+  don't own** (possible ones are not copied). Nothing is saved; on phones the dialog is full
+  screen, the list above the results.
+- **Store labels (browser extension).** With **Show what I own on store pages** on, the extension
+  asks the browser for `store.steampowered.com`, `www.gog.com`, every `humblebundle.com` site
+  (`*.humblebundle.com`, so language sites such as `es.humblebundle.com` work) and
+  `www.fanatical.com`, and registers one content script per allowed site (`extension/ownership/`);
+  turning it off unregisters them and gives back the sites no sign-in uses. Store scripts
+  registered by an older version are replaced on update. The syncs of the scripts (option or
+  permission changes, start-up, update) run one at a time, and a store the browser refuses does
+  not stop the others (the failure is logged without any setting). What each page shows
+  is data in `extension/ownership/stores.js`: Steam product pages give the AppID from
+  `/app/<id>` and the title, GOG product pages the product id (`card-product`) and the title,
+  Humble and Fanatical product pages the title, and Humble (`/games/…`, and the members' Humble
+  Choice month pages, `/membership/home`, read as bundle pages) and Fanatical
+  (`/bundle/…`, `/pick-and-mix/…`) bundle pages every game's title. A debounced MutationObserver
+  follows single-page navigation and content drawn late. Product pages get a label after the
+  title ("In your collection: PS4 · disc, Steam · key not redeemed", a link to the sheet in a new
+  tab; "Possible: …"; a quieter "Not in your collection"); bundle pages a mark on every game
+  ("Owned on PC", "Key not redeemed (PC)", "Maybe owned", empty when not owned) and "You own N of M" by the heading,
+  counting different titles. When Game Vault cannot answer (not running, an error, the token
+  refused, not set up) a label says **Game Vault unavailable** with a hint, never "not in your
+  collection". The store page must not learn what you own: labels and bundle marks are drawn in
+  closed shadow roots with their own styles, and every state has the same size, the same single
+  tab stop and the same event handling (long text is ellipsized, the detail is a tooltip inside
+  the root), so the page cannot read the answer from the layout, the focus order or events. Only
+  the background talks to Game Vault: it sends `{store, id, title}` to the chosen address (one of
+  the enabled ones), with the access token, 200 items per request, and reuses answers for a
+  minute (changed settings or a refused token clear them). Requests carry no cookies
+  (credentials omitted), never follow a redirect (one would carry the token to another address;
+  Game Vault then reads as unavailable) and go only to that address. The token is bound to the address it was
+  saved for: changing the address clears it and turns the option off. Where the browser supports
+  it, extension storage is limited to trusted contexts, so content scripts cannot read the token.
+  The popup warns when the address is plain http and not this computer (the token would travel
+  unencrypted). Texts follow the browser language
+  (en, es). The selectors were checked on the live sites (date in `stores.js`); when a store
+  changes its pages, fix `stores.js` and the matching sample in `extension/tests/samples/`.
+  On Fanatical the labels only read the page the user is viewing and store nothing.
+
 ## Metadata providers and covers
 
 For each kind of data, the enabled providers are tried in the order you set on the **Providers** page, and the first one with an answer wins.
@@ -337,6 +397,7 @@ Store covers: every library source links the games it imports to its store (Stea
 - **Genres and release year** come from the game details. Game Vault downloads the details of Steam-linked games in the background (in the UI language, at a gentle pace), so the genre filter fills in over the first hours; the filter panel says how many games are covered so far.
 - **System badges** in "By game" show where you have the game: the store or console logo (with the generation for consoles: PS3, 360…). Solid badges are copies you own; hollow ones with a key glyph are keys you have not redeemed yet. Sold, gifted and expired copies are not shown. Logos come from [Simple Icons](https://simpleicons.org) (CC0); Xbox and Nintendo, which Simple Icons does not ship, use simple drawn glyphs. Brand logos are trademarks of their owners.
 - On phones the sidebar becomes a bottom tab bar, filters open as a bottom sheet and the game sheet takes the full screen.
+- A `#/game/<id>` address opens that game's sheet; closing it returns to `#/library`.
 
 ## Game sheets
 
@@ -600,6 +661,24 @@ Like Sonarr and Radarr, there is one user with a password and a few settings, in
 
 - Signing in opens a session: HttpOnly, SameSite=Lax cookie, 30 days. Failed sign-ins are
   throttled, and only a SHA-256 of the session token is stored.
+- **Access tokens** (System → Security → Access tokens) let a program, the browser extension, look
+  up what you own from a browser outside the trusted networks. A token is `gvt_` and 32 random bytes
+  in base64url; only its SHA-256 is stored, and it is shown once. It is sent as
+  `Authorization: Bearer gvt_…` and reaches only `OwnershipService/CheckOwnership`: any other request
+  that carries one is refused as unauthenticated, even from a trusted network. The token alone
+  identifies the caller (the session cookie and the network's trust are not used with it), so it
+  never makes a request trusted, and the proxy and host-name rules are unchanged. Other
+  `Authorization` headers, such as an authenticating proxy's, are ignored. Unknown tokens are
+  throttled with their own counter, apart from the password's, so a flood of bad tokens cannot lock
+  out password sign-ins: after 10 failures in 15 minutes, unknown tokens are told to wait (HTTP 429,
+  `Retry-After: 900`). A valid token is always served, even while unknown ones are throttled: the
+  token is looked up by its hash first (no timing leak), so junk tokens cannot keep the owner's
+  extension out. The last use is written at most once a minute; revoking takes
+  effect on the next request (tokens are read from the database on every request).
+  Behind an authenticating reverse proxy (single sign-on), the proxy must let
+  `POST /gamevault.v1.OwnershipService/CheckOwnership` through when it carries an
+  `Authorization: Bearer gvt_…` header: the extension sends no cookies, so it cannot pass a
+  sign-in page.
 - A request counts as coming from a trusted network only if its TCP peer is in one, it carries no
   proxy headers (`X-Forwarded-For`, `Forwarded`, `X-Forwarded-Host`, `X-Real-IP`), and its
   `Host` is an address or `localhost`. Behind a proxy the peer is the proxy, not the caller; and a
@@ -618,7 +697,7 @@ Like Sonarr and Radarr, there is one user with a password and a few settings, in
 
 ## Security
 
-Passwords are stored as bcrypt hashes and session tokens as SHA-256 hashes.
+Passwords are stored as bcrypt hashes and session and access tokens as SHA-256 hashes.
 CD keys and source credentials are stored in clear text in `config/gamevault.db`. Treat that directory, and its backups, as secrets.
 Do not expose the port to the network directly (`-addr 0.0.0.0`); put an HTTPS reverse proxy in front of it instead.
 Logs never contain keys or credentials.

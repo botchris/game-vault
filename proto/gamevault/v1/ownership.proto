@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+package gamevault.v1;
+
+option go_package = "gamevault/internal/gen/gamevault/v1;gamevaultv1";
+
+// OwnershipItem is something seen on a store page or in a pasted list: a store's id for a game,
+// a title, or both.
+message OwnershipItem {
+  // The store's link key ("steam", "gog") and the game's id there ("4410"); used only together.
+  string store = 1;
+  string id = 2;
+  // The title as the page or the list writes it.
+  string title = 3;
+}
+
+// OwnershipCopy summarizes one current copy of a matching game.
+message OwnershipCopy {
+  string platform = 1;
+  string system = 2;
+  // "library", "key" or "physical".
+  string kind = 3;
+  // A key not redeemed yet (unrevealed or revealed).
+  bool pending_key = 4;
+}
+
+// OwnedGame is a catalog game that matches an item.
+message OwnedGame {
+  string id = 1;
+  string title = 2;
+  // Its current copies: sold, given away and expired ones are left out.
+  repeated OwnershipCopy copies = 3;
+  // The address of its sheet in the web UI, relative: "#/game/<id>".
+  string path = 4;
+}
+
+// OwnershipResult answers one item.
+message OwnershipResult {
+  // "owned" (one game matches), "possible" (several match, or one only once edition and store
+  // tags are ignored) or "not_owned".
+  string status = 1;
+  // The matching game, when owned.
+  OwnedGame game = 2;
+  // Up to five matching games, by title, when possible.
+  repeated OwnedGame candidates = 3;
+}
+
+// CheckOwnershipRequest holds at most 200 items; more is InvalidArgument.
+message CheckOwnershipRequest {
+  repeated OwnershipItem items = 1;
+}
+
+// CheckOwnershipResponse has one result per item, in the same order.
+message CheckOwnershipResponse {
+  repeated OwnershipResult results = 1;
+}
+
+// OwnershipService answers "do I already own it?": first by store link (automatic links included),
+// then by exact title, then by title without edition and store tags (possible only). It only reads.
+// It is the only service an access token may call.
+service OwnershipService {
+  rpc CheckOwnership(CheckOwnershipRequest) returns (CheckOwnershipResponse);
+}

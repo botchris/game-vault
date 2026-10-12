@@ -4,7 +4,7 @@ import { LANGUAGES } from '../i18n';
 import { Icon } from './Icon';
 
 /** Centered dialog. Closes on Escape and on backdrop click. */
-export function Modal(props: { title: ReactNode; onClose: () => void; children: ReactNode; footer?: ReactNode; wide?: boolean }) {
+export function Modal(props: { title: ReactNode; onClose: () => void; children: ReactNode; footer?: ReactNode; wide?: boolean; phoneFull?: boolean }) {
   const { onClose } = props;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -13,7 +13,7 @@ export function Modal(props: { title: ReactNode; onClose: () => void; children: 
   }, [onClose]);
   return (
     <div className="overlay" onMouseDown={onClose}>
-      <div className={`modal ${props.wide ? 'wide' : ''}`} role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
+      <div className={`modal ${props.wide ? 'wide' : ''} ${props.phoneFull ? 'phone-full' : ''}`} role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
         <header className="modal-head">
           <h2>{props.title}</h2>
           <button className="icon-button" onClick={onClose} aria-label="Close"><Icon name="close" size={18} /></button>

@@ -516,6 +516,34 @@ td.title { font-weight: 500; min-width: 220px; }
 .modal-body { padding: 14px 22px; overflow-y: auto; }
 .modal-foot { display: flex; gap: 8px; align-items: center; padding: 14px 22px; border-top: 1px solid var(--border); flex-wrap: wrap; }
 
+/* ---------- Bundle checker ("Do I own it?") ---------- */
+.ownership { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 20px; align-items: start; }
+.ownership-input label { display: flex; flex-direction: column; gap: 8px; }
+.ownership-input textarea { width: 100%; min-height: 340px; font-size: 15px; resize: vertical; }
+.ownership-summary-line { margin: 0 0 8px; font-weight: 700; }
+.ownership-summary { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.ownership-manual { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.ownership-manual textarea { width: 100%; font-size: 14px; resize: vertical; }
+.ownership-rows { list-style: none; margin: 0; padding: 0; }
+.ownership-rows li { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 2px 8px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.ownership-rows .state { grid-row: span 2; font-weight: 800; }
+.ownership-rows .owned .state { color: var(--ok); }
+.ownership-rows .possible .state { color: var(--warn); }
+.ownership-rows .not_owned .state { color: var(--muted); }
+.ownership-title { font-weight: 600; overflow-wrap: anywhere; }
+.ownership-detail { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); }
+
+@media (max-width: 860px) {
+  .ownership-input textarea { font-size: 16px; }
+}
+
+@media (max-width: 640px) {
+  .ownership { grid-template-columns: 1fr; }
+  .ownership-input textarea { min-height: 140px; }
+  .modal.phone-full { height: 100dvh; max-height: 100dvh; border-radius: 0; padding-top: env(safe-area-inset-top); }
+  .modal.phone-full .modal-body { flex: 1; }
+}
+
 @media (max-width: 640px) {
   .overlay { padding: 0; place-items: end stretch; }
   .modal {
@@ -1216,6 +1244,17 @@ button.pbadge:active:not(:disabled) { transform: scale(0.94); }
 /* Security settings */
 .security-form textarea { font-family: var(--mono); font-size: 14px; resize: vertical; }
 .security-form .help { font-size: 13px; color: var(--muted); }
+
+/* ---------- Access tokens (System → Security) ---------- */
+.token-list { list-style: none; margin: 8px 0; padding: 0; }
+.token-list li { display: flex; align-items: center; gap: 4px 12px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.token-name { font-weight: 650; }
+.token-list li button { margin-left: auto; }
+.token-form { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; margin-top: 12px; }
+.token-form label { display: flex; flex-direction: column; gap: 5px; flex: 1 1 220px; font-size: 13px; color: var(--muted); font-weight: 550; }
+.token-form input { font-size: 15px; }
+.token-secret-row { display: flex; gap: 8px; margin-top: 8px; }
+.token-secret-row input { flex: 1; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; }
 
 /* ---------- Copy grade, contents and price ---------- */
 .field { display: flex; flex-direction: column; gap: 5px; }

@@ -10,3 +10,7 @@ li { margin: 3px 0; }
 button { font: inherit; padding: 4px 10px; border-radius: 6px; border: 1px solid #c8cdd8; background: transparent; cursor: pointer; }
 button.primary, #current > button { background: var(--amber); color: var(--ink); border-color: var(--amber); font-weight: 600; }
 .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.row { display: flex; align-items: center; gap: 6px; margin: 6px 0; }
+.stack { display: flex; flex-direction: column; gap: 3px; margin: 8px 0; }
+input[type="password"], select { font: inherit; padding: 4px 6px; border-radius: 6px; border: 1px solid #c8cdd8; background: transparent; color: inherit; }
+.warn { margin: 6px 0; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--amber); background: color-mix(in srgb, var(--amber) 14%, transparent); }

@@ -4,8 +4,18 @@
 <main>
   <h1>Game Vault Connector</h1>
   <section id="current"></section>
-  <h2>Enabled Game Vault addresses</h2>
+  <h2 data-i18n="popupAddresses"></h2>
   <ul id="origins"></ul>
+  <h2 data-i18n="ownershipTitle"></h2>
+  <section id="ownership">
+    <label class="row"><input type="checkbox" id="own-enabled"> <span data-i18n="ownershipToggle"></span></label>
+    <label class="stack"><span data-i18n="ownershipAddress"></span><select id="own-origin"></select></label>
+    <label class="stack"><span data-i18n="ownershipToken"></span>
+      <input id="own-token" type="password" autocomplete="off" spellcheck="false" placeholder="gvt_…"></label>
+    <p class="warn" id="own-insecure" data-i18n="ownershipInsecure" hidden></p>
+    <p class="muted" data-i18n="ownershipTokenHelp"></p>
+    <p class="muted" id="own-status"></p>
+  </section>
   <p class="muted" id="version"></p>
 </main>
 <script type="module" src="popup.js"></script>

@@ -20,7 +20,7 @@ so new stores need no extension update. See "Connecting sources with the browser
 ## First use
 
 1. Open your Game Vault, click the extension's icon and press **Enable on …** (your Game Vault's
-   address). The browser asks for permission on that address.
+   address; in other languages the button is translated). The browser asks for permission on that address.
 2. In Game Vault, open a source's settings and press **Connect** next to its credential.
 3. The first time for each store, the extension asks whether your Game Vault may read your session
    there (**Allow** / **Deny**), and the browser asks for permission on that store.
@@ -30,6 +30,25 @@ so new stores need no extension update. See "Connecting sources with the browser
 **Ubisoft:** Game Vault renews Ubisoft's remember-me ticket every time it uses it, which signs the
 browser it came from out of Ubisoft. To keep your normal session, allow the extension in incognito
 (`chrome://extensions` → Details → Allow in Incognito): Ubisoft then opens in a private window.
+
+## What you own, on store pages
+
+1. Only if this browser is not on one of Game Vault's trusted networks: in Game Vault, open
+   **System → Security → Access tokens** and create one (it is shown once).
+2. In the extension's menu, under **What you own, on store pages**, choose your Game Vault address,
+   paste the token, and turn on **Show what I own on store pages**. The browser asks for Steam, GOG,
+   Humble Bundle and Fanatical.
+3. Open a game on one of those stores: a label next to its title says whether it is in your
+   collection (click it to open the game in Game Vault). Humble and Fanatical bundles mark each game
+   you own and say how many you have.
+
+"Game Vault unavailable" means Game Vault did not answer or refused the token: hover over it to see
+why. Turning the option off removes the labels and gives the store sites' access back. The token is
+bound to the address it was saved for: changing the address clears it and turns the option off. If
+the extension talks to Game Vault from another device, use HTTPS or a private tunnel: the popup warns
+when the address is plain http. Humble pages on any humblebundle.com site (language sites such as
+es.humblebundle.com included) are covered. On Fanatical the labels only read the page you are viewing
+and store nothing.
 
 ## Permissions and revoking
 

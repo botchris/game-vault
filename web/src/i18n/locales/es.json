@@ -85,6 +85,7 @@
     "markRedeemedHelp": "Las tiendas no dicen si una clave se canjeó. Estas claves están reveladas y el juego ya está en la biblioteca de esa plataforma, así que casi seguro que lo están.",
     "markedRedeemed_one": "{{count}} clave marcada como canjeada.",
     "markedRedeemed_other": "{{count}} claves marcadas como canjeadas.",
+    "checkOwnership": "¿Lo tengo?",
     "addGame": "Añadir juego",
     "showing": "{{shown}} de {{total}} juegos",
     "showingEditions": "{{editions}} de {{games}}",
@@ -215,6 +216,33 @@
     "copies_one": "{{count}} copia",
     "copies_other": "{{count}} copias",
     "noMatches": "No hay juegos que coincidan."
+  },
+  "ownership": {
+    "title": "¿Lo tengo?",
+    "intro": "Pega una lista de títulos, uno por línea: los juegos de un bundle, unas ofertas, una lista de deseos. Se limpian viñetas, numeración, precios y líneas de DLC o banda sonora. No se guarda nada.",
+    "placeholder": "Pega los títulos aquí…",
+    "check": "Comprobar",
+    "checking": "Comprobando…",
+    "results": "Resultados",
+    "nothing": "Nada que comprobar: pega antes algunos títulos.",
+    "skipped_one": "{{count}} línea omitida por ser DLC o banda sonora.",
+    "skipped_other": "{{count}} líneas omitidas por ser DLC o banda sonora.",
+    "tooLong_one": "{{count}} línea omitida por ser demasiado larga para ser un título.",
+    "tooLong_other": "{{count}} líneas omitidas por ser demasiado largas para ser un título.",
+    "shortAnswer": "El servidor respondió por menos títulos de los enviados. Inténtalo de nuevo.",
+    "copyManually": "Cópialos desde el campo de abajo.",
+    "summary": "Tienes {{owned}} de {{total}}",
+    "possibleCount_one": "{{count}} posible",
+    "possibleCount_other": "{{count}} posibles",
+    "copyMissing": "Copiar los que no tengo",
+    "copied": "Copiado",
+    "maybe": "Quizá:",
+    "pendingKey": "clave sin canjear",
+    "status": {
+      "owned": "Lo tienes",
+      "possible": "Posible",
+      "not_owned": "No lo tienes"
+    }
   },
   "newGame": {
     "firstCopy": "Primera copia",
@@ -787,6 +815,25 @@
       "created": "Usuario creado.",
       "changed": "Usuario guardado; se han cerrado las demás sesiones."
     },
+    "tokens": {
+      "title": "Tokens de acceso",
+      "intro": "Un token de acceso permite que la extensión del navegador muestre lo que tienes en las páginas de las tiendas desde un navegador que no está en una red de confianza. Solo sirve para consultar lo que tienes: no puede leer ni cambiar nada más.",
+      "name": "Nombre",
+      "namePlaceholder": "Extensión, portátil",
+      "create": "Crear token",
+      "created": "Copia este token ahora y pégalo en la extensión: no se volverá a mostrar.",
+      "secret": "Nuevo token de acceso",
+      "copy": "Copiar",
+      "copied": "Copiado",
+      "done": "Hecho",
+      "copyManually": "Cópialo desde el campo de arriba.",
+      "none": "Todavía no hay tokens de acceso.",
+      "createdAt": "Creado el {{date}}",
+      "lastUsed": "último uso el {{date}}",
+      "neverUsed": "sin usar",
+      "revoke": "Revocar",
+      "confirmRevoke": "¿Revocar el token \"{{name}}\"? Lo que lo use dejará de funcionar al momento."
+    },
     "youAreTrusted": "Has entrado sin iniciar sesión: esta petición viene de una red de confianza."
   },
   "details": {
@@ -890,13 +937,13 @@
     "openSignIn": "Abrir la página de inicio de sesión",
     "connect": "Conectar",
     "waiting": "Inicia sesión en la pestaña que se ha abierto…",
-    "install": "En un clic con la extensión Game Vault Connector. ¿Ya la tienes? Abre su icono en esta página y pulsa Enable.",
+    "install": "En un clic con la extensión Game Vault Connector. ¿Ya la tienes? Abre su icono en esta página y activa esta dirección.",
     "howTo": "Cómo instalarla",
     "update": "Actualiza la extensión Game Vault Connector para conectar esta tienda.",
     "privateOn": "Se abre en una ventana privada, así que este navegador sigue con la sesión iniciada en la tienda.",
     "privateOff": "Para que este navegador siga con la sesión iniciada, permite la extensión en incógnito (en su página de detalles, dentro de las extensiones del navegador). Si no, se abre en una pestaña normal y el uso que Game Vault hace de la sesión cerrará la sesión de la tienda en este navegador.",
     "error": {
-      "denied": "No se permitió a la extensión leer esa tienda, o esta dirección no está activada: abre el icono de la extensión y pulsa Activar en esta dirección.",
+      "denied": "No se permitió a la extensión leer esa tienda o página, o esta dirección no está activada: abre el icono de la extensión y pulsa Activar en esta dirección.",
       "busy": "Ya hay un inicio de sesión en marcha.",
       "invalid": "La receta de inicio de sesión de esta tienda no es válida; actualiza Game Vault.",
       "unsupported": "Actualiza la extensión Game Vault Connector.",

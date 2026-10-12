@@ -190,6 +190,7 @@ type Method string
 const (
 	MethodTrusted Method = "trusted" // from a trusted network, no sign-in
 	MethodSession Method = "session" // signed in with the password
+	MethodToken   Method = "token"   // an access token: it may only look up what the user owns
 )
 
 // Principal is an authenticated caller.
@@ -199,6 +200,9 @@ type Principal struct {
 	// Name is the username (session) or "trusted network".
 	Name   string
 	UserID string // session only
+
+	// TokenID is the access token's id (token only).
+	TokenID string
 }
 
 // User is the account for username/password login.
@@ -289,6 +293,21 @@ type Repository interface {
 
 	// DeleteExpiredSessions removes the sessions that expired before now.
 	DeleteExpiredSessions(ctx context.Context, now time.Time) error
+
+	// AccessTokens returns every access token, newest first.
+	AccessTokens(ctx context.Context) ([]AccessToken, error)
+
+	// AccessTokenByHash returns the access token whose secret has that hash, or ErrNotFound.
+	AccessTokenByHash(ctx context.Context, hash string) (AccessToken, error)
+
+	// SaveAccessToken creates an access token.
+	SaveAccessToken(ctx context.Context, t AccessToken) error
+
+	// TouchAccessToken records when an access token was last used.
+	TouchAccessToken(ctx context.Context, id string, at time.Time) error
+
+	// DeleteAccessToken removes an access token (revoking it), or returns ErrNotFound.
+	DeleteAccessToken(ctx context.Context, id string) error
 }
 
 // SettingsRepository is the persistence port for the security settings.

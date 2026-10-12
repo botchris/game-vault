@@ -85,6 +85,7 @@
     "markRedeemedHelp": "Stores never tell whether a key was redeemed. These keys are revealed and the game is already in that platform's library, so they almost certainly were.",
     "markedRedeemed_one": "{{count}} key marked as redeemed.",
     "markedRedeemed_other": "{{count}} keys marked as redeemed.",
+    "checkOwnership": "Do I own it?",
     "addGame": "Add game",
     "showing": "{{shown}} of {{total}} games",
     "showingEditions": "{{editions}} of {{games}}",
@@ -215,6 +216,33 @@
     "copies_one": "{{count}} copy",
     "copies_other": "{{count}} copies",
     "noMatches": "No matching games."
+  },
+  "ownership": {
+    "title": "Do I own it?",
+    "intro": "Paste a list of titles, one per line: a bundle's games, a sale, a wishlist. Bullets, numbering, prices and DLC or soundtrack lines are cleaned up. Nothing is saved.",
+    "placeholder": "Paste titles here…",
+    "check": "Check",
+    "checking": "Checking…",
+    "results": "Results",
+    "nothing": "Nothing to check: paste some titles first.",
+    "skipped_one": "{{count}} line skipped as DLC or soundtrack.",
+    "skipped_other": "{{count}} lines skipped as DLC or soundtrack.",
+    "tooLong_one": "{{count}} line skipped for being too long to be a title.",
+    "tooLong_other": "{{count}} lines skipped for being too long to be a title.",
+    "shortAnswer": "The server answered for fewer titles than were sent. Try again.",
+    "copyManually": "Copy them from the field below.",
+    "summary": "You own {{owned}} of {{total}}",
+    "possibleCount_one": "{{count}} possible",
+    "possibleCount_other": "{{count}} possible",
+    "copyMissing": "Copy the ones I don't own",
+    "copied": "Copied",
+    "maybe": "Maybe:",
+    "pendingKey": "key not redeemed",
+    "status": {
+      "owned": "Owned",
+      "possible": "Possible",
+      "not_owned": "Not owned"
+    }
   },
   "newGame": {
     "firstCopy": "First copy",
@@ -787,6 +815,25 @@
       "created": "User created.",
       "changed": "User saved; other sessions were signed out."
     },
+    "tokens": {
+      "title": "Access tokens",
+      "intro": "An access token lets the browser extension show what you own on store pages from a browser that is not on a trusted network. It can only look up what you own: it cannot read or change anything else.",
+      "name": "Name",
+      "namePlaceholder": "Extension, laptop",
+      "create": "Create token",
+      "created": "Copy this token now and paste it in the extension: it will not be shown again.",
+      "secret": "New access token",
+      "copy": "Copy",
+      "copied": "Copied",
+      "done": "Done",
+      "copyManually": "Copy it from the field above.",
+      "none": "No access tokens yet.",
+      "createdAt": "Created {{date}}",
+      "lastUsed": "last used {{date}}",
+      "neverUsed": "never used",
+      "revoke": "Revoke",
+      "confirmRevoke": "Revoke the token \"{{name}}\"? Whatever uses it stops working at once."
+    },
     "youAreTrusted": "You are in without signing in: this request comes from a trusted network."
   },
   "details": {
@@ -890,13 +937,13 @@
     "openSignIn": "Open the sign-in page",
     "connect": "Connect",
     "waiting": "Sign in in the tab that opened…",
-    "install": "One click with the Game Vault Connector browser extension. Already installed? Open its icon on this page and press Enable.",
+    "install": "One click with the Game Vault Connector browser extension. Already installed? Open its icon on this page and enable this address.",
     "howTo": "How to install it",
     "update": "Update the Game Vault Connector extension to connect this store.",
     "privateOn": "Opens in a private window, so this browser stays signed in to the store.",
     "privateOff": "To keep this browser signed in, allow the extension in incognito (its details page in the browser's extensions). Otherwise it opens in a normal tab, and Game Vault's use of the session will sign this browser out of the store.",
     "error": {
-      "denied": "The extension was not allowed to read that store, or this address is not enabled: open the extension's icon and press Enable on this address.",
+      "denied": "The extension was not allowed to read that store or page, or this address is not enabled: open the extension's icon and press Enable on this address.",
       "busy": "A sign-in is already running.",
       "invalid": "This store's sign-in recipe is not valid; update Game Vault.",
       "unsupported": "Update the Game Vault Connector extension.",

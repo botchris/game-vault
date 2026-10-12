@@ -12,6 +12,7 @@ import (
 	"gamevault/internal/application/catalog"
 	"gamevault/internal/application/fields"
 	"gamevault/internal/application/media"
+	"gamevault/internal/application/ownership"
 	"gamevault/internal/application/sync"
 	"gamevault/internal/application/valuation"
 	"gamevault/internal/domain/field"
@@ -443,7 +444,7 @@ func toConnectError(err error) error {
 		errors.Is(err, provider.ErrNotFound), errors.Is(err, media.ErrUnknownProvider), errors.Is(err, sync.ErrNotExcluded):
 		return connect.NewError(connect.CodeNotFound, err)
 	case errors.As(err, &gv), errors.As(err, &sv), errors.As(err, &setv), errors.As(err, &schv), errors.As(err, &fv), errors.Is(err, source.ErrUnknownType),
-		errors.Is(err, game.ErrInvalidBarcode), errors.Is(err, media.ErrNoEdition):
+		errors.Is(err, game.ErrInvalidBarcode), errors.Is(err, media.ErrNoEdition), errors.Is(err, ownership.ErrTooManyItems):
 		return connect.NewError(connect.CodeInvalidArgument, err)
 	case errors.Is(err, catalog.ErrPhotoNotUploaded), errors.Is(err, valuation.ErrNotValuable), errors.Is(err, valuation.ErrNoProviders),
 		errors.Is(err, sync.ErrNotImported), errors.Is(err, fields.ErrValuesConflict):

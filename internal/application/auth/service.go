@@ -4,9 +4,7 @@ package auth
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"errors"
 	"log/slog"
 	"slices"
@@ -35,10 +33,11 @@ type CertificatePolicy interface {
 }
 
 const (
-	sessionTTL    = 30 * 24 * time.Hour
-	touchEvery    = time.Hour // how often a session's last-seen time is written
-	maxFailures   = 10        // failed logins allowed per window
-	failureWindow = 15 * time.Minute
+	sessionTTL      = 30 * 24 * time.Hour
+	touchEvery      = time.Hour   // how often a session's last-seen time is written
+	tokenTouchEvery = time.Minute // how often an access token's last use is written
+	maxFailures     = 10          // failed logins allowed per window
+	failureWindow   = 15 * time.Minute
 )
 
 // Status describes the caller's situation, for the UI to decide what to show.
@@ -68,8 +67,36 @@ type Service struct {
 	// a real user and does not reveal which usernames exist.
 	dummyHash string
 
+	// logins counts failed password sign-ins and tokens unknown access tokens. They are apart so
+	// a flood of junk tokens never locks the owner out of signing in, and wrong passwords never
+	// stop a valid token (nor do junk tokens: a valid one is always served).
+	logins failureLog
+	tokens failureLog
+}
+
+// failureLog throttles one kind of credential: after maxFailures failures within failureWindow
+// the caller refuses attempts until the oldest failure leaves the window. Password sign-in
+// refuses every attempt, right or wrong; access tokens refuse only unknown ones.
+type failureLog struct {
 	mu       gosync.Mutex
 	failures []time.Time
+}
+
+func (l *failureLog) throttled(now time.Time) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	cutoff := now.Add(-failureWindow)
+	l.failures = slices.DeleteFunc(l.failures, func(t time.Time) bool { return t.Before(cutoff) })
+
+	return len(l.failures) >= maxFailures
+}
+
+func (l *failureLog) record(now time.Time) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	l.failures = append(l.failures, now)
 }
 
 // NewService builds the service. It takes the clock and the hasher as parameters so tests control time
@@ -119,11 +146,6 @@ func (s *Service) ResetAuthentication(ctx context.Context) error {
 	return s.settings.SaveAuth(ctx, settings)
 }
 
-func hashToken(token string) string {
-	sum := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(sum[:])
-}
-
 // Authenticate recognizes the caller: a valid session, or a trusted network when authentication
 // is not required there.
 func (s *Service) Authenticate(ctx context.Context, r auth.Request) (auth.Principal, error) {
@@ -151,7 +173,7 @@ func (s *Service) fromSession(ctx context.Context, r auth.Request) (auth.Princip
 		return auth.Principal{}, false
 	}
 
-	sess, err := s.repo.Session(ctx, hashToken(r.SessionToken))
+	sess, err := s.repo.Session(ctx, auth.HashToken(r.SessionToken))
 
 	now := s.now()
 	if err != nil || sess.Expired(now) {
@@ -251,7 +273,7 @@ func (s *Service) Setup(ctx context.Context, r auth.Request, username, password 
 
 // Login checks credentials and opens a session. Failed attempts are throttled globally.
 func (s *Service) Login(ctx context.Context, r auth.Request, username, password string) (string, auth.Principal, error) {
-	if s.throttled() {
+	if s.logins.throttled(s.now()) {
 		return "", auth.Principal{}, auth.ErrTooManyAttempts
 	}
 
@@ -265,7 +287,7 @@ func (s *Service) Login(ctx context.Context, r auth.Request, username, password 
 	}
 
 	if !ok {
-		s.recordFailure()
+		s.logins.record(s.now())
 		s.log.Warn("failed login", "username", username, "client", r.ClientIP.String())
 
 		return "", auth.Principal{}, auth.ErrBadCredentials
@@ -285,7 +307,7 @@ func (s *Service) newSession(ctx context.Context, u auth.User, r auth.Request) (
 	token := base64.RawURLEncoding.EncodeToString(buf)
 	now := s.now()
 	err := s.repo.SaveSession(ctx, auth.Session{
-		TokenHash:  hashToken(token),
+		TokenHash:  auth.HashToken(token),
 		UserID:     u.ID,
 		CreatedAt:  now,
 		ExpiresAt:  now.Add(sessionTTL),
@@ -309,7 +331,82 @@ func (s *Service) Logout(ctx context.Context, token string) error {
 		return nil
 	}
 
-	return s.repo.DeleteSession(ctx, hashToken(token))
+	return s.repo.DeleteSession(ctx, auth.HashToken(token))
+}
+
+// CreateAccessToken creates an access token named name and returns it with its secret. The
+// secret is shown once and never stored: only its hash is.
+func (s *Service) CreateAccessToken(ctx context.Context, name string) (auth.AccessToken, string, error) {
+	random := make([]byte, auth.TokenBytes)
+	if _, err := rand.Read(random); err != nil {
+		return auth.AccessToken{}, "", err
+	}
+
+	t, secret, err := auth.NewAccessToken(name, random, s.now())
+	if err != nil {
+		return auth.AccessToken{}, "", err
+	}
+
+	if err := s.repo.SaveAccessToken(ctx, t); err != nil {
+		return auth.AccessToken{}, "", err
+	}
+
+	s.log.Info("access token created", "name", t.Name)
+
+	return t, secret, nil
+}
+
+// AccessTokens lists the access tokens, newest first.
+func (s *Service) AccessTokens(ctx context.Context) ([]auth.AccessToken, error) {
+	return s.repo.AccessTokens(ctx)
+}
+
+// RevokeAccessToken deletes an access token: the next request that carries it is refused.
+func (s *Service) RevokeAccessToken(ctx context.Context, id string) error {
+	if err := s.repo.DeleteAccessToken(ctx, id); err != nil {
+		return err
+	}
+
+	s.log.Info("access token revoked", "id", id)
+
+	return nil
+}
+
+// AuthenticateToken recognizes a caller by an access token. The token is looked up by its hash
+// first, so a valid token is always served: a flood of junk tokens can never keep the owner's
+// extension out, and the lookup by hash leaks no timing. Only unknown tokens are throttled, like
+// wrong passwords but counted apart from them, so password sign-in is unaffected; while the
+// throttling is on, an unknown token is told to wait and is neither counted nor logged again.
+// The token is looked up on every request, so revoking one takes effect at once; its last use is
+// kept to the minute and written at most once a minute.
+func (s *Service) AuthenticateToken(ctx context.Context, r auth.Request, secret string) (auth.Principal, error) {
+	t, err := s.repo.AccessTokenByHash(ctx, auth.HashToken(secret))
+	if errors.Is(err, auth.ErrNotFound) {
+		if s.tokens.throttled(s.now()) {
+			return auth.Principal{}, auth.ErrTooManyAttempts
+		}
+
+		s.tokens.record(s.now())
+		s.log.Warn("unknown access token", "client", r.ClientIP.String()) // never log the token, nor its hash
+
+		return auth.Principal{}, auth.ErrUnauthenticated
+	}
+
+	if err != nil {
+		return auth.Principal{}, err
+	}
+
+	if at := s.now().Truncate(tokenTouchEvery); at.After(t.LastUsedAt) {
+		if err := s.repo.TouchAccessToken(ctx, t.ID, at); err != nil {
+			s.log.Warn("recording access token use", "error", err)
+		}
+	}
+
+	return auth.Principal{
+		Method:  auth.MethodToken,
+		Name:    t.Name,
+		TokenID: t.ID,
+	}, nil
 }
 
 // ChangePassword sets a new password, and optionally a new username. Signed-in users must give
@@ -401,22 +498,9 @@ func (s *Service) UpdateSettings(ctx context.Context, in auth.Settings) (auth.Se
 	return in, nil
 }
 
-func (s *Service) throttled() bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	cutoff := s.now().Add(-failureWindow)
-	s.failures = slices.DeleteFunc(s.failures, func(t time.Time) bool { return t.Before(cutoff) })
-
-	return len(s.failures) >= maxFailures
-}
-
-func (s *Service) recordFailure() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.failures = append(s.failures, s.now())
-}
+// ThrottleWindow is how long failed attempts count; adapters use it as the longest wait to
+// announce (Retry-After).
+func ThrottleWindow() time.Duration { return failureWindow }
 
 func truncate(s string, n int) string {
 	if len(s) > n {

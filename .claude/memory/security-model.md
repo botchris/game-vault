@@ -24,3 +24,5 @@ allowlist, pending logins): "like Sonarr or Radarr: a user and password and a fe
 
 **Why:** without them, "no password on trusted networks" would let a website or a proxied remote
 caller in. Status: built and tested against fakes and the test server; not yet confirmed in real use.
+
+- **Access tokens (2026-10-12):** `gvt_` + 32 random bytes, only SHA-256 stored, shown once; `Authorization: Bearer gvt_…` reaches only `OwnershipService/CheckOwnership`; a token request ignores the session cookie and the trusted network; other `Authorization` headers are ignored (authenticating proxies forward their own); unknown tokens have their own throttle counter (10 failures in 15 minutes, then 429 with `Retry-After` 900 for unknown tokens only) so they cannot lock out password sign-ins; a valid token is looked up by hash first and always served, even while throttled (a sliding window would otherwise let one junk token every 90 s keep the owner refused); last use written at most once a minute; no cached validity, so revoking is immediate. A token never makes a request trusted.

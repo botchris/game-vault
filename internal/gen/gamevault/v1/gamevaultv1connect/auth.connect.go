@@ -51,6 +51,15 @@ const (
 	// AuthServiceUpdateAuthSettingsProcedure is the fully-qualified name of the AuthService's
 	// UpdateAuthSettings RPC.
 	AuthServiceUpdateAuthSettingsProcedure = "/gamevault.v1.AuthService/UpdateAuthSettings"
+	// AuthServiceListAccessTokensProcedure is the fully-qualified name of the AuthService's
+	// ListAccessTokens RPC.
+	AuthServiceListAccessTokensProcedure = "/gamevault.v1.AuthService/ListAccessTokens"
+	// AuthServiceCreateAccessTokenProcedure is the fully-qualified name of the AuthService's
+	// CreateAccessToken RPC.
+	AuthServiceCreateAccessTokenProcedure = "/gamevault.v1.AuthService/CreateAccessToken"
+	// AuthServiceRevokeAccessTokenProcedure is the fully-qualified name of the AuthService's
+	// RevokeAccessToken RPC.
+	AuthServiceRevokeAccessTokenProcedure = "/gamevault.v1.AuthService/RevokeAccessToken"
 )
 
 // AuthServiceClient is a client for the gamevault.v1.AuthService service.
@@ -62,6 +71,10 @@ type AuthServiceClient interface {
 	ChangePassword(context.Context, *connect.Request[v1.ChangePasswordRequest]) (*connect.Response[v1.ChangePasswordResponse], error)
 	GetAuthSettings(context.Context, *connect.Request[v1.GetAuthSettingsRequest]) (*connect.Response[v1.GetAuthSettingsResponse], error)
 	UpdateAuthSettings(context.Context, *connect.Request[v1.UpdateAuthSettingsRequest]) (*connect.Response[v1.UpdateAuthSettingsResponse], error)
+	ListAccessTokens(context.Context, *connect.Request[v1.ListAccessTokensRequest]) (*connect.Response[v1.ListAccessTokensResponse], error)
+	CreateAccessToken(context.Context, *connect.Request[v1.CreateAccessTokenRequest]) (*connect.Response[v1.CreateAccessTokenResponse], error)
+	// Revoking an unknown id is NotFound.
+	RevokeAccessToken(context.Context, *connect.Request[v1.RevokeAccessTokenRequest]) (*connect.Response[v1.RevokeAccessTokenResponse], error)
 }
 
 // NewAuthServiceClient constructs a client for the gamevault.v1.AuthService service. By default, it
@@ -117,6 +130,24 @@ func NewAuthServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(authServiceMethods.ByName("UpdateAuthSettings")),
 			connect.WithClientOptions(opts...),
 		),
+		listAccessTokens: connect.NewClient[v1.ListAccessTokensRequest, v1.ListAccessTokensResponse](
+			httpClient,
+			baseURL+AuthServiceListAccessTokensProcedure,
+			connect.WithSchema(authServiceMethods.ByName("ListAccessTokens")),
+			connect.WithClientOptions(opts...),
+		),
+		createAccessToken: connect.NewClient[v1.CreateAccessTokenRequest, v1.CreateAccessTokenResponse](
+			httpClient,
+			baseURL+AuthServiceCreateAccessTokenProcedure,
+			connect.WithSchema(authServiceMethods.ByName("CreateAccessToken")),
+			connect.WithClientOptions(opts...),
+		),
+		revokeAccessToken: connect.NewClient[v1.RevokeAccessTokenRequest, v1.RevokeAccessTokenResponse](
+			httpClient,
+			baseURL+AuthServiceRevokeAccessTokenProcedure,
+			connect.WithSchema(authServiceMethods.ByName("RevokeAccessToken")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -129,6 +160,9 @@ type authServiceClient struct {
 	changePassword     *connect.Client[v1.ChangePasswordRequest, v1.ChangePasswordResponse]
 	getAuthSettings    *connect.Client[v1.GetAuthSettingsRequest, v1.GetAuthSettingsResponse]
 	updateAuthSettings *connect.Client[v1.UpdateAuthSettingsRequest, v1.UpdateAuthSettingsResponse]
+	listAccessTokens   *connect.Client[v1.ListAccessTokensRequest, v1.ListAccessTokensResponse]
+	createAccessToken  *connect.Client[v1.CreateAccessTokenRequest, v1.CreateAccessTokenResponse]
+	revokeAccessToken  *connect.Client[v1.RevokeAccessTokenRequest, v1.RevokeAccessTokenResponse]
 }
 
 // GetAuthStatus calls gamevault.v1.AuthService.GetAuthStatus.
@@ -166,6 +200,21 @@ func (c *authServiceClient) UpdateAuthSettings(ctx context.Context, req *connect
 	return c.updateAuthSettings.CallUnary(ctx, req)
 }
 
+// ListAccessTokens calls gamevault.v1.AuthService.ListAccessTokens.
+func (c *authServiceClient) ListAccessTokens(ctx context.Context, req *connect.Request[v1.ListAccessTokensRequest]) (*connect.Response[v1.ListAccessTokensResponse], error) {
+	return c.listAccessTokens.CallUnary(ctx, req)
+}
+
+// CreateAccessToken calls gamevault.v1.AuthService.CreateAccessToken.
+func (c *authServiceClient) CreateAccessToken(ctx context.Context, req *connect.Request[v1.CreateAccessTokenRequest]) (*connect.Response[v1.CreateAccessTokenResponse], error) {
+	return c.createAccessToken.CallUnary(ctx, req)
+}
+
+// RevokeAccessToken calls gamevault.v1.AuthService.RevokeAccessToken.
+func (c *authServiceClient) RevokeAccessToken(ctx context.Context, req *connect.Request[v1.RevokeAccessTokenRequest]) (*connect.Response[v1.RevokeAccessTokenResponse], error) {
+	return c.revokeAccessToken.CallUnary(ctx, req)
+}
+
 // AuthServiceHandler is an implementation of the gamevault.v1.AuthService service.
 type AuthServiceHandler interface {
 	GetAuthStatus(context.Context, *connect.Request[v1.GetAuthStatusRequest]) (*connect.Response[v1.GetAuthStatusResponse], error)
@@ -175,6 +224,10 @@ type AuthServiceHandler interface {
 	ChangePassword(context.Context, *connect.Request[v1.ChangePasswordRequest]) (*connect.Response[v1.ChangePasswordResponse], error)
 	GetAuthSettings(context.Context, *connect.Request[v1.GetAuthSettingsRequest]) (*connect.Response[v1.GetAuthSettingsResponse], error)
 	UpdateAuthSettings(context.Context, *connect.Request[v1.UpdateAuthSettingsRequest]) (*connect.Response[v1.UpdateAuthSettingsResponse], error)
+	ListAccessTokens(context.Context, *connect.Request[v1.ListAccessTokensRequest]) (*connect.Response[v1.ListAccessTokensResponse], error)
+	CreateAccessToken(context.Context, *connect.Request[v1.CreateAccessTokenRequest]) (*connect.Response[v1.CreateAccessTokenResponse], error)
+	// Revoking an unknown id is NotFound.
+	RevokeAccessToken(context.Context, *connect.Request[v1.RevokeAccessTokenRequest]) (*connect.Response[v1.RevokeAccessTokenResponse], error)
 }
 
 // NewAuthServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -226,6 +279,24 @@ func NewAuthServiceHandler(svc AuthServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(authServiceMethods.ByName("UpdateAuthSettings")),
 		connect.WithHandlerOptions(opts...),
 	)
+	authServiceListAccessTokensHandler := connect.NewUnaryHandler(
+		AuthServiceListAccessTokensProcedure,
+		svc.ListAccessTokens,
+		connect.WithSchema(authServiceMethods.ByName("ListAccessTokens")),
+		connect.WithHandlerOptions(opts...),
+	)
+	authServiceCreateAccessTokenHandler := connect.NewUnaryHandler(
+		AuthServiceCreateAccessTokenProcedure,
+		svc.CreateAccessToken,
+		connect.WithSchema(authServiceMethods.ByName("CreateAccessToken")),
+		connect.WithHandlerOptions(opts...),
+	)
+	authServiceRevokeAccessTokenHandler := connect.NewUnaryHandler(
+		AuthServiceRevokeAccessTokenProcedure,
+		svc.RevokeAccessToken,
+		connect.WithSchema(authServiceMethods.ByName("RevokeAccessToken")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/gamevault.v1.AuthService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case AuthServiceGetAuthStatusProcedure:
@@ -242,6 +313,12 @@ func NewAuthServiceHandler(svc AuthServiceHandler, opts ...connect.HandlerOption
 			authServiceGetAuthSettingsHandler.ServeHTTP(w, r)
 		case AuthServiceUpdateAuthSettingsProcedure:
 			authServiceUpdateAuthSettingsHandler.ServeHTTP(w, r)
+		case AuthServiceListAccessTokensProcedure:
+			authServiceListAccessTokensHandler.ServeHTTP(w, r)
+		case AuthServiceCreateAccessTokenProcedure:
+			authServiceCreateAccessTokenHandler.ServeHTTP(w, r)
+		case AuthServiceRevokeAccessTokenProcedure:
+			authServiceRevokeAccessTokenHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -277,4 +354,16 @@ func (UnimplementedAuthServiceHandler) GetAuthSettings(context.Context, *connect
 
 func (UnimplementedAuthServiceHandler) UpdateAuthSettings(context.Context, *connect.Request[v1.UpdateAuthSettingsRequest]) (*connect.Response[v1.UpdateAuthSettingsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gamevault.v1.AuthService.UpdateAuthSettings is not implemented"))
+}
+
+func (UnimplementedAuthServiceHandler) ListAccessTokens(context.Context, *connect.Request[v1.ListAccessTokensRequest]) (*connect.Response[v1.ListAccessTokensResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gamevault.v1.AuthService.ListAccessTokens is not implemented"))
+}
+
+func (UnimplementedAuthServiceHandler) CreateAccessToken(context.Context, *connect.Request[v1.CreateAccessTokenRequest]) (*connect.Response[v1.CreateAccessTokenResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gamevault.v1.AuthService.CreateAccessToken is not implemented"))
+}
+
+func (UnimplementedAuthServiceHandler) RevokeAccessToken(context.Context, *connect.Request[v1.RevokeAccessTokenRequest]) (*connect.Response[v1.RevokeAccessTokenResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("gamevault.v1.AuthService.RevokeAccessToken is not implemented"))
 }

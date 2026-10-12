@@ -227,6 +227,11 @@ func SameTitle(a, b string) bool {
 	return len(wa) > 0 && slices.Equal(wa, wb)
 }
 
+// TitleKey returns the words SameTitle compares, joined by single spaces: two titles are the same
+// for SameTitle exactly when their keys are equal and not empty. Lookups index titles by it instead
+// of comparing every title with every other.
+func TitleKey(title string) string { return strings.Join(titleWords(title), " ") }
+
 // titleWords returns the words SameTitle compares: lower case, without accents, split on anything
 // but letters and digits.
 func titleWords(title string) []string {

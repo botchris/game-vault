@@ -29,3 +29,4 @@ As of 2026-10-09:
   or `key`, `bundles: []`, `payment` — it is not a key, its keys are separate entries. The
   importer withdraws it (v0.1.6 had imported it as an unrevealed key). Not seen yet: the status
   words of unrevealed and redeemed keys.
+- Store labels (2026-10-12): the extension's labels on Fanatical pages only read the page the user is viewing and store nothing; its selectors are checked by the user only.

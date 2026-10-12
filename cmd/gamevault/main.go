@@ -35,6 +35,7 @@ import (
 	"gamevault/internal/application/health"
 	"gamevault/internal/application/logs"
 	"gamevault/internal/application/media"
+	"gamevault/internal/application/ownership"
 	"gamevault/internal/application/sync"
 	"gamevault/internal/application/system"
 	"gamevault/internal/application/transfer"
@@ -143,6 +144,8 @@ func run() error {
 	valuationSvc := valuation.NewService(games, db, mediaSvc, settingsRepo, now, log, plugins.Valuations()...)
 	fieldsSvc := fields.NewService(settingsRepo, games, db, now)
 	catalogSvc := catalog.NewService(games, db, now, mediaSvc, photos, settingsRepo)
+	ownershipSvc := ownership.NewService(games)
+
 	mediaSvc.SetGameLinker(catalogSvc) // automatic links are saved by the catalog, in its transactions
 	syncSvc := sync.NewService(sources, games, db, mediaSvc, now, log, plugins.Sources()...)
 	transferSvc := transfer.NewService(games, db, settingsRepo, now, csvfile.Codec{}, mediaSvc)
@@ -202,6 +205,7 @@ func run() error {
 		Valuation:   rpc.NewValuationHandler(valuationSvc),
 		Fields:      rpc.NewFieldHandler(fieldsSvc),
 		Health:      rpc.NewHealthHandler(healthSvc),
+		Ownership:   rpc.NewOwnershipHandler(ownershipSvc),
 	}, rpc.Options{
 		UIDir:       cfg.UIDir,
 		CORSOrigins: cfg.CORSOrigins,
