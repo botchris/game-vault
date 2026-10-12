@@ -39,3 +39,7 @@ As of 2026-10-11:
   HTML 401/403, odd shapes and 200 `success:false` are ErrUnavailable).
   **Awaits a test with a real key**: grid ordering, the 404 body for an unknown AppID, and whether
   `width`/`height` are present were only checked against fakes.
+- **Bug fixed 2026-10-12:** a title with " - " where SteamGridDB uses ": " found nothing (exact match
+  was case/™-insensitive only), and the picker never asked fallback providers when a store had art.
+  Now `game.SameTitle` (letters and digits only, accents ignored, every word kept) for every exact
+  match, and the picker always asks the fallback-pass providers.
