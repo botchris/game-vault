@@ -55,6 +55,9 @@ type quotaArt struct {
 
 	// exhausted makes it answer that its allowance is used up.
 	exhausted atomic.Bool
+
+	// art makes it find a box.
+	art atomic.Bool
 }
 
 func (*quotaArt) Descriptor() provider.Descriptor {
@@ -78,6 +81,13 @@ func (a *quotaArt) Covers(context.Context, media.CoverQuery, schema.Settings) ([
 
 	if a.exhausted.Load() {
 		return nil, provider.ErrQuotaExhausted
+	}
+
+	if a.art.Load() {
+		return []media.CoverCandidate{{
+			URL:      "https://img.test/quota",
+			Provider: "quota",
+		}}, nil
 	}
 
 	return nil, nil
@@ -227,13 +237,23 @@ func TestCovers_fallbackForGamesWithoutLinks(t *testing.T) {
 		})
 
 		t.Run("WHEN its cover candidates are listed", func(t *testing.T) {
+			env.quota.art.Store(true)
+
 			candidates, _, _, err := env.svc.CoverCandidates(ctx, g.ID(), game.SystemPC)
 			require.NoError(t, err)
 
-			t.Run("THEN only the store is offered, so no quota is spent", func(t *testing.T) {
-				require.Len(t, candidates, 1)
-				assert.Equal(t, provider.ID("store"), candidates[0].Provider)
-				assert.Zero(t, env.quota.calls.Load())
+			t.Run("THEN the fallback providers are offered too, everything in chain order", func(t *testing.T) {
+				ids := make([]provider.ID, 0, len(candidates))
+				for _, c := range candidates {
+					ids = append(ids, c.Provider)
+				}
+
+				assert.Equal(t, []provider.ID{"quota", "store", "per-game"}, ids)
+			})
+
+			t.Run("AND each provider is asked once: one request of the quota per picker", func(t *testing.T) {
+				assert.Equal(t, int32(1), env.quota.calls.Load())
+				assert.Equal(t, int32(1), env.perGame.calls.Load())
 			})
 		})
 	})

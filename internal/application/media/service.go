@@ -949,8 +949,10 @@ func (s *Service) fetchAndCache(ctx context.Context, g GameRef, system, url stri
 }
 
 // CoverCandidates asks every enabled provider that applies to the game's edition on system (the
-// main edition when system is empty) for images, for the "choose cover" dialog. When none has any,
-// the providers that keep to the fallback pass are asked too, as when the cover is resolved.
+// main edition when system is empty) for images, for the "choose cover" dialog. Unlike the automatic
+// resolution, the providers that keep to the fallback pass (TheGamesDB for a game a store knows,
+// IGDB, SteamGridDB) are always asked too: the user opened the picker to see every choice, and it
+// costs one request each, once per opening. Candidates are listed in chain order.
 // Providers failing for this game are reported as warnings; unavailable reports that a provider had
 // a provider-level problem (see ProviderStatuses), which is not a warning on the game.
 func (s *Service) CoverCandidates(ctx context.Context, id game.ID, system string) (candidates []CoverCandidate, warnings []string,
@@ -973,41 +975,38 @@ func (s *Service) CoverCandidates(ctx context.Context, id game.ID, system string
 		return nil, nil, false, err
 	}
 
-	q := QueryFor(g, system)
-	asked := map[provider.ID]bool{}
+	first := QueryFor(g, system)
+	fallback := first
+	fallback.Fallback = true
 
-	for _, fallback := range []bool{false, true} {
-		if fallback && len(candidates) > 0 {
-			break
-		}
+	for _, p := range chain {
+		impl := s.covers[p.ID()]
 
-		q.Fallback = fallback
-
-		for _, p := range chain {
-			impl := s.covers[p.ID()]
-			if asked[p.ID()] || !impl.Applies(q) {
+		// A provider is asked once, with the first pass's query when it applies to it (as the
+		// automatic resolution would ask it), else with the fallback pass's.
+		q := first
+		if !impl.Applies(q) {
+			if q = fallback; !impl.Applies(q) {
 				continue
 			}
+		}
 
-			asked[p.ID()] = true
+		c, err := impl.Covers(ctx, q, p.Settings())
+		s.noteResult(p.ID(), err)
 
-			c, err := impl.Covers(ctx, q, p.Settings())
-			s.noteResult(p.ID(), err)
-
-			if err != nil {
-				// A provider-level problem (busy, allowance used up, rejected key) is the provider's
-				// status, shown on the System and Providers pages, not a warning on every game.
-				if providerLevel(err) {
-					unavailable = true
-				} else {
-					warnings = append(warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
-				}
-
-				continue
+		if err != nil {
+			// A provider-level problem (busy, allowance used up, rejected key) is the provider's
+			// status, shown on the System and Providers pages, not a warning on every game.
+			if providerLevel(err) {
+				unavailable = true
+			} else {
+				warnings = append(warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
 			}
 
-			candidates = append(candidates, c...)
+			continue
 		}
+
+		candidates = append(candidates, c...)
 	}
 
 	return candidates, warnings, unavailable, nil
