@@ -159,3 +159,27 @@ func TestDetails_consolePlatforms(t *testing.T) {
 		}
 	})
 }
+
+func TestPickGame_exactTitles(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		title string
+		games []string
+		want  bool
+	}{
+		{"punctuation only differs", "Example - A Wild Adventure", []string{"Example: A Wild Adventure"}, true},
+		{"words glued together are another title", "Re-Volt", []string{"Revolt"}, false},
+		{"two different non-Latin titles", "ドラゴンクエスト", []string{"ファイナルクエスト"}, false},
+	} {
+		games := make([]tgdbGame, 0, len(tc.games))
+		for i, title := range tc.games {
+			games = append(games, tgdbGame{
+				ID:    int64(i + 1),
+				Title: title,
+			})
+		}
+
+		_, found := pickGame(games, tc.title)
+		assert.Equal(t, tc.want, found, tc.name)
+	}
+}

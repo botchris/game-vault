@@ -208,29 +208,36 @@ func SearchTitle(title string) string {
 	return s
 }
 
-// reNotLetterOrDigit matches what SameTitle ignores: anything but letters and digits.
+// reNotLetterOrDigit matches what separates the words SameTitle compares.
 var reNotLetterOrDigit = regexp.MustCompile(`[^\p{L}\p{N}]+`)
 
-// SameTitle reports whether two titles name the same game exactly, ignoring only case, accents,
-// trademark signs, punctuation and spacing: "Example - A Wild Adventure" is "Example: A Wild
-// Adventure", but every word and number counts, so "Example Remastered" is not "Example" and "Doom
-// (2016)" is not "Doom". Providers use it to match a search result to a game; MatchKey is the looser
-// comparison that also ignores edition and store tags.
-func SameTitle(a, b string) bool {
-	ka, kb := strictTitleKey(a), strictTitleKey(b)
+// letterFolds maps the letters that do not decompose into a base letter and an accent.
+var letterFolds = strings.NewReplacer("ø", "o", "æ", "ae", "œ", "oe", "ß", "ss", "ł", "l", "đ", "d", "ð", "d", "þ", "th", "ı", "i")
 
-	return ka != "" && ka == kb
+// SameTitle reports whether two titles name the same game exactly: the same words in the same
+// order, ignoring case, accents, trademark signs, punctuation and spacing ("&" counts as "and").
+// "Example - A Wild Adventure" is "Example: A Wild Adventure", but every word and number counts
+// and words are not glued together: "Example Remastered" is not "Example", "Doom (2016)" is not
+// "Doom", "Re-Volt" is not "Revolt". Titles without any word are never the same. Providers use it
+// to match a search result to a game; MatchKey is the looser comparison that also ignores edition
+// and store tags.
+func SameTitle(a, b string) bool {
+	wa, wb := titleWords(a), titleWords(b)
+
+	return len(wa) > 0 && slices.Equal(wa, wb)
 }
 
-// strictTitleKey is the form SameTitle compares: lower case, without accents, letters and digits
-// only.
-func strictTitleKey(title string) string {
-	s := title
+// titleWords returns the words SameTitle compares: lower case, without accents, split on anything
+// but letters and digits.
+func titleWords(title string) []string {
+	s := strings.ToLower(reTrademarks.ReplaceAllString(title, ""))
 	if t, _, err := transform.String(stripMarks(), s); err == nil {
 		s = t
 	}
 
-	return reNotLetterOrDigit.ReplaceAllString(strings.ToLower(s), "")
+	s = strings.ReplaceAll(letterFolds.Replace(s), "&", " and ")
+
+	return strings.Fields(reNotLetterOrDigit.ReplaceAllString(s, " "))
 }
 
 // MatchKey reduces a title to a comparable form, e.g. "Celeste™ (Steam Key)" → "celeste" and

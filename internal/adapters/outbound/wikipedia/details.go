@@ -261,8 +261,8 @@ func (d *Details) findGame(ctx context.Context, q media.CoverQuery, lang string)
 }
 
 // candidates searches Wikidata for items labeled (or also known as) the game's name, in English and
-// in the UI language, and keeps those whose matched name is the title: exactly (ignoring case and
-// punctuation, reported in exact) or as game.MatchKey compares titles. The name searched is the title
+// in the UI language, and keeps those whose matched name is the title: exactly (ignoring case, accents
+// and punctuation, reported in exact) or as game.MatchKey compares titles. The name searched is the title
 // without edition and store tags (game.SearchTitle: Wikidata labels "Example West", not the
 // "GOTY" disc); only when it finds no candidate is the raw title searched too.
 func (d *Details) candidates(ctx context.Context, title, lang string) (ids []string, exact map[string]bool, err error) {
