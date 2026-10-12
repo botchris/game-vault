@@ -4,6 +4,7 @@ import { authClient, errorMessage } from '../../api/client';
 import { Alert } from '../../components/ui';
 import type { GetAuthSettingsResponse } from '../../gen/gamevault/v1/auth_pb';
 import { useAuth } from '../auth/AuthGate';
+import AccessTokens from './AccessTokens';
 
 const AUTH_MODES = ['trusted_networks', 'required'] as const;
 const CERT_MODES = ['enabled', 'local_disabled', 'disabled'] as const;
@@ -108,6 +109,7 @@ export default function SecurityCard() {
 
       <h3>{t('security.user.title')}</h3>
       <UserForm hasUser={data.hasUser} username={data.username} signedIn={principal.method === 'session'} onDone={async () => { await load(); await refresh(); }} />
+      <AccessTokens />
     </section>
   );
 }

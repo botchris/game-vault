@@ -1217,6 +1217,17 @@ button.pbadge:active:not(:disabled) { transform: scale(0.94); }
 .security-form textarea { font-family: var(--mono); font-size: 14px; resize: vertical; }
 .security-form .help { font-size: 13px; color: var(--muted); }
 
+/* ---------- Access tokens (System → Security) ---------- */
+.token-list { list-style: none; margin: 8px 0; padding: 0; }
+.token-list li { display: flex; align-items: center; gap: 4px 12px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.token-name { font-weight: 650; }
+.token-list li button { margin-left: auto; }
+.token-form { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; margin-top: 12px; }
+.token-form label { display: flex; flex-direction: column; gap: 5px; flex: 1 1 220px; font-size: 13px; color: var(--muted); font-weight: 550; }
+.token-form input { font-size: 15px; }
+.token-secret-row { display: flex; gap: 8px; margin-top: 8px; }
+.token-secret-row input { flex: 1; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; }
+
 /* ---------- Copy grade, contents and price ---------- */
 .field { display: flex; flex-direction: column; gap: 5px; }
 .field-label { font-size: 13px; color: var(--muted); font-weight: 550; }

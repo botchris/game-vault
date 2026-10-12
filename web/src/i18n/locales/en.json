@@ -787,6 +787,23 @@
       "created": "User created.",
       "changed": "User saved; other sessions were signed out."
     },
+    "tokens": {
+    "title": "Access tokens",
+    "intro": "An access token lets the browser extension show what you own on store pages from a browser that is not on a trusted network. It can only look up what you own: it cannot read or change anything else.",
+    "name": "Name",
+    "namePlaceholder": "Extension, laptop",
+    "create": "Create token",
+    "created": "Copy this token now and paste it in the extension: it will not be shown again.",
+    "secret": "New access token",
+    "copy": "Copy",
+    "copied": "Copied",
+    "none": "No access tokens yet.",
+    "createdAt": "Created {{date}}",
+    "lastUsed": "last used {{date}}",
+    "neverUsed": "never used",
+    "revoke": "Revoke",
+    "confirmRevoke": "Revoke the token \"{{name}}\"? Whatever uses it stops working at once."
+    },
     "youAreTrusted": "You are in without signing in: this request comes from a trusted network."
   },
   "details": {
