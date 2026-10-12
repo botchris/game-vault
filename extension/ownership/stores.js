@@ -1,8 +1,7 @@
 // Store pages where Game Vault Connector shows what you own. Data, not code: when a store changes
 // its pages, fix the patterns and selectors here and the sample page in tests/samples/. A page's
 // `path` is a regular expression on the address's path; every selector list is tried in order and
-// the first that matches wins. The selectors were checked on the live sites when this feature was
-// built (see docs/technical.md).
+// the first that matches wins. Steam, GOG and Humble were checked on the live sites on 2026-10-12.
 // Loaded as a content script (a classic script) and imported by the background and the tests, so
 // it only adds to globalThis.gvOwnership.
 (() => {
