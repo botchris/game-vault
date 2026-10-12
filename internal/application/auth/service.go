@@ -33,10 +33,11 @@ type CertificatePolicy interface {
 }
 
 const (
-	sessionTTL    = 30 * 24 * time.Hour
-	touchEvery    = time.Hour // how often a session's last-seen time is written
-	maxFailures   = 10        // failed logins allowed per window
-	failureWindow = 15 * time.Minute
+	sessionTTL      = 30 * 24 * time.Hour
+	touchEvery      = time.Hour   // how often a session's last-seen time is written
+	tokenTouchEvery = time.Minute // how often an access token's last use is written
+	maxFailures     = 10          // failed logins allowed per window
+	failureWindow   = 15 * time.Minute
 )
 
 // Status describes the caller's situation, for the UI to decide what to show.
@@ -303,6 +304,78 @@ func (s *Service) Logout(ctx context.Context, token string) error {
 	}
 
 	return s.repo.DeleteSession(ctx, auth.HashToken(token))
+}
+
+// CreateAccessToken creates an access token named name and returns it with its secret. The
+// secret is shown once and never stored: only its hash is.
+func (s *Service) CreateAccessToken(ctx context.Context, name string) (auth.AccessToken, string, error) {
+	random := make([]byte, auth.TokenBytes)
+	if _, err := rand.Read(random); err != nil {
+		return auth.AccessToken{}, "", err
+	}
+
+	t, secret, err := auth.NewAccessToken(name, random, s.now())
+	if err != nil {
+		return auth.AccessToken{}, "", err
+	}
+
+	if err := s.repo.SaveAccessToken(ctx, t); err != nil {
+		return auth.AccessToken{}, "", err
+	}
+
+	s.log.Info("access token created", "name", t.Name)
+
+	return t, secret, nil
+}
+
+// AccessTokens lists the access tokens, newest first.
+func (s *Service) AccessTokens(ctx context.Context) ([]auth.AccessToken, error) {
+	return s.repo.AccessTokens(ctx)
+}
+
+// RevokeAccessToken deletes an access token: the next request that carries it is refused.
+func (s *Service) RevokeAccessToken(ctx context.Context, id string) error {
+	if err := s.repo.DeleteAccessToken(ctx, id); err != nil {
+		return err
+	}
+
+	s.log.Info("access token revoked", "id", id)
+
+	return nil
+}
+
+// AuthenticateToken recognizes a caller by an access token. Unknown tokens count towards the
+// sign-in throttling, like wrong passwords, and while it is on even a valid token waits. The
+// token is looked up on every request, so revoking one takes effect at once; its last use is
+// kept to the minute and written at most once a minute.
+func (s *Service) AuthenticateToken(ctx context.Context, secret string) (auth.Principal, error) {
+	if s.throttled() {
+		return auth.Principal{}, auth.ErrTooManyAttempts
+	}
+
+	t, err := s.repo.AccessTokenByHash(ctx, auth.HashToken(secret))
+	if errors.Is(err, auth.ErrNotFound) {
+		s.recordFailure()
+		s.log.Warn("unknown access token") // never log the token, nor its hash
+
+		return auth.Principal{}, auth.ErrUnauthenticated
+	}
+
+	if err != nil {
+		return auth.Principal{}, err
+	}
+
+	if at := s.now().Truncate(tokenTouchEvery); at.After(t.LastUsedAt) {
+		if err := s.repo.TouchAccessToken(ctx, t.ID, at); err != nil {
+			s.log.Warn("recording access token use", "error", err)
+		}
+	}
+
+	return auth.Principal{
+		Method:  auth.MethodToken,
+		Name:    t.Name,
+		TokenID: t.ID,
+	}, nil
 }
 
 // ChangePassword sets a new password, and optionally a new username. Signed-in users must give

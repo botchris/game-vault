@@ -54,9 +54,11 @@ func authError(err error) error {
 	return toConnectError(err)
 }
 
+// requirePrincipal returns the caller, refusing access tokens: a token is never enough for the
+// AuthService (defense in depth; the middleware already refuses it).
 func requirePrincipal(ctx context.Context) (auth.Principal, error) {
 	p, ok := principalFrom(ctx)
-	if !ok {
+	if !ok || p.Method == auth.MethodToken {
 		return p, connect.NewError(connect.CodeUnauthenticated, auth.ErrUnauthenticated)
 	}
 
@@ -193,4 +195,63 @@ func (h *AuthHandler) UpdateAuthSettings(ctx context.Context, req *connect.Reque
 	}
 
 	return connect.NewResponse(&pb.UpdateAuthSettingsResponse{Settings: authSettingsToPB(s)}), nil
+}
+
+func accessTokenToPB(t auth.AccessToken) *pb.AccessToken {
+	return &pb.AccessToken{
+		Id:         t.ID,
+		Name:       t.Name,
+		CreatedAt:  ts(t.CreatedAt),
+		LastUsedAt: optionalTS(t.LastUsedAt),
+	}
+}
+
+// ListAccessTokens lists the access tokens, without their secrets.
+func (h *AuthHandler) ListAccessTokens(ctx context.Context, _ *connect.Request[pb.ListAccessTokensRequest]) (*connect.Response[pb.ListAccessTokensResponse], error) {
+	if _, err := requirePrincipal(ctx); err != nil {
+		return nil, err
+	}
+
+	tokens, err := h.auth.AccessTokens(ctx)
+	if err != nil {
+		return nil, authError(err)
+	}
+
+	out := &pb.ListAccessTokensResponse{Tokens: make([]*pb.AccessToken, 0, len(tokens))}
+
+	for _, t := range tokens {
+		out.Tokens = append(out.Tokens, accessTokenToPB(t))
+	}
+
+	return connect.NewResponse(out), nil
+}
+
+// CreateAccessToken creates an access token and returns its secret, this once.
+func (h *AuthHandler) CreateAccessToken(ctx context.Context, req *connect.Request[pb.CreateAccessTokenRequest]) (*connect.Response[pb.CreateAccessTokenResponse], error) {
+	if _, err := requirePrincipal(ctx); err != nil {
+		return nil, err
+	}
+
+	t, secret, err := h.auth.CreateAccessToken(ctx, req.Msg.Name)
+	if err != nil {
+		return nil, authError(err)
+	}
+
+	return connect.NewResponse(&pb.CreateAccessTokenResponse{
+		Token:  accessTokenToPB(t),
+		Secret: secret,
+	}), nil
+}
+
+// RevokeAccessToken deletes an access token: programs using it are refused from their next request.
+func (h *AuthHandler) RevokeAccessToken(ctx context.Context, req *connect.Request[pb.RevokeAccessTokenRequest]) (*connect.Response[pb.RevokeAccessTokenResponse], error) {
+	if _, err := requirePrincipal(ctx); err != nil {
+		return nil, err
+	}
+
+	if err := h.auth.RevokeAccessToken(ctx, req.Msg.Id); err != nil {
+		return nil, authError(err)
+	}
+
+	return connect.NewResponse(&pb.RevokeAccessTokenResponse{}), nil
 }

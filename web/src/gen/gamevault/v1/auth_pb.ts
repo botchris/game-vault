@@ -4,13 +4,15 @@
 
 import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
+import type { Timestamp } from "@bufbuild/protobuf/wkt";
+import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file gamevault/v1/auth.proto.
  */
 export const file_gamevault_v1_auth: GenFile = /*@__PURE__*/
-  fileDesc("ChdnYW1ldmF1bHQvdjEvYXV0aC5wcm90bxIMZ2FtZXZhdWx0LnYxIikKCVByaW5jaXBhbBIOCgZtZXRob2QYASABKAkSDAoEbmFtZRgCIAEoCSKjAQoMQXV0aFNldHRpbmdzEhYKDmF1dGhlbnRpY2F0aW9uGAQgASgJEhgKEHRydXN0ZWRfbmV0d29ya3MYBSADKAkSHgoWY2VydGlmaWNhdGVfdmFsaWRhdGlvbhgGIAEoCUoECAEQAkoECAIQA0oECAMQBFIMbG9jYWxfYnlwYXNzUg90cnVzdF90YWlsc2NhbGVSEHRhaWxzY2FsZV9sb2dpbnMiFgoUR2V0QXV0aFN0YXR1c1JlcXVlc3QiowEKFUdldEF1dGhTdGF0dXNSZXNwb25zZRIqCglwcmluY2lwYWwYASABKAsyFy5nYW1ldmF1bHQudjEuUHJpbmNpcGFsEhYKDnNldHVwX3JlcXVpcmVkGAIgASgIEhEKCWNhbl9zZXR1cBgDIAEoCBIPCgd0cnVzdGVkGAYgASgISgQIBBAFSgQIBRAGUg90YWlsc2NhbGVfbG9naW5SBWxvY2FsIjIKDFNldHVwUmVxdWVzdBIQCgh1c2VybmFtZRgBIAEoCRIQCghwYXNzd29yZBgCIAEoCSI7Cg1TZXR1cFJlc3BvbnNlEioKCXByaW5jaXBhbBgBIAEoCzIXLmdhbWV2YXVsdC52MS5QcmluY2lwYWwiMgoMTG9naW5SZXF1ZXN0EhAKCHVzZXJuYW1lGAEgASgJEhAKCHBhc3N3b3JkGAIgASgJIjsKDUxvZ2luUmVzcG9uc2USKgoJcHJpbmNpcGFsGAEgASgLMhcuZ2FtZXZhdWx0LnYxLlByaW5jaXBhbCIPCg1Mb2dvdXRSZXF1ZXN0IhAKDkxvZ291dFJlc3BvbnNlIlkKFUNoYW5nZVBhc3N3b3JkUmVxdWVzdBIQCgh1c2VybmFtZRgBIAEoCRIYChBjdXJyZW50X3Bhc3N3b3JkGAIgASgJEhQKDG5ld19wYXNzd29yZBgDIAEoCSIYChZDaGFuZ2VQYXNzd29yZFJlc3BvbnNlIhgKFkdldEF1dGhTZXR0aW5nc1JlcXVlc3QitQEKF0dldEF1dGhTZXR0aW5nc1Jlc3BvbnNlEiwKCHNldHRpbmdzGAEgASgLMhouZ2FtZXZhdWx0LnYxLkF1dGhTZXR0aW5ncxIQCghoYXNfdXNlchgDIAEoCBIQCgh1c2VybmFtZRgEIAEoCRIWCg5jbGllbnRfYWRkcmVzcxgFIAEoCRIiChpjbGllbnRfaW5fdHJ1c3RlZF9uZXR3b3JrcxgGIAEoCEoECAIQA1IGZGVuaWVkIkkKGVVwZGF0ZUF1dGhTZXR0aW5nc1JlcXVlc3QSLAoIc2V0dGluZ3MYASABKAsyGi5nYW1ldmF1bHQudjEuQXV0aFNldHRpbmdzIkoKGlVwZGF0ZUF1dGhTZXR0aW5nc1Jlc3BvbnNlEiwKCHNldHRpbmdzGAEgASgLMhouZ2FtZXZhdWx0LnYxLkF1dGhTZXR0aW5nczLWBAoLQXV0aFNlcnZpY2USWAoNR2V0QXV0aFN0YXR1cxIiLmdhbWV2YXVsdC52MS5HZXRBdXRoU3RhdHVzUmVxdWVzdBojLmdhbWV2YXVsdC52MS5HZXRBdXRoU3RhdHVzUmVzcG9uc2USQAoFU2V0dXASGi5nYW1ldmF1bHQudjEuU2V0dXBSZXF1ZXN0GhsuZ2FtZXZhdWx0LnYxLlNldHVwUmVzcG9uc2USQAoFTG9naW4SGi5nYW1ldmF1bHQudjEuTG9naW5SZXF1ZXN0GhsuZ2FtZXZhdWx0LnYxLkxvZ2luUmVzcG9uc2USQwoGTG9nb3V0EhsuZ2FtZXZhdWx0LnYxLkxvZ291dFJlcXVlc3QaHC5nYW1ldmF1bHQudjEuTG9nb3V0UmVzcG9uc2USWwoOQ2hhbmdlUGFzc3dvcmQSIy5nYW1ldmF1bHQudjEuQ2hhbmdlUGFzc3dvcmRSZXF1ZXN0GiQuZ2FtZXZhdWx0LnYxLkNoYW5nZVBhc3N3b3JkUmVzcG9uc2USXgoPR2V0QXV0aFNldHRpbmdzEiQuZ2FtZXZhdWx0LnYxLkdldEF1dGhTZXR0aW5nc1JlcXVlc3QaJS5nYW1ldmF1bHQudjEuR2V0QXV0aFNldHRpbmdzUmVzcG9uc2USZwoSVXBkYXRlQXV0aFNldHRpbmdzEicuZ2FtZXZhdWx0LnYxLlVwZGF0ZUF1dGhTZXR0aW5nc1JlcXVlc3QaKC5nYW1ldmF1bHQudjEuVXBkYXRlQXV0aFNldHRpbmdzUmVzcG9uc2VCMVovZ2FtZXZhdWx0L2ludGVybmFsL2dlbi9nYW1ldmF1bHQvdjE7Z2FtZXZhdWx0djFiBnByb3RvMw");
+  fileDesc("ChdnYW1ldmF1bHQvdjEvYXV0aC5wcm90bxIMZ2FtZXZhdWx0LnYxIikKCVByaW5jaXBhbBIOCgZtZXRob2QYASABKAkSDAoEbmFtZRgCIAEoCSKjAQoMQXV0aFNldHRpbmdzEhYKDmF1dGhlbnRpY2F0aW9uGAQgASgJEhgKEHRydXN0ZWRfbmV0d29ya3MYBSADKAkSHgoWY2VydGlmaWNhdGVfdmFsaWRhdGlvbhgGIAEoCUoECAEQAkoECAIQA0oECAMQBFIMbG9jYWxfYnlwYXNzUg90cnVzdF90YWlsc2NhbGVSEHRhaWxzY2FsZV9sb2dpbnMiFgoUR2V0QXV0aFN0YXR1c1JlcXVlc3QiowEKFUdldEF1dGhTdGF0dXNSZXNwb25zZRIqCglwcmluY2lwYWwYASABKAsyFy5nYW1ldmF1bHQudjEuUHJpbmNpcGFsEhYKDnNldHVwX3JlcXVpcmVkGAIgASgIEhEKCWNhbl9zZXR1cBgDIAEoCBIPCgd0cnVzdGVkGAYgASgISgQIBBAFSgQIBRAGUg90YWlsc2NhbGVfbG9naW5SBWxvY2FsIjIKDFNldHVwUmVxdWVzdBIQCgh1c2VybmFtZRgBIAEoCRIQCghwYXNzd29yZBgCIAEoCSI7Cg1TZXR1cFJlc3BvbnNlEioKCXByaW5jaXBhbBgBIAEoCzIXLmdhbWV2YXVsdC52MS5QcmluY2lwYWwiMgoMTG9naW5SZXF1ZXN0EhAKCHVzZXJuYW1lGAEgASgJEhAKCHBhc3N3b3JkGAIgASgJIjsKDUxvZ2luUmVzcG9uc2USKgoJcHJpbmNpcGFsGAEgASgLMhcuZ2FtZXZhdWx0LnYxLlByaW5jaXBhbCIPCg1Mb2dvdXRSZXF1ZXN0IhAKDkxvZ291dFJlc3BvbnNlIlkKFUNoYW5nZVBhc3N3b3JkUmVxdWVzdBIQCgh1c2VybmFtZRgBIAEoCRIYChBjdXJyZW50X3Bhc3N3b3JkGAIgASgJEhQKDG5ld19wYXNzd29yZBgDIAEoCSIYChZDaGFuZ2VQYXNzd29yZFJlc3BvbnNlIhgKFkdldEF1dGhTZXR0aW5nc1JlcXVlc3QitQEKF0dldEF1dGhTZXR0aW5nc1Jlc3BvbnNlEiwKCHNldHRpbmdzGAEgASgLMhouZ2FtZXZhdWx0LnYxLkF1dGhTZXR0aW5ncxIQCghoYXNfdXNlchgDIAEoCBIQCgh1c2VybmFtZRgEIAEoCRIWCg5jbGllbnRfYWRkcmVzcxgFIAEoCRIiChpjbGllbnRfaW5fdHJ1c3RlZF9uZXR3b3JrcxgGIAEoCEoECAIQA1IGZGVuaWVkIkkKGVVwZGF0ZUF1dGhTZXR0aW5nc1JlcXVlc3QSLAoIc2V0dGluZ3MYASABKAsyGi5nYW1ldmF1bHQudjEuQXV0aFNldHRpbmdzIkoKGlVwZGF0ZUF1dGhTZXR0aW5nc1Jlc3BvbnNlEiwKCHNldHRpbmdzGAEgASgLMhouZ2FtZXZhdWx0LnYxLkF1dGhTZXR0aW5ncyKJAQoLQWNjZXNzVG9rZW4SCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIuCgpjcmVhdGVkX2F0GAMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIwCgxsYXN0X3VzZWRfYXQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIhkKF0xpc3RBY2Nlc3NUb2tlbnNSZXF1ZXN0IkUKGExpc3RBY2Nlc3NUb2tlbnNSZXNwb25zZRIpCgZ0b2tlbnMYASADKAsyGS5nYW1ldmF1bHQudjEuQWNjZXNzVG9rZW4iKAoYQ3JlYXRlQWNjZXNzVG9rZW5SZXF1ZXN0EgwKBG5hbWUYASABKAkiVQoZQ3JlYXRlQWNjZXNzVG9rZW5SZXNwb25zZRIoCgV0b2tlbhgBIAEoCzIZLmdhbWV2YXVsdC52MS5BY2Nlc3NUb2tlbhIOCgZzZWNyZXQYAiABKAkiJgoYUmV2b2tlQWNjZXNzVG9rZW5SZXF1ZXN0EgoKAmlkGAEgASgJIhsKGVJldm9rZUFjY2Vzc1Rva2VuUmVzcG9uc2UyhQcKC0F1dGhTZXJ2aWNlElgKDUdldEF1dGhTdGF0dXMSIi5nYW1ldmF1bHQudjEuR2V0QXV0aFN0YXR1c1JlcXVlc3QaIy5nYW1ldmF1bHQudjEuR2V0QXV0aFN0YXR1c1Jlc3BvbnNlEkAKBVNldHVwEhouZ2FtZXZhdWx0LnYxLlNldHVwUmVxdWVzdBobLmdhbWV2YXVsdC52MS5TZXR1cFJlc3BvbnNlEkAKBUxvZ2luEhouZ2FtZXZhdWx0LnYxLkxvZ2luUmVxdWVzdBobLmdhbWV2YXVsdC52MS5Mb2dpblJlc3BvbnNlEkMKBkxvZ291dBIbLmdhbWV2YXVsdC52MS5Mb2dvdXRSZXF1ZXN0GhwuZ2FtZXZhdWx0LnYxLkxvZ291dFJlc3BvbnNlElsKDkNoYW5nZVBhc3N3b3JkEiMuZ2FtZXZhdWx0LnYxLkNoYW5nZVBhc3N3b3JkUmVxdWVzdBokLmdhbWV2YXVsdC52MS5DaGFuZ2VQYXNzd29yZFJlc3BvbnNlEl4KD0dldEF1dGhTZXR0aW5ncxIkLmdhbWV2YXVsdC52MS5HZXRBdXRoU2V0dGluZ3NSZXF1ZXN0GiUuZ2FtZXZhdWx0LnYxLkdldEF1dGhTZXR0aW5nc1Jlc3BvbnNlEmcKElVwZGF0ZUF1dGhTZXR0aW5ncxInLmdhbWV2YXVsdC52MS5VcGRhdGVBdXRoU2V0dGluZ3NSZXF1ZXN0GiguZ2FtZXZhdWx0LnYxLlVwZGF0ZUF1dGhTZXR0aW5nc1Jlc3BvbnNlEmEKEExpc3RBY2Nlc3NUb2tlbnMSJS5nYW1ldmF1bHQudjEuTGlzdEFjY2Vzc1Rva2Vuc1JlcXVlc3QaJi5nYW1ldmF1bHQudjEuTGlzdEFjY2Vzc1Rva2Vuc1Jlc3BvbnNlEmQKEUNyZWF0ZUFjY2Vzc1Rva2VuEiYuZ2FtZXZhdWx0LnYxLkNyZWF0ZUFjY2Vzc1Rva2VuUmVxdWVzdBonLmdhbWV2YXVsdC52MS5DcmVhdGVBY2Nlc3NUb2tlblJlc3BvbnNlEmQKEVJldm9rZUFjY2Vzc1Rva2VuEiYuZ2FtZXZhdWx0LnYxLlJldm9rZUFjY2Vzc1Rva2VuUmVxdWVzdBonLmdhbWV2YXVsdC52MS5SZXZva2VBY2Nlc3NUb2tlblJlc3BvbnNlQjFaL2dhbWV2YXVsdC9pbnRlcm5hbC9nZW4vZ2FtZXZhdWx0L3YxO2dhbWV2YXVsdHYxYgZwcm90bzM", [file_google_protobuf_timestamp]);
 
 /**
  * Principal is the authenticated caller.
@@ -368,8 +370,153 @@ export const UpdateAuthSettingsResponseSchema: GenMessage<UpdateAuthSettingsResp
   messageDesc(file_gamevault_v1_auth, 15);
 
 /**
+ * AccessToken lets a program (the browser extension) look up what the user owns, and nothing
+ * else. Its secret is only in CreateAccessTokenResponse: only a hash is stored.
+ *
+ * @generated from message gamevault.v1.AccessToken
+ */
+export type AccessToken = Message<"gamevault.v1.AccessToken"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * Where it is used ("Extension, laptop").
+   *
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp created_at = 3;
+   */
+  createdAt?: Timestamp | undefined;
+
+  /**
+   * Absent when it was never used. Updated at most once a minute.
+   *
+   * @generated from field: google.protobuf.Timestamp last_used_at = 4;
+   */
+  lastUsedAt?: Timestamp | undefined;
+};
+
+/**
+ * Describes the message gamevault.v1.AccessToken.
+ * Use `create(AccessTokenSchema)` to create a new message.
+ */
+export const AccessTokenSchema: GenMessage<AccessToken> = /*@__PURE__*/
+  messageDesc(file_gamevault_v1_auth, 16);
+
+/**
+ * @generated from message gamevault.v1.ListAccessTokensRequest
+ */
+export type ListAccessTokensRequest = Message<"gamevault.v1.ListAccessTokensRequest"> & {
+};
+
+/**
+ * Describes the message gamevault.v1.ListAccessTokensRequest.
+ * Use `create(ListAccessTokensRequestSchema)` to create a new message.
+ */
+export const ListAccessTokensRequestSchema: GenMessage<ListAccessTokensRequest> = /*@__PURE__*/
+  messageDesc(file_gamevault_v1_auth, 17);
+
+/**
+ * @generated from message gamevault.v1.ListAccessTokensResponse
+ */
+export type ListAccessTokensResponse = Message<"gamevault.v1.ListAccessTokensResponse"> & {
+  /**
+   * Newest first.
+   *
+   * @generated from field: repeated gamevault.v1.AccessToken tokens = 1;
+   */
+  tokens: AccessToken[];
+};
+
+/**
+ * Describes the message gamevault.v1.ListAccessTokensResponse.
+ * Use `create(ListAccessTokensResponseSchema)` to create a new message.
+ */
+export const ListAccessTokensResponseSchema: GenMessage<ListAccessTokensResponse> = /*@__PURE__*/
+  messageDesc(file_gamevault_v1_auth, 18);
+
+/**
+ * @generated from message gamevault.v1.CreateAccessTokenRequest
+ */
+export type CreateAccessTokenRequest = Message<"gamevault.v1.CreateAccessTokenRequest"> & {
+  /**
+   * At most 60 characters.
+   *
+   * @generated from field: string name = 1;
+   */
+  name: string;
+};
+
+/**
+ * Describes the message gamevault.v1.CreateAccessTokenRequest.
+ * Use `create(CreateAccessTokenRequestSchema)` to create a new message.
+ */
+export const CreateAccessTokenRequestSchema: GenMessage<CreateAccessTokenRequest> = /*@__PURE__*/
+  messageDesc(file_gamevault_v1_auth, 19);
+
+/**
+ * @generated from message gamevault.v1.CreateAccessTokenResponse
+ */
+export type CreateAccessTokenResponse = Message<"gamevault.v1.CreateAccessTokenResponse"> & {
+  /**
+   * @generated from field: gamevault.v1.AccessToken token = 1;
+   */
+  token?: AccessToken | undefined;
+
+  /**
+   * The token itself ("gvt_…"), for the Authorization header ("Bearer gvt_…"). Shown only here.
+   *
+   * @generated from field: string secret = 2;
+   */
+  secret: string;
+};
+
+/**
+ * Describes the message gamevault.v1.CreateAccessTokenResponse.
+ * Use `create(CreateAccessTokenResponseSchema)` to create a new message.
+ */
+export const CreateAccessTokenResponseSchema: GenMessage<CreateAccessTokenResponse> = /*@__PURE__*/
+  messageDesc(file_gamevault_v1_auth, 20);
+
+/**
+ * @generated from message gamevault.v1.RevokeAccessTokenRequest
+ */
+export type RevokeAccessTokenRequest = Message<"gamevault.v1.RevokeAccessTokenRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+};
+
+/**
+ * Describes the message gamevault.v1.RevokeAccessTokenRequest.
+ * Use `create(RevokeAccessTokenRequestSchema)` to create a new message.
+ */
+export const RevokeAccessTokenRequestSchema: GenMessage<RevokeAccessTokenRequest> = /*@__PURE__*/
+  messageDesc(file_gamevault_v1_auth, 21);
+
+/**
+ * @generated from message gamevault.v1.RevokeAccessTokenResponse
+ */
+export type RevokeAccessTokenResponse = Message<"gamevault.v1.RevokeAccessTokenResponse"> & {
+};
+
+/**
+ * Describes the message gamevault.v1.RevokeAccessTokenResponse.
+ * Use `create(RevokeAccessTokenResponseSchema)` to create a new message.
+ */
+export const RevokeAccessTokenResponseSchema: GenMessage<RevokeAccessTokenResponse> = /*@__PURE__*/
+  messageDesc(file_gamevault_v1_auth, 22);
+
+/**
  * AuthService handles access control. GetAuthStatus, Setup, Login and Logout work without
- * authentication; the other methods (and every other service) require it.
+ * authentication; the other methods (and every other service) require it. Access tokens are
+ * refused here: they only reach OwnershipService.
  *
  * @generated from service gamevault.v1.AuthService
  */
@@ -429,6 +576,32 @@ export const AuthService: GenService<{
     methodKind: "unary";
     input: typeof UpdateAuthSettingsRequestSchema;
     output: typeof UpdateAuthSettingsResponseSchema;
+  },
+  /**
+   * @generated from rpc gamevault.v1.AuthService.ListAccessTokens
+   */
+  listAccessTokens: {
+    methodKind: "unary";
+    input: typeof ListAccessTokensRequestSchema;
+    output: typeof ListAccessTokensResponseSchema;
+  },
+  /**
+   * @generated from rpc gamevault.v1.AuthService.CreateAccessToken
+   */
+  createAccessToken: {
+    methodKind: "unary";
+    input: typeof CreateAccessTokenRequestSchema;
+    output: typeof CreateAccessTokenResponseSchema;
+  },
+  /**
+   * Revoking an unknown id is NotFound.
+   *
+   * @generated from rpc gamevault.v1.AuthService.RevokeAccessToken
+   */
+  revokeAccessToken: {
+    methodKind: "unary";
+    input: typeof RevokeAccessTokenRequestSchema;
+    output: typeof RevokeAccessTokenResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_gamevault_v1_auth, 0);

@@ -4,6 +4,8 @@ package gamevault.v1;
 
 option go_package = "gamevault/internal/gen/gamevault/v1;gamevaultv1";
 
+import "google/protobuf/timestamp.proto";
+
 // Principal is the authenticated caller.
 message Principal {
   // "trusted" (a trusted network, no sign-in) or "session" (signed in with the password).
@@ -89,8 +91,41 @@ message UpdateAuthSettingsResponse {
   AuthSettings settings = 1;
 }
 
+// AccessToken lets a program (the browser extension) look up what the user owns, and nothing
+// else. Its secret is only in CreateAccessTokenResponse: only a hash is stored.
+message AccessToken {
+  string id = 1;
+  // Where it is used ("Extension, laptop").
+  string name = 2;
+  google.protobuf.Timestamp created_at = 3;
+  // Absent when it was never used. Updated at most once a minute.
+  google.protobuf.Timestamp last_used_at = 4;
+}
+
+message ListAccessTokensRequest {}
+message ListAccessTokensResponse {
+  // Newest first.
+  repeated AccessToken tokens = 1;
+}
+
+message CreateAccessTokenRequest {
+  // At most 60 characters.
+  string name = 1;
+}
+message CreateAccessTokenResponse {
+  AccessToken token = 1;
+  // The token itself ("gvt_…"), for the Authorization header ("Bearer gvt_…"). Shown only here.
+  string secret = 2;
+}
+
+message RevokeAccessTokenRequest {
+  string id = 1;
+}
+message RevokeAccessTokenResponse {}
+
 // AuthService handles access control. GetAuthStatus, Setup, Login and Logout work without
-// authentication; the other methods (and every other service) require it.
+// authentication; the other methods (and every other service) require it. Access tokens are
+// refused here: they only reach OwnershipService.
 service AuthService {
   rpc GetAuthStatus(GetAuthStatusRequest) returns (GetAuthStatusResponse);
   rpc Setup(SetupRequest) returns (SetupResponse);
@@ -99,4 +134,8 @@ service AuthService {
   rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
   rpc GetAuthSettings(GetAuthSettingsRequest) returns (GetAuthSettingsResponse);
   rpc UpdateAuthSettings(UpdateAuthSettingsRequest) returns (UpdateAuthSettingsResponse);
+  rpc ListAccessTokens(ListAccessTokensRequest) returns (ListAccessTokensResponse);
+  rpc CreateAccessToken(CreateAccessTokenRequest) returns (CreateAccessTokenResponse);
+  // Revoking an unknown id is NotFound.
+  rpc RevokeAccessToken(RevokeAccessTokenRequest) returns (RevokeAccessTokenResponse);
 }

@@ -9,6 +9,7 @@ package gamevaultv1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -815,11 +816,342 @@ func (x *UpdateAuthSettingsResponse) GetSettings() *AuthSettings {
 	return nil
 }
 
+// AccessToken lets a program (the browser extension) look up what the user owns, and nothing
+// else. Its secret is only in CreateAccessTokenResponse: only a hash is stored.
+type AccessToken struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Where it is used ("Extension, laptop").
+	Name      string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// Absent when it was never used. Updated at most once a minute.
+	LastUsedAt    *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=last_used_at,json=lastUsedAt,proto3" json:"last_used_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AccessToken) Reset() {
+	*x = AccessToken{}
+	mi := &file_gamevault_v1_auth_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AccessToken) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AccessToken) ProtoMessage() {}
+
+func (x *AccessToken) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_auth_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AccessToken.ProtoReflect.Descriptor instead.
+func (*AccessToken) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_auth_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *AccessToken) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *AccessToken) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *AccessToken) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *AccessToken) GetLastUsedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LastUsedAt
+	}
+	return nil
+}
+
+type ListAccessTokensRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListAccessTokensRequest) Reset() {
+	*x = ListAccessTokensRequest{}
+	mi := &file_gamevault_v1_auth_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListAccessTokensRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListAccessTokensRequest) ProtoMessage() {}
+
+func (x *ListAccessTokensRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_auth_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListAccessTokensRequest.ProtoReflect.Descriptor instead.
+func (*ListAccessTokensRequest) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_auth_proto_rawDescGZIP(), []int{17}
+}
+
+type ListAccessTokensResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Newest first.
+	Tokens        []*AccessToken `protobuf:"bytes,1,rep,name=tokens,proto3" json:"tokens,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListAccessTokensResponse) Reset() {
+	*x = ListAccessTokensResponse{}
+	mi := &file_gamevault_v1_auth_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListAccessTokensResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListAccessTokensResponse) ProtoMessage() {}
+
+func (x *ListAccessTokensResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_auth_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListAccessTokensResponse.ProtoReflect.Descriptor instead.
+func (*ListAccessTokensResponse) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_auth_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *ListAccessTokensResponse) GetTokens() []*AccessToken {
+	if x != nil {
+		return x.Tokens
+	}
+	return nil
+}
+
+type CreateAccessTokenRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// At most 60 characters.
+	Name          string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateAccessTokenRequest) Reset() {
+	*x = CreateAccessTokenRequest{}
+	mi := &file_gamevault_v1_auth_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateAccessTokenRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateAccessTokenRequest) ProtoMessage() {}
+
+func (x *CreateAccessTokenRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_auth_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateAccessTokenRequest.ProtoReflect.Descriptor instead.
+func (*CreateAccessTokenRequest) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_auth_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *CreateAccessTokenRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type CreateAccessTokenResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Token *AccessToken           `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	// The token itself ("gvt_…"), for the Authorization header ("Bearer gvt_…"). Shown only here.
+	Secret        string `protobuf:"bytes,2,opt,name=secret,proto3" json:"secret,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateAccessTokenResponse) Reset() {
+	*x = CreateAccessTokenResponse{}
+	mi := &file_gamevault_v1_auth_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateAccessTokenResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateAccessTokenResponse) ProtoMessage() {}
+
+func (x *CreateAccessTokenResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_auth_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateAccessTokenResponse.ProtoReflect.Descriptor instead.
+func (*CreateAccessTokenResponse) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_auth_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *CreateAccessTokenResponse) GetToken() *AccessToken {
+	if x != nil {
+		return x.Token
+	}
+	return nil
+}
+
+func (x *CreateAccessTokenResponse) GetSecret() string {
+	if x != nil {
+		return x.Secret
+	}
+	return ""
+}
+
+type RevokeAccessTokenRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RevokeAccessTokenRequest) Reset() {
+	*x = RevokeAccessTokenRequest{}
+	mi := &file_gamevault_v1_auth_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RevokeAccessTokenRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RevokeAccessTokenRequest) ProtoMessage() {}
+
+func (x *RevokeAccessTokenRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_auth_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RevokeAccessTokenRequest.ProtoReflect.Descriptor instead.
+func (*RevokeAccessTokenRequest) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_auth_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *RevokeAccessTokenRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type RevokeAccessTokenResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RevokeAccessTokenResponse) Reset() {
+	*x = RevokeAccessTokenResponse{}
+	mi := &file_gamevault_v1_auth_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RevokeAccessTokenResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RevokeAccessTokenResponse) ProtoMessage() {}
+
+func (x *RevokeAccessTokenResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_gamevault_v1_auth_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RevokeAccessTokenResponse.ProtoReflect.Descriptor instead.
+func (*RevokeAccessTokenResponse) Descriptor() ([]byte, []int) {
+	return file_gamevault_v1_auth_proto_rawDescGZIP(), []int{22}
+}
+
 var File_gamevault_v1_auth_proto protoreflect.FileDescriptor
 
 const file_gamevault_v1_auth_proto_rawDesc = "" +
 	"\n" +
-	"\x17gamevault/v1/auth.proto\x12\fgamevault.v1\"7\n" +
+	"\x17gamevault/v1/auth.proto\x12\fgamevault.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"7\n" +
 	"\tPrincipal\x12\x16\n" +
 	"\x06method\x18\x01 \x01(\tR\x06method\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\"\xdb\x01\n" +
@@ -860,7 +1192,25 @@ const file_gamevault_v1_auth_proto_rawDesc = "" +
 	"\x19UpdateAuthSettingsRequest\x126\n" +
 	"\bsettings\x18\x01 \x01(\v2\x1a.gamevault.v1.AuthSettingsR\bsettings\"T\n" +
 	"\x1aUpdateAuthSettingsResponse\x126\n" +
-	"\bsettings\x18\x01 \x01(\v2\x1a.gamevault.v1.AuthSettingsR\bsettings2\xd6\x04\n" +
+	"\bsettings\x18\x01 \x01(\v2\x1a.gamevault.v1.AuthSettingsR\bsettings\"\xaa\x01\n" +
+	"\vAccessToken\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x129\n" +
+	"\n" +
+	"created_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12<\n" +
+	"\flast_used_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"lastUsedAt\"\x19\n" +
+	"\x17ListAccessTokensRequest\"M\n" +
+	"\x18ListAccessTokensResponse\x121\n" +
+	"\x06tokens\x18\x01 \x03(\v2\x19.gamevault.v1.AccessTokenR\x06tokens\".\n" +
+	"\x18CreateAccessTokenRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"d\n" +
+	"\x19CreateAccessTokenResponse\x12/\n" +
+	"\x05token\x18\x01 \x01(\v2\x19.gamevault.v1.AccessTokenR\x05token\x12\x16\n" +
+	"\x06secret\x18\x02 \x01(\tR\x06secret\"*\n" +
+	"\x18RevokeAccessTokenRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\x1b\n" +
+	"\x19RevokeAccessTokenResponse2\x85\a\n" +
 	"\vAuthService\x12X\n" +
 	"\rGetAuthStatus\x12\".gamevault.v1.GetAuthStatusRequest\x1a#.gamevault.v1.GetAuthStatusResponse\x12@\n" +
 	"\x05Setup\x12\x1a.gamevault.v1.SetupRequest\x1a\x1b.gamevault.v1.SetupResponse\x12@\n" +
@@ -868,7 +1218,10 @@ const file_gamevault_v1_auth_proto_rawDesc = "" +
 	"\x06Logout\x12\x1b.gamevault.v1.LogoutRequest\x1a\x1c.gamevault.v1.LogoutResponse\x12[\n" +
 	"\x0eChangePassword\x12#.gamevault.v1.ChangePasswordRequest\x1a$.gamevault.v1.ChangePasswordResponse\x12^\n" +
 	"\x0fGetAuthSettings\x12$.gamevault.v1.GetAuthSettingsRequest\x1a%.gamevault.v1.GetAuthSettingsResponse\x12g\n" +
-	"\x12UpdateAuthSettings\x12'.gamevault.v1.UpdateAuthSettingsRequest\x1a(.gamevault.v1.UpdateAuthSettingsResponseB1Z/gamevault/internal/gen/gamevault/v1;gamevaultv1b\x06proto3"
+	"\x12UpdateAuthSettings\x12'.gamevault.v1.UpdateAuthSettingsRequest\x1a(.gamevault.v1.UpdateAuthSettingsResponse\x12a\n" +
+	"\x10ListAccessTokens\x12%.gamevault.v1.ListAccessTokensRequest\x1a&.gamevault.v1.ListAccessTokensResponse\x12d\n" +
+	"\x11CreateAccessToken\x12&.gamevault.v1.CreateAccessTokenRequest\x1a'.gamevault.v1.CreateAccessTokenResponse\x12d\n" +
+	"\x11RevokeAccessToken\x12&.gamevault.v1.RevokeAccessTokenRequest\x1a'.gamevault.v1.RevokeAccessTokenResponseB1Z/gamevault/internal/gen/gamevault/v1;gamevaultv1b\x06proto3"
 
 var (
 	file_gamevault_v1_auth_proto_rawDescOnce sync.Once
@@ -882,7 +1235,7 @@ func file_gamevault_v1_auth_proto_rawDescGZIP() []byte {
 	return file_gamevault_v1_auth_proto_rawDescData
 }
 
-var file_gamevault_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_gamevault_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
 var file_gamevault_v1_auth_proto_goTypes = []any{
 	(*Principal)(nil),                  // 0: gamevault.v1.Principal
 	(*AuthSettings)(nil),               // 1: gamevault.v1.AuthSettings
@@ -900,6 +1253,14 @@ var file_gamevault_v1_auth_proto_goTypes = []any{
 	(*GetAuthSettingsResponse)(nil),    // 13: gamevault.v1.GetAuthSettingsResponse
 	(*UpdateAuthSettingsRequest)(nil),  // 14: gamevault.v1.UpdateAuthSettingsRequest
 	(*UpdateAuthSettingsResponse)(nil), // 15: gamevault.v1.UpdateAuthSettingsResponse
+	(*AccessToken)(nil),                // 16: gamevault.v1.AccessToken
+	(*ListAccessTokensRequest)(nil),    // 17: gamevault.v1.ListAccessTokensRequest
+	(*ListAccessTokensResponse)(nil),   // 18: gamevault.v1.ListAccessTokensResponse
+	(*CreateAccessTokenRequest)(nil),   // 19: gamevault.v1.CreateAccessTokenRequest
+	(*CreateAccessTokenResponse)(nil),  // 20: gamevault.v1.CreateAccessTokenResponse
+	(*RevokeAccessTokenRequest)(nil),   // 21: gamevault.v1.RevokeAccessTokenRequest
+	(*RevokeAccessTokenResponse)(nil),  // 22: gamevault.v1.RevokeAccessTokenResponse
+	(*timestamppb.Timestamp)(nil),      // 23: google.protobuf.Timestamp
 }
 var file_gamevault_v1_auth_proto_depIdxs = []int32{
 	0,  // 0: gamevault.v1.GetAuthStatusResponse.principal:type_name -> gamevault.v1.Principal
@@ -908,25 +1269,35 @@ var file_gamevault_v1_auth_proto_depIdxs = []int32{
 	1,  // 3: gamevault.v1.GetAuthSettingsResponse.settings:type_name -> gamevault.v1.AuthSettings
 	1,  // 4: gamevault.v1.UpdateAuthSettingsRequest.settings:type_name -> gamevault.v1.AuthSettings
 	1,  // 5: gamevault.v1.UpdateAuthSettingsResponse.settings:type_name -> gamevault.v1.AuthSettings
-	2,  // 6: gamevault.v1.AuthService.GetAuthStatus:input_type -> gamevault.v1.GetAuthStatusRequest
-	4,  // 7: gamevault.v1.AuthService.Setup:input_type -> gamevault.v1.SetupRequest
-	6,  // 8: gamevault.v1.AuthService.Login:input_type -> gamevault.v1.LoginRequest
-	8,  // 9: gamevault.v1.AuthService.Logout:input_type -> gamevault.v1.LogoutRequest
-	10, // 10: gamevault.v1.AuthService.ChangePassword:input_type -> gamevault.v1.ChangePasswordRequest
-	12, // 11: gamevault.v1.AuthService.GetAuthSettings:input_type -> gamevault.v1.GetAuthSettingsRequest
-	14, // 12: gamevault.v1.AuthService.UpdateAuthSettings:input_type -> gamevault.v1.UpdateAuthSettingsRequest
-	3,  // 13: gamevault.v1.AuthService.GetAuthStatus:output_type -> gamevault.v1.GetAuthStatusResponse
-	5,  // 14: gamevault.v1.AuthService.Setup:output_type -> gamevault.v1.SetupResponse
-	7,  // 15: gamevault.v1.AuthService.Login:output_type -> gamevault.v1.LoginResponse
-	9,  // 16: gamevault.v1.AuthService.Logout:output_type -> gamevault.v1.LogoutResponse
-	11, // 17: gamevault.v1.AuthService.ChangePassword:output_type -> gamevault.v1.ChangePasswordResponse
-	13, // 18: gamevault.v1.AuthService.GetAuthSettings:output_type -> gamevault.v1.GetAuthSettingsResponse
-	15, // 19: gamevault.v1.AuthService.UpdateAuthSettings:output_type -> gamevault.v1.UpdateAuthSettingsResponse
-	13, // [13:20] is the sub-list for method output_type
-	6,  // [6:13] is the sub-list for method input_type
-	6,  // [6:6] is the sub-list for extension type_name
-	6,  // [6:6] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	23, // 6: gamevault.v1.AccessToken.created_at:type_name -> google.protobuf.Timestamp
+	23, // 7: gamevault.v1.AccessToken.last_used_at:type_name -> google.protobuf.Timestamp
+	16, // 8: gamevault.v1.ListAccessTokensResponse.tokens:type_name -> gamevault.v1.AccessToken
+	16, // 9: gamevault.v1.CreateAccessTokenResponse.token:type_name -> gamevault.v1.AccessToken
+	2,  // 10: gamevault.v1.AuthService.GetAuthStatus:input_type -> gamevault.v1.GetAuthStatusRequest
+	4,  // 11: gamevault.v1.AuthService.Setup:input_type -> gamevault.v1.SetupRequest
+	6,  // 12: gamevault.v1.AuthService.Login:input_type -> gamevault.v1.LoginRequest
+	8,  // 13: gamevault.v1.AuthService.Logout:input_type -> gamevault.v1.LogoutRequest
+	10, // 14: gamevault.v1.AuthService.ChangePassword:input_type -> gamevault.v1.ChangePasswordRequest
+	12, // 15: gamevault.v1.AuthService.GetAuthSettings:input_type -> gamevault.v1.GetAuthSettingsRequest
+	14, // 16: gamevault.v1.AuthService.UpdateAuthSettings:input_type -> gamevault.v1.UpdateAuthSettingsRequest
+	17, // 17: gamevault.v1.AuthService.ListAccessTokens:input_type -> gamevault.v1.ListAccessTokensRequest
+	19, // 18: gamevault.v1.AuthService.CreateAccessToken:input_type -> gamevault.v1.CreateAccessTokenRequest
+	21, // 19: gamevault.v1.AuthService.RevokeAccessToken:input_type -> gamevault.v1.RevokeAccessTokenRequest
+	3,  // 20: gamevault.v1.AuthService.GetAuthStatus:output_type -> gamevault.v1.GetAuthStatusResponse
+	5,  // 21: gamevault.v1.AuthService.Setup:output_type -> gamevault.v1.SetupResponse
+	7,  // 22: gamevault.v1.AuthService.Login:output_type -> gamevault.v1.LoginResponse
+	9,  // 23: gamevault.v1.AuthService.Logout:output_type -> gamevault.v1.LogoutResponse
+	11, // 24: gamevault.v1.AuthService.ChangePassword:output_type -> gamevault.v1.ChangePasswordResponse
+	13, // 25: gamevault.v1.AuthService.GetAuthSettings:output_type -> gamevault.v1.GetAuthSettingsResponse
+	15, // 26: gamevault.v1.AuthService.UpdateAuthSettings:output_type -> gamevault.v1.UpdateAuthSettingsResponse
+	18, // 27: gamevault.v1.AuthService.ListAccessTokens:output_type -> gamevault.v1.ListAccessTokensResponse
+	20, // 28: gamevault.v1.AuthService.CreateAccessToken:output_type -> gamevault.v1.CreateAccessTokenResponse
+	22, // 29: gamevault.v1.AuthService.RevokeAccessToken:output_type -> gamevault.v1.RevokeAccessTokenResponse
+	20, // [20:30] is the sub-list for method output_type
+	10, // [10:20] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_gamevault_v1_auth_proto_init() }
@@ -940,7 +1311,7 @@ func file_gamevault_v1_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gamevault_v1_auth_proto_rawDesc), len(file_gamevault_v1_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   16,
+			NumMessages:   23,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -6,11 +6,13 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"slices"
 	"strings"
 	"time"
 
 	appauth "gamevault/internal/application/auth"
 	"gamevault/internal/domain/auth"
+	"gamevault/internal/gen/gamevault/v1/gamevaultv1connect"
 )
 
 const sessionCookie = "gv_session"
@@ -74,9 +76,60 @@ func isProtected(path string) bool {
 	return strings.HasPrefix(path, "/gamevault.v1.") || strings.HasPrefix(path, "/media/")
 }
 
+// tokenProcedures are the only paths an access token may call: it looks up what the user owns
+// and nothing else.
+var tokenProcedures = []string{gamevaultv1connect.OwnershipServiceCheckOwnershipProcedure}
+
+// accessToken returns the Game Vault access token of an "Authorization: Bearer gvt_…" header.
+// Other credentials (a proxy's Basic or Bearer header) are not Game Vault's and are ignored.
+func accessToken(r *http.Request) (string, bool) {
+	scheme, token, ok := strings.Cut(strings.TrimSpace(r.Header.Get("Authorization")), " ")
+	token = strings.TrimSpace(token)
+
+	return token, ok && strings.EqualFold(scheme, "Bearer") && auth.IsAccessToken(token)
+}
+
+// serveWithToken lets an access token call the ownership lookup and nothing else. The token alone
+// identifies the caller: neither a session cookie nor a trusted network adds to it, and the
+// proxy and host name rules are unaffected (a token never makes a request trusted).
+func serveWithToken(svc *appauth.Service, next http.Handler, w http.ResponseWriter, r *http.Request, token string) {
+	path := r.URL.Path
+	if !slices.Contains(tokenProcedures, path) {
+		denyUnauthenticated(w, path)
+		return
+	}
+
+	req := authRequest(r)
+	req.SessionToken = ""
+	ctx := context.WithValue(r.Context(), ctxRequest, req)
+
+	p, err := svc.AuthenticateToken(ctx, token)
+	switch {
+	case err == nil:
+		next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, ctxPrincipal, p)))
+	case errors.Is(err, auth.ErrTooManyAttempts):
+		denyThrottled(w)
+	case errors.Is(err, auth.ErrUnauthenticated):
+		denyUnauthenticated(w, path)
+	default:
+		http.Error(w, "authentication failed", http.StatusInternalServerError)
+	}
+}
+
+func denyThrottled(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusTooManyRequests)
+	w.Write([]byte(`{"code":"resource_exhausted","message":"too many failed attempts; wait a few minutes"}`))
+}
+
 // authMiddleware identifies the caller of API requests and rejects unauthenticated ones.
 func authMiddleware(svc *appauth.Service, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if token, ok := accessToken(r); ok {
+			serveWithToken(svc, next, w, r, token)
+			return
+		}
+
 		path := r.URL.Path
 		if !isProtected(path) && !strings.HasPrefix(path, "/gamevault.v1.") {
 			next.ServeHTTP(w, r) // static UI: nothing to identify
