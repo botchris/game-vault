@@ -9,20 +9,29 @@ it is hard to answer a simple question: *do I already have it?*
 
 Game Vault puts your whole collection in one catalog that runs on your own computer:
 
-- **One entry per game**, whatever the format. Each game lists every copy you own: the game in a
-  store library, a CD key, a physical disc.
+- **Every copy of a game, together.** A game lists every copy you own: in a store library, as a
+  CD key, on a disc. Browse your library by platform, where each one has its own card and box (a
+  PS3 disc and an Xbox 360 disc side by side), or by game.
 - **Your store libraries are imported automatically** and kept up to date. Connecting most stores
   takes one click with the Game Vault Connector browser extension (`extension/`).
-- **Physical games are added by scanning their barcode** with your phone's camera.
+- **Physical games are added by scanning their barcode** with your phone's camera, one after
+  another.
 - **What your physical games are worth:** second-hand prices from CeX and eBay for each copy with a
   barcode, kept up to date, and the value of the whole collection.
 - **Keys are tracked:** which ones you have not redeemed, which expire soon, and which you don't
   need because you already own the game on that platform (so you can gift them). Steam keys get a
   direct "redeem" link.
-- **A proper catalog:** box art for each platform you own a game on (a PS3 disc and an Xbox 360
-  disc each show their own box), search, sort, filters by platform, store, kind of copy and genre,
-  and a sheet for every game with its summary, genres, developer, release date, trailers and
-  screenshots.
+- **A proper catalog:**
+  - box art for every game, found automatically, or chosen by you from several sources, a web
+    search or a photo of your own copy;
+  - a sheet for every game with its summary, genres, developer, release date, trailers and
+    screenshots;
+  - search, sort, and filters by platform, store, kind of copy, genre and play status, plus ready
+    lists such as "keys you don't need" or "games you own on several platforms".
+- **Your own fields:** add the details you care about (where you bought it, who you lent it to,
+  which shelf it is on…) to games or to copies, and filter by them.
+- **A health check** tells you when something needs your attention: an account that signed you
+  out, a failed backup, a service that is not answering, a disk running out of space.
 - Works on desktop and phone, in English and Spanish. Your data stays on your machine.
 
 ## Supported platforms
@@ -59,7 +68,7 @@ You need [Docker](https://www.docker.com/) and [Task](https://taskfile.dev)
 (on macOS: `brew install go-task`). Nothing else: everything is built inside a container.
 
 ```bash
-git clone <this repository> game-vault
+git clone https://github.com/botchris/game-vault.git
 cd game-vault
 task run
 ```
@@ -70,9 +79,10 @@ The first run takes a few minutes while the build container is prepared. Then op
 Once it is running:
 
 1. **Sources** — connect your stores and your Humble Bundle account, then press **Scan all**.
-2. **Providers** — box art and game sheets work out of the box (Steam, Wikipedia); optionally add a free
-   [TheGamesDB](https://thegamesdb.net) key for the box art of physical games, and a free Twitch
-   application for [IGDB](https://www.igdb.com)'s game sheets and covers.
+2. **Providers** — box art and game sheets work out of the box (Steam, Wikipedia). For games that
+   are not on Steam, such as console games, add a free [IGDB](https://www.igdb.com) access (a
+   Twitch application) for their sheets and covers, and a free [TheGamesDB](https://thegamesdb.net)
+   key for the box art of physical games.
    - ⚠️ [SteamGridDB](https://www.steamgriddb.com) community covers, off by default and **at your
      own risk**: its terms do not allow automated use, and it could revoke your key or suspend your
      account. You need your own free API key and must accept that risk in its settings first.
