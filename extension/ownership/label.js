@@ -8,7 +8,8 @@
 // the same whatever the user owns. Focus would tell too, so every visible label is the same
 // focusable element (a span with role="button" and tabindex="0", one Tab stop) and the address it
 // opens is kept here, not in the DOM: owned and possible open it on click or Enter, the others do
-// nothing. Store rules cannot hide or resize the host: its declarations
+// nothing, and every label handles those events the same way (none leaves it, every default is
+// prevented), so page listeners cannot hear the answer either. Store rules cannot hide or resize the host: its declarations
 // are !important, and inline !important beats any stylesheet.
 (() => {
   const ns = (globalThis.gvOwnership ??= {});
@@ -105,13 +106,25 @@
     root.append(style);
   }
 
-  /** Opens a Game Vault page in a new tab that cannot reach back into the store page. */
-  function opener(doc, href) {
-    return (event) => {
+  /**
+   * Gives a visible label its click and key handling, the same for every answer: the events never
+   * leave the label and their defaults are always prevented (so Space never scrolls the page for
+   * some answers only); only a label with a web address opens it, in a new tab that cannot reach
+   * back into the store page.
+   */
+  function handleActivation(doc, el, href) {
+    const activate = (event) => {
       event.preventDefault();
-      event.stopPropagation();
-      doc.defaultView?.open(href, '_blank', 'noopener,noreferrer');
+      if (href) doc.defaultView?.open(href, '_blank', 'noopener,noreferrer');
     };
+    el.addEventListener('click', (event) => {
+      event.stopPropagation();
+      activate(event);
+    });
+    el.addEventListener('keydown', (event) => {
+      event.stopPropagation();
+      if (event.key === 'Enter' || event.key === ' ') activate(event);
+    });
   }
 
   /**
@@ -140,13 +153,7 @@
       text.className = 'text';
       text.textContent = model.text;
       el.append(text);
-      if (href) {
-        const open = opener(doc, href);
-        el.addEventListener('click', open);
-        el.addEventListener('keydown', (event) => {
-          if (event.key === 'Enter' || event.key === ' ') open(event);
-        });
-      }
+      handleActivation(doc, el, href);
     }
     root.append(el);
     parent.append(host);

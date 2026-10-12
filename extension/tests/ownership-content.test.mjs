@@ -185,4 +185,5 @@ test('a scan that finishes after stop() schedules nothing more', async (tt) => {
   await settle();
   assert.equal(timersAfterStop, 0);
   assert.equal(sent.length, 1);
+  assert.equal(window.document.querySelectorAll('[data-gamevault]').length, 0, 'no label drawn after stop()');
 });

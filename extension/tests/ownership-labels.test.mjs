@@ -178,3 +178,24 @@ test('owned and possible open the game on click or Enter, without an opener; the
   hostile.root.querySelector('[tabindex]').click();
   assert.deepEqual(opened, [], 'nothing to open, and never a non-web address');
 });
+
+test('every visible label handles clicks and keys the same way, so the page cannot hear the answer', async (tt) => {
+  const window = pageWindow('<!doctype html><html><body><h1 id="t">Lantern Keep</h1></body></html>', 'https://store.steampowered.com/app/4410/');
+  tt.after(() => window.happyDOM.close());
+  window.open = () => null;
+  const heard = [];
+  for (const type of ['click', 'keydown']) window.document.addEventListener(type, (event) => heard.push(event.type));
+  const outcomes = ['owned', 'possible', 'notOwned', 'unavailable'].map((name) => {
+    const el = ns.renderLabel(window.document, window.document.getElementById('t'), models[name]).root.querySelector('[tabindex]');
+    const events = [
+      new window.MouseEvent('click', { bubbles: true, composed: true, cancelable: true }),
+      new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true, cancelable: true }),
+      new window.KeyboardEvent('keydown', { key: ' ', bubbles: true, composed: true, cancelable: true }),
+    ];
+    for (const event of events) el.dispatchEvent(event);
+    return JSON.stringify(events.map((event) => event.defaultPrevented));
+  });
+  assert.deepEqual(heard, [], 'nothing leaves the label');
+  assert.equal(new Set(outcomes).size, 1, outcomes.join('\n'));
+  assert.deepEqual(JSON.parse(outcomes[0]), [true, true, true]);
+});
