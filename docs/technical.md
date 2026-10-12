@@ -318,7 +318,9 @@ One lookup answers "do I already have it?" for store pages, bundles and pasted l
   (`*.humblebundle.com`, so language sites such as `es.humblebundle.com` work) and
   `www.fanatical.com`, and registers one content script per allowed site (`extension/ownership/`);
   turning it off unregisters them and gives back the sites no sign-in uses. Store scripts
-  registered by an older version are replaced on update. What each page shows
+  registered by an older version are replaced on update. The syncs of the scripts (option or
+  permission changes, start-up, update) run one at a time, and a store the browser refuses does
+  not stop the others (the failure is logged without any setting). What each page shows
   is data in `extension/ownership/stores.js`: Steam product pages give the AppID from
   `/app/<id>` and the title, GOG product pages the product id (`card-product`) and the title,
   Humble and Fanatical product pages the title, and Humble (`/games/…`, and the members' Humble
@@ -337,7 +339,8 @@ One lookup answers "do I already have it?" for store pages, bundles and pasted l
   the background talks to Game Vault: it sends `{store, id, title}` to the chosen address (one of
   the enabled ones), with the access token, 200 items per request, and reuses answers for a
   minute (changed settings or a refused token clear them). Requests carry no cookies
-  (credentials omitted) and go only to that address. The token is bound to the address it was
+  (credentials omitted), never follow a redirect (one would carry the token to another address;
+  Game Vault then reads as unavailable) and go only to that address. The token is bound to the address it was
   saved for: changing the address clears it and turns the option off. Where the browser supports
   it, extension storage is limited to trusted contexts, so content scripts cannot read the token.
   The popup warns when the address is plain http and not this computer (the token would travel
@@ -672,6 +675,10 @@ Like Sonarr and Radarr, there is one user with a password and a few settings, in
   token is looked up by its hash first (no timing leak), so junk tokens cannot keep the owner's
   extension out. The last use is written at most once a minute; revoking takes
   effect on the next request (tokens are read from the database on every request).
+  Behind an authenticating reverse proxy (single sign-on), the proxy must let
+  `POST /gamevault.v1.OwnershipService/CheckOwnership` through when it carries an
+  `Authorization: Bearer gvt_…` header: the extension sends no cookies, so it cannot pass a
+  sign-in page.
 - A request counts as coming from a trusted network only if its TCP peer is in one, it carries no
   proxy headers (`X-Forwarded-For`, `Forwarded`, `X-Forwarded-Host`, `X-Real-IP`), and its
   `Host` is an address or `localhost`. Behind a proxy the peer is the proxy, not the caller; and a
