@@ -57,6 +57,12 @@ const bundles = [
     summary: 'Invented Games Bundle',
   },
   {
+    file: 'humble-choice.html',
+    url: 'https://es.humblebundle.com/membership/home#invented-month/invented-game',
+    titles: ['Lantern Keep', 'Paper Comet', 'Harbor Lights'],
+    summary: 'Invented Month games',
+  },
+  {
     file: 'fanatical-bundle.html',
     url: 'https://www.fanatical.com/en/bundle/invented-mystery-bundle',
     titles: ['Echo Valley', 'Copper Coast', 'Glass Orchard'],

@@ -2,7 +2,8 @@
 // its pages, fix the patterns and selectors here and the sample page in tests/samples/. A page's
 // `path` is a regular expression on the address's path; a store with a `domain` is also every site
 // of that domain (language sites); every selector list is tried in order and the first that matches
-// wins. Steam, GOG and Humble were checked on the live sites on 2026-10-12.
+// wins. Steam, GOG and Humble were checked on the live sites on 2026-10-12 (Humble Choice from a
+// member's page).
 // Loaded as a content script (a classic script) and imported by the background and the tests, so
 // it only adds to globalThis.gvOwnership.
 (() => {
@@ -55,6 +56,13 @@
           path: '^/games/[^/?#]+',
           items: { selectors: ['.tier-item-view'], title: ['.item-title', '.item-title-text'] },
           summary: ['.bundle-logo-text', '.heading-medium', 'h1'],
+        },
+        {
+          // A member's Humble Choice month (the month is in the address's #fragment).
+          kind: 'bundle',
+          path: '^/membership/home/?$',
+          items: { selectors: ['.content-choice'], title: ['.content-choice-title'] },
+          summary: ['.content-choices-title', '.subhub-main-title'],
         },
       ],
     },
