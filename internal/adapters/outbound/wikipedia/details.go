@@ -286,7 +286,7 @@ func (d *Details) candidates(ctx context.Context, title, lang string) (ids []str
 			}
 
 			for _, h := range hits {
-				strict := strictTitle(h.Label, title) || strictTitle(h.Match.Text, title)
+				strict := game.SameTitle(h.Label, title) || game.SameTitle(h.Match.Text, title)
 				if !strict && !looseTitle(h.Label, title) && !looseTitle(h.Match.Text, title) {
 					continue
 				}
@@ -670,15 +670,6 @@ func pick(labels map[string]string, ids []string) []string {
 	}
 
 	return out
-}
-
-var reNonAlnum = regexp.MustCompile(`[^\p{L}\p{N}]+`)
-
-// strictTitle compares titles ignoring case and punctuation only.
-func strictTitle(a, b string) bool {
-	strict := func(s string) string { return reNonAlnum.ReplaceAllString(strings.ToLower(s), "") }
-
-	return a != "" && b != "" && strict(a) == strict(b)
 }
 
 // looseTitle compares titles as game.MatchKey does (edition tags, trademarks and accents ignored).

@@ -349,6 +349,29 @@ func TestCovers(t *testing.T) {
 		})
 	})
 
+	t.Run("GIVEN a title with ' - ' where SteamGridDB names the game with ': '", func(t *testing.T) {
+		f := newFake(t)
+		f.answer("/search/autocomplete/Example - A Wild Adventure", http.StatusOK, `{"success":true,"data":[
+  {"id":9001,"name":"Example: A Wild Adventure","types":["steam"],"verified":true},
+  {"id":9002,"name":"Example: A Wild Adventure 2","types":[],"verified":false}
+]}`)
+		f.answer("/grids/game/9001", http.StatusOK, exampleGrids)
+
+		t.Run("WHEN its covers are asked", func(t *testing.T) {
+			got, err := f.covers().Covers(ctx, media.CoverQuery{
+				Title:    "Example - A Wild Adventure",
+				System:   game.SystemPC,
+				Fallback: true,
+			}, goodSettings)
+			require.NoError(t, err)
+
+			t.Run("THEN the punctuation does not matter, every word still does", func(t *testing.T) {
+				require.NotEmpty(t, got)
+				assert.Equal(t, "Example: A Wild Adventure", got[0].Title)
+			})
+		})
+	})
+
 	t.Run("GIVEN a key whose title carries its store tag", func(t *testing.T) {
 		f := newFake(t)
 		f.answer("/search/autocomplete/Example Quest", http.StatusOK, exampleSearch)

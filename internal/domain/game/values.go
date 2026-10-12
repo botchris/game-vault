@@ -208,6 +208,31 @@ func SearchTitle(title string) string {
 	return s
 }
 
+// reNotLetterOrDigit matches what SameTitle ignores: anything but letters and digits.
+var reNotLetterOrDigit = regexp.MustCompile(`[^\p{L}\p{N}]+`)
+
+// SameTitle reports whether two titles name the same game exactly, ignoring only case, accents,
+// trademark signs, punctuation and spacing: "Example - A Wild Adventure" is "Example: A Wild
+// Adventure", but every word and number counts, so "Example Remastered" is not "Example" and "Doom
+// (2016)" is not "Doom". Providers use it to match a search result to a game; MatchKey is the looser
+// comparison that also ignores edition and store tags.
+func SameTitle(a, b string) bool {
+	ka, kb := strictTitleKey(a), strictTitleKey(b)
+
+	return ka != "" && ka == kb
+}
+
+// strictTitleKey is the form SameTitle compares: lower case, without accents, letters and digits
+// only.
+func strictTitleKey(title string) string {
+	s := title
+	if t, _, err := transform.String(stripMarks(), s); err == nil {
+		s = t
+	}
+
+	return reNotLetterOrDigit.ReplaceAllString(strings.ToLower(s), "")
+}
+
 // MatchKey reduces a title to a comparable form, e.g. "Celeste™ (Steam Key)" → "celeste" and
 // "Hades GOG Key" → "hades": the store a key is for is not part of the game's name.
 // Two titles with the same match key are treated as the same game when consolidating.
