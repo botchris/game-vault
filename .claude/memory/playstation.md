@@ -12,5 +12,16 @@ As of 2026-10:
 - Requests need `Content-Type: application/json` (CSRF guard).
 - PS Store covers dropped (2026-10-10): PS games already get covers from Steam or TheGamesDB, and playstation.com's website terms (section 10) forbid automated access, so store
   pages are never read. The library query's `image.url` (square MASTER art) is still unused.
-- The library lists apps, demos, betas, soundtracks and videos as "PS4" with `CUSA…` ids: nothing
-  tells them apart. They are removed by hand with "Remove and do not import again" (source exclusions).
+- The library lists apps, demos, betas, soundtracks and videos as "PS4" with `CUSA…` ids, and its
+  answer has no field that tells them apart. Since 2026-10-12 they are withdrawn on each scan by:
+  - the PlayStation app's played-titles list, `GET m.np.playstation.com/api/gamelist/v2/users/me/titles`
+    (psn-api `getUserPlayedGames`, PSNAWP), same Bearer token, `limit=200&offset=N` paged by
+    `nextOffset`; a bogus token gives 401 `{"error":{"reason":"invalidToken",...}}`. Read twice
+    (no `categories`, then `categories=ps4_game,ps5_native_game,pspc_game`): a purchased title
+    matching (title id, `concept.titleIds`, `concept.id`) one that is in the first list but not the
+    second is not a game. Never-played titles stay; if a list fails, no category exclusions (warn log).
+    Response shape taken from psn-api's types, only tested against fakes so far;
+  - name markers (`nonGameName`): trailing Demo / Trial / Beta / Soundtrack / OST / Theme / Avatar(s) /
+    Art Book (+ Spanish), "Behind the Scenes" / "Making of" anywhere.
+  The store catalog would tell every title's kind, but it is not used: playstation.com's terms forbid
+  automated access. Anything else is still removed by hand with "Remove and do not import again".

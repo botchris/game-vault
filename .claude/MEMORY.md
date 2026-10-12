@@ -39,7 +39,7 @@ one line here. Update a file instead of adding a duplicate; date facts about ext
 - [EA](memory/ea.md) — Origin dead; GraphQL validates before auth; public `game(slug)` pack art
 - [Ubisoft](memory/ubisoft.md) — app `314d4fef…` blocked; `PRODrememberMe` rotates on every use; limit 50
 - [Xbox](memory/xbox.md) — Xbox app client; collections need `"beneficiaries": []`; public display catalog
-- [PlayStation](memory/playstation.md) — NPSSO; registered GraphQL hashes; CSRF header; store pages forbidden (no PS Store covers); non-games removed by the user
+- [PlayStation](memory/playstation.md) — NPSSO; registered GraphQL hashes; CSRF header; store pages forbidden (no PS Store covers); non-games withdrawn via played-titles categories + name markers
 - [Amazon Games](memory/amazon.md) — launcher device sign-in (nile), refresh token does not rotate, entitlements API, no portrait art
 - [itch.io](memory/itch.md) — official API, personal key, `/profile/owned-keys` until an empty page, errors list even with 200
 - [Fanatical](memory/fanatical.md) — `/api/user/keys` with the `bsauth` token; terms forbid it, built only behind a required risk consent (user's decision)
