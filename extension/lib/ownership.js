@@ -48,25 +48,43 @@ export function removableOrigins(grants) {
   return STORES.filter((s) => !used.some((host) => globalThis.gvOwnership.storeHasHost(s, host))).map(storeOrigin);
 }
 
+// The syncs run one after the other: turning the option on fires the settings change, the
+// permission grant and more at almost the same time, and two syncs reading the registrations
+// together would both register the same script (the browser refuses the second: "Duplicate
+// script ID").
+let syncing = Promise.resolve();
+
 /**
  * Registers the content script of each store the browser allows while the option is on for an
- * address that is still enabled, and unregisters the rest.
+ * address that is still enabled, and unregisters the rest. Each sync starts after the previous
+ * one has finished, and a store the browser refuses does not stop the others: its failure is
+ * logged (the store only, never a setting).
  */
-export async function syncStoreScripts(api) {
+export function syncStoreScripts(api) {
+  const run = syncing.then(() => syncOnce(api));
+  syncing = run.catch(() => {});
+  return run;
+}
+
+async function syncOnce(api) {
   const { ownership } = await api.storage.local.get('ownership');
   const { origins = [] } = await api.storage.local.get('origins');
   const on = Boolean(ownership?.enabled) && Boolean(ownership.origin) && origins.includes(ownership.origin);
   const registered = new Map((await api.scripting.getRegisteredContentScripts({ ids: STORES.map(scriptId) })).map((s) => [s.id, s]));
   for (const store of STORES) {
     const id = scriptId(store);
-    const want = scriptFor(store);
-    const wanted = on && await api.permissions.contains({ origins: [storeOrigin(store)] });
-    const old = registered.get(id);
-    // Registrations outlive updates of the extension: one from an older version (other sites or
-    // files) is replaced.
-    const stale = old && (String(old.matches) !== String(want.matches) || String(old.js) !== String(want.js));
-    if (old && (!wanted || stale)) await api.scripting.unregisterContentScripts({ ids: [id] });
-    if (wanted && (!old || stale)) await api.scripting.registerContentScripts([want]);
+    try {
+      const want = scriptFor(store);
+      const wanted = on && await api.permissions.contains({ origins: [storeOrigin(store)] });
+      const old = registered.get(id);
+      // Registrations outlive updates of the extension: one from an older version (other sites or
+      // files) is replaced.
+      const stale = old && (String(old.matches) !== String(want.matches) || String(old.js) !== String(want.js));
+      if (old && (!wanted || stale)) await api.scripting.unregisterContentScripts({ ids: [id] });
+      if (wanted && (!old || stale)) await api.scripting.registerContentScripts([want]);
+    } catch (err) {
+      console.warn(`ownership: syncing the ${store.store} store script failed:`, String(err?.message ?? err));
+    }
   }
 }
 

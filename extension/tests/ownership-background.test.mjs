@@ -177,3 +177,65 @@ test("only the extension's own pages may read its storage, where the browser sup
   await load({ setAccessLevel: () => { throw new Error('not supported'); } });
   await flush();
 });
+
+/** Makes the fake's scripting behave like the browser's: a registration takes a moment, and an id
+ * that is registered (or being registered) is refused, as is unregistering one that is not. */
+function strictScripting(chrome, { failFor = [] } = {}) {
+  const pending = new Set();
+  chrome.scripting.registerContentScripts = async (list) => {
+    for (const s of list) {
+      if (chrome.registered.has(s.id) || pending.has(s.id)) throw new Error(`Duplicate script ID '${s.id}'`);
+      if (failFor.includes(s.id)) throw new Error(`Could not register '${s.id}'`);
+      pending.add(s.id);
+    }
+    await new Promise((r) => setImmediate(r));
+    for (const s of list) {
+      pending.delete(s.id);
+      chrome.registered.set(s.id, s);
+    }
+  };
+  chrome.scripting.unregisterContentScripts = async ({ ids }) => {
+    for (const id of ids) if (!chrome.registered.has(id)) throw new Error(`Nonexistent script ID '${id}'`);
+    await new Promise((r) => setImmediate(r));
+    for (const id of ids) chrome.registered.delete(id);
+  };
+}
+
+/** Collects console.warn calls for the length of a test. */
+function warnings(t) {
+  const out = [];
+  const real = console.warn;
+  console.warn = (...args) => out.push(args.map(String).join(' '));
+  t.after(() => { console.warn = real; });
+  return out;
+}
+
+test('syncs started together run one after the other, so none trips over the other and every allowed store gets its script', async (t) => {
+  const { syncStoreScripts } = await import('../lib/ownership.js');
+  const HUMBLE = 'https://*.humblebundle.com/*';
+  const chrome = await load({ data: { origins: [GV], ownership: { enabled: true, origin: GV, token: 'gvt_secret' } }, granted: [STEAM, GOG, HUMBLE] });
+  strictScripting(chrome);
+  const warned = warnings(t);
+  // Turning the option on fires the settings change, the permission grant and more at once.
+  await Promise.all([syncStoreScripts(chrome), syncStoreScripts(chrome), syncStoreScripts(chrome)]);
+  assert.deepEqual(ownershipScripts(chrome), ['ownership-gog', 'ownership-humble', 'ownership-steam']);
+  assert.deepEqual(warned, []);
+
+  chrome.data.ownership = { ...chrome.data.ownership, enabled: false };
+  await Promise.all([syncStoreScripts(chrome), syncStoreScripts(chrome)]);
+  assert.deepEqual(ownershipScripts(chrome), []);
+  assert.deepEqual(warned, []);
+});
+
+test('a store whose script the browser refuses does not stop the others, and the failure is logged without settings', async (t) => {
+  const { syncStoreScripts } = await import('../lib/ownership.js');
+  const HUMBLE = 'https://*.humblebundle.com/*';
+  const chrome = await load({ data: { origins: [GV], ownership: { enabled: true, origin: GV, token: 'gvt_secret' } }, granted: [STEAM, GOG, HUMBLE] });
+  strictScripting(chrome, { failFor: ['ownership-steam'] });
+  const warned = warnings(t);
+  await syncStoreScripts(chrome);
+  assert.deepEqual(ownershipScripts(chrome), ['ownership-gog', 'ownership-humble']);
+  assert.equal(warned.length, 1);
+  assert.match(warned[0], /steam/);
+  assert.doesNotMatch(warned[0], /gvt_secret|127\.0\.0\.1/);
+});

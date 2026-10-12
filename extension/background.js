@@ -14,7 +14,8 @@ const pending = new Map(); // confirmation id → { resolve, windowId }
 // "What you own" on store pages: the store content scripts ask here, and only the background
 // talks to the user's Game Vault (with the token, which pages never see).
 const ownership = createLookup({ storage: chrome.storage.local, fetch: (url, init) => fetch(url, init), now: () => Date.now() });
-const syncStores = () => syncStoreScripts(chrome).catch(() => {});
+// A failed sync is logged with its error only: no token, no address.
+const syncStores = () => syncStoreScripts(chrome).catch((err) => console.warn('ownership: syncing the store scripts failed:', String(err?.message ?? err)));
 
 // The token lives in chrome.storage.local: only the extension's own pages may read it, never a
 // content script (where the browser can say so; content scripts here never read storage).
