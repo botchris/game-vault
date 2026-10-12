@@ -41,7 +41,7 @@ func newPlugins(log *slog.Logger) (*plugin.Registry, error) {
 		eaapp.Plugin(),
 		ubisoft.Plugin(),
 		xbox.Plugin(),
-		playstation.Plugin(),
+		playstation.Plugin(log),
 		amazon.Plugin(),
 		itch.Plugin(),
 		// Key sellers

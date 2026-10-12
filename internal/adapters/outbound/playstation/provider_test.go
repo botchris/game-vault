@@ -16,10 +16,26 @@ import (
 	"gamevault/internal/domain/source"
 )
 
-// fakeSony mimics Sony's sign-in and the library GraphQL (only the second hash is registered).
+// fakeSony mimics Sony's sign-in, the library GraphQL (only the second hash is registered) and
+// the PlayStation app's played-titles list.
 type fakeSony struct {
 	refreshes  int
 	authorizes int
+
+	// library, when set, replaces the default purchases with these games (JSON objects), on one page.
+	library []string
+
+	// played are the played titles (JSON objects of the gamelist API) the account has.
+	played []playedFixture
+
+	// gameListStatus, when set, makes the played-titles list fail with this HTTP status.
+	gameListStatus int
+
+	// gameListRaw, when set, is answered as is (with HTTP 200) by the played-titles list.
+	gameListRaw string
+
+	// gameListCalls counts the requests to the played-titles list, by categories parameter.
+	gameListCalls map[string]int
 }
 
 func (f *fakeSony) handler() http.Handler {
@@ -79,6 +95,11 @@ func (f *fakeSony) handler() http.Handler {
 		var vars struct{ Start int }
 		json.Unmarshal([]byte(r.URL.Query().Get("variables")), &vars)
 
+		if f.library != nil {
+			fmt.Fprintf(w, `{"data":{"purchasedTitlesRetrieve":{"games":[%s],"pageInfo":{"isLast":true,"totalCount":%d}}}}`, strings.Join(f.library, ","), len(f.library))
+			return
+		}
+
 		if vars.Start == 0 {
 			var games []string
 			for i := range pageSize - 2 {
@@ -96,6 +117,7 @@ func (f *fakeSony) handler() http.Handler {
 		  {"name":"Bloodborne","platform":"PS4","entitlementId":"BB","membership":"NONE","isActive":true},
 		  {"name":"Expired","platform":"PS4","entitlementId":"EX","membership":"NONE","isActive":false}],"pageInfo":{"isLast":true,"totalCount":26}}}}`)
 	})
+	mux.HandleFunc("GET /gamelist", f.gameList)
 
 	return mux
 }
@@ -105,8 +127,8 @@ func newTest(t *testing.T) (*Provider, *fakeSony) {
 	srv := httptest.NewServer(f.handler())
 	t.Cleanup(srv.Close)
 
-	p := NewProvider()
-	p.AuthURL, p.LibraryURL = srv.URL, srv.URL+"/graphql"
+	p := NewProvider(nil)
+	p.AuthURL, p.LibraryURL, p.GameListURL = srv.URL, srv.URL+"/graphql", srv.URL+"/gamelist"
 
 	return p, f
 }
@@ -139,7 +161,7 @@ func TestFetch(t *testing.T) {
 
 	// Next process: the refresh token is used, not the NPSSO.
 	p2, _ := newTest(t)
-	p2.AuthURL, p2.LibraryURL = p.AuthURL, p.LibraryURL
+	p2.AuthURL, p2.LibraryURL, p2.GameListURL = p.AuthURL, p.LibraryURL, p.GameListURL
 	before := f.authorizes
 
 	if _, _, err := p2.Fetch(context.Background(), settings); err != nil {
@@ -164,7 +186,7 @@ func TestSignedOut(t *testing.T) {
 
 func TestMapTitles_systems(t *testing.T) {
 	t.Run("GIVEN titles bought for PS5, for PS4 and for a console Sony names in no known way", func(t *testing.T) {
-		got := mapTitles([]title{
+		got, _ := mapTitles([]title{
 			{
 				Name:          "Astro Bot",
 				EntitlementID: "e1",
@@ -180,7 +202,7 @@ func TestMapTitles_systems(t *testing.T) {
 				EntitlementID: "e3",
 				Platform:      "PSX",
 			},
-		})
+		}, nil)
 
 		t.Run("THEN the copies say their console, and the unknown one leaves it to the platform", func(t *testing.T) {
 			require.Len(t, got, 3)
