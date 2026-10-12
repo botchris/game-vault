@@ -30,6 +30,7 @@ import (
 	"gamevault/internal/application/health"
 	"gamevault/internal/application/logs"
 	"gamevault/internal/application/media"
+	"gamevault/internal/application/ownership"
 	"gamevault/internal/application/sync"
 	"gamevault/internal/application/system"
 	"gamevault/internal/application/transfer"
@@ -303,6 +304,7 @@ type clients struct {
 	system    gamevaultv1connect.SystemServiceClient
 	logs      gamevaultv1connect.LogServiceClient
 	health    gamevaultv1connect.HealthServiceClient
+	ownership gamevaultv1connect.OwnershipServiceClient
 	baseURL   string
 	images    *fakeImages
 	dataDir   string
@@ -372,7 +374,8 @@ func newServer(t *testing.T, p sync.Provider) clients {
 		Sources:     rpc.NewSourceHandler(syncSvc),
 		System: rpc.NewSystemHandler(systemSvc,
 			transfer.NewService(games, db, sqlite.NewSettingsRepository(db), time.Now, csvfile.Codec{}, nil)),
-		Health: rpc.NewHealthHandler(health.NewService(mediaSvc, syncSvc, systemSvc)),
+		Health:    rpc.NewHealthHandler(health.NewService(mediaSvc, syncSvc, systemSvc)),
+		Ownership: rpc.NewOwnershipHandler(ownership.NewService(games)),
 	}, rpc.Options{Log: log})
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
@@ -383,6 +386,7 @@ func newServer(t *testing.T, p sync.Provider) clients {
 		system:    gamevaultv1connect.NewSystemServiceClient(http.DefaultClient, srv.URL),
 		logs:      gamevaultv1connect.NewLogServiceClient(http.DefaultClient, srv.URL),
 		health:    gamevaultv1connect.NewHealthServiceClient(http.DefaultClient, srv.URL),
+		ownership: gamevaultv1connect.NewOwnershipServiceClient(http.DefaultClient, srv.URL),
 		baseURL:   srv.URL,
 		providers: gamevaultv1connect.NewProviderServiceClient(http.DefaultClient, srv.URL),
 		covers:    gamevaultv1connect.NewCoverServiceClient(http.DefaultClient, srv.URL),
