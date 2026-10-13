@@ -601,7 +601,8 @@ offers to add the barcode).
   A provider-level problem (a bot check, a rate limit, rejected keys) is the provider's status on
   System → Health, not a warning: "Update price" then says some providers are unavailable, with a
   link to Health. A provider that is disabled drops out of the next estimate and of the totals. When CeX answers
-  with a bot check (Cloudflare), its prices are reported as unavailable and nothing works around it.
+  with a bot check (Cloudflare), that is its provider status (a provider-level problem, see above)
+  and nothing works around it.
 - **Collection value** (System): per provider, the sum of its estimates in the default currency and
   how many copies that covers; estimates in other currencies are counted apart. Providers are never
   mixed: a shop's price and an asking price are different things.

@@ -11,7 +11,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gamevault/internal/application/media"
 	"gamevault/internal/application/valuation"
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
 )
@@ -133,6 +135,11 @@ func TestPrices(t *testing.T) {
 		t.Run("THEN it says CeX is checking for bots and stops", func(t *testing.T) {
 			assert.ErrorIs(t, err, ErrPricesBlocked)
 			assert.Equal(t, []string{"es"}, *asked)
+		})
+
+		t.Run("AND it is a problem of the provider, shown as its status, not a price warning", func(t *testing.T) {
+			assert.True(t, media.ProviderLevel(err))
+			assert.Equal(t, errkind.Unavailable, errkind.Of(err))
 		})
 	})
 }
