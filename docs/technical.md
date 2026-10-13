@@ -597,7 +597,10 @@ offers to add the barcode).
   with `-no-unattended`. "Update price" on a copy asks now and gives it a new date.
 - **Failures:** a provider that fails keeps its previous estimate for that copy; one that no longer
   lists the product loses it; the copy's date always moves forward, so nothing is retried in a loop.
-  A provider that is disabled drops out of the next estimate and of the totals. When CeX answers
+  The copy counts as checked ("Not listed by any source · date") only when every provider answered.
+  A provider-level problem (a bot check, a rate limit, rejected keys) is the provider's status on
+  System → Health, not a warning: "Update price" then says some providers are unavailable, with a
+  link to Health. A provider that is disabled drops out of the next estimate and of the totals. When CeX answers
   with a bot check (Cloudflare), its prices are reported as unavailable and nothing works around it.
 - **Collection value** (System): per provider, the sum of its estimates in the default currency and
   how many copies that covers; estimates in other currencies are counted apart. Providers are never

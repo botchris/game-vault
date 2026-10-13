@@ -81,6 +81,17 @@ func (c *Copy) clearValuation() {
 // SetEstimates replaces a copy's price estimates (one per provider), records when they were asked
 // and plans the next valuation.
 func (g *Game) SetEstimates(copyID ID, estimates []Estimate, next, now time.Time) (Copy, error) {
+	return g.setEstimates(copyID, estimates, next, now, true)
+}
+
+// UpdateEstimates is SetEstimates for a round in which some source did not answer: the copy keeps
+// when every source last answered (ValuedAt), since "not listed by any source" would not be true.
+func (g *Game) UpdateEstimates(copyID ID, estimates []Estimate, next, now time.Time) (Copy, error) {
+	return g.setEstimates(copyID, estimates, next, now, false)
+}
+
+// setEstimates is SetEstimates and UpdateEstimates; valued stamps the copy as valued at now.
+func (g *Game) setEstimates(copyID ID, estimates []Estimate, next, now time.Time, valued bool) (Copy, error) {
 	i, err := g.valuable(copyID)
 	if err != nil {
 		return Copy{}, err
@@ -107,7 +118,11 @@ func (g *Game) SetEstimates(copyID ID, estimates []Estimate, next, now time.Time
 		out = nil
 	}
 
-	g.copies[i].Estimates, g.copies[i].NextValuation, g.copies[i].ValuedAt = out, next.UTC(), now
+	g.copies[i].Estimates, g.copies[i].NextValuation = out, next.UTC()
+	if valued {
+		g.copies[i].ValuedAt = now
+	}
+
 	// Only the copy changes: the game's own update time drives its cached cover and details,
 	// which an estimate does not affect.
 	g.copies[i].UpdatedAt = now

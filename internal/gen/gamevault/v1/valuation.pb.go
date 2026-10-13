@@ -76,10 +76,15 @@ func (x *EstimateCopyRequest) GetCopyId() string {
 type EstimateCopyResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Game  *Game                  `protobuf:"bytes,1,opt,name=game,proto3" json:"game,omitempty"`
-	// Sources that failed this time (their previous estimate is kept).
-	Warnings      []string `protobuf:"bytes,2,rep,name=warnings,proto3" json:"warnings,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// Sources that failed for this product this time (their previous estimate is kept).
+	// Provider-level problems (a bot check, too many requests, not answering, settings rejected) are
+	// not listed: see GetProviderStatus.
+	Warnings []string `protobuf:"bytes,2,rep,name=warnings,proto3" json:"warnings,omitempty"`
+	// A source had a provider-level problem, so the estimates may be incomplete; the copy is then not
+	// marked as checked (valued_at keeps the last time every source answered).
+	ProvidersUnavailable bool `protobuf:"varint,3,opt,name=providers_unavailable,json=providersUnavailable,proto3" json:"providers_unavailable,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *EstimateCopyResponse) Reset() {
@@ -124,6 +129,13 @@ func (x *EstimateCopyResponse) GetWarnings() []string {
 		return x.Warnings
 	}
 	return nil
+}
+
+func (x *EstimateCopyResponse) GetProvidersUnavailable() bool {
+	if x != nil {
+		return x.ProvidersUnavailable
+	}
+	return false
 }
 
 type GetCollectionValueRequest struct {
@@ -317,10 +329,11 @@ const file_gamevault_v1_valuation_proto_rawDesc = "" +
 	"\x1cgamevault/v1/valuation.proto\x12\fgamevault.v1\x1a\x17gamevault/v1/game.proto\"G\n" +
 	"\x13EstimateCopyRequest\x12\x17\n" +
 	"\agame_id\x18\x01 \x01(\tR\x06gameId\x12\x17\n" +
-	"\acopy_id\x18\x02 \x01(\tR\x06copyId\"Z\n" +
+	"\acopy_id\x18\x02 \x01(\tR\x06copyId\"\x8f\x01\n" +
 	"\x14EstimateCopyResponse\x12&\n" +
 	"\x04game\x18\x01 \x01(\v2\x12.gamevault.v1.GameR\x04game\x12\x1a\n" +
-	"\bwarnings\x18\x02 \x03(\tR\bwarnings\"\x1b\n" +
+	"\bwarnings\x18\x02 \x03(\tR\bwarnings\x123\n" +
+	"\x15providers_unavailable\x18\x03 \x01(\bR\x14providersUnavailable\"\x1b\n" +
 	"\x19GetCollectionValueRequest\"\xed\x01\n" +
 	"\rProviderTotal\x12\x1a\n" +
 	"\bprovider\x18\x01 \x01(\tR\bprovider\x12\x12\n" +

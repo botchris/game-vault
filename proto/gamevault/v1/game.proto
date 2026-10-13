@@ -181,7 +181,7 @@ message Copy {
   repeated Estimate estimates = 9;
   // When the prices are next estimated; absent when none is planned.
   google.protobuf.Timestamp next_valuation = 10;
-  // When the prices were last asked, whatever the sources answered; absent when never.
+  // When every enabled source last answered (a price or "not listed"); absent when never.
   google.protobuf.Timestamp valued_at = 11;
   // The system the copy is played on: details.system, else its source's, else the one its
   // platform implies. Read only.

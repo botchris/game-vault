@@ -272,3 +272,30 @@ func TestEstimates_details(t *testing.T) {
 		})
 	})
 }
+
+func TestUpdateEstimates_keepsWhenFullyValued(t *testing.T) {
+	next := t0.Add(30 * 24 * time.Hour)
+	later := t0.Add(time.Hour)
+
+	t.Run("GIVEN a physical copy checked once by every source", func(t *testing.T) {
+		g, id := valuableGame(t)
+		_, err := g.SetEstimates(id, nil, next, t0)
+		require.NoError(t, err)
+
+		t.Run("WHEN a later round keeps one source's estimate but another source did not answer", func(t *testing.T) {
+			c, err := g.UpdateEstimates(id, []Estimate{{
+				Provider:  "cex-prices",
+				Sell:      eur(2000),
+				FetchedAt: later,
+			}}, next.Add(time.Hour), later)
+			require.NoError(t, err)
+
+			t.Run("THEN the estimates and the next date change, but not when every source last answered", func(t *testing.T) {
+				require.Len(t, c.Estimates, 1)
+				assert.Equal(t, next.Add(time.Hour), c.NextValuation)
+				assert.Equal(t, t0, c.ValuedAt)
+				assert.Equal(t, later, c.UpdatedAt)
+			})
+		})
+	})
+}

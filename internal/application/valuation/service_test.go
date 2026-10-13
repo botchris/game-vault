@@ -182,7 +182,7 @@ func TestEstimateCopy(t *testing.T) {
 		gid, cid := w.physical(ctx, t, "Dead Space 3", deadSpace)
 
 		t.Run("WHEN its price is estimated", func(t *testing.T) {
-			_, warnings, err := w.svc.EstimateCopy(ctx, gid, cid)
+			_, warnings, _, err := w.svc.EstimateCopy(ctx, gid, cid)
 			require.NoError(t, err)
 
 			t.Run("THEN it has both estimates and its next date 30 days ahead (20–40 at random)", func(t *testing.T) {
@@ -199,7 +199,7 @@ func TestEstimateCopy(t *testing.T) {
 			w.ebay.fail = errors.New("eBay is down")
 			delete(w.cex.sell, deadSpace)
 
-			_, warnings, err := w.svc.EstimateCopy(ctx, gid, cid)
+			_, warnings, _, err := w.svc.EstimateCopy(ctx, gid, cid)
 			require.NoError(t, err)
 
 			t.Run("THEN eBay's previous estimate stays, CeX's goes, and the failure is reported", func(t *testing.T) {
@@ -212,7 +212,7 @@ func TestEstimateCopy(t *testing.T) {
 
 		t.Run("WHEN eBay is disabled and the price estimated again", func(t *testing.T) {
 			w.cfg.on["ebay-prices"] = false
-			_, _, err := w.svc.EstimateCopy(ctx, gid, cid)
+			_, _, _, err := w.svc.EstimateCopy(ctx, gid, cid)
 			require.NoError(t, err)
 
 			t.Run("THEN eBay's estimate goes", func(t *testing.T) {
@@ -224,11 +224,11 @@ func TestEstimateCopy(t *testing.T) {
 	t.Run("GIVEN copies that cannot be priced, or no provider enabled", func(t *testing.T) {
 		w := newWorld(ctx, t)
 		gid, cid := w.physical(ctx, t, "Halo 3", "")
-		_, _, errNoBarcode := w.svc.EstimateCopy(ctx, gid, cid)
+		_, _, _, errNoBarcode := w.svc.EstimateCopy(ctx, gid, cid)
 
 		w.cfg.on = map[provider.ID]bool{}
 		gid2, cid2 := w.physical(ctx, t, "Dead Space 3", deadSpace)
-		_, _, errNoProviders := w.svc.EstimateCopy(ctx, gid2, cid2)
+		_, _, _, errNoProviders := w.svc.EstimateCopy(ctx, gid2, cid2)
 
 		t.Run("THEN each says why", func(t *testing.T) {
 			assert.ErrorIs(t, errNoBarcode, valuation.ErrNotValuable)
@@ -249,7 +249,7 @@ func TestCollectionValue(t *testing.T) {
 			code  game.Barcode
 		}{{"Dead Space 3", deadSpace}, {"Halo 3", halo}} {
 			gid, cid := w.physical(ctx, t, c.title, c.code)
-			_, _, err := w.svc.EstimateCopy(ctx, gid, cid)
+			_, _, _, err := w.svc.EstimateCopy(ctx, gid, cid)
 			require.NoError(t, err)
 		}
 
@@ -369,7 +369,7 @@ func TestEstimateCopy_invalidAnswer(t *testing.T) {
 		gid, cid := w.physical(ctx, t, "Dead Space 3", deadSpace)
 
 		t.Run("WHEN the copy is estimated", func(t *testing.T) {
-			_, warnings, err := w.svc.EstimateCopy(ctx, gid, cid)
+			_, warnings, _, err := w.svc.EstimateCopy(ctx, gid, cid)
 			require.NoError(t, err)
 
 			t.Run("THEN that answer counts as a failure, the other source is kept and the date moves", func(t *testing.T) {
@@ -497,10 +497,19 @@ func TestEstimateCopy_providerStatus(t *testing.T) {
 		gid, cid := w.physical(ctx, t, "Dead Space 3", deadSpace)
 
 		t.Run("WHEN its price is estimated", func(t *testing.T) {
-			_, warnings, err := w.svc.EstimateCopy(ctx, gid, cid)
+			_, warnings, unavailable, err := w.svc.EstimateCopy(ctx, gid, cid)
 			require.NoError(t, err)
 
-			t.Run("THEN each provider's answer is reported for its status", func(t *testing.T) {
+			t.Run("THEN the answer says a provider is unavailable, and the copy is not stamped as valued", func(t *testing.T) {
+				assert.True(t, unavailable)
+
+				c := w.copy(ctx, t, gid)
+				assert.True(t, c.ValuedAt.IsZero(), "eBay did not answer, so \"not listed by any source\" would be false")
+				assert.Equal(t, now.Add(30*day), c.NextValuation)
+				require.Len(t, c.Estimates, 1)
+			})
+
+			t.Run("AND each provider's answer is reported for its status", func(t *testing.T) {
 				require.Contains(t, w.cfg.reported, provider.ID("cex-prices"))
 				assert.NoError(t, w.cfg.reported["cex-prices"])
 				assert.ErrorIs(t, w.cfg.reported["ebay-prices"], provider.ErrRateLimited)
@@ -515,10 +524,11 @@ func TestEstimateCopy_providerStatus(t *testing.T) {
 			w.ebay.fail = errors.New("eBay answered an unreadable listing")
 			delete(w.cex.sell, deadSpace)
 
-			_, warnings, err := w.svc.EstimateCopy(ctx, gid, cid)
+			_, warnings, unavailable, err := w.svc.EstimateCopy(ctx, gid, cid)
 			require.NoError(t, err)
 
 			t.Run("THEN not being listed is an answer, and the failure is a warning", func(t *testing.T) {
+				assert.False(t, unavailable)
 				require.Contains(t, w.cfg.reported, provider.ID("cex-prices"))
 				assert.NoError(t, w.cfg.reported["cex-prices"])
 				assert.Error(t, w.cfg.reported["ebay-prices"])

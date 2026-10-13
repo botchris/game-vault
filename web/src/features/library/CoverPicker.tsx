@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { coverClient, errorMessage, photoUrl, proxiedImage } from '../../api/client';
 import { WholeCover } from '../../components/Cover';
 import { Icon } from '../../components/Icon';
+import ProvidersUnavailable from '../../components/ProvidersUnavailable';
 import { Alert, Modal } from '../../components/ui';
 import type { Game } from '../../gen/gamevault/v1/game_pb';
 import type { CoverCandidate } from '../../gen/gamevault/v1/provider_pb';
@@ -133,7 +134,7 @@ export default function CoverPicker({ game, system, photosOnly = false, onPick, 
             <p className="muted small">{t('coverPicker.intro')}</p>
             {error && <Alert tone="error">{error}</Alert>}
             {warnings.map((w) => <Alert key={w} tone="warn">{w}</Alert>)}
-            {unavailable && <p className="muted small">{t('coverPicker.providersUnavailable')} <a href="#/system">{t('coverPicker.seeHealth')}</a></p>}
+            {unavailable && <p><ProvidersUnavailable /></p>}
             {candidates === null && !error && <p className="muted">{t('common.loading')}</p>}
             {candidates && (
               <div className="posters picker-grid">

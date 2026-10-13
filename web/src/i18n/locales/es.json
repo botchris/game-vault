@@ -29,6 +29,8 @@
     "discard": "Descartar",
     "edit": "Editar",
     "delete": "Borrar",
+    "providersUnavailable": "Algunos proveedores no están disponibles ahora mismo.",
+    "seeHealth": "Ver Sistema → Estado",
     "notes": "Notas"
   },
   "kind": {
@@ -681,8 +683,6 @@
     "photo": "Foto de tu copia",
     "paste": "Usar esta imagen",
     "none": "Ningún proveedor tiene carátula para este juego. Vincúlalo con una tienda (Editar → Vínculos con tiendas) o pega la URL de una imagen.",
-    "providersUnavailable": "Algunos proveedores no están disponibles ahora mismo.",
-    "seeHealth": "Ver Sistema → Estado",
     "searchGoogle": "Buscar en Google Imágenes",
     "searchSteamGridDb": "Buscar en SteamGridDB",
     "findHelp": "Busca una carátula, ábrela a tamaño completo y luego arrástrala aquí o pega su dirección.",

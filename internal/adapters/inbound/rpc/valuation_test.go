@@ -78,4 +78,38 @@ func TestValuation_endToEnd(t *testing.T) {
 			})
 		})
 	})
+
+	t.Run("GIVEN a physical copy whose price source asks for a browser check", func(t *testing.T) {
+		c := newServer(t, &fakeProvider{})
+
+		created, err := c.games.CreateGame(ctx, connect.NewRequest(&pb.CreateGameRequest{
+			Title: "Halo 3",
+			Copies: []*pb.CopyDetails{{
+				Kind:     pb.CopyKind_COPY_KIND_PHYSICAL,
+				Platform: "Xbox 360",
+				Barcode:  string(blockedPrices),
+			}},
+		}))
+		require.NoError(t, err)
+
+		g := created.Msg.Game
+
+		t.Run("WHEN its price is estimated", func(t *testing.T) {
+			res, err := c.valuation.EstimateCopy(ctx, connect.NewRequest(&pb.EstimateCopyRequest{
+				GameId: g.Id,
+				CopyId: g.Copies[0].Id,
+			}))
+			require.NoError(t, err)
+
+			t.Run("THEN the answer says providers are unavailable, with no warning", func(t *testing.T) {
+				assert.True(t, res.Msg.ProvidersUnavailable)
+				assert.Empty(t, res.Msg.Warnings)
+			})
+
+			t.Run("AND the copy is not marked as checked, so it never claims \"not listed\"", func(t *testing.T) {
+				assert.Nil(t, res.Msg.Game.Copies[0].ValuedAt)
+				assert.NotNil(t, res.Msg.Game.Copies[0].NextValuation)
+			})
+		})
+	})
 }

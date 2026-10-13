@@ -146,7 +146,7 @@ type Copy struct {
 	// NextValuation is when the prices are next estimated; zero when none is planned.
 	NextValuation time.Time
 
-	// ValuedAt is when the prices were last asked, whatever the sources answered; zero when never.
+	// ValuedAt is when every enabled source last answered (a price or "not listed"); zero when never.
 	ValuedAt   time.Time
 	SourceID   string // source that manages this copy; empty for manual copies
 	ExternalID string // stable identifier inside the source

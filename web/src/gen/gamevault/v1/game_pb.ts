@@ -419,7 +419,7 @@ export type Copy = Message<"gamevault.v1.Copy"> & {
   nextValuation?: Timestamp | undefined;
 
   /**
-   * When the prices were last asked, whatever the sources answered; absent when never.
+   * When every enabled source last answered (a price or "not listed"); absent when never.
    *
    * @generated from field: google.protobuf.Timestamp valued_at = 11;
    */

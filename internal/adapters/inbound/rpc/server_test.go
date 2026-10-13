@@ -3,6 +3,7 @@ package rpc_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -1135,6 +1136,9 @@ func TestImportCsv_defaultCurrency(t *testing.T) {
 }
 
 // fakePrices is a price provider that knows one barcode.
+// blockedPrices is a barcode fakePrices answers with a bot check, a provider-level problem.
+const blockedPrices = game.Barcode("4006381333931")
+
 type fakePrices struct{}
 
 func (fakePrices) Descriptor() provider.Descriptor {
@@ -1150,6 +1154,10 @@ func (fakePrices) Descriptor() provider.Descriptor {
 func (fakePrices) Test(context.Context, schema.Settings) error { return nil }
 
 func (fakePrices) Estimate(_ context.Context, _ schema.Settings, code game.Barcode) (game.Estimate, error) {
+	if code == blockedPrices {
+		return game.Estimate{}, fmt.Errorf("asking for a browser check: %w", provider.ErrUnavailable)
+	}
+
 	if code != "5030934110075" {
 		return game.Estimate{}, valuation.ErrNotListed
 	}
