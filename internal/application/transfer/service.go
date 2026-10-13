@@ -8,6 +8,7 @@ import (
 	"io"
 
 	"gamevault/internal/application/port"
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/settings"
 	"gamevault/internal/domain/source"
@@ -15,7 +16,8 @@ import (
 
 // Codec is the port that converts between a file format and the domain.
 type Codec interface {
-	// Decode reads copies from r. Warnings are rows that could not be read.
+	// Decode reads copies from r. Warnings are rows that could not be read; an error means the file
+	// as a whole cannot be read (it is not CSV, or a required column is missing).
 	Decode(r io.Reader) (copies []game.ImportedCopy, warnings []string, err error)
 
 	// Encode writes every copy of the games to w.
@@ -66,7 +68,8 @@ func (s *Service) Import(ctx context.Context, content []byte) (source.SyncReport
 
 	copies, warnings, err := s.codec.Decode(bytes.NewReader(content))
 	if err != nil {
-		return report, err
+		// Decode reads from memory, so its errors are the file's: a malformed CSV, a missing column.
+		return report, errkind.Wrap(errkind.Invalid, err)
 	}
 
 	warnings, err = s.defaultCurrency(ctx, copies, warnings)

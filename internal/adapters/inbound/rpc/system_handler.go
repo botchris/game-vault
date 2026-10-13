@@ -88,7 +88,7 @@ func (h *SystemHandler) CreateBackup(ctx context.Context, _ *connect.Request[pb.
 func (h *SystemHandler) ImportCsv(ctx context.Context, req *connect.Request[pb.ImportCsvRequest]) (*connect.Response[pb.ImportCsvResponse], error) {
 	rep, err := h.transfer.Import(ctx, req.Msg.Content)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		return nil, toConnectError(err)
 	}
 
 	return connect.NewResponse(&pb.ImportCsvResponse{Report: reportToPB(&rep)}), nil
