@@ -38,7 +38,6 @@ const (
 
 	// defaultBaseURL has the country code in place of %s.
 	defaultBaseURL = "https://wss2.cex.%s.webuy.io/v3"
-	userAgent      = "GameVault/1.0 (+https://github.com/botchris/game-vault)"
 
 	// gamingSuperCat is CeX's top category for games in every country (its name is translated).
 	gamingSuperCat = 1
