@@ -23,7 +23,7 @@ import (
 const Type source.Type = "itch"
 
 // Platform is the platform name of the copies, the one Humble's itch.io keys and the copy form use.
-const Platform = "itch.io"
+const Platform = game.PlatformItch
 
 const (
 	settingAPIKey  = "api_key"

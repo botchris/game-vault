@@ -29,7 +29,7 @@ import (
 const Type source.Type = "battlenet"
 
 // Platform is the store name used on copies.
-const Platform = "Battle.net"
+const Platform = game.PlatformBattlenet
 
 const (
 	settingCookies = "cookies"
@@ -69,7 +69,7 @@ func NewProvider() *Provider {
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
 // imports, and the cover provider reads it.
 var LinkedStore = game.Store{
-	Key:  "battlenet",
+	Key:  game.LinkBattlenet,
 	Name: "Battle.net",
 }
 
@@ -305,7 +305,7 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 				Kind:     game.KindLibrary,
 				Platform: Platform,
 				Status:   game.StatusOwned,
-				Origin:   "Battle.net",
+				Origin:   Platform,
 			},
 		})
 	}

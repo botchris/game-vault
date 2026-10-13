@@ -160,7 +160,7 @@ func newClient(baseURL string) *apiclient.Client {
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
 // imports.
 var LinkedStore = game.Store{
-	Key:  "psn",
+	Key:  game.LinkPSN,
 	Name: "PlayStation",
 }
 
@@ -536,20 +536,23 @@ func (p *Provider) purchased(ctx context.Context, token string) ([]title, error)
 	return nil, lastErr
 }
 
-// platformName maps Sony's platform code to Game Vault's.
+// sonyPlatforms maps Sony's platform codes, in upper case, to Game Vault's systems.
+var sonyPlatforms = map[string]string{
+	"PS5":     game.SystemPS5,
+	"PS4":     game.SystemPS4,
+	"PS3":     game.SystemPS3,
+	"PSVITA":  game.SystemPSVita,
+	"PS VITA": game.SystemPSVita,
+}
+
+// platformName maps Sony's platform code to Game Vault's: the console, or the store when Sony
+// names none Game Vault knows.
 func platformName(p string) string {
-	switch strings.ToUpper(p) {
-	case "PS5":
-		return "PS5"
-	case "PS4":
-		return "PS4"
-	case "PS3":
-		return "PS3"
-	case "PSVITA", "PS VITA":
-		return "PS Vita"
+	if s, ok := sonyPlatforms[strings.ToUpper(p)]; ok {
+		return s
 	}
 
-	return "PlayStation Store"
+	return game.PlatformPlayStation
 }
 
 // mapTitles turns purchased titles into copies, one per game and platform; PS Plus games and
@@ -600,7 +603,7 @@ func mapTitles(titles []title, nonGames *nonGameIndex) (out []game.ImportedCopy,
 		// The system is set on purpose although it equals the platform's system: Sony says which
 		// console the title was bought for, and the copy keeps it as the source's system.
 		system := platform
-		if platform == "PlayStation Store" {
+		if platform == game.PlatformPlayStation {
 			system = "" // Sony did not say which console: the platform's system applies
 		}
 
@@ -613,7 +616,7 @@ func mapTitles(titles []title, nonGames *nonGameIndex) (out []game.ImportedCopy,
 				Kind:     game.KindLibrary,
 				Platform: platform,
 				Status:   game.StatusOwned,
-				Origin:   "PlayStation Store",
+				Origin:   game.PlatformPlayStation,
 			},
 		})
 	}

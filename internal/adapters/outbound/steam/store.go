@@ -175,7 +175,9 @@ func (s *Store) Covers(ctx context.Context, q media.CoverQuery, _ schema.Setting
 // modernSystems are the systems whose games Steam's PC versions usually match: a PC copy, or one on
 // a console of the PS4 generation or later. Older consoles and handhelds often share a title with a
 // different game on Steam (a later remake, a remaster), so no link is saved for them.
-var modernSystems = []string{game.SystemPC, "PS4", "PS5", "Xbox One", "Xbox Series", "Switch"}
+var modernSystems = []string{
+	game.SystemPC, game.SystemPS4, game.SystemPS5, game.SystemXboxOne, game.SystemXboxSeries, game.SystemSwitch,
+}
 
 // FindLinks implements media.LinkFinder: for a game not linked to Steam, with a copy on PC or a
 // modern console (or no copies), the AppID of the only store app with exactly its title

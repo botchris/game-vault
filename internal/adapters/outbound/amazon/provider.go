@@ -40,7 +40,7 @@ import (
 const Type source.Type = "amazon"
 
 // Platform is the store name used on copies.
-const Platform = "Amazon Games"
+const Platform = game.PlatformAmazon
 
 const (
 	settingCode    = "login_code"
@@ -154,7 +154,7 @@ func newClient(baseURL, ua string) *apiclient.Client {
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
 // imports.
 var LinkedStore = game.Store{
-	Key:  "amazon",
+	Key:  game.LinkAmazon,
 	Name: "Amazon Games",
 }
 
@@ -546,7 +546,7 @@ func mapEntitlements(items []entitlement) ([]game.ImportedCopy, []string) {
 				Kind:     game.KindLibrary,
 				Platform: Platform,
 				Status:   game.StatusOwned,
-				Origin:   "Amazon Games",
+				Origin:   Platform,
 			},
 		})
 	}

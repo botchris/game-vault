@@ -121,23 +121,23 @@ func platformFor(keyType, human string) string {
 	k := strings.ToLower(keyType)
 	switch {
 	case strings.Contains(k, "steam"):
-		return "Steam"
+		return game.PlatformSteam
 	case strings.Contains(k, "origin"), k == "ea":
-		return "EA App"
+		return game.PlatformEA
 	case strings.Contains(k, "uplay"), strings.Contains(k, "ubisoft"):
-		return "Ubisoft Connect"
+		return game.PlatformUbisoft
 	case strings.Contains(k, "gog"):
-		return "GOG"
+		return game.PlatformGOG
 	case strings.Contains(k, "epic"):
-		return "Epic Games"
+		return game.PlatformEpic
 	case strings.Contains(k, "battle"), strings.Contains(k, "blizzard"):
-		return "Battle.net"
+		return game.PlatformBattlenet
 	case strings.Contains(k, "rockstar"):
-		return "Rockstar"
+		return game.PlatformRockstar
 	case strings.Contains(k, "microsoft"), strings.Contains(k, "xbox"):
-		return "Microsoft Store / Xbox"
+		return game.PlatformMicrosoft
 	case strings.Contains(k, "nintendo"), strings.Contains(k, "switch"):
-		return "Nintendo eShop"
+		return game.PlatformNintendo
 	case human != "":
 		return human
 	}

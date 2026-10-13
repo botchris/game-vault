@@ -34,7 +34,7 @@ import (
 const Type source.Type = "xbox"
 
 // Platform is the store name used on copies, matching Humble's Microsoft / Xbox keys.
-const Platform = "Microsoft Store / Xbox"
+const Platform = game.PlatformMicrosoft
 
 const (
 	settingCode    = "login_code"
@@ -146,7 +146,7 @@ func newClient(baseURL string, timeout time.Duration) *apiclient.Client {
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
 // imports, and the cover provider reads it.
 var LinkedStore = game.Store{
-	Key:  "xbox",
+	Key:  game.LinkXbox,
 	Name: "Xbox",
 }
 

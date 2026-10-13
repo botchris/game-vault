@@ -143,9 +143,9 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 			Links:      game.Links{LinkedStore.Key: strconv.FormatInt(g.AppID, 10)},
 			Details: game.CopyDetails{
 				Kind:     game.KindLibrary,
-				Platform: "Steam",
+				Platform: game.PlatformSteam,
 				Status:   game.StatusOwned,
-				Origin:   "Steam",
+				Origin:   game.PlatformSteam,
 			},
 		})
 	}

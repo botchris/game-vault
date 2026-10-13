@@ -30,7 +30,7 @@ import (
 const Type source.Type = "eaapp"
 
 // Platform is the store name used on copies, matching Humble's Origin / EA keys.
-const Platform = "EA App"
+const Platform = game.PlatformEA
 
 const (
 	settingCookies = "cookies"
@@ -107,7 +107,7 @@ func newClient(baseURL string) *apiclient.Client {
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
 // imports, and the cover provider reads it.
 var LinkedStore = game.Store{
-	Key:  "ea",
+	Key:  game.LinkEA,
 	Name: "EA app",
 }
 

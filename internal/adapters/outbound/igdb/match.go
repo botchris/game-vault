@@ -25,33 +25,33 @@ var externalSources = []struct {
 	source int
 }{
 	{game.LinkSteam, steamSource},
-	{"gog", 5},
-	{"epic", 26},
+	{game.LinkGOG, 5},
+	{game.LinkEpic, 26},
 }
 
 // platformIDs maps Game Vault systems to IGDB platform ids. PC covers Windows, Mac and Linux: a PC
 // store's game may be listed under any of them.
 var platformIDs = map[string][]int{
-	game.SystemPC: {6, 14, 3},
-	"PS5":         {167},
-	"PS4":         {48},
-	"PS3":         {9},
-	"PS2":         {8},
-	"PS1":         {7},
-	"PSP":         {38},
-	"PS Vita":     {46},
-	"Xbox Series": {169},
-	"Xbox One":    {49},
-	"Xbox 360":    {12},
-	"Xbox":        {11},
-	"Switch":      {130},
-	"Wii U":       {41},
-	"Wii":         {5},
-	"GameCube":    {21},
-	"N64":         {4},
-	"3DS":         {37},
-	"DS":          {20},
-	"Game Boy":    {33},
+	game.SystemPC:         {6, 14, 3},
+	game.SystemPS5:        {167},
+	game.SystemPS4:        {48},
+	game.SystemPS3:        {9},
+	game.SystemPS2:        {8},
+	game.SystemPS1:        {7},
+	game.SystemPSP:        {38},
+	game.SystemPSVita:     {46},
+	game.SystemXboxSeries: {169},
+	game.SystemXboxOne:    {49},
+	game.SystemXbox360:    {12},
+	game.SystemXbox:       {11},
+	game.SystemSwitch:     {130},
+	game.SystemWiiU:       {41},
+	game.SystemWii:        {5},
+	game.SystemGameCube:   {21},
+	game.SystemN64:        {4},
+	game.System3DS:        {37},
+	game.SystemDS:         {20},
+	game.SystemGameBoy:    {33},
 }
 
 // searchSystems returns the systems a title search for q is filtered to: the edition's system, or

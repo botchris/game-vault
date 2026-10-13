@@ -63,7 +63,7 @@ func (c *Covers) ImageHosts() []string { return []string{"store-images.s-microso
 func (c *Covers) LinkStore() game.Store { return LinkedStore }
 
 // xboxSystems are the consoles whose games the Microsoft Store catalog has art for.
-var xboxSystems = []string{"Xbox Series", "Xbox One", "Xbox 360", "Xbox"}
+var xboxSystems = []string{game.SystemXboxSeries, game.SystemXboxOne, game.SystemXbox360, game.SystemXbox}
 
 // IsXboxSystem reports whether system is an Xbox console.
 func IsXboxSystem(system string) bool { return slices.Contains(xboxSystems, system) }

@@ -35,7 +35,7 @@ import (
 const Type source.Type = "ubisoft"
 
 // Platform is the store name used on copies, matching Humble's Uplay keys.
-const Platform = "Ubisoft Connect"
+const Platform = game.PlatformUbisoft
 
 const (
 	settingLoginData = "login_data"
@@ -180,7 +180,7 @@ func NewProvider() *Provider {
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
 // imports, and the cover provider reads it.
 var LinkedStore = game.Store{
-	Key:  "ubisoft",
+	Key:  game.LinkUbisoft,
 	Name: "Ubisoft Connect",
 }
 
@@ -513,7 +513,7 @@ func mapNodes(nodes []node) []game.ImportedCopy {
 				Kind:     game.KindLibrary,
 				Platform: Platform,
 				Status:   game.StatusOwned,
-				Origin:   "Ubisoft Connect",
+				Origin:   Platform,
 			},
 		})
 	}

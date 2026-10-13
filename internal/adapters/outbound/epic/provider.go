@@ -33,7 +33,7 @@ const Type source.Type = "epic"
 
 // Platform is the store name used on copies, matching Humble's Epic keys so they are flagged as
 // redundant when the game is already in the Epic library.
-const Platform = "Epic Games"
+const Platform = game.PlatformEpic
 
 const (
 	settingAuthCode = "authorization_code"
@@ -136,7 +136,7 @@ func newClient(baseURL string) *apiclient.Client {
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
 // imports, and the cover provider reads it.
 var LinkedStore = game.Store{
-	Key:  "epic",
+	Key:  game.LinkEpic,
 	Name: "Epic Games",
 }
 

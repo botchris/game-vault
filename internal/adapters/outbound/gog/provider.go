@@ -32,7 +32,7 @@ import (
 const Type source.Type = "gog"
 
 // Platform is the store name used on copies, matching Humble's GOG keys.
-const Platform = "GOG"
+const Platform = game.PlatformGOG
 
 const (
 	settingAuthCode = "authorization_code"
@@ -123,7 +123,7 @@ func newClient(baseURL string) *apiclient.Client {
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
 // imports, and the cover provider reads it.
 var LinkedStore = game.Store{
-	Key:  "gog",
+	Key:  game.LinkGOG,
 	Name: "GOG",
 }
 
@@ -255,7 +255,7 @@ func mapProducts(products []product) []game.ImportedCopy {
 				Kind:     game.KindLibrary,
 				Platform: Platform,
 				Status:   game.StatusOwned,
-				Origin:   "GOG",
+				Origin:   Platform,
 			},
 		})
 	}

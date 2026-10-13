@@ -184,9 +184,16 @@ var drmPlatforms = []struct {
 	flag     string
 	platform string
 }{
-	{"steam", "Steam"}, {"epicgames", "Epic Games"}, {"gog", "GOG"}, {"uplay", "Ubisoft Connect"},
-	{"origin", "EA App"}, {"rockstar", "Rockstar"}, {"xbox", "Microsoft Store / Xbox"},
-	{"playstation", "PlayStation Store"}, {"switch", "Nintendo eShop"}, {"drm_free", "PC"},
+	{"steam", game.PlatformSteam},
+	{"epicgames", game.PlatformEpic},
+	{"gog", game.PlatformGOG},
+	{"uplay", game.PlatformUbisoft},
+	{"origin", game.PlatformEA},
+	{"rockstar", game.PlatformRockstar},
+	{"xbox", game.PlatformMicrosoft},
+	{"playstation", game.PlatformPlayStation},
+	{"switch", game.PlatformNintendo},
+	{"drm_free", game.SystemPC},
 }
 
 func platformOf(drm map[string]bool) string {
