@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
@@ -24,7 +25,14 @@ import (
 type fakeMicrosoft struct {
 	refresh   string
 	exchanges int
+	refreshes int
 	pages     int
+
+	// revoked holds the Microsoft access tokens Xbox Live no longer accepts.
+	revoked map[string]bool
+
+	// rejectAll makes Xbox Live reject every Microsoft access token, as for a revoked session.
+	rejectAll bool
 
 	// tokenStatus, when set, is the only answer of the token endpoint (a rate limit, an outage).
 	tokenStatus int
@@ -60,14 +68,20 @@ func (f *fakeMicrosoft) handler(t *testing.T) http.Handler {
 			}
 		}
 
+		if r.Form.Get("grant_type") == "refresh_token" {
+			f.refreshes++
+		}
+
 		f.refresh += "+"
-		fmt.Fprintf(w, `{"access_token":"live-access","refresh_token":%q,"expires_in":3600,"user_id":"u1"}`, f.refresh)
+		fmt.Fprintf(w, `{"access_token":"live-access%s","refresh_token":%q,"expires_in":3600,"user_id":"u1"}`, f.refresh, f.refresh)
 	})
 	mux.HandleFunc("POST /user/authenticate", func(w http.ResponseWriter, r *http.Request) {
 		var body struct{ Properties struct{ RpsTicket string } }
 		json.NewDecoder(r.Body).Decode(&body)
 
-		if body.Properties.RpsTicket != "t=live-access" {
+		// Xbox Live answers a Microsoft access token it no longer accepts with a bare 401.
+		ticket := strings.TrimPrefix(body.Properties.RpsTicket, "t=")
+		if !strings.HasPrefix(ticket, "live-access") || f.rejectAll || f.revoked[ticket] {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -88,7 +102,7 @@ func (f *fakeMicrosoft) handler(t *testing.T) http.Handler {
 
 		fmt.Fprint(w, `{"Token":"store-token","DisplayClaims":{"xui":[{"uhs":"hash"}]}}`)
 	})
-	mux.HandleFunc("POST /collections", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /v7.0/collections/query", func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "XBL3.0 x=hash;store-token" {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
@@ -121,7 +135,7 @@ func (f *fakeMicrosoft) handler(t *testing.T) http.Handler {
 		  {"productId":"9DLC","productKind":"Durable","status":"Active","acquisitionType":"Single"},
 		  {"productId":"9GONE","productKind":"Game","status":"Revoked","acquisitionType":"Single"}]}`)
 	})
-	mux.HandleFunc("GET /catalog", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /v7.0/products", func(w http.ResponseWriter, r *http.Request) {
 		titles := map[string]string{"9FORZA": "Forza Horizon 5 Standard Edition", "9HALO": "Halo Infinite"}
 
 		var products []string
@@ -145,10 +159,16 @@ func newTest(t *testing.T) (*Provider, *fakeMicrosoft) {
 	t.Cleanup(srv.Close)
 
 	p := NewProvider()
-	p.LiveURL, p.UserAuthURL, p.XSTSURL = srv.URL, srv.URL+"/user/authenticate", srv.URL+"/xsts/authorize"
-	p.CollectionsURL, p.CatalogURL = srv.URL+"/collections", srv.URL+"/catalog"
+	pointAt(p, srv.URL)
 
 	return p, f
+}
+
+// pointAt sends every request of p to the fake server at base.
+func pointAt(p *Provider, base string) {
+	for _, api := range []*apiclient.Client{p.Live, p.UserAuth, p.XSTS, p.Collections, p.Catalog} {
+		api.BaseURL = base
+	}
 }
 
 func TestCleanCode(t *testing.T) {
@@ -197,7 +217,7 @@ func TestPrepareAndFetch(t *testing.T) {
 
 	// A new process refreshes the session, which rotates the refresh token.
 	p2, _ := newTest(t)
-	p2.LiveURL, p2.UserAuthURL, p2.XSTSURL, p2.CollectionsURL, p2.CatalogURL = p.LiveURL, p.UserAuthURL, p.XSTSURL, p.CollectionsURL, p.CatalogURL
+	pointAt(p2, p.Live.BaseURL)
 
 	before := settings[settingSession]
 	if _, _, err := p2.Fetch(ctx, settings); err != nil {
@@ -262,10 +282,62 @@ func TestTokenEndpoint_passingTroubles(t *testing.T) {
 	}
 }
 
+// TestFetch_renewsARejectedAccessToken checks that a Microsoft access token Xbox Live rejects (it
+// expired or was revoked before its time) is renewed once, instead of asking the user to sign in
+// again.
+func TestFetch_renewsARejectedAccessToken(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	// signedIn returns the settings of a code just pasted: its access token is cached.
+	signedIn := func(t *testing.T, p *Provider) source.Settings {
+		t.Helper()
+
+		settings, err := p.Prepare(ctx, source.Settings{settingCode: "M.C5_good"})
+		require.NoError(t, err)
+
+		return settings
+	}
+
+	t.Run("GIVEN a cached access token Xbox Live no longer accepts", func(t *testing.T) {
+		p, f := newTest(t)
+		settings := signedIn(t, p)
+
+		f.revoked = map[string]bool{"live-access+": true}
+
+		t.Run("WHEN the library is scanned", func(t *testing.T) {
+			copies, _, err := p.Fetch(ctx, settings)
+
+			t.Run("THEN the session is refreshed once and the scan works", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.Len(t, copies, 2)
+				assert.Equal(t, 1, f.refreshes)
+				assert.Contains(t, settings[settingSession], `"++"`, "the rotated session is handed back")
+			})
+		})
+	})
+
+	t.Run("GIVEN Xbox Live rejects even a renewed access token", func(t *testing.T) {
+		p, f := newTest(t)
+		settings := signedIn(t, p)
+
+		f.rejectAll = true
+
+		t.Run("WHEN the source is tested", func(t *testing.T) {
+			err := p.Test(ctx, settings)
+
+			t.Run("THEN it is signed out after one renewal", func(t *testing.T) {
+				require.ErrorIs(t, err, source.ErrSignedOut)
+				assert.Equal(t, 1, f.refreshes)
+			})
+		})
+	})
+}
+
 func TestCovers(t *testing.T) {
 	p, _ := newTest(t)
 	c := NewCovers()
-	c.CatalogURL = p.CatalogURL
+	c.Catalog.BaseURL = p.Catalog.BaseURL
 
 	q := media.CoverQuery{
 		Title: "Halo Infinite",

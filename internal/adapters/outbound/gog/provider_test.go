@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/source"
 )
@@ -32,6 +33,31 @@ type fakeGOG struct {
 
 	// rejectAll makes the embed API reject every access token, as for a revoked session.
 	rejectAll bool
+
+	// revoked holds the access tokens the embed API no longer accepts.
+	revoked map[string]bool
+}
+
+// revoke makes the embed API reject one access token, as when GOG revokes it before its time.
+func (f *fakeGOG) revoke(token string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if f.revoked == nil {
+		f.revoked = map[string]bool{}
+	}
+
+	f.revoked[token] = true
+}
+
+// accepts reports whether the embed API takes the request's access token.
+func (f *fakeGOG) accepts(r *http.Request) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+
+	return ok && strings.HasPrefix(token, "access-") && !f.rejectAll && !f.revoked[token]
 }
 
 func (f *fakeGOG) handler() http.Handler {
@@ -82,7 +108,7 @@ func (f *fakeGOG) handler() http.Handler {
 
 	auth := func(h http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
-			if f.rejectAll || !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer access-") {
+			if !f.accepts(r) {
 				http.Redirect(w, r, "/en##openlogin", http.StatusFound) // what GOG does without a session
 				return
 			}
@@ -118,7 +144,7 @@ func newTestProvider(t *testing.T) (*Provider, *fakeGOG) {
 	t.Cleanup(srv.Close)
 
 	p := NewProvider()
-	p.AuthURL, p.EmbedURL = srv.URL, srv.URL
+	p.Auth.BaseURL, p.Embed.BaseURL = srv.URL, srv.URL
 
 	return p, f
 }
@@ -176,7 +202,7 @@ func TestPrepareTestAndFetch(t *testing.T) {
 	// A fresh process refreshes the session, which rotates the stored refresh token.
 	p2 := NewProvider()
 
-	p2.AuthURL, p2.EmbedURL = p.AuthURL, p.EmbedURL
+	p2.Auth.BaseURL, p2.Embed.BaseURL = p.Auth.BaseURL, p.Embed.BaseURL
 	if err := p2.Test(ctx, settings); err != nil {
 		t.Fatal(err)
 	}
@@ -203,11 +229,7 @@ func TestErrors(t *testing.T) {
 	}
 	// A token GOG no longer accepts makes it redirect to the login page: the token is rejected (the
 	// caller renews it once), which is not yet a signed-out session.
-	p.tokens = map[string]accessToken{"u1": {
-		token:   "revoked",
-		expires: p.Now().Add(1e12),
-	}}
-	if err := p.get(ctx, "revoked", p.EmbedURL+"/user/data/games", &struct{}{}); !errors.Is(err, errTokenRejected) {
+	if err := p.get(ctx, "revoked", "/user/data/games", nil, &struct{}{}); !errors.Is(err, apiclient.ErrTokenRejected) {
 		t.Errorf("redirect to login: %v", err)
 	}
 }
@@ -231,7 +253,7 @@ func TestTokenEndpoint_passingTroubles(t *testing.T) {
 			f.tokenStatus = status
 
 			if status == 0 {
-				p.AuthURL = "http://127.0.0.1:1" // nothing listens there
+				p.Auth.BaseURL = "http://127.0.0.1:1" // nothing listens there
 			}
 
 			t.Run("WHEN a code is pasted", func(t *testing.T) {
@@ -251,8 +273,9 @@ func TestTokenEndpoint_passingTroubles(t *testing.T) {
 					assert.NotErrorIs(t, err, source.ErrSignedOut)
 				})
 
-				t.Run("AND the error never shows the refresh token sent in the URL", func(t *testing.T) {
+				t.Run("AND the error never shows the refresh token or the client secret sent in the URL", func(t *testing.T) {
 					assert.NotContains(t, err.Error(), "refresh-s3cret")
+					assert.NotContains(t, err.Error(), clientSecret)
 				})
 			})
 		})
@@ -265,20 +288,21 @@ func TestTest_renewsARejectedAccessToken(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	stale := func(p *Provider) {
-		p.tokens = map[string]accessToken{"u1": {
-			token:   "stale-access",
-			expires: p.Now().Add(time.Hour),
-		}}
+	// signedIn returns the settings of a code just pasted: its access token is cached.
+	signedIn := func(t *testing.T, p *Provider) source.Settings {
+		t.Helper()
+
+		settings, err := p.Prepare(ctx, source.Settings{settingAuthCode: "good-code"})
+		require.NoError(t, err)
+
+		return settings
 	}
 
-	t.Run("GIVEN a cached access token GOG no longer accepts", func(t *testing.T) {
+	t.Run("GIVEN a cached access token GOG revoked before its time", func(t *testing.T) {
 		p, f := newTestProvider(t)
-		f.refresh = "refresh-0"
+		settings := signedIn(t, p)
 
-		stale(p)
-
-		settings := source.Settings{settingSession: `{"refresh_token":"refresh-0","user_id":"u1"}`}
+		f.revoke("access-refresh-1")
 
 		t.Run("WHEN the library is scanned", func(t *testing.T) {
 			copies, _, err := p.Fetch(ctx, settings)
@@ -287,19 +311,18 @@ func TestTest_renewsARejectedAccessToken(t *testing.T) {
 				require.NoError(t, err)
 				assert.Len(t, copies, 2)
 				assert.Equal(t, 1, f.refreshes)
-				assert.Contains(t, settings[settingSession], "refresh-1", "the rotated session is handed back")
+				assert.Contains(t, settings[settingSession], "refresh-2", "the rotated session is handed back")
 			})
 		})
 	})
 
 	t.Run("GIVEN GOG rejects even a renewed access token", func(t *testing.T) {
 		p, f := newTestProvider(t)
-		f.refresh, f.rejectAll = "refresh-0", true
-
-		stale(p)
+		settings := signedIn(t, p)
+		f.rejectAll = true
 
 		t.Run("WHEN the source is tested", func(t *testing.T) {
-			err := p.Test(ctx, source.Settings{settingSession: `{"refresh_token":"refresh-0","user_id":"u1"}`})
+			err := p.Test(ctx, settings)
 
 			t.Run("THEN it is signed out after one renewal", func(t *testing.T) {
 				require.ErrorIs(t, err, source.ErrSignedOut)

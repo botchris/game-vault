@@ -3,7 +3,6 @@ package gog
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -126,11 +125,6 @@ func (c *Covers) get(ctx context.Context, path string, out any) error {
 
 	// A 429 or an outage says nothing about the game: the chain asks again later instead of
 	// marking the cover missing.
-	var se *apiclient.StatusError
-	if errors.As(err, &se) {
-		return fmt.Errorf("gog %s: %w", path, apiclient.ClassifyStatus(se.Status))
-	}
-
 	return apiclient.ClassifyError(ctx, err)
 }
 
