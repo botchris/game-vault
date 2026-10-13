@@ -9,10 +9,14 @@ metadata:
   (`Source.UpdateState`).
 - One-time codes are exchanged in `sync.Preparer.Prepare`, with an in-memory cache by
   `sha256(code)` so "Test" then "Save" reuse the same code. Code-based OAuth sources use
-  `internal/adapters/outbound/oauthsession` for it (Epic, GOG, Xbox and Amazon; PlayStation to
-  follow): one refresh at a time, the newest session always handed back, and a spent refresh
-  token remembered with its replacement so it is never sent again. Application tokens (client
-  credentials) use `oauthapp`.
+  `internal/adapters/outbound/oauthsession` for it (Epic, GOG, Xbox, Amazon and PlayStation): one
+  refresh at a time, the newest session always handed back, and a spent refresh token remembered
+  with its replacement for 8 days (a weekly scan plus jitter) so it is never sent again.
+  Application tokens (client credentials) use `oauthapp`.
+- PlayStation's NPSSO is not a one-time code and stays in the settings (no `sync.Preparer`). Its
+  fallback runs outside oauthsession, in `playstation.withToken`: when Sony refuses the refresh
+  token, it calls `Sessions.ForgetCode(npsso)` (the 15-minute code cache would hand back the
+  refused session) and signs in again with the NPSSO.
 - If a provider also caches in memory, it must still hand the latest value back on every call:
   forgetting this lost Ubisoft's rotated ticket on 2026-10-08 (see [[ubisoft]]).
 - Pasted browser cookies go through `internal/adapters/outbound/browsersession`.
