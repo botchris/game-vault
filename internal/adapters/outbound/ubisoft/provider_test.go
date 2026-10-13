@@ -292,3 +292,44 @@ func TestTicketSurvivesTestSaveScanRestart(t *testing.T) {
 		t.Fatalf("keep-alive: %v", err)
 	}
 }
+
+// TestSession_triesEachAppOnce checks that a refused remember-me ticket is offered to each app once:
+// the remembered app goes first, and is not tried again in the usual order after it.
+func TestSession_triesEachAppOnce(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a saved ticket last renewed by the PC app, which Ubisoft no longer accepts", func(t *testing.T) {
+		var apps []string
+
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			apps = append(apps, r.Header.Get("Ubi-AppId"))
+
+			w.WriteHeader(http.StatusUnauthorized)
+		}))
+		t.Cleanup(srv.Close)
+
+		p := NewProvider()
+		p.API.BaseURL = srv.URL
+
+		pasted := `{"rememberMeTicket":"rm-1"}`
+		saved, err := json.Marshal(state{
+			From:             hash(pasted),
+			RememberMeTicket: "rm-2",
+			AppID:            pcAppID,
+		})
+		require.NoError(t, err)
+
+		t.Run("WHEN a session is opened", func(t *testing.T) {
+			_, err := p.session(ctx, schema.Settings{
+				settingLoginData: pasted,
+				settingSession:   string(saved),
+			}, true)
+
+			t.Run("THEN the user is signed out after one try per app, the remembered one first", func(t *testing.T) {
+				require.ErrorIs(t, err, ErrSignedOut)
+				assert.Equal(t, []string{pcAppID, webAppID}, apps)
+			})
+		})
+	})
+}

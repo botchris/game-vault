@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	gosync "sync"
@@ -231,15 +232,63 @@ type session struct {
 // session opens a session, spending the remember-me ticket as little as possible because Ubisoft
 // replaces it on every use: a session opened recently is reused, then the ticket and session id
 // pasted (still valid for a few hours after copying them), and only then the remember-me ticket is
-// renewed. The new remember-me ticket is kept in memory and written back into settings for the
-// caller to persist. fresh skips the reuse (the previous session was rejected).
+// renewed. The newest remember-me ticket is written back into settings for the caller to persist,
+// on every call. fresh skips the reuse (the previous session was rejected).
 func (p *Provider) session(ctx context.Context, settings schema.Settings, fresh bool) (session, error) {
-	pasted := settings[settingLoginData]
-	key := hash(pasted)
-	d := parseLoginData(pasted)
+	key := hash(settings[settingLoginData])
+	d := parseLoginData(settings[settingLoginData])
+	st := p.latestState(settings, key)
+
+	if !fresh {
+		if s, ok := p.reuse(key, d, st); ok {
+			return s, nil
+		}
+	}
+
+	rememberMe := st.RememberMeTicket
+	if rememberMe == "" {
+		rememberMe = d.RememberMeTicket
+	}
+
+	if rememberMe == "" {
+		return session{}, ErrNoCredentials
+	}
+
+	sess, next, err := p.renewAny(ctx, rememberMe, st.AppID)
+	if err != nil {
+		return session{}, err
+	}
+
+	next.From = key
 
 	p.mu.Lock()
-	c, open := p.sessions[key]
+	if p.rotated == nil {
+		p.rotated = map[string]state{}
+	}
+
+	if p.sessions == nil {
+		p.sessions = map[string]cached{}
+	}
+
+	p.rotated[key] = next
+	p.sessions[key] = cached{
+		s:       sess,
+		expires: p.Now().Add(sessionTTL),
+	}
+	p.mu.Unlock()
+
+	raw, _ := json.Marshal(next)
+	settings[settingSession] = string(raw)
+
+	return sess, nil
+}
+
+// latestState returns the newest remember-me ticket known for the pasted login data (key is its
+// hash): the one in memory, else the saved one. The ticket in memory may be newer than the saved
+// one (a test, a scan or a keep-alive rotated it), so it is always written back into settings for
+// the caller to persist, or a restart would lose it.
+func (p *Provider) latestState(settings schema.Settings, key string) state {
+	p.mu.Lock()
 	st := p.rotated[key]
 	p.mu.Unlock()
 
@@ -249,86 +298,66 @@ func (p *Provider) session(ctx context.Context, settings schema.Settings, fresh 
 	}
 
 	if st.RememberMeTicket == "" {
-		st = saved
+		return saved
 	}
-	// The ticket in memory may be newer than the saved one (a test, a scan or a keep-alive rotated
-	// it): always hand it back for the caller to persist, or a restart would lose it.
-	if st.RememberMeTicket != "" && st != saved {
+
+	if st != saved {
 		raw, _ := json.Marshal(st)
 		settings[settingSession] = string(raw)
 	}
 
-	if !fresh && open && p.Now().Before(c.expires) {
-		return c.s, nil
+	return st
+}
+
+// reuse returns a session that needs no renewal: one opened recently for the pasted login data d
+// (key is its hash), or, before any remember-me ticket was renewed (st is empty), the ticket and
+// session id pasted with it, which the first query checks.
+func (p *Provider) reuse(key string, d loginData, st state) (session, bool) {
+	p.mu.Lock()
+	c, open := p.sessions[key]
+	p.mu.Unlock()
+
+	switch {
+	case open && p.Now().Before(c.expires):
+		return c.s, true
+	case st.RememberMeTicket == "" && d.Ticket != "" && d.SessionID != "":
+		return session{d.Ticket, d.SessionID, webAppID}, true
 	}
 
-	if !fresh && st.RememberMeTicket == "" && d.Ticket != "" && d.SessionID != "" {
-		return session{d.Ticket, d.SessionID, webAppID}, nil // checked by the first query
-	}
+	return session{}, false
+}
 
-	if st.RememberMeTicket != "" {
-		d.RememberMeTicket = st.RememberMeTicket
-	}
-
-	if d.RememberMeTicket == "" {
-		return session{}, ErrNoCredentials
-	}
-
+// renewAny renews the remember-me ticket with the first app that accepts it, the remembered one
+// (last, possibly empty) first, then the others once each: a ticket may only be renewable by the app
+// that issued it. It returns the session and the state to keep (without From); ErrSignedOut when
+// every app refused the ticket.
+func (p *Provider) renewAny(ctx context.Context, rememberMe, last string) (session, state, error) {
 	order := appIDs
-	if st.AppID != "" {
-		order = append([]string{st.AppID}, appIDs...)
+	if last != "" {
+		order = append([]string{last}, slices.DeleteFunc(slices.Clone(appIDs), func(a string) bool { return a == last })...)
 	}
-
-	err := ErrSignedOut
 
 	for _, app := range order {
-		var (
-			sess session
-			rm   string
-		)
-
-		sess, rm, err = p.renew(ctx, d.RememberMeTicket, app)
+		sess, rm, err := p.renew(ctx, rememberMe, app)
 		if errors.Is(err, ErrSignedOut) {
-			continue // a ticket may only be renewable by the app that issued it
+			continue
 		}
 
 		if err != nil {
-			return session{}, err
+			return session{}, state{}, err
 		}
 
 		if rm == "" {
-			rm = d.RememberMeTicket
+			rm = rememberMe
 		}
 
-		next := state{
-			From:             key,
+		return sess, state{
 			RememberMeTicket: rm,
 			AppID:            app,
-		}
-
-		p.mu.Lock()
-		if p.rotated == nil {
-			p.rotated = map[string]state{}
-		}
-
-		if p.sessions == nil {
-			p.sessions = map[string]cached{}
-		}
-
-		p.rotated[key] = next
-		p.sessions[key] = cached{
-			s:       sess,
-			expires: p.Now().Add(sessionTTL),
-		}
-		p.mu.Unlock()
-
-		raw, _ := json.Marshal(next)
-		settings[settingSession] = string(raw)
-
-		return sess, nil
+		}, nil
 	}
 
-	return session{}, err
+	return session{}, state{}, ErrSignedOut
 }
 
 // renew exchanges a remember-me ticket for a session as the given app.
