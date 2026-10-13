@@ -131,7 +131,7 @@ func (e *wrapped) Unwrap() error { return e.err }
 func (e *wrapped) Kind() Kind { return e.kind }
 
 // Wrap gives err a kind and keeps its message; errors.Is and errors.As still see err. It returns
-// nil for a nil err.
+// nil for a nil err. Wrap(Unknown, err) hides the kinds inside err: Of then reads Unknown.
 func Wrap(kind Kind, err error) error {
 	if err == nil {
 		return nil

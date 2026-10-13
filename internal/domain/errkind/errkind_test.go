@@ -37,6 +37,7 @@ func TestOf(t *testing.T) {
 		{"an error type with a Kind method", fmt.Errorf("scan: %w", ownKind{}), errkind.Precondition},
 		{"an error given a kind by Wrap", errkind.Wrap(errkind.Invalid, errBare), errkind.Invalid},
 		{"the outermost kind wins", errkind.Wrap(errkind.Unavailable, errSentinel), errkind.Unavailable},
+		{"Wrap with Unknown hides the kinds inside", errkind.Wrap(errkind.Unknown, errSentinel), errkind.Unknown},
 	}
 
 	for _, tt := range tests {
