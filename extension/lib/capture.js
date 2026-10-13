@@ -1,4 +1,5 @@
 // Small pure helpers the engine and the background use.
+import { isPrivateTransport } from './origin.js';
 
 /**
  * Whether url starts with prefix at a boundary: the prefix ends with '/', or url continues with
@@ -50,10 +51,5 @@ export function hostsGranted(hosts, remembered) {
  * reuse a remembered confirmation silently, so the user confirms each sign-in instead.
  */
 export function rememberAllowed(origin) {
-  try {
-    const u = new URL(origin);
-    return u.protocol === 'https:' || ['localhost', '127.0.0.1', '[::1]'].includes(u.hostname);
-  } catch {
-    return false;
-  }
+  return isPrivateTransport(origin);
 }

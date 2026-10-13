@@ -2,6 +2,7 @@
 // scripts, and the lookups they ask for, sent only to the user's own Game Vault. Pages never see
 // the token: only this module talks to Game Vault.
 import '../ownership/stores.js';
+import { isPrivateTransport } from './origin.js';
 
 const { STORES } = globalThis.gvOwnership;
 
@@ -90,18 +91,14 @@ async function syncOnce(api) {
 
 /**
  * Whether a token sent to this Game Vault address would travel unencrypted over a network: plain
- * http to anything but this computer (127.0.0.0/8, ::1, localhost). The popup warns about it.
+ * http to anything but this computer (see isLoopback). The popup warns about it.
  */
 export function tokenInClear(origin) {
-  let url;
   try {
-    url = new URL(origin);
+    return new URL(origin).protocol === 'http:' && !isPrivateTransport(origin);
   } catch {
     return false;
   }
-  if (url.protocol !== 'http:') return false;
-  const host = url.hostname;
-  return !(host === 'localhost' || host === '[::1]' || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host));
 }
 
 /**

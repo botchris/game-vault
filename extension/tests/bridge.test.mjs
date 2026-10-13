@@ -72,6 +72,7 @@ test('a bridge left over from before an extension update answers at once with an
 test('remembering a confirmation is offered for https and this computer only', () => {
   assert.equal(rememberAllowed('https://vault.example.com'), true);
   assert.equal(rememberAllowed('http://127.0.0.1:8080'), true);
+  assert.equal(rememberAllowed('http://127.4.5.6:8080'), true, 'all of 127.0.0.0/8 is this computer, as for the token');
   assert.equal(rememberAllowed('http://localhost:8080'), true);
   assert.equal(rememberAllowed('http://[::1]:8080'), true);
   assert.equal(rememberAllowed('http://192.168.1.10:8080'), false);
