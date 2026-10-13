@@ -51,31 +51,40 @@ func TestCovers(t *testing.T) {
 	c := NewCovers()
 	c.OAuth.BaseURL, c.Catalog.BaseURL = srv.URL, srv.URL
 
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
 	q := media.GameQuery{
 		Title: "Control",
 		Links: game.Links{"steam": "1", "epic": "abc"},
 	}
-	if !c.Applies(q) || c.Applies(media.GameQuery{
-		Title: "x",
-		Links: game.Links{"gog": "1"},
-	}) {
-		t.Fatal("applies only to games imported from Epic")
-	}
 
-	for range 2 {
-		got, err := c.Covers(context.Background(), q, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
+	t.Run("GIVEN Epic's catalog with a tall, a wide and a logo image of a game", func(t *testing.T) {
+		t.Run("THEN it applies only to games imported from Epic", func(t *testing.T) {
+			assert.True(t, c.Applies(q))
+			assert.False(t, c.Applies(media.GameQuery{
+				Title: "x",
+				Links: game.Links{"gog": "1"},
+			}))
+		})
 
-		if len(got) != 2 || got[0].URL != "https://cdn1.epicgames.com/tall.jpg" || got[1].URL != "https://cdn1.epicgames.com/wide.jpg" {
-			t.Fatalf("candidates: %+v", got)
-		}
-	}
+		t.Run("WHEN covers are asked twice", func(t *testing.T) {
+			for range 2 {
+				got, err := c.Covers(ctx, q, nil)
+				require.NoError(t, err)
 
-	if tokens != 1 {
-		t.Fatalf("the app token should be reused, got %d", tokens)
-	}
+				t.Run("THEN the box art comes first, then the wide image, and no logo", func(t *testing.T) {
+					require.Len(t, got, 2)
+					assert.Equal(t, "https://cdn1.epicgames.com/tall.jpg", got[0].URL)
+					assert.Equal(t, "https://cdn1.epicgames.com/wide.jpg", got[1].URL)
+				})
+			}
+
+			t.Run("AND the application token is reused", func(t *testing.T) {
+				assert.Equal(t, 1, tokens)
+			})
+		})
+	})
 }
 
 func TestCovers_Test(t *testing.T) {
