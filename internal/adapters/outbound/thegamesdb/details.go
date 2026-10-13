@@ -109,10 +109,17 @@ func (d *Details) lookupNames(ctx context.Context, apiKey, kind string, ids []in
 	return names
 }
 
-// find searches the game's name, then its raw title when that finds nothing (game.SearchTerms), on
-// the systems the query is about, and picks the game in the results.
+// find searches the game's name, then its raw title (game.SearchTerms) unless the name found a game
+// titled exactly like the copy, on the systems the query is about, and picks the game in the
+// results: an exact title wins over a game that only shares the MatchKey ("Rush" for "Gold Rush!",
+// searched as "Rush!"), whichever search found it.
 func (d *Details) find(ctx context.Context, key string, q media.CoverQuery) (tgdbGame, bool, error) {
 	filter := d.p.platformFilter(ctx, key, q.SearchSystems())
+
+	var (
+		best  tgdbGame
+		found bool
+	)
 
 	for _, term := range game.SearchTerms(q.Title) {
 		params := url.Values{"apikey": {key}, "name": {term}, "fields": {"overview,players,publishers,genres,rating,coop,youtube"}}
@@ -129,12 +136,17 @@ func (d *Details) find(ctx context.Context, key string, q media.CoverQuery) (tgd
 			return tgdbGame{}, false, err
 		}
 
-		if g, ok := pickGame(out.Data.Games, q.Title); ok {
-			return g, true, nil
+		g, ok := pickGame(out.Data.Games, q.Title)
+		if ok && game.SameTitle(g.Title, q.Title) {
+			return g, true, nil // pickGame prefers exact titles
+		}
+
+		if ok && !found {
+			best, found = g, true
 		}
 	}
 
-	return tgdbGame{}, false, nil
+	return best, found, nil
 }
 
 // Details implements media.MetadataProvider.

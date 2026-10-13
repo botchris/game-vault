@@ -322,11 +322,15 @@ type searchResponse struct {
 // physical copies or all its platforms) and returns the front box art of the game itself: exact
 // title matches first, then its other releases (same game.MatchKey). The picker (q.Browse) also
 // gets the other games the search found, last. The game's name is searched first, then the raw
-// title when that finds nothing (game.SearchTerms): a second request only for an edition title
-// TheGamesDB does not know by its name.
+// title (game.SearchTerms) unless the name found a game titled exactly like the copy: stripping
+// tags can go too far ("Gold Rush!" searched as "Rush!" finds "Rush", which only shares the
+// MatchKey), so an exact title from the raw search wins over the name's looser match. A second
+// request only for a title with tags, when its name gave no exact match.
 func (p *Provider) Covers(ctx context.Context, q media.CoverQuery, s schema.Settings) ([]media.CoverCandidate, error) {
 	key := s[settingAPIKey]
 	filter := p.platformFilter(ctx, key, q.SearchSystems())
+
+	var best []media.CoverCandidate
 
 	for _, term := range game.SearchTerms(q.Title) {
 		params := url.Values{"apikey": {key}, "name": {term}, "include": {"boxart,platform"}}
@@ -339,12 +343,17 @@ func (p *Provider) Covers(ctx context.Context, q media.CoverQuery, s schema.Sett
 			return nil, err
 		}
 
-		if found := coversOf(out, q); len(found) > 0 {
-			return found, nil
+		found := coversOf(out, q)
+		if len(found) > 0 && game.SameTitle(found[0].Title, q.Title) {
+			return found, nil // exact matches come first
+		}
+
+		if best == nil {
+			best = found
 		}
 	}
 
-	return nil, nil
+	return best, nil
 }
 
 // platformFilter returns the filter[platform] value of a search on systems: TheGamesDB's ids of
