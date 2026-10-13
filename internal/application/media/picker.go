@@ -8,6 +8,19 @@ import (
 	"gamevault/internal/domain/provider"
 )
 
+// CoverChoices are the covers proposed for an edition (see Covers.CoverCandidates).
+type CoverChoices struct {
+	// Candidates are the images proposed, the first pass's providers' first.
+	Candidates []CoverCandidate
+
+	// Warnings are the failures of providers for this game.
+	Warnings []string
+
+	// Unavailable reports that a provider had a provider-level problem (see
+	// providers.Registry.Statuses), which is not a warning on the game.
+	Unavailable bool
+}
+
 // CoverCandidates asks every enabled provider that applies to the game's edition on system (the
 // main edition when system is empty) for images, for the "choose cover" dialog. Unlike the automatic
 // resolution, the providers that keep to the fallback pass (TheGamesDB for a game a store knows,
@@ -15,13 +28,11 @@ import (
 // costs one request each, once per opening. Each provider is asked once; the candidates of those
 // that apply to the first pass (the stores' own art) come first, then the fallback ones, each group
 // in chain order.
-// Providers failing for this game are reported as warnings; unavailable reports that a provider had
-// a provider-level problem (see providers.Registry.Statuses), which is not a warning on the game.
-func (c *Covers) CoverCandidates(ctx context.Context, id game.ID, system string) (candidates []CoverCandidate, warnings []string,
-	unavailable bool, err error) {
+// Providers failing for this game are reported as warnings (see CoverChoices).
+func (c *Covers) CoverCandidates(ctx context.Context, id game.ID, system string) (CoverChoices, error) {
 	g, err := c.games.Get(ctx, id)
 	if err != nil {
-		return nil, nil, false, err
+		return CoverChoices{}, err
 	}
 
 	if system == "" {
@@ -29,12 +40,12 @@ func (c *Covers) CoverCandidates(ctx context.Context, id game.ID, system string)
 	}
 
 	if _, ok := g.Edition(system); !ok && len(g.Copies()) > 0 {
-		return nil, nil, false, fmt.Errorf("%w (%s)", ErrNoEdition, system)
+		return CoverChoices{}, fmt.Errorf("%w (%s)", ErrNoEdition, system)
 	}
 
 	chain, err := c.chain.inOrder(ctx)
 	if err != nil {
-		return nil, nil, false, err
+		return CoverChoices{}, err
 	}
 
 	first := QueryFor(g, system)
@@ -42,6 +53,8 @@ func (c *Covers) CoverCandidates(ctx context.Context, id game.ID, system string)
 	fallback := first
 	fallback.Fallback = true
 	asked := map[provider.ID]bool{}
+
+	var out CoverChoices
 
 	// A provider is asked with the first pass's query when it applies to it (as the automatic
 	// resolution would ask it), else with the fallback pass's.
@@ -54,9 +67,11 @@ func (c *Covers) CoverCandidates(ctx context.Context, id game.ID, system string)
 			asked[p.ID()] = true
 
 			found, w, limited := c.chain.candidates(ctx, p, q)
-			candidates, warnings, unavailable = append(candidates, found...), append(warnings, w...), unavailable || limited
+			out.Candidates = append(out.Candidates, found...)
+			out.Warnings = append(out.Warnings, w...)
+			out.Unavailable = out.Unavailable || limited
 		}
 	}
 
-	return candidates, warnings, unavailable, nil
+	return out, nil
 }

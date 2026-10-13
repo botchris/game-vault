@@ -112,8 +112,10 @@ func TestProviderStatus_covers(t *testing.T) {
 		})
 
 		t.Run("WHEN the cover picker lists candidates", func(t *testing.T) {
-			_, warnings, _, err := svc.Covers.CoverCandidates(ctx, g.ID(), "PS4")
+			choices, err := svc.Covers.CoverCandidates(ctx, g.ID(), "PS4")
 			require.NoError(t, err)
+
+			warnings := choices.Warnings
 
 			t.Run("THEN the provider-level problem is not a warning on the game", func(t *testing.T) {
 				assert.Empty(t, warnings)
@@ -123,8 +125,10 @@ func TestProviderStatus_covers(t *testing.T) {
 		t.Run("WHEN the provider fails for this game only", func(t *testing.T) {
 			art.set(errors.New("server error 500 for this game: try again later"))
 
-			_, warnings, _, err := svc.Covers.CoverCandidates(ctx, g.ID(), "PS4")
+			choices, err := svc.Covers.CoverCandidates(ctx, g.ID(), "PS4")
 			require.NoError(t, err)
+
+			warnings := choices.Warnings
 
 			t.Run("THEN that failure is still shown", func(t *testing.T) {
 				assert.Equal(t, []string{"Switch art: server error 500 for this game: try again later"}, warnings)
@@ -145,7 +149,7 @@ func TestProviderStatus_covers(t *testing.T) {
 		t.Run("WHEN it asks to slow down and the time it was given passes", func(t *testing.T) {
 			art.set(provider.ErrRateLimited)
 
-			_, _, _, err := svc.Covers.CoverCandidates(ctx, g.ID(), "PS4")
+			_, err := svc.Covers.CoverCandidates(ctx, g.ID(), "PS4")
 			require.NoError(t, err)
 
 			busy := svc.Registry.Statuses()
@@ -167,8 +171,10 @@ func TestProviderStatus_covers(t *testing.T) {
 			for cause, want := range kinds {
 				art.set(cause)
 
-				_, warnings, _, err := svc.Covers.CoverCandidates(ctx, g.ID(), "PS4")
+				choices, err := svc.Covers.CoverCandidates(ctx, g.ID(), "PS4")
 				require.NoError(t, err)
+
+				warnings := choices.Warnings
 
 				st := svc.Registry.Statuses()
 
@@ -364,8 +370,10 @@ func TestProviderStatus_service(t *testing.T) {
 
 		t.Run("WHEN its covers, without a key either, answer the same", func(t *testing.T) {
 			env.covers.set(rejected)
-			_, _, unavailable, err := env.svc.Covers.CoverCandidates(ctx, env.game.ID(), "PS4")
+			choices, err := env.svc.Covers.CoverCandidates(ctx, env.game.ID(), "PS4")
 			require.NoError(t, err)
+
+			unavailable := choices.Unavailable
 
 			t.Run("THEN the status stays, and the picker is told providers are unavailable", func(t *testing.T) {
 				assert.Len(t, env.svc.Registry.Statuses(), 1)
@@ -375,8 +383,10 @@ func TestProviderStatus_service(t *testing.T) {
 
 		t.Run("WHEN its covers really answer with the same settings", func(t *testing.T) {
 			env.covers.set(nil)
-			_, _, unavailable, err := env.svc.Covers.CoverCandidates(ctx, env.game.ID(), "PS4")
+			choices, err := env.svc.Covers.CoverCandidates(ctx, env.game.ID(), "PS4")
 			require.NoError(t, err)
+
+			unavailable := choices.Unavailable
 
 			t.Run("THEN the settings work after all: the status is cleared", func(t *testing.T) {
 				assert.Empty(t, env.svc.Registry.Statuses())
@@ -389,7 +399,7 @@ func TestProviderStatus_service(t *testing.T) {
 		env := newServiceEnv(t, ctx)
 		env.covers.set(provider.ErrUnavailable)
 
-		_, _, _, err := env.svc.Covers.CoverCandidates(ctx, env.game.ID(), "PS4")
+		_, err := env.svc.Covers.CoverCandidates(ctx, env.game.ID(), "PS4")
 		require.NoError(t, err)
 		require.Len(t, env.svc.Registry.Statuses(), 1)
 
@@ -425,7 +435,7 @@ func TestProviderStatus_service(t *testing.T) {
 		env.covers.set(provider.ErrRateLimited)
 		env.sheets.set(provider.ErrRateLimited)
 
-		_, _, _, err := env.svc.Covers.CoverCandidates(ctx, env.game.ID(), "PS4")
+		_, err := env.svc.Covers.CoverCandidates(ctx, env.game.ID(), "PS4")
 		require.NoError(t, err)
 		_, _, err = env.svc.Details.GameDetails(ctx, env.game.ID(), "en", false)
 		require.NoError(t, err)
@@ -479,7 +489,7 @@ func TestProviderStatus_healthIssues(t *testing.T) {
 		require.NoError(t, err)
 
 		env.covers.set(provider.ErrQuotaExhausted)
-		_, _, _, err = env.svc.Covers.CoverCandidates(ctx, env.game.ID(), "PS4")
+		_, err = env.svc.Covers.CoverCandidates(ctx, env.game.ID(), "PS4")
 		require.NoError(t, err)
 
 		t.Run("WHEN the health issues are asked", func(t *testing.T) {

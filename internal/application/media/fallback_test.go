@@ -218,8 +218,10 @@ func TestCovers_fallbackForGamesWithoutLinks(t *testing.T) {
 		})
 
 		t.Run("WHEN its cover candidates are listed", func(t *testing.T) {
-			candidates, warnings, _, err := env.svc.Covers.CoverCandidates(ctx, g.ID(), game.SystemPC)
+			choices, err := env.svc.Covers.CoverCandidates(ctx, g.ID(), game.SystemPC)
 			require.NoError(t, err)
+
+			candidates, warnings := choices.Candidates, choices.Warnings
 
 			t.Run("THEN the fallback providers are offered too, since nothing else had one", func(t *testing.T) {
 				assert.Empty(t, warnings)
@@ -249,8 +251,10 @@ func TestCovers_fallbackForGamesWithoutLinks(t *testing.T) {
 		t.Run("WHEN its cover candidates are listed", func(t *testing.T) {
 			env.quota.art.Store(true)
 
-			candidates, _, _, err := env.svc.Covers.CoverCandidates(ctx, g.ID(), game.SystemPC)
+			choices, err := env.svc.Covers.CoverCandidates(ctx, g.ID(), game.SystemPC)
 			require.NoError(t, err)
+
+			candidates := choices.Candidates
 
 			t.Run("THEN the fallback providers are offered too, after the store's art", func(t *testing.T) {
 				ids := make([]provider.ID, 0, len(candidates))
@@ -286,8 +290,10 @@ func TestCoverCandidates_providerOnBothPasses(t *testing.T) {
 		})
 
 		t.Run("WHEN its cover candidates are listed", func(t *testing.T) {
-			candidates, _, _, err := env.svc.Covers.CoverCandidates(ctx, g.ID(), "PS4")
+			choices, err := env.svc.Covers.CoverCandidates(ctx, g.ID(), "PS4")
 			require.NoError(t, err)
+
+			candidates := choices.Candidates
 
 			t.Run("THEN it is asked once, its box first, then the fallback-only provider's", func(t *testing.T) {
 				assert.Equal(t, int32(1), env.quota.calls.Load())
@@ -314,7 +320,7 @@ func TestGameQuery_browse(t *testing.T) {
 		})
 
 		t.Run("WHEN its cover candidates are listed in the picker", func(t *testing.T) {
-			_, _, _, err := env.svc.Covers.CoverCandidates(ctx, g.ID(), "PS4")
+			_, err := env.svc.Covers.CoverCandidates(ctx, g.ID(), "PS4")
 			require.NoError(t, err)
 
 			t.Run("THEN the providers are asked to browse", func(t *testing.T) {
