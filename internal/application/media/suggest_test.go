@@ -84,3 +84,46 @@ func TestSuggest_browse(t *testing.T) {
 		})
 	})
 }
+
+func TestSuggest_providerStatus(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a box art database whose allowance is used up", func(t *testing.T) {
+		db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "gamevault.db"), "")
+		require.NoError(t, err)
+		t.Cleanup(func() { db.Close() })
+
+		assets, err := gamedata.Open(filepath.Join(t.TempDir(), "game-data"))
+		require.NoError(t, err)
+
+		art := &quotaArt{}
+		art.exhausted.Store(true)
+
+		svc := media.NewService(sqlite.NewGameRepository(db), sqlite.NewProviderRepository(db), assets, nil, nil, echo{},
+			time.Now, slog.New(slog.NewTextHandler(io.Discard, nil)), media.Providers{
+				Covers: []media.CoverProvider{art},
+			})
+
+		t.Run("WHEN the user types a title on the scan page", func(t *testing.T) {
+			_, _, warnings, err := svc.SuggestGames(ctx, "Shelf Quest", "PS4")
+			require.NoError(t, err)
+
+			t.Run("THEN the used-up allowance is the provider's status, not a warning", func(t *testing.T) {
+				assert.Empty(t, warnings)
+
+				st := svc.ProviderStatuses()
+				require.Len(t, st, 1)
+				assert.Equal(t, "Quota", st[0].Name)
+			})
+
+			t.Run("AND a later answer clears the status", func(t *testing.T) {
+				art.exhausted.Store(false)
+
+				_, _, _, err := svc.SuggestGames(ctx, "Shelf Quest", "PS4")
+				require.NoError(t, err)
+				assert.Empty(t, svc.ProviderStatuses())
+			})
+		})
+	})
+}

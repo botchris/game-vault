@@ -351,7 +351,7 @@ func (s *Service) askChain(ctx context.Context, g *game.Game, chain []ProviderVi
 		if err != nil {
 			pass.failed = true
 
-			if !providerLevel(err) {
+			if !ProviderLevel(err) {
 				pass.warnings = append(pass.warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
 			}
 

@@ -45,10 +45,15 @@ const (
 // providerTimeout bounds one provider's answer, so a slow source never holds the scheduler.
 const providerTimeout = 20 * time.Second
 
-// Configs is the port that keeps the providers' configuration (implemented by the media service).
+// Configs is the port that keeps the providers' configuration and status (implemented by the media
+// service).
 type Configs interface {
 	// Providers returns the configured providers of a kind in priority order.
 	Providers(ctx context.Context, kind provider.Kind) ([]media.ProviderView, error)
+
+	// ReportResult records what a provider's answer says about the provider: a provider-level
+	// problem (see media.ProviderLevel) becomes its status on System → Health, an answer clears it.
+	ReportResult(id provider.ID, err error)
 }
 
 // Service exposes the valuation use cases.
@@ -221,11 +226,24 @@ func (s *Service) ask(ctx context.Context, views []media.ProviderView, code game
 
 		a := answer{id: v.ID()}
 
+		// "Not listed" is an answer: the provider did reach its service.
+		if errors.Is(err, ErrNotListed) {
+			s.configs.ReportResult(v.ID(), nil)
+		} else {
+			s.configs.ReportResult(v.ID(), err)
+		}
+
 		switch {
 		case errors.Is(err, ErrNotListed):
 		case err != nil:
 			a.err = err
-			warnings = append(warnings, fmt.Sprintf("%s: %v", v.Descriptor.Name, err))
+
+			// A provider-level problem (a bot check, a rate limit, rejected keys) is the provider's
+			// status, not a warning on every copy.
+			if !media.ProviderLevel(err) {
+				warnings = append(warnings, fmt.Sprintf("%s: %v", v.Descriptor.Name, err))
+			}
+
 			s.log.Warn("estimating a price", "provider", v.ID(), "barcode", code, "error", err)
 		default:
 			e.Provider, e.FetchedAt = string(v.ID()), s.now()

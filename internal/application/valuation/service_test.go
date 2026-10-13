@@ -60,10 +60,20 @@ func (p *prices) Estimate(_ context.Context, _ schema.Settings, code game.Barcod
 	return game.Estimate{Sell: m}, nil
 }
 
-// configs enables the providers listed in on.
+// configs enables the providers listed in on, and records what each provider's last answer said
+// about the provider.
 type configs struct {
-	impls []valuation.Provider
-	on    map[provider.ID]bool
+	impls    []valuation.Provider
+	on       map[provider.ID]bool
+	reported map[provider.ID]error
+}
+
+func (c *configs) ReportResult(id provider.ID, err error) {
+	if c.reported == nil {
+		c.reported = map[provider.ID]error{}
+	}
+
+	c.reported[id] = err
 }
 
 func (c *configs) Providers(_ context.Context, kind provider.Kind) ([]media.ProviderView, error) {
@@ -472,6 +482,47 @@ func TestScheduler_changesDuringARound(t *testing.T) {
 			t.Run("THEN the round stops instead of pausing for every remaining copy", func(t *testing.T) {
 				assert.Equal(t, 1, pauses)
 				assert.Len(t, w.cex.calls, 1)
+			})
+		})
+	})
+}
+
+func TestEstimateCopy_providerStatus(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a physical copy, and eBay behind a bot check", func(t *testing.T) {
+		w := newWorld(ctx, t)
+		w.ebay.fail = fmt.Errorf("eBay asks for a browser check: %w", provider.ErrUnavailable)
+		gid, cid := w.physical(ctx, t, "Dead Space 3", deadSpace)
+
+		t.Run("WHEN its price is estimated", func(t *testing.T) {
+			_, warnings, err := w.svc.EstimateCopy(ctx, gid, cid)
+			require.NoError(t, err)
+
+			t.Run("THEN each provider's answer is reported for its status", func(t *testing.T) {
+				require.Contains(t, w.cfg.reported, provider.ID("cex-prices"))
+				assert.NoError(t, w.cfg.reported["cex-prices"])
+				assert.ErrorIs(t, w.cfg.reported["ebay-prices"], provider.ErrRateLimited)
+			})
+
+			t.Run("AND eBay's trouble is its status, not a warning on the copy", func(t *testing.T) {
+				assert.Empty(t, warnings)
+			})
+		})
+
+		t.Run("WHEN eBay then fails for this product only, and CeX no longer lists it", func(t *testing.T) {
+			w.ebay.fail = errors.New("eBay answered an unreadable listing")
+			delete(w.cex.sell, deadSpace)
+
+			_, warnings, err := w.svc.EstimateCopy(ctx, gid, cid)
+			require.NoError(t, err)
+
+			t.Run("THEN not being listed is an answer, and the failure is a warning", func(t *testing.T) {
+				require.Contains(t, w.cfg.reported, provider.ID("cex-prices"))
+				assert.NoError(t, w.cfg.reported["cex-prices"])
+				assert.Error(t, w.cfg.reported["ebay-prices"])
+				assert.Len(t, warnings, 1)
 			})
 		})
 	})

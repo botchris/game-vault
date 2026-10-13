@@ -1014,8 +1014,9 @@ func (s *Service) CoverCandidates(ctx context.Context, id game.ID, system string
 	return candidates, warnings, unavailable, nil
 }
 
-// pickerCandidates asks one provider for the picker: its candidates, a warning when it failed for
-// this game, or limited when the problem is the provider's (see CoverCandidates).
+// pickerCandidates asks one provider for candidates a user picks from (the cover picker, the scan
+// page's suggestions): its candidates, a warning when it failed for this game, or limited when the
+// problem is the provider's, which only sets its status (see CoverCandidates).
 func (s *Service) pickerCandidates(ctx context.Context, p ProviderView, impl CoverProvider, q CoverQuery) (
 	candidates []CoverCandidate, warnings []string, limited bool) {
 	c, err := impl.Covers(ctx, q, p.Settings())
@@ -1024,7 +1025,7 @@ func (s *Service) pickerCandidates(ctx context.Context, p ProviderView, impl Cov
 	switch {
 	case err == nil:
 		return c, nil, false
-	case providerLevel(err):
+	case ProviderLevel(err):
 		// A provider-level problem (busy, allowance used up, rejected key) is the provider's
 		// status, shown on the System and Providers pages, not a warning on every game.
 		return nil, nil, true
@@ -1338,11 +1339,9 @@ func (s *Service) suggest(ctx context.Context, games []*game.Game, title, platfo
 			continue
 		}
 
-		candidates, err := impl.Covers(ctx, q, p.Settings())
-		if err != nil {
-			warnings = append(warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
-			continue
-		}
+		// Asked like the cover picker asks, so a provider-level problem is the provider's status.
+		candidates, w, _ := s.pickerCandidates(ctx, p, impl, q)
+		warnings = append(warnings, w...)
 
 		for _, c := range candidates {
 			t := c.Title
