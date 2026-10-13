@@ -51,6 +51,22 @@ func TestCopyInvariants(t *testing.T) {
 	assert.Empty(t, c.Key, "a physical copy has no key")
 }
 
+func TestCopy_Held(t *testing.T) {
+	held := map[Status]bool{
+		StatusUnrevealed: true,
+		StatusRevealed:   true,
+		StatusRedeemed:   true,
+		StatusOwned:      true,
+		StatusLent:       true, // lent copies come back
+		StatusGifted:     false,
+		StatusExpired:    false,
+		StatusSold:       false,
+	}
+	for status, want := range held {
+		assert.Equal(t, want, Copy{CopyDetails: CopyDetails{Status: status}}.Held(), status)
+	}
+}
+
 func TestRedundantKeys(t *testing.T) {
 	g, err := New("Hades", t0)
 	require.NoError(t, err)
