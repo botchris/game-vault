@@ -1,9 +1,15 @@
 package logfile
 
 import (
+	"errors"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/domain/settings"
 )
@@ -74,4 +80,63 @@ func TestRotationAndRetention(t *testing.T) {
 	if n, err := r.ClearArchived(); err != nil || n != 1 {
 		t.Fatalf("clear: n=%d err=%v", n, err)
 	}
+}
+
+func TestRotator_failedRotationKeepsLogging(t *testing.T) {
+	t.Run("GIVEN a log at its size limit whose rotation cannot rename the file", func(t *testing.T) {
+		dir := t.TempDir()
+
+		var lvl slog.LevelVar
+
+		r, err := Open(dir, &lvl, settings.Logging{
+			Level:         "info",
+			MaxFileSizeMB: 1,
+			MaxFiles:      3,
+		})
+		require.NoError(t, err)
+
+		defer r.Close()
+
+		full := strings.Repeat("x", 1<<20-1) + "\n"
+		_, err = r.Write([]byte(full))
+		require.NoError(t, err)
+
+		r.rename = func(string, string) error { return errors.New("disk says no") }
+
+		t.Run("WHEN a line is written", func(t *testing.T) {
+			_, err := r.Write([]byte("after the failure\n"))
+
+			t.Run("THEN the rotation error is reported", func(t *testing.T) {
+				require.Error(t, err)
+			})
+
+			t.Run("AND the line still lands in the current file", func(t *testing.T) {
+				assert.True(t, strings.HasSuffix(current(t, dir), "after the failure\n"))
+			})
+		})
+
+		t.Run("WHEN renaming works again and another line is written", func(t *testing.T) {
+			r.rename = os.Rename
+
+			_, err := r.Write([]byte("rotated at last\n"))
+			require.NoError(t, err)
+
+			t.Run("THEN the file is rotated and the line starts the new one", func(t *testing.T) {
+				assert.Equal(t, "rotated at last\n", current(t, dir))
+
+				files, err := r.List()
+				require.NoError(t, err)
+				assert.Len(t, files, 2)
+			})
+		})
+	})
+}
+
+func current(t *testing.T, dir string) string {
+	t.Helper()
+
+	data, err := os.ReadFile(filepath.Join(dir, currentName))
+	require.NoError(t, err)
+
+	return string(data)
 }
