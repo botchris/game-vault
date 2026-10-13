@@ -69,7 +69,8 @@ The Fanatical plugin is a real, small one: one source, `apiclient`, a fake-serve
 - **`ExternalID`** is `"<name>:<id>"` and never changes format: a scan matches copies by it, so a
   new format duplicates every copy. If it must change, set `PreviousExternalID` on the copies.
   An item the store gives no id gets one from its title with `game.TitleIDKey` (frozen), never
-  `game.MatchKey`, which changes as matching improves.
+  `game.MatchKey`, which changes as matching improves (Battle.net, EA and CSV rows without
+  `externalId` do this).
 - **Only import what the account owns**: skip subscriptions (Game Pass, PS Plus…), trials, and
   what is not a game (DLC, software, vouchers), counting the skipped items in a warning.
 - **Withdraw** what you imported by mistake: return the item with `Withdrawn: true` and the copy

@@ -25,8 +25,8 @@ const idStoreNames = `steam|gog(\.com)?|epic(\s*games)?(\s*store)?|ubisoft(\s*co
 	`battle\.?\s*net|rockstar(\s*games)?|microsoft(\s*store)?|xbox(\s*(one|series\s*[xs](\s*\|\s*[xs])?|live))?|` +
 	`windows|playstation(\s*[345])?|psn|ps[345]|nintendo(\s*(switch|eshop))?|switch|itch(\.io)?|amazon(\s*games)?`
 
-// TitleIDKey derives a stable id from a title, for a source whose store gives an item no id of its
-// own (Battle.net, EA): the copy's ExternalID is built from it. It reduces the title the way
+// TitleIDKey derives a stable id from a title, for a source whose items may have no id of their
+// own (Battle.net, EA, CSV rows without externalId): the copy's ExternalID is built from it. It reduces the title the way
 // MatchKey did on 2026-10-13 ("Celeste™ (Steam Key)" → "celeste") and, unlike MatchKey, is frozen:
 // an ExternalID never changes format, or the next scan imports the copy again. Use MatchKey to
 // compare titles; use this only for ids. TestTitleIDKey_neverChanges pins its output.

@@ -297,3 +297,17 @@ func TestAutoLinks_roundTrip(t *testing.T) {
 		})
 	})
 }
+
+// TestDecode_idWithoutExternalID pins the id of a row without externalId: importing the same file
+// again updates the copies under it, so it must never change (game.TitleIDKey, not MatchKey).
+func TestDecode_idWithoutExternalID(t *testing.T) {
+	in := "title,platform,kind,key\n" +
+		"Example Quest™ (Steam Key),Steam,key,AAAA-BBBB\n" +
+		"Pokémon Example & Friends - Deluxe Edition,Switch,physical,\n"
+
+	copies, _, err := Codec{}.Decode(strings.NewReader(in))
+	require.NoError(t, err)
+	require.Len(t, copies, 2)
+	assert.Equal(t, "csv:key|steam|example quest|AAAA-BBBB", copies[0].ExternalID)
+	assert.Equal(t, "csv:physical|switch|pokemon example and friends|", copies[1].ExternalID)
+}

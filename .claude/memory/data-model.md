@@ -29,9 +29,10 @@ metadata:
   `TestVocabulary_valuesNeverChange` pins the strings and a cmd/gamevault test rejects literals in
   adapters (allowlist `rawVocabulary` for external API values). The EA source's `Origin` stays
   "EA app" (lowercase, as stored) while its platform is "EA App".
-- Battle.net and EA items without a store id get `<prefix>:` + `game.TitleIDKey(title)`, a frozen
-  copy of `MatchKey` as of 2026-10-13 (pinned by a test): never `MatchKey`, whose changes would
-  re-key those copies.
+- Battle.net and EA items without a store id get `<prefix>:` + `game.TitleIDKey(title)`, and CSV
+  rows without `externalId` get `csv:<kind>|<platform lowercased>|<TitleIDKey(title)>|<key>`.
+  `TitleIDKey` is a frozen copy of `MatchKey` as of 2026-10-13 (pinned by tests): never `MatchKey`,
+  whose changes would re-key those copies.
 - **Storage (since migration 0009, 2026-10-09):** games (copies inside), sources and providers are
   JSON documents `(id, doc)`; the adapter's `gameDoc`/`copyDoc`/`sourceDoc`/`providerDoc` field
   names never change once released (like ExternalID prefixes). A new field needs no migration;
