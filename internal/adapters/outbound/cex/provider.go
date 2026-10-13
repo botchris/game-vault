@@ -225,16 +225,22 @@ func match(b box) media.BarcodeMatch {
 
 // allowed returns the countries the user limited lookups to, or every country.
 func allowed(setting string) []string {
+	if out := parseCountries(setting); len(out) > 0 {
+		return out
+	}
+
+	return Countries
+}
+
+// parseCountries returns the valid countries of the setting, in the user's order and without
+// repeats; nil when none is set or valid, so each caller picks its own fallback.
+func parseCountries(setting string) []string {
 	var out []string
 
 	for c := range strings.SplitSeq(strings.ToLower(setting), ",") {
 		if c = strings.TrimSpace(c); slices.Contains(Countries, c) && !slices.Contains(out, c) {
 			out = append(out, c)
 		}
-	}
-
-	if len(out) == 0 {
-		return Countries
 	}
 
 	return out

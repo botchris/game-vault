@@ -198,10 +198,6 @@ func (p *Covers) Covers(ctx context.Context, q media.GameQuery, s schema.Setting
 		}
 	}
 
-	if q.LinksOnly {
-		return nil, nil
-	}
-
 	g, err := p.findByTitle(ctx, key, q.Title)
 	if err != nil || g == nil {
 		return nil, err
