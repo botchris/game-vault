@@ -39,7 +39,7 @@ var rawVocabulary = []struct {
 
 	// The EA app writes its name with a lowercase "app"; the copies' origin keeps the spelling
 	// they were imported with (the platform is game.PlatformEA, "EA App").
-	{"internal/adapters/outbound/eaapp/provider.go", "mapItems", "EA app"},
+	{"internal/adapters/outbound/eaapp/provider.go", "origin", "EA app"},
 }
 
 // TestVocabulary_adaptersUseTheDomainNames fails when the code outside the domain writes a platform
@@ -63,9 +63,11 @@ func TestVocabulary_adaptersUseTheDomainNames(t *testing.T) {
 		return "", false
 	}
 
+	used := make([]bool, len(rawVocabulary))
 	allowed := func(file, decl, value string) bool {
-		for _, a := range rawVocabulary {
+		for i, a := range rawVocabulary {
 			if a.file == file && a.decl == decl && a.value == value {
+				used[i] = true
 				return true
 			}
 		}
@@ -128,6 +130,11 @@ func TestVocabulary_adaptersUseTheDomainNames(t *testing.T) {
 			return nil
 		})
 		require.NoError(t, err)
+	}
+
+	// An entry nothing matches any more would let the literal back in unnoticed later: remove it.
+	for i, a := range rawVocabulary {
+		assert.True(t, used[i], "rawVocabulary entry %s %s %q matches no literal: remove it", a.file, a.decl, a.value)
 	}
 }
 

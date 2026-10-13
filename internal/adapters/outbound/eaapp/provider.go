@@ -32,6 +32,10 @@ const Type source.Type = "eaapp"
 // Platform is the store name used on copies, matching Humble's Origin / EA keys.
 const Platform = game.PlatformEA
 
+// origin is where the copies were bought, as the EA app writes its name. It is stored in every copy
+// imported so far: it keeps the lowercase "app", unlike the platform.
+const origin = "EA app"
+
 const (
 	settingCookies = "cookies"
 	settingSession = "session"
@@ -335,7 +339,7 @@ func mapItems(items []item) []game.ImportedCopy {
 				Kind:     game.KindLibrary,
 				Platform: Platform,
 				Status:   game.StatusOwned,
-				Origin:   "EA app",
+				Origin:   origin,
 				Edition:  edition,
 			},
 		}
