@@ -11,21 +11,17 @@ package gog
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
-	gosync "sync"
 	"time"
 
 	"gamevault/internal/adapters/outbound/apiclient"
+	"gamevault/internal/adapters/outbound/oauthsession"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
@@ -49,10 +45,7 @@ const (
 	defaultAuthURL  = "https://auth.gog.com"
 	defaultEmbedURL = "https://embed.gog.com"
 
-	// pendingTTL keeps the session of a just-exchanged code, so "Test" and then "Save" can both
-	// use the same one-time code.
-	pendingTTL = 15 * time.Minute
-	maxPages   = 200
+	maxPages = 200
 )
 
 // LoginURL is where the user signs in to get a code.
@@ -79,40 +72,51 @@ type session struct {
 	UserID       string `json:"user_id"`
 }
 
-type accessToken struct {
-	token   string
-	expires time.Time
-}
-
-type pendingSession struct {
-	s       session
-	expires time.Time
-}
-
 // Provider implements sync.Provider and sync.Preparer for GOG accounts.
 type Provider struct {
-	AuthURL  string
-	EmbedURL string
-	Client   *http.Client
-	Now      func() time.Time
+	// Auth calls GOG's sign-in service (codes and tokens); tests point it at a fake server.
+	Auth *apiclient.Client
 
-	mu      gosync.Mutex
-	pending map[string]pendingSession // sha256(code) → session from a recent exchange
-	tokens  map[string]accessToken    // user id → access token
+	// Embed calls the account API the GOG website uses (the owned products).
+	Embed *apiclient.Client
+
+	// Now is the clock.
+	Now func() time.Time
+
+	// sessions exchanges the pasted codes and keeps the sessions' access tokens.
+	sessions *oauthsession.Sessions[session]
 }
 
 // NewProvider returns the GOG source with its production endpoints.
 func NewProvider() *Provider {
-	return &Provider{
-		AuthURL:  defaultAuthURL,
-		EmbedURL: defaultEmbedURL,
-		Now:      time.Now,
-		Client: &http.Client{
-			Timeout: 30 * time.Second,
-			// Without a valid session GOG redirects to its login page: report that, do not follow it.
-			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
-		},
+	p := &Provider{
+		Auth:  newClient(defaultAuthURL),
+		Embed: newClient(defaultEmbedURL),
+		Now:   time.Now,
 	}
+	p.sessions = &oauthsession.Sessions[session]{
+		CodeField:    settingAuthCode,
+		StateField:   settingSession,
+		Clean:        func(v string) (string, error) { return cleanCode(v), nil },
+		Exchange:     p.exchange,
+		Refresh:      p.refresh,
+		RefreshToken: func(s session) string { return s.RefreshToken },
+		ErrNoSession: ErrNoSession,
+		ErrSignedOut: ErrSessionExpired,
+		Now:          func() time.Time { return p.Now() },
+	}
+
+	return p
+}
+
+// newClient returns a client of one of GOG's services. Without a valid session GOG redirects to
+// its login page: the redirect is the answer, reported as a rejected token, never followed.
+func newClient(baseURL string) *apiclient.Client {
+	c := apiclient.New(baseURL)
+	c.HTTP.Timeout = 30 * time.Second
+	c.NoRedirects = true
+
+	return c
 }
 
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
@@ -172,88 +176,21 @@ func cleanCode(v string) string {
 	return strings.Trim(v, `"' `)
 }
 
-func hashCode(code string) string {
-	h := sha256.Sum256([]byte(code))
-	return hex.EncodeToString(h[:])
-}
-
 // Prepare implements sync.Preparer: a pasted code is exchanged for a session, which is stored
 // instead of the code (codes work only once).
 func (p *Provider) Prepare(ctx context.Context, settings source.Settings) (source.Settings, error) {
-	out := source.Settings{}
-	for k, v := range settings {
-		out[k] = v
-	}
-
-	code := cleanCode(settings[settingAuthCode])
-	delete(out, settingAuthCode)
-
-	if code == "" || code == source.SecretPlaceholder {
-		if out[settingSession] == "" {
-			return nil, ErrNoSession
-		}
-
-		return out, nil
-	}
-
-	key := hashCode(code)
-
-	p.mu.Lock()
-	pend, ok := p.pending[key]
-	p.mu.Unlock()
-
-	s := pend.s
-	if !ok || p.Now().After(pend.expires) {
-		tok, err := p.token(ctx, url.Values{"grant_type": {"authorization_code"}, "code": {code}, "redirect_uri": {redirectURI}})
-		if err != nil {
-			return nil, err
-		}
-
-		s = p.remember(tok)
-		p.mu.Lock()
-		if p.pending == nil {
-			p.pending = map[string]pendingSession{}
-		}
-
-		p.pending[key] = pendingSession{
-			s:       s,
-			expires: p.Now().Add(pendingTTL),
-		}
-		p.mu.Unlock()
-	}
-
-	raw, _ := json.Marshal(s)
-	out[settingSession] = string(raw)
-
-	return out, nil
+	return p.sessions.Prepare(ctx, settings)
 }
 
 // Test implements sync.Provider: one request for the list of owned product ids.
 func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
-	return p.withToken(ctx, settings, func(token string) error {
+	return p.sessions.WithRetry(ctx, settings, func(token string) error {
 		var owned struct {
 			Owned []int64 `json:"owned"`
 		}
 
-		return p.get(ctx, token, p.EmbedURL+"/user/data/games", &owned)
+		return p.get(ctx, token, "/user/data/games", nil, &owned)
 	})
-}
-
-// withToken runs call with an access token, and once more with a renewed one when GOG rejects the
-// first (errTokenRejected): only a refused refresh means the user must sign in again.
-func (p *Provider) withToken(ctx context.Context, settings source.Settings, call func(token string) error) error {
-	for range 2 {
-		token, err := p.accessToken(ctx, settings)
-		if err != nil {
-			return err
-		}
-
-		if err := call(token); !errors.Is(err, errTokenRejected) {
-			return err
-		}
-	}
-
-	return ErrSessionExpired
 }
 
 type product struct {
@@ -267,7 +204,7 @@ type product struct {
 func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.ImportedCopy, []string, error) {
 	var products []product
 
-	err := p.withToken(ctx, settings, func(token string) error {
+	err := p.sessions.WithRetry(ctx, settings, func(token string) error {
 		products = nil // a renewed token reads every page again
 
 		for page := 1; page <= maxPages; page++ {
@@ -277,7 +214,7 @@ func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.
 			}
 
 			q := url.Values{"mediaType": {"1"}, "page": {strconv.Itoa(page)}}
-			if err := p.get(ctx, token, p.EmbedURL+"/account/getFilteredProducts?"+q.Encode(), &res); err != nil {
+			if err := p.get(ctx, token, "/account/getFilteredProducts", q, &res); err != nil {
 				return err
 			}
 
@@ -334,141 +271,91 @@ type tokenResponse struct {
 	UserID       string `json:"user_id"`
 }
 
-func (p *Provider) token(ctx context.Context, q url.Values) (tokenResponse, error) {
+// exchange trades a code for a session (oauthsession.Sessions.Exchange).
+func (p *Provider) exchange(ctx context.Context, code string) (oauthsession.Grant[session], error) {
+	return p.token(ctx, url.Values{"grant_type": {"authorization_code"}, "code": {code}, "redirect_uri": {redirectURI}})
+}
+
+// refresh renews a session (oauthsession.Sessions.Refresh). GOG rotates the refresh token.
+func (p *Provider) refresh(ctx context.Context, s session) (oauthsession.Grant[session], error) {
+	return p.token(ctx, url.Values{"grant_type": {"refresh_token"}, "refresh_token": {s.RefreshToken}})
+}
+
+// token calls the token endpoint, which takes everything in the query, as GOG Galaxy sends it.
+// apiclient never shows a query in its errors, so neither the client secret nor the code or the
+// refresh token reaches a warning or the logs.
+func (p *Provider) token(ctx context.Context, q url.Values) (oauthsession.Grant[session], error) {
 	q.Set("client_id", clientID)
 	q.Set("client_secret", clientSecret)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.AuthURL+"/token?"+q.Encode(), nil)
+	res, err := p.Auth.Send(ctx, apiclient.Request{
+		Path:  "/token",
+		Query: q,
+	})
 	if err != nil {
-		return tokenResponse{}, err
+		return oauthsession.Grant[session]{}, apiclient.ClassifyError(ctx, err)
 	}
 
-	// The URL carries the code or the refresh token: ClassifyError drops the query from a transport
-	// error, so neither reaches a warning or the logs.
-	res, err := p.Client.Do(req)
-	if err != nil {
-		return tokenResponse{}, apiclient.ClassifyError(ctx, err)
-	}
-	defer res.Body.Close()
-
-	body, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
-	if res.StatusCode != http.StatusOK {
-		var e struct {
-			Error string `json:"error"`
-		}
-
-		_ = json.Unmarshal(body, &e)
-
+	if !res.OK() {
 		// GOG refuses a used code or a stale refresh token with a 400 invalid_grant; a 429 or an
 		// outage is a passing trouble, after which the same code or session still works.
 		switch {
-		case q.Get("grant_type") == "authorization_code" && apiclient.Rejected(res.StatusCode):
-			return tokenResponse{}, ErrBadCode
-		case q.Get("grant_type") == "refresh_token" && apiclient.Rejected(res.StatusCode):
-			return tokenResponse{}, ErrSessionExpired
-		case e.Error != "":
-			return tokenResponse{}, fmt.Errorf("gog sign-in: %s: %w", e.Error, apiclient.ClassifyStatus(res.StatusCode))
+		case q.Get("grant_type") == "authorization_code" && apiclient.Rejected(res.Status):
+			return oauthsession.Grant[session]{}, ErrBadCode
+		case q.Get("grant_type") == "refresh_token" && apiclient.Rejected(res.Status):
+			return oauthsession.Grant[session]{}, ErrSessionExpired
 		}
 
-		return tokenResponse{}, fmt.Errorf("gog sign-in: %w", apiclient.ClassifyStatus(res.StatusCode))
+		var e struct {
+			Error string `json:"error"`
+		}
+		if res.Decode(&e) == nil && e.Error != "" {
+			return oauthsession.Grant[session]{}, fmt.Errorf("gog sign-in: %s: %w", e.Error, apiclient.ClassifyStatus(res.Status))
+		}
+
+		return oauthsession.Grant[session]{}, fmt.Errorf("gog sign-in: %w", apiclient.ClassifyStatus(res.Status))
 	}
 
 	var tok tokenResponse
-	if err := json.Unmarshal(body, &tok); err != nil {
-		return tokenResponse{}, fmt.Errorf("gog sign-in: %w", err)
+	if err := res.Decode(&tok); err != nil {
+		return oauthsession.Grant[session]{}, fmt.Errorf("gog sign-in: %w", err)
 	}
 
 	if tok.AccessToken == "" || tok.RefreshToken == "" {
-		return tokenResponse{}, errors.New("gog sign-in: response without tokens")
+		return oauthsession.Grant[session]{}, errors.New("gog sign-in: response without tokens")
 	}
 
-	return tok, nil
-}
-
-// remember caches the access token and returns the session to store.
-func (p *Provider) remember(tok tokenResponse) session {
-	p.mu.Lock()
-	if p.tokens == nil {
-		p.tokens = map[string]accessToken{}
-	}
-
-	p.tokens[tok.UserID] = accessToken{
-		token:   tok.AccessToken,
-		expires: p.Now().Add(time.Duration(tok.ExpiresIn) * time.Second),
-	}
-	p.mu.Unlock()
-
-	return session{
-		RefreshToken: tok.RefreshToken,
-		UserID:       tok.UserID,
-	}
-}
-
-// accessToken returns a valid access token, refreshing the session when needed. A refresh rotates
-// the refresh token, so the new session is written back into settings for the caller to persist.
-func (p *Provider) accessToken(ctx context.Context, settings source.Settings) (string, error) {
-	var s session
-	if raw := settings[settingSession]; raw == "" || json.Unmarshal([]byte(raw), &s) != nil || s.RefreshToken == "" {
-		return "", ErrNoSession
-	}
-
-	p.mu.Lock()
-	cached, ok := p.tokens[s.UserID]
-	p.mu.Unlock()
-
-	if ok && p.Now().Add(time.Minute).Before(cached.expires) {
-		return cached.token, nil
-	}
-
-	tok, err := p.token(ctx, url.Values{"grant_type": {"refresh_token"}, "refresh_token": {s.RefreshToken}})
-	if err != nil {
-		return "", err
-	}
-
-	raw, _ := json.Marshal(p.remember(tok))
-	settings[settingSession] = string(raw)
-
-	return tok.AccessToken, nil
-}
-
-func (p *Provider) forget(token string) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	for k, v := range p.tokens {
-		if v.token == token {
-			delete(p.tokens, k)
-		}
-	}
+	return oauthsession.Grant[session]{
+		Session: session{
+			RefreshToken: tok.RefreshToken,
+			UserID:       tok.UserID,
+		},
+		AccessToken: tok.AccessToken,
+		Lifetime:    time.Duration(tok.ExpiresIn) * time.Second,
+	}, nil
 }
 
 // errTokenRejected means GOG refused an access token (HTTP 401, or a redirect to its login page):
-// it may have expired or been revoked before its time. The caller renews it once; only a refused
+// it may have expired or been revoked before its time. The sessions renew it once; only a refused
 // refresh is signed out.
-var errTokenRejected = errors.New("gog rejected the access token")
+var errTokenRejected = fmt.Errorf("gog rejected the access token: %w", apiclient.ErrTokenRejected)
 
-func (p *Provider) get(ctx context.Context, token, u string, out any) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-	if err != nil {
-		return err
-	}
+// get reads the account API with an access token. A 429 or an outage is a passing trouble.
+func (p *Provider) get(ctx context.Context, token, path string, q url.Values, out any) error {
+	err := p.Embed.Do(ctx, apiclient.Request{
+		Path:   path,
+		Query:  q,
+		Header: http.Header{"Authorization": {"Bearer " + token}},
+	}, out)
 
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Accept", "application/json")
-
-	res, err := p.Client.Do(req)
-	if err != nil {
-		return apiclient.ClassifyError(ctx, err)
-	}
-	defer res.Body.Close()
+	var se *apiclient.StatusError
 
 	switch {
-	case res.StatusCode == http.StatusUnauthorized || (res.StatusCode >= 300 && res.StatusCode < 400):
-		p.forget(token) // next call refreshes the session
+	case err == nil:
+		return nil
+	case errors.As(err, &se) && (se.Status == http.StatusUnauthorized || (se.Status >= 300 && se.Status < 400)):
 		return errTokenRejected
-	case res.StatusCode != http.StatusOK:
-		return fmt.Errorf("gog %s: %w", req.URL.Path, apiclient.ClassifyStatus(res.StatusCode))
 	}
 
-	return json.NewDecoder(io.LimitReader(res.Body, 32<<20)).Decode(out)
+	return fmt.Errorf("gog %s: %w", path, apiclient.ClassifyError(ctx, err))
 }
