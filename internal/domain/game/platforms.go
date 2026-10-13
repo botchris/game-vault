@@ -261,6 +261,20 @@ func CanonicalPlatform(p string) string {
 	return strings.TrimSpace(p)
 }
 
+// StoreLinks returns the link keys of the stores Game Vault knows, each once (a copy: callers cannot
+// change it). Every source and provider that links games to a store uses one of them.
+func StoreLinks() []string {
+	var out []string
+
+	for _, p := range platforms {
+		if p.link != "" && !slices.Contains(out, p.link) {
+			out = append(out, p.link)
+		}
+	}
+
+	return out
+}
+
 // IsPCStoreLink reports whether key is the link key of a store that sells PC games. A game linked to
 // one has PC art there even when the user owns it only on a console, which the console edition can
 // borrow as a last resort (see Game.BorrowsPCBox). cmd/gamevault checks that every PC store's cover

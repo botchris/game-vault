@@ -16,8 +16,9 @@ import (
 	"gamevault/internal/domain/game"
 )
 
-// rawVocabulary lists the string literals that equal a platform or system name (ignoring case) but
-// are rightly not the domain's constants: values of an external API, compared with or sent to it.
+// rawVocabulary lists the string literals that equal a platform or system name (ignoring case), or
+// are link keys, but are rightly not the domain's constants: values of an external API, compared
+// with or sent to it, and the template plugin's imaginary store.
 // Each entry is the file (from the repository root), the top-level declaration it is in, and the
 // literal, so that the same word written anywhere else still fails the test.
 var rawVocabulary = []struct {
@@ -40,6 +41,10 @@ var rawVocabulary = []struct {
 	// The EA app writes its name with a lowercase "app"; the copies' origin keeps the spelling
 	// they were imported with (the platform is game.PlatformEA, "EA App").
 	{"internal/adapters/outbound/eaapp/provider.go", "origin", "EA app"},
+
+	// The imaginary store of the plugin template, which is never registered: a real store adds its
+	// link key to the domain (internal/domain/game/platforms.go).
+	{"internal/adapters/outbound/example/plugin.go", "LinkedStore", "example"},
 }
 
 // TestVocabulary_adaptersUseTheDomainNames fails when the code outside the domain writes a platform
@@ -49,7 +54,9 @@ var rawVocabulary = []struct {
 // or, for a value of an external API, add the literal to rawVocabulary with the reason. Display
 // names (a descriptor's Name field) are labels, not platforms, and are not checked; nor are
 // literals in lowercase, which are ids, flags and query values ("steam", "xbox", "ps4"), unless the
-// name itself is lowercase ("itch.io").
+// name itself is lowercase ("itch.io"). Link keys are lowercase, so they are checked apart: a string literal as
+// a key of a game.Links literal or as a game.Store's Key fails here, and
+// TestPlugins_linkKeysAreTheDomains checks the key of every store a plugin links to at run time.
 func TestVocabulary_adaptersUseTheDomainNames(t *testing.T) {
 	names := append(game.KnownPlatforms(), game.SystemOther)
 
@@ -100,6 +107,17 @@ func TestVocabulary_adaptersUseTheDomainNames(t *testing.T) {
 				name := declName(decl)
 
 				ast.Inspect(decl, func(n ast.Node) bool {
+					if lit, ok := n.(*ast.CompositeLit); ok {
+						for _, key := range literalLinkKeys(lit) {
+							if v, err := strconv.Unquote(key.Value); err == nil && allowed(rel, name, v) {
+								continue
+							}
+
+							assert.Failf(t, "link key written as a literal", "%s:%d (in %s): link key %s: use a game.Link… constant",
+								rel, fset.Position(key.Pos()).Line, name, key.Value)
+						}
+					}
+
 					if kv, ok := n.(*ast.KeyValueExpr); ok {
 						if key, ok := kv.Key.(*ast.Ident); ok && key.Name == "Name" {
 							return false // a display name
@@ -136,6 +154,43 @@ func TestVocabulary_adaptersUseTheDomainNames(t *testing.T) {
 	for i, a := range rawVocabulary {
 		assert.True(t, used[i], "rawVocabulary entry %s %s %q matches no literal: remove it", a.file, a.decl, a.value)
 	}
+}
+
+// literalLinkKeys returns the link keys written as string literals in a game.Links or game.Store
+// literal ({"steam": "620"}, game.Store{Key: "gog"}).
+func literalLinkKeys(lit *ast.CompositeLit) []*ast.BasicLit {
+	sel, ok := lit.Type.(*ast.SelectorExpr)
+	if !ok {
+		return nil
+	}
+
+	if pkg, ok := sel.X.(*ast.Ident); !ok || pkg.Name != "game" || (sel.Sel.Name != "Links" && sel.Sel.Name != "Store") {
+		return nil
+	}
+
+	var out []*ast.BasicLit
+
+	for _, e := range lit.Elts {
+		kv, ok := e.(*ast.KeyValueExpr)
+		if !ok {
+			continue
+		}
+
+		key := kv.Key
+		if sel.Sel.Name == "Store" {
+			if id, ok := kv.Key.(*ast.Ident); !ok || id.Name != "Key" {
+				continue
+			}
+
+			key = kv.Value
+		}
+
+		if b, ok := key.(*ast.BasicLit); ok && b.Kind == token.STRING {
+			out = append(out, b)
+		}
+	}
+
+	return out
 }
 
 // declName returns the name of a top-level declaration: the function's, or the first name the

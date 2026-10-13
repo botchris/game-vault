@@ -99,6 +99,10 @@ func TestKnownPlatforms(t *testing.T) {
 	})
 }
 
+func TestStoreLinks(t *testing.T) {
+	assert.Equal(t, []string{"steam", "epic", "gog", "ea", "battlenet", "ubisoft", "xbox", "itch", "amazon", "psn"}, StoreLinks())
+}
+
 func TestIsPCStoreLink(t *testing.T) {
 	for _, key := range []string{"steam", "gog", "epic", "ea", "battlenet", "ubisoft", "xbox", "amazon", "itch"} {
 		assert.True(t, IsPCStoreLink(key), key)

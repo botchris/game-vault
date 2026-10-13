@@ -24,6 +24,7 @@ import (
 	"gamevault/internal/adapters/outbound/xbox"
 	"gamevault/internal/application/media"
 	"gamevault/internal/application/plugin/plugintest"
+	"gamevault/internal/application/sync"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 )
@@ -237,5 +238,61 @@ func TestCoverProviders_pcStoreLinks(t *testing.T) {
 				assert.True(t, game.IsPCStoreLink(key), key)
 			})
 		}
+	})
+}
+
+// TestPlugins_linkKeysAreTheDomains checks that every store a source links its copies to, and every
+// store a media provider reads links of, uses one of the domain's link keys (game.Link…): the keys
+// are stored in every game's links, and sources and providers meet only through them. Link keys
+// written as literals are also rejected by TestVocabulary_adaptersUseTheDomainNames.
+func TestPlugins_linkKeysAreTheDomains(t *testing.T) {
+	t.Run("GIVEN the plugins compiled into Game Vault", func(t *testing.T) {
+		plugins, err := newPlugins(slog.New(slog.NewTextHandler(io.Discard, nil)))
+		require.NoError(t, err)
+
+		var linkers []any
+		for _, s := range plugins.Sources() {
+			linkers = append(linkers, s)
+		}
+
+		m := plugins.Media()
+		for _, p := range m.Covers {
+			linkers = append(linkers, p)
+		}
+
+		for _, p := range m.Metadata {
+			linkers = append(linkers, p)
+		}
+
+		for _, p := range m.Barcodes {
+			linkers = append(linkers, p)
+		}
+
+		for _, p := range m.Valuations {
+			linkers = append(linkers, p)
+		}
+
+		t.Run("THEN every store they link to has a key of the domain", func(t *testing.T) {
+			seen := 0
+
+			for _, l := range linkers {
+				var store game.Store
+
+				switch l := l.(type) {
+				case sync.StoreLinker:
+					store = l.LinkStore()
+				case media.StoreLinker:
+					store = l.LinkStore()
+				default:
+					continue
+				}
+
+				seen++
+
+				assert.Contains(t, game.StoreLinks(), store.Key, "%T links to %q", l, store.Key)
+			}
+
+			assert.NotZero(t, seen)
+		})
 	})
 }

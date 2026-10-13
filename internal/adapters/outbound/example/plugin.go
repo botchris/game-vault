@@ -24,7 +24,9 @@ import (
 const defaultBaseURL = "https://api.example-store.invalid"
 
 // LinkedStore is the store this plugin links games to. The source sets the link on every game it
-// imports and the cover provider reads it: that is the only thing the two pieces share.
+// imports and the cover provider reads it: that is the only thing the two pieces share. A real
+// store's Key is a game.Link… constant, added with its platform to internal/domain/game/platforms.go;
+// this imaginary one is allowed as a literal (rawVocabulary in cmd/gamevault).
 var LinkedStore = game.Store{
 	Key:     "example",
 	Name:    "Example Store",
