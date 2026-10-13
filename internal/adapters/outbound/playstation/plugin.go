@@ -12,6 +12,6 @@ func Plugin(log *slog.Logger) plugin.Plugin {
 	return plugin.Plugin{
 		ID:      "playstation",
 		Name:    "PlayStation",
-		Sources: []sync.Provider{NewProvider(log)},
+		Sources: []sync.Provider{NewProvider(WithLogger(log))},
 	}
 }

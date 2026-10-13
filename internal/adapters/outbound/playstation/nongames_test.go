@@ -167,7 +167,7 @@ func TestFetch_nonGames(t *testing.T) {
 		t.Run("WHEN it is scanned", func(t *testing.T) {
 			copies, warnings, err := p.Fetch(ctx, schema.Settings{settingNPSSO: "good-npsso"})
 			require.NoError(t, err)
-			assert.Empty(t, warnings)
+			assert.Empty(t, warnings, "what is not a game goes to the log, not to a warning on every scan")
 
 			got := byExternalID(copies)
 			require.Len(t, got, len(libraryWithNonGames))

@@ -5,13 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"slices"
-	"strings"
 	"time"
 
 	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/application/valuation"
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/money"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
 )
@@ -88,19 +87,11 @@ func (p *Prices) Descriptor() provider.Descriptor {
 // user's order; Spain when none is set or valid. Unlike barcode lookups, prices never fall back to
 // every CeX store: a product unknown in the user's market is simply not priced.
 func priceCountries(s schema.Settings) []string {
-	var out []string
-
-	for c := range strings.SplitSeq(strings.ToLower(s[settingCountries]), ",") {
-		if c = strings.TrimSpace(c); slices.Contains(Countries, c) && !slices.Contains(out, c) {
-			out = append(out, c)
-		}
+	if out := parseCountries(s[settingCountries]); len(out) > 0 {
+		return out
 	}
 
-	if len(out) == 0 {
-		return []string{"es"}
-	}
-
-	return out
+	return []string{"es"}
 }
 
 // Estimate implements valuation.Provider: the first country whose catalog has the barcode answers.
@@ -128,9 +119,9 @@ func (p *Prices) Estimate(ctx context.Context, s schema.Settings, code game.Barc
 		cur := currencies[country]
 
 		return game.Estimate{
-			Sell:      money(b.SellPrice, cur),
-			BuyCash:   money(b.CashPrice, cur),
-			BuyCredit: money(b.ExchangePrice, cur),
+			Sell:      priceOf(b.SellPrice, cur),
+			BuyCash:   priceOf(b.CashPrice, cur),
+			BuyCredit: priceOf(b.ExchangePrice, cur),
 			URL:       fmt.Sprintf("https://%s.webuy.com/product-detail/?id=%s", country, code),
 		}, nil
 	}
@@ -138,9 +129,9 @@ func (p *Prices) Estimate(ctx context.Context, s schema.Settings, code game.Barc
 	return game.Estimate{}, valuation.ErrNotListed
 }
 
-// money converts CeX's decimal price into the currency's minor units (4.5 GBP → 450).
-func money(v float64, currency string) game.Money {
-	minor := int64(math.Round(v * math.Pow10(game.CurrencyDigits(currency))))
+// priceOf converts CeX's decimal price into the currency's minor units (4.5 GBP → 450).
+func priceOf(v float64, currency string) game.Money {
+	minor := int64(math.Round(v * math.Pow10(money.CurrencyDigits(currency))))
 	if minor <= 0 {
 		return game.Money{}
 	}

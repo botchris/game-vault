@@ -3,6 +3,7 @@ package example
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -36,12 +37,22 @@ var (
 
 // Provider implements sync.Provider for Example Store accounts.
 type Provider struct {
+	// log receives what a scan skips on purpose (WithLogger).
+	log *slog.Logger
+
 	// API calls the store; tests point it at a fake server.
 	API *apiclient.Client
 }
 
 // NewProvider returns the Example Store source with its production endpoints.
-func NewProvider() *Provider { return &Provider{API: apiclient.New(defaultBaseURL)} }
+func NewProvider(opts ...Option) *Provider {
+	p := &Provider{API: apiclient.New(defaultBaseURL)}
+	for _, opt := range opts {
+		opt(p)
+	}
+
+	return p
+}
 
 // LinkStore implements sync.StoreLinker: the game page shows the store of every imported game.
 func (p *Provider) LinkStore() game.Store { return LinkedStore }
@@ -105,22 +116,23 @@ func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
 }
 
 // Fetch implements sync.Provider: every game the account owns, linked to the store. What is not a
-// game, or no longer owned (a refund, an expired trial), is skipped and counted in a warning.
+// game, or no longer owned (a refund, an expired trial), is skipped and counted in the log.
 func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, []string, error) {
 	items, err := p.library(ctx, settings, 0)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	var (
-		copies  = make([]game.ImportedCopy, 0, len(items))
-		skipped int
-	)
+	copies := make([]game.ImportedCopy, 0, len(items))
+
+	// One log line per reason, with its count: a missing game can be explained without a warning
+	// on every scan.
+	skipped := source.Skipped{Store: "Example Store"}
 
 	for _, it := range items {
 		title := strings.TrimSpace(it.Title)
 		if it.ID == 0 || title == "" || it.Type != "game" || !it.Owned {
-			skipped++
+			skipped.Add("DLC, soundtracks or no longer owned")
 			continue
 		}
 
@@ -130,7 +142,7 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 			ExternalID: "example:" + id,
 			Title:      title,
 			Links:      game.Links{LinkedStore.Key: id},
-			System:     game.SystemPC,
+			// System stays empty: the platform, a PC store, already says the game is played on PC.
 			Details: game.CopyDetails{
 				Kind:     game.KindLibrary,
 				Platform: Platform,
@@ -140,10 +152,16 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 		})
 	}
 
-	var warnings []string
-	if skipped > 0 {
-		warnings = append(warnings, fmt.Sprintf("%d Example Store items were not imported: DLC, soundtracks or no longer owned", skipped))
-	}
+	skipped.Log(p.log)
 
-	return copies, warnings, nil
+	return copies, nil, nil
+}
+
+// Option configures a Provider.
+type Option func(*Provider)
+
+// WithLogger sends what a scan skips on purpose (DLC, subscription games, what is not a game) to
+// log, one line per reason with its count. Without it nothing is logged.
+func WithLogger(log *slog.Logger) Option {
+	return func(p *Provider) { p.log = log }
 }

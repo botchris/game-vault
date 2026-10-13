@@ -98,7 +98,8 @@ type GameServiceClient interface {
 	UpdateCopy(context.Context, *connect.Request[v1.UpdateCopyRequest]) (*connect.Response[v1.UpdateCopyResponse], error)
 	DeleteCopy(context.Context, *connect.Request[v1.DeleteCopyRequest]) (*connect.Response[v1.DeleteCopyResponse], error)
 	// Removes a copy a source imported and keeps the source from importing it again. A copy added
-	// by hand is refused (delete it instead).
+	// by hand is refused (delete it instead). The copy then lives only on the source's removed
+	// list, so its inverse is SourceService.IncludeCopy.
 	ExcludeCopy(context.Context, *connect.Request[v1.ExcludeCopyRequest]) (*connect.Response[v1.ExcludeCopyResponse], error)
 	MoveCopy(context.Context, *connect.Request[v1.MoveCopyRequest]) (*connect.Response[v1.MoveCopyResponse], error)
 	// Saves the boxes of a scanning session in one transaction: copies of the same new game (by
@@ -406,7 +407,8 @@ type GameServiceHandler interface {
 	UpdateCopy(context.Context, *connect.Request[v1.UpdateCopyRequest]) (*connect.Response[v1.UpdateCopyResponse], error)
 	DeleteCopy(context.Context, *connect.Request[v1.DeleteCopyRequest]) (*connect.Response[v1.DeleteCopyResponse], error)
 	// Removes a copy a source imported and keeps the source from importing it again. A copy added
-	// by hand is refused (delete it instead).
+	// by hand is refused (delete it instead). The copy then lives only on the source's removed
+	// list, so its inverse is SourceService.IncludeCopy.
 	ExcludeCopy(context.Context, *connect.Request[v1.ExcludeCopyRequest]) (*connect.Response[v1.ExcludeCopyResponse], error)
 	MoveCopy(context.Context, *connect.Request[v1.MoveCopyRequest]) (*connect.Response[v1.MoveCopyResponse], error)
 	// Saves the boxes of a scanning session in one transaction: copies of the same new game (by

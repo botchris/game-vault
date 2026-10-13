@@ -44,7 +44,8 @@ func gameResp[T any](g *game.Game, err error, wrap func(*pb.Game) *T) (*connect.
 	return connect.NewResponse(wrap(gameToPB(g))), nil
 }
 
-// ListGames returns the catalog, filtered and sorted as requested.
+// ListGames returns the whole catalog: clients filter and sort it themselves. The request's language
+// picks the language of the genres.
 func (h *GameHandler) ListGames(ctx context.Context, req *connect.Request[pb.ListGamesRequest]) (*connect.Response[pb.ListGamesResponse], error) {
 	games, err := h.catalog.ListGames(ctx)
 	if err != nil {
@@ -110,9 +111,9 @@ func (h *GameHandler) CreateGame(ctx context.Context, req *connect.Request[pb.Cr
 
 // UpdateGame changes the editable fields of a game.
 func (h *GameHandler) UpdateGame(ctx context.Context, req *connect.Request[pb.UpdateGameRequest]) (*connect.Response[pb.UpdateGameResponse], error) {
-	status, ok := playStatusFromPB[req.Msg.PlayStatus]
-	if !ok {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("the play status is not valid: reload the page and try again"))
+	status, err := enumFromPB(playStatusFromPB, req.Msg.PlayStatus, "play status")
+	if err != nil {
+		return nil, err
 	}
 
 	info := game.Info{

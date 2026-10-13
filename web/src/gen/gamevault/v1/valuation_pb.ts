@@ -4,7 +4,7 @@
 
 import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
-import type { Game } from "./game_pb";
+import type { Game, Money } from "./game_pb";
 import { file_gamevault_v1_game } from "./game_pb";
 import type { Message } from "@bufbuild/protobuf";
 
@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file gamevault/v1/valuation.proto.
  */
 export const file_gamevault_v1_valuation: GenFile = /*@__PURE__*/
-  fileDesc("ChxnYW1ldmF1bHQvdjEvdmFsdWF0aW9uLnByb3RvEgxnYW1ldmF1bHQudjEiNwoTRXN0aW1hdGVDb3B5UmVxdWVzdBIPCgdnYW1lX2lkGAEgASgJEg8KB2NvcHlfaWQYAiABKAkiaQoURXN0aW1hdGVDb3B5UmVzcG9uc2USIAoEZ2FtZRgBIAEoCzISLmdhbWV2YXVsdC52MS5HYW1lEhAKCHdhcm5pbmdzGAIgAygJEh0KFXByb3ZpZGVyc191bmF2YWlsYWJsZRgDIAEoCCIbChlHZXRDb2xsZWN0aW9uVmFsdWVSZXF1ZXN0Ip0BCg1Qcm92aWRlclRvdGFsEhAKCHByb3ZpZGVyGAEgASgJEgwKBG5hbWUYAiABKAkSEgoKc2VsbF9taW5vchgDIAEoAxIWCg5idXlfY2FzaF9taW5vchgEIAEoAxIYChBidXlfY3JlZGl0X21pbm9yGAUgASgDEg4KBmNvcGllcxgGIAEoBRIWCg5vdGhlcl9jdXJyZW5jeRgHIAEoBSJbChpHZXRDb2xsZWN0aW9uVmFsdWVSZXNwb25zZRIQCghjdXJyZW5jeRgBIAEoCRIrCgZ0b3RhbHMYAiADKAsyGy5nYW1ldmF1bHQudjEuUHJvdmlkZXJUb3RhbDLSAQoQVmFsdWF0aW9uU2VydmljZRJVCgxFc3RpbWF0ZUNvcHkSIS5nYW1ldmF1bHQudjEuRXN0aW1hdGVDb3B5UmVxdWVzdBoiLmdhbWV2YXVsdC52MS5Fc3RpbWF0ZUNvcHlSZXNwb25zZRJnChJHZXRDb2xsZWN0aW9uVmFsdWUSJy5nYW1ldmF1bHQudjEuR2V0Q29sbGVjdGlvblZhbHVlUmVxdWVzdBooLmdhbWV2YXVsdC52MS5HZXRDb2xsZWN0aW9uVmFsdWVSZXNwb25zZUIxWi9nYW1ldmF1bHQvaW50ZXJuYWwvZ2VuL2dhbWV2YXVsdC92MTtnYW1ldmF1bHR2MWIGcHJvdG8z", [file_gamevault_v1_game]);
+  fileDesc("ChxnYW1ldmF1bHQvdjEvdmFsdWF0aW9uLnByb3RvEgxnYW1ldmF1bHQudjEiNwoTRXN0aW1hdGVDb3B5UmVxdWVzdBIPCgdnYW1lX2lkGAEgASgJEg8KB2NvcHlfaWQYAiABKAkiaQoURXN0aW1hdGVDb3B5UmVzcG9uc2USIAoEZ2FtZRgBIAEoCzISLmdhbWV2YXVsdC52MS5HYW1lEhAKCHdhcm5pbmdzGAIgAygJEh0KFXByb3ZpZGVyc191bmF2YWlsYWJsZRgDIAEoCCIbChlHZXRDb2xsZWN0aW9uVmFsdWVSZXF1ZXN0IpwCCg1Qcm92aWRlclRvdGFsEhAKCHByb3ZpZGVyGAEgASgJEgwKBG5hbWUYAiABKAkSFgoKc2VsbF9taW5vchgDIAEoA0ICGAESGgoOYnV5X2Nhc2hfbWlub3IYBCABKANCAhgBEhwKEGJ1eV9jcmVkaXRfbWlub3IYBSABKANCAhgBEg4KBmNvcGllcxgGIAEoBRIWCg5vdGhlcl9jdXJyZW5jeRgHIAEoBRIhCgRzZWxsGAggASgLMhMuZ2FtZXZhdWx0LnYxLk1vbmV5EiUKCGJ1eV9jYXNoGAkgASgLMhMuZ2FtZXZhdWx0LnYxLk1vbmV5EicKCmJ1eV9jcmVkaXQYCiABKAsyEy5nYW1ldmF1bHQudjEuTW9uZXkiWwoaR2V0Q29sbGVjdGlvblZhbHVlUmVzcG9uc2USEAoIY3VycmVuY3kYASABKAkSKwoGdG90YWxzGAIgAygLMhsuZ2FtZXZhdWx0LnYxLlByb3ZpZGVyVG90YWwy0gEKEFZhbHVhdGlvblNlcnZpY2USVQoMRXN0aW1hdGVDb3B5EiEuZ2FtZXZhdWx0LnYxLkVzdGltYXRlQ29weVJlcXVlc3QaIi5nYW1ldmF1bHQudjEuRXN0aW1hdGVDb3B5UmVzcG9uc2USZwoSR2V0Q29sbGVjdGlvblZhbHVlEicuZ2FtZXZhdWx0LnYxLkdldENvbGxlY3Rpb25WYWx1ZVJlcXVlc3QaKC5nYW1ldmF1bHQudjEuR2V0Q29sbGVjdGlvblZhbHVlUmVzcG9uc2VCMVovZ2FtZXZhdWx0L2ludGVybmFsL2dlbi9nYW1ldmF1bHQvdjE7Z2FtZXZhdWx0djFiBnByb3RvMw", [file_gamevault_v1_game]);
 
 /**
  * @generated from message gamevault.v1.EstimateCopyRequest
@@ -84,7 +84,7 @@ export const GetCollectionValueRequestSchema: GenMessage<GetCollectionValueReque
   messageDesc(file_gamevault_v1_valuation, 2);
 
 /**
- * ProviderTotal is one source's view of the collection's value, in minor units of the currency.
+ * ProviderTotal is one source's view of the collection's value, in the default currency.
  *
  * @generated from message gamevault.v1.ProviderTotal
  */
@@ -100,17 +100,23 @@ export type ProviderTotal = Message<"gamevault.v1.ProviderTotal"> & {
   name: string;
 
   /**
-   * @generated from field: int64 sell_minor = 3;
+   * Deprecated: the amounts of sell, buy_cash and buy_credit in minor units of the response's
+   * currency, kept for one release so older clients still read them.
+   *
+   * @generated from field: int64 sell_minor = 3 [deprecated = true];
+   * @deprecated
    */
   sellMinor: bigint;
 
   /**
-   * @generated from field: int64 buy_cash_minor = 4;
+   * @generated from field: int64 buy_cash_minor = 4 [deprecated = true];
+   * @deprecated
    */
   buyCashMinor: bigint;
 
   /**
-   * @generated from field: int64 buy_credit_minor = 5;
+   * @generated from field: int64 buy_credit_minor = 5 [deprecated = true];
+   * @deprecated
    */
   buyCreditMinor: bigint;
 
@@ -127,6 +133,24 @@ export type ProviderTotal = Message<"gamevault.v1.ProviderTotal"> & {
    * @generated from field: int32 other_currency = 7;
    */
   otherCurrency: number;
+
+  /**
+   * What the copies sell for, and what the shop pays for them in cash and in store credit. Set
+   * whenever the response has a currency, zero amounts included.
+   *
+   * @generated from field: gamevault.v1.Money sell = 8;
+   */
+  sell?: Money | undefined;
+
+  /**
+   * @generated from field: gamevault.v1.Money buy_cash = 9;
+   */
+  buyCash?: Money | undefined;
+
+  /**
+   * @generated from field: gamevault.v1.Money buy_credit = 10;
+   */
+  buyCredit?: Money | undefined;
 };
 
 /**

@@ -54,24 +54,39 @@ func TestLookupConsensusAndMarketplaceFallback(t *testing.T) {
 	p := testProvider(srv)
 	s := schema.Settings{settingClientID: "id", settingClientSecret: "secret", settingMarketplaces: "EBAY_ES, EBAY_GB"}
 
-	m, err := p.Lookup(context.Background(), "5030934110075", s)
-	if err != nil || len(m) != 1 {
-		t.Fatalf("lookup: %+v %v", m, err)
-	}
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
 
-	if m[0].Title != "Dead Space 3" || m[0].Platform != "Xbox 360" {
-		t.Fatalf("consensus title/platform: %+v", m[0])
-	}
+	t.Run("GIVEN no listing on eBay Spain and four on eBay UK", func(t *testing.T) {
+		t.Run("WHEN a barcode is looked up", func(t *testing.T) {
+			m, err := p.Lookup(ctx, "5030934110075", s)
 
-	p.Lookup(context.Background(), "5030934110075", s)
+			t.Run("THEN the next marketplace names the game its listings agree on", func(t *testing.T) {
+				require.NoError(t, err)
+				require.Len(t, m, 1)
+				assert.Equal(t, "Dead Space 3", m[0].Title)
+				assert.Equal(t, "Xbox 360", m[0].Platform)
+			})
+		})
 
-	if tokens != 1 {
-		t.Fatalf("token must be cached, fetched %d times", tokens)
-	}
+		t.Run("WHEN it is looked up again", func(t *testing.T) {
+			_, err := p.Lookup(ctx, "5030934110075", s)
+			require.NoError(t, err)
 
-	err = p.Test(context.Background(), schema.Settings{settingClientID: "id", settingClientSecret: "wrong"})
-	require.ErrorIs(t, err, provider.ErrBadSettings, "bad keys are a settings problem")
-	assert.Contains(t, err.Error(), "client authentication failed")
+			t.Run("THEN the application token is reused", func(t *testing.T) {
+				assert.Equal(t, 1, tokens)
+			})
+		})
+
+		t.Run("WHEN keys eBay rejects are tested", func(t *testing.T) {
+			err := p.Test(ctx, schema.Settings{settingClientID: "id", settingClientSecret: "wrong"})
+
+			t.Run("THEN it is a settings problem, with eBay's words", func(t *testing.T) {
+				require.ErrorIs(t, err, provider.ErrBadSettings)
+				assert.Contains(t, err.Error(), "client authentication failed")
+			})
+		})
+	})
 }
 
 // TestLookup_passingTroubles checks that a rate limit and an outage, of the token endpoint or of

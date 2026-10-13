@@ -14,10 +14,11 @@ for working on the code (with or without an AI agent), see [CLAUDE.md](../CLAUDE
 ## Repository layout
 
 ```
-cmd/gamevault/        Entry point and composition root (wires adapters into use cases)
+cmd/gamevault/        Entry point: configuration, the real plugins, background jobs, listening
 config/               Runtime data: database, backups, logs, per-game images (game-data), photos of copies (photos). Back this up. Git-ignored.
 proto/gamevault/v1/   API contracts (Protocol Buffers). Source of truth for client and server.
 internal/
+  app/                Composition root (wires adapters into use cases), shared by the server and the API's end-to-end tests
   domain/             Pure business model, no infrastructure imports
     game/             Game aggregate, Copy entity, value objects, Consolidator domain service
     source/           Source aggregate (scanned accounts), settings schema, sync reports
@@ -77,7 +78,8 @@ extension/            Browser extension (Game Vault Connector): sign-in recipes 
 ```
 
 Dependencies only point inwards. `domain` imports nothing from the project, `application` imports `domain`, and adapters import both.
-Only `cmd/gamevault` knows the concrete adapters.
+Only the composition root (`internal/app`, called by `cmd/gamevault` and by the API's end-to-end tests
+with fakes) knows the concrete adapters, so the tests run the same wiring as the server.
 
 Every external service is a **plugin**: its package returns a `plugin.Plugin` with the pieces it
 offers (a source, cover, details or barcode providers), and `cmd/gamevault/plugins.go` lists them.
@@ -127,8 +129,9 @@ copies say PS4 or PS5), else the one its platform implies. PC stores and launche
 Games, GOG, EA App, Ubisoft Connect, Battle.net, itch.io, Amazon Games, Rockstar, Riot and
 Battlestate (Tarkov)), the platform `PC` itself and the ambiguous "Microsoft Store / Xbox" imply
 `PC`; console names are their own system; "PlayStation Store" implies PS4 and "Nintendo eShop"
-Switch. An unknown platform is its own system and an empty one is `Other`. A source that lists PC
-copies sets `ImportedCopy.System` to `game.SystemPC`. A system a source sends that is not a valid
+Switch. An unknown platform is its own system and an empty one is `Other`. A source leaves
+`ImportedCopy.System` empty when its platform says the system (every PC store), and sets it when the
+store says more than its platform (PlayStation's console). A system a source sends that is not a valid
 name is ignored (the platform's applies); scans warn about it once per source and system while the
 server runs, then only log it at debug level, while a CSV import warns every time. Scans never touch
 the override; the form's **System** field clears it when emptied. A system name is stored in game
@@ -263,7 +266,16 @@ uncommitted changes.
 
 ## Sources
 
-How each source reads your library.
+How each source reads your library. **Test connection** makes one cheap request instead of a
+scan: the request of a scan's first library page, with the scan's own page size, and no more
+pages; Battle.net's games overview without the classic games; Steam's game count. It
+still signs in and renews what a scan renews, so a rotated credential is saved as after a scan.
+Fanatical answers every key in one request, which the test reads whole. What a scan leaves out on
+purpose (DLC, subscription games such as Game Pass, PS Plus or EA Play, console games on Ubisoft,
+software in bundles) is counted in the server log, one line per reason with its count, not in the
+scan's warnings: it happens on every scan. Battle.net and EA items without a store id get one from
+their title (`game.TitleIDKey`); one whose title has no Latin letters or digits gives no id, so it
+is skipped, and that count is a scan warning, since a game the user owns is left out.
 
 - **Humble Bundle:** session cookie `_simpleauth_sess` from your browser. It uses the site's own JSON API, which is undocumented and read-only. Hidden keys are reported as unrevealed and never revealed. Every game key of every order becomes one copy, Humble Choice months included (a chosen game is a key of that month's order). Only keys for a store or console Game Vault knows count as games: software, courses, in-game items and store coupons ("45% off … Coupon") are skipped and listed in the log, and copies of them imported by earlier versions are removed, with their game if nothing else is left in it. Copies are identified by order, game (`machine_name`) and copy number; copies saved by older versions, which identified keys by order and copy number only and so kept one copy per order, are adopted by the right game on the next scan.
 - **Steam:** a Web API key plus your profile, given as SteamID64, vanity name or URL. "Game details" must be public.
@@ -409,7 +421,7 @@ To find one by hand, **Search Google Images** (the title without edition and sto
 Images are plain HTTP rather than RPC so browsers can load and cache them with `<img>`. Everything else goes through Connect.
 For games no store knows (physical games, for example), link them under **Edit → Store links** (each provider that can search its store offers **Search…**), or paste any image URL.
 
-Store covers: every library source links the games it imports to its store (Steam, Epic, GOG, Battle.net, EA, Ubisoft, Xbox, PlayStation, Amazon), and **Edit → Store links** shows and edits those links. Store cover providers read them, so a game linked by hand gets the art too. **Epic Games Store** and **GOG** give the official box art of games linked to those stores, with no key and no quota. Epic's comes from its catalog, read with an application token (client credentials, no user session); GOG's from its public product API. **Ubisoft** gives the box art Ubisoft Connect shows (by space id, on Ubisoft's CDN, which has art for most but not all games), else the Ubisoft Store packshot found by title through the store's public search (the search-only key every store visitor's browser gets); it also covers games with a Ubisoft Connect key. **EA** gives the official pack art from EA's catalog (public in the EA app API), looking the game up by slug guessed from its title and product id. **Battle.net**: Blizzard publishes no box art outside its signed-in shop, so games imported from Battle.net are looked up on the Steam store by exact title. TheGamesDB is only asked for physical copies, games no store knows, and, on a second pass, store games no store had art for (World of Warcraft, StarCraft II…), so its monthly allowance is not spent on games stores cover.
+Store covers: every library source links the games it imports to its store (Steam, Epic, GOG, Battle.net, EA, Ubisoft, Xbox, PlayStation, Amazon), and **Edit → Store links** shows and edits those links. Store cover providers read them, so a game linked by hand gets the art too. **Epic Games Store** and **GOG** give the official box art of games linked to those stores, with no key and no quota. Epic's comes from its catalog, read with an application token (client credentials, no user session); GOG's from its public product API. **Ubisoft** gives the box art Ubisoft Connect shows (by space id, on Ubisoft's CDN, which has art for most but not all games), else the Ubisoft Store packshot found by title through the store's public search (the search-only key every store visitor's browser gets); it also covers games with a Ubisoft Connect key. **EA** gives the official pack art from EA's catalog (public in the EA app API), looking the game up by slug guessed from its title and product id. **Battle.net**: Blizzard publishes no box art outside its signed-in shop, so games imported from Battle.net are looked up on the Steam store with Steam's own title rules (the only app with exactly that title, else the only one with the same `game.MatchKey`, without the year Battle.net adds). TheGamesDB is only asked for physical copies, games no store knows, and, on a second pass, store games no store had art for (World of Warcraft, StarCraft II…), so its monthly allowance is not spent on games stores cover.
 
 **Automatic links.** A game without a Steam link (a console disc, a PlayStation library game) gets its store links found automatically, so Steam's sheet and box fill in without linking it by hand. Providers that implement `media.LinkFinder` are asked among the enabled ones in the user's chain order, the details chain's first (a sheet provider names the ids of the game it matched), then the covers' (a title search only guesses): IGDB first (the Steam id among the external games of the game it matched for the sheet, by a store link it knows or the only game with exactly the title, the main one over its editions; GOG and Epic ids are left out while their formats are unverified), then, when IGDB is not configured or gives no Steam id, Steam's store search (only the one app with exactly the title or the edition's search title, never a looser match; skipped for games whose copies are all on systems older than PS4 / Xbox One / Switch or on handhelds, which Steam rarely sells under the same name). A finder without its settings is skipped; one that asks to slow down, is unavailable, times out or fails in any other way stops the search, which waits an hour in memory: a game is marked as searched, and left alone for 30 days (`Game.AutoLinkTriedAt`, stored without changing the game's update time), only when every enabled finder answered. Searches run in one background worker (`media.AutoLinker.Run`, stopped with the server): a sheet or a cover answered for a game without a Steam link queues it, and so does the background details scanner for the games that are due, without waiting; the queue is a set, so a game is queued once. The worker takes one game at a time, waits while covers are being downloaded, pauses 2 to 4 seconds (jittered) between games and 15 minutes ±20% after a search it ran was stopped by a rate limit or a failure; games still waiting their hour are not queued, and a game deleted after it was queued is skipped quietly. The provider calls run outside any transaction; the catalog then re-reads the game, adds the links and saves it in one (`catalog.AddAutoLinks`, the auto-linker's `GameLinker`), so an edit made meanwhile is never lost. Links found are added only where the game has none (an invalid id is skipped and logged, without losing the valid ones found with it), marked automatic (`Game.AutoLinks`, `Game.auto_links` in the API, an "automatic" badge on the Edit tab), and the game's cached covers and sheet are dropped so the store's replace them. The user wins: a link they set or change is theirs (the API's `UpdateGame` changes links only when `links_set` is true, and the Edit tab reloads the game when opened and, when the game changes while it is open or on save, keeps only the fields and links the user changed in the form and takes the rest from the game as it is now, so a link found meanwhile is never removed by a save and a reload never overwrites what the user typed), and an automatic link they remove is remembered as rejected (store and id) and never added again, unless they set it by hand. A source's import replaces an automatic link with its own. The CSV export writes them in their own `autoLinks` column, and the import adds them back as automatic (an invalid entry in that column is skipped; it no longer drops the valid ones of the same row); merging two games keeps the link that is not automatic when both have one for a store. Automatic links are never used to recognize a game in imports (the consolidator matches by the user's and sources' links only), so a guessed link cannot merge two games. They are stored as additive fields of the version-3 game document (`autoLinks`, `rejectedLinks`, `autoLinkTriedAt`).
 
@@ -641,8 +653,12 @@ photos themselves go to one store shared by every backup, `config/backups/photos
 `config/photos`), as hard links: a photo costs no extra space while it is still in use, and it is
 stored once however many backups list it. Where hard links are not possible (another file system)
 it is copied. Rotation (`-backup-keep`) deletes a backup's `.db` and `.photos` together, then the
-store's photos no remaining list names. Backups without a list (older ones, `pre-migration-*.db`)
+store's photos no remaining list names; when a remaining list cannot be read, the store's photos are
+left alone until the next backup. Backups without a list (older ones, `pre-migration-*.db`)
 count as having no photos. System → Backups shows the photos of each backup and the store's size.
+The rules (when to back up, how many to keep, which photos to keep) are `system.Service`'s; the
+files and their layout are the `system.BackupStore` port's, implemented by
+`internal/adapters/outbound/backupdir`.
 
 To restore:
 

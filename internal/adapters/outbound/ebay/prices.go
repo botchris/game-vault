@@ -10,6 +10,7 @@ import (
 
 	"gamevault/internal/application/valuation"
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/money"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
 )
@@ -117,7 +118,7 @@ func prices(items []listing) (string, []int64) {
 			continue
 		}
 
-		out = append(out, int64(math.Round(v*math.Pow10(game.CurrencyDigits(currency)))))
+		out = append(out, int64(math.Round(v*math.Pow10(money.CurrencyDigits(currency)))))
 	}
 
 	return currency, out

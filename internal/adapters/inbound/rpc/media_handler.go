@@ -54,10 +54,7 @@ func coverHandler(m *media.Covers) http.Handler {
 			return
 		}
 
-		w.Header().Set("Content-Type", img.ContentType)
-		w.Header().Set("Cache-Control", "private, max-age=604800")
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.Write(img.Data)
+		writeImage(w, img, "private, max-age=604800")
 	})
 }
 
@@ -74,10 +71,7 @@ func imageProxyHandler(m *media.ImageProxy) http.Handler {
 			return
 		}
 
-		w.Header().Set("Content-Type", img.ContentType)
-		w.Header().Set("Cache-Control", "private, max-age=86400")
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.Write(img.Data)
+		writeImage(w, img, "private, max-age=86400")
 	})
 }
 
@@ -95,12 +89,18 @@ func gameAssetHandler(m *media.Assets) http.Handler {
 			return
 		}
 
-		w.Header().Set("Content-Type", img.ContentType)
 		// Names change when the image changes, so they can be cached for long.
-		w.Header().Set("Cache-Control", "private, max-age=2592000, immutable")
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.Write(img.Data)
+		writeImage(w, img, "private, max-age=2592000, immutable")
 	})
+}
+
+// writeImage answers with an image. nosniff keeps browsers from reading a stored or proxied file as
+// anything but the image type it was saved with.
+func writeImage(w http.ResponseWriter, img media.Image, cacheControl string) {
+	w.Header().Set("Content-Type", img.ContentType)
+	w.Header().Set("Cache-Control", cacheControl)
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Write(img.Data)
 }
 
 // gameAssetPath is the URL path the UI uses for a stored asset.

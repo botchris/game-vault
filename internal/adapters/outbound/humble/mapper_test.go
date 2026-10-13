@@ -1,8 +1,10 @@
 package humble
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -132,6 +134,20 @@ func TestMapOrders_nonGameKeys(t *testing.T) {
 	})
 }
 
+func TestSkippedKeys(t *testing.T) {
+	t.Run("GIVEN a scan that skipped three keys that are not games", func(t *testing.T) {
+		t.Run("WHEN they are logged", func(t *testing.T) {
+			var logs bytes.Buffer
+
+			skippedKeys(3).Log(slog.New(slog.NewTextHandler(&logs, nil)))
+
+			t.Run("THEN one line counts them", func(t *testing.T) {
+				assert.Contains(t, logs.String(), `store="Humble Bundle" reason="software, courses, in-game items and store coupons" count=3`)
+			})
+		})
+	})
+}
+
 func TestFetchAgainstFakeServer(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
@@ -158,7 +174,7 @@ func TestFetchAgainstFakeServer(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := NewProvider(nil)
+	p := NewProvider()
 	p.API.BaseURL = srv.URL
 	p.API.HTTP = srv.Client()
 	p.Pause = 0

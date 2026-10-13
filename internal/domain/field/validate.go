@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/money"
 )
 
 // Validate checks values for a game (scope game, kind empty) or for a copy of the given kind, and
@@ -96,7 +97,7 @@ func (d Definition) normalize(v game.FieldValue) (game.FieldValue, error) {
 			return v, invalid("%q is in %s", d.Name, d.Currency)
 		}
 
-		if m.Amount < 0 || m.Amount > MaxNumber*100 || (m.Currency != "" && !isCurrencyCode(m.Currency)) {
+		if m.Amount < 0 || m.Amount > MaxNumber*100 || (m.Currency != "" && !money.IsCurrencyCode(m.Currency)) {
 			return v, invalid("%q is not a valid amount", d.Name)
 		}
 

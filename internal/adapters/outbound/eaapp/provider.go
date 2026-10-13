@@ -13,6 +13,7 @@ package eaapp
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"sort"
 	"strings"
@@ -82,6 +83,9 @@ const ownedGamesQuery = `query OwnedGames($next: String) {
 
 // Provider implements sync.Provider for EA accounts.
 type Provider struct {
+	// log receives what a scan skips on purpose (WithLogger).
+	log *slog.Logger
+
 	// Accounts calls accounts.ea.com for the access token; tests point it at a fake server. Each
 	// sign-in sends through a copy whose HTTP client holds the session's cookies.
 	Accounts *apiclient.Client
@@ -91,11 +95,16 @@ type Provider struct {
 }
 
 // NewProvider returns the EA app source with its production endpoints.
-func NewProvider() *Provider {
-	return &Provider{
+func NewProvider(opts ...Option) *Provider {
+	p := &Provider{
 		Accounts: newClient(defaultAccountsURL),
 		Library:  newClient(defaultGraphQLURL),
 	}
+	for _, opt := range opts {
+		opt(p)
+	}
+
+	return p
 }
 
 // newClient returns a client of one of EA's services. They serve the session of the user's
@@ -225,16 +234,16 @@ type item struct {
 	} `json:"product"`
 }
 
-// ownedItems lists the owned games, a page at a time. The token comes from a fresh silent sign-in,
-// so a refused one means the cookies no longer sign in.
-func (p *Provider) ownedItems(ctx context.Context, token string) ([]item, error) {
+// ownedItems lists the owned games, up to pages pages. The token comes from a fresh silent
+// sign-in, so a refused one means the cookies no longer sign in.
+func (p *Provider) ownedItems(ctx context.Context, token string, pages int) ([]item, error) {
 	header := http.Header{"Authorization": {"Bearer " + token}}
 
 	var all []item
 
 	next := "0"
 
-	for range maxPages {
+	for range pages {
 		var data struct {
 			Me struct {
 				OwnedGameProducts struct {
@@ -287,12 +296,16 @@ func subscriptionOnly(methods []string) bool {
 }
 
 // mapItems turns owned products into copies: one per base game, with the product name as the
-// edition when it differs ("Battlefield 1 Revolution" of "Battlefield 1").
-func mapItems(items []item) []game.ImportedCopy {
+// edition when it differs ("Battlefield 1 Revolution" of "Battlefield 1"). What it leaves out on
+// purpose is counted in skipped; a game it cannot give an id, which the user loses, in warnings.
+func mapItems(items []item) (copies []game.ImportedCopy, warnings []string, skipped source.Skipped) {
 	byGame := map[string]game.ImportedCopy{}
+	skipped = source.Skipped{Store: "EA"}
+	lost := source.Skipped{Store: "EA"}
 
 	for _, it := range items {
 		if subscriptionOnly(it.Product.GameProductUser.OwnershipMethods) {
+			skipped.Add("EA Play games")
 			continue
 		}
 
@@ -314,6 +327,12 @@ func mapItems(items []item) []game.ImportedCopy {
 
 		if id == "" {
 			id = game.TitleIDKey(title) // frozen: the id must never change
+		}
+
+		if id == "" {
+			// A title with no Latin letter or digit gives no id: every such item would share one.
+			lost.Add(unkeyed)
+			continue
 		}
 
 		edition := ""
@@ -352,12 +371,23 @@ func mapItems(items []item) []game.ImportedCopy {
 
 	sort.Slice(out, func(i, j int) bool { return out[i].Title < out[j].Title })
 
-	return out
+	return out, lost.Warnings(), skipped
 }
 
-// Test implements sync.Provider: signs in and lists the library.
+// unkeyed is the reason an item without a product or offer id whose title gives no id either is
+// skipped: game.TitleIDKey keeps Latin letters and digits only.
+const unkeyed = "items without a product id whose title has no Latin letters or digits to make one from"
+
+// Test implements sync.Provider: it signs in (keeping the cookies EA renews) and sends the request
+// of a scan's first library page, without reading the rest.
 func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
-	_, _, err := p.Fetch(ctx, settings)
+	token, err := p.accessToken(ctx, settings)
+	if err != nil {
+		return err
+	}
+
+	_, err = p.ownedItems(ctx, token, 1)
+
 	return err
 }
 
@@ -368,17 +398,26 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 		return nil, nil, err
 	}
 
-	items, err := p.ownedItems(ctx, token)
+	items, err := p.ownedItems(ctx, token, maxPages)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	copies := mapItems(items)
+	copies, warnings, skipped := mapItems(items)
+	skipped.Log(p.log)
 
-	var warnings []string
 	if len(copies) == 0 {
 		warnings = append(warnings, "EA returned no games for this account (EA Play games are not imported)")
 	}
 
 	return copies, warnings, nil
+}
+
+// Option configures a Provider.
+type Option func(*Provider)
+
+// WithLogger sends what a scan skips on purpose (DLC, subscription games, what is not a game) to
+// log, one line per reason with its count. Without it nothing is logged.
+func WithLogger(log *slog.Logger) Option {
+	return func(p *Provider) { p.log = log }
 }

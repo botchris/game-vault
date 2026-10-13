@@ -1,0 +1,374 @@
+{
+  "Copies": [
+    {
+      "ExternalID": "manual:quest",
+      "PreviousExternalID": "",
+      "Withdrawn": false,
+      "Title": "Console Quest",
+      "Links": {
+        "gog": "200",
+        "steam": "100"
+      },
+      "AutoLinks": {
+        "steam": "100"
+      },
+      "Details": {
+        "Kind": "physical",
+        "Platform": "PS5",
+        "Status": "owned",
+        "Key": "",
+        "RedeemBy": "",
+        "Origin": "Example Shop",
+        "AcquiredOn": "2025-12-24",
+        "Edition": "Collector's",
+        "Grade": "mint",
+        "Contents": 3,
+        "Location": "Shelf A",
+        "Barcode": "4006381333931",
+        "Price": {
+          "Amount": 2995,
+          "Currency": "EUR"
+        },
+        "Notes": "Note, with \"quotes\"",
+        "System": ""
+      },
+      "System": ""
+    },
+    {
+      "ExternalID": "csv:key|steam|celeste|KEY-1",
+      "PreviousExternalID": "",
+      "Withdrawn": false,
+      "Title": "Celeste",
+      "Links": null,
+      "AutoLinks": null,
+      "Details": {
+        "Kind": "key",
+        "Platform": "Steam",
+        "Status": "",
+        "Key": "KEY-1",
+        "RedeemBy": "2026-10-19",
+        "Origin": "Humble Bundle",
+        "AcquiredOn": "2023-05-01",
+        "Edition": "",
+        "Grade": "",
+        "Contents": 0,
+        "Location": "",
+        "Barcode": "",
+        "Price": {
+          "Amount": 0,
+          "Currency": ""
+        },
+        "Notes": "",
+        "System": ""
+      },
+      "System": ""
+    },
+    {
+      "ExternalID": "csv:physical|ps2|old disc|",
+      "PreviousExternalID": "",
+      "Withdrawn": false,
+      "Title": "Old Disc",
+      "Links": null,
+      "AutoLinks": null,
+      "Details": {
+        "Kind": "physical",
+        "Platform": "PS2",
+        "Status": "",
+        "Key": "",
+        "RedeemBy": "",
+        "Origin": "",
+        "AcquiredOn": "",
+        "Edition": "",
+        "Grade": "",
+        "Contents": 0,
+        "Location": "",
+        "Barcode": "",
+        "Price": {
+          "Amount": 0,
+          "Currency": ""
+        },
+        "Notes": "",
+        "System": ""
+      },
+      "System": ""
+    },
+    {
+      "ExternalID": "csv:library|steam|hades|",
+      "PreviousExternalID": "",
+      "Withdrawn": false,
+      "Title": "Hades",
+      "Links": null,
+      "AutoLinks": null,
+      "Details": {
+        "Kind": "library",
+        "Platform": "Steam",
+        "Status": "",
+        "Key": "",
+        "RedeemBy": "",
+        "Origin": "",
+        "AcquiredOn": "",
+        "Edition": "",
+        "Grade": "",
+        "Contents": 0,
+        "Location": "",
+        "Barcode": "",
+        "Price": {
+          "Amount": 0,
+          "Currency": ""
+        },
+        "Notes": "",
+        "System": ""
+      },
+      "System": ""
+    },
+    {
+      "ExternalID": "csv:key|steam|bad date game|K2",
+      "PreviousExternalID": "",
+      "Withdrawn": false,
+      "Title": "Bad Date Game",
+      "Links": null,
+      "AutoLinks": null,
+      "Details": {
+        "Kind": "key",
+        "Platform": "Steam",
+        "Status": "",
+        "Key": "K2",
+        "RedeemBy": "",
+        "Origin": "",
+        "AcquiredOn": "",
+        "Edition": "",
+        "Grade": "",
+        "Contents": 0,
+        "Location": "",
+        "Barcode": "",
+        "Price": {
+          "Amount": 0,
+          "Currency": ""
+        },
+        "Notes": "",
+        "System": ""
+      },
+      "System": ""
+    },
+    {
+      "ExternalID": "csv:physical|switch|shelf thing|",
+      "PreviousExternalID": "",
+      "Withdrawn": false,
+      "Title": "Shelf Thing",
+      "Links": null,
+      "AutoLinks": null,
+      "Details": {
+        "Kind": "physical",
+        "Platform": "Switch",
+        "Status": "",
+        "Key": "",
+        "RedeemBy": "",
+        "Origin": "",
+        "AcquiredOn": "",
+        "Edition": "",
+        "Grade": "",
+        "Contents": 0,
+        "Location": "",
+        "Barcode": "",
+        "Price": {
+          "Amount": 0,
+          "Currency": ""
+        },
+        "Notes": "",
+        "System": ""
+      },
+      "System": ""
+    },
+    {
+      "ExternalID": "csv:library|steam|link thing|",
+      "PreviousExternalID": "",
+      "Withdrawn": false,
+      "Title": "Link Thing",
+      "Links": {
+        "gog": "1"
+      },
+      "AutoLinks": null,
+      "Details": {
+        "Kind": "library",
+        "Platform": "Steam",
+        "Status": "",
+        "Key": "",
+        "RedeemBy": "",
+        "Origin": "",
+        "AcquiredOn": "",
+        "Edition": "",
+        "Grade": "",
+        "Contents": 0,
+        "Location": "",
+        "Barcode": "",
+        "Price": {
+          "Amount": 0,
+          "Currency": ""
+        },
+        "Notes": "",
+        "System": ""
+      },
+      "System": ""
+    },
+    {
+      "ExternalID": "csv:physical|ps4|price thing|",
+      "PreviousExternalID": "",
+      "Withdrawn": false,
+      "Title": "Price Thing",
+      "Links": null,
+      "AutoLinks": null,
+      "Details": {
+        "Kind": "physical",
+        "Platform": "PS4",
+        "Status": "",
+        "Key": "",
+        "RedeemBy": "",
+        "Origin": "",
+        "AcquiredOn": "",
+        "Edition": "",
+        "Grade": "",
+        "Contents": 0,
+        "Location": "",
+        "Barcode": "",
+        "Price": {
+          "Amount": 0,
+          "Currency": ""
+        },
+        "Notes": "",
+        "System": ""
+      },
+      "System": ""
+    },
+    {
+      "ExternalID": "csv:physical|ps4|cheap thing|",
+      "PreviousExternalID": "",
+      "Withdrawn": false,
+      "Title": "Cheap Thing",
+      "Links": null,
+      "AutoLinks": null,
+      "Details": {
+        "Kind": "physical",
+        "Platform": "PS4",
+        "Status": "",
+        "Key": "",
+        "RedeemBy": "",
+        "Origin": "",
+        "AcquiredOn": "",
+        "Edition": "",
+        "Grade": "",
+        "Contents": 0,
+        "Location": "",
+        "Barcode": "",
+        "Price": {
+          "Amount": 1250,
+          "Currency": ""
+        },
+        "Notes": "",
+        "System": ""
+      },
+      "System": ""
+    },
+    {
+      "ExternalID": "csv:physical|switch|yen thing|",
+      "PreviousExternalID": "",
+      "Withdrawn": false,
+      "Title": "Yen Thing",
+      "Links": null,
+      "AutoLinks": null,
+      "Details": {
+        "Kind": "physical",
+        "Platform": "Switch",
+        "Status": "",
+        "Key": "",
+        "RedeemBy": "",
+        "Origin": "",
+        "AcquiredOn": "",
+        "Edition": "",
+        "Grade": "",
+        "Contents": 0,
+        "Location": "",
+        "Barcode": "",
+        "Price": {
+          "Amount": 0,
+          "Currency": ""
+        },
+        "Notes": "",
+        "System": ""
+      },
+      "System": ""
+    },
+    {
+      "ExternalID": "steam:300",
+      "PreviousExternalID": "",
+      "Withdrawn": false,
+      "Title": "Linux Thing",
+      "Links": null,
+      "AutoLinks": null,
+      "Details": {
+        "Kind": "library",
+        "Platform": "Steam",
+        "Status": "owned",
+        "Key": "",
+        "RedeemBy": "",
+        "Origin": "",
+        "AcquiredOn": "",
+        "Edition": "",
+        "Grade": "",
+        "Contents": 0,
+        "Location": "",
+        "Barcode": "",
+        "Price": {
+          "Amount": 0,
+          "Currency": ""
+        },
+        "Notes": "",
+        "System": "linux"
+      },
+      "System": ""
+    },
+    {
+      "ExternalID": "csv:physical|gog|padded title|",
+      "PreviousExternalID": "",
+      "Withdrawn": false,
+      "Title": "Padded Title",
+      "Links": null,
+      "AutoLinks": null,
+      "Details": {
+        "Kind": "physical",
+        "Platform": "GOG",
+        "Status": "",
+        "Key": "",
+        "RedeemBy": "",
+        "Origin": "",
+        "AcquiredOn": "",
+        "Edition": "",
+        "Grade": "",
+        "Contents": 0,
+        "Location": "",
+        "Barcode": "",
+        "Price": {
+          "Amount": 0,
+          "Currency": ""
+        },
+        "Notes": "",
+        "System": ""
+      },
+      "System": ""
+    }
+  ],
+  "Warnings": [
+    "column \"Mystery\" is not a Game Vault column, ignored (download the template for the column names)",
+    "row 5: status \"sealed\" not valid for library, using default",
+    "row 6: unrecognized date \"someday\" (use YYYY-MM-DD)",
+    "row 6: unrecognized date \"13/13/2026\" (use YYYY-MM-DD)",
+    "row 7: barcode \"12345\" must have 8, 12 or 13 digits",
+    "row 7: grade \"shiny\" is not one of sealed, mint, very_good, good, acceptable, damaged",
+    "row 7: content \"poster\" is not one of box, manual, media, extras",
+    "row 8: link \"steam620\" is not store:id (e.g. steam:620), ignored",
+    "row 8: link \":5\" is not store:id (e.g. steam:620), ignored",
+    "row 8: link \"epic:\" is not store:id (e.g. steam:620), ignored",
+    "row 9: currency \"EURO\" is not a three-letter code",
+    "row 9: price \"abc\" is not an amount like 29.95",
+    "row 11: price \"15.00\" is not an amount like 29.95"
+  ]
+}

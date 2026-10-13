@@ -1,9 +1,13 @@
 package source
 
 import (
-	"gamevault/internal/domain/schema"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"gamevault/internal/domain/schema"
 )
 
 func TestStateFields(t *testing.T) {
@@ -24,33 +28,18 @@ func TestStateFields(t *testing.T) {
 	now := time.Now()
 
 	src, err := New(d, Config{Settings: schema.Settings{"code": "abc", "session": "from-client"}}, now)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if _, ok := src.Settings()["session"]; ok {
-		t.Fatal("clients must not set state fields")
-	}
+	require.NoError(t, err)
+	assert.NotContains(t, src.Settings(), "session", "clients must not set state fields")
 
 	src.ReplaceSettings(d, schema.Settings{"session": "s1"}, now)
+	assert.Empty(t, d.Masked(src.Settings()), "state must never be shown")
 
-	if got := d.Masked(src.Settings()); len(got) != 0 {
-		t.Fatalf("state must never be shown: %v", got)
-	}
 	// Reconfiguring keeps the state; the provider rotates it later.
-	if err := src.Reconfigure(d, Config{Settings: schema.Settings{"session": "evil"}}, now); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, src.Reconfigure(d, Config{Settings: schema.Settings{"session": "evil"}}, now))
+	assert.Equal(t, "s1", src.Settings()["session"], "reconfigure must not change the state")
 
-	if src.Settings()["session"] != "s1" {
-		t.Fatalf("reconfigure changed state: %v", src.Settings())
-	}
-
-	if src.UpdateState(d, schema.Settings{"session": "s1"}, now) {
-		t.Fatal("unchanged state reported as changed")
-	}
-
-	if !src.UpdateState(d, schema.Settings{"session": "s2", "code": "ignored"}, now) || src.Settings()["session"] != "s2" || src.Settings()["code"] != "" {
-		t.Fatalf("update state: %v", src.Settings())
-	}
+	assert.False(t, src.UpdateState(d, schema.Settings{"session": "s1"}, now), "unchanged state reported as changed")
+	assert.True(t, src.UpdateState(d, schema.Settings{"session": "s2", "code": "ignored"}, now))
+	assert.Equal(t, "s2", src.Settings()["session"])
+	assert.Empty(t, src.Settings()["code"], "only state fields are updated")
 }

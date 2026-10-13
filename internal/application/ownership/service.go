@@ -5,6 +5,7 @@ package ownership
 import (
 	"cmp"
 	"context"
+	"fmt"
 	"slices"
 	"strings"
 
@@ -19,7 +20,8 @@ const MaxItems = 200
 const maxCandidates = 5
 
 // ErrTooManyItems means a check held more than MaxItems items.
-var ErrTooManyItems = errkind.New(errkind.Invalid, "at most 200 items can be checked at once; split the list")
+var ErrTooManyItems = errkind.New(errkind.Invalid,
+	fmt.Sprintf("at most %d items can be checked at once; split the list", MaxItems))
 
 // Status says whether an item is in the catalog.
 type Status string
@@ -207,14 +209,13 @@ func matchOf(g *game.Game) Match {
 	}
 }
 
-// currentCopies summarizes the copies the user still has: sold, given away and expired ones are gone.
+// currentCopies summarizes the copies the user still has (game.Copy.Held).
 func currentCopies(g *game.Game) []Copy {
 	copies := g.Copies()
 	out := make([]Copy, 0, len(copies))
 
 	for _, c := range copies {
-		switch c.Status {
-		case game.StatusSold, game.StatusGifted, game.StatusExpired:
+		if !c.Held() {
 			continue
 		}
 

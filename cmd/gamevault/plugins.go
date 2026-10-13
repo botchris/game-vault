@@ -35,18 +35,18 @@ func newPlugins(log *slog.Logger) (*plugin.Registry, error) {
 	return plugin.NewRegistry(
 		// Stores
 		steam.Plugin(steamStore),
-		epic.Plugin(),
-		gog.Plugin(),
+		epic.Plugin(log),
+		gog.Plugin(log),
 		battlenet.Plugin(steamStore),
-		eaapp.Plugin(),
-		ubisoft.Plugin(),
-		xbox.Plugin(),
+		eaapp.Plugin(log),
+		ubisoft.Plugin(log),
+		xbox.Plugin(log),
 		playstation.Plugin(log),
 		amazon.Plugin(),
-		itch.Plugin(),
+		itch.Plugin(log),
 		// Key sellers
 		humble.Plugin(log),
-		fanatical.Plugin(),
+		fanatical.Plugin(log),
 		// Game databases
 		thegamesdb.Plugin(),
 		wikipedia.Plugin(version),

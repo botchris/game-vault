@@ -2,7 +2,7 @@ package battlenet
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -15,111 +15,100 @@ import (
 	"gamevault/internal/domain/schema"
 )
 
-type fakeSteam struct{ asked []string }
+// fakeSteam stands for the Steam store: it finds the titles of apps by their exact title, and
+// gives library art for a game linked to an AppID.
+type fakeSteam struct {
+	// apps are the AppIDs Steam's title rules find, by title.
+	apps map[string]int64
 
-func (f *fakeSteam) LinkStore() game.Store {
-	return game.Store{
-		Key:  game.LinkSteam,
-		Name: "Steam",
-	}
-}
-func (f *fakeSteam) SearchLinks(_ context.Context, q string) ([]media.LinkMatch, error) {
-	f.asked = append(f.asked, q)
+	// err is the answer of every title lookup when set.
+	err error
 
-	return []media.LinkMatch{{
-		ID:   "1",
-		Name: "Call of Duty®: Modern Warfare® 2 Campaign Remastered",
-	}, {
-		ID:   "393080",
-		Name: "Call of Duty®: Modern Warfare® Remastered",
-	}}, nil
+	// asked are the titles looked up.
+	asked []string
 }
+
+func (f *fakeSteam) AppIDByTitle(_ context.Context, title string) (int64, error) {
+	f.asked = append(f.asked, title)
+
+	return f.apps[title], f.err
+}
+
 func (f *fakeSteam) Descriptor() provider.Descriptor             { return provider.Descriptor{ID: "steam"} }
 func (f *fakeSteam) Test(context.Context, schema.Settings) error { return nil }
 func (f *fakeSteam) Applies(q media.GameQuery) bool              { return q.Links[game.LinkSteam] != "" }
 func (f *fakeSteam) Covers(_ context.Context, q media.GameQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	return []media.CoverCandidate{{
-		URL:      "https://steam/" + q.Title,
+		URL:      "https://steam/" + q.Links[game.LinkSteam],
 		Label:    "Library art",
 		Provider: "steam",
 	}}, nil
 }
 
 func TestCovers(t *testing.T) {
-	steam := &fakeSteam{}
-	c := NewCovers(steam, steam)
-
-	q := media.GameQuery{
-		Title: "Call of Duty: Modern Warfare Remastered (2017)",
-		Links: game.Links{"battlenet": "1329875278"},
-	}
-	if !c.Applies(q) || c.Applies(media.GameQuery{
-		Title: "x",
-		Links: game.Links{game.LinkSteam: "1"},
-	}) {
-		t.Fatal("applies only to games imported from Battle.net")
-	}
-
-	got, err := c.Covers(context.Background(), q, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if len(got) != 1 || got[0].Provider != CoverProviderID || got[0].URL != "https://steam/Call of Duty®: Modern Warfare® Remastered" {
-		t.Fatalf("candidates: %+v", got)
-	}
-
-	if steam.asked[0] != "Call of Duty: Modern Warfare Remastered" {
-		t.Fatalf("the year should be dropped from the search: %q", steam.asked[0])
-	}
-	// No exact title on Steam: nothing (the next providers try).
-	if got, _ := c.Covers(context.Background(), media.GameQuery{
-		Title: "World of Warcraft®",
-		Links: game.Links{"battlenet": "5730135"},
-	}, nil); len(got) != 0 {
-		t.Fatalf("got %+v", got)
-	}
-}
-
-// otherScriptSearch answers every search with one game whose title is in a script MatchKey drops.
-type otherScriptSearch struct{}
-
-func (otherScriptSearch) LinkStore() game.Store { return game.Store{Key: game.LinkSteam} }
-
-func (otherScriptSearch) SearchLinks(context.Context, string) ([]media.LinkMatch, error) {
-	return []media.LinkMatch{{
-		ID:   "777",
-		Name: "ドラゴンクエスト",
-	}}, nil
-}
-
-func TestCovers_otherScripts(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	t.Run("GIVEN a Steam search whose only result is another game titled in another script", func(t *testing.T) {
-		c := NewCovers(otherScriptSearch{}, &fakeSteam{})
+	t.Run("GIVEN a Steam store that sells the remaster", func(t *testing.T) {
+		steam := &fakeSteam{apps: map[string]int64{"Call of Duty: Modern Warfare Remastered": 393080}}
+		c := NewCovers(steam)
 
-		t.Run("WHEN covers are asked for a game titled in a script MatchKey drops", func(t *testing.T) {
+		q := media.GameQuery{
+			Title: "Call of Duty: Modern Warfare Remastered (2017)",
+			Links: game.Links{"battlenet": "1329875278"},
+		}
+
+		t.Run("THEN it applies only to games imported from Battle.net", func(t *testing.T) {
+			assert.True(t, c.Applies(q))
+			assert.False(t, c.Applies(media.GameQuery{
+				Title: "x",
+				Links: game.Links{game.LinkSteam: "1"},
+			}))
+		})
+
+		t.Run("WHEN the covers of the Battle.net copy are asked", func(t *testing.T) {
+			got, err := c.Covers(ctx, q, nil)
+			require.NoError(t, err)
+
+			t.Run("THEN Steam's art of the app it found is proposed as Battle.net's", func(t *testing.T) {
+				require.Len(t, got, 1)
+				assert.Equal(t, "https://steam/393080", got[0].URL)
+				assert.Equal(t, CoverProviderID, got[0].Provider)
+				assert.Equal(t, "Battle.net (Steam): Library art", got[0].Label)
+			})
+
+			t.Run("AND the title was looked up without Battle.net's year", func(t *testing.T) {
+				assert.Equal(t, []string{"Call of Duty: Modern Warfare Remastered"}, steam.asked)
+			})
+		})
+
+		t.Run("WHEN the covers of a game Steam does not sell are asked", func(t *testing.T) {
 			got, err := c.Covers(ctx, media.GameQuery{
-				Title: "ファイナルクエスト",
-				Links: game.Links{"battlenet": "1"},
+				Title: "World of Warcraft®",
+				Links: game.Links{"battlenet": "5730135"},
 			}, nil)
 
-			t.Run("THEN the other game's art is not proposed", func(t *testing.T) {
+			t.Run("THEN there are none, for the next providers to try", func(t *testing.T) {
 				require.NoError(t, err)
 				assert.Empty(t, got)
 			})
 		})
 	})
-}
 
-type failingSearch struct{}
+	t.Run("GIVEN a Steam store that is rate limited", func(t *testing.T) {
+		c := NewCovers(&fakeSteam{err: fmt.Errorf("store search: %w", provider.ErrRateLimited)})
 
-func (failingSearch) LinkStore() game.Store { return game.Store{Key: game.LinkSteam} }
+		t.Run("WHEN covers are asked", func(t *testing.T) {
+			_, err := c.Covers(ctx, media.GameQuery{
+				Title: "Diablo",
+				Links: game.Links{"battlenet": "1"},
+			}, nil)
 
-func (failingSearch) SearchLinks(context.Context, string) ([]media.LinkMatch, error) {
-	return nil, errors.New("steam search: HTTP 429")
+			t.Run("THEN the error says it is a passing trouble, not a missing cover", func(t *testing.T) {
+				require.ErrorIs(t, err, provider.ErrRateLimited)
+			})
+		})
+	})
 }
 
 func TestCovers_Test(t *testing.T) {
@@ -128,12 +117,12 @@ func TestCovers_Test(t *testing.T) {
 
 	t.Run("GIVEN a Steam search that answers", func(t *testing.T) {
 		steam := &fakeSteam{}
-		c := NewCovers(steam, steam)
+		c := NewCovers(steam)
 
 		t.Run("WHEN the provider is tested", func(t *testing.T) {
 			err := c.Test(ctx, nil)
 
-			t.Run("THEN it succeeds after one search", func(t *testing.T) {
+			t.Run("THEN it succeeds after one lookup", func(t *testing.T) {
 				require.NoError(t, err)
 				assert.Len(t, steam.asked, 1)
 			})
@@ -141,13 +130,13 @@ func TestCovers_Test(t *testing.T) {
 	})
 
 	t.Run("GIVEN a Steam search that is rate limited", func(t *testing.T) {
-		c := NewCovers(failingSearch{}, &fakeSteam{})
+		c := NewCovers(&fakeSteam{err: fmt.Errorf("store search: %w", provider.ErrRateLimited)})
 
 		t.Run("WHEN the provider is tested", func(t *testing.T) {
 			err := c.Test(ctx, nil)
 
 			t.Run("THEN it fails and says what to do", func(t *testing.T) {
-				require.Error(t, err)
+				require.ErrorIs(t, err, provider.ErrRateLimited)
 				assert.Contains(t, err.Error(), "try again later")
 			})
 		})

@@ -92,3 +92,52 @@ func TestAuthSettings_defaultTrustedNetworks(t *testing.T) {
 		})
 	})
 }
+
+func TestAuthRepository_users(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a repository with no user", func(t *testing.T) {
+		r := NewAuthRepository(openTest(t))
+
+		t.Run("WHEN the first user is asked for", func(t *testing.T) {
+			_, err := r.FirstUser(ctx)
+
+			t.Run("THEN it is not found", func(t *testing.T) {
+				assert.ErrorIs(t, err, auth.ErrNotFound)
+			})
+		})
+
+		t.Run("WHEN two users are saved, the newer one first", func(t *testing.T) {
+			older := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+			require.NoError(t, r.SaveUser(ctx, auth.User{
+				ID:        "u2",
+				Username:  "newer",
+				CreatedAt: older.Add(time.Hour),
+				UpdatedAt: older.Add(time.Hour),
+			}))
+			require.NoError(t, r.SaveUser(ctx, auth.User{
+				ID:        "u1",
+				Username:  "older",
+				CreatedAt: older,
+				UpdatedAt: older,
+			}))
+
+			t.Run("THEN the first user is the oldest one", func(t *testing.T) {
+				u, err := r.FirstUser(ctx)
+				require.NoError(t, err)
+				assert.Equal(t, "u1", u.ID)
+			})
+
+			t.Run("AND each user is found by name and by id", func(t *testing.T) {
+				byName, err := r.UserByUsername(ctx, "newer")
+				require.NoError(t, err)
+				assert.Equal(t, "u2", byName.ID)
+
+				byID, err := r.UserByID(ctx, "u1")
+				require.NoError(t, err)
+				assert.Equal(t, "older", byID.Username)
+			})
+		})
+	})
+}

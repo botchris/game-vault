@@ -16,9 +16,10 @@ message FieldChoice {
 message FieldDefinition {
   string id = 1;
   string name = 2;
-  // text, longtext, bool, number, money, date, duration, list, multilist.
+  // text, longtext, bool, number, money, date, duration, list, multilist. The server refuses any
+  // other value (InvalidArgument).
   string type = 3;
-  // game or copy.
+  // game or copy. The server refuses any other value (InvalidArgument).
   string scope = 4;
   // Copy fields only: the copy kinds the field applies to; empty means all.
   repeated CopyKind kinds = 5;

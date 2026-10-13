@@ -12,6 +12,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -82,6 +83,9 @@ type session struct {
 
 // Provider implements sync.Provider and sync.Preparer for Epic accounts.
 type Provider struct {
+	// log receives what a scan skips on purpose (WithLogger).
+	log *slog.Logger
+
 	// OAuth calls Epic's account service (sign-in, tokens); tests point it at a fake server.
 	OAuth *apiclient.Client
 
@@ -102,7 +106,7 @@ type Provider struct {
 }
 
 // NewProvider returns the Epic source with its production endpoints.
-func NewProvider() *Provider {
+func NewProvider(opts ...Option) *Provider {
 	p := &Provider{
 		OAuth:   newClient(defaultOAuthURL),
 		Library: newClient(defaultLibraryURL),
@@ -119,6 +123,10 @@ func NewProvider() *Provider {
 		ErrNoCredentials: ErrNoCredentials,
 		ErrSignedOut:     ErrSignedOut,
 		Now:              func() time.Time { return p.Now() },
+	}
+
+	for _, opt := range opts {
+		opt(p)
 	}
 
 	return p
@@ -200,11 +208,14 @@ func (p *Provider) Prepare(ctx context.Context, settings schema.Settings) (schem
 	return p.sessions.Prepare(ctx, settings)
 }
 
-// Test implements sync.Provider: it lists the library without reading the catalog.
+// Test implements sync.Provider: it reads the first library page, which proves the session (renewed
+// on the way, so the rotated one is handed back), without the rest of the library or the catalog.
 func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
-	_, _, err := p.libraryWithToken(ctx, settings)
+	return p.sessions.WithRetry(ctx, settings, func(token string) error {
+		_, err := p.library(ctx, token, 1)
 
-	return err
+		return err
+	})
 }
 
 // errTokenRejected means Epic refused an access token (HTTP 401): it may have expired or been
@@ -222,7 +233,7 @@ func (p *Provider) libraryWithToken(ctx context.Context, settings schema.Setting
 	err := p.sessions.WithRetry(ctx, settings, func(token string) error {
 		var err error
 
-		records, err = p.library(ctx, token)
+		records, err = p.library(ctx, token, maxLibraryPages)
 		used = token
 
 		return err
@@ -251,23 +262,33 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 		warnings = append(warnings, fmt.Sprintf("%d library items could not be read from the Epic catalog; they are retried on the next scan", failed))
 	}
 
-	return mapLibrary(records, items), warnings, nil
+	copies, skipped := mapLibrary(records, items)
+	skipped.Log(p.log)
+
+	return copies, warnings, nil
 }
 
 // mapLibrary turns library records into copies: games only (no DLC, add-ons or Unreal assets),
-// one copy per catalog item.
-func mapLibrary(records []libraryRecord, items map[string]catalogItem) []game.ImportedCopy {
+// one copy per catalog item. What is not a game is counted in the Skipped it returns.
+func mapLibrary(records []libraryRecord, items map[string]catalogItem) ([]game.ImportedCopy, source.Skipped) {
 	seen := map[string]bool{}
+	skipped := source.Skipped{Store: "Epic Games Store"}
 
 	var out []game.ImportedCopy
 
 	for _, r := range records {
 		it, ok := items[r.key()]
-		if !ok || !it.isGame() || seen[r.CatalogItemID] {
+		if !ok || seen[r.CatalogItemID] {
 			continue
 		}
 
 		seen[r.CatalogItemID] = true
+
+		if !it.isGame() {
+			skipped.Add("DLC, add-ons and applications")
+			continue
+		}
+
 		out = append(out, game.ImportedCopy{
 			ExternalID: "epic:" + r.CatalogItemID,
 			Links:      game.Links{LinkedStore.Key: r.CatalogItemID},
@@ -281,7 +302,7 @@ func mapLibrary(records []libraryRecord, items map[string]catalogItem) []game.Im
 		})
 	}
 
-	return out
+	return out, skipped
 }
 
 // ---- OAuth ----
@@ -324,7 +345,7 @@ func (p *Provider) refresh(ctx context.Context, s session) (oauthsession.Grant[s
 
 // grant calls the token endpoint for a user's session.
 func (p *Provider) grant(ctx context.Context, form url.Values) (oauthsession.Grant[session], error) {
-	tok, err := p.oauthRaw(ctx, form)
+	tok, err := requestToken(ctx, p.OAuth, form)
 	if err != nil {
 		return oauthsession.Grant[session]{}, err
 	}
@@ -345,9 +366,11 @@ func (p *Provider) grant(ctx context.Context, form url.Values) (oauthsession.Gra
 	}, nil
 }
 
-// oauthRaw calls the token endpoint. Client-credentials tokens carry no refresh token.
-func (p *Provider) oauthRaw(ctx context.Context, form url.Values) (tokenResponse, error) {
-	res, err := p.OAuth.Send(ctx, apiclient.Request{
+// requestToken calls the token endpoint of Epic's account service through api, for the source's
+// sessions and the covers' application token alike. Client-credentials tokens carry no refresh
+// token.
+func requestToken(ctx context.Context, api *apiclient.Client, form url.Values) (tokenResponse, error) {
+	res, err := api.Send(ctx, apiclient.Request{
 		Method: http.MethodPost,
 		Path:   "/account/api/oauth/token",
 		Form:   form,
@@ -427,12 +450,16 @@ func (it catalogItem) isGame() bool {
 	return len(paths) == 0 || slices.Contains(paths, "games")
 }
 
-func (p *Provider) library(ctx context.Context, token string) ([]libraryRecord, error) {
+// maxLibraryPages is far beyond any real library; it guards against a paging loop.
+const maxLibraryPages = 200
+
+// library reads up to pages pages of the library.
+func (p *Provider) library(ctx context.Context, token string, pages int) ([]libraryRecord, error) {
 	var out []libraryRecord
 
 	cursor := ""
 
-	for range 200 { // ~ 200 pages is far beyond any real library; it guards against a loop
+	for range pages {
 		q := url.Values{"includeMetadata": {"true"}}
 		if cursor != "" {
 			q.Set("cursor", cursor)
@@ -567,4 +594,13 @@ func (p *Provider) get(ctx context.Context, api *apiclient.Client, token, path s
 	}
 
 	return fmt.Errorf("epic %s: %w", path, apiclient.ClassifyError(ctx, err))
+}
+
+// Option configures a Provider.
+type Option func(*Provider)
+
+// WithLogger sends what a scan skips on purpose (DLC, subscription games, what is not a game) to
+// log, one line per reason with its count. Without it nothing is logged.
+func WithLogger(log *slog.Logger) Option {
+	return func(p *Provider) { p.log = log }
 }

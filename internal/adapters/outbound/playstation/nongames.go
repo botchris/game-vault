@@ -226,8 +226,8 @@ func (p *Provider) playedNonGames(ctx context.Context, token string) *nonGameInd
 		}
 	}
 
-	if p.Log != nil {
-		p.Log.Warn("playstation: played titles not read, apps and videos are not told apart from games", "error", err)
+	if p.log != nil {
+		p.log.Warn("playstation: played titles not read, apps and videos are not told apart from games", "error", err)
 	}
 
 	return nil

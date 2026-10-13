@@ -758,6 +758,7 @@
   "auth": {
     "username": "Username",
     "password": "Password",
+    "passwordTooShort": "The password needs at least 8 characters.",
     "retry": "Try again",
     "logout": "Sign out",
     "login": {

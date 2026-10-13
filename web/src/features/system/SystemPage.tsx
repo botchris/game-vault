@@ -4,6 +4,7 @@ import { PageHeader } from '../../components/PageHeader';
 import { errorMessage, systemClient, valuationClient } from '../../api/client';
 import { Alert, useFormatters } from '../../components/ui';
 import type { Backup, GetStatusResponse } from '../../gen/gamevault/v1/system_pb';
+import type { Money } from '../../gen/gamevault/v1/game_pb';
 import type { SyncReport } from '../../gen/gamevault/v1/source_pb';
 import type { GetCollectionValueResponse } from '../../gen/gamevault/v1/valuation_pb';
 import { currencyList, formatAmount, regionCurrency } from '../../lib/money';
@@ -193,14 +194,15 @@ export default function SystemPage({ target }: {
           <h2>{t('system.collectionValue')}</h2>
           {!value.currency && <p className="muted">{t('system.valueNoCurrency')}</p>}
           {value.currency && value.totals.filter((v) => v.copies > 0 || v.otherCurrency > 0).map((v) => {
-            const money = (minor: bigint) => formatAmount(minor, value.currency, i18n.language);
+            const money = (m?: Money) => formatAmount(m?.amountMinor ?? 0n, m?.currency || value.currency, i18n.language);
             const other = v.otherCurrency > 0 && t('system.valueOther', { count: v.otherCurrency });
             if (v.copies === 0) return <p key={v.provider} className="muted">{v.name}: {other}</p>;
+            const shop = (v.buyCash?.amountMinor ?? 0n) > 0n || (v.buyCredit?.amountMinor ?? 0n) > 0n;
             return (
               <p key={v.provider}>
-                {v.buyCashMinor > 0n || v.buyCreditMinor > 0n
-                  ? t('system.valueShop', { name: v.name, sell: money(v.sellMinor), cash: money(v.buyCashMinor), credit: money(v.buyCreditMinor) })
-                  : t('system.valueListed', { name: v.name, sell: money(v.sellMinor) })}
+                {shop
+                  ? t('system.valueShop', { name: v.name, sell: money(v.sell), cash: money(v.buyCash), credit: money(v.buyCredit) })
+                  : t('system.valueListed', { name: v.name, sell: money(v.sell) })}
                 {' · '}<span className="muted">{t('system.valueCopies', { count: v.copies })}</span>
                 {other && <span className="muted"> · {other}</span>}
               </p>

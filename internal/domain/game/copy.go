@@ -162,6 +162,17 @@ func (c Copy) IsPendingKey() bool {
 	return c.Kind == KindKey && (c.Status == StatusUnrevealed || c.Status == StatusRevealed)
 }
 
+// Held reports whether the user still has the copy: sold, given away and expired copies are gone,
+// while a lent one comes back. A new status must say here which side it is on.
+func (c Copy) Held() bool {
+	switch c.Status {
+	case StatusSold, StatusGifted, StatusExpired:
+		return false
+	default:
+		return true
+	}
+}
+
 // System returns the system the copy is played on: the user's choice, else the one its source
 // gave, else the one its platform implies (SystemOf).
 func (c Copy) System() string {

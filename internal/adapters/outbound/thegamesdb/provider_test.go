@@ -58,98 +58,149 @@ func fakeServer(t *testing.T) (*httptest.Server, *[]string) {
 	return srv, &calls
 }
 
-func TestCoversPlatformFilterAndRanking(t *testing.T) {
-	srv, calls := fakeServer(t)
-	p := testProvider(srv)
+func TestCovers_platformFilterAndRanking(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
 
-	q := media.GameQuery{
-		Title:             "Halo 3",
-		PhysicalPlatforms: []string{"Xbox 360"},
-	}
-	if p.Applies(media.GameQuery{
-		Title: "Control",
-		Links: game.Links{"epic": "abc"},
-	}) {
-		t.Fatal("games imported from Epic or GOG have store art: keep the quota")
-	}
+	t.Run("GIVEN TheGamesDB with three Halo 3 releases on Xbox 360", func(t *testing.T) {
+		srv, calls := fakeServer(t)
+		p := testProvider(srv)
+		good := schema.Settings{settingAPIKey: "good"}
 
-	if !p.Applies(media.GameQuery{
-		Title:    "World of Warcraft",
-		Links:    game.Links{"battlenet": "1"},
-		Fallback: true,
-	}) {
-		t.Fatal("on the fallback pass (no store had art) TheGamesDB helps")
-	}
+		q := media.GameQuery{
+			Title:             "Halo 3",
+			PhysicalPlatforms: []string{"Xbox 360"},
+		}
 
-	if !p.Applies(q) || p.Applies(media.GameQuery{
-		Title: "Hades",
-		Links: game.Links{game.LinkSteam: "1145360"},
-	}) {
-		t.Fatal("must apply to physical copies and skip Steam-only games")
-	}
+		t.Run("THEN it applies to physical copies and to the fallback pass, keeping the quota otherwise", func(t *testing.T) {
+			assert.True(t, p.Applies(q))
+			assert.True(t, p.Applies(media.GameQuery{
+				Title:    "World of Warcraft",
+				Links:    game.Links{"battlenet": "1"},
+				Fallback: true,
+			}), "on the fallback pass (no store had art) TheGamesDB helps")
+			assert.False(t, p.Applies(media.GameQuery{
+				Title: "Control",
+				Links: game.Links{"epic": "abc"},
+			}), "games imported from Epic or GOG have store art")
+			assert.False(t, p.Applies(media.GameQuery{
+				Title: "Hades",
+				Links: game.Links{game.LinkSteam: "1145360"},
+			}), "Steam-only games have store art")
+		})
 
-	got, err := p.Covers(context.Background(), q, schema.Settings{settingAPIKey: "good"})
-	if err != nil {
-		t.Fatal(err)
-	}
+		t.Run("WHEN the covers of the Xbox 360 copy are searched", func(t *testing.T) {
+			got, err := p.Covers(ctx, q, good)
+			require.NoError(t, err)
 
-	if len(got) != 2 || got[0].URL != "https://cdn.test/large/boxart/front/1-1.jpg" || got[0].Label != "Halo 3 · Microsoft Xbox 360 · 2007" {
-		t.Fatalf("exact title match must come first with its front art, and no other game: %+v", got)
-	}
+			t.Run("THEN the exact title comes first with its front art, then the game's other releases", func(t *testing.T) {
+				require.Len(t, got, 2)
+				assert.Equal(t, "https://cdn.test/large/boxart/front/1-1.jpg", got[0].URL)
+				assert.Equal(t, "Halo 3 · Microsoft Xbox 360 · 2007", got[0].Label)
+				assert.Equal(t, "Halo 3 (Platinum Hits)", got[1].Title)
+			})
 
-	if got[1].Title != "Halo 3 (Platinum Hits)" {
-		t.Fatalf("other releases of the same game follow: %+v", got)
-	}
+			t.Run("AND the search is filtered to Xbox 360", func(t *testing.T) {
+				assert.Contains(t, (*calls)[len(*calls)-1], "filter%5Bplatform%5D=15")
+			})
+		})
 
-	// The cover picker browses: other games the search found follow, for the user to choose.
-	browse := q
-	browse.Browse = true
+		t.Run("WHEN the cover picker browses", func(t *testing.T) {
+			browse := q
+			browse.Browse = true
 
-	got, err = p.Covers(context.Background(), browse, schema.Settings{settingAPIKey: "good"})
-	if err != nil {
-		t.Fatal(err)
-	}
+			got, err := p.Covers(ctx, browse, good)
+			require.NoError(t, err)
 
-	if len(got) != 3 || got[0].Title != "Halo 3" || got[1].Title != "Halo 3 (Platinum Hits)" || got[2].Title != "Halo 3: ODST" {
-		t.Fatalf("the picker lists other games after the game's own releases: %+v", got)
-	}
+			t.Run("THEN other games the search found follow the game's own releases", func(t *testing.T) {
+				titles := make([]string, 0, len(got))
+				for _, c := range got {
+					titles = append(titles, c.Title)
+				}
 
-	if !strings.Contains((*calls)[len(*calls)-1], "filter%5Bplatform%5D=15") {
-		t.Fatalf("search must be filtered to Xbox 360: %v", *calls)
-	}
+				assert.Equal(t, []string{"Halo 3", "Halo 3 (Platinum Hits)", "Halo 3: ODST"}, titles)
+			})
+		})
 
-	// The platform list is fetched once per process.
-	p.Covers(context.Background(), q, schema.Settings{settingAPIKey: "good"})
+		t.Run("WHEN covers are searched once more", func(t *testing.T) {
+			_, err := p.Covers(ctx, q, good)
+			require.NoError(t, err)
 
+			t.Run("THEN the platform list was fetched once in all", func(t *testing.T) {
+				assert.Equal(t, 1, countCalls(*calls, "/v1/Platforms"))
+			})
+		})
+	})
+}
+
+// countCalls counts the calls whose path starts with prefix.
+func countCalls(calls []string, prefix string) int {
 	n := 0
 
-	for _, c := range *calls {
-		if strings.HasPrefix(c, "/v1/Platforms") {
+	for _, c := range calls {
+		if strings.HasPrefix(c, prefix) {
 			n++
 		}
 	}
 
-	if n != 1 {
-		t.Fatalf("platforms fetched %d times", n)
-	}
+	return n
 }
 
-func TestTestChecksTheKey(t *testing.T) {
-	srv, _ := fakeServer(t)
-	p := testProvider(srv)
+func TestProvider_Test(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
 
-	if err := p.Test(context.Background(), schema.Settings{settingAPIKey: "good"}); err != nil {
-		t.Fatalf("a key with allowance must work: %v", err)
-	}
+	t.Run("GIVEN TheGamesDB, which answers API/Limit with 200 even for an unknown key", func(t *testing.T) {
+		srv, _ := fakeServer(t)
+		p := testProvider(srv)
 
-	if err := p.Test(context.Background(), schema.Settings{settingAPIKey: "bad"}); err != ErrUnknownKey {
-		t.Fatalf("a bad key must fail with ErrUnknownKey, got %v", err)
-	}
+		t.Run("WHEN a key with allowance left is tested", func(t *testing.T) {
+			err := p.Test(ctx, schema.Settings{settingAPIKey: "good"})
 
-	_, err := p.Covers(context.Background(), media.GameQuery{Title: "Halo 3"}, schema.Settings{settingAPIKey: "bad"})
-	if err == nil || !strings.Contains(err.Error(), "Invalid API key was provided.") {
-		t.Fatalf("search errors must carry TheGamesDB's message, got %v", err)
-	}
+			t.Run("THEN it works", func(t *testing.T) {
+				require.NoError(t, err)
+			})
+		})
+
+		t.Run("WHEN an unknown key is tested", func(t *testing.T) {
+			err := p.Test(ctx, schema.Settings{settingAPIKey: "bad"})
+
+			t.Run("THEN it is the provider's settings to fix, as a lookup with that key says", func(t *testing.T) {
+				require.ErrorIs(t, err, ErrUnknownKey)
+				assert.ErrorIs(t, err, provider.ErrBadSettings)
+			})
+		})
+
+		t.Run("WHEN covers are searched with the unknown key", func(t *testing.T) {
+			_, err := p.Covers(ctx, media.GameQuery{Title: "Halo 3"}, schema.Settings{settingAPIKey: "bad"})
+
+			t.Run("THEN the error carries TheGamesDB's message", func(t *testing.T) {
+				require.ErrorIs(t, err, provider.ErrBadSettings)
+				assert.Contains(t, err.Error(), "Invalid API key was provided.")
+			})
+		})
+	})
+
+	t.Run("GIVEN a key that used up this month's allowance, renewed in an hour", func(t *testing.T) {
+		srv := newAllowanceServer(t)
+		srv.set(true, 0, 3600)
+
+		clock := &fakeClock{now: time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC)}
+		p := allowanceProvider(srv, clock)
+
+		t.Run("WHEN it is tested", func(t *testing.T) {
+			err := p.Test(ctx, schema.Settings{settingAPIKey: "good"})
+
+			t.Run("THEN it is a used-up quota that says when it renews, as lookups get", func(t *testing.T) {
+				require.ErrorIs(t, err, ErrNoAllowance)
+				assert.ErrorIs(t, err, provider.ErrQuotaExhausted)
+
+				var resumer provider.Resumer
+				require.ErrorAs(t, err, &resumer)
+				assert.Equal(t, clock.now.Add(time.Hour), resumer.ResumesAt())
+			})
+		})
+	})
 }
 
 // testProvider points the provider at the fake server, without the production throttle's gap.

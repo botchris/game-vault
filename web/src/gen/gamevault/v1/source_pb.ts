@@ -765,7 +765,9 @@ export const SourceService: GenService<{
     output: typeof SyncAllSourcesResponseSchema;
   },
   /**
-   * Takes an item off the source's removed list: the next scan imports it again.
+   * Takes an item off the source's removed list: the next scan imports it again. The inverse of
+   * GameService.ExcludeCopy; it lives here because an excluded item is no longer a copy of any game,
+   * only an entry of the source.
    *
    * @generated from rpc gamevault.v1.SourceService.IncludeCopy
    */

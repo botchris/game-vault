@@ -1,10 +1,8 @@
 // Package csvfile implements transfer.Codec for CSV files: one row per copy.
 //
-// Columns, in English only (header names are case-insensitive; unknown columns are reported and
-// ignored):
-//
-//	title, platform, kind, status, key, redeemBy, origin, acquiredOn, edition, grade, contents,
-//	location, price, currency, notes, links, externalId, barcode, system, autoLinks
+// The columns and their order are the columns table below; an export writes them in that order
+// with English names. An import reads them by name, in any order (header names are
+// case-insensitive; unknown columns are reported and ignored).
 //
 // grade is one of sealed, mint, very_good, good, acceptable, damaged; contents lists box, manual,
 // media and extras separated by spaces; price is an amount with a dot or a comma and at most the
@@ -35,12 +33,48 @@ import (
 	"time"
 
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/money"
 )
 
-var columns = []string{
-	"title", "platform", "kind", "status", "key", "redeemBy", "origin", "acquiredOn", "edition",
-	"grade", "contents", "location", "price", "currency", "notes", "links", "externalId", "barcode",
-	"system", "autoLinks",
+// column is one column of the file: its header and what an export writes in it. Imports read
+// columns by name (see rowReader), so only exports depend on the order.
+type column struct {
+	name   string
+	export func(r exportRow) string
+}
+
+// exportRow is what a column's export reads: a copy, its game, and the game's links already
+// written as text (they are the same on every row of the game).
+type exportRow struct {
+	game      *game.Game
+	copy      game.Copy
+	links     string
+	autoLinks string
+}
+
+// columns are the file's columns in the order exports write them. A new column goes here, and the
+// golden files in testdata show the change.
+var columns = []column{
+	{"title", func(r exportRow) string { return r.game.Title() }},
+	{"platform", func(r exportRow) string { return r.copy.Platform }},
+	{"kind", func(r exportRow) string { return string(r.copy.Kind) }},
+	{"status", func(r exportRow) string { return string(r.copy.Status) }},
+	{"key", func(r exportRow) string { return r.copy.Key }},
+	{"redeemBy", func(r exportRow) string { return string(r.copy.RedeemBy) }},
+	{"origin", func(r exportRow) string { return r.copy.Origin }},
+	{"acquiredOn", func(r exportRow) string { return string(r.copy.AcquiredOn) }},
+	{"edition", func(r exportRow) string { return r.copy.Edition }},
+	{"grade", func(r exportRow) string { return string(r.copy.Grade) }},
+	{"contents", func(r exportRow) string { return contentsText(r.copy.Contents) }},
+	{"location", func(r exportRow) string { return r.copy.Location }},
+	{"price", func(r exportRow) string { return formatPrice(r.copy.Price) }},
+	{"currency", func(r exportRow) string { return r.copy.Price.Currency }},
+	{"notes", func(r exportRow) string { return r.copy.Notes }},
+	{"links", func(r exportRow) string { return r.links }},
+	{"externalId", func(r exportRow) string { return exportID(r.copy) }},
+	{"barcode", func(r exportRow) string { return string(r.copy.Barcode) }},
+	{"system", func(r exportRow) string { return r.copy.System() }},
+	{"autoLinks", func(r exportRow) string { return r.autoLinks }},
 }
 
 var aliases = map[string]string{
@@ -72,8 +106,8 @@ func normalizeHeader(h string) string {
 
 	k = strings.NewReplacer("_", "", " ", "", "-", "", "í", "i", "á", "a", "ó", "o", "é", "e").Replace(k)
 	for _, c := range columns {
-		if strings.ToLower(c) == k {
-			return c
+		if strings.ToLower(c.name) == k {
+			return c.name
 		}
 	}
 
@@ -82,9 +116,41 @@ func normalizeHeader(h string) string {
 
 // Decode reads a CSV export (or a compatible spreadsheet) into imported copies and warnings.
 func (Codec) Decode(r io.Reader) ([]game.ImportedCopy, []string, error) {
-	data, err := io.ReadAll(r)
+	records, err := readRecords(r)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	idx, warnings, err := readHeader(records[0])
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var out []game.ImportedCopy
+
+	for n, rec := range records[1:] {
+		row := rowReader{
+			row: n + 2,
+			rec: rec,
+			idx: idx,
+		}
+
+		c, ok := row.copy()
+		warnings = append(warnings, row.warnings...)
+
+		if ok {
+			out = append(out, c)
+		}
+	}
+
+	return out, warnings, nil
+}
+
+// readRecords reads every record of the file: the header, then at least one data row.
+func readRecords(r io.Reader) ([][]string, error) {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return nil, err
 	}
 
 	text := string(data)
@@ -99,20 +165,24 @@ func (Codec) Decode(r io.Reader) ([]game.ImportedCopy, []string, error) {
 
 	records, err := cr.ReadAll()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	if len(records) < 2 {
-		return nil, nil, fmt.Errorf("the CSV has no data rows")
+		return nil, fmt.Errorf("the CSV has no data rows")
 	}
 
+	return records, nil
+}
+
+// readHeader maps each known column to its position in the file and reports the unknown ones.
+func readHeader(header []string) (map[string]int, []string, error) {
 	var (
-		out      []game.ImportedCopy
-		warnings []string
 		idx      = map[string]int{}
+		warnings []string
 	)
 
-	for i, h := range records[0] {
+	for i, h := range header {
 		k := normalizeHeader(h)
 		if k == "" {
 			if h = strings.TrimSpace(strings.TrimPrefix(h, "\ufeff")); h != "" {
@@ -129,133 +199,219 @@ func (Codec) Decode(r io.Reader) ([]game.ImportedCopy, []string, error) {
 		return nil, nil, fmt.Errorf("missing required column 'title'")
 	}
 
-	for n, rec := range records[1:] {
-		row := n + 2
-		get := func(col string) string {
-			if i, ok := idx[col]; ok && i < len(rec) {
-				return strings.TrimSpace(rec[i])
-			}
+	return idx, warnings, nil
+}
 
-			return ""
-		}
+// rowReader reads one data row into a copy. A value it cannot read is left out and reported as a
+// warning naming the row, so one bad cell never stops an import.
+type rowReader struct {
+	// row is the row's line number for warnings (the header is row 1).
+	row int
 
-		title := get("title")
-		if title == "" {
-			continue
-		}
+	rec []string
+	idx map[string]int
 
-		d := game.CopyDetails{
-			Platform: get("platform"),
-			Status:   game.Status(strings.ToLower(get("status"))),
-			Key:      get("key"),
-			Origin:   get("origin"),
-			Edition:  get("edition"),
-			Location: get("location"),
-			Notes:    get("notes"),
-		}
+	// warnings are the problems found so far, in column order.
+	warnings []string
+}
 
-		if s := get("system"); s != "" && game.SystemOf(s) != game.SystemOf(d.Platform) {
-			d.System = s // the domain checks it and names it like SystemOf when the copy is saved
-		}
-
-		var ok bool
-		if d.Kind, ok = kindAliases[strings.ToLower(get("kind"))]; !ok {
-			if d.Key != "" {
-				d.Kind = game.KindKey
-			} else {
-				d.Kind = game.KindPhysical
-			}
-		}
-
-		if !d.Kind.Allows(d.Status) {
-			if d.Status != "" {
-				warnings = append(warnings, fmt.Sprintf("row %d: status %q not valid for %s, using default", row, d.Status, d.Kind))
-			}
-
-			d.Status = ""
-		}
-
-		for _, f := range []struct {
-			col string
-			dst *game.Date
-		}{{"redeemBy", &d.RedeemBy}, {"acquiredOn", &d.AcquiredOn}} {
-			if v := get(f.col); v != "" {
-				if parsed, ok := parseDate(v); ok {
-					*f.dst = parsed
-				} else {
-					warnings = append(warnings, fmt.Sprintf("row %d: unrecognized date %q (use YYYY-MM-DD)", row, v))
-				}
-			}
-		}
-
-		if v := get("barcode"); v != "" {
-			if b, err := game.ParseBarcode(v); err == nil {
-				d.Barcode = b
-			} else {
-				warnings = append(warnings, fmt.Sprintf("row %d: %v", row, err))
-			}
-		}
-
-		links, bad := parseLinks(get("links"))
-		autoLinks, badAuto := parseLinks(get("autoLinks"))
-
-		for _, b := range append(bad, badAuto...) {
-			warnings = append(warnings, fmt.Sprintf("row %d: link %q is not store:id (e.g. steam:620), ignored", row, b))
-		}
-
-		if v := get("grade"); v != "" {
-			if g := game.Grade(strings.ToLower(v)); g.Valid() {
-				d.Grade = g
-			} else {
-				warnings = append(warnings, fmt.Sprintf("row %d: grade %q is not one of sealed, mint, very_good, good, acceptable, damaged", row, v))
-			}
-		}
-
-		if v := get("contents"); v != "" {
-			var parts []game.Content
-			for _, f := range strings.Fields(strings.ToLower(v)) {
-				parts = append(parts, game.Content(f))
-			}
-
-			if c, err := game.ContentsOf(parts...); err == nil {
-				d.Contents = c
-			} else {
-				warnings = append(warnings, fmt.Sprintf("row %d: %v", row, err))
-			}
-		}
-
-		currency := strings.ToUpper(get("currency"))
-		if currency != "" && !game.IsCurrencyCode(currency) {
-			warnings = append(warnings, fmt.Sprintf("row %d: currency %q is not a three-letter code", row, currency))
-			currency = ""
-		}
-
-		if v := get("price"); v != "" {
-			if amount, ok := parsePrice(v, currency); ok {
-				d.Price = game.Money{
-					Amount:   amount,
-					Currency: currency,
-				}
-			} else {
-				warnings = append(warnings, fmt.Sprintf("row %d: price %q is not an amount like 29.95", row, v))
-			}
-		}
-
-		ext := get("externalId")
-		if ext == "" {
-			ext = fmt.Sprintf("csv:%s|%s|%s|%s", d.Kind, strings.ToLower(d.Platform), game.TitleIDKey(title), d.Key)
-		}
-
-		out = append(out, game.ImportedCopy{
-			ExternalID: ext,
-			Title:      title,
-			Links:      links,
-			AutoLinks:  autoLinks,
-			Details:    d,
-		})
+// get returns a column's trimmed value, empty when the file has no such column or the row is short.
+func (r *rowReader) get(col string) string {
+	if i, ok := r.idx[col]; ok && i < len(r.rec) {
+		return strings.TrimSpace(r.rec[i])
 	}
 
-	return out, warnings, nil
+	return ""
+}
+
+func (r *rowReader) warn(format string, args ...any) {
+	r.warnings = append(r.warnings, fmt.Sprintf("row %d: ", r.row)+fmt.Sprintf(format, args...))
+}
+
+// copy reads the row; ok is false for a row without a title, which is skipped.
+func (r *rowReader) copy() (_ game.ImportedCopy, ok bool) {
+	title := r.get("title")
+	if title == "" {
+		return game.ImportedCopy{}, false
+	}
+
+	d := game.CopyDetails{
+		Platform: r.get("platform"),
+		Key:      r.get("key"),
+		Origin:   r.get("origin"),
+		Edition:  r.get("edition"),
+		Location: r.get("location"),
+		Notes:    r.get("notes"),
+	}
+	d.System = r.system(d.Platform)
+	d.Kind = r.kind(d.Key)
+	d.Status = r.status(d.Kind)
+	d.RedeemBy = r.date("redeemBy")
+	d.AcquiredOn = r.date("acquiredOn")
+	d.Barcode = r.barcode()
+	links := r.links("links")
+	autoLinks := r.links("autoLinks")
+	d.Grade = r.grade()
+	d.Contents = r.contents()
+	d.Price = r.price()
+
+	return game.ImportedCopy{
+		ExternalID: r.importID(title, d),
+		Title:      title,
+		Links:      links,
+		AutoLinks:  autoLinks,
+		Details:    d,
+	}, true
+}
+
+// system keeps the system only when it differs from the one the platform implies: it is then the
+// copy's own system. The domain checks it and names it like SystemOf when the copy is saved.
+func (r *rowReader) system(platform string) string {
+	if s := r.get("system"); s != "" && game.SystemOf(s) != game.SystemOf(platform) {
+		return s
+	}
+
+	return ""
+}
+
+// kind reads the kind or its alias; without one, a row with a key is a key, any other a disc.
+func (r *rowReader) kind(key string) game.Kind {
+	if k, ok := kindAliases[strings.ToLower(r.get("kind"))]; ok {
+		return k
+	}
+
+	if key != "" {
+		return game.KindKey
+	}
+
+	return game.KindPhysical
+}
+
+// status reads the status; one the kind does not allow is left empty for the kind's default.
+func (r *rowReader) status(kind game.Kind) game.Status {
+	s := game.Status(strings.ToLower(r.get("status")))
+	if kind.Allows(s) {
+		return s
+	}
+
+	if s != "" {
+		r.warn("status %q not valid for %s, using default", s, kind)
+	}
+
+	return ""
+}
+
+func (r *rowReader) date(col string) game.Date {
+	v := r.get(col)
+	if v == "" {
+		return ""
+	}
+
+	d, ok := parseDate(v)
+	if !ok {
+		r.warn("unrecognized date %q (use YYYY-MM-DD)", v)
+	}
+
+	return d
+}
+
+func (r *rowReader) barcode() game.Barcode {
+	v := r.get("barcode")
+	if v == "" {
+		return ""
+	}
+
+	b, err := game.ParseBarcode(v)
+	if err != nil {
+		r.warn("%v", err)
+
+		return ""
+	}
+
+	return b
+}
+
+func (r *rowReader) links(col string) game.Links {
+	links, bad := parseLinks(r.get(col))
+	for _, b := range bad {
+		r.warn("link %q is not store:id (e.g. steam:620), ignored", b)
+	}
+
+	return links
+}
+
+func (r *rowReader) grade() game.Grade {
+	v := r.get("grade")
+	if v == "" {
+		return ""
+	}
+
+	g := game.Grade(strings.ToLower(v))
+	if !g.Valid() {
+		r.warn("grade %q is not one of sealed, mint, very_good, good, acceptable, damaged", v)
+
+		return ""
+	}
+
+	return g
+}
+
+func (r *rowReader) contents() game.Contents {
+	v := r.get("contents")
+	if v == "" {
+		return 0
+	}
+
+	var parts []game.Content
+	for _, f := range strings.Fields(strings.ToLower(v)) {
+		parts = append(parts, game.Content(f))
+	}
+
+	c, err := game.ContentsOf(parts...)
+	if err != nil {
+		r.warn("%v", err)
+
+		return 0
+	}
+
+	return c
+}
+
+// price reads the price in the row's currency. A price without currency is left without one: the
+// importer applies the default currency.
+func (r *rowReader) price() game.Money {
+	currency := strings.ToUpper(r.get("currency"))
+	if currency != "" && !money.IsCurrencyCode(currency) {
+		r.warn("currency %q is not a three-letter code", currency)
+
+		currency = ""
+	}
+
+	v := r.get("price")
+	if v == "" {
+		return game.Money{}
+	}
+
+	amount, ok := parsePrice(v, currency)
+	if !ok {
+		r.warn("price %q is not an amount like 29.95", v)
+
+		return game.Money{}
+	}
+
+	return game.Money{
+		Amount:   amount,
+		Currency: currency,
+	}
+}
+
+// importID is the row's externalId, or a stable one derived from kind, platform, title and key.
+func (r *rowReader) importID(title string, d game.CopyDetails) string {
+	if ext := r.get("externalId"); ext != "" {
+		return ext
+	}
+
+	return fmt.Sprintf("csv:%s|%s|%s|%s", d.Kind, strings.ToLower(d.Platform), game.TitleIDKey(title), d.Key)
 }
 
 // parseLinks reads "steam:620 gog:1207658924" and returns the links and the pairs it could not read.
@@ -308,36 +464,33 @@ func (Codec) Encode(w io.Writer, games []*game.Game) error {
 		return err
 	}
 
+	header := make([]string, 0, len(columns))
+	for _, c := range columns {
+		header = append(header, c.name)
+	}
+
 	cw := csv.NewWriter(w)
-	if err := cw.Write(columns); err != nil {
+	if err := cw.Write(header); err != nil {
 		return err
 	}
 
 	for _, g := range games {
-		// Automatic links go in their own column, so an import keeps them automatic.
-		own, auto := game.Links{}, game.Links{}
-
-		for k, v := range g.Links() {
-			if slices.Contains(g.AutoLinks(), k) {
-				auto[k] = v
-			} else {
-				own[k] = v
-			}
-		}
-
-		links, autoLinks := formatLinks(own), formatLinks(auto)
+		links, autoLinks := exportLinks(g)
 
 		for _, c := range g.Copies() {
-			ext := c.ExternalID
-			if ext == "" {
-				ext = "copy:" + string(c.ID)
+			row := exportRow{
+				game:      g,
+				copy:      c,
+				links:     links,
+				autoLinks: autoLinks,
 			}
 
-			if err := cw.Write([]string{
-				g.Title(), c.Platform, string(c.Kind), string(c.Status), c.Key, string(c.RedeemBy), c.Origin,
-				string(c.AcquiredOn), c.Edition, string(c.Grade), contentsText(c.Contents), c.Location,
-				formatPrice(c.Price), c.Price.Currency, c.Notes, links, ext, string(c.Barcode), c.System(), autoLinks,
-			}); err != nil {
+			record := make([]string, 0, len(columns))
+			for _, col := range columns {
+				record = append(record, col.export(row))
+			}
+
+			if err := cw.Write(record); err != nil {
 				return err
 			}
 		}
@@ -346,6 +499,31 @@ func (Codec) Encode(w io.Writer, games []*game.Game) error {
 	cw.Flush()
 
 	return cw.Error()
+}
+
+// exportLinks writes the game's links and, apart, the ones found automatically, so an import keeps
+// them automatic.
+func exportLinks(g *game.Game) (links, autoLinks string) {
+	own, auto := game.Links{}, game.Links{}
+
+	for k, v := range g.Links() {
+		if slices.Contains(g.AutoLinks(), k) {
+			auto[k] = v
+		} else {
+			own[k] = v
+		}
+	}
+
+	return formatLinks(own), formatLinks(auto)
+}
+
+// exportID is the copy's externalId; a copy entered by hand has none, so its own id stands in.
+func exportID(c game.Copy) string {
+	if c.ExternalID == "" {
+		return "copy:" + string(c.ID)
+	}
+
+	return c.ExternalID
 }
 
 // contentsText writes contents as the column reads them: "box manual media".
@@ -365,7 +543,7 @@ func contentsText(c game.Contents) string {
 func parsePrice(text, currency string) (int64, bool) {
 	digits := 2
 	if currency != "" {
-		digits = game.CurrencyDigits(currency)
+		digits = money.CurrencyDigits(currency)
 	}
 
 	whole, frac, _ := strings.Cut(strings.ReplaceAll(strings.TrimSpace(text), ",", "."), ".")
@@ -387,7 +565,7 @@ func formatPrice(m game.Money) string {
 		return ""
 	}
 
-	digits := game.CurrencyDigits(m.Currency)
+	digits := money.CurrencyDigits(m.Currency)
 	s := strconv.FormatInt(m.Amount, 10)
 
 	if digits == 0 {

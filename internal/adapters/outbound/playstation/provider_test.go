@@ -1,10 +1,12 @@
 package playstation
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -63,6 +65,9 @@ type fakeSony struct {
 	// libraryStatus, when set, makes the library answer every request with this HTTP status and a
 	// web page: a rate limit, an outage.
 	libraryStatus int
+
+	// libraryRequests counts the library requests with the registered query.
+	libraryRequests int
 }
 
 func (f *fakeSony) handler() http.Handler {
@@ -134,6 +139,8 @@ func (f *fakeSony) handler() http.Handler {
 			return
 		}
 
+		f.libraryRequests++
+
 		if f.libraryStatus != 0 {
 			w.WriteHeader(f.libraryStatus)
 			fmt.Fprint(w, `<html><body>Service Unavailable</body></html>`)
@@ -185,12 +192,12 @@ func (f *fakeSony) handler() http.Handler {
 	return mux
 }
 
-func newTest(t *testing.T) (*Provider, *fakeSony) {
+func newTest(t *testing.T, opts ...Option) (*Provider, *fakeSony) {
 	f := &fakeSony{}
 	srv := httptest.NewServer(f.handler())
 	t.Cleanup(srv.Close)
 
-	p := NewProvider(nil)
+	p := NewProvider(opts...)
 	pointAt(p, srv.URL)
 
 	return p, f
@@ -204,13 +211,19 @@ func pointAt(p *Provider, base string) {
 }
 
 func TestFetch(t *testing.T) {
-	p, f := newTest(t)
+	var logs bytes.Buffer
+
+	p, f := newTest(t, WithLogger(slog.New(slog.NewTextHandler(&logs, nil))))
 	settings := schema.Settings{settingNPSSO: `{"npsso":"good-npsso"}`}
 
 	copies, warnings, err := p.Fetch(context.Background(), settings)
-	if err != nil || len(warnings) > 0 {
-		t.Fatalf("fetch: %v %v", err, warnings)
+	if err != nil {
+		t.Fatalf("fetch: %v", err)
 	}
+
+	// The PS Plus game is left out and counted in the log, not in a warning on every scan.
+	assert.Empty(t, warnings)
+	assert.Contains(t, logs.String(), `reason="PS Plus games" count=1`)
 
 	byTitle := map[string]string{}
 	for _, c := range copies {
@@ -242,6 +255,26 @@ func TestFetch(t *testing.T) {
 	if f.authorizes != before || f.refreshes != 1 {
 		t.Fatalf("authorizes=%d refreshes=%d", f.authorizes, f.refreshes)
 	}
+}
+
+// TestTest_readsOnePage checks that "Test connection" reads one page of purchases, not the whole
+// library.
+func TestTest_readsOnePage(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a valid NPSSO and a library of two pages", func(t *testing.T) {
+		p, f := newTest(t)
+
+		t.Run("WHEN the source is tested", func(t *testing.T) {
+			err := p.Test(ctx, schema.Settings{settingNPSSO: `{"npsso":"good-npsso"}`})
+
+			t.Run("THEN it works after reading one page", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.Equal(t, 1, f.libraryRequests)
+			})
+		})
+	})
 }
 
 func TestSignedOut(t *testing.T) {
@@ -455,7 +488,7 @@ func TestMapTitles_systems(t *testing.T) {
 				EntitlementID: "e3",
 				Platform:      "PSX",
 			},
-		}, nil)
+		}, nil, &source.Skipped{})
 
 		t.Run("THEN the copies say their console, and the unknown one leaves it to the platform", func(t *testing.T) {
 			require.Len(t, got, 3)

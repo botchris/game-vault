@@ -1,4 +1,7 @@
-package main
+package money_test
+
+// The web UI keeps its own table of currency decimals; this test reads it and holds it to the
+// server's, so changing either side here runs it.
 
 import (
 	"os"
@@ -10,15 +13,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/money"
 )
 
 // TestCurrencyDigits_webAgrees pins the web UI's currency decimals (web/src/lib/money.ts) to the
-// server's (game.CurrencyDigits): prices are stored in minor units, so a currency with different
+// server's (money.CurrencyDigits): prices are stored in minor units, so a currency with different
 // decimals on each side would be stored 10, 100 or 1000 times off.
 func TestCurrencyDigits_webAgrees(t *testing.T) {
 	t.Run("GIVEN the decimals table of the web UI", func(t *testing.T) {
-		src, err := os.ReadFile(filepath.Join("..", "..", "web", "src", "lib", "money.ts"))
+		src, err := os.ReadFile(filepath.Join("..", "..", "..", "web", "src", "lib", "money.ts"))
 		require.NoError(t, err)
 
 		table := regexp.MustCompile(`(?s)const CURRENCY_DIGITS[^{]*\{(.*?)\};`).FindSubmatch(src)
@@ -42,7 +45,7 @@ func TestCurrencyDigits_webAgrees(t *testing.T) {
 							want = 2
 						}
 
-						assert.Equal(t, want, game.CurrencyDigits(code), "currency %s", code)
+						assert.Equal(t, want, money.CurrencyDigits(code), "currency %s", code)
 					}
 				}
 			}

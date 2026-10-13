@@ -231,7 +231,7 @@ func (x *OwnedGame) GetPath() string {
 type OwnershipResult struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// "owned" (one game matches), "possible" (several match, or one only once edition and store
-	// tags are ignored) or "not_owned".
+	// tags are ignored) or "not_owned"; the server sends no other value.
 	Status string `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
 	// The matching game, when owned.
 	Game *OwnedGame `protobuf:"bytes,2,opt,name=game,proto3" json:"game,omitempty"`

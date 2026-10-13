@@ -1,0 +1,63 @@
+{
+  "Copies": [
+    {
+      "ExternalID": "csv:physical|xbox 360|halo 3|",
+      "PreviousExternalID": "",
+      "Withdrawn": false,
+      "Title": "Halo 3",
+      "Links": null,
+      "AutoLinks": null,
+      "Details": {
+        "Kind": "physical",
+        "Platform": "Xbox 360",
+        "Status": "",
+        "Key": "",
+        "RedeemBy": "",
+        "Origin": "",
+        "AcquiredOn": "",
+        "Edition": "",
+        "Grade": "",
+        "Contents": 0,
+        "Location": "",
+        "Barcode": "",
+        "Price": {
+          "Amount": 1999,
+          "Currency": "USD"
+        },
+        "Notes": "a; b",
+        "System": ""
+      },
+      "System": ""
+    },
+    {
+      "ExternalID": "csv:physical|xbox 360|halo wars|",
+      "PreviousExternalID": "",
+      "Withdrawn": false,
+      "Title": "Halo Wars",
+      "Links": null,
+      "AutoLinks": null,
+      "Details": {
+        "Kind": "physical",
+        "Platform": "Xbox 360",
+        "Status": "",
+        "Key": "",
+        "RedeemBy": "",
+        "Origin": "",
+        "AcquiredOn": "",
+        "Edition": "",
+        "Grade": "",
+        "Contents": 0,
+        "Location": "",
+        "Barcode": "",
+        "Price": {
+          "Amount": 700,
+          "Currency": ""
+        },
+        "Notes": "",
+        "System": ""
+      },
+      "System": ""
+    }
+  ],
+  "Warnings": null
+}

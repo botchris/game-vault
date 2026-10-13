@@ -28,9 +28,9 @@ type HealthIssue struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Identifies the issue ("provider:thegamesdb", "source:<id>:sync").
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	// "error" (stopped working until the user acts) or "warning".
+	// "error" (stopped working until the user acts) or "warning"; the server sends no other value.
 	Level string `protobuf:"bytes,2,opt,name=level,proto3" json:"level,omitempty"`
-	// "provider", "source", "backups" or "disk".
+	// "provider", "source", "backups" or "disk"; the server sends no other value.
 	Kind string `protobuf:"bytes,3,opt,name=kind,proto3" json:"kind,omitempty"`
 	// What has the problem: the provider's or source's name; empty for the backups and the disk,
 	// which clients name in their language by kind.

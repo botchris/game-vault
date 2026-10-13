@@ -29,10 +29,10 @@ func (h *HealthHandler) GetHealth(ctx context.Context, _ *connect.Request[pb.Get
 			Kind:     string(i.Kind),
 			Source:   i.Source,
 			Message:  i.Message,
-			Since:    optionalTS(i.Since),
+			Since:    ts(i.Since),
 			Target:   string(i.Target),
 			TargetId: i.TargetID,
-			Reason:   i.Reason,
+			Reason:   string(i.Reason),
 			Params:   i.Params,
 		})
 	}

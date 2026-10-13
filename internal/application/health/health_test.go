@@ -140,9 +140,9 @@ func TestDiskCheck(t *testing.T) {
 				assert.NotEmpty(t, got[0].Params["free"])
 				assert.NotEmpty(t, got[0].Params["percent"])
 
-				want := "disk_low"
+				want := ReasonDiskLow
 				if tc.want == LevelError {
-					want = "disk_critical"
+					want = ReasonDiskCritical
 				}
 
 				assert.Equal(t, want, got[0].Reason)

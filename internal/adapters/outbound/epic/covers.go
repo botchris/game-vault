@@ -3,9 +3,11 @@ package epic
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 
+	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/adapters/outbound/oauthapp"
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
@@ -17,9 +19,16 @@ import (
 const CoverProviderID provider.ID = "epic-covers"
 
 // Covers is a cover provider for games imported from an Epic library: the store's own box art,
-// read from the public catalog with an application token (no user session needed).
+// read from the public catalog with an application token (no user session needed). It shares only
+// the launcher's credentials and the token request with the source, so the source's session rules
+// (a refused token signs the user out) never reach a cover lookup.
 type Covers struct {
-	p *Provider // shares the HTTP clients, endpoints and launcher credentials
+	// OAuth calls Epic's account service for the application token; tests point it at a fake
+	// server.
+	OAuth *apiclient.Client
+
+	// Catalog calls the public catalog.
+	Catalog *apiclient.Client
 
 	// tokens keeps the application token.
 	tokens oauthapp.Tokens
@@ -32,7 +41,10 @@ var (
 
 // NewCovers returns the Epic cover provider with its production endpoints.
 func NewCovers() *Covers {
-	return &Covers{p: NewProvider()}
+	return &Covers{
+		OAuth:   newClient(defaultOAuthURL),
+		Catalog: newClient(defaultCatalogURL),
+	}
 }
 
 // Descriptor implements media.CoverProvider.
@@ -63,8 +75,8 @@ var imageOrder = []string{"DieselGameBoxTall", "OfferImageTall", "CodeRedemption
 
 // Covers implements media.CoverProvider.
 func (c *Covers) Covers(ctx context.Context, q media.GameQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
-	ids := []string{q.Links[LinkedStore.Key]}
-	v := url.Values{"id": ids, "country": {"US"}, "locale": {"en-US"}}
+	id := q.Links[LinkedStore.Key]
+	v := url.Values{"id": {id}, "country": {"US"}, "locale": {"en-US"}}
 
 	var items map[string]struct {
 		Title     string `json:"title"`
@@ -76,43 +88,65 @@ func (c *Covers) Covers(ctx context.Context, q media.GameQuery, _ schema.Setting
 
 	// A token Epic refuses (it expired early) is renewed once.
 	err := c.tokens.WithRetry(ctx, appTokenKey, c.appToken, func(token string) error {
-		return c.p.get(ctx, c.p.Catalog, token, "/catalog/api/shared/bulk/items", v, &items)
+		return c.get(ctx, token, "/catalog/api/shared/bulk/items", v, &items)
 	})
 	if err != nil {
 		return nil, err
 	}
 
+	it, ok := items[id]
+	if !ok {
+		return nil, nil
+	}
+
 	var out []media.CoverCandidate
 
 	for _, typ := range imageOrder {
-		for _, id := range ids {
-			it, ok := items[id]
-			if !ok {
+		for _, img := range it.KeyImages {
+			if img.Type != typ || !strings.HasPrefix(img.URL, "https://") {
 				continue
 			}
 
-			for _, img := range it.KeyImages {
-				if img.Type != typ || !strings.HasPrefix(img.URL, "https://") {
-					continue
-				}
-
-				label := "Epic: box art"
-				if !strings.Contains(typ, "Tall") && typ != "CodeRedemption_340x440" {
-					label = "Epic: wide image"
-				}
-
-				out = append(out, media.CoverCandidate{
-					URL:      img.URL,
-					ThumbURL: img.URL,
-					Label:    label,
-					Title:    it.Title,
-					Provider: CoverProviderID,
-				})
+			label := "Epic: box art"
+			if !strings.Contains(typ, "Tall") && typ != "CodeRedemption_340x440" {
+				label = "Epic: wide image"
 			}
+
+			out = append(out, media.CoverCandidate{
+				URL:      img.URL,
+				ThumbURL: img.URL,
+				Label:    label,
+				Title:    it.Title,
+				Provider: CoverProviderID,
+			})
 		}
 	}
 
 	return out, nil
+}
+
+// get reads the catalog with the application token. A 401 wraps apiclient.ErrTokenRejected, which
+// the tokens renew once; a 429 or an outage is a passing trouble, after which the chain asks again.
+func (c *Covers) get(ctx context.Context, token, path string, q url.Values, out any) error {
+	err := c.Catalog.Do(ctx, apiclient.Request{
+		Path:   path,
+		Query:  q,
+		Header: http.Header{"Authorization": {"bearer " + token}},
+	}, out)
+
+	switch {
+	case err == nil:
+		return nil
+	case apiclient.IsStatus(err, http.StatusUnauthorized):
+		return fmt.Errorf("epic refused the catalog's application token: %w", apiclient.ErrTokenRejected)
+	}
+
+	return fmt.Errorf("epic catalog: %w", apiclient.ClassifyError(ctx, err))
+}
+
+// clientCredentials returns the form of the application token request (client credentials grant).
+func clientCredentials() url.Values {
+	return url.Values{"grant_type": {"client_credentials"}, "token_type": {"eg1"}}
 }
 
 // appTokenKey is the one application token's key: the launcher's credentials never change.
@@ -120,7 +154,7 @@ const appTokenKey = "launcher"
 
 // appToken asks for an application token (client credentials grant): enough for the catalog.
 func (c *Covers) appToken(ctx context.Context) (oauthapp.Token, error) {
-	tok, err := c.p.oauthRaw(ctx, url.Values{"grant_type": {"client_credentials"}, "token_type": {"eg1"}})
+	tok, err := requestToken(ctx, c.OAuth, clientCredentials())
 	if err != nil {
 		return oauthapp.Token{}, fmt.Errorf("epic catalog token: %w", err)
 	}
@@ -135,7 +169,7 @@ func (c *Covers) appToken(ctx context.Context) (oauthapp.Token, error) {
 // grant), which proves the launcher credentials and the sign-in endpoint work. Any HTTP or
 // transport failure is reported.
 func (c *Covers) Test(ctx context.Context, _ schema.Settings) error {
-	if _, err := c.p.oauthRaw(ctx, url.Values{"grant_type": {"client_credentials"}, "token_type": {"eg1"}}); err != nil {
+	if _, err := requestToken(ctx, c.OAuth, clientCredentials()); err != nil {
 		return fmt.Errorf("epic did not give an application token (%w): check your connection and try again later", err)
 	}
 

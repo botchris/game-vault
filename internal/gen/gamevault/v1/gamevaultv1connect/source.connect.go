@@ -72,7 +72,9 @@ type SourceServiceClient interface {
 	TestSource(context.Context, *connect.Request[v1.TestSourceRequest]) (*connect.Response[v1.TestSourceResponse], error)
 	SyncSource(context.Context, *connect.Request[v1.SyncSourceRequest]) (*connect.Response[v1.SyncSourceResponse], error)
 	SyncAllSources(context.Context, *connect.Request[v1.SyncAllSourcesRequest]) (*connect.Response[v1.SyncAllSourcesResponse], error)
-	// Takes an item off the source's removed list: the next scan imports it again.
+	// Takes an item off the source's removed list: the next scan imports it again. The inverse of
+	// GameService.ExcludeCopy; it lives here because an excluded item is no longer a copy of any game,
+	// only an entry of the source.
 	IncludeCopy(context.Context, *connect.Request[v1.IncludeCopyRequest]) (*connect.Response[v1.IncludeCopyResponse], error)
 }
 
@@ -212,7 +214,9 @@ type SourceServiceHandler interface {
 	TestSource(context.Context, *connect.Request[v1.TestSourceRequest]) (*connect.Response[v1.TestSourceResponse], error)
 	SyncSource(context.Context, *connect.Request[v1.SyncSourceRequest]) (*connect.Response[v1.SyncSourceResponse], error)
 	SyncAllSources(context.Context, *connect.Request[v1.SyncAllSourcesRequest]) (*connect.Response[v1.SyncAllSourcesResponse], error)
-	// Takes an item off the source's removed list: the next scan imports it again.
+	// Takes an item off the source's removed list: the next scan imports it again. The inverse of
+	// GameService.ExcludeCopy; it lives here because an excluded item is no longer a copy of any game,
+	// only an entry of the source.
 	IncludeCopy(context.Context, *connect.Request[v1.IncludeCopyRequest]) (*connect.Response[v1.IncludeCopyResponse], error)
 }
 

@@ -171,8 +171,13 @@ func api(ctx context.Context, account *apiclient.Client, path string, out any) e
 		return fmt.Errorf("battle.net %s: %w", path, res.Err())
 	}
 
-	if err := res.Decode(out); err != nil {
+	err = res.Decode(out)
+
+	switch {
+	case errors.Is(err, apiclient.ErrNotJSON):
 		return ErrSignedOut // an HTML page instead of JSON: not signed in
+	case err != nil:
+		return fmt.Errorf("battle.net %s: %w", path, err)
 	}
 
 	return nil
@@ -210,8 +215,10 @@ type title struct {
 }
 
 // collectTitles walks a JSON answer for objects naming a game ("localizedGameName"), so small
-// changes in how Battle.net nests them do not break scans.
-func collectTitles(v any, out map[string]title) {
+// changes in how Battle.net nests them do not break scans. A game without a title id whose name
+// gives no id either (game.TitleIDKey keeps Latin letters and digits only) is put in unkeyed by
+// name instead: every such game would share one id.
+func collectTitles(v any, out map[string]title, unkeyed map[string]bool) {
 	switch x := v.(type) {
 	case map[string]any:
 		if name, ok := x["localizedGameName"].(string); ok && strings.TrimSpace(name) != "" {
@@ -220,7 +227,9 @@ func collectTitles(v any, out map[string]title) {
 				id = game.TitleIDKey(name) // frozen: the id must never change
 			}
 
-			if _, seen := out[id]; !seen {
+			if id == "" {
+				unkeyed[strings.TrimSpace(name)] = true
+			} else if _, seen := out[id]; !seen {
 				out[id] = title{
 					ID:   id,
 					Name: strings.TrimSpace(name),
@@ -229,11 +238,11 @@ func collectTitles(v any, out map[string]title) {
 		}
 
 		for _, child := range x {
-			collectTitles(child, out)
+			collectTitles(child, out, unkeyed)
 		}
 	case []any:
 		for _, child := range x {
-			collectTitles(child, out)
+			collectTitles(child, out, unkeyed)
 		}
 	}
 }
@@ -252,39 +261,48 @@ func firstOf(m map[string]any, keys ...string) any {
 	return nil
 }
 
-func (p *Provider) titles(ctx context.Context, settings schema.Settings) (map[string]title, error) {
+// titles reads the account's games, and the names of those that have no id (see collectTitles).
+func (p *Provider) titles(ctx context.Context, settings schema.Settings) (map[string]title, map[string]bool, error) {
 	found := map[string]title{}
+	unkeyed := map[string]bool{}
 
 	var games any
 	if err := p.getJSON(ctx, settings, "/api/games-and-subs", &games); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	collectTitles(games, found)
+	collectTitles(games, found, unkeyed)
 	// Older games (Diablo II, Warcraft III…) are listed apart; their absence is not an error.
 	var classic any
 	if err := p.getJSON(ctx, settings, "/api/classic-games", &classic); err == nil {
-		collectTitles(classic, found)
+		collectTitles(classic, found, unkeyed)
 	}
 
-	return found, nil
+	return found, unkeyed, nil
 }
 
-// Test implements sync.Provider.
+// Test implements sync.Provider: it reads the games overview alone (renewing the session on the
+// way, and keeping the cookies the site renews), without the classic games list.
 func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
-	_, err := p.titles(ctx, settings)
-	return err
+	var overview any
+
+	return p.getJSON(ctx, settings, "/api/games-and-subs", &overview)
 }
 
 // Fetch implements sync.Provider.
 func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, []string, error) {
-	found, err := p.titles(ctx, settings)
+	found, unkeyed, err := p.titles(ctx, settings)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	var warnings []string
-	if len(found) == 0 {
+	skipped := source.Skipped{Store: Platform}
+	for range unkeyed {
+		skipped.Add("games without a title id whose name has no Latin letters or digits to make one from")
+	}
+
+	warnings := skipped.Warnings()
+	if len(found) == 0 && len(unkeyed) == 0 {
 		warnings = append(warnings, "battle.net returned no games for this account")
 	}
 	// One copy per game, even if the account has it in several regions.

@@ -1,10 +1,12 @@
 package xbox
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -37,6 +39,12 @@ type fakeMicrosoft struct {
 
 	// tokenStatus, when set, is the only answer of the token endpoint (a rate limit, an outage).
 	tokenStatus int
+
+	// pageSizes are the maxPageSize of the collections requests, in order.
+	pageSizes []float64
+
+	// catalogCalls counts the catalog requests.
+	catalogCalls int
 }
 
 func (f *fakeMicrosoft) handler(t *testing.T) http.Handler {
@@ -112,8 +120,11 @@ func (f *fakeMicrosoft) handler(t *testing.T) http.Handler {
 		var body struct {
 			ContinuationToken string
 			Beneficiaries     *[]any
+			MaxPageSize       float64
 		}
 		json.NewDecoder(r.Body).Decode(&body)
+
+		f.pageSizes = append(f.pageSizes, body.MaxPageSize)
 
 		if body.Beneficiaries == nil { // what the real service answers
 			http.Error(w, `{"errors":{"beneficiaries":["Required property 'beneficiaries' not found in JSON."]}}`, http.StatusBadRequest)
@@ -137,6 +148,8 @@ func (f *fakeMicrosoft) handler(t *testing.T) http.Handler {
 		  {"productId":"9GONE","productKind":"Game","status":"Revoked","acquisitionType":"Single"}]}`)
 	})
 	mux.HandleFunc("GET /v7.0/products", func(w http.ResponseWriter, r *http.Request) {
+		f.catalogCalls++
+
 		titles := map[string]string{"9FORZA": "Forza Horizon 5 Standard Edition", "9HALO": "Halo Infinite"}
 
 		var products []string
@@ -197,10 +210,18 @@ func TestPrepareAndFetch(t *testing.T) {
 		t.Fatalf("test then save should share the code: %v (%d exchanges)", err, f.exchanges)
 	}
 
+	var logs bytes.Buffer
+
+	p.log = slog.New(slog.NewTextHandler(&logs, nil))
+
 	copies, warnings, err := p.Fetch(ctx, settings)
-	if err != nil || len(warnings) > 0 {
-		t.Fatalf("fetch: %v %v", err, warnings)
+	if err != nil {
+		t.Fatalf("fetch: %v", err)
 	}
+
+	// Game Pass, the trial, the DLC and the revoked game are left out and counted in the log.
+	assert.Empty(t, warnings)
+	assert.Contains(t, logs.String(), `reason="Game Pass games, trials, add-ons and expired or revoked items" count=4`)
 
 	got := make([]string, 0, len(copies))
 	for _, c := range copies {
@@ -228,6 +249,34 @@ func TestPrepareAndFetch(t *testing.T) {
 	if settings[settingSession] == before {
 		t.Fatal("the rotated refresh token should be written back")
 	}
+}
+
+// TestTest_readsOnePage checks that "Test connection" signs in to Xbox Live and sends the request
+// of a scan's first collections page, with the scan's page size, without the rest of the
+// collections or the catalog.
+func TestTest_readsOnePage(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a stored session and collections of two pages", func(t *testing.T) {
+		p, f := newTest(t)
+		f.refresh = "good"
+		settings := schema.Settings{settingSession: `{"refresh_token":"good"}`}
+
+		t.Run("WHEN the source is tested", func(t *testing.T) {
+			err := p.Test(ctx, settings)
+
+			t.Run("THEN it works after one request, the first page of a scan, and no catalog request", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.Equal(t, []float64{entitlementsPage}, f.pageSizes)
+				assert.Zero(t, f.catalogCalls)
+
+				t.Run("AND the rotated session is handed back", func(t *testing.T) {
+					assert.Contains(t, settings[settingSession], "good+")
+				})
+			})
+		})
+	})
 }
 
 func TestErrors(t *testing.T) {
