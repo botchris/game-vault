@@ -130,7 +130,9 @@ func (c *Consolidator) markChanged(g *Game) {
 	}
 }
 
-// Apply consolidates the imported copies on behalf of sourceID (empty for one-off imports).
+// Apply consolidates the imported copies on behalf of sourceID (empty for one-off imports). Each
+// copy is checked (prepare), then either updates the copy imported earlier under its ExternalID
+// (updateExisting) or joins the game it matches, which is created when there is none (addToGame).
 func (c *Consolidator) Apply(sourceID string, imported []ImportedCopy, now time.Time) ConsolidationResult {
 	var r ConsolidationResult
 
@@ -140,115 +142,161 @@ func (c *Consolidator) Apply(sourceID string, imported []ImportedCopy, now time.
 			continue
 		}
 
-		if in.ExternalID == "" || in.Title == "" {
-			r.Warnings = append(r.Warnings, "skipped a copy without title or external id: "+in.Title)
+		p, ok := prepare(in, &r)
+		if !ok {
 			continue
 		}
 
-		details, err := in.Details.normalize()
-		if err != nil {
-			r.Warnings = append(r.Warnings, in.Title+": "+err.Error())
+		c.adoptPrevious(p.ImportedCopy)
+
+		g, ok := c.byExternalID[p.ExternalID]
+		if !ok {
+			c.addToGame(p, sourceID, now, &r)
 			continue
 		}
 
-		sourceSystem, err := normalizeSystem(in.System)
-		if err != nil {
-			r.addInvalidSystem(in.System, in.Title+": "+err.Error())
-
-			sourceSystem = ""
+		if c.updateExisting(g, p, sourceID, now) {
+			r.CopiesUpdated++
+		} else {
+			r.CopiesUnchanged++
 		}
-
-		if in.Links, err = in.Links.normalize(); err != nil {
-			r.Warnings = append(r.Warnings, in.Title+": "+err.Error())
-			in.Links = nil
-		}
-
-		c.adoptPrevious(in)
-
-		if g, ok := c.byExternalID[in.ExternalID]; ok {
-			i := g.indexOfExternal(in.ExternalID)
-			cp := &g.copies[i]
-
-			changed := cp.applyImport(details)
-			// A one-off import (a file) knows no source, so it must not erase what a source said.
-			if sourceID != "" && cp.SourceSystem != sourceSystem {
-				cp.SourceSystem = sourceSystem
-				changed = true
-			}
-
-			if sourceID != "" && cp.SourceID != sourceID {
-				cp.SourceID = sourceID // adopt copies created by a CSV import or an older source
-				changed = true
-			}
-
-			if added := g.AddAutoLinks(in.AutoLinks, now); len(added) > 0 {
-				changed = true
-			}
-
-			if added := g.importLinks(in.Links); len(added) > 0 {
-				c.indexLinks(g, added)
-
-				changed = true
-			}
-
-			if changed {
-				g.reconcileEditions() // a scan can change a copy's platform, and so its system
-				cp.UpdatedAt, g.updatedAt = now, now
-				c.markChanged(g)
-
-				r.CopiesUpdated++
-			} else {
-				r.CopiesUnchanged++
-			}
-
-			continue
-		}
-
-		g := c.findGame(in)
-		if g == nil {
-			ng, err := New(in.Title, now)
-			if err != nil {
-				r.Warnings = append(r.Warnings, err.Error())
-				continue
-			}
-
-			g = ng
-			r.GamesCreated++
-		}
-
-		g.importLinks(in.Links)
-		g.AddAutoLinks(in.AutoLinks, now)
-
-		from := copyOrigin{
-			sourceID:     sourceID,
-			externalID:   in.ExternalID,
-			sourceSystem: sourceSystem,
-		}
-		if _, err := g.addCopy(details, from, now); err != nil {
-			r.Warnings = append(r.Warnings, in.Title+": "+err.Error())
-			continue
-		}
-
-		c.index(g)
-		c.markChanged(g)
-
-		r.CopiesAdded++
 	}
 
-	// A game emptied by a withdrawal may have received another copy later in the same import.
-	emptied := r.Emptied
-	r.Emptied = nil
-
-	for _, g := range c.order {
-		if len(g.copies) == 0 && slices.Contains(emptied, g.id) {
-			r.Emptied = append(r.Emptied, g.id)
-			continue
-		}
-
-		r.Changed = append(r.Changed, g)
-	}
+	r.Changed, r.Emptied = c.collect(r.Emptied)
 
 	return r
+}
+
+// preparedCopy is an imported copy whose details, system and links were checked.
+type preparedCopy struct {
+	ImportedCopy
+
+	details      CopyDetails
+	sourceSystem string
+}
+
+// prepare checks an imported copy. A copy without title or id, or with invalid details, is
+// skipped with a warning; an invalid system or invalid links are dropped with one, and the copy
+// is kept.
+func prepare(in ImportedCopy, r *ConsolidationResult) (preparedCopy, bool) {
+	if in.ExternalID == "" || in.Title == "" {
+		r.Warnings = append(r.Warnings, "skipped a copy without title or external id: "+in.Title)
+		return preparedCopy{}, false
+	}
+
+	details, err := in.Details.normalize()
+	if err != nil {
+		r.Warnings = append(r.Warnings, in.Title+": "+err.Error())
+		return preparedCopy{}, false
+	}
+
+	sourceSystem, err := normalizeSystem(in.System)
+	if err != nil {
+		r.addInvalidSystem(in.System, in.Title+": "+err.Error())
+
+		sourceSystem = ""
+	}
+
+	if in.Links, err = in.Links.normalize(); err != nil {
+		r.Warnings = append(r.Warnings, in.Title+": "+err.Error())
+		in.Links = nil
+	}
+
+	return preparedCopy{
+		ImportedCopy: in,
+		details:      details,
+		sourceSystem: sourceSystem,
+	}, true
+}
+
+// updateExisting applies an import to the copy g holds under its ExternalID and reports whether
+// anything changed.
+func (c *Consolidator) updateExisting(g *Game, p preparedCopy, sourceID string, now time.Time) bool {
+	cp := &g.copies[g.indexOfExternal(p.ExternalID)]
+
+	changed := cp.applyImport(p.details)
+	// A one-off import (a file) knows no source, so it must not erase what a source said.
+	if sourceID != "" && cp.SourceSystem != p.sourceSystem {
+		cp.SourceSystem = p.sourceSystem
+		changed = true
+	}
+
+	if sourceID != "" && cp.SourceID != sourceID {
+		cp.SourceID = sourceID // adopt copies created by a CSV import or an older source
+		changed = true
+	}
+
+	own, linksChanged := applyLinks(g, p.ImportedCopy, now)
+	c.indexLinks(g, own)
+
+	if !changed && !linksChanged {
+		return false
+	}
+
+	g.reconcileEditions() // a scan can change a copy's platform, and so its system
+	cp.UpdatedAt, g.updatedAt = now, now
+	c.markChanged(g)
+
+	return true
+}
+
+// addToGame adds an imported copy to the game it matches, or to a new game.
+func (c *Consolidator) addToGame(p preparedCopy, sourceID string, now time.Time, r *ConsolidationResult) {
+	g := c.findGame(p.ImportedCopy)
+	if g == nil {
+		ng, err := New(p.Title, now)
+		if err != nil {
+			r.Warnings = append(r.Warnings, err.Error())
+			return
+		}
+
+		g = ng
+		r.GamesCreated++
+	}
+
+	applyLinks(g, p.ImportedCopy, now) // before the copy: links can decide its game's editions
+
+	from := copyOrigin{
+		sourceID:     sourceID,
+		externalID:   p.ExternalID,
+		sourceSystem: p.sourceSystem,
+	}
+	if _, err := g.addCopy(p.details, from, now); err != nil {
+		r.Warnings = append(r.Warnings, p.Title+": "+err.Error())
+		return
+	}
+
+	c.index(g)
+	c.markChanged(g)
+
+	r.CopiesAdded++
+}
+
+// applyLinks adds an import's links to g in the same order for every copy: the source's own links
+// first, which replace automatic ones because the source knows the store id, then the automatic
+// ones where g still has no link. It returns the source's links it added, which imports may now
+// recognize g by, and whether g's links changed.
+func applyLinks(g *Game, in ImportedCopy, now time.Time) (Links, bool) {
+	own := g.importLinks(in.Links)
+	auto := g.AddAutoLinks(in.AutoLinks, now)
+
+	return own, len(own) > 0 || len(auto) > 0
+}
+
+// collect returns the games to save, in the order they first changed, and the emptied games to
+// delete. A game emptied by a withdrawal may have received another copy later in the same import:
+// it is saved instead.
+func (c *Consolidator) collect(emptied []ID) (changed []*Game, deleted []ID) {
+	for _, g := range c.order {
+		if len(g.copies) == 0 && slices.Contains(emptied, g.id) {
+			deleted = append(deleted, g.id)
+			continue
+		}
+
+		changed = append(changed, g)
+	}
+
+	return changed, deleted
 }
 
 // withdraw removes the copy the source imported under in.ExternalID. The previous id only counts

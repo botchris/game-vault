@@ -2,10 +2,6 @@ package sqlite
 
 import (
 	"context"
-	"database/sql"
-	"encoding/json"
-	"errors"
-	"time"
 
 	"gamevault/internal/domain/settings"
 )
@@ -32,20 +28,15 @@ type loggingJSON struct {
 
 // Logging returns the logging settings, or the defaults when none are stored.
 func (r *SettingsRepository) Logging(ctx context.Context) (settings.Logging, error) {
-	var raw string
+	var v loggingJSON
 
-	err := r.db.conn(ctx).QueryRowContext(ctx, `SELECT value FROM settings WHERE key = ?`, keyLogging).Scan(&raw)
-	if errors.Is(err, sql.ErrNoRows) {
-		return settings.DefaultLogging(), nil
-	}
-
+	ok, err := r.db.getSetting(ctx, keyLogging, &v)
 	if err != nil {
 		return settings.Logging{}, err
 	}
 
-	var v loggingJSON
-	if err := json.Unmarshal([]byte(raw), &v); err != nil {
-		return settings.Logging{}, err
+	if !ok {
+		return settings.DefaultLogging(), nil
 	}
 
 	return settings.Logging(v), nil
@@ -53,16 +44,7 @@ func (r *SettingsRepository) Logging(ctx context.Context) (settings.Logging, err
 
 // SaveLogging stores the logging settings.
 func (r *SettingsRepository) SaveLogging(ctx context.Context, l settings.Logging) error {
-	b, err := json.Marshal(loggingJSON(l))
-	if err != nil {
-		return err
-	}
-
-	_, err = r.db.conn(ctx).ExecContext(ctx, `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
-		ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
-		keyLogging, string(b), formatTime(time.Now()))
-
-	return err
+	return r.db.putSetting(ctx, keyLogging, loggingJSON(l))
 }
 
 const keyPreferences = "preferences"
@@ -73,19 +55,8 @@ type preferencesJSON struct {
 
 // Preferences returns the saved preferences, empty when none were saved.
 func (r *SettingsRepository) Preferences(ctx context.Context) (settings.Preferences, error) {
-	var raw string
-
-	err := r.db.conn(ctx).QueryRowContext(ctx, `SELECT value FROM settings WHERE key = ?`, keyPreferences).Scan(&raw)
-	if errors.Is(err, sql.ErrNoRows) {
-		return settings.Preferences{}, nil
-	}
-
-	if err != nil {
-		return settings.Preferences{}, err
-	}
-
 	var v preferencesJSON
-	if err := json.Unmarshal([]byte(raw), &v); err != nil {
+	if _, err := r.db.getSetting(ctx, keyPreferences, &v); err != nil {
 		return settings.Preferences{}, err
 	}
 
@@ -94,14 +65,5 @@ func (r *SettingsRepository) Preferences(ctx context.Context) (settings.Preferen
 
 // SavePreferences stores the preferences.
 func (r *SettingsRepository) SavePreferences(ctx context.Context, p settings.Preferences) error {
-	b, err := json.Marshal(preferencesJSON(p))
-	if err != nil {
-		return err
-	}
-
-	_, err = r.db.conn(ctx).ExecContext(ctx, `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
-		ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
-		keyPreferences, string(b), formatTime(time.Now()))
-
-	return err
+	return r.db.putSetting(ctx, keyPreferences, preferencesJSON(p))
 }

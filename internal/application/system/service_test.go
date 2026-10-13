@@ -87,13 +87,19 @@ func (r *photoGames) List(context.Context) ([]*game.Game, error) {
 		photos = append(photos, game.Photo{ID: id})
 	}
 
-	return []*game.Game{game.Rehydrate("g1", game.Info{Title: "Halo 3"}, []game.Copy{{
-		ID: "c1",
-		CopyDetails: game.CopyDetails{
-			Kind: game.KindPhysical,
-		},
-		Photos: photos,
-	}}, time.Now(), time.Now())}, nil
+	return []*game.Game{game.Rehydrate(game.Snapshot{
+		ID:   "g1",
+		Info: game.Info{Title: "Halo 3"},
+		Copies: []game.Copy{{
+			ID: "c1",
+			CopyDetails: game.CopyDetails{
+				Kind: game.KindPhysical,
+			},
+			Photos: photos,
+		}},
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	})}, nil
 }
 
 // fakeArchive records what the backups put in and keep in the shared photo store.

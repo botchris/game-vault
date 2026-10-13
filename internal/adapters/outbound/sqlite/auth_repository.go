@@ -3,7 +3,6 @@ package sqlite
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"slices"
 	"time"
@@ -206,20 +205,15 @@ type authSettingsJSON struct {
 
 // Auth implements auth.SettingsRepository.
 func (r *SettingsRepository) Auth(ctx context.Context) (auth.Settings, error) {
-	var raw string
+	var v authSettingsJSON
 
-	err := r.db.conn(ctx).QueryRowContext(ctx, `SELECT value FROM settings WHERE key = ?`, keyAuth).Scan(&raw)
-	if errors.Is(err, sql.ErrNoRows) {
-		return r.defaultAuth(), nil
-	}
-
+	ok, err := r.db.getSetting(ctx, keyAuth, &v)
 	if err != nil {
 		return auth.Settings{}, err
 	}
 
-	var v authSettingsJSON
-	if err := json.Unmarshal([]byte(raw), &v); err != nil {
-		return auth.Settings{}, err
+	if !ok {
+		return r.defaultAuth(), nil
 	}
 
 	if v.Authentication == "" && v.LegacyLocalBypass != nil {
@@ -250,17 +244,9 @@ func (r *SettingsRepository) defaultAuth() auth.Settings {
 
 // SaveAuth stores the authentication settings.
 func (r *SettingsRepository) SaveAuth(ctx context.Context, s auth.Settings) error {
-	b, err := json.Marshal(authSettingsJSON{
+	return r.db.putSetting(ctx, keyAuth, authSettingsJSON{
 		Authentication:        string(s.Authentication),
 		TrustedNetworks:       s.TrustedNetworks,
 		CertificateValidation: string(s.CertificateValidation),
 	})
-	if err != nil {
-		return err
-	}
-
-	_, err = r.db.conn(ctx).ExecContext(ctx, `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
-		ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`, keyAuth, string(b), formatTime(time.Now()))
-
-	return err
 }

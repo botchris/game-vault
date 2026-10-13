@@ -41,7 +41,7 @@ func TestAddScannedCopies(t *testing.T) {
 		require.NoError(t, err)
 		t.Cleanup(func() { db.Close() })
 
-		svc := catalog.NewService(sqlite.NewGameRepository(db), db, time.Now, nil, nil, nil)
+		svc := catalog.NewService(sqlite.NewGameRepository(db), db)
 		halo, err := svc.CreateGame(ctx, game.Info{Title: "Halo 3"}, nil)
 		require.NoError(t, err)
 
@@ -218,7 +218,7 @@ func TestAddScannedCopies_coverCache(t *testing.T) {
 		t.Cleanup(func() { db.Close() })
 
 		cache := &covers{}
-		svc := catalog.NewService(sqlite.NewGameRepository(db), db, time.Now, cache, nil, nil)
+		svc := catalog.NewService(sqlite.NewGameRepository(db), db, catalog.WithCoverCache(cache))
 
 		g, err := svc.CreateGame(ctx, game.Info{Title: "Halo 3"}, []game.CopyDetails{
 			{

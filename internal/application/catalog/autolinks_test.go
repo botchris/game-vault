@@ -65,7 +65,7 @@ func TestAddAutoLinks_keepsAConcurrentEdit(t *testing.T) {
 			Repository: sqlite.NewGameRepository(db),
 			done:       make(chan struct{}),
 		}
-		svc := catalog.NewService(repo, db, time.Now, nil, nil, nil)
+		svc := catalog.NewService(repo, db)
 
 		g, err := svc.CreateGame(ctx, game.Info{Title: "Console Quest"}, []game.CopyDetails{{
 			Kind:     game.KindPhysical,
@@ -110,7 +110,7 @@ func TestUpdateGame_linksOnlyWhenSet(t *testing.T) {
 		require.NoError(t, err)
 		t.Cleanup(func() { db.Close() })
 
-		svc := catalog.NewService(sqlite.NewGameRepository(db), db, time.Now, nil, nil, nil)
+		svc := catalog.NewService(sqlite.NewGameRepository(db), db)
 		g, err := svc.CreateGame(ctx, game.Info{
 			Title: "Console Quest",
 			Links: game.Links{"psn": "PPSA0001"},
@@ -126,7 +126,7 @@ func TestUpdateGame_linksOnlyWhenSet(t *testing.T) {
 
 		t.Run("WHEN the page saves a rating without setting the links", func(t *testing.T) {
 			outOfDate.Rating = 4
-			got, err := svc.UpdateGameInfo(ctx, g.ID(), outOfDate, false)
+			got, err := svc.UpdateGameKeepLinks(ctx, g.ID(), outOfDate)
 			require.NoError(t, err)
 
 			t.Run("THEN the links stay as they are, and nothing is rejected", func(t *testing.T) {
@@ -140,7 +140,7 @@ func TestUpdateGame_linksOnlyWhenSet(t *testing.T) {
 		t.Run("WHEN the Edit tab saves the links without the Steam one", func(t *testing.T) {
 			info := outOfDate
 			info.Links = game.Links{"psn": "PPSA0001"}
-			got, err := svc.UpdateGameInfo(ctx, g.ID(), info, true)
+			got, err := svc.UpdateGame(ctx, g.ID(), info)
 			require.NoError(t, err)
 
 			t.Run("THEN the automatic link is removed and rejected, as the user asked", func(t *testing.T) {

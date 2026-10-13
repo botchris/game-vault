@@ -24,7 +24,7 @@ func TestMergeAndMove_refuseAMoveToTheSameGame(t *testing.T) {
 		require.NoError(t, err)
 		t.Cleanup(func() { db.Close() })
 
-		svc := catalog.NewService(sqlite.NewGameRepository(db), db, time.Now, nil, nil, nil)
+		svc := catalog.NewService(sqlite.NewGameRepository(db), db)
 
 		g, err := svc.CreateGame(ctx, game.Info{Title: "Example Quest"}, []game.CopyDetails{{
 			Kind:     game.KindPhysical,

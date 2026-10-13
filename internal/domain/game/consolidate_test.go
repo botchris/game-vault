@@ -365,8 +365,15 @@ func TestConsolidatorFirstCopyTakesCoverOnSourceSystem(t *testing.T) {
 			})
 
 			t.Run("AND it survives a re-read", func(t *testing.T) {
-				read := Rehydrate(g.ID(), g.Info(), g.Copies(), t0, t0)
-				read.RestoreEditions(g.Covers(), g.MainSystem())
+				read := Rehydrate(Snapshot{
+					ID:         g.ID(),
+					Info:       g.Info(),
+					Copies:     g.Copies(),
+					Covers:     g.Covers(),
+					MainSystem: g.MainSystem(),
+					CreatedAt:  t0,
+					UpdatedAt:  t0,
+				})
 				assert.Equal(t, map[string]EditionCover{"PS5": {URL: url}}, read.Covers())
 			})
 		})

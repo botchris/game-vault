@@ -270,6 +270,10 @@ func (s *AutoLinker) findLinks(ctx context.Context, q GameQuery) (links game.Lin
 				s.log.Warn("automatic links: a finder failed, asking again later", "provider", v.ID(), "game", q.Title, "error", err)
 				return nil, true
 			case len(links) > 0:
+				if _, err := links.Valid(); err != nil { // the catalog adds the valid ones only
+					s.log.Warn("automatic links: skipping invalid links", "provider", v.ID(), "game", q.Title, "error", err)
+				}
+
 				return links, false
 			}
 		}

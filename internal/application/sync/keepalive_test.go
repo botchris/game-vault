@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"gamevault/internal/adapters/outbound/sqlite"
+	"gamevault/internal/application/catalog"
 	"gamevault/internal/application/sync"
 	"gamevault/internal/application/unattended"
 	"gamevault/internal/domain/game"
@@ -63,7 +64,8 @@ func TestKeepAliveSavesRenewedSessions(t *testing.T) {
 
 	sources := sqlite.NewSourceRepository(db)
 	p := &rotating{}
-	svc := sync.NewService(sources, sqlite.NewGameRepository(db), db, nil, time.Now, slog.New(slog.NewTextHandler(io.Discard, nil)), p)
+	svc := sync.NewService(sources, sqlite.NewGameRepository(db), db, catalog.NewService(sqlite.NewGameRepository(db), db),
+		[]sync.Provider{p}, sync.WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil))))
 
 	v, err := svc.Create(ctx, "rot", source.Config{
 		Enabled:  true,
@@ -98,7 +100,7 @@ func TestKeepAliveSavesRenewedSessions(t *testing.T) {
 }
 
 func TestKeepAliveDelay_variesByThirtyPercent(t *testing.T) {
-	svc := sync.NewService(nil, nil, nil, nil, nil, nil)
+	svc := sync.NewService(nil, nil, nil, nil, nil)
 
 	for draw, want := range map[float64]time.Duration{0: 42 * time.Minute, 0.5: time.Hour, 1: 78 * time.Minute} {
 		svc.SetRhythm(unattended.Rhythm{Random: func() float64 { return draw }})
@@ -137,7 +139,8 @@ func TestSchedulerScansOnceAndWaitsForTheVariedInterval(t *testing.T) {
 
 	p := &counting{}
 
-	svc := sync.NewService(sqlite.NewSourceRepository(db), sqlite.NewGameRepository(db), db, nil, time.Now, slog.New(slog.NewTextHandler(io.Discard, nil)), p)
+	svc := sync.NewService(sqlite.NewSourceRepository(db), sqlite.NewGameRepository(db), db, catalog.NewService(sqlite.NewGameRepository(db), db),
+		[]sync.Provider{p}, sync.WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil))))
 
 	if _, err := svc.Create(ctx, "cnt", source.Config{
 		Enabled:      true,
@@ -155,7 +158,7 @@ func TestSchedulerScansOnceAndWaitsForTheVariedInterval(t *testing.T) {
 }
 
 func TestScanDelay_variesByTenPercent(t *testing.T) {
-	svc := sync.NewService(nil, nil, nil, nil, nil, nil)
+	svc := sync.NewService(nil, nil, nil, nil, nil)
 
 	for draw, want := range map[float64]time.Duration{0: 21*time.Hour + 36*time.Minute, 1: 26*time.Hour + 24*time.Minute} {
 		svc.SetRhythm(unattended.Rhythm{Random: func() float64 { return draw }})

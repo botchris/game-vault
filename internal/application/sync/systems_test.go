@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/adapters/outbound/sqlite"
+	"gamevault/internal/application/catalog"
 	"gamevault/internal/application/sync"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/source"
@@ -33,8 +34,8 @@ func TestSync_invalidSourceSystem(t *testing.T) {
 		bad := item("ls:journey", "Journey")
 		bad.System = "--"
 		p := &listing{items: []game.ImportedCopy{bad}}
-		svc := sync.NewService(sqlite.NewSourceRepository(db), sqlite.NewGameRepository(db), db, nil, time.Now,
-			slog.New(slog.NewTextHandler(&logged, &slog.HandlerOptions{Level: slog.LevelDebug})), p)
+		svc := sync.NewService(sqlite.NewSourceRepository(db), sqlite.NewGameRepository(db), db, catalog.NewService(sqlite.NewGameRepository(db), db),
+			[]sync.Provider{p}, sync.WithLogger(slog.New(slog.NewTextHandler(&logged, &slog.HandlerOptions{Level: slog.LevelDebug}))))
 
 		v, err := svc.Create(ctx, "ls", source.Config{
 			Name:    "My listing",
@@ -102,8 +103,8 @@ func TestSync_invalidSourceSystemAfterAFailedScan(t *testing.T) {
 		bad := item("ls:journey", "Journey")
 		bad.System = "--"
 		tx := &failingCommit{tx: db}
-		svc := sync.NewService(sqlite.NewSourceRepository(db), sqlite.NewGameRepository(db), tx, nil, time.Now,
-			slog.New(slog.NewTextHandler(io.Discard, nil)), &listing{items: []game.ImportedCopy{bad}})
+		svc := sync.NewService(sqlite.NewSourceRepository(db), sqlite.NewGameRepository(db), tx, catalog.NewService(sqlite.NewGameRepository(db), tx),
+			[]sync.Provider{&listing{items: []game.ImportedCopy{bad}}}, sync.WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil))))
 
 		v, err := svc.Create(ctx, "ls", source.Config{
 			Name:    "My listing",

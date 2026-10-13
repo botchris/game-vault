@@ -21,45 +21,52 @@ var docTime = time.Date(2026, 10, 9, 18, 30, 0, 123456789, time.UTC)
 func sampleGame(t *testing.T) *game.Game {
 	t.Helper()
 
-	g := game.Rehydrate("g1", game.Info{
-		Title:      "Hades",
-		Links:      game.Links{"steam": "1145360"},
-		Notes:      "GOTY",
-		PlayStatus: game.PlayFinished,
-		Rating:     5,
-	}, []game.Copy{
-		{
-			ID: "c1",
-			CopyDetails: game.CopyDetails{
-				Kind:     game.KindKey,
-				Platform: "Steam",
-				Status:   game.StatusRevealed,
-				Key:      "AAAA-BBBB",
-				RedeemBy: "2027-01-01",
-				Origin:   "Humble – Indie Bundle",
-			},
-			SourceID:   "src1",
-			ExternalID: "humble:A:hades:0",
-			CreatedAt:  docTime,
-			UpdatedAt:  docTime,
+	g := game.Rehydrate(game.Snapshot{
+		ID: "g1",
+		Info: game.Info{
+			Title:      "Hades",
+			Links:      game.Links{"steam": "1145360"},
+			Notes:      "GOTY",
+			PlayStatus: game.PlayFinished,
+			Rating:     5,
 		},
-		{
-			ID: "c2",
-			CopyDetails: game.CopyDetails{
-				Kind:       game.KindPhysical,
-				Platform:   "PS4",
-				Status:     game.StatusOwned,
-				AcquiredOn: "2021-07-11",
-				Edition:    "Collector's",
-				Location:   "Shelf",
-				Barcode:    "2001234567893",
-				Notes:      "signed",
+		Copies: []game.Copy{
+			{
+				ID: "c1",
+				CopyDetails: game.CopyDetails{
+					Kind:     game.KindKey,
+					Platform: "Steam",
+					Status:   game.StatusRevealed,
+					Key:      "AAAA-BBBB",
+					RedeemBy: "2027-01-01",
+					Origin:   "Humble – Indie Bundle",
+				},
+				SourceID:   "src1",
+				ExternalID: "humble:A:hades:0",
+				CreatedAt:  docTime,
+				UpdatedAt:  docTime,
 			},
-			CreatedAt: docTime,
-			UpdatedAt: docTime,
+			{
+				ID: "c2",
+				CopyDetails: game.CopyDetails{
+					Kind:       game.KindPhysical,
+					Platform:   "PS4",
+					Status:     game.StatusOwned,
+					AcquiredOn: "2021-07-11",
+					Edition:    "Collector's",
+					Location:   "Shelf",
+					Barcode:    "2001234567893",
+					Notes:      "signed",
+				},
+				CreatedAt: docTime,
+				UpdatedAt: docTime,
+			},
 		},
-	}, docTime, docTime)
-	g.RestoreEditions(map[string]game.EditionCover{"PS4": {URL: "https://example.test/hades.jpg"}}, "PS4")
+		Covers:     map[string]game.EditionCover{"PS4": {URL: "https://example.test/hades.jpg"}},
+		MainSystem: "PS4",
+		CreatedAt:  docTime,
+		UpdatedAt:  docTime,
+	})
 
 	return g
 }
@@ -139,8 +146,17 @@ func TestDocuments_sourceAndProvider(t *testing.T) {
 			Title:      "A",
 			At:         docTime,
 		}}
-		s := source.Rehydrate("src1", "humble", "Humble Bundle", false, 24*time.Hour,
-			schema.Settings{"session": "secret"}, report, exclusions, docTime, docTime)
+		s := source.Rehydrate(source.Snapshot{
+			ID:           "src1",
+			Type:         "humble",
+			Name:         "Humble Bundle",
+			SyncInterval: 24 * time.Hour,
+			Settings:     schema.Settings{"session": "secret"},
+			LastSync:     report,
+			Exclusions:   exclusions,
+			CreatedAt:    docTime,
+			UpdatedAt:    docTime,
+		})
 
 		t.Run("WHEN it is encoded and decoded", func(t *testing.T) {
 			raw, err := encodeSource(s)
@@ -201,22 +217,28 @@ func TestDocuments_sourceAndProvider(t *testing.T) {
 func TestDocuments_physicalFields(t *testing.T) {
 	t.Run("GIVEN a physical copy with grade, contents and price", func(t *testing.T) {
 		contents, _ := game.ContentsOf(game.ContentBox, game.ContentMedia)
-		g := game.Rehydrate("g1", game.Info{Title: "Halo 3"}, []game.Copy{{
-			ID: "c1",
-			CopyDetails: game.CopyDetails{
-				Kind:     game.KindPhysical,
-				Platform: "Xbox 360",
-				Status:   game.StatusOwned,
-				Grade:    game.GradeGood,
-				Contents: contents,
-				Price: game.Money{
-					Amount:   1500,
-					Currency: "JPY",
+		g := game.Rehydrate(game.Snapshot{
+			ID:   "g1",
+			Info: game.Info{Title: "Halo 3"},
+			Copies: []game.Copy{{
+				ID: "c1",
+				CopyDetails: game.CopyDetails{
+					Kind:     game.KindPhysical,
+					Platform: "Xbox 360",
+					Status:   game.StatusOwned,
+					Grade:    game.GradeGood,
+					Contents: contents,
+					Price: game.Money{
+						Amount:   1500,
+						Currency: "JPY",
+					},
 				},
-			},
+				CreatedAt: docTime,
+				UpdatedAt: docTime,
+			}},
 			CreatedAt: docTime,
 			UpdatedAt: docTime,
-		}}, docTime, docTime)
+		})
 
 		t.Run("WHEN it is encoded and decoded", func(t *testing.T) {
 			raw, err := encodeGame(g)
@@ -281,28 +303,34 @@ func TestDocuments_conditionConversion(t *testing.T) {
 func TestDocuments_photos(t *testing.T) {
 	t.Run("GIVEN a game with a photographed copy, one photo without a date, and a cover photo", func(t *testing.T) {
 		id1, id2 := game.PhotoID(strings.Repeat("a", 64)), game.PhotoID(strings.Repeat("b", 64))
-		g := game.Rehydrate("g1", game.Info{Title: "Halo 3"}, []game.Copy{{
-			ID: "c1",
-			CopyDetails: game.CopyDetails{
-				Kind:   game.KindPhysical,
-				Status: game.StatusOwned,
-			},
-			Photos: []game.Photo{
-				{
-					ID:      id1,
-					Caption: "box",
-					TakenAt: docTime.Add(-time.Hour),
-					AddedAt: docTime,
+		g := game.Rehydrate(game.Snapshot{
+			ID:   "g1",
+			Info: game.Info{Title: "Halo 3"},
+			Copies: []game.Copy{{
+				ID: "c1",
+				CopyDetails: game.CopyDetails{
+					Kind:   game.KindPhysical,
+					Status: game.StatusOwned,
 				},
-				{
-					ID:      id2,
-					AddedAt: docTime,
+				Photos: []game.Photo{
+					{
+						ID:      id1,
+						Caption: "box",
+						TakenAt: docTime.Add(-time.Hour),
+						AddedAt: docTime,
+					},
+					{
+						ID:      id2,
+						AddedAt: docTime,
+					},
 				},
-			},
+				CreatedAt: docTime,
+				UpdatedAt: docTime,
+			}},
+			Covers:    map[string]game.EditionCover{game.SystemOther: {Photo: id2}},
 			CreatedAt: docTime,
 			UpdatedAt: docTime,
-		}}, docTime, docTime)
-		g.RestoreEditions(map[string]game.EditionCover{game.SystemOther: {Photo: id2}}, "")
+		})
 
 		t.Run("WHEN it is encoded and decoded", func(t *testing.T) {
 			raw, err := encodeGame(g)
@@ -332,46 +360,52 @@ func TestDocuments_photos(t *testing.T) {
 func TestDocuments_estimates(t *testing.T) {
 	t.Run("GIVEN a physical copy with two estimates and a next date", func(t *testing.T) {
 		next := docTime.Add(30 * 24 * time.Hour)
-		g := game.Rehydrate("g1", game.Info{Title: "Dead Space 3"}, []game.Copy{{
-			ID: "c1",
-			CopyDetails: game.CopyDetails{
-				Kind:    game.KindPhysical,
-				Status:  game.StatusOwned,
-				Barcode: "5030934110075",
-			},
-			Estimates: []game.Estimate{
-				{
-					Provider: "cex-prices",
-					Sell: game.Money{
-						Amount:   2000,
-						Currency: "EUR",
-					},
-					BuyCash: game.Money{
-						Amount:   600,
-						Currency: "EUR",
-					},
-					BuyCredit: game.Money{
-						Amount:   1000,
-						Currency: "EUR",
-					},
-					URL:       "https://es.webuy.com/product-detail/?id=5030934110075",
-					FetchedAt: docTime,
+		g := game.Rehydrate(game.Snapshot{
+			ID:   "g1",
+			Info: game.Info{Title: "Dead Space 3"},
+			Copies: []game.Copy{{
+				ID: "c1",
+				CopyDetails: game.CopyDetails{
+					Kind:    game.KindPhysical,
+					Status:  game.StatusOwned,
+					Barcode: "5030934110075",
 				},
-				{
-					Provider: "ebay-prices",
-					Sell: game.Money{
-						Amount:   1400,
-						Currency: "EUR",
+				Estimates: []game.Estimate{
+					{
+						Provider: "cex-prices",
+						Sell: game.Money{
+							Amount:   2000,
+							Currency: "EUR",
+						},
+						BuyCash: game.Money{
+							Amount:   600,
+							Currency: "EUR",
+						},
+						BuyCredit: game.Money{
+							Amount:   1000,
+							Currency: "EUR",
+						},
+						URL:       "https://es.webuy.com/product-detail/?id=5030934110075",
+						FetchedAt: docTime,
 					},
-					Listings:  9,
-					FetchedAt: docTime,
+					{
+						Provider: "ebay-prices",
+						Sell: game.Money{
+							Amount:   1400,
+							Currency: "EUR",
+						},
+						Listings:  9,
+						FetchedAt: docTime,
+					},
 				},
-			},
-			NextValuation: next,
-			ValuedAt:      docTime,
-			CreatedAt:     docTime,
-			UpdatedAt:     docTime,
-		}}, docTime, docTime)
+				NextValuation: next,
+				ValuedAt:      docTime,
+				CreatedAt:     docTime,
+				UpdatedAt:     docTime,
+			}},
+			CreatedAt: docTime,
+			UpdatedAt: docTime,
+		})
 
 		t.Run("WHEN it is encoded and decoded", func(t *testing.T) {
 			raw, err := encodeGame(g)
@@ -423,7 +457,13 @@ func TestDocuments_customFieldValues(t *testing.T) {
 			"h": {Minutes: &m},
 		}
 
-		g := game.Rehydrate(base.ID(), info, copies, docTime, docTime)
+		g := game.Rehydrate(game.Snapshot{
+			ID:        base.ID(),
+			Info:      info,
+			Copies:    copies,
+			CreatedAt: docTime,
+			UpdatedAt: docTime,
+		})
 
 		t.Run("WHEN it is encoded and decoded", func(t *testing.T) {
 			raw, err := encodeGame(g)
@@ -451,18 +491,24 @@ func TestDocuments_customFieldValues(t *testing.T) {
 
 func TestDocuments_systems(t *testing.T) {
 	t.Run("GIVEN a copy with the user's system and its source's", func(t *testing.T) {
-		g := game.Rehydrate("g1", game.Info{Title: "Astro Bot"}, []game.Copy{{
-			ID: "c1",
-			CopyDetails: game.CopyDetails{
-				Kind:     game.KindLibrary,
-				Platform: "PlayStation Store",
-				Status:   game.StatusOwned,
-				System:   "PS4",
-			},
-			SourceSystem: "PS5",
-			CreatedAt:    docTime,
-			UpdatedAt:    docTime,
-		}}, docTime, docTime)
+		g := game.Rehydrate(game.Snapshot{
+			ID:   "g1",
+			Info: game.Info{Title: "Astro Bot"},
+			Copies: []game.Copy{{
+				ID: "c1",
+				CopyDetails: game.CopyDetails{
+					Kind:     game.KindLibrary,
+					Platform: "PlayStation Store",
+					Status:   game.StatusOwned,
+					System:   "PS4",
+				},
+				SourceSystem: "PS5",
+				CreatedAt:    docTime,
+				UpdatedAt:    docTime,
+			}},
+			CreatedAt: docTime,
+			UpdatedAt: docTime,
+		})
 
 		t.Run("WHEN it is encoded and decoded", func(t *testing.T) {
 			raw, err := encodeGame(g)
@@ -491,33 +537,40 @@ func TestDocuments_editions(t *testing.T) {
 	photo := game.PhotoID(strings.Repeat("c", 64))
 
 	t.Run("GIVEN a game with a chosen cover per edition and a main system", func(t *testing.T) {
-		g := game.Rehydrate("g1", game.Info{Title: "Halo 3"}, []game.Copy{
-			{
-				ID: "c1",
-				CopyDetails: game.CopyDetails{
-					Kind:     game.KindPhysical,
-					Platform: "PS3",
-					Status:   game.StatusOwned,
+		g := game.Rehydrate(game.Snapshot{
+			ID:   "g1",
+			Info: game.Info{Title: "Halo 3"},
+			Copies: []game.Copy{
+				{
+					ID: "c1",
+					CopyDetails: game.CopyDetails{
+						Kind:     game.KindPhysical,
+						Platform: "PS3",
+						Status:   game.StatusOwned,
+					},
+					Photos: []game.Photo{{
+						ID:      photo,
+						AddedAt: docTime,
+					}},
+					CreatedAt: docTime,
+					UpdatedAt: docTime,
 				},
-				Photos: []game.Photo{{
-					ID:      photo,
-					AddedAt: docTime,
-				}},
-				CreatedAt: docTime,
-				UpdatedAt: docTime,
-			},
-			{
-				ID: "c2",
-				CopyDetails: game.CopyDetails{
-					Kind:     game.KindPhysical,
-					Platform: "Xbox 360",
-					Status:   game.StatusOwned,
+				{
+					ID: "c2",
+					CopyDetails: game.CopyDetails{
+						Kind:     game.KindPhysical,
+						Platform: "Xbox 360",
+						Status:   game.StatusOwned,
+					},
+					CreatedAt: docTime,
+					UpdatedAt: docTime,
 				},
-				CreatedAt: docTime,
-				UpdatedAt: docTime,
 			},
-		}, docTime, docTime)
-		g.RestoreEditions(map[string]game.EditionCover{"PS3": {Photo: photo}, "Xbox 360": {URL: "https://example.test/x360.jpg"}}, "Xbox 360")
+			Covers:     map[string]game.EditionCover{"PS3": {Photo: photo}, "Xbox 360": {URL: "https://example.test/x360.jpg"}},
+			MainSystem: "Xbox 360",
+			CreatedAt:  docTime,
+			UpdatedAt:  docTime,
+		})
 
 		t.Run("WHEN it is encoded and decoded", func(t *testing.T) {
 			raw, err := encodeGame(g)
@@ -537,7 +590,12 @@ func TestDocuments_editions(t *testing.T) {
 			})
 
 			t.Run("AND a game without chosen covers writes neither field", func(t *testing.T) {
-				plain, err := encodeGame(game.Rehydrate("g2", game.Info{Title: "Hades"}, nil, docTime, docTime))
+				plain, err := encodeGame(game.Rehydrate(game.Snapshot{
+					ID:        "g2",
+					Info:      game.Info{Title: "Hades"},
+					CreatedAt: docTime,
+					UpdatedAt: docTime,
+				}))
 				require.NoError(t, err)
 				assert.NotContains(t, plain, `"covers"`)
 				assert.NotContains(t, plain, `"mainSystem"`)
@@ -546,8 +604,13 @@ func TestDocuments_editions(t *testing.T) {
 	})
 
 	t.Run("GIVEN a game without copies with a chosen cover WHEN it is encoded and decoded THEN the cover comes back", func(t *testing.T) {
-		g := game.Rehydrate("g3", game.Info{Title: "Halo 3"}, nil, docTime, docTime)
-		g.RestoreEditions(map[string]game.EditionCover{"": {URL: "https://example.test/halo.jpg"}}, "")
+		g := game.Rehydrate(game.Snapshot{
+			ID:        "g3",
+			Info:      game.Info{Title: "Halo 3"},
+			Covers:    map[string]game.EditionCover{"": {URL: "https://example.test/halo.jpg"}},
+			CreatedAt: docTime,
+			UpdatedAt: docTime,
+		})
 
 		raw, err := encodeGame(g)
 		require.NoError(t, err)
@@ -599,14 +662,21 @@ func TestDocuments_editions(t *testing.T) {
 
 func TestDocuments_autoLinks(t *testing.T) {
 	t.Run("GIVEN a game with an automatic link, a rejected one and an automatic search done", func(t *testing.T) {
-		g := game.Rehydrate("g1", game.Info{
-			Title: "Console Quest",
-			Links: game.Links{game.LinkSteam: "100", "psn": "PPSA0001"},
-		}, nil, docTime, docTime)
-		g.RestoreLinkOrigins([]string{game.LinkSteam}, []game.LinkRef{{
-			Key: "gog",
-			ID:  "200",
-		}}, docTime)
+		g := game.Rehydrate(game.Snapshot{
+			ID: "g1",
+			Info: game.Info{
+				Title: "Console Quest",
+				Links: game.Links{game.LinkSteam: "100", "psn": "PPSA0001"},
+			},
+			AutoLinks: []string{game.LinkSteam},
+			RejectedLinks: []game.LinkRef{{
+				Key: "gog",
+				ID:  "200",
+			}},
+			AutoLinkTriedAt: docTime,
+			CreatedAt:       docTime,
+			UpdatedAt:       docTime,
+		})
 
 		t.Run("WHEN it is encoded and decoded", func(t *testing.T) {
 			raw, err := encodeGame(g)
@@ -623,7 +693,12 @@ func TestDocuments_autoLinks(t *testing.T) {
 			})
 
 			t.Run("AND a game without them writes none of the fields", func(t *testing.T) {
-				plain, err := encodeGame(game.Rehydrate("g2", game.Info{Title: "Plain"}, nil, docTime, docTime))
+				plain, err := encodeGame(game.Rehydrate(game.Snapshot{
+					ID:        "g2",
+					Info:      game.Info{Title: "Plain"},
+					CreatedAt: docTime,
+					UpdatedAt: docTime,
+				}))
 				require.NoError(t, err)
 				assert.NotContains(t, plain, "autoLinks")
 				assert.NotContains(t, plain, "rejectedLinks")

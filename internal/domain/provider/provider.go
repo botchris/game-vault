@@ -203,23 +203,12 @@ func (p *Provider) Configure(d Descriptor, enabled bool, incoming schema.Setting
 // learned about where to look first) and reports whether they changed, so the caller saves them.
 // Settings the user configured are left as they are.
 func (p *Provider) UpdateState(d Descriptor, settings schema.Settings, now time.Time) bool {
-	next, prev := d.Fields.State(settings), d.Fields.State(p.settings)
-	if maps.Equal(next, prev) {
-		return false
+	merged, changed := d.Fields.MergeState(p.settings, settings)
+	if changed {
+		p.settings, p.updatedAt = merged, now
 	}
 
-	merged := schema.Settings{}
-
-	for k, v := range p.settings {
-		if _, isState := prev[k]; !isState {
-			merged[k] = v
-		}
-	}
-
-	maps.Copy(merged, next)
-	p.settings, p.updatedAt = merged, now
-
-	return true
+	return changed
 }
 
 // ShareSettings copies settings configured on a sibling provider (same SettingsGroup).

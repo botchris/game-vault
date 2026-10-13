@@ -4,6 +4,7 @@ import (
 	"context"
 	"slices"
 
+	"gamevault/internal/application/catalog"
 	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/source"
@@ -78,11 +79,14 @@ func (s *Service) ExcludeCopy(ctx context.Context, gameID, copyID game.ID) (*gam
 		return nil, err
 	}
 
+	var stale catalog.StaleCovers
 	if gone {
-		s.invalidateGames(ctx, []game.ID{gameID})
+		stale.AddGame(gameID)
 	} else {
-		s.invalidateEditions(ctx, staleEditions{gameID: game.ChangedSystems(before, out.CoverFingerprints())})
+		stale.AddEditions(gameID, before, out.CoverFingerprints())
 	}
+
+	s.catalog.DropCovers(ctx, &stale)
 
 	return out, nil
 }

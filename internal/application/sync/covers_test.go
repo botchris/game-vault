@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/adapters/outbound/sqlite"
+	"gamevault/internal/application/catalog"
 	"gamevault/internal/application/sync"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
@@ -56,6 +57,8 @@ func (c *covers) Invalidate(_ context.Context, id game.ID) error {
 	return nil
 }
 
+func (c *covers) DropLegacyCover(context.Context, game.ID) error { return nil }
+
 func (c *covers) InvalidateEdition(_ context.Context, id game.ID, system string) error {
 	c.editions = append(c.editions, string(id)+"|"+system)
 	return nil
@@ -98,7 +101,8 @@ func TestCoverPhotoLeavesWithTheSourcesCopy(t *testing.T) {
 			games := sqlite.NewGameRepository(db)
 			p := &withdrawing{}
 			cache := &covers{}
-			svc := sync.NewService(sqlite.NewSourceRepository(db), games, db, cache, time.Now, slog.New(slog.NewTextHandler(io.Discard, nil)), p)
+			svc := sync.NewService(sqlite.NewSourceRepository(db), games, db, catalog.NewService(games, db, catalog.WithCoverCache(cache)),
+				[]sync.Provider{p}, sync.WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil))))
 
 			v, err := svc.Create(ctx, "wd", source.Config{Enabled: true})
 			require.NoError(t, err)
@@ -112,7 +116,7 @@ func TestCoverPhotoLeavesWithTheSourcesCopy(t *testing.T) {
 				p.withdraw = true
 				_, err = svc.Sync(ctx, v.ID())
 			} else {
-				err = svc.Delete(ctx, v.ID(), true)
+				err = svc.DeleteWithCopies(ctx, v.ID())
 			}
 
 			require.NoError(t, err)
@@ -178,7 +182,8 @@ func TestSync_editions(t *testing.T) {
 		games := sqlite.NewGameRepository(db)
 		p := &consoleSource{}
 		cache := &covers{}
-		svc := sync.NewService(sqlite.NewSourceRepository(db), games, db, cache, time.Now, slog.New(slog.NewTextHandler(io.Discard, nil)), p)
+		svc := sync.NewService(sqlite.NewSourceRepository(db), games, db, catalog.NewService(games, db, catalog.WithCoverCache(cache)),
+			[]sync.Provider{p}, sync.WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil))))
 
 		v, err := svc.Create(ctx, "console", source.Config{Enabled: true})
 		require.NoError(t, err)

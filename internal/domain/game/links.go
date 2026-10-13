@@ -1,6 +1,7 @@
 package game
 
 import (
+	"errors"
 	"maps"
 	"regexp"
 	"slices"
@@ -43,28 +44,63 @@ var reLinkKey = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,31}$`)
 // maxLinkID bounds a link id; store ids are short numbers or slugs.
 const maxLinkID = 200
 
-// normalize trims every id and drops the empty ones (an empty id unlinks the store).
+// normalize trims every id and drops the empty ones (an empty id unlinks the store). One invalid
+// link fails them all: it is for links the user or a source set, which are taken whole or not at all.
 func (l Links) normalize() (Links, error) {
 	out := Links{}
 
 	for k, v := range l {
-		k, v = strings.ToLower(strings.TrimSpace(k)), strings.TrimSpace(v)
-		if v == "" {
-			continue
+		k, v, err := normalizeLink(k, v)
+		if err != nil {
+			return nil, err
 		}
 
-		if !reLinkKey.MatchString(k) {
-			return nil, invalid("link key %q must be a short lowercase name like \"steam\"", k)
+		if v != "" {
+			out[k] = v
 		}
-
-		if len(v) > maxLinkID || strings.ContainsFunc(v, isSpace) {
-			return nil, invalid("the %s link must be an id without spaces", k)
-		}
-
-		out[k] = v
 	}
 
 	return out, nil
+}
+
+// Valid returns the valid links, normalized like a game's, and an error naming each invalid one.
+// It is for links found automatically, where one bad id must not cost the good ones found with it.
+func (l Links) Valid() (Links, error) {
+	out := Links{}
+
+	var errs []error
+
+	for _, k := range l.Keys() { // sorted, so the error reads the same every time
+		k, v, err := normalizeLink(k, l[k])
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
+		if v != "" {
+			out[k] = v
+		}
+	}
+
+	return out, errors.Join(errs...)
+}
+
+// normalizeLink trims a link and checks it. An empty id is valid: it means no link.
+func normalizeLink(k, v string) (key, id string, err error) {
+	k, v = strings.ToLower(strings.TrimSpace(k)), strings.TrimSpace(v)
+	if v == "" {
+		return k, "", nil
+	}
+
+	if !reLinkKey.MatchString(k) {
+		return "", "", invalid("link key %q must be a short lowercase name like \"steam\"", k)
+	}
+
+	if len(v) > maxLinkID || strings.ContainsFunc(v, isSpace) {
+		return "", "", invalid("the %s link must be an id without spaces", k)
+	}
+
+	return k, v, nil
 }
 
 func isSpace(r rune) bool { return r == ' ' || r == '\t' || r == '\n' || r == '\r' }

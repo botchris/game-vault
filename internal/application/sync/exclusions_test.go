@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/adapters/outbound/sqlite"
+	"gamevault/internal/application/catalog"
 	"gamevault/internal/application/sync"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
@@ -68,7 +69,8 @@ func TestExclusions(t *testing.T) {
 
 		games := sqlite.NewGameRepository(db)
 		p := &listing{items: []game.ImportedCopy{item("ls:netflix", "Netflix"), item("ls:journey", "Journey")}}
-		svc := sync.NewService(sqlite.NewSourceRepository(db), games, db, nil, time.Now, slog.New(slog.NewTextHandler(io.Discard, nil)), p)
+		svc := sync.NewService(sqlite.NewSourceRepository(db), games, db, catalog.NewService(games, db),
+			[]sync.Provider{p}, sync.WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil))))
 
 		v, err := svc.Create(ctx, "ls", source.Config{Enabled: true})
 		require.NoError(t, err)
@@ -308,7 +310,8 @@ func TestSyncKeepsASessionTheUserRenewedMeanwhile(t *testing.T) {
 
 	sources := sqlite.NewSourceRepository(db)
 	p := &expired{}
-	svc := sync.NewService(sources, sqlite.NewGameRepository(db), db, nil, time.Now, slog.New(slog.NewTextHandler(io.Discard, nil)), p)
+	svc := sync.NewService(sources, sqlite.NewGameRepository(db), db, catalog.NewService(sqlite.NewGameRepository(db), db),
+		[]sync.Provider{p}, sync.WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil))))
 
 	v, err := svc.Create(ctx, "ex", source.Config{Enabled: true})
 	require.NoError(t, err)
@@ -348,8 +351,8 @@ func TestSyncLogsAFailedSave(t *testing.T) {
 	var logged strings.Builder
 
 	p := &listing{items: []game.ImportedCopy{item("ls:journey", "Journey")}}
-	svc := sync.NewService(sqlite.NewSourceRepository(db), sqlite.NewGameRepository(db), db, nil, time.Now,
-		slog.New(slog.NewTextHandler(&logged, nil)), p)
+	svc := sync.NewService(sqlite.NewSourceRepository(db), sqlite.NewGameRepository(db), db, catalog.NewService(sqlite.NewGameRepository(db), db),
+		[]sync.Provider{p}, sync.WithLogger(slog.New(slog.NewTextHandler(&logged, nil))))
 
 	v, err := svc.Create(ctx, "ls", source.Config{
 		Name:    "My listing",
@@ -359,7 +362,7 @@ func TestSyncLogsAFailedSave(t *testing.T) {
 
 	t.Run("GIVEN the source is deleted while the store answers", func(t *testing.T) {
 		p.during = func() {
-			require.NoError(t, svc.Delete(ctx, v.ID(), false))
+			require.NoError(t, svc.Delete(ctx, v.ID()))
 
 			p.during = nil
 		}
@@ -370,6 +373,68 @@ func TestSyncLogsAFailedSave(t *testing.T) {
 			require.Error(t, err)
 			assert.Contains(t, logged.String(), "level=ERROR")
 			assert.Contains(t, logged.String(), "My listing")
+		})
+	})
+}
+
+// lockingGames is a game repository whose Save fails once locked is set.
+type lockingGames struct {
+	game.Repository
+
+	locked bool
+}
+
+func (l *lockingGames) Save(ctx context.Context, g *game.Game) error {
+	if l.locked {
+		return errLocked
+	}
+
+	return l.Repository.Save(ctx, g)
+}
+
+func TestExclusions_failedScanCountsNone(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a source with an item the user removed", func(t *testing.T) {
+		db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "gamevault.db"), "")
+		require.NoError(t, err)
+		t.Cleanup(func() { db.Close() })
+
+		games := &lockingGames{Repository: sqlite.NewGameRepository(db)}
+		p := &listing{items: []game.ImportedCopy{item("ls:netflix", "Netflix"), item("ls:journey", "Journey")}}
+		svc := sync.NewService(sqlite.NewSourceRepository(db), games, db, catalog.NewService(games, db),
+			[]sync.Provider{p}, sync.WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil))))
+
+		v, err := svc.Create(ctx, "ls", source.Config{Enabled: true})
+		require.NoError(t, err)
+		_, err = svc.Sync(ctx, v.ID())
+		require.NoError(t, err)
+
+		list, err := games.List(ctx)
+		require.NoError(t, err)
+
+		for _, g := range list {
+			if g.Title() == "Netflix" {
+				_, err = svc.ExcludeCopy(ctx, g.ID(), g.Copies()[0].ID)
+				require.NoError(t, err)
+			}
+		}
+
+		t.Run("WHEN a scan fails to save the games", func(t *testing.T) {
+			p.items = append(p.items, item("ls:abzu", "Abzu")) // a change to save
+			games.locked = true
+
+			_, err := svc.Sync(ctx, v.ID())
+			require.ErrorIs(t, err, errLocked)
+
+			t.Run("THEN its report counts nothing as skipped: nothing was saved", func(t *testing.T) {
+				got, err := svc.Get(ctx, v.ID())
+				require.NoError(t, err)
+				require.NotNil(t, got.LastSync())
+				assert.NotEmpty(t, got.LastSync().Err)
+				assert.Zero(t, got.LastSync().Excluded)
+			})
 		})
 	})
 }

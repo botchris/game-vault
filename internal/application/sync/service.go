@@ -13,6 +13,7 @@ import (
 	gosync "sync"
 	"time"
 
+	"gamevault/internal/application/catalog"
 	"gamevault/internal/application/port"
 	"gamevault/internal/application/unattended"
 	"gamevault/internal/domain/errkind"
@@ -66,21 +67,12 @@ type StoreLinker interface {
 // testTimeout bounds a connection test so the UI never waits forever.
 const testTimeout = 30 * time.Second
 
-// CoverCache is the port used to drop cached covers when they may have changed.
-type CoverCache interface {
-	// Invalidate drops the game's cached covers and details, so the next request resolves them again.
-	Invalidate(ctx context.Context, id game.ID) error
-
-	// InvalidateEdition drops the cached cover of the game's edition on system.
-	InvalidateEdition(ctx context.Context, id game.ID, system string) error
-}
-
 // Service exposes the source use cases.
 type Service struct {
 	sources   source.Repository
 	games     game.Repository
 	tx        port.TxManager
-	covers    CoverCache
+	catalog   *catalog.Service
 	now       port.Clock
 	providers map[source.Type]Provider
 	log       *slog.Logger
@@ -109,27 +101,44 @@ type keepAliveFailure struct {
 	since     time.Time
 }
 
-// NewService builds the service. Each provider is registered under its descriptor's type. covers
-// may be nil when no cover cache is wired.
-func NewService(sources source.Repository, games game.Repository, tx port.TxManager, covers CoverCache, now port.Clock, log *slog.Logger,
-	providers ...Provider) *Service {
+// NewService builds the service. Each provider is registered under its descriptor's type; scans
+// merge their copies into the catalog through cat, which also drops the cached covers their changes
+// make stale. Options: WithClock, WithLogger.
+func NewService(sources source.Repository, games game.Repository, tx port.TxManager, cat *catalog.Service,
+	providers []Provider, opts ...Option) *Service {
 	m := map[source.Type]Provider{}
 	for _, p := range providers {
 		m[p.Descriptor().Type] = p
 	}
 
-	return &Service{
+	s := &Service{
 		sources:       sources,
 		games:         games,
 		tx:            tx,
-		covers:        covers,
-		now:           now,
+		catalog:       cat,
+		now:           time.Now,
 		providers:     m,
-		log:           log,
+		log:           slog.New(slog.DiscardHandler),
 		warnedSystems: map[string]bool{},
 		aliveFailures: map[source.ID]keepAliveFailure{},
 	}
+	for _, opt := range opts {
+		opt(s)
+	}
+
+	return s
 }
+
+// Option configures NewService.
+type Option func(*Service)
+
+// WithClock sets the clock that dates scans and settings (time.Now by default). Give it the clock
+// of the catalog it is built with: the catalog dates the copies a scan imports, and the scan's
+// report should not disagree with them.
+func WithClock(now port.Clock) Option { return func(s *Service) { s.now = now } }
+
+// WithLogger sets the logger (discarded by default).
+func WithLogger(log *slog.Logger) Option { return func(s *Service) { s.log = log } }
 
 // Types lists the available source types, sorted by name.
 func (s *Service) Types() []source.TypeDescriptor {
@@ -300,15 +309,22 @@ func (s *Service) prepare(ctx context.Context, d source.TypeDescriptor, src *sou
 	return nil
 }
 
-// Delete removes a source. Its copies become manual copies unless deleteCopies is set, in which
-// case they are removed too, along with any game left without copies.
-func (s *Service) Delete(ctx context.Context, id source.ID, deleteCopies bool) error {
+// Delete removes a source. Its copies become manual copies.
+func (s *Service) Delete(ctx context.Context, id source.ID) error {
+	return s.delete(ctx, id, (*game.Game).ReleaseCopiesFromSource)
+}
+
+// DeleteWithCopies removes a source and its copies, along with any game left without copies.
+func (s *Service) DeleteWithCopies(ctx context.Context, id source.ID) error {
+	return s.delete(ctx, id, (*game.Game).RemoveCopiesFromSource)
+}
+
+// delete removes a source after detach took its copies out of every game; detach returns how many
+// copies of the game it changed.
+func (s *Service) delete(ctx context.Context, id source.ID, detach func(g *game.Game, sourceID string, now time.Time) int) error {
 	defer s.forgetKeepAlive(id)
 
-	var (
-		stale = staleEditions{}
-		gone  []game.ID
-	)
+	var stale catalog.StaleCovers
 
 	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
 		if _, err := s.sources.Get(ctx, id); err != nil {
@@ -325,21 +341,14 @@ func (s *Service) Delete(ctx context.Context, id source.ID, deleteCopies bool) e
 		for _, g := range games {
 			before := g.CoverFingerprints()
 
-			var n int
-			if deleteCopies {
-				n = g.RemoveCopiesFromSource(string(id), now)
-			} else {
-				n = g.ReleaseCopiesFromSource(string(id), now)
-			}
-
-			switch {
+			switch n := detach(g, string(id), now); {
 			case n == 0:
 			case len(g.Copies()) == 0:
 				err = s.games.Delete(ctx, g.ID())
-				gone = append(gone, g.ID())
+				stale.AddGame(g.ID())
 			default:
 				err = s.games.Save(ctx, g)
-				stale.add(g, before)
+				stale.AddEditions(g.ID(), before, g.CoverFingerprints())
 			}
 
 			if err != nil {
@@ -350,47 +359,10 @@ func (s *Service) Delete(ctx context.Context, id source.ID, deleteCopies bool) e
 		return s.sources.Delete(ctx, id)
 	})
 	if err == nil {
-		s.invalidateEditions(ctx, stale)
-		s.invalidateGames(ctx, gone)
+		s.catalog.DropCovers(ctx, &stale)
 	}
 
 	return err
-}
-
-// staleEditions are the editions of games whose cached covers may be stale: game id → systems.
-type staleEditions map[game.ID][]string
-
-// add records the editions of g whose fingerprints changed since before.
-func (st staleEditions) add(g *game.Game, before map[string]string) {
-	if changed := game.ChangedSystems(before, g.CoverFingerprints()); len(changed) > 0 {
-		st[g.ID()] = append(st[g.ID()], changed...)
-	}
-}
-
-// invalidateEditions drops the cached covers of stale editions. Best effort: a stale cached image
-// is not worth failing the use case.
-func (s *Service) invalidateEditions(ctx context.Context, stale staleEditions) {
-	if s.covers == nil {
-		return
-	}
-
-	for id, systems := range stale {
-		for _, system := range systems {
-			_ = s.covers.InvalidateEdition(ctx, id, system)
-		}
-	}
-}
-
-// invalidateGames drops the cached covers and details of deleted games, whose cached files would
-// otherwise stay behind. Best effort, like invalidateEditions.
-func (s *Service) invalidateGames(ctx context.Context, ids []game.ID) {
-	if s.covers == nil {
-		return
-	}
-
-	for _, id := range ids {
-		_ = s.covers.Invalidate(ctx, id)
-	}
 }
 
 // Test checks a source's settings without saving anything. If id is set, cfg settings are merged
@@ -458,126 +430,12 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 	}
 
 	report := source.SyncReport{StartedAt: s.now()}
-	settings := src.Settings()
+	settings := src.Settings() // the provider may write a rotated session into it
 
-	copies, warnings, fetchErr := p.Fetch(ctx, settings)
-	report.Warnings = warnings
+	removed, syncErr := s.scan(ctx, src, p, settings, &report)
+	s.finishReport(&report, src.LastSync(), syncErr)
 
-	for _, c := range copies {
-		if !c.Withdrawn {
-			report.Fetched++
-		}
-	}
-
-	var (
-		syncErr error
-
-		// newlyWarned are the invalid systems this scan warns about first; they count as warned only
-		// once the scan is saved.
-		newlyWarned []string
-		removed     int
-		stale       = staleEditions{}
-		emptied     []game.ID
-	)
-
-	if fetchErr != nil {
-		syncErr = fetchErr
-	} else {
-		syncErr = s.tx.WithinTx(ctx, func(ctx context.Context) error {
-			games, err := s.games.List(ctx)
-			if err != nil {
-				return err
-			}
-
-			prints := make(map[game.ID]map[string]string, len(games))
-			for _, g := range games {
-				prints[g.ID()] = g.CoverFingerprints()
-			}
-
-			// The user may have removed items since the scan started: ask the source as it is now.
-			fresh, err := s.sources.Get(ctx, src.ID())
-			if err != nil {
-				return err
-			}
-
-			var excluded int
-
-			copies, excluded = skipExcluded(fresh, copies)
-			report.Excluded = excluded
-
-			res := game.NewConsolidator(games).Apply(string(src.ID()), copies, s.now())
-			for _, g := range res.Changed {
-				if err := s.games.Save(ctx, g); err != nil {
-					return err
-				}
-
-				stale.add(g, prints[g.ID()]) // a new game has no fingerprints before, so all its editions count
-			}
-
-			// Games left without copies after the source withdrew them (they were never games).
-			for _, id := range res.Emptied {
-				if err := s.games.Delete(ctx, id); err != nil {
-					return err
-				}
-			}
-
-			emptied = res.Emptied
-
-			removed = res.CopiesRemoved
-
-			report.CopiesAdded, report.CopiesUpdated = res.CopiesAdded, res.CopiesUpdated
-			report.CopiesUnchanged, report.GamesCreated = res.CopiesUnchanged, res.GamesCreated
-			report.Warnings = append(report.Warnings, res.Warnings...)
-			warned, keys := s.firstInvalidSystems(src, res.InvalidSystems)
-			report.Warnings = append(report.Warnings, warned...)
-			newlyWarned = keys
-
-			return nil
-		})
-	}
-
-	if syncErr != nil {
-		report.Err = syncErr.Error()
-		report.SignedOut = errors.Is(syncErr, source.ErrSignedOut)
-	} else {
-		s.forgetKeepAlive(src.ID()) // the session works after all
-
-		for _, k := range newlyWarned {
-			s.warnedSystems[k] = true
-		}
-
-		s.invalidateEditions(ctx, stale)
-		s.invalidateGames(ctx, emptied)
-	}
-
-	report.FinishedAt = s.now()
-	if syncErr != nil {
-		report.FailingSince = report.FinishedAt
-		if prev := src.LastSync(); prev != nil && !prev.Success() {
-			report.FailingSince = cmp.Or(prev.FailingSince, prev.FinishedAt) // the same trouble going on
-		}
-	}
-
-	// Saved on the source as it is now: the user may have removed items or changed its settings
-	// while the store was answering. Only the scan's own results (its report and any session the
-	// store rotated) are written over it.
-	saveErr := s.tx.WithinTx(ctx, func(ctx context.Context) error {
-		latest, err := s.sources.Get(ctx, src.ID())
-		if err != nil {
-			return err
-		}
-
-		// Only a session the store rotated during this scan is written: one the user renewed
-		// meanwhile (a new sign-in) must not be replaced by the scan's older copy.
-		if d, err := s.Descriptor(latest.Type()); err == nil && !maps.Equal(d.Fields.State(settings), d.Fields.State(src.Settings())) {
-			latest.UpdateState(d, settings, s.now())
-		}
-
-		latest.RecordSync(report)
-		src = latest
-
-		return s.sources.Save(ctx, latest)
-	})
+	src, saveErr := s.recordScan(ctx, src, settings, report)
 	if saveErr != nil {
 		// The report is lost, and with it any session the store rotated during the scan: the
 		// next scan may find the source signed out.
@@ -597,6 +455,106 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 	}
 
 	return v, syncErr
+}
+
+// scan fetches the source's copies and consolidates them into the catalog, filling the report's
+// counts and warnings. It returns how many copies the source withdrew.
+func (s *Service) scan(ctx context.Context, src *source.Source, p Provider, settings schema.Settings,
+	report *source.SyncReport) (int, error) {
+	copies, warnings, err := p.Fetch(ctx, settings)
+	report.Warnings = warnings
+
+	for _, c := range copies {
+		if !c.Withdrawn {
+			report.Fetched++
+		}
+	}
+
+	if err != nil {
+		return 0, err
+	}
+
+	var excluded int
+
+	res, err := s.catalog.Consolidate(ctx, string(src.ID()), func(ctx context.Context) ([]game.ImportedCopy, error) {
+		// The user may have removed items since the scan started: ask the source as it is now.
+		fresh, err := s.sources.Get(ctx, src.ID())
+		if err != nil {
+			return nil, err
+		}
+
+		kept, skipped := skipExcluded(fresh, copies)
+		excluded = skipped
+
+		return kept, nil
+	})
+	if err != nil {
+		return 0, err // nothing was saved, so nothing was skipped either
+	}
+
+	report.Excluded = excluded
+	res.AddTo(report)
+
+	// The invalid systems count as warned only now that the scan is saved: a failed one warns again.
+	warned, keys := s.firstInvalidSystems(src, res.InvalidSystems)
+	report.Warnings = append(report.Warnings, warned...)
+
+	for _, k := range keys {
+		s.warnedSystems[k] = true
+	}
+
+	s.forgetKeepAlive(src.ID()) // the session works after all
+
+	return res.CopiesRemoved, nil
+}
+
+// finishReport closes the report: its end, and for a failed scan the error and since when the
+// scans fail, counted from the first failure of a streak (prev is the last scan's report).
+func (s *Service) finishReport(report *source.SyncReport, prev *source.SyncReport, err error) {
+	report.FinishedAt = s.now()
+
+	if err == nil {
+		return
+	}
+
+	report.Err = err.Error()
+	report.SignedOut = errors.Is(err, source.ErrSignedOut)
+
+	report.FailingSince = report.FinishedAt
+	if prev != nil && !prev.Success() {
+		report.FailingSince = cmp.Or(prev.FailingSince, prev.FinishedAt) // the same trouble going on
+	}
+}
+
+// recordScan saves the report on the source as it is now, with the session the store rotated
+// during the scan (settings, as the provider left them; src is the source as the scan read it).
+// It returns the source as it saved it, or as it last read it when saving failed.
+func (s *Service) recordScan(ctx context.Context, src *source.Source, settings schema.Settings,
+	report source.SyncReport) (*source.Source, error) {
+	saved := src
+
+	// Saved on the source as it is now: the user may have removed items or changed its settings
+	// while the store was answering. Only the scan's own results (its report and any session the
+	// store rotated) are written over it.
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		latest, err := s.sources.Get(ctx, src.ID())
+		if err != nil {
+			return err
+		}
+
+		// Only a session the store rotated during this scan is written: one the user renewed
+		// meanwhile (a new sign-in) must not be replaced by the scan's older copy.
+		if d, err := s.Descriptor(latest.Type()); err == nil && !maps.Equal(d.Fields.State(settings), d.Fields.State(src.Settings())) {
+			latest.UpdateState(d, settings, s.now())
+		}
+
+		latest.RecordSync(report)
+		saved = latest
+
+		return s.sources.Save(ctx, latest)
+	})
+
+	return saved, err
 }
 
 // firstInvalidSystems returns the warnings of the invalid systems src sent that no successful scan

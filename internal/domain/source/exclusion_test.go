@@ -8,7 +8,15 @@ import (
 
 func TestExclusions(t *testing.T) {
 	now := time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC)
-	src := Rehydrate("s1", "psn", "PlayStation", true, 0, schema.Settings{}, nil, nil, now, now)
+	src := Rehydrate(Snapshot{
+		ID:        "s1",
+		Type:      "psn",
+		Name:      "PlayStation",
+		Enabled:   true,
+		Settings:  schema.Settings{},
+		CreatedAt: now,
+		UpdatedAt: now,
+	})
 
 	if err := src.Exclude(Exclusion{
 		Title: "Netflix",

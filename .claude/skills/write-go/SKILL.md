@@ -254,8 +254,9 @@ Dependencies point inward; the compiler won't stop a violation, so watch it:
   the port interfaces (`fakeProvider` in the rpc tests) are also fine where they read more clearly.
 - **Assertions:** `stretchr/testify` — `require` to stop, `assert` for soft checks. Name new tests
   `TestSubject_scenario`.
-- A nil optional dependency degrades to a no-op so tests can pass `nil` (e.g. `catalog.NewService`
-  accepts a nil cover cache), rather than forcing every test to build the whole graph.
+- An optional dependency is an option with a no-op default, so tests leave it out (e.g.
+  `catalog.NewService(games, tx)` gets `catalog.NoCoverCache`), rather than forcing every test to
+  build the whole graph or pass `nil`.
 - Tests never touch `config/` or the user's server on :8080; use `t.TempDir()` for files and
   databases.
 - Older tests still use `t.Fatalf` and `context.Background()`. Don't mass-rewrite them, but when you

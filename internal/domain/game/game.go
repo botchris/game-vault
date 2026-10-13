@@ -89,27 +89,69 @@ func (i Info) normalize() (Info, error) {
 	return i, nil
 }
 
-// Rehydrate rebuilds a game from storage. Only repositories should call it.
-func Rehydrate(id ID, info Info, copies []Copy, createdAt, updatedAt time.Time) *Game {
+// Snapshot is a game as a repository stored it: everything Rehydrate needs to rebuild it.
+type Snapshot struct {
+	ID     ID
+	Info   Info
+	Copies []Copy
+
+	// Covers are the covers chosen per system, MainSystem the user's main edition.
+	Covers     map[string]EditionCover
+	MainSystem string
+
+	// LegacyCover is the single cover a game had before editions, set only for games stored in
+	// that older form: it is converted to edition covers, and Covers and MainSystem are ignored.
+	LegacyCover *LegacyCover
+
+	// AutoLinks are the keys of the links found automatically, RejectedLinks the automatic links
+	// the user removed and AutoLinkTriedAt the last automatic search (see Game.AutoLinks).
+	AutoLinks       []string
+	RejectedLinks   []LinkRef
+	AutoLinkTriedAt time.Time
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+// LegacyCover is the single cover of a game stored before editions: an image URL, a photo of one
+// of its copies, or both.
+type LegacyCover struct {
+	URL   string
+	Photo PhotoID
+}
+
+// Rehydrate rebuilds a stored game. What no longer fits the copies is dropped: covers of editions
+// the game no longer has, marks of automatic links that are gone. Only repositories should call it.
+func Rehydrate(s Snapshot) *Game {
 	// Empty values are never stored, on copies as on the game, so the mutators that count values
 	// (RemoveFieldValues) never count an empty one.
-	copies = slices.Clone(copies)
+	copies := slices.Clone(s.Copies)
 	for i := range copies {
 		copies[i].Fields = copies[i].Fields.compact()
 	}
 
-	return &Game{
-		id:         id,
-		title:      info.Title,
-		links:      info.Links.clone(),
-		notes:      info.Notes,
-		playStatus: info.PlayStatus,
-		rating:     info.Rating,
-		fields:     info.Fields.compact(),
+	g := &Game{
+		id:         s.ID,
+		title:      s.Info.Title,
+		links:      s.Info.Links.clone(),
+		notes:      s.Info.Notes,
+		playStatus: s.Info.PlayStatus,
+		rating:     s.Info.Rating,
+		fields:     s.Info.Fields.compact(),
 		copies:     copies,
-		createdAt:  createdAt,
-		updatedAt:  updatedAt,
+		createdAt:  s.CreatedAt,
+		updatedAt:  s.UpdatedAt,
 	}
+
+	if s.LegacyCover != nil {
+		g.adoptGameCover(*s.LegacyCover)
+	} else {
+		g.restoreEditions(s.Covers, s.MainSystem)
+	}
+
+	g.restoreLinkOrigins(s.AutoLinks, s.RejectedLinks, s.AutoLinkTriedAt)
+
+	return g
 }
 
 // ID returns the game's identifier.

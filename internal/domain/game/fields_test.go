@@ -211,11 +211,17 @@ func TestRehydrate_compactsCopyFields(t *testing.T) {
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	t.Run("GIVEN a stored copy with an empty value", func(t *testing.T) {
-		g := Rehydrate("g1", Info{Title: "Halo 3"}, []Copy{{
-			ID:          "c1",
-			CopyDetails: CopyDetails{Kind: KindPhysical},
-			Fields:      FieldValues{"review": {Text: ""}},
-		}}, now, now)
+		g := Rehydrate(Snapshot{
+			ID:   "g1",
+			Info: Info{Title: "Halo 3"},
+			Copies: []Copy{{
+				ID:          "c1",
+				CopyDetails: CopyDetails{Kind: KindPhysical},
+				Fields:      FieldValues{"review": {Text: ""}},
+			}},
+			CreatedAt: now,
+			UpdatedAt: now,
+		})
 
 		t.Run("WHEN the field is removed", func(t *testing.T) {
 			_, copies := g.RemoveFieldValues("review", now)
