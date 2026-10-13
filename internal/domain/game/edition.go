@@ -1,6 +1,7 @@
 package game
 
 import (
+	"fmt"
 	"maps"
 	"net/url"
 	"slices"
@@ -177,7 +178,7 @@ func (g *Game) SetEditionCover(system string, cover EditionCover, now time.Time)
 	case system == "" && len(g.copies) > 0:
 		return invalid("the game has copies: choose the cover of one of its editions; reload the page")
 	case system != "" && !g.hasSystem(system):
-		return invalid("%s: this game has no copy on that system; reload the page", system)
+		return fmt.Errorf("%s: %w", system, ErrEditionNotFound)
 	}
 
 	cover, err := normalizeCover(cover)
@@ -208,7 +209,7 @@ func (g *Game) SetEditionCover(system string, cover EditionCover, now time.Time)
 // default rule.
 func (g *Game) SetMainSystem(system string, now time.Time) error {
 	if system != "" && !g.hasSystem(system) {
-		return invalid("%s: this game has no copy on that system; reload the page", system)
+		return fmt.Errorf("%s: %w", system, ErrEditionNotFound)
 	}
 
 	g.mainSystem = system

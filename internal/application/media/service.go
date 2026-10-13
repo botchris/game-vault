@@ -35,7 +35,7 @@ var coverLogicChanged = time.Date(2026, 10, 11, 9, 20, 0, 0, time.UTC) // fallba
 var ErrNoCover = errkind.New(errkind.NotFound, "no cover available")
 
 // ErrNoEdition means the game has no copy on the system asked for.
-var ErrNoEdition = errkind.New(errkind.Invalid, "the game has no copy on that system: reload the page")
+var ErrNoEdition = errkind.New(errkind.NotFound, "the game has no copy on that system: reload the page")
 
 // ErrUnknownProvider means no implementation is registered under that id.
 var ErrUnknownProvider = errkind.New(errkind.NotFound, "unknown provider")

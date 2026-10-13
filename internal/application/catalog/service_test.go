@@ -12,7 +12,6 @@ import (
 
 	"gamevault/internal/adapters/outbound/sqlite"
 	"gamevault/internal/application/catalog"
-	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 )
 
@@ -130,8 +129,7 @@ func TestEditionCoverCache(t *testing.T) {
 			svc, _, g := setup(t)
 			_, err := svc.SetEditionCover(ctx, g.ID(), "Wii", game.EditionCover{URL: "https://example.test/wii.jpg"})
 
-			var ve *errkind.ValidationError
-			require.ErrorAs(t, err, &ve)
+			require.ErrorIs(t, err, game.ErrEditionNotFound)
 			assert.Contains(t, err.Error(), "Wii")
 		})
 

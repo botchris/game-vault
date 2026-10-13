@@ -80,8 +80,7 @@ func TestEditions(t *testing.T) {
 		t.Run("WHEN a system the game has no copy on is chosen THEN it is refused, naming it", func(t *testing.T) {
 			err := g.SetMainSystem("Wii", t0)
 
-			var ve *errkind.ValidationError
-			require.ErrorAs(t, err, &ve)
+			require.ErrorIs(t, err, ErrEditionNotFound)
 			assert.Contains(t, err.Error(), "Wii")
 		})
 	})
@@ -128,9 +127,11 @@ func TestEditionCovers(t *testing.T) {
 		t.Run("WHEN a cover is chosen for a system the game has no copy on THEN it is refused, naming it", func(t *testing.T) {
 			err := g.SetEditionCover("Wii", EditionCover{URL: "https://example.test/wii.jpg"}, t0)
 
-			var ve *errkind.ValidationError
-			require.ErrorAs(t, err, &ve)
+			require.ErrorIs(t, err, ErrEditionNotFound)
+			assert.Equal(t, errkind.NotFound, errkind.Of(err), "a stale page, like an unknown id")
 			assert.Contains(t, err.Error(), "Wii")
+
+			require.ErrorIs(t, g.SetMainSystem("Wii", t0), ErrEditionNotFound)
 		})
 
 		t.Run("WHEN a URL that is not http(s) is chosen THEN it is refused", func(t *testing.T) {

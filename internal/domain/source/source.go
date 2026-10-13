@@ -47,7 +47,7 @@ const (
 // Errors returned by source lookups and creation. Callers match them with errors.Is.
 var (
 	ErrNotFound    = errkind.New(errkind.NotFound, "source not found")
-	ErrUnknownType = errkind.New(errkind.Invalid, "unknown source type")
+	ErrUnknownType = errkind.New(errkind.NotFound, "unknown source type")
 
 	// ErrSignedOut means the store no longer accepts the saved session or key (it expired, was
 	// rotated elsewhere or revoked): the user must sign in again. Sources return it through

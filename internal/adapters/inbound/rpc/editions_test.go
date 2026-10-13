@@ -87,7 +87,7 @@ func TestEditions_endToEnd(t *testing.T) {
 				GameId: g.Id,
 				System: "Wii",
 			}))
-			assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+			assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err), "a stale page, like an unknown id")
 		})
 
 		t.Run("WHEN the Xbox 360 edition gets a cover and becomes the main one", func(t *testing.T) {
@@ -126,7 +126,7 @@ func TestEditions_endToEnd(t *testing.T) {
 				System: "Wii",
 				Cover:  &pb.SetEditionCoverRequest_Clear{Clear: true},
 			}))
-			assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+			assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err), "a stale page, like an unknown id")
 			assert.Contains(t, err.Error(), "Wii")
 		})
 

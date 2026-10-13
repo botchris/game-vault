@@ -28,7 +28,7 @@ var (
 	ErrSetupDone       = errkind.New(errkind.AlreadyExists, "a user already exists")
 	ErrSetupNotTrusted = errkind.New(errkind.PermissionDenied, "the user can only be created from a trusted network (by default, the computer running Game Vault; in Docker, your local network)")
 	ErrTooManyAttempts = errkind.New(errkind.Exhausted, "too many failed attempts; wait a few minutes")
-	ErrLockout         = errkind.Invalidf("create a user before making authentication required, or you would lock yourself out")
+	ErrLockout         = errkind.New(errkind.Precondition, "create a user before making authentication required, or you would lock yourself out")
 )
 
 func invalid(format string, args ...any) error { return errkind.Invalidf(format, args...) }
