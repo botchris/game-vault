@@ -182,7 +182,7 @@ Dependencies point inward; the compiler won't stop a violation, so watch it:
 - **Ports (interfaces) live in `internal/application`**: next to the use case that needs them
   (`sync.Provider`, `media.CoverProvider`, `logs.Files`, …), or in `application/port` when
   cross-cutting (`TxManager`, `Clock`). `internal/adapters/outbound/<name>` implements them;
-  `cmd/gamevault/main.go` wires them by hand (no DI framework; registration order = default chain
+  `internal/app` (`app.Build`, used by `cmd/gamevault/main.go` and the rpc end-to-end tests) wires them by hand (no DI framework; registration order = default chain
   order).
 - **Constructors take functional options**, not config/deps structs (maintainer's preference,
   2026-10-13): required dependencies are positional parameters, everything optional (ports,

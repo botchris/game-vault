@@ -14,10 +14,11 @@ for working on the code (with or without an AI agent), see [CLAUDE.md](../CLAUDE
 ## Repository layout
 
 ```
-cmd/gamevault/        Entry point and composition root (wires adapters into use cases)
+cmd/gamevault/        Entry point: configuration, the real plugins, background jobs, listening
 config/               Runtime data: database, backups, logs, per-game images (game-data), photos of copies (photos). Back this up. Git-ignored.
 proto/gamevault/v1/   API contracts (Protocol Buffers). Source of truth for client and server.
 internal/
+  app/                Composition root (wires adapters into use cases), shared by the server and the API's end-to-end tests
   domain/             Pure business model, no infrastructure imports
     game/             Game aggregate, Copy entity, value objects, Consolidator domain service
     source/           Source aggregate (scanned accounts), settings schema, sync reports
@@ -77,7 +78,8 @@ extension/            Browser extension (Game Vault Connector): sign-in recipes 
 ```
 
 Dependencies only point inwards. `domain` imports nothing from the project, `application` imports `domain`, and adapters import both.
-Only `cmd/gamevault` knows the concrete adapters.
+Only the composition root (`internal/app`, called by `cmd/gamevault` and by the API's end-to-end tests
+with fakes) knows the concrete adapters, so the tests run the same wiring as the server.
 
 Every external service is a **plugin**: its package returns a `plugin.Plugin` with the pieces it
 offers (a source, cover, details or barcode providers), and `cmd/gamevault/plugins.go` lists them.

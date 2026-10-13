@@ -48,7 +48,8 @@ in `.claude/memory/shell-gotchas.md`).
 ## Layout (hexagonal + DDD)
 
 ```
-cmd/gamevault/            wiring: repositories, services, HTTP server; plugins.go lists the plugins
+cmd/gamevault/            entry point: config, background jobs, listening; plugins.go lists the plugins
+internal/app/             wiring: repositories, services, HTTP handler (shared with the rpc end-to-end tests)
 proto/gamevault/v1/       ConnectRPC API (buf); generated code in internal/gen and web/src/gen
 internal/domain/          game (Game, Copy, consolidation, MatchKey), source, provider, schema (settings), auth
 internal/application/     use cases: catalog, sync (sources, scheduler, keep-alive), media (covers, details,
@@ -63,7 +64,8 @@ config/                   runtime data (DB, game-data images, logs, backups) —
 
 Rules of the architecture:
 - Domain packages import nothing from application or adapters. Application defines ports
-  (interfaces); adapters implement them; `cmd/gamevault/main.go` wires them.
+  (interfaces); adapters implement them; `internal/app` wires them (`app.Build`, used by
+  `cmd/gamevault/main.go` and by the rpc end-to-end tests, so both run the same graph).
 - Every external service is a plugin (`internal/application/plugin`, guide in `docs/plugins.md`):
   its package returns a `plugin.Plugin` with its source and media providers, listed in
   `cmd/gamevault/plugins.go`. Pieces of a plugin do not depend on each other at run time (they
