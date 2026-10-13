@@ -3,8 +3,6 @@ package media_test
 import (
 	"context"
 	"errors"
-	"io"
-	"log/slog"
 	"path/filepath"
 	"sync/atomic"
 	"testing"
@@ -16,6 +14,7 @@ import (
 	"gamevault/internal/adapters/outbound/gamedata"
 	"gamevault/internal/adapters/outbound/sqlite"
 	"gamevault/internal/application/media"
+	"gamevault/internal/application/providers"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
@@ -39,9 +38,9 @@ func (*storeDetails) Descriptor() provider.Descriptor {
 
 func (*storeDetails) Test(context.Context, schema.Settings) error { return nil }
 
-func (*storeDetails) Applies(q media.CoverQuery) bool { return q.Links[game.LinkSteam] != "" }
+func (*storeDetails) Applies(q media.GameQuery) bool { return q.Links[game.LinkSteam] != "" }
 
-func (p *storeDetails) Details(context.Context, media.CoverQuery, string, schema.Settings) (*media.GameDetails, error) {
+func (p *storeDetails) Details(context.Context, media.GameQuery, string, schema.Settings) (*media.GameDetails, error) {
 	p.calls.Add(1)
 
 	return p.sheet, nil
@@ -57,7 +56,7 @@ type quotaDetails struct {
 	calls   atomic.Int32
 
 	// asked is the query of the last call.
-	asked media.CoverQuery
+	asked media.GameQuery
 }
 
 func (*quotaDetails) Descriptor() provider.Descriptor {
@@ -72,11 +71,11 @@ func (*quotaDetails) Descriptor() provider.Descriptor {
 
 func (*quotaDetails) Test(context.Context, schema.Settings) error { return nil }
 
-func (*quotaDetails) Applies(q media.CoverQuery) bool {
+func (*quotaDetails) Applies(q media.GameQuery) bool {
 	return q.HasPhysical() || !q.HasStoreLink() || q.Fallback
 }
 
-func (p *quotaDetails) Details(_ context.Context, q media.CoverQuery, _ string, _ schema.Settings) (*media.GameDetails, error) {
+func (p *quotaDetails) Details(_ context.Context, q media.GameQuery, _ string, _ schema.Settings) (*media.GameDetails, error) {
 	p.calls.Add(1)
 	p.asked = q
 
@@ -95,14 +94,14 @@ func (p *quotaDetails) Details(_ context.Context, q media.CoverQuery, _ string, 
 }
 
 type detailsEnv struct {
-	svc     *media.Service
+	svc     *media.Services
 	games   game.Repository
 	details media.DetailsStore
 	store   *storeDetails
 	quota   *quotaDetails
 }
 
-func newDetailsEnv(t *testing.T, ctx context.Context, now func() time.Time, storeSheet *media.GameDetails) detailsEnv {
+func newDetailsEnv(t *testing.T, ctx context.Context, now func() time.Time, storeSheet *media.GameDetails, opts ...media.Option) detailsEnv {
 	t.Helper()
 
 	db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "gamevault.db"), "")
@@ -114,10 +113,7 @@ func newDetailsEnv(t *testing.T, ctx context.Context, now func() time.Time, stor
 
 	games, details := sqlite.NewGameRepository(db), sqlite.NewDetailsStore(db)
 	store, quota := &storeDetails{sheet: storeSheet}, &quotaDetails{}
-	svc := media.NewService(games, sqlite.NewProviderRepository(db), assets, nil, details, echo{}, now,
-		slog.New(slog.NewTextHandler(io.Discard, nil)), media.Providers{
-			Metadata: []media.MetadataProvider{store, quota},
-		})
+	svc := newServicesAt(db, now, games, assets, echo{}, []providers.Impl{store, quota}, append([]media.Option{media.WithDetailsStore(details)}, opts...)...)
 
 	return detailsEnv{
 		svc:     svc,
@@ -140,7 +136,7 @@ func TestGameDetails_fallbackPass(t *testing.T) {
 		})
 
 		t.Run("WHEN its sheet is asked", func(t *testing.T) {
-			d, warnings, err := env.svc.GameDetails(ctx, g.ID(), "en", false)
+			d, warnings, err := env.svc.Details.GameDetails(ctx, g.ID(), "en", false)
 			require.NoError(t, err)
 
 			t.Run("THEN the quota-limited provider fills it in the fallback pass", func(t *testing.T) {
@@ -171,7 +167,7 @@ func TestGameDetails_fallbackPass(t *testing.T) {
 		})
 
 		t.Run("WHEN its sheet is asked", func(t *testing.T) {
-			d, _, err := env.svc.GameDetails(ctx, g.ID(), "en", false)
+			d, _, err := env.svc.Details.GameDetails(ctx, g.ID(), "en", false)
 			require.NoError(t, err)
 
 			t.Run("THEN only the store is asked: the fallback pass never runs", func(t *testing.T) {
@@ -191,13 +187,13 @@ func TestGameDetails_fallbackPass(t *testing.T) {
 		})
 
 		t.Run("WHEN its sheet is asked", func(t *testing.T) {
-			d, warnings, err := env.svc.GameDetails(ctx, g.ID(), "en", false)
+			d, warnings, err := env.svc.Details.GameDetails(ctx, g.ID(), "en", false)
 			require.NoError(t, err)
 
 			t.Run("THEN it is empty this time; the provider's status, not the sheet, says it is busy", func(t *testing.T) {
 				assert.Empty(t, d.Summary)
 				assert.Empty(t, warnings)
-				assert.Len(t, env.svc.ProviderStatuses(), 1)
+				assert.Len(t, env.svc.Registry.Statuses(), 1)
 			})
 
 			t.Run("AND nothing is cached, so the next view asks again", func(t *testing.T) {
@@ -231,10 +227,10 @@ func TestGameDetails_sheetsCachedByOlderLogic(t *testing.T) {
 		}))
 
 		t.Run("WHEN its sheet is asked twice", func(t *testing.T) {
-			first, _, err := env.svc.GameDetails(ctx, g.ID(), "en", false)
+			first, _, err := env.svc.Details.GameDetails(ctx, g.ID(), "en", false)
 			require.NoError(t, err)
 
-			second, _, err := env.svc.GameDetails(ctx, g.ID(), "en", false)
+			second, _, err := env.svc.Details.GameDetails(ctx, g.ID(), "en", false)
 			require.NoError(t, err)
 
 			t.Run("THEN it is fetched again once, and the new sheet is served from the cache", func(t *testing.T) {
@@ -259,7 +255,7 @@ func TestGameDetails_sheetsCachedByOlderLogic(t *testing.T) {
 		}))
 
 		t.Run("WHEN its sheet is opened", func(t *testing.T) {
-			d, _, err := env.svc.GameDetails(ctx, g.ID(), "en", false)
+			d, _, err := env.svc.Details.GameDetails(ctx, g.ID(), "en", false)
 			require.NoError(t, err)
 
 			t.Run("THEN the fallback pass runs", func(t *testing.T) {
@@ -282,7 +278,7 @@ func TestGameDetails_sheetsCachedByOlderLogic(t *testing.T) {
 		}))
 
 		t.Run("WHEN its sheet is asked", func(t *testing.T) {
-			d, _, err := env.svc.GameDetails(ctx, g.ID(), "en", false)
+			d, _, err := env.svc.Details.GameDetails(ctx, g.ID(), "en", false)
 			require.NoError(t, err)
 
 			t.Run("THEN the cached sheet stays and no provider is asked", func(t *testing.T) {
@@ -310,7 +306,7 @@ func TestGameDetails_sparseSheetWithAFailedFallback(t *testing.T) {
 		})
 
 		t.Run("WHEN its sheet is opened and the store knows only its genres", func(t *testing.T) {
-			d, warnings, err := env.svc.GameDetails(ctx, g.ID(), "en", false)
+			d, warnings, err := env.svc.Details.GameDetails(ctx, g.ID(), "en", false)
 			require.NoError(t, err)
 
 			t.Run("THEN it shows the genres and the failure", func(t *testing.T) {
@@ -329,7 +325,7 @@ func TestGameDetails_sparseSheetWithAFailedFallback(t *testing.T) {
 		t.Run("WHEN the provider recovers and the sheet is opened again", func(t *testing.T) {
 			env.quota.failing.Store(false)
 
-			d, warnings, err := env.svc.GameDetails(ctx, g.ID(), "en", false)
+			d, warnings, err := env.svc.Details.GameDetails(ctx, g.ID(), "en", false)
 			require.NoError(t, err)
 
 			t.Run("THEN the fallback pass fills it", func(t *testing.T) {
@@ -359,9 +355,9 @@ func (p *sheetDetails) Descriptor() provider.Descriptor {
 
 func (*sheetDetails) Test(context.Context, schema.Settings) error { return nil }
 
-func (*sheetDetails) Applies(media.CoverQuery) bool { return true }
+func (*sheetDetails) Applies(media.GameQuery) bool { return true }
 
-func (p *sheetDetails) Details(context.Context, media.CoverQuery, string, schema.Settings) (*media.GameDetails, error) {
+func (p *sheetDetails) Details(context.Context, media.GameQuery, string, schema.Settings) (*media.GameDetails, error) {
 	sheet := p.sheet
 	return &sheet, nil
 }
@@ -405,17 +401,14 @@ func TestGameDetails_summarySourceAndTrailers(t *testing.T) {
 		}
 
 		games, details := sqlite.NewGameRepository(db), sqlite.NewDetailsStore(db)
-		svc := media.NewService(games, sqlite.NewProviderRepository(db), assets, nil, details, echo{}, time.Now,
-			slog.New(slog.NewTextHandler(io.Discard, nil)), media.Providers{
-				Metadata: []media.MetadataProvider{database, encyclopedia},
-			})
+		svc := newServices(db, games, assets, echo{}, []providers.Impl{database, encyclopedia}, media.WithDetailsStore(details))
 		g := saveGame(t, ctx, games, "Example Quest", nil, game.CopyDetails{
 			Kind:     game.KindPhysical,
 			Platform: "PS4",
 		})
 
 		t.Run("WHEN the sheet is asked", func(t *testing.T) {
-			d, warnings, err := svc.GameDetails(ctx, g.ID(), "en", false)
+			d, warnings, err := svc.Details.GameDetails(ctx, g.ID(), "en", false)
 			require.NoError(t, err)
 			require.Empty(t, warnings)
 
@@ -460,7 +453,7 @@ func TestGameDetails_notFoundBy(t *testing.T) {
 		})
 
 		t.Run("WHEN its sheet is asked", func(t *testing.T) {
-			d, warnings, err := env.svc.GameDetails(ctx, g.ID(), "en", false)
+			d, warnings, err := env.svc.Details.GameDetails(ctx, g.ID(), "en", false)
 			require.NoError(t, err)
 
 			t.Run("THEN the store is listed as tried without a match, which is no failure", func(t *testing.T) {
@@ -486,7 +479,7 @@ func TestGameDetails_notFoundBy(t *testing.T) {
 		})
 
 		t.Run("WHEN its sheet is asked", func(t *testing.T) {
-			d, _, err := env.svc.GameDetails(ctx, g.ID(), "en", false)
+			d, _, err := env.svc.Details.GameDetails(ctx, g.ID(), "en", false)
 			require.NoError(t, err)
 
 			t.Run("THEN the store is not listed: it was not tried", func(t *testing.T) {
@@ -509,7 +502,7 @@ func TestGameDetails_notFoundByLeavesOutLimitedProviders(t *testing.T) {
 		})
 
 		t.Run("WHEN its sheet is asked", func(t *testing.T) {
-			d, warnings, err := env.svc.GameDetails(ctx, g.ID(), "en", false)
+			d, warnings, err := env.svc.Details.GameDetails(ctx, g.ID(), "en", false)
 			require.NoError(t, err)
 
 			t.Run("THEN it is not \"no clear match\" (it said nothing about the game), nor a warning on the game", func(t *testing.T) {

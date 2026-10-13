@@ -53,12 +53,12 @@ func (d *Details) Descriptor() provider.Descriptor {
 	}
 }
 
-// Test implements media.Provider: it checks the shared API key and its allowance, exactly as the
+// Test implements providers.Impl: it checks the shared API key and its allowance, exactly as the
 // cover provider does, because both use the same key.
 func (d *Details) Test(ctx context.Context, s schema.Settings) error { return d.p.Test(ctx, s) }
 
 // Applies implements media.MetadataProvider.
-func (d *Details) Applies(q media.CoverQuery) bool { return d.p.Applies(q) }
+func (d *Details) Applies(q media.GameQuery) bool { return d.p.Applies(q) }
 
 // ImageHosts implements media.ImageHoster: screenshots and YouTube thumbnails go through the proxy.
 func (d *Details) ImageHosts() []string { return []string{"cdn.thegamesdb.net", "i.ytimg.com"} }
@@ -113,7 +113,7 @@ func (d *Details) lookupNames(ctx context.Context, apiKey, kind string, ids []in
 // titled exactly like the copy, on the systems the query is about, and picks the game in the
 // results: an exact title wins over a game that only shares the MatchKey ("Rush" for "Gold Rush!",
 // searched as "Rush!"), whichever search found it.
-func (d *Details) find(ctx context.Context, key string, q media.CoverQuery) (tgdbGame, bool, error) {
+func (d *Details) find(ctx context.Context, key string, q media.GameQuery) (tgdbGame, bool, error) {
 	filter := d.p.platformFilter(ctx, key, q.SearchSystems())
 
 	var (
@@ -150,7 +150,7 @@ func (d *Details) find(ctx context.Context, key string, q media.CoverQuery) (tgd
 }
 
 // Details implements media.MetadataProvider.
-func (d *Details) Details(ctx context.Context, q media.CoverQuery, _ string, s schema.Settings) (*media.GameDetails, error) {
+func (d *Details) Details(ctx context.Context, q media.GameQuery, _ string, s schema.Settings) (*media.GameDetails, error) {
 	key := s[settingAPIKey]
 
 	g, ok, err := d.find(ctx, key, q)

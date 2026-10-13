@@ -130,7 +130,7 @@ func TestAllowance_usedUp(t *testing.T) {
 	defer cancel()
 
 	settings := schema.Settings{settingAPIKey: "good"}
-	q := media.CoverQuery{
+	q := media.GameQuery{
 		Title:             "Halo 3",
 		PhysicalPlatforms: []string{"PC"},
 	}
@@ -239,7 +239,7 @@ func TestAllowance_perKey(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	q := media.CoverQuery{Title: "Halo 3"}
+	q := media.GameQuery{Title: "Halo 3"}
 
 	t.Run("GIVEN a key found to have used up its allowance", func(t *testing.T) {
 		srv := newAllowanceServer(t)
@@ -334,7 +334,7 @@ func TestAllowance_failedCheck(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	q := media.CoverQuery{Title: "Halo 3"}
+	q := media.GameQuery{Title: "Halo 3"}
 	settings := schema.Settings{settingAPIKey: "good"}
 
 	t.Run("GIVEN a used-up key whose first allowance check fails", func(t *testing.T) {
@@ -368,7 +368,7 @@ func TestAllowance_concurrent(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	q := media.CoverQuery{Title: "Halo 3"}
+	q := media.GameQuery{Title: "Halo 3"}
 	settings := schema.Settings{settingAPIKey: "good"}
 
 	t.Run("GIVEN a used-up key and a provider without a throttle", func(t *testing.T) {
@@ -448,7 +448,7 @@ func TestAllowance_left(t *testing.T) {
 	defer cancel()
 
 	settings := schema.Settings{settingAPIKey: "good"}
-	q := media.CoverQuery{
+	q := media.GameQuery{
 		Title:             "Halo 3",
 		PhysicalPlatforms: []string{"PC"},
 	}

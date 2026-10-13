@@ -15,20 +15,23 @@ import (
 )
 
 // GameHandler implements gamevaultv1connect.GameServiceHandler on top of the catalog and media use
-// cases; the sources only tell which stores they link games to.
+// cases; the sources only exclude copies from their scans.
 type GameHandler struct {
 	catalog *catalog.Service
-	media   *media.Service
+	details *media.Details
+	stores  *media.Stores
 	sources *sync.Service
 }
 
 var _ gamevaultv1connect.GameServiceHandler = (*GameHandler)(nil)
 
-// NewGameHandler returns the GameService handler backed by the catalog, media and sync services.
-func NewGameHandler(c *catalog.Service, m *media.Service, sources *sync.Service) *GameHandler {
+// NewGameHandler returns the GameService handler backed by the catalog, the sheets, the link stores
+// and the sync service.
+func NewGameHandler(c *catalog.Service, details *media.Details, stores *media.Stores, sources *sync.Service) *GameHandler {
 	return &GameHandler{
 		catalog: c,
-		media:   m,
+		details: details,
+		stores:  stores,
 		sources: sources,
 	}
 }
@@ -48,7 +51,7 @@ func (h *GameHandler) ListGames(ctx context.Context, req *connect.Request[pb.Lis
 		return nil, toConnectError(err)
 	}
 
-	summaries, err := h.media.CatalogSummaries(ctx, req.Msg.Language)
+	summaries, err := h.details.CatalogSummaries(ctx, req.Msg.Language)
 	if err != nil {
 		return nil, toConnectError(err)
 	}
@@ -280,35 +283,18 @@ func (h *GameHandler) MarkRedeemedKeys(ctx context.Context, _ *connect.Request[p
 	return connect.NewResponse(&pb.MarkRedeemedKeysResponse{Updated: int32(n)}), nil
 }
 
-// ListLinkStores lists the stores games can be linked to: those the media providers read links of
-// (in chain order), then those only sources link games to.
+// ListLinkStores lists the stores games can be linked to (see media.Stores.LinkStores).
 func (h *GameHandler) ListLinkStores(context.Context, *connect.Request[pb.ListLinkStoresRequest]) (*connect.Response[pb.ListLinkStoresResponse], error) {
-	out := &pb.ListLinkStoresResponse{}
-	byKey := map[string]*pb.LinkStore{}
-	add := func(s game.Store, searchable bool) {
-		if ls, ok := byKey[s.Key]; ok {
-			if ls.PageUrl == "" {
-				ls.PageUrl = s.PageURL
-			}
+	stores := h.stores.LinkStores()
+	out := &pb.ListLinkStoresResponse{Stores: make([]*pb.LinkStore, 0, len(stores))}
 
-			return
-		}
-
-		byKey[s.Key] = &pb.LinkStore{
+	for _, s := range stores {
+		out.Stores = append(out.Stores, &pb.LinkStore{
 			Key:        s.Key,
 			Name:       s.Name,
 			PageUrl:    s.PageURL,
-			Searchable: searchable,
-		}
-		out.Stores = append(out.Stores, byKey[s.Key])
-	}
-
-	for _, s := range h.media.LinkStores() {
-		add(s.Store, s.Searchable)
-	}
-
-	for _, s := range h.sources.LinkStores() {
-		add(s, false)
+			Searchable: s.Searchable,
+		})
 	}
 
 	return connect.NewResponse(out), nil
@@ -316,7 +302,7 @@ func (h *GameHandler) ListLinkStores(context.Context, *connect.Request[pb.ListLi
 
 // SearchLinks searches a store's catalog by title, to link a game to it.
 func (h *GameHandler) SearchLinks(ctx context.Context, req *connect.Request[pb.SearchLinksRequest]) (*connect.Response[pb.SearchLinksResponse], error) {
-	matches, err := h.media.SearchLinks(ctx, req.Msg.Store, req.Msg.Query)
+	matches, err := h.stores.SearchLinks(ctx, req.Msg.Store, req.Msg.Query)
 	if err != nil {
 		return nil, toConnectError(err)
 	}

@@ -48,7 +48,7 @@ func (d *Details) Descriptor() provider.Descriptor {
 func (d *Details) LinkStore() game.Store { return LinkedStore }
 
 // Applies implements media.MetadataProvider.
-func (d *Details) Applies(q media.CoverQuery) bool { return AppIDOf(q) != 0 }
+func (d *Details) Applies(q media.GameQuery) bool { return AppIDOf(q) != 0 }
 
 type appDetails struct {
 	Success bool `json:"success"`
@@ -111,7 +111,7 @@ func (d *Details) fetch(ctx context.Context, appID int64, lang string) (app appD
 	return app, ok && app.Success, nil
 }
 
-// Test implements media.Provider: it asks the store for Portal 2 (app 620), so only transport
+// Test implements providers.Impl: it asks the store for Portal 2 (app 620), so only transport
 // errors, rate limits and HTTP errors fail it; a store with no data for the app still works.
 func (d *Details) Test(ctx context.Context, _ schema.Settings) error {
 	if _, _, err := d.fetch(ctx, 620, "english"); err != nil {
@@ -122,7 +122,7 @@ func (d *Details) Test(ctx context.Context, _ schema.Settings) error {
 }
 
 // Details implements media.MetadataProvider.
-func (d *Details) Details(ctx context.Context, q media.CoverQuery, language string, _ schema.Settings) (*media.GameDetails, error) {
+func (d *Details) Details(ctx context.Context, q media.GameQuery, language string, _ schema.Settings) (*media.GameDetails, error) {
 	lang := steamLanguages[language]
 	if lang == "" {
 		lang = "english"

@@ -7,7 +7,7 @@ import (
 	"context"
 	"errors"
 
-	"gamevault/internal/application/media"
+	"gamevault/internal/application/providers"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
 )
@@ -16,9 +16,9 @@ import (
 var ErrNotListed = errors.New("not listed")
 
 // Provider estimates the second-hand price of a product by its barcode. Its configuration (enabled,
-// order, settings) is kept by the media service with the other providers (provider.KindValuation).
+// order, settings) is kept by the providers registry with the other providers (provider.KindValuation).
 type Provider interface {
-	media.Provider
+	providers.Impl
 
 	// Estimate returns the source's price for the product with that barcode, or ErrNotListed. The
 	// service fills in Provider and FetchedAt.

@@ -50,12 +50,12 @@ func (c *Covers) LinkStore() game.Store { return LinkedStore }
 
 // Applies reports whether the game is linked to Battle.net, for its PC edition. The art is found by
 // searching the title on Steam, so never when only store links may be used (q.LinksOnly).
-func (c *Covers) Applies(q media.CoverQuery) bool {
+func (c *Covers) Applies(q media.GameQuery) bool {
 	return q.ForPC() && q.Links[LinkedStore.Key] != "" && !q.LinksOnly
 }
 
 // Covers implements media.CoverProvider.
-func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, settings schema.Settings) ([]media.CoverCandidate, error) {
+func (c *Covers) Covers(ctx context.Context, q media.GameQuery, settings schema.Settings) ([]media.CoverCandidate, error) {
 	// Battle.net adds a year to tell remasters apart ("… Remastered (2017)"); Steam does not.
 	title := strings.TrimSpace(game.StripYearSuffix(q.Title))
 
@@ -71,7 +71,7 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, settings schema
 			continue
 		}
 
-		cands, err := c.Steam.Covers(ctx, media.CoverQuery{
+		cands, err := c.Steam.Covers(ctx, media.GameQuery{
 			Title: m.Name,
 			Links: game.Links{store: m.ID},
 		}, settings)
@@ -90,7 +90,7 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, settings schema
 	return nil, nil
 }
 
-// Test implements media.Provider: it searches the Steam store for one well-known title, since that
+// Test implements providers.Impl: it searches the Steam store for one well-known title, since that
 // search is the only service this provider depends on, and fails if the search errors. No match is not a failure.
 func (c *Covers) Test(ctx context.Context, _ schema.Settings) error {
 	if _, err := c.Search.SearchLinks(ctx, "Portal"); err != nil {

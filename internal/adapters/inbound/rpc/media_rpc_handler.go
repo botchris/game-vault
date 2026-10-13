@@ -7,6 +7,7 @@ import (
 	"connectrpc.com/connect"
 
 	"gamevault/internal/application/media"
+	"gamevault/internal/application/providers"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
@@ -14,9 +15,13 @@ import (
 	"gamevault/internal/gen/gamevault/v1/gamevaultv1connect"
 )
 
-// MediaHandler implements the provider and cover services on top of the media use cases.
+// MediaHandler implements the provider, cover, lookup and metadata services on top of the providers
+// registry and the media use cases.
 type MediaHandler struct {
-	media *media.Service
+	providers  *providers.Registry
+	covers     *media.Covers
+	details    *media.Details
+	identifier *media.Identifier
 }
 
 var (
@@ -24,17 +29,24 @@ var (
 	_ gamevaultv1connect.CoverServiceHandler    = (*MediaHandler)(nil)
 )
 
-// NewMediaHandler returns the handler for the provider, cover and metadata services.
-func NewMediaHandler(m *media.Service) *MediaHandler { return &MediaHandler{media: m} }
+// NewMediaHandler returns the handler for the provider, cover, lookup and metadata services.
+func NewMediaHandler(reg *providers.Registry, covers *media.Covers, details *media.Details, identifier *media.Identifier) *MediaHandler {
+	return &MediaHandler{
+		providers:  reg,
+		covers:     covers,
+		details:    details,
+		identifier: identifier,
+	}
+}
 
 // ListProviders returns the providers of each chain in their configured order.
 func (h *MediaHandler) ListProviders(ctx context.Context, req *connect.Request[pb.ListProvidersRequest]) (*connect.Response[pb.ListProvidersResponse], error) {
-	views, err := h.media.Providers(ctx, provider.Kind(req.Msg.Kind))
+	views, err := h.providers.Providers(ctx, provider.Kind(req.Msg.Kind))
 	if err != nil {
 		return nil, toConnectError(err)
 	}
 
-	statuses := h.media.ProviderStatuses()
+	statuses := h.providers.Statuses()
 
 	out := &pb.ListProvidersResponse{SecretPlaceholder: schema.SecretPlaceholder}
 
@@ -49,7 +61,7 @@ func (h *MediaHandler) ListProviders(ctx context.Context, req *connect.Request[p
 
 // UpdateProvider enables or disables a provider and saves its settings.
 func (h *MediaHandler) UpdateProvider(ctx context.Context, req *connect.Request[pb.UpdateProviderRequest]) (*connect.Response[pb.UpdateProviderResponse], error) {
-	v, err := h.media.ConfigureProvider(ctx, provider.ID(req.Msg.Id), req.Msg.Enabled, schema.Settings(req.Msg.Settings))
+	v, err := h.providers.ConfigureProvider(ctx, provider.ID(req.Msg.Id), req.Msg.Enabled, schema.Settings(req.Msg.Settings))
 	if err != nil {
 		return nil, toConnectError(err)
 	}
@@ -64,7 +76,7 @@ func (h *MediaHandler) ReorderProviders(ctx context.Context, req *connect.Reques
 		ids[i] = provider.ID(id)
 	}
 
-	views, err := h.media.ReorderProviders(ctx, provider.Kind(req.Msg.Kind), ids)
+	views, err := h.providers.ReorderProviders(ctx, provider.Kind(req.Msg.Kind), ids)
 	if err != nil {
 		return nil, toConnectError(err)
 	}
@@ -79,7 +91,7 @@ func (h *MediaHandler) ReorderProviders(ctx context.Context, req *connect.Reques
 
 // TestProvider checks that a provider works with its current settings.
 func (h *MediaHandler) TestProvider(ctx context.Context, req *connect.Request[pb.TestProviderRequest]) (*connect.Response[pb.TestProviderResponse], error) {
-	if err := h.media.TestProvider(ctx, provider.ID(req.Msg.Id), schema.Settings(req.Msg.Settings)); err != nil {
+	if err := h.providers.TestProvider(ctx, provider.ID(req.Msg.Id), schema.Settings(req.Msg.Settings)); err != nil {
 		// A failed check is a valid test result, not an RPC failure.
 		return connect.NewResponse(&pb.TestProviderResponse{
 			Success: false,
@@ -92,14 +104,14 @@ func (h *MediaHandler) TestProvider(ctx context.Context, req *connect.Request[pb
 
 // ListCoverCandidates returns the covers the providers propose for a game.
 func (h *MediaHandler) ListCoverCandidates(ctx context.Context, req *connect.Request[pb.ListCoverCandidatesRequest]) (*connect.Response[pb.ListCoverCandidatesResponse], error) {
-	candidates, warnings, unavailable, err := h.media.CoverCandidates(ctx, game.ID(req.Msg.GameId), req.Msg.System)
+	candidates, warnings, unavailable, err := h.covers.CoverCandidates(ctx, game.ID(req.Msg.GameId), req.Msg.System)
 	if err != nil {
 		return nil, toConnectError(err)
 	}
 
 	names := map[provider.ID]string{}
 
-	if views, err := h.media.Providers(ctx, provider.KindCover); err == nil {
+	if views, err := h.providers.Providers(ctx, provider.KindCover); err == nil {
 		for _, v := range views {
 			names[v.ID()] = v.Descriptor.Name
 		}
@@ -124,7 +136,7 @@ func (h *MediaHandler) ListCoverCandidates(ctx context.Context, req *connect.Req
 
 // RefreshCovers clears the cached covers so they are fetched again.
 func (h *MediaHandler) RefreshCovers(ctx context.Context, req *connect.Request[pb.RefreshCoversRequest]) (*connect.Response[pb.RefreshCoversResponse], error) {
-	n, err := h.media.RefreshCovers(ctx, req.Msg.MissingOnly)
+	n, err := h.covers.RefreshCovers(ctx, req.Msg.MissingOnly)
 	if err != nil {
 		return nil, toConnectError(err)
 	}
@@ -134,7 +146,7 @@ func (h *MediaHandler) RefreshCovers(ctx context.Context, req *connect.Request[p
 
 // providerStatusToPB returns the status of the service provider id belongs to, nil when it has no
 // problem.
-func providerStatusToPB(statuses []media.ProviderStatus, id provider.ID) *pb.ProviderStatus {
+func providerStatusToPB(statuses []providers.Status, id provider.ID) *pb.ProviderStatus {
 	for _, st := range statuses {
 		if !slices.Contains(st.Providers, id) {
 			continue

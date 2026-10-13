@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"log/slog"
+	"fmt"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -17,6 +17,7 @@ import (
 	"gamevault/internal/adapters/outbound/sqlite"
 	"gamevault/internal/application/catalog"
 	"gamevault/internal/application/media"
+	"gamevault/internal/application/providers"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
@@ -48,13 +49,13 @@ func (f *linkFinder) Descriptor() provider.Descriptor {
 
 func (*linkFinder) Test(context.Context, schema.Settings) error { return nil }
 
-func (*linkFinder) Applies(media.CoverQuery) bool { return false }
+func (*linkFinder) Applies(media.GameQuery) bool { return false }
 
-func (*linkFinder) Covers(context.Context, media.CoverQuery, schema.Settings) ([]media.CoverCandidate, error) {
+func (*linkFinder) Covers(context.Context, media.GameQuery, schema.Settings) ([]media.CoverCandidate, error) {
 	return nil, nil
 }
 
-func (f *linkFinder) FindLinks(context.Context, media.CoverQuery, schema.Settings) (game.Links, error) {
+func (f *linkFinder) FindLinks(context.Context, media.GameQuery, schema.Settings) (game.Links, error) {
 	f.mu.Lock()
 	f.calls++
 	links, err, during := f.links, f.err, f.during
@@ -82,7 +83,7 @@ func (f *linkFinder) asked() int {
 }
 
 type autoLinkEnv struct {
-	svc     *media.Service
+	svc     *media.Services
 	games   game.Repository
 	assets  *gamedata.Store
 	details media.DetailsStore
@@ -142,12 +143,9 @@ func newAutoLinkEnv(t *testing.T, ctx context.Context) autoLinkEnv {
 		logs: &lockedBuffer{},
 	}
 	clock := func() time.Time { return *env.now }
-	env.svc = media.NewService(env.games, sqlite.NewProviderRepository(db), assets, nil, env.details, echo{},
-		clock, slog.New(slog.NewTextHandler(env.logs, nil)), media.Providers{
-			Covers: []media.CoverProvider{env.search, env.trusted},
-		})
-	env.catalog = catalog.NewService(env.games, db, clock, env.svc, nil, nil)
-	env.svc.SetGameLinker(env.catalog)
+	env.svc = newServicesAt(db, clock, env.games, assets, echo{}, []providers.Impl{env.search, env.trusted}, media.WithDetailsStore(env.details))
+	env.catalog = catalog.NewService(env.games, db, clock, env.svc.Covers, nil, nil)
+	env.svc.AutoLinks.SetGameLinker(env.catalog)
 
 	return env
 }
@@ -161,7 +159,7 @@ func (env autoLinkEnv) runWorker(t *testing.T) {
 	done := make(chan struct{})
 
 	go func() {
-		env.svc.RunAutoLinker(ctx, time.Millisecond)
+		env.svc.AutoLinks.Run(ctx, time.Millisecond)
 		close(done)
 	}()
 
@@ -207,7 +205,7 @@ func TestAutoLink(t *testing.T) {
 		env.trusted.set(game.Links{game.LinkSteam: "100", "gog": "200"}, nil)
 
 		t.Run("WHEN links are looked for", func(t *testing.T) {
-			require.NoError(t, env.svc.AutoLink(ctx, g.ID()))
+			require.NoError(t, env.svc.AutoLinks.AutoLink(ctx, g.ID()))
 			got := env.game(t, ctx, g.ID())
 
 			t.Run("THEN the trusted finder's links are added as automatic, and the title search is not asked", func(t *testing.T) {
@@ -235,7 +233,7 @@ func TestAutoLink(t *testing.T) {
 		env.search.set(game.Links{game.LinkSteam: "4242"}, nil)
 
 		t.Run("WHEN links are looked for", func(t *testing.T) {
-			require.NoError(t, env.svc.AutoLink(ctx, g.ID()))
+			require.NoError(t, env.svc.AutoLinks.AutoLink(ctx, g.ID()))
 
 			t.Run("THEN the title search's link is added", func(t *testing.T) {
 				assert.Equal(t, "4242", env.game(t, ctx, g.ID()).Links()[game.LinkSteam])
@@ -248,7 +246,7 @@ func TestAutoLink(t *testing.T) {
 		g := saveGame(t, ctx, env.games, "Console Quest", nil, disc)
 		updated := env.game(t, ctx, g.ID()).UpdatedAt()
 
-		require.NoError(t, env.svc.AutoLink(ctx, g.ID()))
+		require.NoError(t, env.svc.AutoLinks.AutoLink(ctx, g.ID()))
 
 		t.Run("THEN the search is recorded without counting as a change of the game", func(t *testing.T) {
 			got := env.game(t, ctx, g.ID())
@@ -258,13 +256,13 @@ func TestAutoLink(t *testing.T) {
 
 		t.Run("WHEN asked again within 30 days THEN nobody is asked again", func(t *testing.T) {
 			*env.now = env.now.Add(29 * 24 * time.Hour)
-			require.NoError(t, env.svc.AutoLink(ctx, g.ID()))
+			require.NoError(t, env.svc.AutoLinks.AutoLink(ctx, g.ID()))
 			assert.Equal(t, 1, env.trusted.asked())
 		})
 
 		t.Run("WHEN asked after 30 days THEN the finders are asked again", func(t *testing.T) {
 			*env.now = env.now.Add(2 * 24 * time.Hour)
-			require.NoError(t, env.svc.AutoLink(ctx, g.ID()))
+			require.NoError(t, env.svc.AutoLinks.AutoLink(ctx, g.ID()))
 			assert.Equal(t, 2, env.trusted.asked())
 		})
 	})
@@ -274,18 +272,18 @@ func TestAutoLink(t *testing.T) {
 		g := saveGame(t, ctx, env.games, "Console Quest", nil, disc)
 		env.trusted.set(nil, provider.ErrRateLimited)
 
-		require.NoError(t, env.svc.AutoLink(ctx, g.ID()))
+		require.NoError(t, env.svc.AutoLinks.AutoLink(ctx, g.ID()))
 
 		t.Run("THEN nothing is recorded on the game, and it is retried within the hour, not at once", func(t *testing.T) {
 			assert.True(t, env.game(t, ctx, g.ID()).AutoLinkTriedAt().IsZero())
 			assert.Zero(t, env.search.asked(), "a rate limit stops the search: the next finder is less reliable")
 
-			require.NoError(t, env.svc.AutoLink(ctx, g.ID()))
+			require.NoError(t, env.svc.AutoLinks.AutoLink(ctx, g.ID()))
 			assert.Equal(t, 1, env.trusted.asked())
 
 			*env.now = env.now.Add(61 * time.Minute)
 			env.trusted.set(game.Links{game.LinkSteam: "100"}, nil)
-			require.NoError(t, env.svc.AutoLink(ctx, g.ID()))
+			require.NoError(t, env.svc.AutoLinks.AutoLink(ctx, g.ID()))
 			assert.Equal(t, 2, env.trusted.asked())
 			assert.Equal(t, "100", env.game(t, ctx, g.ID()).Links()[game.LinkSteam])
 		})
@@ -295,7 +293,7 @@ func TestAutoLink(t *testing.T) {
 		env := newAutoLinkEnv(t, ctx)
 		g := saveGame(t, ctx, env.games, "Console Quest", nil, disc)
 		env.trusted.set(game.Links{game.LinkSteam: "100"}, nil)
-		require.NoError(t, env.svc.AutoLink(ctx, g.ID()))
+		require.NoError(t, env.svc.AutoLinks.AutoLink(ctx, g.ID()))
 
 		removed := env.game(t, ctx, g.ID())
 		info := removed.Info()
@@ -305,7 +303,7 @@ func TestAutoLink(t *testing.T) {
 		require.NoError(t, env.games.Save(ctx, removed))
 
 		*env.now = env.now.Add(31 * 24 * time.Hour)
-		require.NoError(t, env.svc.AutoLink(ctx, g.ID()))
+		require.NoError(t, env.svc.AutoLinks.AutoLink(ctx, g.ID()))
 
 		t.Run("THEN it is not added again", func(t *testing.T) {
 			assert.Empty(t, env.game(t, ctx, g.ID()).Links())
@@ -316,7 +314,7 @@ func TestAutoLink(t *testing.T) {
 		env := newAutoLinkEnv(t, ctx)
 		g := saveGame(t, ctx, env.games, "Steam Quest", game.Links{game.LinkSteam: "620"}, disc)
 
-		require.NoError(t, env.svc.AutoLink(ctx, g.ID()))
+		require.NoError(t, env.svc.AutoLinks.AutoLink(ctx, g.ID()))
 
 		t.Run("THEN nothing is looked for", func(t *testing.T) {
 			assert.Zero(t, env.trusted.asked())
@@ -327,11 +325,11 @@ func TestAutoLink(t *testing.T) {
 	t.Run("GIVEN a disabled finder", func(t *testing.T) {
 		env := newAutoLinkEnv(t, ctx)
 		g := saveGame(t, ctx, env.games, "Console Quest", nil, disc)
-		_, err := env.svc.ConfigureProvider(ctx, "trusted", false, schema.Settings{})
+		_, err := env.svc.Registry.ConfigureProvider(ctx, "trusted", false, schema.Settings{})
 		require.NoError(t, err)
 		env.search.set(game.Links{game.LinkSteam: "4242"}, nil)
 
-		require.NoError(t, env.svc.AutoLink(ctx, g.ID()))
+		require.NoError(t, env.svc.AutoLinks.AutoLink(ctx, g.ID()))
 
 		t.Run("THEN it is not asked", func(t *testing.T) {
 			assert.Zero(t, env.trusted.asked())
@@ -351,7 +349,7 @@ func TestAutoLink(t *testing.T) {
 			assert.NoError(t, err)
 		}
 
-		require.NoError(t, env.svc.AutoLink(ctx, g.ID()))
+		require.NoError(t, env.svc.AutoLinks.AutoLink(ctx, g.ID()))
 
 		t.Run("THEN the edit and the link are both kept", func(t *testing.T) {
 			got := env.game(t, ctx, g.ID())
@@ -362,11 +360,11 @@ func TestAutoLink(t *testing.T) {
 
 	t.Run("GIVEN no service to save links", func(t *testing.T) {
 		env := newAutoLinkEnv(t, ctx)
-		env.svc.SetGameLinker(nil)
+		env.svc.AutoLinks.SetGameLinker(nil)
 		g := saveGame(t, ctx, env.games, "Console Quest", nil, disc)
 		env.trusted.set(game.Links{game.LinkSteam: "100"}, nil)
 
-		require.NoError(t, env.svc.AutoLink(ctx, g.ID()))
+		require.NoError(t, env.svc.AutoLinks.AutoLink(ctx, g.ID()))
 
 		t.Run("THEN nothing is looked for", func(t *testing.T) {
 			assert.Zero(t, env.trusted.asked())
@@ -378,22 +376,22 @@ func TestAutoLink(t *testing.T) {
 		g := saveGame(t, ctx, env.games, "Console Quest", nil, disc)
 		env.trusted.set(nil, errors.New("context deadline exceeded"))
 
-		require.NoError(t, env.svc.AutoLink(ctx, g.ID()))
+		require.NoError(t, env.svc.AutoLinks.AutoLink(ctx, g.ID()))
 
 		t.Run("THEN the game is not marked as searched: it waits an hour in memory, like a rate limit", func(t *testing.T) {
 			assert.True(t, env.game(t, ctx, g.ID()).AutoLinkTriedAt().IsZero())
 			assert.Zero(t, env.search.asked())
 
-			_, _, err := env.svc.GameDetails(ctx, g.ID(), "en", false)
+			_, _, err := env.svc.Details.GameDetails(ctx, g.ID(), "en", false)
 			require.NoError(t, err)
-			assert.Zero(t, env.svc.AutoLinkQueueLen(), "a game waiting its hour is not queued")
+			assert.Zero(t, env.svc.AutoLinks.QueueLen(), "a game waiting its hour is not queued")
 
-			require.NoError(t, env.svc.AutoLink(ctx, g.ID()))
+			require.NoError(t, env.svc.AutoLinks.AutoLink(ctx, g.ID()))
 			assert.Equal(t, 1, env.trusted.asked())
 
 			*env.now = env.now.Add(61 * time.Minute)
 			env.trusted.set(nil, provider.ErrUnavailable)
-			require.NoError(t, env.svc.AutoLink(ctx, g.ID()))
+			require.NoError(t, env.svc.AutoLinks.AutoLink(ctx, g.ID()))
 			assert.Equal(t, 2, env.trusted.asked())
 			assert.True(t, env.game(t, ctx, g.ID()).AutoLinkTriedAt().IsZero())
 		})
@@ -405,12 +403,12 @@ func TestAutoLink(t *testing.T) {
 		env.trusted.set(game.Links{game.LinkSteam: "100"}, nil)
 
 		for range 2 {
-			_, _, err := env.svc.GameDetails(ctx, g.ID(), "en", false)
+			_, _, err := env.svc.Details.GameDetails(ctx, g.ID(), "en", false)
 			require.NoError(t, err)
 		}
 
 		t.Run("THEN the game is queued once, not searched yet", func(t *testing.T) {
-			assert.Equal(t, 1, env.svc.AutoLinkQueueLen())
+			assert.Equal(t, 1, env.svc.AutoLinks.QueueLen())
 			assert.Zero(t, env.trusted.asked())
 		})
 
@@ -432,22 +430,22 @@ func TestAutoLink(t *testing.T) {
 		waiting := saveGame(t, ctx, env.games, "Console Quest", nil, disc)
 		next := saveGame(t, ctx, env.games, "Disc Saga", nil, disc)
 
-		_, _, err := env.svc.GameDetails(ctx, waiting.ID(), "en", false)
+		_, _, err := env.svc.Details.GameDetails(ctx, waiting.ID(), "en", false)
 		require.NoError(t, err)
 
 		env.trusted.set(nil, provider.ErrRateLimited)
-		require.NoError(t, env.svc.AutoLink(ctx, waiting.ID()))
+		require.NoError(t, env.svc.AutoLinks.AutoLink(ctx, waiting.ID()))
 		env.trusted.set(game.Links{game.LinkSteam: "100"}, nil)
 
-		_, _, err = env.svc.GameDetails(ctx, next.ID(), "en", false)
+		_, _, err = env.svc.Details.GameDetails(ctx, next.ID(), "en", false)
 		require.NoError(t, err)
 
 		t.Run("WHEN its sheet is opened again", func(t *testing.T) {
-			_, _, err := env.svc.GameDetails(ctx, waiting.ID(), "en", false)
+			_, _, err := env.svc.Details.GameDetails(ctx, waiting.ID(), "en", false)
 			require.NoError(t, err)
 
 			t.Run("THEN it is not queued twice", func(t *testing.T) {
-				assert.Equal(t, 2, env.svc.AutoLinkQueueLen())
+				assert.Equal(t, 2, env.svc.AutoLinks.QueueLen())
 			})
 		})
 
@@ -471,7 +469,7 @@ func TestAutoLink(t *testing.T) {
 		env.trusted.set(game.Links{game.LinkSteam: "100"}, nil)
 
 		for _, g := range []*game.Game{gone, next} {
-			_, _, err := env.svc.GameDetails(ctx, g.ID(), "en", false)
+			_, _, err := env.svc.Details.GameDetails(ctx, g.ID(), "en", false)
 			require.NoError(t, err)
 		}
 
@@ -496,7 +494,7 @@ func TestAutoLink(t *testing.T) {
 		done := make(chan struct{})
 
 		go func() {
-			env.svc.RunAutoLinker(wctx, time.Millisecond)
+			env.svc.AutoLinks.Run(wctx, time.Millisecond)
 			close(done)
 		}()
 
@@ -508,6 +506,78 @@ func TestAutoLink(t *testing.T) {
 			case <-time.After(5 * time.Second):
 				t.Fatal("the worker did not stop")
 			}
+		})
+	})
+}
+
+func TestSetGameLinker_whileSearching(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN games a finder knows", func(t *testing.T) {
+		env := newAutoLinkEnv(t, ctx)
+		env.trusted.set(game.Links{game.LinkSteam: "100"}, nil)
+
+		ids := make([]game.ID, 0, 10)
+		for i := range 10 {
+			ids = append(ids, saveGame(t, ctx, env.games, fmt.Sprintf("Console Quest %d", i), nil, game.CopyDetails{
+				Kind:     game.KindPhysical,
+				Platform: "PS4",
+			}).ID())
+		}
+
+		t.Run("WHEN the catalog is set as the linker again while they are searched", func(t *testing.T) {
+			var wg sync.WaitGroup
+
+			wg.Go(func() {
+				for range 50 {
+					env.svc.AutoLinks.SetGameLinker(env.catalog)
+				}
+			})
+
+			for _, id := range ids {
+				wg.Go(func() { assert.NoError(t, env.svc.AutoLinks.AutoLink(ctx, id)) })
+			}
+
+			wg.Wait()
+
+			t.Run("THEN every game gets its link", func(t *testing.T) {
+				for _, id := range ids {
+					got, err := env.games.Get(ctx, id)
+					require.NoError(t, err)
+					assert.Equal(t, "100", got.Links()[game.LinkSteam])
+				}
+			})
+		})
+	})
+}
+
+func TestAutoLink_chainOrder(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN two finders that know different links, the second one moved first in its chain", func(t *testing.T) {
+		env := newAutoLinkEnv(t, ctx)
+		env.trusted.set(game.Links{game.LinkSteam: "100"}, nil)
+		env.search.set(game.Links{game.LinkSteam: "200"}, nil)
+
+		_, err := env.svc.Registry.ReorderProviders(ctx, provider.KindCover, []provider.ID{"search", "trusted"})
+		require.NoError(t, err)
+
+		g := saveGame(t, ctx, env.games, "Console Quest", nil, game.CopyDetails{
+			Kind:     game.KindPhysical,
+			Platform: "PS4",
+		})
+
+		t.Run("WHEN the game's links are looked for", func(t *testing.T) {
+			require.NoError(t, env.svc.AutoLinks.AutoLink(ctx, g.ID()))
+
+			t.Run("THEN the finder first in the user's order wins", func(t *testing.T) {
+				got, err := env.games.Get(ctx, g.ID())
+				require.NoError(t, err)
+				assert.Equal(t, "200", got.Links()[game.LinkSteam])
+				assert.Zero(t, env.trusted.asked())
+			})
 		})
 	})
 }

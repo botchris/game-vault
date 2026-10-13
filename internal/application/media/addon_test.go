@@ -8,21 +8,6 @@ import (
 	"gamevault/internal/domain/game"
 )
 
-func TestIsAddOn(t *testing.T) {
-	for title, want := range map[string]bool{
-		"GRIP: Combat Racing Artifex DLC":  true,
-		"Celeste - Original Soundtrack":    true,
-		"Borderlands 2 Season Pass":        true,
-		"Dead Space 3":                     false,
-		"Pack-Man":                         false,
-		"Expansion: The Card Game Of Doom": true, // rare false positive: only used when no cover was found
-	} {
-		if got := IsAddOn(title); got != want {
-			t.Errorf("IsAddOn(%q) = %v", title, got)
-		}
-	}
-}
-
 func TestBaseGameOf(t *testing.T) {
 	now := time.Now()
 	mk := func(title string) *game.Game {

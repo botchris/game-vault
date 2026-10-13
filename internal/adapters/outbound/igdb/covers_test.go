@@ -18,17 +18,17 @@ func TestCovers_applies(t *testing.T) {
 
 	for _, tc := range []struct {
 		name string
-		q    media.CoverQuery
+		q    media.GameQuery
 		want bool
 	}{
-		{"a PC edition, first pass", media.CoverQuery{System: game.SystemPC}, false},
-		{"a game without copies, first pass", media.CoverQuery{}, false},
-		{"a PS4 edition, first pass", media.CoverQuery{System: "PS4"}, false},
-		{"a PC edition no provider had art for", media.CoverQuery{
+		{"a PC edition, first pass", media.GameQuery{System: game.SystemPC}, false},
+		{"a game without copies, first pass", media.GameQuery{}, false},
+		{"a PS4 edition, first pass", media.GameQuery{System: "PS4"}, false},
+		{"a PC edition no provider had art for", media.GameQuery{
 			System:   game.SystemPC,
 			Fallback: true,
 		}, true},
-		{"a PS4 edition no provider had art for", media.CoverQuery{
+		{"a PS4 edition no provider had art for", media.GameQuery{
 			System:   "PS4",
 			Fallback: true,
 		}, true},
@@ -49,7 +49,7 @@ func TestCovers_outages(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	q := media.CoverQuery{
+	q := media.GameQuery{
 		Title:    "Example Quest",
 		Fallback: true,
 	}
@@ -105,7 +105,7 @@ func TestCovers(t *testing.T) {
 		c := NewCovers(f.client(time.Now))
 
 		t.Run("WHEN its covers are asked", func(t *testing.T) {
-			got, err := c.Covers(ctx, media.CoverQuery{
+			got, err := c.Covers(ctx, media.GameQuery{
 				Title:    "Example Quest",
 				System:   game.SystemPC,
 				Links:    game.Links{game.LinkSteam: "620"},
@@ -129,7 +129,7 @@ func TestCovers(t *testing.T) {
 		c := NewCovers(f.client(time.Now))
 
 		t.Run("WHEN covers are asked", func(t *testing.T) {
-			got, err := c.Covers(ctx, media.CoverQuery{
+			got, err := c.Covers(ctx, media.GameQuery{
 				Title:    "Example Quest",
 				Fallback: true,
 			}, nil)
@@ -150,7 +150,7 @@ func TestCovers(t *testing.T) {
 		c := NewCovers(f.client(time.Now))
 
 		t.Run("WHEN its covers are asked", func(t *testing.T) {
-			got, err := c.Covers(ctx, media.CoverQuery{Title: "Bare Quest"}, goodSettings)
+			got, err := c.Covers(ctx, media.GameQuery{Title: "Bare Quest"}, goodSettings)
 
 			t.Run("THEN there are no candidates and no error", func(t *testing.T) {
 				require.NoError(t, err)

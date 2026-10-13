@@ -69,7 +69,7 @@ func (c *Covers) ImageHosts() []string { return []string{"app-images.ea.com"} }
 func (c *Covers) LinkStore() game.Store { return LinkedStore }
 
 // Applies reports whether the game is linked to the EA app, for its PC edition.
-func (c *Covers) Applies(q media.CoverQuery) bool { return q.ForPC() && q.Links[LinkedStore.Key] != "" }
+func (c *Covers) Applies(q media.GameQuery) bool { return q.ForPC() && q.Links[LinkedStore.Key] != "" }
 
 var (
 	reNonSlug = regexp.MustCompile(`[^a-z0-9]+`)
@@ -127,7 +127,7 @@ type eaGame struct {
 }
 
 // Covers implements media.CoverProvider.
-func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
+func (c *Covers) Covers(ctx context.Context, q media.GameQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	slugs := slugCandidates(q.Title, []string{q.Links[LinkedStore.Key]})
 	// One request: every candidate slug as an alias; unknown slugs come back null.
 	var b strings.Builder
@@ -212,7 +212,7 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 	return cands, nil
 }
 
-// Test implements media.Provider: it asks EA's public catalog for one well-known game by slug and
+// Test implements providers.Impl: it asks EA's public catalog for one well-known game by slug and
 // fails on a transport error, an HTTP error or a GraphQL rejection. An unknown slug is not a failure.
 func (c *Covers) Test(ctx context.Context, _ schema.Settings) error {
 	var data map[string]*eaGame

@@ -1,8 +1,8 @@
-package media
+package game
 
 import "testing"
 
-func TestCleanProductTitle(t *testing.T) {
+func TestParseProductName(t *testing.T) {
 	cases := []struct {
 		raw      string
 		title    string
@@ -19,17 +19,9 @@ func TestCleanProductTitle(t *testing.T) {
 		{"ASSASSINS CREED III PS3", "Assassins Creed III", "PS3", ""},
 	}
 	for _, c := range cases {
-		title, platform, edition := CleanProductTitle(c.raw)
+		title, platform, edition := ParseProductName(c.raw)
 		if title != c.title || platform != c.platform || edition != c.edition {
-			t.Errorf("CleanProductTitle(%q) = (%q, %q, %q), want (%q, %q, %q)", c.raw, title, platform, edition, c.title, c.platform, c.edition)
-		}
-	}
-}
-
-func TestSummaryYear(t *testing.T) {
-	for in, want := range map[string]int{"2010-05-18": 2010, "14 MAY 2019": 2019, "18 ABR 2011": 2011, "Q3 2026": 2026, "": 0, "Coming soon": 0} {
-		if got := (Summary{ReleaseDate: in}).Year(); got != want {
-			t.Errorf("Year(%q) = %d, want %d", in, got, want)
+			t.Errorf("ParseProductName(%q) = (%q, %q, %q), want (%q, %q, %q)", c.raw, title, platform, edition, c.title, c.platform, c.edition)
 		}
 	}
 }

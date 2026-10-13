@@ -35,9 +35,9 @@ func (halfDone) Descriptor() provider.Descriptor {
 }
 
 func (halfDone) Test(context.Context, schema.Settings) error { return nil }
-func (halfDone) Applies(media.CoverQuery) bool               { return true }
+func (halfDone) Applies(media.GameQuery) bool                { return true }
 func (halfDone) LinkStore() game.Store                       { return game.Store{Key: "half"} }
-func (halfDone) Covers(context.Context, media.CoverQuery, schema.Settings) ([]media.CoverCandidate, error) {
+func (halfDone) Covers(context.Context, media.GameQuery, schema.Settings) ([]media.CoverCandidate, error) {
 	return nil, nil
 }
 

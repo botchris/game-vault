@@ -29,6 +29,11 @@ const (
 	KindValuation Kind = "valuation" // second-hand price estimates of physical copies
 )
 
+// Kinds returns every kind of provider, in the order the Providers page lists them. A new kind is
+// added here and to the plugins that bring providers of it; the configuration registry ranges over
+// this list.
+func Kinds() []Kind { return []Kind{KindCover, KindBarcode, KindMetadata, KindValuation} }
+
 // ErrNotFound means no configuration exists for the provider.
 var ErrNotFound = errkind.New(errkind.NotFound, "provider not found")
 

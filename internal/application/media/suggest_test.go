@@ -3,8 +3,6 @@ package media_test
 import (
 	"context"
 	"fmt"
-	"io"
-	"log/slog"
 	"path/filepath"
 	"testing"
 	"time"
@@ -15,6 +13,7 @@ import (
 	"gamevault/internal/adapters/outbound/gamedata"
 	"gamevault/internal/adapters/outbound/sqlite"
 	"gamevault/internal/application/media"
+	"gamevault/internal/application/providers"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
@@ -57,14 +56,10 @@ func TestSuggest_browse(t *testing.T) {
 		require.NoError(t, err)
 
 		art := &quotaArt{}
-		svc := media.NewService(sqlite.NewGameRepository(db), sqlite.NewProviderRepository(db), assets, nil, nil, echo{},
-			time.Now, slog.New(slog.NewTextHandler(io.Discard, nil)), media.Providers{
-				Covers:   []media.CoverProvider{art},
-				Barcodes: []media.BarcodeProvider{knownCode{}},
-			})
+		svc := newServices(db, sqlite.NewGameRepository(db), assets, echo{}, []providers.Impl{art, knownCode{}})
 
 		t.Run("WHEN the user types a title on the scan page", func(t *testing.T) {
-			_, err := svc.SuggestGames(ctx, "Shelf Quest", "PS4")
+			_, err := svc.Identifier.SuggestGames(ctx, "Shelf Quest", "PS4")
 			require.NoError(t, err)
 
 			t.Run("THEN the box art database is asked to browse, since the user picks from the list", func(t *testing.T) {
@@ -74,7 +69,7 @@ func TestSuggest_browse(t *testing.T) {
 		})
 
 		t.Run("WHEN a scanned code is identified automatically", func(t *testing.T) {
-			res, err := svc.IdentifyBarcode(ctx, "4006381333931")
+			res, err := svc.Identifier.IdentifyBarcode(ctx, "4006381333931")
 			require.NoError(t, err)
 			require.NotNil(t, res.Match)
 
@@ -101,20 +96,17 @@ func TestSuggest_providerStatus(t *testing.T) {
 		art := &quotaArt{}
 		art.exhausted.Store(true)
 
-		svc := media.NewService(sqlite.NewGameRepository(db), sqlite.NewProviderRepository(db), assets, nil, nil, echo{},
-			time.Now, slog.New(slog.NewTextHandler(io.Discard, nil)), media.Providers{
-				Covers: []media.CoverProvider{art},
-			})
+		svc := newServices(db, sqlite.NewGameRepository(db), assets, echo{}, []providers.Impl{art})
 
 		t.Run("WHEN the user types a title on the scan page", func(t *testing.T) {
-			res, err := svc.SuggestGames(ctx, "Shelf Quest", "PS4")
+			res, err := svc.Identifier.SuggestGames(ctx, "Shelf Quest", "PS4")
 			require.NoError(t, err)
 
 			t.Run("THEN the used-up allowance is the provider's status, not a warning", func(t *testing.T) {
 				assert.Empty(t, res.Warnings)
 				assert.True(t, res.ProvidersUnavailable, "the scan page says some providers are unavailable")
 
-				st := svc.ProviderStatuses()
+				st := svc.Registry.Statuses()
 				require.Len(t, st, 1)
 				assert.Equal(t, "Quota", st[0].Name)
 			})
@@ -122,9 +114,9 @@ func TestSuggest_providerStatus(t *testing.T) {
 			t.Run("AND a later answer clears the status", func(t *testing.T) {
 				art.exhausted.Store(false)
 
-				_, err := svc.SuggestGames(ctx, "Shelf Quest", "PS4")
+				_, err := svc.Identifier.SuggestGames(ctx, "Shelf Quest", "PS4")
 				require.NoError(t, err)
-				assert.Empty(t, svc.ProviderStatuses())
+				assert.Empty(t, svc.Registry.Statuses())
 			})
 		})
 	})
@@ -161,14 +153,10 @@ func TestIdentifyBarcode_providerStatus(t *testing.T) {
 		assets, err := gamedata.Open(filepath.Join(t.TempDir(), "game-data"))
 		require.NoError(t, err)
 
-		svc := media.NewService(sqlite.NewGameRepository(db), sqlite.NewProviderRepository(db), assets, nil, nil, echo{},
-			time.Now, slog.New(slog.NewTextHandler(io.Discard, nil)), media.Providers{
-				Covers:   []media.CoverProvider{&quotaArt{}},
-				Barcodes: []media.BarcodeProvider{blockedCodes{}, knownCode{}},
-			})
+		svc := newServices(db, sqlite.NewGameRepository(db), assets, echo{}, []providers.Impl{&quotaArt{}, blockedCodes{}, knownCode{}})
 
 		t.Run("WHEN a code is scanned", func(t *testing.T) {
-			res, err := svc.IdentifyBarcode(ctx, "4006381333931")
+			res, err := svc.Identifier.IdentifyBarcode(ctx, "4006381333931")
 			require.NoError(t, err)
 
 			t.Run("THEN the bot check is the provider's status and the answer's notice, not a warning", func(t *testing.T) {
@@ -176,7 +164,7 @@ func TestIdentifyBarcode_providerStatus(t *testing.T) {
 				assert.Empty(t, res.Warnings)
 				assert.True(t, res.ProvidersUnavailable)
 
-				st := svc.ProviderStatuses()
+				st := svc.Registry.Statuses()
 				require.Len(t, st, 1)
 				assert.Equal(t, "Blocked", st[0].Name)
 			})

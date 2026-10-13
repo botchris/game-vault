@@ -58,11 +58,11 @@ func TestCovers(t *testing.T) {
 	c := NewCovers()
 	c.API.BaseURL = srv.URL
 
-	q := media.CoverQuery{
+	q := media.GameQuery{
 		Title: "Battlefield™ 1",
 		Links: game.Links{"ea": "en-us_battlefield-1-standard-edition-pc-row-juno-3pdd_VideoGameProduct_es_pc"},
 	}
-	if !c.Applies(q) || c.Applies(media.CoverQuery{
+	if !c.Applies(q) || c.Applies(media.GameQuery{
 		Title: "x",
 		Links: game.Links{"gog": "1"},
 	}) {
@@ -138,7 +138,7 @@ func TestCovers_passingTroubles(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	q := media.CoverQuery{
+	q := media.GameQuery{
 		Title: "Battlefield 1",
 		Links: game.Links{"ea": "battlefield-1"},
 	}
@@ -200,7 +200,7 @@ func TestCovers_gatewayRefusal(t *testing.T) {
 		c.API.BaseURL = srv.URL
 
 		t.Run("WHEN covers are asked", func(t *testing.T) {
-			got, err := c.Covers(ctx, media.CoverQuery{
+			got, err := c.Covers(ctx, media.GameQuery{
 				Title: "Battlefield 1",
 				Links: game.Links{"ea": "battlefield-1"},
 			}, nil)

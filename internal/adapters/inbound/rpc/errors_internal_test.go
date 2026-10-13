@@ -21,6 +21,7 @@ import (
 	"gamevault/internal/application/logs"
 	"gamevault/internal/application/media"
 	"gamevault/internal/application/ownership"
+	"gamevault/internal/application/providers"
 	"gamevault/internal/application/sync"
 	"gamevault/internal/application/valuation"
 	"gamevault/internal/domain/auth"
@@ -71,7 +72,7 @@ var sentinels = map[string]struct {
 	"application/logs.ErrInvalidName":             {logs.ErrInvalidName, connect.CodeInvalidArgument},
 	"application/logs.ErrNotFound":                {logs.ErrNotFound, connect.CodeNotFound},
 	"application/media.ErrNoEdition":              {media.ErrNoEdition, connect.CodeNotFound},
-	"application/media.ErrUnknownProvider":        {media.ErrUnknownProvider, connect.CodeNotFound},
+	"application/providers.ErrUnknownProvider":    {providers.ErrUnknownProvider, connect.CodeNotFound},
 	"application/media.ErrUnknownStore":           {media.ErrUnknownStore, connect.CodeNotFound},
 	"application/media.ErrInvalidPhoto":           {media.ErrInvalidPhoto, connect.CodeInvalidArgument},
 	"application/ownership.ErrTooManyItems":       {ownership.ErrTooManyItems, connect.CodeInvalidArgument},

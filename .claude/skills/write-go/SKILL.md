@@ -184,9 +184,17 @@ Dependencies point inward; the compiler won't stop a violation, so watch it:
   cross-cutting (`TxManager`, `Clock`). `internal/adapters/outbound/<name>` implements them;
   `cmd/gamevault/main.go` wires them by hand (no DI framework; registration order = default chain
   order).
+- **Constructors take functional options**, not config/deps structs (maintainer's preference,
+  2026-10-13): required dependencies are positional parameters, everything optional (ports,
+  clocks, random sources, tunables) is a documented `With…` option, and the constructor fills
+  no-op defaults. Each service has its own option type, so an option it would ignore does not
+  compile: `NewCovers(games, reg, store, downloads, opts ...CoverOption)`. An option type is an
+  interface with one unexported method (`applyCovers(*Covers)`); an option several services take is
+  one concrete type implementing each of their interfaces (`media.WithClock` returns a `ClockOption`
+  that is a `CoverOption`, a `DetailsOption`…). See `internal/application/media/options.go`.
 - **Optional capabilities are separate small interfaces** checked with a type assertion
   (`sync.Preparer`, `sync.KeepAliver`, `media.ImageHoster`), never boolean flags. `Test(ctx,
-  settings) error` is not optional: it is part of `sync.Provider` and `media.Provider`.
+  settings) error` is not optional: it is part of `sync.Provider` and `providers.Impl`.
 - `internal/adapters/inbound/rpc` maps Connect requests onto application calls and back
   (`mapper.go`); it must not leak domain aggregates or adapter types into the API, nor generated
   `pb` types into the application.

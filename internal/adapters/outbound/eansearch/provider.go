@@ -178,7 +178,7 @@ func (p *Provider) Lookup(ctx context.Context, code game.Barcode, s schema.Setti
 		case it.Error != "":
 			return nil, fmt.Errorf("%s", it.Error)
 		case it.Name != "":
-			title, platform, edition := media.CleanProductTitle(it.Name)
+			title, platform, edition := game.ParseProductName(it.Name)
 			matches = append(matches, media.BarcodeMatch{
 				Raw:      it.Name,
 				Title:    title,

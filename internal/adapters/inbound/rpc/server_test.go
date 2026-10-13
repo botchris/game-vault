@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -32,6 +33,7 @@ import (
 	"gamevault/internal/application/logs"
 	"gamevault/internal/application/media"
 	"gamevault/internal/application/ownership"
+	"gamevault/internal/application/providers"
 	"gamevault/internal/application/sync"
 	"gamevault/internal/application/system"
 	"gamevault/internal/application/transfer"
@@ -76,13 +78,14 @@ func (f *fakeProvider) Test(_ context.Context, s schema.Settings) error {
 	return nil
 }
 
-// fakeImages serves a 1×1 PNG for any URL ending in ".png" and fails otherwise.
-type fakeImages struct{ fetched int }
+// fakeImages serves a 1×1 PNG for any URL ending in ".png" and fails otherwise. Its count is
+// atomic: the background prefetch of sheet images fetches while the test reads it.
+type fakeImages struct{ fetched atomic.Int32 }
 
 var png1x1 = []byte("\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\xff\xff?\x00\x05\xfe\x02\xfe\xa7\x35\x81\x84\x00\x00\x00\x00IEND\xaeB`\x82")
 
 func (f *fakeImages) Fetch(_ context.Context, url string) (media.Image, error) {
-	f.fetched++
+	f.fetched.Add(1)
 
 	if strings.HasSuffix(url, ".png") {
 		return media.Image{
@@ -107,11 +110,11 @@ func (fakeSteamStore) Descriptor() provider.Descriptor {
 
 func (fakeSteamStore) Test(context.Context, schema.Settings) error { return nil }
 
-func (fakeSteamStore) Applies(q media.CoverQuery) bool {
+func (fakeSteamStore) Applies(q media.GameQuery) bool {
 	return q.ForPC() && q.Links[game.LinkSteam] != ""
 }
 
-func (fakeSteamStore) Covers(_ context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
+func (fakeSteamStore) Covers(_ context.Context, q media.GameQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	return []media.CoverCandidate{
 		{
 			URL:      "https://steam.test/" + q.Links[game.LinkSteam] + "/library.jpg",
@@ -140,7 +143,7 @@ func (*fakeBarcodes) Test(context.Context, schema.Settings) error { return nil }
 
 func (*fakeBarcodes) Lookup(_ context.Context, code game.Barcode, _ schema.Settings) ([]media.BarcodeMatch, error) {
 	if code == "3307215643006" {
-		title, platform, edition := media.CleanProductTitle("Assassin's Creed Iii Ed. Special Ps3(sp)")
+		title, platform, edition := game.ParseProductName("Assassin's Creed Iii Ed. Special Ps3(sp)")
 
 		return []media.BarcodeMatch{{
 			Raw:      "Assassin's Creed Iii Ed. Special Ps3(sp)",
@@ -191,9 +194,9 @@ func (fakeStoreDetails) Descriptor() provider.Descriptor {
 
 func (fakeStoreDetails) Test(context.Context, schema.Settings) error { return nil }
 
-func (fakeStoreDetails) Applies(q media.CoverQuery) bool { return q.Links[game.LinkSteam] != "" }
+func (fakeStoreDetails) Applies(q media.GameQuery) bool { return q.Links[game.LinkSteam] != "" }
 
-func (fakeStoreDetails) Details(_ context.Context, q media.CoverQuery, lang string, _ schema.Settings) (*media.GameDetails, error) {
+func (fakeStoreDetails) Details(_ context.Context, q media.GameQuery, lang string, _ schema.Settings) (*media.GameDetails, error) {
 	summary := "A puzzle game."
 	if lang == "es" {
 		summary = "Un juego de puzles."
@@ -232,9 +235,9 @@ func (*fakeBoxDetails) Descriptor() provider.Descriptor {
 
 func (*fakeBoxDetails) Test(context.Context, schema.Settings) error { return nil }
 
-func (*fakeBoxDetails) Applies(q media.CoverQuery) bool { return q.HasPhysical() }
+func (*fakeBoxDetails) Applies(q media.GameQuery) bool { return q.HasPhysical() }
 
-func (f *fakeBoxDetails) Details(_ context.Context, q media.CoverQuery, _ string, s schema.Settings) (*media.GameDetails, error) {
+func (f *fakeBoxDetails) Details(_ context.Context, q media.GameQuery, _ string, s schema.Settings) (*media.GameDetails, error) {
 	f.calls++
 
 	if s["api_key"] != "k" {
@@ -254,11 +257,11 @@ func (f *fakeBoxDetails) Details(_ context.Context, q media.CoverQuery, _ string
 	}, nil
 }
 
-func (*fakeBoxArt) Applies(q media.CoverQuery) bool { return q.HasPhysical() }
+func (*fakeBoxArt) Applies(q media.GameQuery) bool { return q.HasPhysical() }
 
 func (*fakeBoxArt) ImageHosts() []string { return []string{"boxart.test"} }
 
-func (f *fakeBoxArt) Covers(_ context.Context, q media.CoverQuery, s schema.Settings) ([]media.CoverCandidate, error) {
+func (f *fakeBoxArt) Covers(_ context.Context, q media.GameQuery, s schema.Settings) ([]media.CoverCandidate, error) {
 	f.asked++
 
 	if f.limited != nil {
@@ -354,14 +357,12 @@ func newServer(t *testing.T, p sync.Provider) clients {
 	images := &fakeImages{}
 	boxart := &fakeBoxArt{}
 	boxDet := &fakeBoxDetails{}
-	mediaSvc := media.NewService(games, sqlite.NewProviderRepository(db), covers, photos, sqlite.NewDetailsStore(db), images, time.Now, log,
-		media.Providers{
-			Covers:     []media.CoverProvider{fakeSteamStore{}, boxart},
-			Barcodes:   []media.BarcodeProvider{&fakeBarcodes{}},
-			Metadata:   []media.MetadataProvider{fakeStoreDetails{}, boxDet},
-			Valuations: []media.Provider{fakePrices{}},
-		})
-	valuationSvc := valuation.NewService(games, db, mediaSvc, sqlite.NewSettingsRepository(db), time.Now, log, fakePrices{})
+	registry := providers.NewRegistry(sqlite.NewProviderRepository(db), []providers.Impl{
+		fakeSteamStore{}, boxart, &fakeBarcodes{}, fakeStoreDetails{}, boxDet, fakePrices{},
+	}, providers.WithLogger(log))
+	mediaSvcs := media.New(games, registry, covers, images,
+		media.WithPhotoStore(photos), media.WithDetailsStore(sqlite.NewDetailsStore(db)), media.WithLogger(log))
+	valuationSvc := valuation.NewService(games, db, registry, sqlite.NewSettingsRepository(db), time.Now, log, fakePrices{})
 	logsSvc := logs.NewService(sqlite.NewSettingsRepository(db), logFiles, logFiles)
 	authSvc := appauth.NewService(sqlite.NewAuthRepository(db), sqlite.NewSettingsRepository(db), passwordhash.Bcrypt{Cost: 4}, noCerts{}, time.Now, log)
 	syncSvc := sync.NewService(sources, games, db, nil, time.Now, log, p)
@@ -371,15 +372,19 @@ func newServer(t *testing.T, p sync.Provider) clients {
 		Auth:        rpc.NewAuthHandler(authSvc),
 		AuthService: authSvc,
 		Logs:        rpc.NewLogHandler(logsSvc),
-		Media:       mediaSvc,
-		MediaRPC:    rpc.NewMediaHandler(mediaSvc),
+		Covers:      mediaSvcs.Covers,
+		Assets:      mediaSvcs.Assets,
+		Photos:      mediaSvcs.Photos,
+		Proxy:       mediaSvcs.Proxy,
+		MediaRPC:    rpc.NewMediaHandler(registry, mediaSvcs.Covers, mediaSvcs.Details, mediaSvcs.Identifier),
 		Valuation:   rpc.NewValuationHandler(valuationSvc),
 		Fields:      rpc.NewFieldHandler(fields.NewService(sqlite.NewSettingsRepository(db), games, db, time.Now)),
-		Games:       rpc.NewGameHandler(catalog.NewService(games, db, time.Now, mediaSvc, photos, sqlite.NewSettingsRepository(db)), mediaSvc, syncSvc),
-		Sources:     rpc.NewSourceHandler(syncSvc),
+		Games: rpc.NewGameHandler(catalog.NewService(games, db, time.Now, mediaSvcs.Covers, photos, sqlite.NewSettingsRepository(db)),
+			mediaSvcs.Details, media.NewStores(registry, syncSvc), syncSvc),
+		Sources: rpc.NewSourceHandler(syncSvc),
 		System: rpc.NewSystemHandler(systemSvc,
 			transfer.NewService(games, db, sqlite.NewSettingsRepository(db), time.Now, csvfile.Codec{}, nil)),
-		Health:    rpc.NewHealthHandler(health.NewService(mediaSvc, syncSvc, systemSvc)),
+		Health:    rpc.NewHealthHandler(health.NewService(registry, syncSvc, systemSvc)),
 		Ownership: rpc.NewOwnershipHandler(ownership.NewService(games)),
 	}, rpc.Options{Log: log})
 	srv := httptest.NewServer(h)
@@ -594,9 +599,9 @@ func TestCoversAndLogs(t *testing.T) {
 		t.Fatalf("want cover, got %d", code)
 	}
 
-	before := c.images.fetched
-	if code := get(); code != http.StatusOK || c.images.fetched != before {
-		t.Fatalf("second request must come from the cache (fetched %d → %d)", before, c.images.fetched)
+	before := c.images.fetched.Load()
+	if code := get(); code != http.StatusOK || c.images.fetched.Load() != before {
+		t.Fatalf("second request must come from the cache (fetched %d → %d)", before, c.images.fetched.Load())
 	}
 
 	// Invalid cover URLs are rejected by the domain.
@@ -996,9 +1001,9 @@ func TestSheetImagesAreStoredPerGame(t *testing.T) {
 	// The image now lives in the game's folder, next to assets.json, and is served offline.
 	time.Sleep(200 * time.Millisecond) // background prefetch of the other images
 
-	before := c.images.fetched
-	if code := get(shot.FullUrl); code != http.StatusOK || c.images.fetched != before {
-		t.Fatalf("second request must come from disk (fetched %d → %d)", before, c.images.fetched)
+	before := c.images.fetched.Load()
+	if code := get(shot.FullUrl); code != http.StatusOK || c.images.fetched.Load() != before {
+		t.Fatalf("second request must come from disk (fetched %d → %d)", before, c.images.fetched.Load())
 	}
 	// (Glob would read the "[id]" in the folder name as a character class.)
 	files, err := os.ReadDir(filepath.Join(c.dataDir, "Portal 2 ["+id+"]"))

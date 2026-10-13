@@ -135,7 +135,7 @@ func (p *Provider) Lookup(ctx context.Context, code game.Barcode, s schema.Setti
 	return nil, nil
 }
 
-// Test implements media.Provider with one light request (the list of top categories) to the first
+// Test implements providers.Impl with one light request (the list of top categories) to the first
 // country that would be asked, which shows whether CeX answers its API at all.
 func (p *Provider) Test(ctx context.Context, s schema.Settings) error {
 	country := order(allowed(s[settingCountries]), parseHits(s[settingHits]))[0]
@@ -208,9 +208,9 @@ func (p *Provider) get(ctx context.Context, country, path string, out any) error
 var reParens = regexp.MustCompile(`\s*\([^)]*\)`)
 
 func match(b box) media.BarcodeMatch {
-	title, platform, edition := media.CleanProductTitle(reParens.ReplaceAllString(b.BoxName, ""))
+	title, platform, edition := game.ParseProductName(reParens.ReplaceAllString(b.BoxName, ""))
 	// The platform comes from the category ("Xbox 360 Juegos", "Playstation4 Games").
-	if _, p, _ := media.CleanProductTitle(b.CategoryName); p != "" {
+	if _, p, _ := game.ParseProductName(b.CategoryName); p != "" {
 		platform = p
 	}
 

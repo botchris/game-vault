@@ -59,14 +59,14 @@ func (c *Covers) ImageHosts() []string { return []string{"images.gog-statics.com
 func (c *Covers) LinkStore() game.Store { return LinkedStore }
 
 // Applies reports whether the game is linked to GOG, for its PC edition.
-func (c *Covers) Applies(q media.CoverQuery) bool { return q.ForPC() && q.Links[LinkedStore.Key] != "" }
+func (c *Covers) Applies(q media.GameQuery) bool { return q.ForPC() && q.Links[LinkedStore.Key] != "" }
 
 type link struct {
 	Href string `json:"href"`
 }
 
 // Covers implements media.CoverProvider.
-func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
+func (c *Covers) Covers(ctx context.Context, q media.GameQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	var out []media.CoverCandidate
 
 	for _, id := range []string{q.Links[LinkedStore.Key]} {
@@ -131,7 +131,7 @@ func (c *Covers) get(ctx context.Context, path string, out any) error {
 // testProductID is a long-lived GOG product (The Witcher: Enhanced Edition) used to probe the API.
 const testProductID = "1207658924"
 
-// Test implements media.Provider: it looks up one well-known product in GOG's public product API.
+// Test implements providers.Impl: it looks up one well-known product in GOG's public product API.
 // An unknown product still means the API works; transport errors, HTTP errors and rate limits fail.
 func (c *Covers) Test(ctx context.Context, _ schema.Settings) error {
 	var ignored json.RawMessage

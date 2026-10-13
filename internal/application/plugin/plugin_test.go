@@ -34,8 +34,8 @@ func (f fakeCovers) Descriptor() provider.Descriptor {
 	}
 }
 func (fakeCovers) Test(context.Context, schema.Settings) error { return nil }
-func (fakeCovers) Applies(media.CoverQuery) bool               { return true }
-func (fakeCovers) Covers(context.Context, media.CoverQuery, schema.Settings) ([]media.CoverCandidate, error) {
+func (fakeCovers) Applies(media.GameQuery) bool                { return true }
+func (fakeCovers) Covers(context.Context, media.GameQuery, schema.Settings) ([]media.CoverCandidate, error) {
 	return nil, nil
 }
 
@@ -56,7 +56,7 @@ func TestRegistry(t *testing.T) {
 
 		t.Run("THEN each piece goes to its service, in plugin order", func(t *testing.T) {
 			require.Len(t, r.Sources(), 1)
-			covers := r.Media().Covers
+			covers := r.Providers()
 			require.Len(t, covers, 2)
 			assert.Equal(t, provider.ID("store"), covers[0].Descriptor().ID)
 			assert.Equal(t, provider.ID("db"), covers[1].Descriptor().ID)
@@ -112,10 +112,11 @@ func TestRegistry_valuations(t *testing.T) {
 		r, err := plugin.NewRegistry(shop)
 		require.NoError(t, err)
 
-		t.Run("THEN the valuation service gets it, and the media service configures it", func(t *testing.T) {
+		t.Run("THEN the valuation service gets it, and the providers registry configures it", func(t *testing.T) {
 			require.Len(t, r.Valuations(), 1)
-			require.Len(t, r.Media().Valuations, 1)
-			assert.Equal(t, provider.ID("shop-prices"), r.Media().Valuations[0].Descriptor().ID)
+
+			require.Len(t, r.Providers(), 1)
+			assert.Equal(t, provider.ID("shop-prices"), r.Providers()[0].Descriptor().ID)
 		})
 	})
 

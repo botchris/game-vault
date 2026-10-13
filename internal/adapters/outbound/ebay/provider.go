@@ -292,7 +292,7 @@ func consensus(items []listing) (media.BarcodeMatch, bool) {
 	platforms := map[string]int{}
 
 	for _, it := range items {
-		title, platform, _ := media.CleanProductTitle(it.Title)
+		title, platform, _ := game.ParseProductName(it.Title)
 		title = strings.Join(strings.Fields(reListingNoise.ReplaceAllString(title, " ")), " ")
 
 		key := game.MatchKey(title)

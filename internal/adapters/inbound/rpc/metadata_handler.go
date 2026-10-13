@@ -14,7 +14,7 @@ var _ gamevaultv1connect.MetadataServiceHandler = (*MediaHandler)(nil)
 
 // GetGameDetails returns the details of a game from the metadata provider chain.
 func (h *MediaHandler) GetGameDetails(ctx context.Context, req *connect.Request[pb.GetGameDetailsRequest]) (*connect.Response[pb.GetGameDetailsResponse], error) {
-	d, warnings, err := h.media.GameDetails(ctx, game.ID(req.Msg.GameId), req.Msg.Language, req.Msg.Refresh)
+	d, warnings, err := h.details.GameDetails(ctx, game.ID(req.Msg.GameId), req.Msg.Language, req.Msg.Refresh)
 	if err != nil {
 		return nil, toConnectError(err)
 	}
@@ -69,11 +69,11 @@ func (h *MediaHandler) GetGameDetails(ctx context.Context, req *connect.Request[
 	}
 
 	for _, s := range d.Sources {
-		out.Sources = append(out.Sources, h.media.ProviderName(s))
+		out.Sources = append(out.Sources, h.providers.ProviderName(s))
 	}
 
 	for _, p := range d.NotFoundBy {
-		out.NotFoundBy = append(out.NotFoundBy, h.media.ProviderName(p))
+		out.NotFoundBy = append(out.NotFoundBy, h.providers.ProviderName(p))
 	}
 
 	return connect.NewResponse(&pb.GetGameDetailsResponse{

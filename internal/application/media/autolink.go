@@ -3,9 +3,16 @@ package media
 import (
 	"context"
 	"errors"
-	gosync "sync"
+	"log/slog"
+	"sync"
+	"sync/atomic"
 	"time"
 
+	"golang.org/x/sync/singleflight"
+
+	"gamevault/internal/application/port"
+	"gamevault/internal/application/providers"
+	"gamevault/internal/application/unattended"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 )
@@ -32,7 +39,7 @@ const (
 // autoLinkBackoff remembers, in memory, the games whose search a rate limit or a failure
 // interrupted: they wait autoLinkLimitedRetry, without recording anything on the game.
 type autoLinkBackoff struct {
-	mu      gosync.Mutex
+	mu      sync.Mutex
 	retryAt map[game.ID]time.Time
 }
 
@@ -63,8 +70,89 @@ type GameLinker interface {
 	AddAutoLinks(ctx context.Context, id game.ID, links game.Links, now time.Time) (game.Links, error)
 }
 
-// SetGameLinker sets the port that saves automatic links. Without one, no links are looked for.
-func (s *Service) SetGameLinker(l GameLinker) { s.linker = l }
+// AutoLinker looks for the store links of games that have none, and adds those found without doubt
+// as automatic links: one game at a time, in the background (Run), from a queue fed by the covers,
+// the sheets and the details scan.
+type AutoLinker struct {
+	games game.Repository
+	reg   *providers.Registry
+
+	// linker saves the links found; it is set once the catalog is built (SetGameLinker), while the
+	// worker may already run, hence atomic.
+	linker atomic.Pointer[GameLinker]
+
+	details   DetailsStore
+	downloads *Downloads
+	now       port.Clock
+	log       *slog.Logger
+	group     singleflight.Group
+
+	// finders are the providers that can find links (LinkFinder), by id.
+	finders map[provider.ID]LinkFinder
+
+	// misses are the covers' "no cover" answers, which links found make stale.
+	misses *misses
+
+	// backoff remembers the automatic link searches a rate limit or a failure interrupted.
+	backoff autoLinkBackoff
+
+	// queue holds the games waiting for the worker (Run).
+	queue *autoLinkQueue
+
+	// rhythm varies and waits the worker's pauses.
+	rhythm unattended.Rhythm
+}
+
+// NewAutoLinker builds the auto-linker over the link finders in reg. It looks for nothing until
+// SetGameLinker gives it the catalog to save links with. Options: WithDetailsStore (a game's sheet
+// is dropped when links are added), WithRhythm, WithClock, WithLogger. New also makes the worker
+// yield to the covers' downloads and share the covers' misses.
+func NewAutoLinker(games game.Repository, reg *providers.Registry, opts ...AutoLinkerOption) *AutoLinker {
+	finders := map[provider.ID]LinkFinder{}
+
+	for _, p := range reg.All() {
+		if f, ok := p.(LinkFinder); ok {
+			finders[p.Descriptor().ID] = f
+		}
+	}
+
+	a := &AutoLinker{
+		games:     games,
+		reg:       reg,
+		details:   noDetails{},
+		downloads: NewDownloads(nil),
+		now:       defaultClock,
+		log:       defaultLogger,
+		finders:   finders,
+		misses:    &misses{},
+		queue:     newAutoLinkQueue(),
+	}
+	for _, opt := range opts {
+		opt.applyAutoLinker(a)
+	}
+
+	return a
+}
+
+// SetGameLinker sets the port that saves automatic links (the catalog, built after the media
+// services). Without one, no links are looked for.
+func (s *AutoLinker) SetGameLinker(l GameLinker) {
+	if l == nil {
+		s.linker.Store(nil)
+		return
+	}
+
+	s.linker.Store(&l)
+}
+
+// gameLinker returns the port that saves automatic links, nil when there is none.
+func (s *AutoLinker) gameLinker() GameLinker {
+	if l := s.linker.Load(); l != nil {
+		return *l
+	}
+
+	return nil
+}
 
 // needsAutoLink reports whether automatic links are worth looking for: the game has no Steam link,
 // the store with the richest sheets and art.
@@ -72,18 +160,8 @@ func needsAutoLink(g *game.Game) bool { return g.Links()[game.LinkSteam] == "" }
 
 // hasLinkFinders reports whether links can be looked for and saved: a provider can find them and a
 // GameLinker saves them.
-func (s *Service) hasLinkFinders() bool {
-	if s.linker == nil {
-		return false
-	}
-
-	for _, impl := range s.impls {
-		if _, ok := impl.(LinkFinder); ok {
-			return true
-		}
-	}
-
-	return false
+func (s *AutoLinker) hasLinkFinders() bool {
+	return s.gameLinker() != nil && len(s.finders) > 0
 }
 
 // AutoLink looks for the store links of a game that has no Steam link and adds those found without
@@ -92,7 +170,7 @@ func (s *Service) hasLinkFinders() bool {
 // nothing found is left alone for 30 days, but only when every enabled finder answered: a rate
 // limit, an outage or any other failure retries within the hour. Adding links drops
 // the game's cached covers and sheet, so the store's fill them in.
-func (s *Service) AutoLink(ctx context.Context, id game.ID) error {
+func (s *AutoLinker) AutoLink(ctx context.Context, id game.ID) error {
 	_, err := s.autoLinkReporting(ctx, id)
 
 	return err
@@ -100,7 +178,7 @@ func (s *Service) AutoLink(ctx context.Context, id game.ID) error {
 
 // autoLinkReporting is AutoLink that also reports whether this search was stopped by a finder
 // asking to slow down or failing (limited): a game skipped because it is still waiting is not.
-func (s *Service) autoLinkReporting(ctx context.Context, id game.ID) (limited bool, err error) {
+func (s *AutoLinker) autoLinkReporting(ctx context.Context, id game.ID) (limited bool, err error) {
 	v, err, _ := s.group.Do("autolink:"+string(id), func() (any, error) {
 		return s.autoLink(ctx, id)
 	})
@@ -110,8 +188,9 @@ func (s *Service) autoLinkReporting(ctx context.Context, id game.ID) (limited bo
 	return limited, err
 }
 
-func (s *Service) autoLink(ctx context.Context, id game.ID) (bool, error) {
-	if !s.hasLinkFinders() {
+func (s *AutoLinker) autoLink(ctx context.Context, id game.ID) (bool, error) {
+	linker := s.gameLinker()
+	if linker == nil || len(s.finders) == 0 {
 		return false, nil
 	}
 
@@ -127,24 +206,22 @@ func (s *Service) autoLink(ctx context.Context, id game.ID) (bool, error) {
 
 	found, limited := s.findLinks(ctx, QueryFor(g, ""))
 	if limited {
-		s.autoLinks.wait(id, now.Add(autoLinkLimitedRetry))
+		s.backoff.wait(id, now.Add(autoLinkLimitedRetry))
 		return true, nil
 	}
 
 	// The provider calls above stay outside the transaction; the catalog re-reads, adds and saves
 	// the game in one, and drops the covers the links change.
-	added, err := s.linker.AddAutoLinks(ctx, id, found, now)
+	added, err := linker.AddAutoLinks(ctx, id, found, now)
 	if err != nil || len(added) == 0 {
 		return false, err
 	}
 
 	s.log.Info("store links found automatically", "game", g.Title(), "links", added)
-	s.misses.forget(id, "*")
+	s.misses.forgetGame(id)
 
-	if s.details != nil {
-		if err := s.details.Delete(ctx, id); err != nil {
-			s.log.Warn("automatic links: dropping the sheet", "game", g.Title(), "error", err)
-		}
+	if err := s.details.Delete(ctx, id); err != nil {
+		s.log.Warn("automatic links: dropping the sheet", "game", g.Title(), "error", err)
 	}
 
 	return false, nil
@@ -152,8 +229,8 @@ func (s *Service) autoLink(ctx context.Context, id game.ID) (bool, error) {
 
 // autoLinkDue reports whether a game's links should be looked for now: it has no Steam link, is
 // not waiting after a rate limit or a failure, and was not searched in the last 30 days.
-func (s *Service) autoLinkDue(g *game.Game, now time.Time) bool {
-	if !needsAutoLink(g) || s.autoLinks.waiting(g.ID(), now) {
+func (s *AutoLinker) autoLinkDue(g *game.Game, now time.Time) bool {
+	if !needsAutoLink(g) || s.backoff.waiting(g.ID(), now) {
 		return false
 	}
 
@@ -162,134 +239,96 @@ func (s *Service) autoLinkDue(g *game.Game, now time.Time) bool {
 	return t.IsZero() || now.Sub(t) >= autoLinkRetry
 }
 
-// findLinks asks the enabled link finders in chain order and returns the first links found. A
-// finder that asks to slow down or fails (an outage, a timeout) stops the search (limited): its
-// answer is unknown and the next finders are less reliable, so the search waits for it rather than
-// recording "nothing found" for a month. One without its settings is skipped: it would fail the
-// same way until the user fixes them, and its status already says so.
-func (s *Service) findLinks(ctx context.Context, q CoverQuery) (links game.Links, limited bool) {
-	for _, id := range s.order {
-		f, ok := s.impls[id].(LinkFinder)
-		if !ok {
+// finderKinds are the chains link finders are taken from, most trusted first: a sheet provider
+// names the store ids of the game it matched (IGDB), a cover provider's title search only guesses
+// from the title (Steam's only app with exactly that title).
+var finderKinds = []provider.Kind{provider.KindMetadata, provider.KindCover}
+
+// findLinks asks the enabled link finders, chain by chain (finderKinds) in the user's order, and
+// returns the first links found. A finder that asks to slow down or fails (an outage, a timeout)
+// stops the search (limited): its answer is unknown and the next finders are less reliable, so the
+// search waits for it rather than recording "nothing found" for a month. One without its settings
+// is skipped: it would fail the same way until the user fixes them, and its status already says so.
+func (s *AutoLinker) findLinks(ctx context.Context, q GameQuery) (links game.Links, limited bool) {
+	for _, kind := range finderKinds {
+		chain, err := s.reg.Enabled(ctx, kind)
+		if err != nil {
+			s.log.Warn("automatic links: reading the providers", "error", err)
 			continue
 		}
 
-		v, err := s.find(ctx, id)
-		if err != nil || !v.Enabled() {
-			continue
-		}
+		for _, v := range withImpl(chain, s.finders) {
+			links, err := s.finders[v.ID()].FindLinks(ctx, q, v.Settings())
+			s.reg.ReportResult(v.ID(), err)
 
-		links, err := f.FindLinks(ctx, q, v.Settings())
-		s.noteResult(id, err)
-
-		switch {
-		case errors.Is(err, provider.ErrBadSettings):
-			continue
-		case errors.Is(err, provider.ErrRateLimited):
-			return nil, true
-		case err != nil:
-			s.log.Warn("automatic links: a finder failed, asking again later", "provider", id, "game", q.Title, "error", err)
-			return nil, true
-		case len(links) > 0:
-			return links, false
+			switch {
+			case errors.Is(err, provider.ErrBadSettings):
+				continue
+			case errors.Is(err, provider.ErrRateLimited):
+				return nil, true
+			case err != nil:
+				s.log.Warn("automatic links: a finder failed, asking again later", "provider", v.ID(), "game", q.Title, "error", err)
+				return nil, true
+			case len(links) > 0:
+				return links, false
+			}
 		}
 	}
 
 	return nil, false
 }
 
-// autoLinkQueue is the set of games waiting for the automatic-links worker, in arrival order and
-// without duplicates.
-type autoLinkQueue struct {
-	mu     gosync.Mutex
-	queued map[game.ID]struct{}
-	order  []game.ID
-
-	// ready has a token while the queue may have games, so the worker sleeps until one arrives.
-	ready chan struct{}
-}
-
-func newAutoLinkQueue() *autoLinkQueue {
-	return &autoLinkQueue{
-		queued: map[game.ID]struct{}{},
-		ready:  make(chan struct{}, 1),
-	}
-}
-
-// push adds a game unless it is already waiting.
-func (q *autoLinkQueue) push(id game.ID) {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-
-	if _, ok := q.queued[id]; ok {
-		return
-	}
-
-	q.queued[id] = struct{}{}
-	q.order = append(q.order, id)
-
-	select {
-	case q.ready <- struct{}{}:
-	default:
-	}
-}
-
-// pop takes the oldest game, if any.
-func (q *autoLinkQueue) pop() (game.ID, bool) {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-
-	if len(q.order) == 0 {
-		return "", false
-	}
-
-	id := q.order[0]
-	q.order = q.order[1:]
-	delete(q.queued, id)
-
-	return id, true
-}
-
-func (q *autoLinkQueue) len() int {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-
-	return len(q.order)
-}
-
-// enqueueAutoLink queues a game for the automatic-links worker (RunAutoLinker), when its links
-// are due (autoLinkDue). It never blocks: a sheet or a cover is answered first.
-func (s *Service) enqueueAutoLink(g *game.Game) {
+// Enqueue queues a game for the worker (Run), when its links are due (autoLinkDue). It never
+// blocks: a sheet or a cover is answered first.
+func (s *AutoLinker) Enqueue(g *game.Game) {
 	if !s.hasLinkFinders() || !s.autoLinkDue(g, s.now()) {
 		return
 	}
 
-	s.autoLinkQueue.push(g.ID())
+	s.queue.push(g.ID())
 }
 
-// AutoLinkQueueLen returns how many games wait for the automatic-links worker.
-func (s *Service) AutoLinkQueueLen() int { return s.autoLinkQueue.len() }
+// EnqueueDue queues for the worker the games without a Steam link that are due (see AutoLink). It
+// only queues, so the details scan that calls it is never held back.
+func (s *AutoLinker) EnqueueDue(ctx context.Context) {
+	if !s.hasLinkFinders() {
+		return
+	}
 
-// RunAutoLinker is the one worker that looks for automatic links (AutoLink): it takes the queued
+	games, err := s.games.List(ctx)
+	if err != nil {
+		s.log.Warn("automatic links: listing games", "error", err)
+		return
+	}
+
+	for _, g := range games {
+		s.Enqueue(g)
+	}
+}
+
+// QueueLen returns how many games wait for the worker.
+func (s *AutoLinker) QueueLen() int { return s.queue.len() }
+
+// Run is the one worker that looks for automatic links (AutoLink): it takes the queued
 // games one at a time, yields to cover downloads, pauses between games for pause to twice pause
 // (unattended requests never follow a fixed rhythm) and rests autoLinkLimitedPause after a finder
 // asked to slow down or failed. It returns when ctx ends, so it stops with the server.
-func (s *Service) RunAutoLinker(ctx context.Context, pause time.Duration) {
+func (s *AutoLinker) Run(ctx context.Context, pause time.Duration) {
 	wait := func(d time.Duration) bool { return s.rhythm.Wait(ctx, d) }
 
 	for {
-		id, ok := s.autoLinkQueue.pop()
+		id, ok := s.queue.pop()
 		if !ok {
 			select {
 			case <-ctx.Done():
 				return
-			case <-s.autoLinkQueue.ready:
+			case <-s.queue.ready:
 				continue
 			}
 		}
 
 		// Covers being downloaded are what a person is waiting for: links can wait.
-		for len(s.slots) > 0 {
+		for s.downloads.Busy() {
 			if !wait(pause) {
 				return
 			}
@@ -308,7 +347,7 @@ func (s *Service) RunAutoLinker(ctx context.Context, pause time.Duration) {
 
 // autoLinkOne searches one game for the worker and reports whether this search was limited. A game
 // deleted since it was queued is not an error.
-func (s *Service) autoLinkOne(ctx context.Context, id game.ID) bool {
+func (s *AutoLinker) autoLinkOne(ctx context.Context, id game.ID) bool {
 	ctx, cancel := context.WithTimeout(ctx, autoLinkTimeout)
 	defer cancel()
 

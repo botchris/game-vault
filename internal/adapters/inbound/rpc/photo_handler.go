@@ -18,7 +18,7 @@ const photoUploadHeader = "X-Gamevault-Upload"
 
 // photoUploadHandler serves POST /media/photos: a multipart form with the parts "photo" and
 // "thumb" (JPEG). It answers {"id": "…", "takenAt": "…"}; takenAt is left out when unknown.
-func photoUploadHandler(m *media.Service) http.Handler {
+func photoUploadHandler(m *media.Photos) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get(photoUploadHeader) == "" {
 			http.Error(w, "uploads need the "+photoUploadHeader+" header", http.StatusForbidden)
@@ -35,7 +35,7 @@ func photoUploadHandler(m *media.Service) http.Handler {
 
 		defer func() { _ = r.MultipartForm.RemoveAll() }() // temporary files only; nothing to report
 
-		up, err := m.UploadPhoto(formPart(r, "photo"), formPart(r, "thumb"))
+		up, err := m.Upload(formPart(r, "photo"), formPart(r, "thumb"))
 		switch {
 		case errors.Is(err, media.ErrInvalidPhoto):
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -79,7 +79,7 @@ func formPart(r *http.Request, name string) []byte {
 
 // photoHandler serves GET /media/photos/{id} and, with thumb, GET /media/photos/{id}/thumb. A
 // photo never changes (its id is its content's hash), so it is cached for good.
-func photoHandler(m *media.Service, thumb bool) http.Handler {
+func photoHandler(m *media.Photos, thumb bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		img, err := m.Photo(game.PhotoID(r.PathValue("id")), thumb)
 		switch {

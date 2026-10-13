@@ -60,7 +60,7 @@ func TestDetails(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	pcGame := media.CoverQuery{
+	pcGame := media.GameQuery{
 		Title:     "Example Quest",
 		Platforms: []string{"Steam"},
 	}
@@ -185,7 +185,7 @@ func TestDetails(t *testing.T) {
 			f.entities["Q102"] = e
 			f.articles["en:Example Quest (2016 video game)"] = article{extract: "The 2016 reboot."}
 
-			got, err := d.Details(ctx, media.CoverQuery{
+			got, err := d.Details(ctx, media.GameQuery{
 				Title:             "Example Quest",
 				PhysicalPlatforms: []string{"PS4"},
 				Platforms:         []string{"PS4"},
@@ -205,7 +205,7 @@ func TestDetails(t *testing.T) {
 		d := f.details()
 
 		t.Run("WHEN a Switch copy's sheet is asked", func(t *testing.T) {
-			got, err := d.Details(ctx, media.CoverQuery{
+			got, err := d.Details(ctx, media.GameQuery{
 				Title:     "Example Quest",
 				Platforms: []string{"Switch"},
 			}, "en", nil)
@@ -226,7 +226,7 @@ func TestDetails(t *testing.T) {
 		d := f.details()
 
 		t.Run("WHEN a Switch copy's sheet is asked", func(t *testing.T) {
-			got, err := d.Details(ctx, media.CoverQuery{
+			got, err := d.Details(ctx, media.GameQuery{
 				Title:     "Example Quest",
 				Platforms: []string{"Switch"},
 			}, "en", nil)
@@ -267,7 +267,7 @@ func TestDetails(t *testing.T) {
 		d := f.details()
 
 		t.Run("WHEN its sheet is asked", func(t *testing.T) {
-			got, err := d.Details(ctx, media.CoverQuery{Title: "Unknown Quest"}, "en", nil)
+			got, err := d.Details(ctx, media.GameQuery{Title: "Unknown Quest"}, "en", nil)
 
 			t.Run("THEN nothing is returned, after the search alone", func(t *testing.T) {
 				require.NoError(t, err)
@@ -330,7 +330,7 @@ func TestDetails_editionTitles(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	disc := media.CoverQuery{
+	disc := media.GameQuery{
 		Title:             "Example West GOTY",
 		PhysicalPlatforms: []string{"Xbox 360"},
 		Platforms:         []string{"Xbox 360"},
@@ -389,7 +389,7 @@ func TestDetails_trademarkedTitleSearchedOnce(t *testing.T) {
 		f := newFakeWiki(t)
 
 		t.Run("WHEN its sheet is asked", func(t *testing.T) {
-			got, err := f.details().Details(ctx, media.CoverQuery{Title: "Plain Quest™"}, "en", nil)
+			got, err := f.details().Details(ctx, media.GameQuery{Title: "Plain Quest™"}, "en", nil)
 			require.NoError(t, err)
 
 			t.Run("THEN it is searched once: the trademark sign alone makes no other title", func(t *testing.T) {
@@ -423,7 +423,7 @@ func TestDetails_otherScripts(t *testing.T) {
 		}
 
 		t.Run("WHEN the sheet of a game titled in such a script is asked", func(t *testing.T) {
-			got, err := f.details().Details(ctx, media.CoverQuery{
+			got, err := f.details().Details(ctx, media.GameQuery{
 				Title:     title,
 				Platforms: []string{"Steam"},
 			}, "en", nil)
@@ -454,7 +454,7 @@ func TestDetails_exactTitleFirst(t *testing.T) {
 		f.searches["en:Example Quest"] = []string{"Q103", "Q100"}
 
 		t.Run("WHEN the original's sheet is asked", func(t *testing.T) {
-			got, err := f.details().Details(ctx, media.CoverQuery{
+			got, err := f.details().Details(ctx, media.GameQuery{
 				Title:     "Example Quest",
 				Platforms: []string{"Steam"},
 			}, "en", nil)
@@ -473,13 +473,13 @@ func TestDetails_applies(t *testing.T) {
 
 	for _, tc := range []struct {
 		name string
-		q    media.CoverQuery
+		q    media.GameQuery
 		want bool
 	}{
-		{"a game without store links", media.CoverQuery{Title: "Example Quest"}, true},
-		{"a game linked to another store", media.CoverQuery{Links: map[string]string{"gog": "1"}}, true},
-		{"a game linked to Steam, whose localized summary always wins", media.CoverQuery{Links: map[string]string{"steam": "620"}}, false},
-		{"a game linked to Steam on the fallback pass (Steam had nothing)", media.CoverQuery{
+		{"a game without store links", media.GameQuery{Title: "Example Quest"}, true},
+		{"a game linked to another store", media.GameQuery{Links: map[string]string{"gog": "1"}}, true},
+		{"a game linked to Steam, whose localized summary always wins", media.GameQuery{Links: map[string]string{"steam": "620"}}, false},
+		{"a game linked to Steam on the fallback pass (Steam had nothing)", media.GameQuery{
 			Links:    map[string]string{"steam": "620"},
 			Fallback: true,
 		}, true},
@@ -510,7 +510,7 @@ func TestDetails_releaseDatePrecision(t *testing.T) {
 			e.dates = tc.dates
 			f.entities["Q100"] = e
 
-			got, err := f.details().Details(ctx, media.CoverQuery{
+			got, err := f.details().Details(ctx, media.GameQuery{
 				Title:     "Example Quest",
 				Platforms: []string{"Steam"},
 			}, "en", nil)
@@ -532,7 +532,7 @@ func TestDetails_refused(t *testing.T) {
 		d.Wikidata.UserAgent = ""
 
 		t.Run("WHEN a sheet is asked", func(t *testing.T) {
-			_, err := d.Details(ctx, media.CoverQuery{Title: "Example Quest"}, "en", nil)
+			_, err := d.Details(ctx, media.GameQuery{Title: "Example Quest"}, "en", nil)
 
 			t.Run("THEN the error says it was refused and what to do, as a problem of the provider", func(t *testing.T) {
 				require.Error(t, err)
@@ -554,7 +554,7 @@ func TestDetails_outages(t *testing.T) {
 			f.setFail(fail)
 
 			t.Run("WHEN a sheet is asked", func(t *testing.T) {
-				_, err := f.details().Details(ctx, media.CoverQuery{Title: "Example Quest"}, "en", nil)
+				_, err := f.details().Details(ctx, media.GameQuery{Title: "Example Quest"}, "en", nil)
 
 				t.Run("THEN it is an outage, the provider's problem rather than the game's", func(t *testing.T) {
 					require.ErrorIs(t, err, provider.ErrUnavailable)
@@ -575,14 +575,14 @@ func TestDetails_backsOffAfterADroppedConnection(t *testing.T) {
 
 		d := f.details()
 
-		_, err := d.Details(ctx, media.CoverQuery{Title: "Example Quest"}, "en", nil)
+		_, err := d.Details(ctx, media.GameQuery{Title: "Example Quest"}, "en", nil)
 		require.ErrorIs(t, err, provider.ErrUnavailable)
 
 		t.Run("WHEN the next sheet is asked", func(t *testing.T) {
 			f.setFail("")
 
 			before := len(f.actions())
-			_, err := d.Details(ctx, media.CoverQuery{Title: "Example Quest"}, "en", nil)
+			_, err := d.Details(ctx, media.GameQuery{Title: "Example Quest"}, "en", nil)
 
 			t.Run("THEN the servers are left alone: it is refused as resting", func(t *testing.T) {
 				require.ErrorIs(t, err, ratelimit.ErrResting)

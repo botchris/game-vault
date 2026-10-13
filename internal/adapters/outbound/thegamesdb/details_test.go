@@ -76,7 +76,7 @@ func TestDetailsResolvesNames(t *testing.T) {
 
 	d := NewDetails(testProvider(srv))
 
-	got, err := d.Details(context.Background(), media.CoverQuery{
+	got, err := d.Details(context.Background(), media.GameQuery{
 		Title:             "Red Dead Redemption",
 		PhysicalPlatforms: []string{"Xbox 360"},
 	}, "es", schema.Settings{settingAPIKey: "k"})
@@ -142,7 +142,7 @@ func TestDetails_consolePlatforms(t *testing.T) {
 
 		for _, platform := range []string{"PS4", "PlayStation Store"} {
 			t.Run("WHEN the sheet of a game owned only as a "+platform+" library copy is asked", func(t *testing.T) {
-				got, err := d.Details(ctx, media.CoverQuery{
+				got, err := d.Details(ctx, media.GameQuery{
 					Title:     "Console Quest",
 					Links:     map[string]string{"playstation": "PPSA0001"},
 					Platforms: []string{platform},

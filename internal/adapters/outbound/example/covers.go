@@ -57,7 +57,7 @@ func (c *Covers) ImageHosts() []string { return []string{imageHost} }
 
 // Applies reports whether the game is linked to the store, for its PC edition. It decides from the
 // query alone, without the network.
-func (c *Covers) Applies(q media.CoverQuery) bool { return q.ForPC() && q.Links[LinkedStore.Key] != "" }
+func (c *Covers) Applies(q media.GameQuery) bool { return q.ForPC() && q.Links[LinkedStore.Key] != "" }
 
 type product struct {
 	Title string `json:"title"`
@@ -69,7 +69,7 @@ type product struct {
 
 // Covers implements media.CoverProvider: the portrait box art first, then the wide banner. A game
 // the catalog does not know is no candidates, not an error.
-func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
+func (c *Covers) Covers(ctx context.Context, q media.GameQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	id := q.Links[LinkedStore.Key]
 	if id == "" {
 		return nil, nil
@@ -109,7 +109,7 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 // testProductID is a product that exists in the catalog, used to check the API answers.
 const testProductID = "1"
 
-// Test implements media.Provider: one request to the public catalog. No key is needed, so only
+// Test implements providers.Impl: one request to the public catalog. No key is needed, so only
 // transport and HTTP errors fail it.
 func (c *Covers) Test(ctx context.Context, _ schema.Settings) error {
 	var p product

@@ -10,7 +10,7 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"gamevault/internal/application/media"
+	"gamevault/internal/application/providers"
 	"gamevault/internal/application/sync"
 	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/field"
@@ -363,7 +363,7 @@ func descriptorToPB(d source.TypeDescriptor) *pb.SourceType {
 	}
 }
 
-func providerToPB(v media.ProviderView) *pb.Provider {
+func providerToPB(v providers.View) *pb.Provider {
 	return &pb.Provider{
 		Id:             string(v.ID()),
 		Kind:           string(v.Kind()),

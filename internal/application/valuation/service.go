@@ -8,8 +8,8 @@ import (
 	"slices"
 	"time"
 
-	"gamevault/internal/application/media"
 	"gamevault/internal/application/port"
+	"gamevault/internal/application/providers"
 	"gamevault/internal/application/unattended"
 	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
@@ -45,14 +45,14 @@ const (
 // providerTimeout bounds one provider's answer, so a slow source never holds the scheduler.
 const providerTimeout = 20 * time.Second
 
-// Configs is the port that keeps the providers' configuration and status (implemented by the media
-// service).
+// Configs is the port that keeps the providers' configuration and status (implemented by the
+// providers registry).
 type Configs interface {
 	// Providers returns the configured providers of a kind in priority order.
-	Providers(ctx context.Context, kind provider.Kind) ([]media.ProviderView, error)
+	Providers(ctx context.Context, kind provider.Kind) ([]providers.View, error)
 
 	// ReportResult records what a provider's answer says about the provider: a provider-level
-	// problem (see media.ProviderLevel) becomes its status on System → Health, an answer clears it.
+	// problem (see providers.ProviderLevel) becomes its status on System → Health, an answer clears it.
 	ReportResult(id provider.ID, err error)
 }
 
@@ -73,9 +73,9 @@ type Service struct {
 
 // NewService builds the service with the price providers compiled in.
 func NewService(games game.Repository, tx port.TxManager, configs Configs, prefs settings.Repository, now port.Clock,
-	log *slog.Logger, providers ...Provider) *Service {
-	impls := make(map[provider.ID]Provider, len(providers))
-	for _, p := range providers {
+	log *slog.Logger, prices ...Provider) *Service {
+	impls := make(map[provider.ID]Provider, len(prices))
+	for _, p := range prices {
 		impls[p.Descriptor().ID] = p
 	}
 
@@ -93,13 +93,13 @@ func NewService(games game.Repository, tx port.TxManager, configs Configs, prefs
 func days(n int) time.Duration { return time.Duration(n) * 24 * time.Hour }
 
 // enabled returns the enabled price providers that are compiled in, in the user's order.
-func (s *Service) enabled(ctx context.Context) ([]media.ProviderView, error) {
+func (s *Service) enabled(ctx context.Context) ([]providers.View, error) {
 	views, err := s.configs.Providers(ctx, provider.KindValuation)
 	if err != nil {
 		return nil, err
 	}
 
-	return slices.DeleteFunc(views, func(v media.ProviderView) bool {
+	return slices.DeleteFunc(views, func(v providers.View) bool {
 		_, ok := s.impls[v.ID()]
 		return !v.Enabled() || !ok
 	}), nil
@@ -134,7 +134,7 @@ type outcome struct {
 	// failed lists the providers that failed now.
 	failed []provider.ID
 
-	// unavailable reports that a provider failed at provider level (media.ProviderLevel).
+	// unavailable reports that a provider failed at provider level (providers.ProviderLevel).
 	unavailable bool
 }
 
@@ -231,7 +231,7 @@ func copyOf(g *game.Game, id game.ID) (game.Copy, error) {
 
 // ask asks each provider not in skip for the barcode. unavailable reports that one failed at provider
 // level: that is its status, not a warning.
-func (s *Service) ask(ctx context.Context, views []media.ProviderView, code game.Barcode, skip map[provider.ID]bool) (
+func (s *Service) ask(ctx context.Context, views []providers.View, code game.Barcode, skip map[provider.ID]bool) (
 	answers []answer, warnings []string, unavailable bool) {
 	answers = make([]answer, 0, len(views))
 
@@ -266,7 +266,7 @@ func (s *Service) ask(ctx context.Context, views []media.ProviderView, code game
 
 			// A provider-level problem (a bot check, a rate limit, rejected keys) is the provider's
 			// status, not a warning on every copy.
-			if media.ProviderLevel(err) {
+			if providers.ProviderLevel(err) {
 				unavailable = true
 			} else {
 				warnings = append(warnings, fmt.Sprintf("%s: %v", v.Descriptor.Name, err))

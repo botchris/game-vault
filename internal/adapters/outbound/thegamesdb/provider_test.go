@@ -62,18 +62,18 @@ func TestCoversPlatformFilterAndRanking(t *testing.T) {
 	srv, calls := fakeServer(t)
 	p := testProvider(srv)
 
-	q := media.CoverQuery{
+	q := media.GameQuery{
 		Title:             "Halo 3",
 		PhysicalPlatforms: []string{"Xbox 360"},
 	}
-	if p.Applies(media.CoverQuery{
+	if p.Applies(media.GameQuery{
 		Title: "Control",
 		Links: game.Links{"epic": "abc"},
 	}) {
 		t.Fatal("games imported from Epic or GOG have store art: keep the quota")
 	}
 
-	if !p.Applies(media.CoverQuery{
+	if !p.Applies(media.GameQuery{
 		Title:    "World of Warcraft",
 		Links:    game.Links{"battlenet": "1"},
 		Fallback: true,
@@ -81,7 +81,7 @@ func TestCoversPlatformFilterAndRanking(t *testing.T) {
 		t.Fatal("on the fallback pass (no store had art) TheGamesDB helps")
 	}
 
-	if !p.Applies(q) || p.Applies(media.CoverQuery{
+	if !p.Applies(q) || p.Applies(media.GameQuery{
 		Title: "Hades",
 		Links: game.Links{game.LinkSteam: "1145360"},
 	}) {
@@ -146,7 +146,7 @@ func TestTestChecksTheKey(t *testing.T) {
 		t.Fatalf("a bad key must fail with ErrUnknownKey, got %v", err)
 	}
 
-	_, err := p.Covers(context.Background(), media.CoverQuery{Title: "Halo 3"}, schema.Settings{settingAPIKey: "bad"})
+	_, err := p.Covers(context.Background(), media.GameQuery{Title: "Halo 3"}, schema.Settings{settingAPIKey: "bad"})
 	if err == nil || !strings.Contains(err.Error(), "Invalid API key was provided.") {
 		t.Fatalf("search errors must carry TheGamesDB's message, got %v", err)
 	}
@@ -169,7 +169,7 @@ func TestCovers_editionSystem(t *testing.T) {
 	defer cancel()
 
 	t.Run("GIVEN the digital PS3 edition of a game linked to Steam", func(t *testing.T) {
-		q := media.CoverQuery{
+		q := media.GameQuery{
 			Title:     "Halo 3",
 			System:    "PS3",
 			Platforms: []string{"PlayStation Store"},
@@ -208,7 +208,7 @@ func TestProvider_transportErrorsHideTheKey(t *testing.T) {
 
 		t.Run("WHEN the key is tested and covers are searched", func(t *testing.T) {
 			testErr := p.Test(ctx, s)
-			_, coversErr := p.Covers(ctx, media.CoverQuery{
+			_, coversErr := p.Covers(ctx, media.GameQuery{
 				Title:             "Halo 3",
 				PhysicalPlatforms: []string{"Xbox 360"},
 			}, s)
@@ -227,7 +227,7 @@ func TestProvider_providerLevelErrors(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	q := media.CoverQuery{
+	q := media.GameQuery{
 		Title:             "Halo 3",
 		PhysicalPlatforms: []string{"Xbox 360"},
 	}
@@ -305,7 +305,7 @@ func TestCovers_editionTitles(t *testing.T) {
 		defer srv.Close()
 
 		p := testProvider(srv)
-		q := media.CoverQuery{Title: "Example West GOTY"}
+		q := media.GameQuery{Title: "Example West GOTY"}
 
 		t.Run("WHEN the covers of its GOTY edition are searched", func(t *testing.T) {
 			names = nil
@@ -334,7 +334,7 @@ func TestCovers_editionTitles(t *testing.T) {
 
 		t.Run("WHEN a title only TheGamesDB's raw search could find is searched", func(t *testing.T) {
 			names = nil
-			_, err := p.Covers(ctx, media.CoverQuery{Title: "Unknown Quest Deluxe"}, schema.Settings{settingAPIKey: "k"})
+			_, err := p.Covers(ctx, media.GameQuery{Title: "Unknown Quest Deluxe"}, schema.Settings{settingAPIKey: "k"})
 			require.NoError(t, err)
 
 			t.Run("THEN the raw title gets a second search", func(t *testing.T) {
@@ -379,7 +379,7 @@ func TestCovers_strippingWentTooFar(t *testing.T) {
 		defer srv.Close()
 
 		p := testProvider(srv)
-		q := media.CoverQuery{Title: "Gold Rush!"}
+		q := media.GameQuery{Title: "Gold Rush!"}
 
 		t.Run("WHEN its covers are searched", func(t *testing.T) {
 			names = nil

@@ -13,6 +13,7 @@ import (
 	"fmt"
 
 	"gamevault/internal/application/media"
+	"gamevault/internal/application/providers"
 	"gamevault/internal/application/sync"
 	"gamevault/internal/application/valuation"
 	"gamevault/internal/domain/provider"
@@ -88,21 +89,38 @@ func NewRegistry(plugins ...Plugin) (*Registry, error) {
 }
 
 func (p Plugin) mediaDescriptors() []provider.Descriptor {
-	out := make([]provider.Descriptor, 0, len(p.Covers)+len(p.Metadata)+len(p.Barcodes)+len(p.Valuations))
-	for _, c := range p.Covers {
-		out = append(out, c.Descriptor())
+	var out []provider.Descriptor
+
+	for _, kind := range provider.Kinds() {
+		for _, pr := range p.providersOf(kind) {
+			out = append(out, pr.Descriptor())
+		}
 	}
 
-	for _, m := range p.Metadata {
-		out = append(out, m.Descriptor())
-	}
+	return out
+}
 
-	for _, b := range p.Barcodes {
-		out = append(out, b.Descriptor())
+// providersOf returns the plugin's providers of a kind. A new kind of provider is a new field of
+// Plugin and a case here.
+func (p Plugin) providersOf(kind provider.Kind) []providers.Impl {
+	switch kind {
+	case provider.KindCover:
+		return asProviders(p.Covers)
+	case provider.KindBarcode:
+		return asProviders(p.Barcodes)
+	case provider.KindMetadata:
+		return asProviders(p.Metadata)
+	case provider.KindValuation:
+		return asProviders(p.Valuations)
+	default:
+		return nil
 	}
+}
 
-	for _, v := range p.Valuations {
-		out = append(out, v.Descriptor())
+func asProviders[T providers.Impl](in []T) []providers.Impl {
+	out := make([]providers.Impl, len(in))
+	for i, p := range in {
+		out[i] = p
 	}
 
 	return out
@@ -121,16 +139,20 @@ func (r *Registry) Sources() []sync.Provider {
 	return out
 }
 
-// Media returns every plugin's media providers, for the media service.
-func (r *Registry) Media() media.Providers {
-	var out media.Providers
+// Providers returns every plugin's providers (covers, barcodes, metadata, prices), kind by kind in
+// provider.Kinds' order and, within a kind, in registration order: the order that breaks ties
+// between equal DefaultOrders in the providers registry.
+func (r *Registry) Providers() []providers.Impl {
+	n := 0
 	for _, p := range r.plugins {
-		out.Covers = append(out.Covers, p.Covers...)
-		out.Metadata = append(out.Metadata, p.Metadata...)
-		out.Barcodes = append(out.Barcodes, p.Barcodes...)
+		n += len(p.mediaDescriptors())
+	}
 
-		for _, v := range p.Valuations {
-			out.Valuations = append(out.Valuations, v)
+	out := make([]providers.Impl, 0, n)
+
+	for _, kind := range provider.Kinds() {
+		for _, p := range r.plugins {
+			out = append(out, p.providersOf(kind)...)
 		}
 	}
 

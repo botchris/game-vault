@@ -82,7 +82,7 @@ func (c *Covers) LinkStore() game.Store { return LinkedStore }
 
 // Applies reports whether the game is linked to Ubisoft Connect or has a copy for it (a Humble
 // Uplay key, for instance), for its PC edition.
-func (c *Covers) Applies(q media.CoverQuery) bool {
+func (c *Covers) Applies(q media.GameQuery) bool {
 	if !q.ForPC() {
 		return false
 	}
@@ -101,7 +101,7 @@ func (c *Covers) Applies(q media.CoverQuery) bool {
 }
 
 // Covers implements media.CoverProvider.
-func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
+func (c *Covers) Covers(ctx context.Context, q media.GameQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	var out []media.CoverCandidate
 
 	if space := q.Links[LinkedStore.Key]; space != "" {
@@ -214,7 +214,7 @@ func pickStoreCovers(title string, hits []storeHit) []media.CoverCandidate {
 	return append(standard, others...)
 }
 
-// Test implements media.Provider: it runs one search on the Ubisoft Store's public product index and
+// Test implements providers.Impl: it runs one search on the Ubisoft Store's public product index and
 // fails if the store answers with an error or something that is not a search result.
 func (c *Covers) Test(ctx context.Context, _ schema.Settings) error {
 	if _, err := c.storeCovers(ctx, "Assassin's Creed"); err != nil {

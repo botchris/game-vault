@@ -45,19 +45,19 @@ func (p *Covers) Descriptor() provider.Descriptor {
 	}
 }
 
-// Test implements media.Provider.
+// Test implements providers.Impl.
 func (p *Covers) Test(ctx context.Context, s schema.Settings) error { return p.c.Test(ctx, s) }
 
 // Applies implements media.CoverProvider: only on the fallback pass, for any system. The media
 // service runs that pass whenever the first one found nothing, so an edition no other provider
 // applies to still gets it.
-func (p *Covers) Applies(q media.CoverQuery) bool { return q.Fallback && !q.LinksOnly }
+func (p *Covers) Applies(q media.GameQuery) bool { return q.Fallback && !q.LinksOnly }
 
 // ImageHosts implements media.ImageHoster.
 func (p *Covers) ImageHosts() []string { return []string{"images.igdb.com"} }
 
 // Covers implements media.CoverProvider.
-func (p *Covers) Covers(ctx context.Context, q media.CoverQuery, s schema.Settings) ([]media.CoverCandidate, error) {
+func (p *Covers) Covers(ctx context.Context, q media.GameQuery, s schema.Settings) ([]media.CoverCandidate, error) {
 	g, err := p.c.find(ctx, s, q, coverFields)
 	if err != nil || g == nil || g.Cover.ImageID == "" {
 		return nil, err

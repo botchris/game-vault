@@ -340,11 +340,11 @@ func TestCovers(t *testing.T) {
 	c := NewCovers()
 	c.Catalog.BaseURL = p.Catalog.BaseURL
 
-	q := media.CoverQuery{
+	q := media.GameQuery{
 		Title: "Halo Infinite",
 		Links: game.Links{"xbox": "9HALO"},
 	}
-	if !c.Applies(q) || c.Applies(media.CoverQuery{
+	if !c.Applies(q) || c.Applies(media.GameQuery{
 		Title: "x",
 		Links: game.Links{game.LinkSteam: "1"},
 	}) {

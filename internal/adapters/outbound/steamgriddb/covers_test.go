@@ -141,21 +141,21 @@ func TestCovers_applies(t *testing.T) {
 
 	for _, tc := range []struct {
 		name string
-		q    media.CoverQuery
+		q    media.GameQuery
 		want bool
 	}{
-		{"a PC edition, first pass", media.CoverQuery{System: game.SystemPC}, false},
-		{"a game without copies, first pass", media.CoverQuery{}, false},
-		{"a PS2 edition, first pass", media.CoverQuery{System: "PS2"}, false},
-		{"a PC edition on the fallback pass", media.CoverQuery{
+		{"a PC edition, first pass", media.GameQuery{System: game.SystemPC}, false},
+		{"a game without copies, first pass", media.GameQuery{}, false},
+		{"a PS2 edition, first pass", media.GameQuery{System: "PS2"}, false},
+		{"a PC edition on the fallback pass", media.GameQuery{
 			System:   game.SystemPC,
 			Fallback: true,
 		}, true},
-		{"a PS2 edition on the fallback pass", media.CoverQuery{
+		{"a PS2 edition on the fallback pass", media.GameQuery{
 			System:   "PS2",
 			Fallback: true,
 		}, true},
-		{"a virtual PC edition (store links only)", media.CoverQuery{
+		{"a virtual PC edition (store links only)", media.GameQuery{
 			System:    game.SystemPC,
 			Links:     game.Links{game.LinkSteam: "1"},
 			Fallback:  true,
@@ -192,13 +192,13 @@ func TestCovers(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	steamGame := media.CoverQuery{
+	steamGame := media.GameQuery{
 		Title:    "Example Quest",
 		System:   game.SystemPC,
 		Links:    game.Links{game.LinkSteam: "620"},
 		Fallback: true,
 	}
-	discGame := media.CoverQuery{
+	discGame := media.GameQuery{
 		Title:    "Example Quest [PS2]",
 		System:   "PS2",
 		Fallback: true,
@@ -307,7 +307,7 @@ func TestCovers(t *testing.T) {
 
 		for _, title := range []string{"Example Remastered", "Doom (2016)"} {
 			t.Run("WHEN the covers of "+title+" are asked", func(t *testing.T) {
-				got, err := f.covers().Covers(ctx, media.CoverQuery{
+				got, err := f.covers().Covers(ctx, media.GameQuery{
 					Title:    title,
 					Fallback: true,
 				}, goodSettings)
@@ -330,7 +330,7 @@ func TestCovers(t *testing.T) {
 		f.answer("/grids/game/7001", http.StatusOK, exampleGrids)
 
 		t.Run("WHEN its covers are asked", func(t *testing.T) {
-			got, err := f.covers().Covers(ctx, media.CoverQuery{
+			got, err := f.covers().Covers(ctx, media.GameQuery{
 				Title:    "Example Remastered",
 				Fallback: true,
 			}, goodSettings)
@@ -358,7 +358,7 @@ func TestCovers(t *testing.T) {
 		f.answer("/grids/game/9001", http.StatusOK, exampleGrids)
 
 		t.Run("WHEN its covers are asked", func(t *testing.T) {
-			got, err := f.covers().Covers(ctx, media.CoverQuery{
+			got, err := f.covers().Covers(ctx, media.GameQuery{
 				Title:    "Example - A Wild Adventure",
 				System:   game.SystemPC,
 				Fallback: true,
@@ -378,7 +378,7 @@ func TestCovers(t *testing.T) {
 		f.answer("/grids/game/5001", http.StatusOK, exampleGrids)
 
 		t.Run("WHEN its covers are asked", func(t *testing.T) {
-			got, err := f.covers().Covers(ctx, media.CoverQuery{
+			got, err := f.covers().Covers(ctx, media.GameQuery{
 				Title:    "Example Quest (Steam Key)",
 				Fallback: true,
 			}, goodSettings)
@@ -400,7 +400,7 @@ func TestCovers(t *testing.T) {
 		f.answer("/grids/game/5001", http.StatusOK, exampleGrids)
 
 		t.Run("WHEN its covers are asked", func(t *testing.T) {
-			got, err := f.covers().Covers(ctx, media.CoverQuery{
+			got, err := f.covers().Covers(ctx, media.GameQuery{
 				Title:    "Example Quest",
 				Fallback: true,
 			}, goodSettings)
@@ -417,7 +417,7 @@ func TestCovers(t *testing.T) {
 		f.answer("/search/autocomplete/Example Raid", http.StatusOK, ambiguousSearch)
 
 		t.Run("WHEN its covers are asked", func(t *testing.T) {
-			got, err := f.covers().Covers(ctx, media.CoverQuery{
+			got, err := f.covers().Covers(ctx, media.GameQuery{
 				Title:    "Example Raid",
 				Fallback: true,
 			}, goodSettings)
@@ -437,7 +437,7 @@ func TestCovers(t *testing.T) {
 
 		for _, title := range []string{"Example", "Nothing Like It"} {
 			t.Run("WHEN the covers of "+title+" are asked", func(t *testing.T) {
-				got, err := f.covers().Covers(ctx, media.CoverQuery{
+				got, err := f.covers().Covers(ctx, media.GameQuery{
 					Title:    title,
 					Fallback: true,
 				}, goodSettings)
@@ -475,7 +475,7 @@ func TestCovers_failures(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	q := media.CoverQuery{
+	q := media.GameQuery{
 		Title:    "Example Quest",
 		Links:    game.Links{game.LinkSteam: "620"},
 		Fallback: true,

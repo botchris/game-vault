@@ -39,7 +39,7 @@ const StorePageURL = "https://store.steampowered.com/app/"
 
 // AppIDOf returns the Steam AppID the game is linked to, or 0 when it is not (or the link is not a
 // valid AppID).
-func AppIDOf(q media.CoverQuery) int64 {
+func AppIDOf(q media.GameQuery) int64 {
 	id, err := strconv.ParseInt(q.Links[game.LinkSteam], 10, 64)
 	if err != nil || id <= 0 {
 		return 0
@@ -121,14 +121,14 @@ func (s *Store) ImageHosts() []string {
 // Steam, or, on the fallback pass, of any game: Steam's store is then searched by title. The search
 // waits for that pass so it is only spent on PC editions no other provider had art for (Steam allows
 // about 200 store requests per 5 minutes).
-func (s *Store) Applies(q media.CoverQuery) bool {
+func (s *Store) Applies(q media.GameQuery) bool {
 	return q.ForPC() && (AppIDOf(q) != 0 || (q.Fallback && !q.LinksOnly))
 }
 
 // Covers returns the portrait library art first, then the landscape header. Recent apps keep
 // their images under hashed paths (…/apps/<id>/<hash>/library_600x900.jpg), so the real paths are
 // asked to IStoreBrowseService (one free request); the legacy predictable URLs are the fallback.
-func (s *Store) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
+func (s *Store) Covers(ctx context.Context, q media.GameQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	appID := AppIDOf(q)
 	if appID == 0 && q.LinksOnly {
 		return nil, nil
@@ -183,7 +183,7 @@ var modernSystems = []string{
 // modern console (or no copies), the AppID of the only store app with exactly its title
 // (game.SameTitle: the same words, ignoring case, accents and punctuation; never game.MatchKey: a
 // saved link must not be a remaster), as its Steam link.
-func (s *Store) FindLinks(ctx context.Context, q media.CoverQuery, _ schema.Settings) (game.Links, error) {
+func (s *Store) FindLinks(ctx context.Context, q media.GameQuery, _ schema.Settings) (game.Links, error) {
 	if AppIDOf(q) != 0 || !modernEnough(q) {
 		return nil, nil
 	}
@@ -203,7 +203,7 @@ func (s *Store) FindLinks(ctx context.Context, q media.CoverQuery, _ schema.Sett
 }
 
 // modernEnough reports whether one of the game's copies is on PC or a modern console, or it has none.
-func modernEnough(q media.CoverQuery) bool {
+func modernEnough(q media.GameQuery) bool {
 	if len(q.Platforms) == 0 {
 		return true
 	}
@@ -288,7 +288,7 @@ func (s *Store) uniqueApp(ctx context.Context, term, title string, loose bool) (
 	return 0, nil
 }
 
-// Test implements media.Provider: it asks Steam's store browse API for the art of Portal 2 (app
+// Test implements providers.Impl: it asks Steam's store browse API for the art of Portal 2 (app
 // 620), so only transport errors and HTTP errors (including rate limits) fail it.
 func (s *Store) Test(ctx context.Context, _ schema.Settings) error {
 	if _, _, err := s.assetURLs(ctx, 620); err != nil {

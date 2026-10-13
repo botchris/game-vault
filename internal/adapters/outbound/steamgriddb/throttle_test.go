@@ -114,7 +114,7 @@ func TestThrottle(t *testing.T) {
 
 			for range 8 {
 				wg.Go(func() {
-					_, err := p.Covers(ctx, media.CoverQuery{
+					_, err := p.Covers(ctx, media.GameQuery{
 						Links:    game.Links{game.LinkSteam: "620"},
 						Fallback: true,
 					}, goodSettings)
