@@ -29,7 +29,7 @@ import (
 const Type source.Type = "battlenet"
 
 // Platform is the store name used on copies.
-const Platform = "Battle.net"
+const Platform = game.PlatformBattlenet
 
 const (
 	settingCookies = "cookies"
@@ -69,7 +69,7 @@ func NewProvider() *Provider {
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
 // imports, and the cover provider reads it.
 var LinkedStore = game.Store{
-	Key:  "battlenet",
+	Key:  game.LinkBattlenet,
 	Name: "Battle.net",
 }
 
@@ -82,7 +82,7 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 		Type:           Type,
 		Name:           "Battle.net",
 		DescriptionKey: "sources.battlenet.description",
-		Fields: []source.Field{
+		Fields: []schema.Field{
 			{
 				Key:      settingCookies,
 				LabelKey: "sources.battlenet.cookies",
@@ -100,12 +100,12 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 						},
 					},
 				},
-				Kind:     source.FieldSecret,
+				Kind:     schema.FieldSecret,
 				Required: true,
 			},
 			{
 				Key:  settingSession,
-				Kind: source.FieldState,
+				Kind: schema.FieldState,
 			},
 		},
 	}
@@ -113,7 +113,7 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 
 // getJSON reads an API path, renewing the site session once if it expired. Renewed cookies are
 // written back into settings for the caller to persist.
-func (p *Provider) getJSON(ctx context.Context, settings source.Settings, path string, out any) error {
+func (p *Provider) getJSON(ctx context.Context, settings schema.Settings, path string, out any) error {
 	c := browsersession.Current(settings[settingCookies], settings[settingSession])
 	if len(c) == 0 {
 		return ErrNoCredentials
@@ -149,7 +149,7 @@ func (p *Provider) getJSON(ctx context.Context, settings source.Settings, path s
 func (p *Provider) KeepAliveInterval() time.Duration { return 15 * time.Minute }
 
 // KeepAlive implements sync.KeepAliver with a light request, as an open browser tab would.
-func (p *Provider) KeepAlive(ctx context.Context, settings source.Settings) error {
+func (p *Provider) KeepAlive(ctx context.Context, settings schema.Settings) error {
 	var overview any
 	return p.getJSON(ctx, settings, "/api/games-and-subs", &overview)
 }
@@ -217,7 +217,7 @@ func collectTitles(v any, out map[string]title) {
 		if name, ok := x["localizedGameName"].(string); ok && strings.TrimSpace(name) != "" {
 			id := fmt.Sprint(firstOf(x, "titleId", "gameTitleId", "productId"))
 			if id == "" || id == "<nil>" {
-				id = game.MatchKey(name)
+				id = game.TitleIDKey(name) // frozen: the id must never change
 			}
 
 			if _, seen := out[id]; !seen {
@@ -252,7 +252,7 @@ func firstOf(m map[string]any, keys ...string) any {
 	return nil
 }
 
-func (p *Provider) titles(ctx context.Context, settings source.Settings) (map[string]title, error) {
+func (p *Provider) titles(ctx context.Context, settings schema.Settings) (map[string]title, error) {
 	found := map[string]title{}
 
 	var games any
@@ -271,13 +271,13 @@ func (p *Provider) titles(ctx context.Context, settings source.Settings) (map[st
 }
 
 // Test implements sync.Provider.
-func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
+func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
 	_, err := p.titles(ctx, settings)
 	return err
 }
 
 // Fetch implements sync.Provider.
-func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.ImportedCopy, []string, error) {
+func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, []string, error) {
 	found, err := p.titles(ctx, settings)
 	if err != nil {
 		return nil, nil, err
@@ -305,7 +305,7 @@ func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.
 				Kind:     game.KindLibrary,
 				Platform: Platform,
 				Status:   game.StatusOwned,
-				Origin:   "Battle.net",
+				Origin:   Platform,
 			},
 		})
 	}

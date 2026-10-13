@@ -160,7 +160,7 @@ func newClient(baseURL string) *apiclient.Client {
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
 // imports.
 var LinkedStore = game.Store{
-	Key:  "psn",
+	Key:  game.LinkPSN,
 	Name: "PlayStation",
 }
 
@@ -173,7 +173,7 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 		Type:           Type,
 		Name:           "PlayStation",
 		DescriptionKey: "sources.playstation.description",
-		Fields: []source.Field{
+		Fields: []schema.Field{
 			{
 				Key:      settingNPSSO,
 				LabelKey: "sources.playstation.npsso",
@@ -190,12 +190,12 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 						},
 					},
 				},
-				Kind:     source.FieldSecret,
+				Kind:     schema.FieldSecret,
 				Required: true,
 			},
 			{
 				Key:  settingSession,
-				Kind: source.FieldState,
+				Kind: schema.FieldState,
 			},
 		},
 	}
@@ -347,8 +347,8 @@ func (p *Provider) token(ctx context.Context, form url.Values) (tokenResponse, e
 
 // signIn signs in with the NPSSO and stores the session it gives in settings. The NPSSO is passed
 // alone, so the stored session (missing, or refused) is not kept instead.
-func (p *Provider) signIn(ctx context.Context, settings source.Settings) error {
-	out, err := p.sessions.Prepare(ctx, source.Settings{settingNPSSO: settings[settingNPSSO]})
+func (p *Provider) signIn(ctx context.Context, settings schema.Settings) error {
+	out, err := p.sessions.Prepare(ctx, schema.Settings{settingNPSSO: settings[settingNPSSO]})
 	if err != nil {
 		return err
 	}
@@ -362,7 +362,7 @@ func (p *Provider) signIn(ctx context.Context, settings source.Settings) error {
 // one when the library refuses the first (errTokenRejected): only a refused renewal means the user
 // must sign in again. Without a session, or when Sony refuses to renew it, it signs in with the
 // NPSSO first. The newest session is written back into settings for the caller to persist.
-func (p *Provider) withToken(ctx context.Context, settings source.Settings, call func(token string) error) error {
+func (p *Provider) withToken(ctx context.Context, settings schema.Settings, call func(token string) error) error {
 	if _, err := p.sessions.Current(settings); err != nil {
 		if err := p.signIn(ctx, settings); err != nil {
 			return err
@@ -536,20 +536,23 @@ func (p *Provider) purchased(ctx context.Context, token string) ([]title, error)
 	return nil, lastErr
 }
 
-// platformName maps Sony's platform code to Game Vault's.
+// sonyPlatforms maps Sony's platform codes, in upper case, to Game Vault's systems.
+var sonyPlatforms = map[string]string{
+	"PS5":     game.SystemPS5,
+	"PS4":     game.SystemPS4,
+	"PS3":     game.SystemPS3,
+	"PSVITA":  game.SystemPSVita,
+	"PS VITA": game.SystemPSVita,
+}
+
+// platformName maps Sony's platform code to Game Vault's: the console, or the store when Sony
+// names none Game Vault knows.
 func platformName(p string) string {
-	switch strings.ToUpper(p) {
-	case "PS5":
-		return "PS5"
-	case "PS4":
-		return "PS4"
-	case "PS3":
-		return "PS3"
-	case "PSVITA", "PS VITA":
-		return "PS Vita"
+	if s, ok := sonyPlatforms[strings.ToUpper(p)]; ok {
+		return s
 	}
 
-	return "PlayStation Store"
+	return game.PlatformPlayStation
 }
 
 // mapTitles turns purchased titles into copies, one per game and platform; PS Plus games and
@@ -600,7 +603,7 @@ func mapTitles(titles []title, nonGames *nonGameIndex) (out []game.ImportedCopy,
 		// The system is set on purpose although it equals the platform's system: Sony says which
 		// console the title was bought for, and the copy keeps it as the source's system.
 		system := platform
-		if platform == "PlayStation Store" {
+		if platform == game.PlatformPlayStation {
 			system = "" // Sony did not say which console: the platform's system applies
 		}
 
@@ -613,7 +616,7 @@ func mapTitles(titles []title, nonGames *nonGameIndex) (out []game.ImportedCopy,
 				Kind:     game.KindLibrary,
 				Platform: platform,
 				Status:   game.StatusOwned,
-				Origin:   "PlayStation Store",
+				Origin:   game.PlatformPlayStation,
 			},
 		})
 	}
@@ -624,7 +627,7 @@ func mapTitles(titles []title, nonGames *nonGameIndex) (out []game.ImportedCopy,
 }
 
 // Test implements sync.Provider: it signs in and reads the purchases, without the played titles.
-func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
+func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
 	return p.withToken(ctx, settings, func(token string) error {
 		_, err := p.purchased(ctx, token)
 
@@ -633,7 +636,7 @@ func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
 }
 
 // Fetch implements sync.Provider.
-func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.ImportedCopy, []string, error) {
+func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, []string, error) {
 	var (
 		titles []title
 		token  string

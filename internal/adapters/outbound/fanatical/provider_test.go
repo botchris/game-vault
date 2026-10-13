@@ -12,7 +12,6 @@ import (
 
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
-	"gamevault/internal/domain/source"
 )
 
 // keysAnswer has the shape of GET /api/user/keys as a real account returned it on 2026-10-09
@@ -67,7 +66,7 @@ func TestFetch_readsTheKeys(t *testing.T) {
 	p.API.BaseURL, p.API.HTTP = srv.URL, srv.Client()
 
 	t.Run("GIVEN the whole bsauth value pasted from Local Storage", func(t *testing.T) {
-		settings := source.Settings{
+		settings := schema.Settings{
 			settingConsent: schema.ConsentGiven,
 			settingSession: `{"authenticated":true,"token":"eyJgood.token.sig","email":"x@example.com"}`,
 		}
@@ -113,7 +112,7 @@ func TestFetch_readsTheKeys(t *testing.T) {
 	})
 
 	t.Run("GIVEN a session Fanatical no longer accepts", func(t *testing.T) {
-		settings := source.Settings{settingConsent: schema.ConsentGiven, settingSession: "eyJexpired"}
+		settings := schema.Settings{settingConsent: schema.ConsentGiven, settingSession: "eyJexpired"}
 
 		t.Run("WHEN the connection is tested", func(t *testing.T) {
 			err := p.Test(ctx, settings)
@@ -126,7 +125,7 @@ func TestFetch_readsTheKeys(t *testing.T) {
 
 	t.Run("GIVEN nothing pasted", func(t *testing.T) {
 		t.Run("WHEN the connection is tested", func(t *testing.T) {
-			err := p.Test(ctx, source.Settings{settingConsent: schema.ConsentGiven, settingSession: "  "})
+			err := p.Test(ctx, schema.Settings{settingConsent: schema.ConsentGiven, settingSession: "  "})
 
 			t.Run("THEN it says what to paste, without asking Fanatical", func(t *testing.T) {
 				assert.ErrorIs(t, err, ErrNoCredentials)
@@ -139,7 +138,7 @@ func TestDescriptor_needsConsent(t *testing.T) {
 	d := NewProvider().Descriptor()
 
 	t.Run("GIVEN settings with a session but the risk not accepted", func(t *testing.T) {
-		err := d.Validate(source.Settings{settingSession: "eyJgood.token.sig"})
+		err := d.Validate(schema.Settings{settingSession: "eyJgood.token.sig"})
 
 		t.Run("THEN they are refused before any request", func(t *testing.T) {
 			require.Error(t, err)

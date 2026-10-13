@@ -1,13 +1,14 @@
 package source
 
 import (
+	"gamevault/internal/domain/schema"
 	"testing"
 	"time"
 )
 
 func TestExclusions(t *testing.T) {
 	now := time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC)
-	src := Rehydrate("s1", "psn", "PlayStation", true, 0, Settings{}, nil, nil, now, now)
+	src := Rehydrate("s1", "psn", "PlayStation", true, 0, schema.Settings{}, nil, nil, now, now)
 
 	if err := src.Exclude(Exclusion{
 		Title: "Netflix",

@@ -33,15 +33,13 @@ func TestSystemOf(t *testing.T) {
 	}
 }
 
-func TestKnownPlatforms_coverEverySystemTable(t *testing.T) {
-	t.Run("GIVEN the PC platforms and the stores of several systems", func(t *testing.T) {
-		t.Run("THEN each one is a known platform, so KnownPlatforms lists every platform SystemOf maps", func(t *testing.T) {
-			for _, p := range pcPlatforms {
-				assert.Contains(t, KnownPlatforms(), p)
-			}
-
-			for p := range storeSystems {
-				assert.Contains(t, KnownPlatforms(), p)
+func TestKnownPlatforms_coverEverySystem(t *testing.T) {
+	t.Run("GIVEN the platforms Game Vault knows", func(t *testing.T) {
+		t.Run("THEN the system of each one is a known platform too, its own system", func(t *testing.T) {
+			for _, p := range KnownPlatforms() {
+				s := SystemOf(p)
+				assert.Contains(t, KnownPlatforms(), s, "system of %q", p)
+				assert.Equal(t, s, SystemOf(s), "system of %q", p)
 			}
 		})
 	})

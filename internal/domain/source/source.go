@@ -24,26 +24,6 @@ func NewID() ID { return ID(uuid.Must(uuid.NewV7()).String()) }
 // Type identifies the provider behind a source, e.g. "humble" or "steam".
 type Type string
 
-// The settings types are shared with other integrations, so they live in schema.
-type (
-	// Settings is a source's configuration (see schema.Settings).
-	Settings = schema.Settings
-
-	// Field describes one setting a source asks for (see schema.Field).
-	Field = schema.Field
-
-	// FieldKind is how a field is entered and stored (see schema.FieldKind).
-	FieldKind = schema.FieldKind
-)
-
-// Secret masking and field kinds are shared with other integrations, so they live in schema.
-const (
-	SecretPlaceholder = schema.SecretPlaceholder
-	FieldText         = schema.FieldText
-	FieldSecret       = schema.FieldSecret
-	FieldState        = schema.FieldState
-)
-
 // Errors returned by source lookups and creation. Callers match them with errors.Is.
 var (
 	ErrNotFound    = errkind.New(errkind.NotFound, "source not found")
@@ -85,15 +65,15 @@ type TypeDescriptor struct {
 }
 
 // Validate checks that every required setting is present.
-func (d TypeDescriptor) Validate(s Settings) error { return d.Fields.Validate(s, d.Name) }
+func (d TypeDescriptor) Validate(s schema.Settings) error { return d.Fields.Validate(s, d.Name) }
 
 // MergeSettings applies incoming settings over stored ones (see schema.Fields.Merge).
-func (d TypeDescriptor) MergeSettings(stored, incoming Settings) Settings {
+func (d TypeDescriptor) MergeSettings(stored, incoming schema.Settings) schema.Settings {
 	return d.Fields.Merge(stored, incoming)
 }
 
 // Masked returns the settings with secrets masked, safe to show to clients.
-func (d TypeDescriptor) Masked(s Settings) Settings { return d.Fields.Masked(s) }
+func (d TypeDescriptor) Masked(s schema.Settings) schema.Settings { return d.Fields.Masked(s) }
 
 // SyncReport is the outcome of one scan.
 type SyncReport struct {
@@ -130,7 +110,7 @@ type Source struct {
 	name         string
 	enabled      bool
 	syncInterval time.Duration
-	settings     Settings
+	settings     schema.Settings
 	lastSync     *SyncReport
 	exclusions   []Exclusion // newest first
 	createdAt    time.Time
@@ -142,7 +122,7 @@ type Config struct {
 	Name         string
 	Enabled      bool
 	SyncInterval time.Duration // 0 = manual only
-	Settings     Settings
+	Settings     schema.Settings
 }
 
 // Exclusion is an item the user removed from a source's imports: the source skips it on every
@@ -193,7 +173,7 @@ func New(d TypeDescriptor, cfg Config, now time.Time) (*Source, error) {
 }
 
 // Rehydrate rebuilds a source from storage. Only repositories should call it.
-func Rehydrate(id ID, typ Type, name string, enabled bool, interval time.Duration, settings Settings,
+func Rehydrate(id ID, typ Type, name string, enabled bool, interval time.Duration, settings schema.Settings,
 	lastSync *SyncReport, exclusions []Exclusion, createdAt, updatedAt time.Time) *Source {
 	return &Source{
 		id:           id,
@@ -231,8 +211,8 @@ func (s *Source) CreatedAt() time.Time { return s.createdAt }
 func (s *Source) UpdatedAt() time.Time { return s.updatedAt }
 
 // Settings returns a copy of the raw settings (secrets included).
-func (s *Source) Settings() Settings {
-	out := make(Settings, len(s.settings))
+func (s *Source) Settings() schema.Settings {
+	out := make(schema.Settings, len(s.settings))
 	maps.Copy(out, s.settings)
 
 	return out
@@ -258,13 +238,13 @@ func (s *Source) Reconfigure(d TypeDescriptor, cfg Config, now time.Time) error 
 
 // UpdateState stores the state fields an integration changed itself (a rotated token). Other
 // settings are left alone. It reports whether anything changed.
-func (s *Source) UpdateState(d TypeDescriptor, settings Settings, now time.Time) bool {
+func (s *Source) UpdateState(d TypeDescriptor, settings schema.Settings, now time.Time) bool {
 	next, prev := d.Fields.State(settings), d.Fields.State(s.settings)
 	if maps.Equal(next, prev) {
 		return false
 	}
 
-	merged := Settings{}
+	merged := schema.Settings{}
 
 	for k, v := range s.settings {
 		if _, isState := prev[k]; !isState {
@@ -280,8 +260,8 @@ func (s *Source) UpdateState(d TypeDescriptor, settings Settings, now time.Time)
 
 // ReplaceSettings stores settings an integration prepared from what the user typed (e.g. a
 // one-time code exchanged for a session). Validation already happened in New or Reconfigure.
-func (s *Source) ReplaceSettings(d TypeDescriptor, settings Settings, now time.Time) {
-	out := Settings{}
+func (s *Source) ReplaceSettings(d TypeDescriptor, settings schema.Settings, now time.Time) {
+	out := schema.Settings{}
 
 	for _, f := range d.Fields {
 		if v := settings[f.Key]; v != "" {

@@ -415,7 +415,7 @@ func configFromPB(in *pb.SourceInput) source.Config {
 		Name:         in.Name,
 		Enabled:      in.Enabled,
 		SyncInterval: time.Duration(in.SyncIntervalHours) * time.Hour,
-		Settings:     source.Settings(in.Settings),
+		Settings:     schema.Settings(in.Settings),
 	}
 }
 

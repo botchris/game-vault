@@ -32,7 +32,7 @@ import (
 const Type source.Type = "gog"
 
 // Platform is the store name used on copies, matching Humble's GOG keys.
-const Platform = "GOG"
+const Platform = game.PlatformGOG
 
 const (
 	settingAuthCode = "authorization_code"
@@ -123,7 +123,7 @@ func newClient(baseURL string) *apiclient.Client {
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
 // imports, and the cover provider reads it.
 var LinkedStore = game.Store{
-	Key:  "gog",
+	Key:  game.LinkGOG,
 	Name: "GOG",
 }
 
@@ -136,7 +136,7 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 		Type:           Type,
 		Name:           "GOG",
 		DescriptionKey: "sources.gog.description",
-		Fields: []source.Field{
+		Fields: []schema.Field{
 			{
 				Key:      settingAuthCode,
 				LabelKey: "sources.gog.authCode",
@@ -153,11 +153,11 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 						},
 					},
 				},
-				Kind: source.FieldSecret,
+				Kind: schema.FieldSecret,
 			},
 			{
 				Key:  settingSession,
-				Kind: source.FieldState,
+				Kind: schema.FieldState,
 			},
 		},
 	}
@@ -179,12 +179,12 @@ func cleanCode(v string) string {
 
 // Prepare implements sync.Preparer: a pasted code is exchanged for a session, which is stored
 // instead of the code (codes work only once).
-func (p *Provider) Prepare(ctx context.Context, settings source.Settings) (source.Settings, error) {
+func (p *Provider) Prepare(ctx context.Context, settings schema.Settings) (schema.Settings, error) {
 	return p.sessions.Prepare(ctx, settings)
 }
 
 // Test implements sync.Provider: one request for the list of owned product ids.
-func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
+func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
 	return p.sessions.WithRetry(ctx, settings, func(token string) error {
 		var owned struct {
 			Owned []int64 `json:"owned"`
@@ -202,7 +202,7 @@ type product struct {
 }
 
 // Fetch implements sync.Provider.
-func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.ImportedCopy, []string, error) {
+func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, []string, error) {
 	var products []product
 
 	err := p.sessions.WithRetry(ctx, settings, func(token string) error {
@@ -255,7 +255,7 @@ func mapProducts(products []product) []game.ImportedCopy {
 				Kind:     game.KindLibrary,
 				Platform: Platform,
 				Status:   game.StatusOwned,
-				Origin:   "GOG",
+				Origin:   Platform,
 			},
 		})
 	}

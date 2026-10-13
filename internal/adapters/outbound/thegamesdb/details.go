@@ -109,32 +109,53 @@ func (d *Details) lookupNames(ctx context.Context, apiKey, kind string, ids []in
 	return names
 }
 
+// find searches the game's name, then its raw title (game.SearchTerms) unless the name found a game
+// titled exactly like the copy, on the systems the query is about, and picks the game in the
+// results: an exact title wins over a game that only shares the MatchKey ("Rush" for "Gold Rush!",
+// searched as "Rush!"), whichever search found it.
+func (d *Details) find(ctx context.Context, key string, q media.CoverQuery) (tgdbGame, bool, error) {
+	filter := d.p.platformFilter(ctx, key, q.SearchSystems())
+
+	var (
+		best  tgdbGame
+		found bool
+	)
+
+	for _, term := range game.SearchTerms(q.Title) {
+		params := url.Values{"apikey": {key}, "name": {term}, "fields": {"overview,players,publishers,genres,rating,coop,youtube"}}
+		if filter != "" {
+			params.Set("filter[platform]", filter)
+		}
+
+		var out struct {
+			Data struct {
+				Games []tgdbGame `json:"games"`
+			} `json:"data"`
+		}
+		if err := d.p.get(ctx, "/v1.1/Games/ByGameName", params, &out); err != nil {
+			return tgdbGame{}, false, err
+		}
+
+		g, ok := pickGame(out.Data.Games, q.Title)
+		if ok && game.SameTitle(g.Title, q.Title) {
+			return g, true, nil // pickGame prefers exact titles
+		}
+
+		if ok && !found {
+			best, found = g, true
+		}
+	}
+
+	return best, found, nil
+}
+
 // Details implements media.MetadataProvider.
 func (d *Details) Details(ctx context.Context, q media.CoverQuery, _ string, s schema.Settings) (*media.GameDetails, error) {
 	key := s[settingAPIKey]
 
-	params := url.Values{"apikey": {key}, "name": {q.Title}, "fields": {"overview,players,publishers,genres,rating,coop,youtube"}}
-	if ids := d.p.platformIDs(ctx, key, searchSystems(q)); len(ids) > 0 {
-		parts := make([]string, len(ids))
-		for i, id := range ids {
-			parts[i] = strconv.FormatInt(id, 10)
-		}
-
-		params.Set("filter[platform]", strings.Join(parts, ","))
-	}
-
-	var out struct {
-		Data struct {
-			Games []tgdbGame `json:"games"`
-		} `json:"data"`
-	}
-	if err := d.p.get(ctx, "/v1.1/Games/ByGameName", params, &out); err != nil {
+	g, ok, err := d.find(ctx, key, q)
+	if err != nil || !ok {
 		return nil, err
-	}
-
-	g, ok := pickGame(out.Data.Games, q.Title)
-	if !ok {
-		return nil, nil
 	}
 
 	det := &media.GameDetails{

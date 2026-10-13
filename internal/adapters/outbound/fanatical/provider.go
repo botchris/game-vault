@@ -64,7 +64,7 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 		Name:           "Fanatical",
 		DescriptionKey: "sources.fanatical.description",
 		ManualScans:    true,
-		Fields: []source.Field{
+		Fields: []schema.Field{
 			{
 				Key:      settingConsent,
 				LabelKey: "sources.fanatical.consent",
@@ -156,7 +156,7 @@ func (it item) origin() string {
 }
 
 // keys reads the account's key list.
-func (p *Provider) keys(ctx context.Context, settings source.Settings) ([]item, error) {
+func (p *Provider) keys(ctx context.Context, settings schema.Settings) ([]item, error) {
 	tok := token(settings[settingSession])
 	if tok == "" {
 		return nil, ErrNoCredentials
@@ -184,9 +184,16 @@ var drmPlatforms = []struct {
 	flag     string
 	platform string
 }{
-	{"steam", "Steam"}, {"epicgames", "Epic Games"}, {"gog", "GOG"}, {"uplay", "Ubisoft Connect"},
-	{"origin", "EA App"}, {"rockstar", "Rockstar"}, {"xbox", "Microsoft Store / Xbox"},
-	{"playstation", "PlayStation Store"}, {"switch", "Nintendo eShop"}, {"drm_free", "PC"},
+	{"steam", game.PlatformSteam},
+	{"epicgames", game.PlatformEpic},
+	{"gog", game.PlatformGOG},
+	{"uplay", game.PlatformUbisoft},
+	{"origin", game.PlatformEA},
+	{"rockstar", game.PlatformRockstar},
+	{"xbox", game.PlatformMicrosoft},
+	{"playstation", game.PlatformPlayStation},
+	{"switch", game.PlatformNintendo},
+	{"drm_free", game.SystemPC},
 }
 
 func platformOf(drm map[string]bool) string {
@@ -265,13 +272,13 @@ func mapItems(items []item) ([]game.ImportedCopy, []string) {
 }
 
 // Test implements sync.Provider: it reads the key list once.
-func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
+func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
 	_, err := p.keys(ctx, settings)
 	return err
 }
 
 // Fetch implements sync.Provider.
-func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.ImportedCopy, []string, error) {
+func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, []string, error) {
 	items, err := p.keys(ctx, settings)
 	if err != nil {
 		return nil, nil, err

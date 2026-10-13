@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/domain/game"
-	"gamevault/internal/domain/source"
+	"gamevault/internal/domain/schema"
 )
 
 // The pages follow GET /profile/owned-keys as documented on https://itch.io/docs/api/serverside
@@ -91,7 +91,7 @@ func TestProvider_Fetch(t *testing.T) {
 		p := newTestProvider(t)
 
 		t.Run("WHEN it is scanned", func(t *testing.T) {
-			copies, warnings, err := p.Fetch(ctx, source.Settings{settingAPIKey: " good-key "})
+			copies, warnings, err := p.Fetch(ctx, schema.Settings{settingAPIKey: " good-key "})
 			require.NoError(t, err)
 
 			t.Run("THEN every game is one library copy, linked to itch.io", func(t *testing.T) {
@@ -161,22 +161,22 @@ func TestProvider_errors(t *testing.T) {
 		p := newTestProvider(t)
 
 		t.Run("WHEN the key works THEN the test passes", func(t *testing.T) {
-			assert.NoError(t, p.Test(ctx, source.Settings{settingAPIKey: "good-key"}))
+			assert.NoError(t, p.Test(ctx, schema.Settings{settingAPIKey: "good-key"}))
 		})
 
 		t.Run("WHEN no key is set THEN it asks for one without calling the API", func(t *testing.T) {
-			assert.ErrorIs(t, p.Test(ctx, source.Settings{settingAPIKey: "  "}), ErrNoCredentials)
+			assert.ErrorIs(t, p.Test(ctx, schema.Settings{settingAPIKey: "  "}), ErrNoCredentials)
 		})
 
 		t.Run("WHEN itch.io rejects the key THEN it says to create a new one", func(t *testing.T) {
-			assert.ErrorIs(t, p.Test(ctx, source.Settings{settingAPIKey: "revoked-key"}), ErrSignedOut)
+			assert.ErrorIs(t, p.Test(ctx, schema.Settings{settingAPIKey: "revoked-key"}), ErrSignedOut)
 
-			_, _, err := p.Fetch(ctx, source.Settings{settingAPIKey: "revoked-key"})
+			_, _, err := p.Fetch(ctx, schema.Settings{settingAPIKey: "revoked-key"})
 			assert.ErrorIs(t, err, ErrSignedOut)
 		})
 
 		t.Run("WHEN itch.io answers 200 with an errors list THEN the scan fails with its message", func(t *testing.T) {
-			_, _, err := p.Fetch(ctx, source.Settings{settingAPIKey: "scoped-key"})
+			_, _, err := p.Fetch(ctx, schema.Settings{settingAPIKey: "scoped-key"})
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), "invalid scope: profile:owned")
 		})

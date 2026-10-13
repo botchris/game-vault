@@ -18,6 +18,7 @@ import (
 
 	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/domain/provider"
+	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
 )
 
@@ -168,12 +169,12 @@ func TestPrepareTestAndFetch(t *testing.T) {
 
 	pasted := "https://embed.gog.com/on_login_success?origin=client&code=good-code"
 
-	settings, err := p.Prepare(ctx, source.Settings{settingAuthCode: pasted})
+	settings, err := p.Prepare(ctx, schema.Settings{settingAuthCode: pasted})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := p.Prepare(ctx, source.Settings{settingAuthCode: pasted}); err != nil {
+	if _, err := p.Prepare(ctx, schema.Settings{settingAuthCode: pasted}); err != nil {
 		t.Fatalf("second prepare of the same code: %v", err)
 	}
 
@@ -216,15 +217,15 @@ func TestErrors(t *testing.T) {
 	p, _ := newTestProvider(t)
 
 	ctx := context.Background()
-	if _, err := p.Prepare(ctx, source.Settings{}); !errors.Is(err, ErrNoCredentials) {
+	if _, err := p.Prepare(ctx, schema.Settings{}); !errors.Is(err, ErrNoCredentials) {
 		t.Errorf("no code: %v", err)
 	}
 
-	if _, err := p.Prepare(ctx, source.Settings{settingAuthCode: "wrong"}); !errors.Is(err, ErrBadCode) {
+	if _, err := p.Prepare(ctx, schema.Settings{settingAuthCode: "wrong"}); !errors.Is(err, ErrBadCode) {
 		t.Errorf("wrong code: %v", err)
 	}
 
-	if err := p.Test(ctx, source.Settings{settingSession: `{"refresh_token":"stale","user_id":"u9"}`}); !errors.Is(err, ErrSignedOut) {
+	if err := p.Test(ctx, schema.Settings{settingSession: `{"refresh_token":"stale","user_id":"u9"}`}); !errors.Is(err, ErrSignedOut) {
 		t.Errorf("stale session: %v", err)
 	}
 	// A token GOG no longer accepts makes it redirect to the login page: the token is rejected (the
@@ -241,7 +242,7 @@ func TestTokenEndpoint_passingTroubles(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	stored := source.Settings{settingSession: `{"refresh_token":"refresh-s3cret","user_id":"u1"}`}
+	stored := schema.Settings{settingSession: `{"refresh_token":"refresh-s3cret","user_id":"u1"}`}
 
 	for status, want := range map[int]error{
 		http.StatusTooManyRequests:    provider.ErrRateLimited,
@@ -257,7 +258,7 @@ func TestTokenEndpoint_passingTroubles(t *testing.T) {
 			}
 
 			t.Run("WHEN a code is pasted", func(t *testing.T) {
-				_, err := p.Prepare(ctx, source.Settings{settingAuthCode: "good-code"})
+				_, err := p.Prepare(ctx, schema.Settings{settingAuthCode: "good-code"})
 
 				t.Run("THEN it is a passing trouble, not a rejected code", func(t *testing.T) {
 					require.ErrorIs(t, err, want)
@@ -289,10 +290,10 @@ func TestTest_renewsARejectedAccessToken(t *testing.T) {
 	defer cancel()
 
 	// signedIn returns the settings of a code just pasted: its access token is cached.
-	signedIn := func(t *testing.T, p *Provider) source.Settings {
+	signedIn := func(t *testing.T, p *Provider) schema.Settings {
 		t.Helper()
 
-		settings, err := p.Prepare(ctx, source.Settings{settingAuthCode: "good-code"})
+		settings, err := p.Prepare(ctx, schema.Settings{settingAuthCode: "good-code"})
 		require.NoError(t, err)
 
 		return settings

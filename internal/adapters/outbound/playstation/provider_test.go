@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/domain/provider"
+	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
 )
 
@@ -204,7 +205,7 @@ func pointAt(p *Provider, base string) {
 
 func TestFetch(t *testing.T) {
 	p, f := newTest(t)
-	settings := source.Settings{settingNPSSO: `{"npsso":"good-npsso"}`}
+	settings := schema.Settings{settingNPSSO: `{"npsso":"good-npsso"}`}
 
 	copies, warnings, err := p.Fetch(context.Background(), settings)
 	if err != nil || len(warnings) > 0 {
@@ -245,11 +246,11 @@ func TestFetch(t *testing.T) {
 
 func TestSignedOut(t *testing.T) {
 	p, _ := newTest(t)
-	if _, _, err := p.Fetch(context.Background(), source.Settings{settingNPSSO: "expired"}); !errors.Is(err, ErrSignedOut) {
+	if _, _, err := p.Fetch(context.Background(), schema.Settings{settingNPSSO: "expired"}); !errors.Is(err, ErrSignedOut) {
 		t.Fatalf("got %v", err)
 	}
 
-	if _, _, err := p.Fetch(context.Background(), source.Settings{}); !errors.Is(err, ErrNoCredentials) {
+	if _, _, err := p.Fetch(context.Background(), schema.Settings{}); !errors.Is(err, ErrNoCredentials) {
 		t.Fatalf("got %v", err)
 	}
 }
@@ -268,7 +269,7 @@ func TestSignIn_passingTroubles(t *testing.T) {
 			p, f := newTest(t)
 			f.authStatus = status
 
-			for name, settings := range map[string]source.Settings{
+			for name, settings := range map[string]schema.Settings{
 				"an NPSSO":         {settingNPSSO: "good-npsso"},
 				"a stored session": {settingSession: `{"refresh_token":"refresh-ok"}`},
 			} {
@@ -293,9 +294,9 @@ func TestFetch_renewsARejectedAccessToken(t *testing.T) {
 
 	// withCachedToken returns a provider holding a cached access token (from a first scan), and the
 	// settings it scanned with. That token is "access-1".
-	withCachedToken := func(t *testing.T) (*Provider, *fakeSony, source.Settings) {
+	withCachedToken := func(t *testing.T) (*Provider, *fakeSony, schema.Settings) {
 		p, f := newTest(t)
-		settings := source.Settings{settingSession: `{"refresh_token":"refresh-ok"}`}
+		settings := schema.Settings{settingSession: `{"refresh_token":"refresh-ok"}`}
 
 		require.NoError(t, p.Test(ctx, settings))
 		require.Equal(t, 1, f.refreshes)
@@ -350,7 +351,7 @@ func TestFetch_renewsARejectedAccessToken(t *testing.T) {
 
 	t.Run("GIVEN a stored session Sony no longer renews and a valid NPSSO", func(t *testing.T) {
 		p, f := newTest(t)
-		settings := source.Settings{
+		settings := schema.Settings{
 			settingNPSSO:   "good-npsso",
 			settingSession: `{"refresh_token":"refresh-revoked"}`,
 		}
@@ -376,7 +377,7 @@ func TestFetch_signsInAgainSoonAfterASignIn(t *testing.T) {
 
 	t.Run("GIVEN a source that just signed in with its NPSSO", func(t *testing.T) {
 		p, f := newTest(t)
-		settings := source.Settings{settingNPSSO: "good-npsso"}
+		settings := schema.Settings{settingNPSSO: "good-npsso"}
 
 		require.NoError(t, p.Test(ctx, settings))
 		require.Equal(t, 1, f.authorizes)
@@ -411,7 +412,7 @@ func TestFetch_libraryPassingTroubles(t *testing.T) {
 			f.libraryStatus = status
 
 			t.Run("WHEN the library is scanned", func(t *testing.T) {
-				_, _, err := p.Fetch(ctx, source.Settings{settingSession: `{"refresh_token":"refresh-ok"}`})
+				_, _, err := p.Fetch(ctx, schema.Settings{settingSession: `{"refresh_token":"refresh-ok"}`})
 
 				t.Run("THEN it is a passing trouble, not a signed-out session", func(t *testing.T) {
 					require.ErrorIs(t, err, want)
@@ -427,7 +428,7 @@ func TestFetch_libraryPassingTroubles(t *testing.T) {
 		p.Library.BaseURL = "http://127.0.0.1:1/graphql"
 
 		t.Run("WHEN the library is scanned", func(t *testing.T) {
-			_, _, err := p.Fetch(ctx, source.Settings{settingSession: `{"refresh_token":"refresh-ok"}`})
+			_, _, err := p.Fetch(ctx, schema.Settings{settingSession: `{"refresh_token":"refresh-ok"}`})
 
 			t.Run("THEN it is an outage", func(t *testing.T) {
 				require.ErrorIs(t, err, provider.ErrUnavailable)

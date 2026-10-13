@@ -35,7 +35,7 @@ import (
 const Type source.Type = "ubisoft"
 
 // Platform is the store name used on copies, matching Humble's Uplay keys.
-const Platform = "Ubisoft Connect"
+const Platform = game.PlatformUbisoft
 
 const (
 	settingLoginData = "login_data"
@@ -180,7 +180,7 @@ func NewProvider() *Provider {
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
 // imports, and the cover provider reads it.
 var LinkedStore = game.Store{
-	Key:  "ubisoft",
+	Key:  game.LinkUbisoft,
 	Name: "Ubisoft Connect",
 }
 
@@ -193,7 +193,7 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 		Type:           Type,
 		Name:           "Ubisoft Connect",
 		DescriptionKey: "sources.ubisoft.description",
-		Fields: []source.Field{
+		Fields: []schema.Field{
 			{
 				Key:      settingLoginData,
 				LabelKey: "sources.ubisoft.loginData",
@@ -211,12 +211,12 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 						},
 					},
 				},
-				Kind:     source.FieldSecret,
+				Kind:     schema.FieldSecret,
 				Required: true,
 			},
 			{
 				Key:  settingSession,
-				Kind: source.FieldState,
+				Kind: schema.FieldState,
 			},
 		},
 	}
@@ -233,7 +233,7 @@ type session struct {
 // pasted (still valid for a few hours after copying them), and only then the remember-me ticket is
 // renewed. The new remember-me ticket is kept in memory and written back into settings for the
 // caller to persist. fresh skips the reuse (the previous session was rejected).
-func (p *Provider) session(ctx context.Context, settings source.Settings, fresh bool) (session, error) {
+func (p *Provider) session(ctx context.Context, settings schema.Settings, fresh bool) (session, error) {
 	pasted := settings[settingLoginData]
 	key := hash(pasted)
 	d := parseLoginData(pasted)
@@ -431,7 +431,7 @@ func (p *Provider) all(ctx context.Context, s session, q string) ([]node, error)
 	return nodes, nil
 }
 
-func (p *Provider) owned(ctx context.Context, settings source.Settings) ([]node, error) {
+func (p *Provider) owned(ctx context.Context, settings schema.Settings) ([]node, error) {
 	read := func(fresh bool) ([]node, error) {
 		s, err := p.session(ctx, settings, fresh)
 		if err != nil {
@@ -464,7 +464,7 @@ func (p *Provider) owned(ctx context.Context, settings source.Settings) ([]node,
 func (p *Provider) KeepAliveInterval() time.Duration { return 2 * time.Hour }
 
 // KeepAlive implements sync.KeepAliver: opens a new session, rotating and saving the ticket.
-func (p *Provider) KeepAlive(ctx context.Context, settings source.Settings) error {
+func (p *Provider) KeepAlive(ctx context.Context, settings schema.Settings) error {
 	_, err := p.session(ctx, settings, true)
 	return err
 }
@@ -513,7 +513,7 @@ func mapNodes(nodes []node) []game.ImportedCopy {
 				Kind:     game.KindLibrary,
 				Platform: Platform,
 				Status:   game.StatusOwned,
-				Origin:   "Ubisoft Connect",
+				Origin:   Platform,
 			},
 		})
 	}
@@ -524,13 +524,13 @@ func mapNodes(nodes []node) []game.ImportedCopy {
 }
 
 // Test implements sync.Provider.
-func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
+func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
 	_, _, err := p.Fetch(ctx, settings)
 	return err
 }
 
 // Fetch implements sync.Provider.
-func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.ImportedCopy, []string, error) {
+func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, []string, error) {
 	nodes, err := p.owned(ctx, settings)
 	if err != nil {
 		return nil, nil, err

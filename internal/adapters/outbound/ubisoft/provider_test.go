@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/domain/provider"
-	"gamevault/internal/domain/source"
+	"gamevault/internal/domain/schema"
 )
 
 const pasted = `{"ticket":"old-ticket","sessionId":"old-session","rememberMeTicket":"rm-1","userId":"u1","nameOnPlatform":"player"}`
@@ -105,7 +105,7 @@ func newTest(t *testing.T, full bool) *Provider {
 	return p
 }
 
-func titles(t *testing.T, p *Provider, settings source.Settings) string {
+func titles(t *testing.T, p *Provider, settings schema.Settings) string {
 	t.Helper()
 
 	copies, warnings, err := p.Fetch(context.Background(), settings)
@@ -123,7 +123,7 @@ func titles(t *testing.T, p *Provider, settings source.Settings) string {
 
 func TestFetchRotatesTheTicket(t *testing.T) {
 	p := newTest(t, true)
-	settings := source.Settings{settingLoginData: pasted}
+	settings := schema.Settings{settingLoginData: pasted}
 
 	want := "Anno 1800|ubisoft:s52|Ubisoft Connect,Assassin's Creed Valhalla|ubisoft:s1|Ubisoft Connect,Rayman Legends|ubisoft:s3|Ubisoft Connect,Trackmania|ubisoft:s51|Ubisoft Connect"
 	if got := titles(t, p, settings); got != want {
@@ -142,18 +142,18 @@ func TestFetchRotatesTheTicket(t *testing.T) {
 func TestFallsBackToTheMinimalQuery(t *testing.T) {
 	p := newTest(t, false)
 	// Without platform groups every game is kept.
-	if got := titles(t, p, source.Settings{settingLoginData: pasted}); !strings.Contains(got, "Far Cry 5") {
+	if got := titles(t, p, schema.Settings{settingLoginData: pasted}); !strings.Contains(got, "Far Cry 5") {
 		t.Fatalf("copies: %s", got)
 	}
 }
 
 func TestErrors(t *testing.T) {
 	p := newTest(t, true)
-	if _, _, err := p.Fetch(context.Background(), source.Settings{settingLoginData: `{"rememberMeTicket":"revoked"}`}); !errors.Is(err, ErrSignedOut) {
+	if _, _, err := p.Fetch(context.Background(), schema.Settings{settingLoginData: `{"rememberMeTicket":"revoked"}`}); !errors.Is(err, ErrSignedOut) {
 		t.Fatalf("revoked: %v", err)
 	}
 
-	if _, _, err := p.Fetch(context.Background(), source.Settings{settingLoginData: "hello"}); !errors.Is(err, ErrNoCredentials) {
+	if _, _, err := p.Fetch(context.Background(), schema.Settings{settingLoginData: "hello"}); !errors.Is(err, ErrNoCredentials) {
 		t.Fatalf("garbage: %v", err)
 	}
 }
@@ -172,7 +172,7 @@ func TestFetch_passingTroubles(t *testing.T) {
 		p.API.BaseURL = srv.URL
 
 		t.Run("WHEN a scan opens a session", func(t *testing.T) {
-			_, _, err := p.Fetch(ctx, source.Settings{settingLoginData: `{"rememberMeTicket":"rm-1"}`})
+			_, _, err := p.Fetch(ctx, schema.Settings{settingLoginData: `{"rememberMeTicket":"rm-1"}`})
 
 			t.Run("THEN it is a rate limit, not a signed-out session", func(t *testing.T) {
 				require.ErrorIs(t, err, provider.ErrRateLimited)
@@ -200,7 +200,7 @@ func TestFetch_passingTroubles(t *testing.T) {
 		p.API.BaseURL = srv.URL
 
 		t.Run("WHEN a scan reads the library", func(t *testing.T) {
-			_, _, err := p.Fetch(ctx, source.Settings{settingLoginData: `{"rememberMeTicket":"rm-1"}`})
+			_, _, err := p.Fetch(ctx, schema.Settings{settingLoginData: `{"rememberMeTicket":"rm-1"}`})
 
 			t.Run("THEN it is an outage, not a signed-out session", func(t *testing.T) {
 				require.ErrorIs(t, err, provider.ErrUnavailable)
@@ -235,12 +235,12 @@ func TestRotationSurvivesAnUnsavedTest(t *testing.T) {
 	p := newTest(t, true)
 
 	onlyRM := `{"rememberMeTicket":"rm-1"}`
-	if _, _, err := p.Fetch(context.Background(), source.Settings{settingLoginData: onlyRM}); err != nil {
+	if _, _, err := p.Fetch(context.Background(), schema.Settings{settingLoginData: onlyRM}); err != nil {
 		t.Fatal(err) // "Test connection": settings are thrown away afterwards
 	}
 
 	p.sessions = nil // the open session expired
-	if _, _, err := p.Fetch(context.Background(), source.Settings{settingLoginData: onlyRM}); err != nil {
+	if _, _, err := p.Fetch(context.Background(), schema.Settings{settingLoginData: onlyRM}); err != nil {
 		t.Fatalf("after an unsaved test the rotated ticket should be used: %v", err)
 	}
 }
@@ -250,7 +250,7 @@ func TestPastedSessionIsUsedFirst(t *testing.T) {
 	p := newTest(t, true)
 	fresh := `{"ticket":"tk","sessionId":"sid","rememberMeTicket":"rm-1"}`
 
-	settings := source.Settings{settingLoginData: fresh}
+	settings := schema.Settings{settingLoginData: fresh}
 	if _, _, err := p.Fetch(context.Background(), settings); err != nil {
 		t.Fatal(err)
 	}
@@ -268,11 +268,11 @@ func TestTicketSurvivesTestSaveScanRestart(t *testing.T) {
 	pasted := `{"rememberMeTicket":"rm-1"}`
 	ctx := context.Background()
 
-	if _, _, err := p.Fetch(ctx, source.Settings{settingLoginData: pasted}); err != nil { // Test: rotates rm-1 → rm-2
+	if _, _, err := p.Fetch(ctx, schema.Settings{settingLoginData: pasted}); err != nil { // Test: rotates rm-1 → rm-2
 		t.Fatal(err)
 	}
 
-	saved := source.Settings{settingLoginData: pasted} // Save stores what was pasted
+	saved := schema.Settings{settingLoginData: pasted} // Save stores what was pasted
 	if _, _, err := p.Fetch(ctx, saved); err != nil {  // Scan: reuses the open session
 		t.Fatal(err)
 	}

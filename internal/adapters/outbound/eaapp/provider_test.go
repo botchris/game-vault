@@ -16,7 +16,7 @@ import (
 
 	"gamevault/internal/adapters/outbound/browsersession"
 	"gamevault/internal/domain/provider"
-	"gamevault/internal/domain/source"
+	"gamevault/internal/domain/schema"
 )
 
 func fakeEA(t *testing.T) *httptest.Server {
@@ -93,7 +93,7 @@ func newTest(t *testing.T) *Provider {
 
 func TestFetch(t *testing.T) {
 	p := newTest(t)
-	settings := source.Settings{settingCookies: "Cookie: sid=good; remid=r"}
+	settings := schema.Settings{settingCookies: "Cookie: sid=good; remid=r"}
 
 	copies, warnings, err := p.Fetch(context.Background(), settings)
 	if err != nil || len(warnings) > 0 {
@@ -117,11 +117,11 @@ func TestFetch(t *testing.T) {
 
 func TestSignedOut(t *testing.T) {
 	p := newTest(t)
-	if _, _, err := p.Fetch(context.Background(), source.Settings{settingCookies: "sid=expired"}); !errors.Is(err, ErrSignedOut) {
+	if _, _, err := p.Fetch(context.Background(), schema.Settings{settingCookies: "sid=expired"}); !errors.Is(err, ErrSignedOut) {
 		t.Fatalf("got %v", err)
 	}
 
-	if _, _, err := p.Fetch(context.Background(), source.Settings{settingCookies: ""}); !errors.Is(err, ErrNoCredentials) {
+	if _, _, err := p.Fetch(context.Background(), schema.Settings{settingCookies: ""}); !errors.Is(err, ErrNoCredentials) {
 		t.Fatalf("no cookies: %v", err)
 	}
 }
@@ -153,7 +153,7 @@ func TestOwnedItems_passingTroubles(t *testing.T) {
 		p.Accounts.BaseURL = srv.URL
 
 		t.Run("WHEN a scan signs in", func(t *testing.T) {
-			_, _, err := p.Fetch(ctx, source.Settings{settingCookies: "sid=good"})
+			_, _, err := p.Fetch(ctx, schema.Settings{settingCookies: "sid=good"})
 
 			t.Run("THEN it is an outage, not a signed-out session", func(t *testing.T) {
 				require.ErrorIs(t, err, provider.ErrUnavailable)
@@ -161,4 +161,17 @@ func TestOwnedItems_passingTroubles(t *testing.T) {
 			})
 		})
 	})
+}
+
+// TestMapItems_idWithoutProductID pins the ExternalID of a game the EA app lists without a product or
+// offer id: it is built from the title and must never change (game.TitleIDKey, not MatchKey).
+func TestMapItems_idWithoutProductID(t *testing.T) {
+	var it item
+
+	it.Product.Name = "Example Racer™ Deluxe Edition"
+	it.Product.BaseItem.Title = "Example Racer™"
+
+	got := mapItems([]item{it})
+	require.Len(t, got, 1)
+	assert.Equal(t, "ea:example racer", got[0].ExternalID)
 }

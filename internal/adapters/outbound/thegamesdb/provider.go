@@ -15,7 +15,6 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -42,26 +41,26 @@ const (
 // platformNames maps Game Vault platform names to TheGamesDB platform names. Names are compared
 // normalised, against both TheGamesDB's name and its alias.
 var platformNames = map[string][]string{
-	"PC":          {"PC"},
-	"PS5":         {"Sony Playstation 5"},
-	"PS4":         {"Sony Playstation 4"},
-	"PS3":         {"Sony Playstation 3"},
-	"PS2":         {"Sony Playstation 2"},
-	"PS1":         {"Sony Playstation"},
-	"PSP":         {"Sony Playstation Portable", "Sony PSP"},
-	"PS Vita":     {"Sony Playstation Vita"},
-	"Xbox Series": {"Microsoft Xbox Series X", "Microsoft Xbox Series X|S"},
-	"Xbox One":    {"Microsoft Xbox One"},
-	"Xbox 360":    {"Microsoft Xbox 360"},
-	"Xbox":        {"Microsoft Xbox"},
-	"Switch":      {"Nintendo Switch"},
-	"Wii U":       {"Nintendo Wii U"},
-	"Wii":         {"Nintendo Wii"},
-	"GameCube":    {"Nintendo GameCube"},
-	"N64":         {"Nintendo 64"},
-	"3DS":         {"Nintendo 3DS"},
-	"DS":          {"Nintendo DS"},
-	"Game Boy":    {"Nintendo Game Boy"},
+	game.SystemPC:         {"PC"},
+	game.SystemPS5:        {"Sony Playstation 5"},
+	game.SystemPS4:        {"Sony Playstation 4"},
+	game.SystemPS3:        {"Sony Playstation 3"},
+	game.SystemPS2:        {"Sony Playstation 2"},
+	game.SystemPS1:        {"Sony Playstation"},
+	game.SystemPSP:        {"Sony Playstation Portable", "Sony PSP"},
+	game.SystemPSVita:     {"Sony Playstation Vita"},
+	game.SystemXboxSeries: {"Microsoft Xbox Series X", "Microsoft Xbox Series X|S"},
+	game.SystemXboxOne:    {"Microsoft Xbox One"},
+	game.SystemXbox360:    {"Microsoft Xbox 360"},
+	game.SystemXbox:       {"Microsoft Xbox"},
+	game.SystemSwitch:     {"Nintendo Switch"},
+	game.SystemWiiU:       {"Nintendo Wii U"},
+	game.SystemWii:        {"Nintendo Wii"},
+	game.SystemGameCube:   {"Nintendo GameCube"},
+	game.SystemN64:        {"Nintendo 64"},
+	game.System3DS:        {"Nintendo 3DS"},
+	game.SystemDS:         {"Nintendo DS"},
+	game.SystemGameBoy:    {"Nintendo Game Boy"},
 }
 
 var reNonAlnum = regexp.MustCompile(`[^a-z0-9]+`)
@@ -294,30 +293,6 @@ func (p *Provider) platformIDs(ctx context.Context, apiKey string, names []strin
 	return ids
 }
 
-// searchSystems returns the systems a search for q is filtered to: the edition's system, or without
-// one the systems of the game's physical copies, or else of all its copies. Platforms are named by
-// their system ("PlayStation Store" → "PS4", "Steam" → "PC"), the names platformNames knows, so
-// covers and sheets map a copy to the same TheGamesDB platform.
-func searchSystems(q media.CoverQuery) []string {
-	if q.System != "" {
-		return []string{q.System} // an edition's box art: its system names TheGamesDB's platform
-	}
-
-	platforms := q.PhysicalPlatforms
-	if len(platforms) == 0 {
-		platforms = q.Platforms
-	}
-
-	systems := make([]string, 0, len(platforms))
-	for _, pl := range platforms {
-		if s := game.SystemOf(pl); s != game.SystemOther && !slices.Contains(systems, s) {
-			systems = append(systems, s)
-		}
-	}
-
-	return systems
-}
-
 type searchResponse struct {
 	Data struct {
 		Games []struct {
@@ -346,25 +321,56 @@ type searchResponse struct {
 // Covers searches the game by title on the edition's system (or, without one, the platforms of its
 // physical copies or all its platforms) and returns the front box art of the game itself: exact
 // title matches first, then its other releases (same game.MatchKey). The picker (q.Browse) also
-// gets the other games the search found, last.
+// gets the other games the search found, last. The game's name is searched first, then the raw
+// title (game.SearchTerms) unless the name found a game titled exactly like the copy: stripping
+// tags can go too far ("Gold Rush!" searched as "Rush!" finds "Rush", which only shares the
+// MatchKey), so an exact title from the raw search wins over the name's looser match. A second
+// request only for a title with tags, when its name gave no exact match.
 func (p *Provider) Covers(ctx context.Context, q media.CoverQuery, s schema.Settings) ([]media.CoverCandidate, error) {
 	key := s[settingAPIKey]
+	filter := p.platformFilter(ctx, key, q.SearchSystems())
 
-	params := url.Values{"apikey": {key}, "name": {q.Title}, "include": {"boxart,platform"}}
-	if ids := p.platformIDs(ctx, key, searchSystems(q)); len(ids) > 0 {
-		parts := make([]string, len(ids))
-		for i, id := range ids {
-			parts[i] = strconv.FormatInt(id, 10)
+	var best []media.CoverCandidate
+
+	for _, term := range game.SearchTerms(q.Title) {
+		params := url.Values{"apikey": {key}, "name": {term}, "include": {"boxart,platform"}}
+		if filter != "" {
+			params.Set("filter[platform]", filter)
 		}
 
-		params.Set("filter[platform]", strings.Join(parts, ","))
+		var out searchResponse
+		if err := p.get(ctx, "/v1.1/Games/ByGameName", params, &out); err != nil {
+			return nil, err
+		}
+
+		found := coversOf(out, q)
+		if len(found) > 0 && game.SameTitle(found[0].Title, q.Title) {
+			return found, nil // exact matches come first
+		}
+
+		if best == nil {
+			best = found
+		}
 	}
 
-	var out searchResponse
-	if err := p.get(ctx, "/v1.1/Games/ByGameName", params, &out); err != nil {
-		return nil, err
+	return best, nil
+}
+
+// platformFilter returns the filter[platform] value of a search on systems: TheGamesDB's ids of
+// them, comma separated, or empty to search every platform.
+func (p *Provider) platformFilter(ctx context.Context, key string, systems []string) string {
+	ids := p.platformIDs(ctx, key, systems)
+	parts := make([]string, len(ids))
+
+	for i, id := range ids {
+		parts[i] = strconv.FormatInt(id, 10)
 	}
 
+	return strings.Join(parts, ",")
+}
+
+// coversOf returns the front box art of the games in a search for q, best matches first.
+func coversOf(out searchResponse, q media.CoverQuery) []media.CoverCandidate {
 	base := out.Include.Boxart.BaseURL
 
 	large, thumb := base["large"], base["thumb"]
@@ -421,5 +427,5 @@ func (p *Provider) Covers(ctx context.Context, q media.CoverQuery, s schema.Sett
 		all = append(all, others...)
 	}
 
-	return all[:min(len(all), maxCandidates)], nil
+	return all[:min(len(all), maxCandidates)]
 }

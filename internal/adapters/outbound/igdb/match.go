@@ -25,55 +25,33 @@ var externalSources = []struct {
 	source int
 }{
 	{game.LinkSteam, steamSource},
-	{"gog", 5},
-	{"epic", 26},
+	{game.LinkGOG, 5},
+	{game.LinkEpic, 26},
 }
 
 // platformIDs maps Game Vault systems to IGDB platform ids. PC covers Windows, Mac and Linux: a PC
 // store's game may be listed under any of them.
 var platformIDs = map[string][]int{
-	game.SystemPC: {6, 14, 3},
-	"PS5":         {167},
-	"PS4":         {48},
-	"PS3":         {9},
-	"PS2":         {8},
-	"PS1":         {7},
-	"PSP":         {38},
-	"PS Vita":     {46},
-	"Xbox Series": {169},
-	"Xbox One":    {49},
-	"Xbox 360":    {12},
-	"Xbox":        {11},
-	"Switch":      {130},
-	"Wii U":       {41},
-	"Wii":         {5},
-	"GameCube":    {21},
-	"N64":         {4},
-	"3DS":         {37},
-	"DS":          {20},
-	"Game Boy":    {33},
-}
-
-// searchSystems returns the systems a title search for q is filtered to: the edition's system, or
-// without one the systems of the game's physical copies, or else of all its copies.
-func searchSystems(q media.CoverQuery) []string {
-	if q.System != "" {
-		return []string{q.System}
-	}
-
-	platforms := q.PhysicalPlatforms
-	if len(platforms) == 0 {
-		platforms = q.Platforms
-	}
-
-	systems := make([]string, 0, len(platforms))
-	for _, pl := range platforms {
-		if s := game.SystemOf(pl); s != game.SystemOther && !slices.Contains(systems, s) {
-			systems = append(systems, s)
-		}
-	}
-
-	return systems
+	game.SystemPC:         {6, 14, 3},
+	game.SystemPS5:        {167},
+	game.SystemPS4:        {48},
+	game.SystemPS3:        {9},
+	game.SystemPS2:        {8},
+	game.SystemPS1:        {7},
+	game.SystemPSP:        {38},
+	game.SystemPSVita:     {46},
+	game.SystemXboxSeries: {169},
+	game.SystemXboxOne:    {49},
+	game.SystemXbox360:    {12},
+	game.SystemXbox:       {11},
+	game.SystemSwitch:     {130},
+	game.SystemWiiU:       {41},
+	game.SystemWii:        {5},
+	game.SystemGameCube:   {21},
+	game.SystemN64:        {4},
+	game.System3DS:        {37},
+	game.SystemDS:         {20},
+	game.SystemGameBoy:    {33},
 }
 
 // gameJSON is a game as an expanded games query returns it; fields not asked for stay empty.
@@ -217,16 +195,15 @@ var reUnsafe = regexp.MustCompile(`["\\]+`)
 func (c *Client) findByTitle(ctx context.Context, s schema.Settings, q media.CoverQuery, fields []string) (*gameJSON, error) {
 	clean := func(t string) string { return strings.Join(strings.Fields(reUnsafe.ReplaceAllString(t, " ")), " ") }
 
-	terms := []string{clean(game.SearchTitle(q.Title))}
-	if raw := clean(game.NormalizeTitle(q.Title)); raw != terms[0] { // a ™ alone is no other title
-		terms = append(terms, raw)
+	var terms []string
+
+	for _, t := range game.SearchTerms(q.Title) {
+		if t = clean(t); t != "" && !slices.Contains(terms, t) { // IGDB's unsafe characters gone, two may be one
+			terms = append(terms, t)
+		}
 	}
 
 	for _, term := range terms {
-		if term == "" {
-			continue
-		}
-
 		g, err := c.searchTitle(ctx, s, q, term, fields)
 		if err != nil || g != nil {
 			return g, err
@@ -243,7 +220,7 @@ func (c *Client) searchTitle(ctx context.Context, s schema.Settings, q media.Cov
 
 	var ids []string
 
-	for _, system := range searchSystems(q) {
+	for _, system := range q.SearchSystems() {
 		for _, id := range platformIDs[system] {
 			ids = append(ids, strconv.Itoa(id))
 		}

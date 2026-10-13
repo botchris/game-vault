@@ -140,7 +140,7 @@ func TestDocuments_sourceAndProvider(t *testing.T) {
 			At:         docTime,
 		}}
 		s := source.Rehydrate("src1", "humble", "Humble Bundle", false, 24*time.Hour,
-			source.Settings{"session": "secret"}, report, exclusions, docTime, docTime)
+			schema.Settings{"session": "secret"}, report, exclusions, docTime, docTime)
 
 		t.Run("WHEN it is encoded and decoded", func(t *testing.T) {
 			raw, err := encodeSource(s)

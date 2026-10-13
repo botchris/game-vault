@@ -1,55 +1,27 @@
 package game
 
 import (
-	"slices"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 )
 
-// Systems a copy can be played on that are not console names (consoles are their own system).
-const (
-	// SystemPC is the system of every PC store and launcher.
-	SystemPC = "PC"
-
-	// SystemOther is the system of a copy without a platform.
-	SystemOther = "Other"
-)
-
 // maxSystemLen is the longest system name, in characters.
 const maxSystemLen = 40
-
-// pcPlatforms are the stores and launchers whose games are played on a PC.
-var pcPlatforms = []string{
-	"Steam", "Epic Games", "GOG", "EA App", "Ubisoft Connect", "Battle.net", "itch.io", "Amazon Games",
-	"Rockstar", "Riot", "Battlestate (Tarkov)", SystemPC,
-}
-
-// storeSystems maps the stores that sell games for several systems to the most likely one.
-var storeSystems = map[string]string{
-	"PlayStation Store":      "PS4",
-	"Nintendo eShop":         "Switch",
-	"Microsoft Store / Xbox": SystemPC,
-}
 
 // SystemOf returns the system a copy on this platform is played on: PC for PC stores and
 // launchers, the console itself for a console, the most likely console for a console's store, the
 // platform itself (trimmed) when Game Vault does not know it, and Other when there is none.
 func SystemOf(platform string) string {
-	p := CanonicalPlatform(platform) // also fixes the casing of console names
-	if p == "" {
-		return SystemOther
+	if k, ok := platformNamed(platform); ok {
+		return k.system // also fixes the casing of console names
 	}
 
-	if slices.Contains(pcPlatforms, p) {
-		return SystemPC
+	if p := strings.TrimSpace(platform); p != "" {
+		return p
 	}
 
-	if s, ok := storeSystems[p]; ok {
-		return s
-	}
-
-	return p
+	return SystemOther
 }
 
 // normalizeSystem checks a system named by the user or a source and returns it the way SystemOf

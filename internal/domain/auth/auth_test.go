@@ -80,3 +80,16 @@ func TestTrusts(t *testing.T) {
 		}
 	}
 }
+
+func TestDefaultTrustedNetworks_areReadOnly(t *testing.T) {
+	got := DefaultTrustedNetworks()
+	got[0] = "0.0.0.0/0"
+
+	if want := []string{"127.0.0.0/8", "::1/128"}; !slices.Equal(DefaultTrustedNetworks(), want) {
+		t.Fatalf("DefaultTrustedNetworks() = %v after a caller changed its copy, want %v", DefaultTrustedNetworks(), want)
+	}
+
+	if s := DefaultSettings(); !slices.Equal(s.TrustedNetworks, []string{"127.0.0.0/8", "::1/128"}) {
+		t.Fatalf("DefaultSettings().TrustedNetworks = %v, want this computer only", s.TrustedNetworks)
+	}
+}

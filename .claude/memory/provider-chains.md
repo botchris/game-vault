@@ -89,3 +89,7 @@ metadata:
   resolution unchanged. Exact title matches (Steam incl. FindLinks, IGDB, Wikipedia, SteamGridDB,
   TheGamesDB) use `game.SameTitle`: word lists compared, case/accents/punctuation ignored, "&" = "and"
   ("A - B" = "A: B", "Re-Volt" ≠ "Revolt", "F.E.A.R." ≠ "Fear"; empty never equal).
+- 2026-10-13 (audit PRV-7): one helper each for the title terms (`game.SearchTerms`) and the systems
+  (`CoverQuery.SearchSystems()`) of every title search; TheGamesDB, which searched the raw title only,
+  now searches the game's name first too (second request only on no match). `coverLogicChanged`
+  bumped to 2026-10-13 10:50 UTC for it.

@@ -3,6 +3,8 @@ package media
 import (
 	"regexp"
 	"strings"
+
+	"gamevault/internal/domain/game"
 )
 
 // platformTokens recognizes platforms inside retail product names, longest patterns first.
@@ -10,23 +12,23 @@ var platformTokens = []struct {
 	re       *regexp.Regexp
 	platform string
 }{
-	{regexp.MustCompile(`(?i)\b(xbox\s*360|x360|xb360)\b`), "Xbox 360"},
-	{regexp.MustCompile(`(?i)\b(xbox\s*series\s*[xs](\s*\|\s*[xs])?)\b`), "Xbox Series"},
-	{regexp.MustCompile(`(?i)\b(xbox\s*one|xb1|xbone)\b`), "Xbox One"},
-	{regexp.MustCompile(`(?i)\b(playstation\s*5|ps5)\b`), "PS5"},
-	{regexp.MustCompile(`(?i)\b(playstation\s*4|ps4)\b`), "PS4"},
-	{regexp.MustCompile(`(?i)\b(playstation\s*3|ps3)\b`), "PS3"},
-	{regexp.MustCompile(`(?i)\b(playstation\s*2|ps2)\b`), "PS2"},
-	{regexp.MustCompile(`(?i)\b(ps\s*vita|psvita)\b`), "PS Vita"},
-	{regexp.MustCompile(`(?i)\bpsp\b`), "PSP"},
-	{regexp.MustCompile(`(?i)\bwii\s*u\b`), "Wii U"},
-	{regexp.MustCompile(`(?i)\bwii\b`), "Wii"},
-	{regexp.MustCompile(`(?i)\b(nintendo\s*)?switch\b`), "Switch"},
-	{regexp.MustCompile(`(?i)\b(nintendo\s*)?3ds\b`), "3DS"},
-	{regexp.MustCompile(`(?i)\b(nintendo\s*)?ds\b`), "DS"},
-	{regexp.MustCompile(`(?i)\bgamecube\b`), "GameCube"},
-	{regexp.MustCompile(`(?i)\bxbox\b`), "Xbox"},
-	{regexp.MustCompile(`(?i)\b(pc\s*(dvd|cd)?(-?rom)?|windows)\b`), "PC"},
+	{regexp.MustCompile(`(?i)\b(xbox\s*360|x360|xb360)\b`), game.SystemXbox360},
+	{regexp.MustCompile(`(?i)\b(xbox\s*series\s*[xs](\s*\|\s*[xs])?)\b`), game.SystemXboxSeries},
+	{regexp.MustCompile(`(?i)\b(xbox\s*one|xb1|xbone)\b`), game.SystemXboxOne},
+	{regexp.MustCompile(`(?i)\b(playstation\s*5|ps5)\b`), game.SystemPS5},
+	{regexp.MustCompile(`(?i)\b(playstation\s*4|ps4)\b`), game.SystemPS4},
+	{regexp.MustCompile(`(?i)\b(playstation\s*3|ps3)\b`), game.SystemPS3},
+	{regexp.MustCompile(`(?i)\b(playstation\s*2|ps2)\b`), game.SystemPS2},
+	{regexp.MustCompile(`(?i)\b(ps\s*vita|psvita)\b`), game.SystemPSVita},
+	{regexp.MustCompile(`(?i)\bpsp\b`), game.SystemPSP},
+	{regexp.MustCompile(`(?i)\bwii\s*u\b`), game.SystemWiiU},
+	{regexp.MustCompile(`(?i)\bwii\b`), game.SystemWii},
+	{regexp.MustCompile(`(?i)\b(nintendo\s*)?switch\b`), game.SystemSwitch},
+	{regexp.MustCompile(`(?i)\b(nintendo\s*)?3ds\b`), game.System3DS},
+	{regexp.MustCompile(`(?i)\b(nintendo\s*)?ds\b`), game.SystemDS},
+	{regexp.MustCompile(`(?i)\bgamecube\b`), game.SystemGameCube},
+	{regexp.MustCompile(`(?i)\bxbox\b`), game.SystemXbox},
+	{regexp.MustCompile(`(?i)\b(pc\s*(dvd|cd)?(-?rom)?|windows)\b`), game.SystemPC},
 }
 
 var (

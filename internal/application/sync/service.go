@@ -17,6 +17,7 @@ import (
 	"gamevault/internal/application/unattended"
 	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
 )
 
@@ -26,11 +27,11 @@ type Provider interface {
 	Descriptor() source.TypeDescriptor
 
 	// Fetch returns every copy the account currently holds. Warnings are non-fatal issues.
-	Fetch(ctx context.Context, settings source.Settings) (copies []game.ImportedCopy, warnings []string, err error)
+	Fetch(ctx context.Context, settings schema.Settings) (copies []game.ImportedCopy, warnings []string, err error)
 
 	// Test checks the settings against the real service as cheaply as it can (e.g. Humble lists
 	// the orders without downloading them). A nil error means they work; an error says why not.
-	Test(ctx context.Context, settings source.Settings) error
+	Test(ctx context.Context, settings schema.Settings) error
 }
 
 // Preparer is an optional port for providers that turn what the user typed into stored
@@ -38,7 +39,7 @@ type Provider interface {
 // It returns the settings to store.
 type Preparer interface {
 	// Prepare turns what the user typed into the settings to store.
-	Prepare(ctx context.Context, settings source.Settings) (source.Settings, error)
+	Prepare(ctx context.Context, settings schema.Settings) (schema.Settings, error)
 }
 
 // KeepAliver is an optional port for providers that reuse a website session copied from the
@@ -49,7 +50,7 @@ type KeepAliver interface {
 	KeepAliveInterval() time.Duration
 
 	// KeepAlive renews the session, writing anything renewed into settings for the service to persist.
-	KeepAlive(ctx context.Context, settings source.Settings) error
+	KeepAlive(ctx context.Context, settings schema.Settings) error
 }
 
 // StoreLinker is an optional port for providers that import a store's library and link each game
@@ -396,7 +397,7 @@ func (s *Service) invalidateGames(ctx context.Context, ids []game.ID) {
 // over the stored ones (so unchanged secrets can be sent as placeholders).
 func (s *Service) Test(ctx context.Context, id source.ID, t source.Type, cfg source.Config) error {
 	var (
-		stored source.Settings
+		stored schema.Settings
 		src    *source.Source
 	)
 
@@ -414,7 +415,7 @@ func (s *Service) Test(ctx context.Context, id source.ID, t source.Type, cfg sou
 		return err
 	}
 	// Stored values first, overridden by whatever the client sent (placeholders keep the stored secret).
-	settings := source.Settings{}
+	settings := schema.Settings{}
 	maps.Copy(settings, stored)
 	maps.Copy(settings, d.MergeSettings(stored, cfg.Settings))
 

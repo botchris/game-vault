@@ -146,7 +146,7 @@ type sourceDoc struct {
 	Name                string          `json:"name"`
 	Enabled             bool            `json:"enabled"`
 	SyncIntervalSeconds int64           `json:"syncIntervalSeconds,omitempty"`
-	Settings            source.Settings `json:"settings,omitempty"`
+	Settings            schema.Settings `json:"settings,omitempty"`
 	LastSync            *syncReportDoc  `json:"lastSync,omitempty"`
 	Exclusions          []exclusionDoc  `json:"exclusions,omitempty"`
 	CreatedAt           string          `json:"createdAt"`
@@ -420,7 +420,7 @@ func decodeSource(id source.ID, raw string) (*source.Source, error) {
 	}
 
 	if doc.Settings == nil {
-		doc.Settings = source.Settings{}
+		doc.Settings = schema.Settings{}
 	}
 
 	var lastSync *source.SyncReport
@@ -473,7 +473,7 @@ func decodeProvider(id provider.ID, raw string) (*provider.Provider, error) {
 }
 
 func contentStrings(c game.Contents) []string {
-	out := make([]string, 0, len(game.AllContents))
+	out := make([]string, 0, len(game.AllContents()))
 	for _, x := range c.List() {
 		out = append(out, string(x))
 	}

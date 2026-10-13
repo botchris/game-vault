@@ -29,7 +29,7 @@ import (
 // coverLogicChanged is when the way covers are found last improved (e.g. add-ons borrowing their
 // base game's cover). "No cover found" markers older than this are ignored, so games are retried
 // with the new logic instead of waiting for the marker to expire. Bump it with such changes.
-var coverLogicChanged = time.Date(2026, 10, 11, 9, 20, 0, 0, time.UTC) // fallback pass for every game, Steam title search, IGDB
+var coverLogicChanged = time.Date(2026, 10, 13, 10, 50, 0, 0, time.UTC) // TheGamesDB searches edition titles by the game's name
 
 // ErrNoCover means no image could be found for the game.
 var ErrNoCover = errkind.New(errkind.NotFound, "no cover available")
@@ -154,6 +154,31 @@ func (q CoverQuery) HasStoreLink() bool { return len(q.Links) > 0 }
 // ForPC reports whether PC store art fits the query: its system is PC, or it names none. Store
 // providers apply only then.
 func (q CoverQuery) ForPC() bool { return q.System == "" || q.System == game.SystemPC }
+
+// SearchSystems returns the systems a title search for the query is filtered to: the edition's
+// system, or without one the systems of the game's physical copies (the boxes the user holds), or
+// else of all its copies, each once. Platforms are named by their system ("PlayStation Store" →
+// "PS4", "Steam" → "PC"), the names the game databases' platform tables are keyed by, so covers
+// and sheets map a copy to the same platform there.
+func (q CoverQuery) SearchSystems() []string {
+	if q.System != "" {
+		return []string{q.System}
+	}
+
+	platforms := q.PhysicalPlatforms
+	if len(platforms) == 0 {
+		platforms = q.Platforms
+	}
+
+	systems := make([]string, 0, len(platforms))
+	for _, pl := range platforms {
+		if s := game.SystemOf(pl); s != game.SystemOther && !slices.Contains(systems, s) {
+			systems = append(systems, s)
+		}
+	}
+
+	return systems
+}
 
 // HasPhysical reports whether the game has at least one physical copy.
 func (q CoverQuery) HasPhysical() bool { return len(q.PhysicalPlatforms) > 0 }

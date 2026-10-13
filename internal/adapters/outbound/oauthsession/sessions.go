@@ -15,7 +15,7 @@
 //		Exchange: p.exchange, Refresh: p.refresh, RefreshToken: func(s session) string { return s.RefreshToken },
 //		ErrNoCredentials: ErrNoCredentials, ErrSignedOut: ErrSignedOut,
 //	}
-//	func (p *Provider) Prepare(ctx, settings) (source.Settings, error) { return p.sessions.Prepare(ctx, settings) }
+//	func (p *Provider) Prepare(ctx, settings) (schema.Settings, error) { return p.sessions.Prepare(ctx, settings) }
 //	err := p.sessions.WithRetry(ctx, settings, func(token string) error { … }) // 401 → apiclient.ErrTokenRejected
 package oauthsession
 
@@ -32,7 +32,7 @@ import (
 	"time"
 
 	"gamevault/internal/adapters/outbound/apiclient"
-	"gamevault/internal/domain/source"
+	"gamevault/internal/domain/schema"
 )
 
 const (
@@ -141,10 +141,10 @@ type successor[S any] struct {
 // is stored in StateField instead of the code (codes work once). Without a new code (none, or the
 // UI's placeholder) the stored session is kept, or ErrNoCredentials returned when there is none.
 // Preparing a code exchanged within CodeTTL reuses its session.
-func (s *Sessions[S]) Prepare(ctx context.Context, settings source.Settings) (source.Settings, error) {
+func (s *Sessions[S]) Prepare(ctx context.Context, settings schema.Settings) (schema.Settings, error) {
 	out := maps.Clone(settings)
 	if out == nil {
-		out = source.Settings{}
+		out = schema.Settings{}
 	}
 
 	delete(out, s.CodeField)
@@ -154,7 +154,7 @@ func (s *Sessions[S]) Prepare(ctx context.Context, settings source.Settings) (so
 		return nil, err
 	}
 
-	if code == "" || code == source.SecretPlaceholder {
+	if code == "" || code == schema.SecretPlaceholder {
 		if out[s.StateField] == "" {
 			return nil, s.ErrNoCredentials
 		}
@@ -177,7 +177,7 @@ func (s *Sessions[S]) Prepare(ctx context.Context, settings source.Settings) (so
 // Token returns an access token for the settings' session, refreshing it when it has none or it
 // is about to expire. The newest session (after a refresh, or one that replaced the stored one)
 // is written back into settings, for the caller to save.
-func (s *Sessions[S]) Token(ctx context.Context, settings source.Settings) (string, error) {
+func (s *Sessions[S]) Token(ctx context.Context, settings schema.Settings) (string, error) {
 	held, err := s.Current(settings)
 	if err != nil {
 		return "", err
@@ -217,7 +217,7 @@ func (s *Sessions[S]) Token(ctx context.Context, settings source.Settings) (stri
 
 // Current returns the session stored in settings, or ErrNoCredentials when there is none (or it has
 // no refresh token).
-func (s *Sessions[S]) Current(settings source.Settings) (S, error) {
+func (s *Sessions[S]) Current(settings schema.Settings) (S, error) {
 	var session S
 
 	raw := settings[s.StateField]
@@ -260,7 +260,7 @@ func (s *Sessions[S]) Drop(token string) {
 // WithRetry runs call with an access token, and once more with a renewed one when call's error
 // wraps apiclient.ErrTokenRejected (it expired or was revoked early). A second refusal is
 // ErrSignedOut: only then must the user sign in again.
-func (s *Sessions[S]) WithRetry(ctx context.Context, settings source.Settings, call func(token string) error) error {
+func (s *Sessions[S]) WithRetry(ctx context.Context, settings schema.Settings, call func(token string) error) error {
 	for range 2 {
 		token, err := s.Token(ctx, settings)
 		if err != nil {
@@ -469,7 +469,7 @@ func (s *Sessions[S]) prune(now time.Time) {
 }
 
 // handBack writes newest into settings when it is not the session they hold.
-func (s *Sessions[S]) handBack(settings source.Settings, held, newest S) error {
+func (s *Sessions[S]) handBack(settings schema.Settings, held, newest S) error {
 	if s.RefreshToken(held) == s.RefreshToken(newest) && settings[s.StateField] != "" {
 		return nil
 	}
@@ -478,7 +478,7 @@ func (s *Sessions[S]) handBack(settings source.Settings, held, newest S) error {
 }
 
 // store writes session into settings' StateField.
-func (s *Sessions[S]) store(settings source.Settings, session S) error {
+func (s *Sessions[S]) store(settings schema.Settings, session S) error {
 	raw, err := json.Marshal(session)
 	if err != nil {
 		return fmt.Errorf("storing the session: %w", err)

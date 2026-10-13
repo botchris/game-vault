@@ -281,16 +281,7 @@ func (p *Covers) grids(ctx context.Context, key, path string) ([]gridJSON, error
 // Remastered" or "Doom (2016)" is another game than "Example" or "Doom", with another box. Two games
 // with the name give nothing: a wrong box is worse than none.
 func (p *Covers) findByTitle(ctx context.Context, key, title string) (*gameJSON, error) {
-	terms := []string{game.SearchTitle(title)}
-	if raw := game.NormalizeTitle(title); !strings.EqualFold(raw, terms[0]) {
-		terms = append(terms, raw)
-	}
-
-	for _, term := range terms {
-		if term == "" {
-			continue
-		}
-
+	for _, term := range game.SearchTerms(title) {
 		var out []gameJSON
 
 		err := p.get(ctx, key, "/search/autocomplete/"+url.PathEscape(term), nil, &out)

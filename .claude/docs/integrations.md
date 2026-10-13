@@ -24,8 +24,8 @@ non-2xx answers, which `StatusError` keeps only as a snippet.
    - `const Type source.Type = "<name>"` and a `Platform` constant reusing an existing platform
      name when the store already appears in Humble keys (see `humble/mapper.go`) — this is what
      flags redundant keys.
-   - `Descriptor()` with the settings `Fields`. Secrets are `source.FieldSecret`; values the
-     provider rotates itself (refresh tokens, renewed cookies) are `source.FieldState` (never sent
+   - `Descriptor()` with the settings `Fields`. Secrets are `schema.FieldSecret`; values the
+     provider rotates itself (refresh tokens, renewed cookies) are `schema.FieldState` (never sent
      to or accepted from the browser). Point `HelpURL` at the sign-in page the user must open.
    - `Fetch(ctx, settings)` returns `[]game.ImportedCopy` with a stable, prefixed `ExternalID`
      (`"<name>:<id>"`), the title, and `CopyDetails{Kind, Platform, Status, Origin}`. Never change

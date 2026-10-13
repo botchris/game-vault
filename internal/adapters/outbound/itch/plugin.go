@@ -11,7 +11,7 @@ import (
 // LinkedStore is itch.io. Its game pages are addressed by the developer's subdomain and a slug, not
 // by the numeric id the API gives, so it has no PageURL.
 var LinkedStore = game.Store{
-	Key:  "itch",
+	Key:  game.LinkItch,
 	Name: "itch.io",
 }
 

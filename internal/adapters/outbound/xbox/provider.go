@@ -34,7 +34,7 @@ import (
 const Type source.Type = "xbox"
 
 // Platform is the store name used on copies, matching Humble's Microsoft / Xbox keys.
-const Platform = "Microsoft Store / Xbox"
+const Platform = game.PlatformMicrosoft
 
 const (
 	settingCode    = "login_code"
@@ -146,7 +146,7 @@ func newClient(baseURL string, timeout time.Duration) *apiclient.Client {
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
 // imports, and the cover provider reads it.
 var LinkedStore = game.Store{
-	Key:  "xbox",
+	Key:  game.LinkXbox,
 	Name: "Xbox",
 }
 
@@ -159,7 +159,7 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 		Type:           Type,
 		Name:           "Xbox / Microsoft Store",
 		DescriptionKey: "sources.xbox.description",
-		Fields: []source.Field{
+		Fields: []schema.Field{
 			{
 				Key:      settingCode,
 				LabelKey: "sources.xbox.code",
@@ -175,11 +175,11 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 						},
 					},
 				},
-				Kind: source.FieldSecret,
+				Kind: schema.FieldSecret,
 			},
 			{
 				Key:  settingSession,
-				Kind: source.FieldState,
+				Kind: schema.FieldState,
 			},
 		},
 	}
@@ -201,7 +201,7 @@ func cleanCode(v string) string {
 
 // Prepare implements sync.Preparer: a pasted code is exchanged for a session, which is stored
 // instead of the code (codes work once).
-func (p *Provider) Prepare(ctx context.Context, settings source.Settings) (source.Settings, error) {
+func (p *Provider) Prepare(ctx context.Context, settings schema.Settings) (schema.Settings, error) {
 	return p.sessions.Prepare(ctx, settings)
 }
 
@@ -473,7 +473,7 @@ func catalog(ctx context.Context, api *apiclient.Client, market, language string
 
 // owned reads the games the account owns. A rejected access token is renewed once, and the Xbox
 // Live tokens made again from the new one.
-func (p *Provider) owned(ctx context.Context, settings source.Settings) ([]game.ImportedCopy, error) {
+func (p *Provider) owned(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, error) {
 	var ents []entitlement
 
 	err := p.sessions.WithRetry(ctx, settings, func(access string) error {
@@ -537,13 +537,13 @@ func (p *Provider) owned(ctx context.Context, settings source.Settings) ([]game.
 }
 
 // Test implements sync.Provider.
-func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
+func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
 	_, err := p.owned(ctx, settings)
 	return err
 }
 
 // Fetch implements sync.Provider.
-func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.ImportedCopy, []string, error) {
+func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, []string, error) {
 	copies, err := p.owned(ctx, settings)
 	if err != nil {
 		return nil, nil, err

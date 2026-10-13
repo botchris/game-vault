@@ -175,7 +175,9 @@ func (s *Store) Covers(ctx context.Context, q media.CoverQuery, _ schema.Setting
 // modernSystems are the systems whose games Steam's PC versions usually match: a PC copy, or one on
 // a console of the PS4 generation or later. Older consoles and handhelds often share a title with a
 // different game on Steam (a later remake, a remaster), so no link is saved for them.
-var modernSystems = []string{game.SystemPC, "PS4", "PS5", "Xbox One", "Xbox Series", "Switch"}
+var modernSystems = []string{
+	game.SystemPC, game.SystemPS4, game.SystemPS5, game.SystemXboxOne, game.SystemXboxSeries, game.SystemSwitch,
+}
 
 // FindLinks implements media.LinkFinder: for a game not linked to Steam, with a copy on PC or a
 // modern console (or no copies), the AppID of the only store app with exactly its title
@@ -186,16 +188,18 @@ func (s *Store) FindLinks(ctx context.Context, q media.CoverQuery, _ schema.Sett
 		return nil, nil
 	}
 
-	id, err := s.uniqueApp(ctx, game.SearchTitle(q.Title), q.Title, false)
-	if err == nil && id == 0 && game.NormalizeTitle(q.Title) != game.SearchTitle(q.Title) {
-		id, err = s.uniqueApp(ctx, game.NormalizeTitle(q.Title), q.Title, false)
+	for _, term := range game.SearchTerms(q.Title) {
+		id, err := s.uniqueApp(ctx, term, q.Title, false)
+		if err != nil {
+			return nil, err
+		}
+
+		if id != 0 {
+			return game.Links{game.LinkSteam: strconv.FormatInt(id, 10)}, nil
+		}
 	}
 
-	if err != nil || id == 0 {
-		return nil, err
-	}
-
-	return game.Links{game.LinkSteam: strconv.FormatInt(id, 10)}, nil
+	return nil, nil
 }
 
 // modernEnough reports whether one of the game's copies is on PC or a modern console, or it has none.
@@ -222,12 +226,7 @@ func (s *Store) appIDByTitle(ctx context.Context, title string) (int64, error) {
 	// The store names the game, not the edition a key is ("… GOTY"): its name is searched first. When
 	// that finds no single match and stripping changed the title ("Gold Rush!" became "Rush!"), the
 	// raw title gets a second chance. Results are always compared with the full title.
-	terms := []string{game.SearchTitle(title)}
-	if raw := game.NormalizeTitle(title); raw != terms[0] {
-		terms = append(terms, raw)
-	}
-
-	for _, term := range terms {
+	for _, term := range game.SearchTerms(title) {
 		id, err := s.uniqueApp(ctx, term, title, true)
 		if err != nil || id != 0 {
 			return id, err

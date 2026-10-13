@@ -82,15 +82,19 @@ type Settings struct {
 	CertificateValidation CertificateValidation
 }
 
-// DefaultTrustedNetworks is this computer only.
-var DefaultTrustedNetworks = []string{"127.0.0.0/8", "::1/128"}
+// defaultTrustedNetworks is this computer only.
+var defaultTrustedNetworks = []string{"127.0.0.0/8", "::1/128"}
+
+// DefaultTrustedNetworks returns the networks trusted out of the box: this computer only (a copy:
+// callers cannot widen the default for everyone else).
+func DefaultTrustedNetworks() []string { return slices.Clone(defaultTrustedNetworks) }
 
 // DefaultSettings returns the out-of-the-box settings: no password needed on this computer,
 // certificates checked.
 func DefaultSettings() Settings {
 	return Settings{
 		Authentication:        AuthTrustedNetworks,
-		TrustedNetworks:       slices.Clone(DefaultTrustedNetworks),
+		TrustedNetworks:       DefaultTrustedNetworks(),
 		CertificateValidation: CertsEnabled,
 	}
 }

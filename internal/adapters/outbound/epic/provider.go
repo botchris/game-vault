@@ -33,7 +33,7 @@ const Type source.Type = "epic"
 
 // Platform is the store name used on copies, matching Humble's Epic keys so they are flagged as
 // redundant when the game is already in the Epic library.
-const Platform = "Epic Games"
+const Platform = game.PlatformEpic
 
 const (
 	settingAuthCode = "authorization_code"
@@ -136,7 +136,7 @@ func newClient(baseURL string) *apiclient.Client {
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
 // imports, and the cover provider reads it.
 var LinkedStore = game.Store{
-	Key:  "epic",
+	Key:  game.LinkEpic,
 	Name: "Epic Games",
 }
 
@@ -149,7 +149,7 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 		Type:           Type,
 		Name:           "Epic Games Store",
 		DescriptionKey: "sources.epic.description",
-		Fields: []source.Field{
+		Fields: []schema.Field{
 			{
 				Key:      settingAuthCode,
 				LabelKey: "sources.epic.authCode",
@@ -165,11 +165,11 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 						},
 					},
 				},
-				Kind: source.FieldSecret,
+				Kind: schema.FieldSecret,
 			},
 			{
 				Key:  settingSession,
-				Kind: source.FieldState,
+				Kind: schema.FieldState,
 			},
 		},
 	}
@@ -196,12 +196,12 @@ func cleanCode(v string) (string, error) {
 
 // Prepare implements sync.Preparer: a pasted authorization code is exchanged for a session,
 // which is stored instead of the code (codes work only once).
-func (p *Provider) Prepare(ctx context.Context, settings source.Settings) (source.Settings, error) {
+func (p *Provider) Prepare(ctx context.Context, settings schema.Settings) (schema.Settings, error) {
 	return p.sessions.Prepare(ctx, settings)
 }
 
 // Test implements sync.Provider: it lists the library without reading the catalog.
-func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
+func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
 	_, _, err := p.libraryWithToken(ctx, settings)
 
 	return err
@@ -213,7 +213,7 @@ var errTokenRejected = fmt.Errorf("epic rejected the access token: %w", apiclien
 
 // libraryWithToken lists the library with an access token, and once more with a renewed one when
 // Epic rejects the first. It returns the token that worked, for the catalog reads that follow.
-func (p *Provider) libraryWithToken(ctx context.Context, settings source.Settings) ([]libraryRecord, string, error) {
+func (p *Provider) libraryWithToken(ctx context.Context, settings schema.Settings) ([]libraryRecord, string, error) {
 	var (
 		records []libraryRecord
 		used    string
@@ -235,7 +235,7 @@ func (p *Provider) libraryWithToken(ctx context.Context, settings source.Setting
 }
 
 // Fetch implements sync.Provider.
-func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.ImportedCopy, []string, error) {
+func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, []string, error) {
 	records, token, err := p.libraryWithToken(ctx, settings)
 	if err != nil {
 		return nil, nil, err

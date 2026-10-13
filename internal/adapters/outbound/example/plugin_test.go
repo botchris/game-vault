@@ -13,7 +13,7 @@ import (
 	"gamevault/internal/application/media"
 	"gamevault/internal/application/plugin/plugintest"
 	"gamevault/internal/domain/game"
-	"gamevault/internal/domain/source"
+	"gamevault/internal/domain/schema"
 )
 
 // libraryAnswer is what the store's API answers (with a real store, paste a real answer here with
@@ -77,7 +77,7 @@ func TestSource(t *testing.T) {
 	p.API.BaseURL, p.API.HTTP = srv.URL, srv.Client()
 
 	t.Run("GIVEN an account with a game, a soundtrack and a refunded game", func(t *testing.T) {
-		settings := source.Settings{settingToken: "good-token"}
+		settings := schema.Settings{settingToken: "good-token"}
 
 		t.Run("WHEN it is scanned", func(t *testing.T) {
 			copies, warnings, err := p.Fetch(ctx, settings)
@@ -99,7 +99,7 @@ func TestSource(t *testing.T) {
 
 	t.Run("GIVEN a token the store rejects", func(t *testing.T) {
 		t.Run("WHEN the connection is tested", func(t *testing.T) {
-			err := p.Test(ctx, source.Settings{settingToken: "old-token"})
+			err := p.Test(ctx, schema.Settings{settingToken: "old-token"})
 
 			t.Run("THEN it says what to do", func(t *testing.T) {
 				assert.ErrorIs(t, err, ErrSignedOut)
@@ -109,7 +109,7 @@ func TestSource(t *testing.T) {
 
 	t.Run("GIVEN no token", func(t *testing.T) {
 		t.Run("THEN nothing is asked to the store", func(t *testing.T) {
-			assert.ErrorIs(t, p.Test(ctx, source.Settings{}), ErrNoCredentials)
+			assert.ErrorIs(t, p.Test(ctx, schema.Settings{}), ErrNoCredentials)
 		})
 	})
 }

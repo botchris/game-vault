@@ -239,3 +239,56 @@ func TestCoverProviders_pcStoreLinks(t *testing.T) {
 		}
 	})
 }
+
+// TestPlugins_linkKeysAreTheDomains checks that every store a source links its copies to, and every
+// store a media provider reads links of, uses one of the domain's link keys (game.Link…): the keys
+// are stored in every game's links, and sources and providers meet only through them. Link keys
+// written as literals are also rejected by TestVocabulary_adaptersUseTheDomainNames.
+func TestPlugins_linkKeysAreTheDomains(t *testing.T) {
+	t.Run("GIVEN the plugins compiled into Game Vault", func(t *testing.T) {
+		plugins, err := newPlugins(slog.New(slog.NewTextHandler(io.Discard, nil)))
+		require.NoError(t, err)
+
+		m := plugins.Media()
+		linkers := make([]any, 0, len(plugins.Sources())+len(m.Covers)+len(m.Metadata)+len(m.Barcodes)+len(m.Valuations))
+
+		for _, s := range plugins.Sources() {
+			linkers = append(linkers, s)
+		}
+
+		for _, p := range m.Covers {
+			linkers = append(linkers, p)
+		}
+
+		for _, p := range m.Metadata {
+			linkers = append(linkers, p)
+		}
+
+		for _, p := range m.Barcodes {
+			linkers = append(linkers, p)
+		}
+
+		for _, p := range m.Valuations {
+			linkers = append(linkers, p)
+		}
+
+		t.Run("THEN every store they link to has a key of the domain", func(t *testing.T) {
+			seen := 0
+
+			for _, l := range linkers {
+				// sync.StoreLinker and media.StoreLinker are the same method set.
+				linker, ok := l.(interface{ LinkStore() game.Store })
+				if !ok {
+					continue
+				}
+
+				seen++
+
+				key := linker.LinkStore().Key
+				assert.Contains(t, game.StoreLinks(), key, "%T links to %q", l, key)
+			}
+
+			assert.NotZero(t, seen)
+		})
+	})
+}

@@ -20,8 +20,9 @@
 // same way, the links Game Vault found automatically: they come back automatic (labeled, never
 // used to recognize a game in imports), not as ordinary links.
 //
-// Rows without externalId get a stable one derived from kind, platform, title and key, so the
-// same file can be imported again to update rows instead of duplicating them.
+// Rows without externalId get a stable one derived from kind, platform, title (game.TitleIDKey,
+// frozen: never MatchKey, which changes as matching improves) and key, so the same file can be
+// imported again to update rows instead of duplicating them.
 package csvfile
 
 import (
@@ -242,7 +243,7 @@ func (Codec) Decode(r io.Reader) ([]game.ImportedCopy, []string, error) {
 
 		ext := get("externalId")
 		if ext == "" {
-			ext = fmt.Sprintf("csv:%s|%s|%s|%s", d.Kind, strings.ToLower(d.Platform), game.MatchKey(title), d.Key)
+			ext = fmt.Sprintf("csv:%s|%s|%s|%s", d.Kind, strings.ToLower(d.Platform), game.TitleIDKey(title), d.Key)
 		}
 
 		out = append(out, game.ImportedCopy{

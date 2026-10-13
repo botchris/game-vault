@@ -69,26 +69,26 @@ const (
 // platformItems maps Game Vault systems to the Wikidata items of their platforms (checked against
 // Wikidata on 2026-10-11). PC covers Windows, macOS, Linux and the generic "personal computer".
 var platformItems = map[string][]string{
-	game.SystemPC: {"Q1406", "Q14116", "Q388", "Q16338"},
-	"PS5":         {"Q63184502"},
-	"PS4":         {"Q5014725"},
-	"PS3":         {"Q10683"},
-	"PS2":         {"Q10680"},
-	"PS1":         {"Q10677"},
-	"PSP":         {"Q170325"},
-	"PS Vita":     {"Q188808"},
-	"Xbox Series": {"Q98973368", "Q64513817", "Q98967383"},
-	"Xbox One":    {"Q13361286"},
-	"Xbox 360":    {"Q48263"},
-	"Xbox":        {"Q132020"},
-	"Switch":      {"Q19610114"},
-	"Wii U":       {"Q56942"},
-	"Wii":         {"Q8079"},
-	"GameCube":    {"Q182172"},
-	"N64":         {"Q184839"},
-	"3DS":         {"Q203597"},
-	"DS":          {"Q170323"},
-	"Game Boy":    {"Q186437"},
+	game.SystemPC:         {"Q1406", "Q14116", "Q388", "Q16338"},
+	game.SystemPS5:        {"Q63184502"},
+	game.SystemPS4:        {"Q5014725"},
+	game.SystemPS3:        {"Q10683"},
+	game.SystemPS2:        {"Q10680"},
+	game.SystemPS1:        {"Q10677"},
+	game.SystemPSP:        {"Q170325"},
+	game.SystemPSVita:     {"Q188808"},
+	game.SystemXboxSeries: {"Q98973368", "Q64513817", "Q98967383"},
+	game.SystemXboxOne:    {"Q13361286"},
+	game.SystemXbox360:    {"Q48263"},
+	game.SystemXbox:       {"Q132020"},
+	game.SystemSwitch:     {"Q19610114"},
+	game.SystemWiiU:       {"Q56942"},
+	game.SystemWii:        {"Q8079"},
+	game.SystemGameCube:   {"Q182172"},
+	game.SystemN64:        {"Q184839"},
+	game.System3DS:        {"Q203597"},
+	game.SystemDS:         {"Q170323"},
+	game.SystemGameBoy:    {"Q186437"},
 }
 
 // Details implements media.MetadataProvider with Wikidata and Wikipedia.
@@ -233,7 +233,7 @@ func (d *Details) findGame(ctx context.Context, q media.CoverQuery, lang string)
 	}
 
 	var wanted []string
-	for _, system := range searchSystems(q) {
+	for _, system := range q.SearchSystems() {
 		wanted = append(wanted, platformItems[system]...)
 	}
 
@@ -280,10 +280,7 @@ func (d *Details) candidates(ctx context.Context, title, lang string) (ids []str
 		langs = append(langs, lang)
 	}
 
-	terms := []string{game.SearchTitle(title)}
-	if raw := game.NormalizeTitle(title); raw != terms[0] { // a ™ alone is no other title
-		terms = append(terms, raw)
-	}
+	terms := game.SearchTerms(title)
 
 	exact = map[string]bool{}
 
@@ -628,28 +625,6 @@ func serverTrouble(err error) bool {
 	var ue *url.Error
 
 	return errors.As(err, &ue)
-}
-
-// searchSystems returns the systems the game is matched on: the edition's system, or without one
-// the systems of the game's physical copies, or else of all its copies.
-func searchSystems(q media.CoverQuery) []string {
-	if q.System != "" {
-		return []string{q.System}
-	}
-
-	platforms := q.PhysicalPlatforms
-	if len(platforms) == 0 {
-		platforms = q.Platforms
-	}
-
-	systems := make([]string, 0, len(platforms))
-	for _, pl := range platforms {
-		if s := game.SystemOf(pl); s != game.SystemOther && !slices.Contains(systems, s) {
-			systems = append(systems, s)
-		}
-	}
-
-	return systems
 }
 
 // labelLanguages are the languages labels are looked for in, best first.

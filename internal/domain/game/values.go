@@ -135,39 +135,6 @@ var (
 
 func invalid(format string, args ...any) error { return errkind.Invalidf(format, args...) }
 
-var knownPlatforms = []string{
-	// Stores and launchers
-	"Steam", "Epic Games", "GOG", "EA App", "Battle.net", "Ubisoft Connect", "Microsoft Store / Xbox",
-	"Rockstar", "Battlestate (Tarkov)", "Riot", "itch.io", "Amazon Games", "PlayStation Store", "Nintendo eShop",
-	// Consoles and physical formats
-	"PC", "PS5", "PS4", "PS3", "PS2", "PS1", "PSP", "PS Vita", "Xbox Series", "Xbox One", "Xbox 360", "Xbox",
-	"Switch", "Wii U", "Wii", "GameCube", "N64", "3DS", "DS", "Game Boy",
-}
-
-// IsKnownPlatform reports whether p is one of the stores, launchers or consoles Game Vault knows,
-// as opposed to whatever a source names a key type (a software vendor, a course site…).
-func IsKnownPlatform(p string) bool {
-	return slices.ContainsFunc(knownPlatforms, func(k string) bool { return strings.EqualFold(k, strings.TrimSpace(p)) })
-}
-
-// KnownPlatforms returns the stores, launchers and consoles Game Vault knows, PC and console names
-// included (a copy of the list: callers cannot change it). The web's platform tables are checked
-// against it.
-func KnownPlatforms() []string { return slices.Clone(knownPlatforms) }
-
-// CanonicalPlatform fixes the casing of known platforms ("steam" → "Steam") so they compare equal.
-// Unknown platforms are returned trimmed but otherwise untouched.
-func CanonicalPlatform(p string) string {
-	p = strings.TrimSpace(p)
-	for _, k := range knownPlatforms {
-		if strings.EqualFold(k, p) {
-			return k
-		}
-	}
-
-	return p
-}
-
 var (
 	reTrademarks = regexp.MustCompile(`[™®©]`)
 	reBrackets   = regexp.MustCompile(`\(.*?\)|\[.*?\]`)
@@ -237,6 +204,24 @@ func SearchTitle(title string) string {
 	}
 
 	return s
+}
+
+// SearchTerms returns the names to search a game database for, in order: the title without its
+// edition and store tags (SearchTitle), since databases name the game and not the edition a copy is
+// ("Example West", not the "GOTY" disc), then the raw title (NormalizeTitle) for when stripping
+// went too far ("Gold Rush!" became "Rush!"). The raw title is left out when it is the same name
+// (a ™ alone, or casing, is no other title), and so are empty names. Every provider that searches by
+// title uses these terms, so an edition title is found the same way everywhere.
+func SearchTerms(title string) []string {
+	var terms []string
+
+	for _, t := range []string{SearchTitle(title), NormalizeTitle(title)} {
+		if t != "" && !slices.ContainsFunc(terms, func(x string) bool { return strings.EqualFold(x, t) }) {
+			terms = append(terms, t)
+		}
+	}
+
+	return terms
 }
 
 // reNotLetterOrDigit matches what separates the words SameTitle compares.

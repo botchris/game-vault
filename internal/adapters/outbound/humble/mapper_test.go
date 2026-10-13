@@ -13,6 +13,7 @@ import (
 
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
+	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
 )
 
@@ -162,24 +163,24 @@ func TestFetchAgainstFakeServer(t *testing.T) {
 	p.API.HTTP = srv.Client()
 	p.Pause = 0
 
-	copies, _, err := p.Fetch(ctx, source.Settings{settingSession: "good"})
+	copies, _, err := p.Fetch(ctx, schema.Settings{settingSession: "good"})
 	if err != nil || len(copies) != 6 {
 		t.Fatalf("fetch: %d copies, err %v", len(copies), err)
 	}
 
-	if _, _, err := p.Fetch(ctx, source.Settings{settingSession: "bad"}); err != ErrSignedOut {
+	if _, _, err := p.Fetch(ctx, schema.Settings{settingSession: "bad"}); err != ErrSignedOut {
 		t.Fatalf("expected ErrSignedOut, got %v", err)
 	}
 
 	// An outage is a passing trouble, never "copy the cookie again".
-	_, _, err = p.Fetch(ctx, source.Settings{settingSession: "outage"})
+	_, _, err = p.Fetch(ctx, schema.Settings{settingSession: "outage"})
 	require.ErrorIs(t, err, provider.ErrUnavailable)
 	assert.NotErrorIs(t, err, source.ErrSignedOut)
 
 	// Test only lists orders, and tolerates the cookie pasted as "_simpleauth_sess=...;" with quotes.
 	ordersRequests = 0
 
-	if err := p.Test(ctx, source.Settings{settingSession: ` _simpleauth_sess="good"; `}); err != nil || ordersRequests != 0 {
+	if err := p.Test(ctx, schema.Settings{settingSession: ` _simpleauth_sess="good"; `}); err != nil || ordersRequests != 0 {
 		t.Fatalf("test: err=%v ordersRequests=%d", err, ordersRequests)
 	}
 }

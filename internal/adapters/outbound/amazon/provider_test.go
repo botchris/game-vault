@@ -17,6 +17,7 @@ import (
 
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
+	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
 )
 
@@ -143,7 +144,7 @@ func TestSignIn_registersTheLinkDevice(t *testing.T) {
 
 		t.Run("WHEN the address Amazon lands on is pasted", func(t *testing.T) {
 			pasted := "https://www.amazon.com/?openid.assoc_handle=amzn_sonic_games_launcher&openid.oa2.authorization_code=GOODCODE&openid.mode=id_res"
-			out, err := p.Prepare(ctx, source.Settings{settingCode: pasted})
+			out, err := p.Prepare(ctx, schema.Settings{settingCode: pasted})
 			require.NoError(t, err)
 
 			t.Run("THEN the code registers the link's device and the session replaces the code", func(t *testing.T) {
@@ -160,7 +161,7 @@ func TestSignIn_registersTheLinkDevice(t *testing.T) {
 			})
 
 			t.Run("AND the same code again (Test, then Save) does not register twice", func(t *testing.T) {
-				_, err := p.Prepare(ctx, source.Settings{settingCode: pasted})
+				_, err := p.Prepare(ctx, schema.Settings{settingCode: pasted})
 				require.NoError(t, err)
 				assert.Len(t, fake.registerBodies, 1)
 			})
@@ -175,7 +176,7 @@ func TestSignIn_registersTheLinkDevice(t *testing.T) {
 		p := newTestProvider(t, &fakeAmazon{})
 
 		t.Run("WHEN it is pasted", func(t *testing.T) {
-			_, err := p.Prepare(ctx, source.Settings{settingCode: "BADCODE"})
+			_, err := p.Prepare(ctx, schema.Settings{settingCode: "BADCODE"})
 
 			t.Run("THEN it fails with ErrBadCode", func(t *testing.T) {
 				assert.ErrorIs(t, err, ErrBadCode)
@@ -187,7 +188,7 @@ func TestSignIn_registersTheLinkDevice(t *testing.T) {
 		p := newTestProvider(t, &fakeAmazon{})
 
 		t.Run("WHEN the source is saved", func(t *testing.T) {
-			_, err := p.Prepare(ctx, source.Settings{})
+			_, err := p.Prepare(ctx, schema.Settings{})
 
 			t.Run("THEN it asks for the address", func(t *testing.T) {
 				assert.ErrorIs(t, err, ErrNoCredentials)
@@ -200,14 +201,14 @@ func TestFetch_readsTheLibrary(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	stored := source.Settings{settingSession: `{"refresh_token":"Atnr|good","serial":"SERIAL"}`}
+	stored := schema.Settings{settingSession: `{"refresh_token":"Atnr|good","serial":"SERIAL"}`}
 
 	t.Run("GIVEN a session just signed in whose access token the library rejects before its time", func(t *testing.T) {
 		fake := &fakeAmazon{expireFirst: true}
 		p := newTestProvider(t, fake)
 
 		// The registration's access token ("Atna|first") is cached for an hour.
-		settings, err := p.Prepare(ctx, source.Settings{settingCode: "GOODCODE"})
+		settings, err := p.Prepare(ctx, schema.Settings{settingCode: "GOODCODE"})
 		require.NoError(t, err)
 
 		t.Run("WHEN the library is scanned", func(t *testing.T) {
@@ -264,7 +265,7 @@ func TestAccountAPI_passingTroubles(t *testing.T) {
 			p := newTestProvider(t, &fakeAmazon{accountStatus: status})
 
 			t.Run("WHEN a code is pasted", func(t *testing.T) {
-				_, err := p.Prepare(ctx, source.Settings{settingCode: "GOODCODE"})
+				_, err := p.Prepare(ctx, schema.Settings{settingCode: "GOODCODE"})
 
 				t.Run("THEN it is a passing trouble, not a rejected code", func(t *testing.T) {
 					require.ErrorIs(t, err, want)
@@ -273,7 +274,7 @@ func TestAccountAPI_passingTroubles(t *testing.T) {
 			})
 
 			t.Run("WHEN the library is scanned with a stored session", func(t *testing.T) {
-				_, _, err := p.Fetch(ctx, source.Settings{settingSession: `{"refresh_token":"Atnr|good","serial":"SERIAL"}`})
+				_, _, err := p.Fetch(ctx, schema.Settings{settingSession: `{"refresh_token":"Atnr|good","serial":"SERIAL"}`})
 
 				t.Run("THEN it is a passing trouble, not a signed-out session", func(t *testing.T) {
 					require.ErrorIs(t, err, want)
@@ -298,7 +299,7 @@ func TestLibrary_passingTroubles(t *testing.T) {
 			p := newTestProvider(t, &fakeAmazon{libraryStatus: status})
 
 			t.Run("WHEN the library is scanned with a stored session", func(t *testing.T) {
-				_, _, err := p.Fetch(ctx, source.Settings{settingSession: `{"refresh_token":"Atnr|good","serial":"SERIAL"}`})
+				_, _, err := p.Fetch(ctx, schema.Settings{settingSession: `{"refresh_token":"Atnr|good","serial":"SERIAL"}`})
 
 				t.Run("THEN it is a passing trouble, not a signed-out session", func(t *testing.T) {
 					require.ErrorIs(t, err, want)

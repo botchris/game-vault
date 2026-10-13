@@ -13,19 +13,6 @@ import (
 // name a source and a provider agree on.
 type Links map[string]string
 
-// LinkSteam is the key of Steam AppIDs. Unlike other stores' keys it is shared here because sources
-// other than Steam's (Humble Bundle, Amazon) report AppIDs too.
-const LinkSteam = "steam"
-
-// pcStoreLinks are the link keys of the stores that sell PC games. A game linked to one has PC art
-// there even when the user owns it only on a console, which the console edition can borrow as a
-// last resort (see Game.BorrowsPCBox). cmd/gamevault checks that every PC store's cover provider
-// reads one of these keys.
-var pcStoreLinks = []string{LinkSteam, "gog", "epic", "ea", "battlenet", "ubisoft", "xbox", "amazon", "itch"}
-
-// IsPCStoreLink reports whether key is the link key of a store that sells PC games.
-func IsPCStoreLink(key string) bool { return slices.Contains(pcStoreLinks, key) }
-
 // HasPCStore reports whether the links name a game in a store that sells PC games.
 func (l Links) HasPCStore() bool {
 	for k, v := range l {

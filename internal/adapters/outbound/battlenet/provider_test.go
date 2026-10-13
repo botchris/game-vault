@@ -15,7 +15,7 @@ import (
 
 	"gamevault/internal/adapters/outbound/browsersession"
 	"gamevault/internal/domain/provider"
-	"gamevault/internal/domain/source"
+	"gamevault/internal/domain/schema"
 )
 
 // fakeAccount mimics account.battle.net: the API needs a SESSION cookie; the renewal path gives a
@@ -89,7 +89,7 @@ func TestFetchRenewsTheSession(t *testing.T) {
 	srv := fakeAccount(t)
 	p := NewProvider()
 	p.Account.BaseURL = srv.URL
-	settings := source.Settings{settingCookies: "Cookie: SESSION=expired; BA-tassadar=long-lived"}
+	settings := schema.Settings{settingCookies: "Cookie: SESSION=expired; BA-tassadar=long-lived"}
 
 	copies, warnings, err := p.Fetch(context.Background(), settings)
 	if err != nil || len(warnings) > 0 {
@@ -124,12 +124,12 @@ func TestSignedOut(t *testing.T) {
 	p := NewProvider()
 	p.Account.BaseURL = srv.URL
 
-	err := p.Test(context.Background(), source.Settings{settingCookies: "SESSION=expired; BA-tassadar=revoked"})
+	err := p.Test(context.Background(), schema.Settings{settingCookies: "SESSION=expired; BA-tassadar=revoked"})
 	if !errors.Is(err, ErrSignedOut) {
 		t.Fatalf("got %v", err)
 	}
 
-	if err := p.Test(context.Background(), source.Settings{settingCookies: " "}); !errors.Is(err, ErrNoCredentials) {
+	if err := p.Test(context.Background(), schema.Settings{settingCookies: " "}); !errors.Is(err, ErrNoCredentials) {
 		t.Fatalf("no cookies: %v", err)
 	}
 }
@@ -144,7 +144,7 @@ func TestFetch_outageIsNotSignedOut(t *testing.T) {
 		p.Account.BaseURL = srv.URL
 
 		t.Run("WHEN a scan runs", func(t *testing.T) {
-			_, _, err := p.Fetch(ctx, source.Settings{settingCookies: "SESSION=outage; BA-tassadar=long-lived"})
+			_, _, err := p.Fetch(ctx, schema.Settings{settingCookies: "SESSION=outage; BA-tassadar=long-lived"})
 
 			t.Run("THEN it is a passing trouble, not a signed-out session", func(t *testing.T) {
 				require.ErrorIs(t, err, provider.ErrUnavailable)
@@ -152,4 +152,16 @@ func TestFetch_outageIsNotSignedOut(t *testing.T) {
 			})
 		})
 	})
+}
+
+// TestCollectTitles_idWithoutTitleID pins the id of a game Battle.net lists without a title id: the
+// copy's ExternalID is built from it, so it must never change (game.TitleIDKey, not MatchKey).
+func TestCollectTitles_idWithoutTitleID(t *testing.T) {
+	out := map[string]title{}
+	collectTitles(map[string]any{"localizedGameName": "Example Quest™ (Battle.net Key)"}, out)
+
+	assert.Equal(t, map[string]title{"example quest": {
+		ID:   "example quest",
+		Name: "Example Quest™ (Battle.net Key)",
+	}}, out)
 }
