@@ -16,18 +16,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"regexp"
 	"sort"
 	"strings"
-	gosync "sync"
 	"time"
 
 	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/adapters/outbound/browsersession"
+	"gamevault/internal/adapters/outbound/oauthsession"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
@@ -89,47 +88,72 @@ func cleanNPSSO(v string) string {
 	return strings.Trim(v, `"' `)
 }
 
+// session is what the source stores between scans.
 type session struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
-type accessToken struct {
-	token   string
-	expires time.Time
-}
-
 // Provider implements sync.Provider for PlayStation accounts.
 type Provider struct {
-	AuthURL    string
-	LibraryURL string
+	// Auth calls Sony's OAuth endpoints (authorize, token); tests point it at a fake server.
+	Auth *apiclient.Client
 
-	// GameListURL is the PlayStation app's played-titles list, read to tell games from apps.
-	GameListURL string
+	// Library calls the library website's GraphQL endpoint (its BaseURL is the endpoint itself).
+	Library *apiclient.Client
 
-	Client *http.Client
-	Now    func() time.Time
+	// GameList calls the PlayStation app's played-titles list (its BaseURL is the endpoint itself),
+	// read to tell games from apps.
+	GameList *apiclient.Client
+
+	// Now is the clock.
+	Now func() time.Time
 
 	// Log receives the titles left out as non-games. Optional.
 	Log *slog.Logger
 
-	mu     gosync.Mutex
-	tokens map[string]accessToken // refresh token → access token
+	// sessions exchanges the NPSSO for a session and keeps the sessions' access tokens. The NPSSO
+	// is not a one-time code: it stays in the settings, so the source does not implement
+	// sync.Preparer (which would drop it) and signs in with it only when it has no usable session.
+	sessions *oauthsession.Sessions[session]
 }
 
 // NewProvider returns the PlayStation source with its production endpoints.
 func NewProvider(log *slog.Logger) *Provider {
-	return &Provider{
-		AuthURL:     defaultAuthURL,
-		LibraryURL:  defaultLibraryURL,
-		GameListURL: defaultGameListURL,
-		Now:         time.Now,
-		Log:         log,
-		Client: &http.Client{
-			Timeout: 30 * time.Second,
-			// The authorization step answers with a redirect to the app's custom scheme: read it, do not follow it.
-			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
-		},
+	auth := newClient(defaultAuthURL)
+	// The authorization step answers with a redirect to the app's custom scheme: read it, do not
+	// follow it.
+	auth.NoRedirects = true
+
+	p := &Provider{
+		Auth:     auth,
+		Library:  newClient(defaultLibraryURL),
+		GameList: newClient(defaultGameListURL),
+		Now:      time.Now,
+		Log:      log,
 	}
+	p.sessions = &oauthsession.Sessions[session]{
+		CodeField:    settingNPSSO,
+		StateField:   settingSession,
+		Clean:        func(v string) (string, error) { return cleanNPSSO(v), nil },
+		Exchange:     p.exchange,
+		Refresh:      p.refresh,
+		RefreshToken: func(s session) string { return s.RefreshToken },
+		ErrNoSession: ErrNoNPSSO,
+		ErrSignedOut: ErrSignedOut,
+		Now:          func() time.Time { return p.Now() },
+	}
+
+	return p
+}
+
+// newClient returns a client of one of Sony's services. They serve the session of the user's
+// browser (the NPSSO), so requests look like that browser.
+func newClient(baseURL string) *apiclient.Client {
+	c := apiclient.New(baseURL)
+	c.HTTP.Timeout = 30 * time.Second
+	c.UserAgent = apiclient.BrowserUserAgent
+
+	return c
 }
 
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
@@ -184,28 +208,95 @@ type tokenResponse struct {
 	ExpiresIn    int    `json:"expires_in"`
 }
 
+// errGrantRefused means the token endpoint refused the code or the refresh token (400
+// invalid_grant, 401, 403): the caller says which it was.
+var errGrantRefused = errors.New("playstation refused the grant")
+
+// errSessionRefused means Sony refused to renew the stored session: the source signs in again
+// with the NPSSO.
+var errSessionRefused = errors.New("playstation refused the stored session")
+
+// exchange signs in with the NPSSO (oauthsession.Sessions.Exchange): the NPSSO gives a one-time
+// authorization code, traded for a session. A refusal at either step means the NPSSO no longer
+// works.
+func (p *Provider) exchange(ctx context.Context, npsso string) (oauthsession.Grant[session], error) {
+	code, err := p.authorize(ctx, npsso)
+	if err != nil {
+		return oauthsession.Grant[session]{}, err
+	}
+
+	g, err := p.grant(ctx, url.Values{
+		"grant_type":   {"authorization_code"},
+		"code":         {code},
+		"redirect_uri": {redirectURI},
+	}, "")
+	if errors.Is(err, errGrantRefused) {
+		return oauthsession.Grant[session]{}, ErrSignedOut
+	}
+
+	return g, err
+}
+
+// refresh renews a session (oauthsession.Sessions.Refresh). A refused refresh token is
+// errSessionRefused, after which withToken signs in again with the NPSSO.
+func (p *Provider) refresh(ctx context.Context, s session) (oauthsession.Grant[session], error) {
+	g, err := p.grant(ctx, url.Values{
+		"grant_type":    {"refresh_token"},
+		"refresh_token": {s.RefreshToken},
+		"scope":         {scope},
+	}, s.RefreshToken)
+	if errors.Is(err, errGrantRefused) {
+		return oauthsession.Grant[session]{}, errSessionRefused
+	}
+
+	return g, err
+}
+
+// grant calls the token endpoint. Sony may leave the refresh token out of a refresh's answer: the
+// previous one then stays.
+func (p *Provider) grant(ctx context.Context, form url.Values, previous string) (oauthsession.Grant[session], error) {
+	tok, err := p.token(ctx, form)
+	if err != nil {
+		return oauthsession.Grant[session]{}, err
+	}
+
+	refresh := tok.RefreshToken
+	if refresh == "" {
+		refresh = previous
+	}
+
+	return oauthsession.Grant[session]{
+		Session:     session{RefreshToken: refresh},
+		AccessToken: tok.AccessToken,
+		Lifetime:    time.Duration(tok.ExpiresIn) * time.Second,
+	}, nil
+}
+
 // authorize turns the NPSSO token into a one-time authorization code.
 func (p *Provider) authorize(ctx context.Context, npsso string) (string, error) {
-	q := url.Values{"access_type": {"offline"}, "client_id": {clientID}, "redirect_uri": {redirectURI}, "response_type": {"code"}, "scope": {scope}}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.AuthURL+"/authorize?"+q.Encode(), nil)
+	res, err := p.Auth.Send(ctx, apiclient.Request{
+		Path: "/authorize",
+		Query: url.Values{
+			"access_type":   {"offline"},
+			"client_id":     {clientID},
+			"redirect_uri":  {redirectURI},
+			"response_type": {"code"},
+			"scope":         {scope},
+		},
+		Header: http.Header{
+			"Cookie": {"npsso=" + npsso},
+			// A browser's navigation, not an API call: no Accept header, as before the shared
+			// client, so Sony answers with its redirect.
+			"Accept": nil,
+		},
+	})
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("playstation sign-in: %w", apiclient.ClassifyError(ctx, err))
 	}
-
-	req.Header.Set("Cookie", "npsso="+npsso)
-	req.Header.Set("User-Agent", apiclient.BrowserUserAgent)
-
-	res, err := p.Client.Do(req)
-	if err != nil {
-		return "", apiclient.ClassifyError(ctx, err)
-	}
-
-	res.Body.Close()
 
 	// A 429 or an outage is a passing trouble, not a refused NPSSO: it says nothing about it.
-	if apiclient.Transient(res.StatusCode) {
-		return "", fmt.Errorf("playstation sign-in: %w", apiclient.ClassifyStatus(res.StatusCode))
+	if apiclient.Transient(res.Status) {
+		return "", fmt.Errorf("playstation sign-in: %w", apiclient.ClassifyError(ctx, res.Err()))
 	}
 
 	loc := res.Header.Get("Location")
@@ -221,107 +312,77 @@ func (p *Provider) authorize(ctx context.Context, npsso string) (string, error) 
 	return url.QueryUnescape(m[1])
 }
 
+// token calls the token endpoint with the PlayStation app's credentials.
 func (p *Provider) token(ctx context.Context, form url.Values) (tokenResponse, error) {
 	form.Set("token_format", "jwt")
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.AuthURL+"/token", strings.NewReader(form.Encode()))
+	res, err := p.Auth.Send(ctx, apiclient.Request{
+		Method: http.MethodPost,
+		Path:   "/token",
+		Form:   form,
+		Header: http.Header{"Authorization": {apiclient.BasicAuth(clientID, clientSecret)}},
+	})
 	if err != nil {
-		return tokenResponse{}, err
+		return tokenResponse{}, fmt.Errorf("playstation sign-in: %w", apiclient.ClassifyError(ctx, err))
 	}
-
-	req.SetBasicAuth(clientID, clientSecret)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("User-Agent", apiclient.BrowserUserAgent)
-
-	res, err := p.Client.Do(req)
-	if err != nil {
-		return tokenResponse{}, apiclient.ClassifyError(ctx, err)
-	}
-	defer res.Body.Close()
 
 	// Sony refuses a stale refresh token or code with a 400 invalid_grant; a 429 or an outage is a
 	// passing trouble, after which the same session still works.
-	body, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
-	if res.StatusCode != http.StatusOK {
-		if apiclient.Rejected(res.StatusCode) {
-			return tokenResponse{}, ErrSignedOut
+	if !res.OK() {
+		if apiclient.Rejected(res.Status) {
+			return tokenResponse{}, errGrantRefused
 		}
 
-		return tokenResponse{}, fmt.Errorf("playstation sign-in: %w", apiclient.ClassifyStatus(res.StatusCode))
+		return tokenResponse{}, fmt.Errorf("playstation sign-in: %w", apiclient.ClassifyError(ctx, res.Err()))
 	}
 
 	var tok tokenResponse
-	if err := json.Unmarshal(body, &tok); err != nil || tok.AccessToken == "" {
+	if err := res.Decode(&tok); err != nil || tok.AccessToken == "" {
 		return tokenResponse{}, errors.New("playstation sign-in: unexpected answer")
 	}
 
 	return tok, nil
 }
 
-// accessToken returns a valid access token: cached, from the stored refresh token, or by signing
-// in again with the NPSSO when the refresh token no longer works. A new refresh token is written
-// back into settings for the caller to persist.
-func (p *Provider) accessToken(ctx context.Context, settings source.Settings) (string, error) {
-	var s session
-
-	_ = json.Unmarshal([]byte(settings[settingSession]), &s)
-	if s.RefreshToken != "" {
-		p.mu.Lock()
-		cached, ok := p.tokens[s.RefreshToken]
-		p.mu.Unlock()
-
-		if ok && p.Now().Add(time.Minute).Before(cached.expires) {
-			return cached.token, nil
-		}
-
-		tok, err := p.token(ctx, url.Values{"grant_type": {"refresh_token"}, "refresh_token": {s.RefreshToken}, "scope": {scope}})
-		if err == nil {
-			return p.remember(settings, tok, s.RefreshToken), nil
-		}
-
-		if !errors.Is(err, ErrSignedOut) {
-			return "", err
-		}
-	}
-
-	npsso := cleanNPSSO(settings[settingNPSSO])
-	if npsso == "" {
-		return "", ErrNoNPSSO
-	}
-
-	code, err := p.authorize(ctx, npsso)
+// signIn signs in with the NPSSO and stores the session it gives in settings. The NPSSO is passed
+// alone, so the stored session (missing, or refused) is not kept instead.
+func (p *Provider) signIn(ctx context.Context, settings source.Settings) error {
+	out, err := p.sessions.Prepare(ctx, source.Settings{settingNPSSO: settings[settingNPSSO]})
 	if err != nil {
-		return "", err
+		return err
 	}
 
-	tok, err := p.token(ctx, url.Values{"grant_type": {"authorization_code"}, "code": {code}, "redirect_uri": {redirectURI}})
-	if err != nil {
-		return "", err
-	}
+	settings[settingSession] = out[settingSession]
 
-	return p.remember(settings, tok, ""), nil
+	return nil
 }
 
-func (p *Provider) remember(settings source.Settings, tok tokenResponse, previous string) string {
-	refresh := tok.RefreshToken
-	if refresh == "" {
-		refresh = previous
-	}
-
-	if refresh != "" {
-		raw, _ := json.Marshal(session{RefreshToken: refresh})
-		settings[settingSession] = string(raw)
-
-		p.mu.Lock()
-		if p.tokens == nil {
-			p.tokens = map[string]accessToken{}
+// withToken runs call with an access token from the stored session, and once more with a renewed
+// one when the library refuses the first (errTokenRejected): only a refused renewal means the user
+// must sign in again. Without a session, or when Sony refuses to renew it, it signs in with the
+// NPSSO first. The newest session is written back into settings for the caller to persist.
+func (p *Provider) withToken(ctx context.Context, settings source.Settings, call func(token string) error) error {
+	if _, err := p.sessions.Current(settings); err != nil {
+		if err := p.signIn(ctx, settings); err != nil {
+			return err
 		}
-
-		p.tokens[refresh] = accessToken{tok.AccessToken, p.Now().Add(time.Duration(tok.ExpiresIn) * time.Second)}
-		p.mu.Unlock()
 	}
 
-	return tok.AccessToken
+	err := p.sessions.WithRetry(ctx, settings, call)
+	if !errors.Is(err, errSessionRefused) {
+		return err
+	}
+
+	if err := p.signIn(ctx, settings); err != nil {
+		return err
+	}
+
+	err = p.sessions.WithRetry(ctx, settings, call)
+	if errors.Is(err, errSessionRefused) {
+		return ErrSignedOut
+	}
+
+	return err
 }
 
 // ---- Library ----
@@ -340,78 +401,84 @@ type title struct {
 	} `json:"image"`
 }
 
+// page reads one page of purchases with a registered query (by its hash), sent by GET as the
+// library website does.
 func (p *Provider) page(ctx context.Context, token, hash string, start int) ([]title, bool, error) {
-	vars, _ := json.Marshal(map[string]any{
-		"isActive": true, "platform": []string{"ps4", "ps5"}, "size": pageSize, "start": start,
-		"sortBy": "ACTIVE_DATE", "sortDirection": "desc", "subscriptionService": "NONE",
+	vars, err := json.Marshal(map[string]any{
+		"isActive":            true,
+		"platform":            []string{"ps4", "ps5"},
+		"size":                pageSize,
+		"start":               start,
+		"sortBy":              "ACTIVE_DATE",
+		"sortDirection":       "desc",
+		"subscriptionService": "NONE",
 	})
-	ext, _ := json.Marshal(map[string]any{"persistedQuery": map[string]any{"version": 1, "sha256Hash": hash}})
-	q := url.Values{"operationName": {"getPurchasedGameList"}, "variables": {string(vars)}, "extensions": {string(ext)}}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.LibraryURL+"?"+q.Encode(), nil)
 	if err != nil {
-		return nil, false, err
+		return nil, false, fmt.Errorf("playstation library: %w", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json") // Sony's GraphQL refuses requests that could be CSRF
-	req.Header.Set("User-Agent", apiclient.BrowserUserAgent)
+	ext, err := json.Marshal(map[string]any{"persistedQuery": map[string]any{
+		"version":    1,
+		"sha256Hash": hash,
+	}})
+	if err != nil {
+		return nil, false, fmt.Errorf("playstation library: %w", err)
+	}
 
-	res, err := p.Client.Do(req)
+	res, err := p.Library.Send(ctx, apiclient.Request{
+		Query: url.Values{
+			"operationName": {"getPurchasedGameList"},
+			"variables":     {string(vars)},
+			"extensions":    {string(ext)},
+		},
+		Header: http.Header{
+			"Authorization": {"Bearer " + token},
+			// Sony's GraphQL refuses requests that could be CSRF.
+			"Content-Type": {"application/json"},
+		},
+	})
 	if err != nil {
 		return nil, false, fmt.Errorf("playstation library: %w", apiclient.ClassifyError(ctx, err))
 	}
-	defer res.Body.Close()
 
-	// A 401 refuses the token whatever the body says (a web page as well as a GraphQL error), and
-	// a rate limit or an outage is a passing trouble: neither is worth decoding.
-	switch {
-	case res.StatusCode == http.StatusUnauthorized:
-		p.forget(token) // the next accessToken renews it
+	// A 401 refuses the token whatever the body says (a web page as well as a GraphQL error).
+	if res.Status == http.StatusUnauthorized {
 		return nil, false, errTokenRejected
-	case apiclient.Transient(res.StatusCode):
-		return nil, false, fmt.Errorf("playstation library: %w", apiclient.ClassifyStatus(res.StatusCode))
 	}
 
-	raw, _ := io.ReadAll(io.LimitReader(res.Body, 16<<20))
-
-	var out struct {
+	// A hash Sony no longer runs is refused before any GraphQL is read, with a bare message.
+	var refusal struct {
 		Message string `json:"message"`
-		Data    struct {
-			Purchased *struct {
-				Games    []title `json:"games"`
-				PageInfo struct {
-					IsLast     bool `json:"isLast"`
-					TotalCount int  `json:"totalCount"`
-				} `json:"pageInfo"`
-			} `json:"purchasedTitlesRetrieve"`
-		} `json:"data"`
-		Errors []struct {
-			Message string `json:"message"`
-		} `json:"errors"`
 	}
-	if err := json.Unmarshal(raw, &out); err != nil {
-		return nil, false, fmt.Errorf("playstation library: HTTP %d, unexpected answer", res.StatusCode)
-	}
-
-	if strings.Contains(out.Message, "not whitelisted") {
+	if !apiclient.Transient(res.Status) && res.Decode(&refusal) == nil && strings.Contains(refusal.Message, "not whitelisted") {
 		return nil, false, errQueryRetired
 	}
 
-	if len(out.Errors) > 0 {
-		if strings.Contains(out.Errors[0].Message, "authorized") {
-			p.forget(token) // the next accessToken renews it
-			return nil, false, errTokenRejected
-		}
-
-		return nil, false, fmt.Errorf("playstation library: %s", out.Errors[0].Message)
+	var data struct {
+		Purchased *struct {
+			Games    []title `json:"games"`
+			PageInfo struct {
+				IsLast     bool `json:"isLast"`
+				TotalCount int  `json:"totalCount"`
+			} `json:"pageInfo"`
+		} `json:"purchasedTitlesRetrieve"`
 	}
 
-	if out.Data.Purchased == nil {
-		return nil, false, fmt.Errorf("playstation library: HTTP %d, no library in the answer", res.StatusCode)
+	// A rate limit or an outage is a passing trouble (res.GraphQL checks the status first).
+	err = res.GraphQL(&data)
+
+	var ge *apiclient.GraphQLError
+
+	switch {
+	case errors.As(err, &ge) && strings.Contains(ge.Message, "authorized"):
+		return nil, false, errTokenRejected
+	case err != nil:
+		return nil, false, fmt.Errorf("playstation library: %w", apiclient.ClassifyError(ctx, err))
+	case data.Purchased == nil:
+		return nil, false, fmt.Errorf("playstation library: HTTP %d, no library in the answer", res.Status)
 	}
 
-	pg := out.Data.Purchased
+	pg := data.Purchased
 	last := pg.PageInfo.IsLast || len(pg.Games) < pageSize || start+len(pg.Games) >= pg.PageInfo.TotalCount && pg.PageInfo.TotalCount > 0
 
 	return pg.Games, last, nil
@@ -420,37 +487,8 @@ func (p *Provider) page(ctx context.Context, token, hash string, start int) ([]t
 var errQueryRetired = errors.New("playstation library: the library query is no longer registered by Sony")
 
 // errTokenRejected means the library refused an access token: it may have expired or been revoked
-// before its time. The caller renews it once (withToken); only a refused renewal is signed out.
-var errTokenRejected = errors.New("playstation rejected the access token")
-
-// forget drops a cached access token the library refused, so the next accessToken renews it.
-func (p *Provider) forget(token string) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	for k, v := range p.tokens {
-		if v.token == token {
-			delete(p.tokens, k)
-		}
-	}
-}
-
-// withToken runs call with an access token, and once more with a renewed one when the library
-// refuses the first (errTokenRejected): only a refused renewal means the user must sign in again.
-func (p *Provider) withToken(ctx context.Context, settings source.Settings, call func(token string) error) error {
-	for range 2 {
-		token, err := p.accessToken(ctx, settings)
-		if err != nil {
-			return err
-		}
-
-		if err := call(token); !errors.Is(err, errTokenRejected) {
-			return err
-		}
-	}
-
-	return ErrSignedOut
-}
+// before its time. The sessions renew it once (WithRetry); only a refused renewal is signed out.
+var errTokenRejected = fmt.Errorf("playstation rejected the access token: %w", apiclient.ErrTokenRejected)
 
 func (p *Provider) purchased(ctx context.Context, token string) ([]title, error) {
 	var lastErr error
