@@ -276,7 +276,6 @@
     "name": "Name",
     "interval": "Automatic scan",
     "enabled": "Enabled",
-    "test": "Test connection",
     "saveAndSync": "Save and scan",
     "openLink": "Open the page",
     "secretsNote": "Credentials are stored in the database inside the config directory and are never sent back to the browser.",
@@ -292,7 +291,6 @@
       "profile": "Profile",
       "profileHelp": "Your SteamID64, custom URL name or full profile URL.\n\"Game details\" must be Public in your Steam privacy settings."
     },
-    "testing": "Testing…",
     "syncingHint": "Large accounts can take a few minutes; progress is written to the server log.",
     "epic": {
       "description": "Imports the games in your Epic Games Store library, including the free weekly games you claimed. It signs in like the Epic launcher does and only reads your library.",
@@ -357,7 +355,6 @@
       "code": "Address after signing in",
       "codeHelp": "1. Open the page above and sign in to Amazon.\n2. You land on amazon.com: copy the whole address from the browser's address bar (it contains `openid.oa2.authorization_code=`) and paste it here.\n3. Press Test connection or Save right away: the address works once and expires within minutes.\nThe link is new every time Game Vault starts: if it fails, reload this page and open it again.\nGame Vault appears as an Amazon Games device in your Amazon account; removing it there signs Game Vault out."
     },
-    "testOk": "Connection works.",
     "fanatical": {
       "description": "Imports the game keys you bought on Fanatical, with the store each key is for (Steam, Epic, GOG…), its redeem deadline and the key itself once you have revealed it on Fanatical. Read-only: keys are never revealed or redeemed. DLC, software, books, audio and vouchers are not imported.",
       "consent": "I understand the risk and use this at my own responsibility",
@@ -370,8 +367,6 @@
       "apiKey": "API key",
       "apiKeyHelp": "1. Open the page above and sign in to itch.io.\n2. Press Generate new API key and copy it.\n3. Paste it here.\nThe key gives access to your itch.io account: never share it. Revoke it on the same page to disconnect Game Vault."
     },
-    "riskTitle": "Risk to your account",
-    "readTerms": "Read Fanatical's terms",
     "excludedTitle": "Removed from this source ({{count}})",
     "importAgain": "Import again",
     "excludedHint": "Scans skip these items. Import one again to bring it back on the next sync.",
@@ -477,9 +472,6 @@
     "retried_other": "{{count}} games will be looked up again.",
     "redownloaded_one": "{{count}} cover dropped; it will be downloaded again.",
     "redownloaded_other": "{{count}} covers dropped; they will be downloaded again.",
-    "riskTitle": "Risk to your account",
-    "readTerms": "Read the terms",
-    "testOk": "Connection works.",
     "thegamesdb": {
       "description": "Platform-specific box art (the Xbox 360 case for an Xbox 360 disc). Used for games with a physical copy, games no store knows, and store games no store had art for. One request per game, then cached.",
       "apiKey": "API key",
@@ -572,7 +564,8 @@
       "description": "The median asking price of used listings with the copy's barcode on your first eBay marketplace. Uses the same developer keys as eBay barcode lookups."
     },
     "valuations": "Prices",
-    "valuationsIntro": "Second-hand prices of your physical copies with a barcode. Every enabled source is asked, each copy on its own date about once a month; the order is only how they are listed."
+    "valuationsIntro": "Second-hand prices of your physical copies with a barcode. Every enabled source is asked, each copy on its own date about once a month; the order is only how they are listed.",
+    "enabled": "Enabled"
   },
   "health": {
     "title": "Health",
@@ -837,6 +830,13 @@
       "confirmRevoke": "Revoke the token \"{{name}}\"? Whatever uses it stops working at once."
     },
     "youAreTrusted": "You are in without signing in: this request comes from a trusted network."
+  },
+  "settings": {
+    "riskTitle": "Risk to your account",
+    "readTerms": "Read the terms",
+    "test": "Test connection",
+    "testing": "Testing…",
+    "testOk": "Connection works."
   },
   "details": {
     "tabs": {

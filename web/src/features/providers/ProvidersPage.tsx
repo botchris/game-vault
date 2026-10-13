@@ -74,7 +74,6 @@ function ProviderChain(props: {
   const { kind, onNotice, onChanged } = props;
   const { reload: reloadHealth } = useHealth();
   const [providers, setProviders] = useState<Provider[]>([]);
-  const [placeholder, setPlaceholder] = useState('');
   const [editing, setEditing] = useState<Provider | null>(null);
   const [intent, setIntent] = useState<DialogIntent>('configure');
   // A failure shows in the page's notice, with the other chains'.
@@ -85,7 +84,6 @@ function ProviderChain(props: {
     try {
       const res = await providerClient.listProviders({ kind });
       setProviders(res.providers);
-      setPlaceholder(res.secretPlaceholder);
     } catch (e) {
       onNotice({ tone: 'error', text: errorMessage(e) });
     }
@@ -177,7 +175,7 @@ function ProviderChain(props: {
         ))}
       </ol>
       {editing && (
-        <ProviderDialog provider={editing} intent={intent} placeholder={placeholder} onClose={() => setEditing(null)}
+        <ProviderDialog provider={editing} intent={intent} onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); run(load); }} />
       )}
     </section>

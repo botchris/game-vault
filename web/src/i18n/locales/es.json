@@ -276,7 +276,6 @@
     "name": "Nombre",
     "interval": "Escaneo automático",
     "enabled": "Activada",
-    "test": "Probar conexión",
     "saveAndSync": "Guardar y escanear",
     "openLink": "Abrir la página",
     "secretsNote": "Las credenciales se guardan en la base de datos dentro del directorio de configuración y nunca se devuelven al navegador.",
@@ -292,7 +291,6 @@
       "profile": "Perfil",
       "profileHelp": "Tu SteamID64, el nombre de tu URL personalizada o la URL completa del perfil.\n\"Detalles de juego\" debe ser Público en la privacidad de tu perfil de Steam."
     },
-    "testing": "Probando…",
     "syncingHint": "Las cuentas grandes pueden tardar unos minutos; el progreso se escribe en el log del servidor.",
     "epic": {
       "description": "Importa los juegos de tu biblioteca de Epic Games Store, incluidos los gratuitos semanales que hayas reclamado. Inicia sesión igual que el launcher de Epic y solo lee tu biblioteca.",
@@ -357,7 +355,6 @@
       "code": "Dirección tras iniciar sesión",
       "codeHelp": "1. Abre la página de arriba e inicia sesión en Amazon.\n2. Acabarás en amazon.com: copia la dirección completa de la barra del navegador (contiene `openid.oa2.authorization_code=`) y pégala aquí.\n3. Pulsa Probar conexión o Guardar enseguida: la dirección solo sirve una vez y caduca en unos minutos.\nEl enlace cambia cada vez que Game Vault arranca: si falla, recarga esta página y ábrelo de nuevo.\nGame Vault aparece como un dispositivo de Amazon Games en tu cuenta de Amazon; si lo quitas allí, Game Vault pierde la sesión."
     },
-    "testOk": "La conexión funciona.",
     "fanatical": {
       "description": "Importa las claves de juegos que compraste en Fanatical, con la tienda de cada clave (Steam, Epic, GOG…), su fecha límite para canjearla y la propia clave si ya la revelaste en Fanatical. Solo lectura: nunca revela ni canjea claves. No importa DLC, programas, libros, audio ni vales.",
       "consent": "Entiendo el riesgo y lo uso bajo mi responsabilidad",
@@ -370,8 +367,6 @@
       "apiKey": "Clave de API",
       "apiKeyHelp": "1. Abre la página de arriba e inicia sesión en itch.io.\n2. Pulsa Generate new API key y cópiala.\n3. Pégala aquí.\nLa clave da acceso a tu cuenta de itch.io: no la compartas nunca. Revócala en la misma página para desconectar Game Vault."
     },
-    "riskTitle": "Riesgo para tu cuenta",
-    "readTerms": "Leer las condiciones de Fanatical",
     "excludedTitle": "Quitados de esta fuente ({{count}})",
     "importAgain": "Volver a importar",
     "excludedHint": "Las sincronizaciones saltan estos elementos. Vuelve a importar uno para recuperarlo en la próxima sincronización.",
@@ -477,9 +472,6 @@
     "retried_other": "Se volverán a buscar {{count}} juegos.",
     "redownloaded_one": "{{count}} carátula borrada; se descargará de nuevo.",
     "redownloaded_other": "{{count}} carátulas borradas; se descargarán de nuevo.",
-    "riskTitle": "Riesgo para tu cuenta",
-    "readTerms": "Leer las condiciones",
-    "testOk": "La conexión funciona.",
     "thegamesdb": {
       "description": "Carátulas de la caja según la plataforma (la caja de Xbox 360 para un disco de Xbox 360). Se usa para juegos con copia física, juegos que ninguna tienda conoce y juegos de tienda sin carátula en ninguna tienda. Una petición por juego y luego se guarda.",
       "apiKey": "API key",
@@ -572,7 +564,8 @@
       "description": "El precio mediano que piden los anuncios de segunda mano con el código de barras de la copia en tu primer mercado de eBay. Usa las mismas claves de desarrollador que la búsqueda de códigos de barras de eBay."
     },
     "valuations": "Precios",
-    "valuationsIntro": "Precios de segunda mano de tus copias físicas con código de barras. Se consultan todas las fuentes activadas, cada copia en su propia fecha, más o menos una vez al mes; el orden solo indica cómo se muestran."
+    "valuationsIntro": "Precios de segunda mano de tus copias físicas con código de barras. Se consultan todas las fuentes activadas, cada copia en su propia fecha, más o menos una vez al mes; el orden solo indica cómo se muestran.",
+    "enabled": "Activado"
   },
   "health": {
     "title": "Salud",
@@ -837,6 +830,13 @@
       "confirmRevoke": "¿Revocar el token \"{{name}}\"? Lo que lo use dejará de funcionar al momento."
     },
     "youAreTrusted": "Has entrado sin iniciar sesión: esta petición viene de una red de confianza."
+  },
+  "settings": {
+    "riskTitle": "Riesgo para tu cuenta",
+    "readTerms": "Leer las condiciones",
+    "test": "Probar conexión",
+    "testing": "Probando…",
+    "testOk": "La conexión funciona."
   },
   "details": {
     "tabs": {
