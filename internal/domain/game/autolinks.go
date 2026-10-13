@@ -87,12 +87,10 @@ func (g *Game) RestoreLinkOrigins(auto []string, rejected []LinkRef, triedAt tim
 
 // AddAutoLinks adds the links found automatically that the game lacks and the user has not
 // rejected, marked as automatic, and returns them. Links the game already has (by the user, a
-// source or an earlier search) are kept as they are.
+// source or an earlier search) are kept as they are, and invalid ones are skipped (Links.Valid
+// says which).
 func (g *Game) AddAutoLinks(found Links, now time.Time) Links {
-	found, err := found.normalize()
-	if err != nil {
-		return nil
-	}
+	found, _ = found.Valid() // the caller that found them reports the invalid ones
 
 	added := Links{}
 

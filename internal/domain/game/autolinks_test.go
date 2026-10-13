@@ -212,3 +212,70 @@ func TestAbsorb_prefersALinkThatIsNotAutomatic(t *testing.T) {
 		})
 	})
 }
+
+func TestAddAutoLinks_skipsOnlyTheInvalidLinks(t *testing.T) {
+	t0 := time.Date(2026, 10, 11, 12, 0, 0, 0, time.UTC)
+
+	t.Run("GIVEN a game without links", func(t *testing.T) {
+		g, err := New("Console Quest", t0)
+		require.NoError(t, err)
+
+		t.Run("WHEN a search finds a good Steam AppID next to an invalid id", func(t *testing.T) {
+			added := g.AddAutoLinks(Links{LinkSteam: "100", "igdb": "a slug with spaces"}, t0)
+
+			t.Run("THEN the good link is added and only the invalid one is dropped", func(t *testing.T) {
+				assert.Equal(t, Links{LinkSteam: "100"}, added)
+				assert.Equal(t, Links{LinkSteam: "100"}, g.Links())
+				assert.Equal(t, []string{LinkSteam}, g.AutoLinks())
+			})
+		})
+	})
+}
+
+func TestConsolidator_sameLinkAsSourceAndAutomatic(t *testing.T) {
+	t0 := time.Date(2026, 10, 11, 12, 0, 0, 0, time.UTC)
+
+	disc := ImportedCopy{
+		ExternalID: "csv:1",
+		Title:      "Console Quest",
+		Details: CopyDetails{
+			Kind:     KindPhysical,
+			Platform: "PS4",
+		},
+	}
+
+	t.Run("GIVEN a game imported without links", func(t *testing.T) {
+		first := NewConsolidator(nil).Apply("", []ImportedCopy{disc}, t0)
+		require.Len(t, first.Changed, 1)
+		g := first.Changed[0]
+
+		t.Run("WHEN it is imported again with the same Steam link both as its own and as automatic", func(t *testing.T) {
+			again := disc
+			again.Links = Links{LinkSteam: "100"}
+			again.AutoLinks = Links{LinkSteam: "100"}
+			c := NewConsolidator([]*Game{g})
+			res := c.Apply("", []ImportedCopy{again}, t0)
+
+			t.Run("THEN the source's link wins: it is a plain link", func(t *testing.T) {
+				assert.Equal(t, 1, res.CopiesUpdated)
+				assert.Equal(t, Links{LinkSteam: "100"}, g.Links())
+				assert.Empty(t, g.AutoLinks())
+			})
+
+			t.Run("AND a later copy with that link and another title is recognized by it", func(t *testing.T) {
+				res := c.Apply("", []ImportedCopy{{
+					ExternalID: "steam:100",
+					Title:      "The Quest Anthology",
+					Links:      Links{LinkSteam: "100"},
+					Details: CopyDetails{
+						Kind:     KindLibrary,
+						Platform: "Steam",
+					},
+				}}, t0)
+
+				assert.Equal(t, 0, res.GamesCreated)
+				assert.Len(t, g.Copies(), 2)
+			})
+		})
+	})
+}
