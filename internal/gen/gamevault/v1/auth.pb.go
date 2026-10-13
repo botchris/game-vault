@@ -1158,17 +1158,17 @@ const file_gamevault_v1_auth_proto_rawDesc = "" +
 	"\x17gamevault/v1/auth.proto\x12\fgamevault.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"7\n" +
 	"\tPrincipal\x12\x16\n" +
 	"\x06method\x18\x01 \x01(\tR\x06method\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\"\xdb\x01\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\"\x98\x01\n" +
 	"\fAuthSettings\x12&\n" +
 	"\x0eauthentication\x18\x04 \x01(\tR\x0eauthentication\x12)\n" +
 	"\x10trusted_networks\x18\x05 \x03(\tR\x0ftrustedNetworks\x125\n" +
-	"\x16certificate_validation\x18\x06 \x01(\tR\x15certificateValidationJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03J\x04\b\x03\x10\x04R\flocal_bypassR\x0ftrust_tailscaleR\x10tailscale_logins\"\x16\n" +
-	"\x14GetAuthStatusRequest\"\xd0\x01\n" +
+	"\x16certificate_validation\x18\x06 \x01(\tR\x15certificateValidation\"\x16\n" +
+	"\x14GetAuthStatusRequest\"\xac\x01\n" +
 	"\x15GetAuthStatusResponse\x125\n" +
 	"\tprincipal\x18\x01 \x01(\v2\x17.gamevault.v1.PrincipalR\tprincipal\x12%\n" +
 	"\x0esetup_required\x18\x02 \x01(\bR\rsetupRequired\x12\x1b\n" +
 	"\tcan_setup\x18\x03 \x01(\bR\bcanSetup\x12\x18\n" +
-	"\atrusted\x18\x06 \x01(\bR\atrustedJ\x04\b\x04\x10\x05J\x04\b\x05\x10\x06R\x0ftailscale_loginR\x05local\"F\n" +
+	"\atrusted\x18\x06 \x01(\bR\atrusted\"F\n" +
 	"\fSetupRequest\x12\x1a\n" +
 	"\busername\x18\x01 \x01(\tR\busername\x12\x1a\n" +
 	"\bpassword\x18\x02 \x01(\tR\bpassword\"F\n" +
@@ -1186,13 +1186,13 @@ const file_gamevault_v1_auth_proto_rawDesc = "" +
 	"\x10current_password\x18\x02 \x01(\tR\x0fcurrentPassword\x12!\n" +
 	"\fnew_password\x18\x03 \x01(\tR\vnewPassword\"\x18\n" +
 	"\x16ChangePasswordResponse\"\x18\n" +
-	"\x16GetAuthSettingsRequest\"\xfa\x01\n" +
+	"\x16GetAuthSettingsRequest\"\xec\x01\n" +
 	"\x17GetAuthSettingsResponse\x126\n" +
 	"\bsettings\x18\x01 \x01(\v2\x1a.gamevault.v1.AuthSettingsR\bsettings\x12\x19\n" +
 	"\bhas_user\x18\x03 \x01(\bR\ahasUser\x12\x1a\n" +
 	"\busername\x18\x04 \x01(\tR\busername\x12%\n" +
 	"\x0eclient_address\x18\x05 \x01(\tR\rclientAddress\x12;\n" +
-	"\x1aclient_in_trusted_networks\x18\x06 \x01(\bR\x17clientInTrustedNetworksJ\x04\b\x02\x10\x03R\x06denied\"S\n" +
+	"\x1aclient_in_trusted_networks\x18\x06 \x01(\bR\x17clientInTrustedNetworks\"S\n" +
 	"\x19UpdateAuthSettingsRequest\x126\n" +
 	"\bsettings\x18\x01 \x01(\v2\x1a.gamevault.v1.AuthSettingsR\bsettings\"T\n" +
 	"\x1aUpdateAuthSettingsResponse\x126\n" +

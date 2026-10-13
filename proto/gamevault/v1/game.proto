@@ -99,9 +99,6 @@ message ChoiceList {
 
 // CopyDetails holds the editable attributes of a copy.
 message CopyDetails {
-  reserved 9;
-  reserved "condition";
-
   CopyKind kind = 1;
   // Store, launcher or console: "Steam", "Ubisoft Connect", "PS4"...
   string platform = 2;
@@ -202,9 +199,6 @@ message Edition {
 
 // Game is the aggregate root: a title plus every copy you own of it.
 message Game {
-  reserved 3, 8, 12;
-  reserved "steam_app_id", "cover_url", "cover_photo_id";
-
   string id = 1;
   string title = 2;
   string notes = 4;
@@ -260,9 +254,6 @@ message GetGameResponse {
 }
 
 message CreateGameRequest {
-  reserved 2, 5;
-  reserved "steam_app_id", "cover_url";
-
   string title = 1;
   string notes = 3;
   // Optional copies to add right away.
@@ -276,9 +267,6 @@ message CreateGameResponse {
 }
 
 message UpdateGameRequest {
-  reserved 3, 5;
-  reserved "steam_app_id", "cover_url";
-
   string id = 1;
   string title = 2;
   string notes = 4;

@@ -3924,7 +3924,7 @@ const file_gamevault_v1_game_proto_rawDesc = "" +
 	"\x05value\"\x1e\n" +
 	"\n" +
 	"ChoiceList\x12\x10\n" +
-	"\x03ids\x18\x01 \x03(\tR\x03ids\"\xa3\x05\n" +
+	"\x03ids\x18\x01 \x03(\tR\x03ids\"\x92\x05\n" +
 	"\vCopyDetails\x12*\n" +
 	"\x04kind\x18\x01 \x01(\x0e2\x16.gamevault.v1.CopyKindR\x04kind\x12\x1a\n" +
 	"\bplatform\x18\x02 \x01(\tR\bplatform\x120\n" +
@@ -3946,8 +3946,7 @@ const file_gamevault_v1_game_proto_rawDesc = "" +
 	"\x06system\x18\x11 \x01(\tR\x06system\x1aS\n" +
 	"\vFieldsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12.\n" +
-	"\x05value\x18\x02 \x01(\v2\x18.gamevault.v1.FieldValueR\x05value:\x028\x01J\x04\b\t\x10\n" +
-	"R\tcondition\"\x9f\x01\n" +
+	"\x05value\x18\x02 \x01(\v2\x18.gamevault.v1.FieldValueR\x05value:\x028\x01\"\x9f\x01\n" +
 	"\x05Photo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\acaption\x18\x02 \x01(\tR\acaption\x125\n" +
@@ -3984,7 +3983,7 @@ const file_gamevault_v1_game_proto_rawDesc = "" +
 	"\x06system\x18\x01 \x01(\tR\x06system\x12\x1b\n" +
 	"\tcover_url\x18\x02 \x01(\tR\bcoverUrl\x12$\n" +
 	"\x0ecover_photo_id\x18\x03 \x01(\tR\fcoverPhotoId\x12\x12\n" +
-	"\x04main\x18\x04 \x01(\bR\x04main\"\xc7\x06\n" +
+	"\x04main\x18\x04 \x01(\bR\x04main\"\x8c\x06\n" +
 	"\x04Game\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x14\n" +
@@ -4014,7 +4013,7 @@ const file_gamevault_v1_game_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1aS\n" +
 	"\vFieldsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12.\n" +
-	"\x05value\x18\x02 \x01(\v2\x18.gamevault.v1.FieldValueR\x05value:\x028\x01J\x04\b\x03\x10\x04J\x04\b\b\x10\tJ\x04\b\f\x10\rR\fsteam_app_idR\tcover_urlR\x0ecover_photo_id\".\n" +
+	"\x05value\x18\x02 \x01(\v2\x18.gamevault.v1.FieldValueR\x05value:\x028\x01\".\n" +
 	"\x10ListGamesRequest\x12\x1a\n" +
 	"\blanguage\x18\x01 \x01(\tR\blanguage\"d\n" +
 	"\x11ListGamesResponse\x12(\n" +
@@ -4023,7 +4022,7 @@ const file_gamevault_v1_game_proto_rawDesc = "" +
 	"\x0eGetGameRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"9\n" +
 	"\x0fGetGameResponse\x12&\n" +
-	"\x04game\x18\x01 \x01(\v2\x12.gamevault.v1.GameR\x04game\"\xad\x03\n" +
+	"\x04game\x18\x01 \x01(\v2\x12.gamevault.v1.GameR\x04game\"\x88\x03\n" +
 	"\x11CreateGameRequest\x12\x14\n" +
 	"\x05title\x18\x01 \x01(\tR\x05title\x12\x14\n" +
 	"\x05notes\x18\x03 \x01(\tR\x05notes\x121\n" +
@@ -4036,9 +4035,9 @@ const file_gamevault_v1_game_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1aS\n" +
 	"\vFieldsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12.\n" +
-	"\x05value\x18\x02 \x01(\v2\x18.gamevault.v1.FieldValueR\x05value:\x028\x01J\x04\b\x02\x10\x03J\x04\b\x05\x10\x06R\fsteam_app_idR\tcover_url\"<\n" +
+	"\x05value\x18\x02 \x01(\v2\x18.gamevault.v1.FieldValueR\x05value:\x028\x01\"<\n" +
 	"\x12CreateGameResponse\x12&\n" +
-	"\x04game\x18\x01 \x01(\v2\x12.gamevault.v1.GameR\x04game\"\xfa\x03\n" +
+	"\x04game\x18\x01 \x01(\v2\x12.gamevault.v1.GameR\x04game\"\xd5\x03\n" +
 	"\x11UpdateGameRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x14\n" +
@@ -4056,7 +4055,7 @@ const file_gamevault_v1_game_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1aS\n" +
 	"\vFieldsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12.\n" +
-	"\x05value\x18\x02 \x01(\v2\x18.gamevault.v1.FieldValueR\x05value:\x028\x01J\x04\b\x03\x10\x04J\x04\b\x05\x10\x06R\fsteam_app_idR\tcover_url\"<\n" +
+	"\x05value\x18\x02 \x01(\v2\x18.gamevault.v1.FieldValueR\x05value:\x028\x01\"<\n" +
 	"\x12UpdateGameResponse\x12&\n" +
 	"\x04game\x18\x01 \x01(\v2\x12.gamevault.v1.GameR\x04game\"#\n" +
 	"\x11DeleteGameRequest\x12\x0e\n" +

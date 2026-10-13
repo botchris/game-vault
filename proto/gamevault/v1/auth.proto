@@ -17,8 +17,6 @@ message Principal {
 
 // AuthSettings are the security settings.
 message AuthSettings {
-  reserved 1, 2, 3;
-  reserved "local_bypass", "trust_tailscale", "tailscale_logins";
   // "required" (everyone signs in) or "trusted_networks" (not required from trusted networks);
   // empty saves "trusted_networks". The server refuses any other value (InvalidArgument).
   string authentication = 4;
@@ -32,8 +30,6 @@ message AuthSettings {
 
 message GetAuthStatusRequest {}
 message GetAuthStatusResponse {
-  reserved 4, 5;
-  reserved "tailscale_login", "local";
   // Absent when the caller must sign in.
   Principal principal = 1;
   // No user exists yet.
@@ -76,8 +72,6 @@ message ChangePasswordResponse {}
 
 message GetAuthSettingsRequest {}
 message GetAuthSettingsResponse {
-  reserved 2;
-  reserved "denied";
   AuthSettings settings = 1;
   // Whether the user exists, and its name.
   bool has_user = 3;
