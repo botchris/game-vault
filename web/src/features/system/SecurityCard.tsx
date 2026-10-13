@@ -5,6 +5,7 @@ import { Alert } from '../../components/ui';
 import type { GetAuthSettingsResponse } from '../../gen/gamevault/v1/auth_pb';
 import { useAuth } from '../auth/AuthGate';
 import AccessTokens from './AccessTokens';
+import { passwordLongEnough } from '../../lib/password';
 import { useAction } from '../../lib/useAction';
 
 const AUTH_MODES = ['trusted_networks', 'required'] as const;
@@ -126,6 +127,10 @@ function UserForm({ hasUser, username: initial, signedIn, onDone }: {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setResult(null);
+    if (!passwordLongEnough(next)) {
+      setResult({ tone: 'error', text: t('auth.passwordTooShort') });
+      return;
+    }
     try {
       if (!hasUser) await authClient.setup({ username, password: next });
       else await authClient.changePassword({ username, currentPassword: current, newPassword: next });
@@ -153,7 +158,7 @@ function UserForm({ hasUser, username: initial, signedIn, onDone }: {
       )}
       <label>
         {t(hasUser ? 'security.user.new' : 'auth.password')}
-        <input type="password" autoComplete="new-password" minLength={8} value={next} onChange={(e) => setNext(e.target.value)} required />
+        <input type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} required />
       </label>
       {result && <div className="span-all"><Alert tone={result.tone}>{result.text}</Alert></div>}
       <div className="actions span-all">

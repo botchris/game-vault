@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { authClient, errorMessage, UNAUTHENTICATED_EVENT } from '../../api/client';
 import { Alert, LanguageSwitcher } from '../../components/ui';
 import type { GetAuthStatusResponse, Principal } from '../../gen/gamevault/v1/auth_pb';
+import { passwordLongEnough } from '../../lib/password';
 import { useAction } from '../../lib/useAction';
 
 interface AuthCtx {
@@ -86,10 +87,14 @@ function CredentialsForm({ mode, onDone }: { mode: 'login' | 'setup'; onDone: ()
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   // Signed in, the form goes away, so it stays busy until it does.
-  const { busy, error, run } = useAction({ keepBusyOnSuccess: true });
+  const { busy, error, setError, run } = useAction({ keepBusyOnSuccess: true });
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
+    if (mode === 'setup' && !passwordLongEnough(password)) {
+      setError(t('auth.passwordTooShort'));
+      return;
+    }
     run(async () => {
       if (mode === 'setup') await authClient.setup({ username, password });
       else await authClient.login({ username, password });
@@ -108,7 +113,7 @@ function CredentialsForm({ mode, onDone }: { mode: 'login' | 'setup'; onDone: ()
       <label>
         {t('auth.password')}
         <input type="password" autoComplete={mode === 'setup' ? 'new-password' : 'current-password'} value={password}
-          onChange={(e) => setPassword(e.target.value)} required minLength={mode === 'setup' ? 8 : undefined} />
+          onChange={(e) => setPassword(e.target.value)} required />
       </label>
       {error && <Alert tone="error">{error}</Alert>}
       <button type="submit" className="primary" disabled={busy}>{busy ? t('common.working') : t(`auth.${mode}.submit`)}</button>

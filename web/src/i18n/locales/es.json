@@ -758,6 +758,7 @@
   "auth": {
     "username": "Usuario",
     "password": "Contraseña",
+    "passwordTooShort": "La contraseña necesita al menos 8 caracteres.",
     "retry": "Reintentar",
     "logout": "Cerrar sesión",
     "login": {
