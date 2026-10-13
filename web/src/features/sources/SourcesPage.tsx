@@ -8,12 +8,15 @@ import type { Source, SourceType } from '../../gen/gamevault/v1/source_pb';
 import { toDate } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
 import SourceDialog from './SourceDialog';
-import { hashTarget } from '../../lib/health';
+import { replaceRoute } from '../../lib/useHashRoute';
 import { useHealth } from '../../state/Health';
 import { useAction } from '../../lib/useAction';
 
 /** Configured accounts (Humble Bundle, Steam...) that are scanned to keep the catalog up to date. */
-export default function SourcesPage() {
+export default function SourcesPage({ target }: {
+  /** The source whose dialog the address opens ("#/sources/<id>", a health issue's link), if any. */
+  target: string;
+}) {
   const { t } = useTranslation();
   const { sources, sourceTypes, reloadSources, reloadGames } = useAppData();
   const [editing, setEditing] = useState<{ type: SourceType; source?: Source } | null>(null);
@@ -24,20 +27,15 @@ export default function SourcesPage() {
   const typeOf = (s: Source) => sourceTypes.find((x) => x.id === s.type);
   const { reload: reloadHealth } = useHealth();
 
-  // "#/sources/<id>" (a health issue's link) opens that source's dialog, once.
+  // "#/sources/<id>" opens that source's dialog, once: the address goes back to the page, so closing
+  // the dialog and reloading do not open it again.
   useEffect(() => {
-    const open = () => {
-      const id = hashTarget(window.location.hash);
-      const s = sources.find((x) => x.id === id);
-      const ty = s && sourceTypes.find((x) => x.id === s.type);
-      if (!s || !ty) return;
-      setEditing({ type: ty, source: s });
-      window.history.replaceState(null, '', '#/sources');
-    };
-    open();
-    window.addEventListener('hashchange', open);
-    return () => window.removeEventListener('hashchange', open);
-  }, [sources, sourceTypes]);
+    const s = target ? sources.find((x) => x.id === target) : undefined;
+    const ty = s && sourceTypes.find((x) => x.id === s.type);
+    if (!s || !ty) return;
+    setEditing({ type: ty, source: s });
+    replaceRoute('#/sources');
+  }, [target, sources, sourceTypes]);
 
   const sync = async (id: string | 'all') => {
     setSyncing(id);

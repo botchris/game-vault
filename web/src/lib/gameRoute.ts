@@ -12,3 +12,13 @@ export function gameIdFromHash(hash: string): string {
 export function gameHash(id: string): string {
   return `#/game/${id}`;
 }
+
+/**
+ * The address to put in place of `hash` while a sheet shows game `openId` (null: no sheet), or null
+ * to leave it. Only a sheet opened from its address (`byAddress`) owns it: moving to another game in
+ * that sheet (← →, a merge) moves the address too, so a reload or a shared link opens the game shown.
+ */
+export function addressFor(hash: string, byAddress: boolean, openId: string | null): string | null {
+  if (!byAddress || !openId || gameIdFromHash(hash) === openId) return null;
+  return gameHash(openId);
+}

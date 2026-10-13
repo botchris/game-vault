@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Icon, type IconName } from './components/Icon';
 import { Alert, LanguageSwitcher } from './components/ui';
@@ -11,11 +11,12 @@ import ScanPage from './features/scan/ScanPage';
 import SourcesPage from './features/sources/SourcesPage';
 import SystemPage from './features/system/SystemPage';
 import { dotLabel, worstLevel } from './lib/health';
+import type { Page } from './lib/route';
+import { useHashRoute } from './lib/useHashRoute';
 import { HealthProvider, useHealth } from './state/Health';
 import { AppDataProvider, useAppData } from './state/AppData';
 
-const ROUTES = ['library', 'scan', 'sources', 'providers', 'fields', 'system', 'logs', 'settings'] as const;
-type Route = (typeof ROUTES)[number];
+type Route = Page;
 
 /** Settings pages, grouped in the sidebar and behind "Settings" on phones. */
 const SETTINGS: { route: Route; icon: IconName }[] = [
@@ -26,21 +27,17 @@ const SETTINGS: { route: Route; icon: IconName }[] = [
   { route: 'logs', icon: 'logs' },
 ];
 
-/** Tiny hash router: #/library, #/scan, #/sources… */
-function useRoute(): Route {
-  const read = (): Route => {
-    const r = window.location.hash.replace(/^#\/?/, '').split('/')[0] as Route; // "#/sources/<id>" is Sources
-    return ROUTES.includes(r) ? r : 'library';
-  };
-  const [route, setRoute] = useState(read);
+/** The page the address names (#/library, #/scan, #/sources/<id>…) and what to open on it. A new
+ *  page starts at the top; an address within the same page (a game's sheet over the library, a
+ *  card of System) leaves the scrolling to the page. */
+function useRoute() {
+  const route = useHashRoute();
+  const shown = useRef(route.page);
   useEffect(() => {
-    const onChange = () => {
-      setRoute(read());
-      window.scrollTo({ top: 0 });
-    };
-    window.addEventListener('hashchange', onChange);
-    return () => window.removeEventListener('hashchange', onChange);
-  }, []);
+    if (shown.current === route.page) return;
+    shown.current = route.page;
+    window.scrollTo({ top: 0 });
+  }, [route.page]);
   return route;
 }
 
@@ -58,7 +55,7 @@ export default function App() {
 
 function Shell() {
   const { t } = useTranslation();
-  const route = useRoute();
+  const { page: route, target } = useRoute();
   const { games, loading, error } = useAppData();
   const { principal, logout } = useAuth();
   const inSettings = SETTINGS.some((s) => s.route === route) || route === 'settings';
@@ -94,10 +91,10 @@ function Shell() {
           <>
             {route === 'library' && <LibraryPage />}
             {route === 'scan' && <ScanPage />}
-            {route === 'sources' && <SourcesPage />}
+            {route === 'sources' && <SourcesPage target={target} />}
             {route === 'providers' && <ProvidersPage />}
             {route === 'fields' && <FieldsPage />}
-            {route === 'system' && <SystemPage />}
+            {route === 'system' && <SystemPage target={target} />}
             {route === 'logs' && <LogsPage />}
             {route === 'settings' && <SettingsIndex health={health} />}
           </>

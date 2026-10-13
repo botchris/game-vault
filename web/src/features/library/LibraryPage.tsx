@@ -6,6 +6,7 @@ import { Icon } from '../../components/Icon';
 import { Alert, useFormatters } from '../../components/ui';
 import { deadlineTone, expiresSoon } from '../../lib/deadlines';
 import { searchableText } from '../../lib/fields';
+import { useGameAddress } from '../../lib/useGameAddress';
 import { useStoredChoice } from '../../lib/useStoredChoice';
 import { CopyStatus, PlayStatus, daysUntil, isPendingKey, nextDeadline, playKey, toDate, type Game } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
@@ -18,7 +19,6 @@ import GameDetail from './GameDetail';
 import type { SheetNav } from './sheet';
 import NewGameDialog from './NewGameDialog';
 import OwnershipDialog from './OwnershipDialog';
-import { gameHash, gameIdFromHash } from '../../lib/gameRoute';
 import { Stars } from './PlayControls';
 import PosterGrid, { ItemBadges, moreStoresId } from './PosterGrid';
 import { useAction } from '../../lib/useAction';
@@ -53,8 +53,9 @@ export default function LibraryPage() {
   const [view, setView] = useStoredChoice<View>('gamevault.libraryView', 'posters', ['list', 'posters']);
   const [grouping, setGrouping] = useStoredChoice<Grouping>('gamevault.libraryGrouping', 'platform', ['platform', 'game']);
   const [shown, setShown] = useState(CHUNK);
-  // The open sheet: a game and the edition it was opened on ('' for the main one).
-  const [open, setOpen] = useState<{ id: string; system: string } | null>(null);
+  // The open sheet, which a "#/game/<id>" address opens too.
+  const exists = useCallback((id: string) => games.some((g) => g.id === id), [games]);
+  const { open, setOpen, close: closeSheet, openFromLink: openAddress } = useGameAddress(loading ? null : exists);
   const [creating, setCreating] = useState(false);
   const [checking, setChecking] = useState(false);
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
@@ -118,59 +119,6 @@ export default function LibraryPage() {
     io.observe(el);
     return () => io.disconnect();
   }, [filtered.length, view]);
-
-  // "#/game/<id>" (links from the bundle checker and the browser extension) opens that game's
-  // sheet, now and whenever the address changes. `byAddress` is true while the open sheet came from an
-  // address, so going back closes it; `pushed` is true when the app added that history entry
-  // itself, so closing goes back to the entry before it instead of adding a second "#/library".
-  const byAddress = useRef(false);
-  const pushed = useRef(false);
-  useEffect(() => {
-    const follow = () => {
-      const id = gameIdFromHash(window.location.hash);
-      if (id) {
-        byAddress.current = true;
-        setOpen({ id, system: '' });
-      } else if (byAddress.current) {
-        byAddress.current = false;
-        pushed.current = false;
-        setOpen(null);
-      }
-    };
-    follow();
-    window.addEventListener('hashchange', follow);
-    return () => window.removeEventListener('hashchange', follow);
-  }, []);
-
-  /** Every way of closing the sheet: clears a game address so a reload does not reopen it. */
-  const closeSheet = useCallback(() => {
-    setOpen(null);
-    const wasPushed = pushed.current;
-    byAddress.current = false;
-    pushed.current = false;
-    if (!gameIdFromHash(window.location.hash)) return;
-    if (wasPushed) history.back();
-    else history.replaceState(null, '', '#/library');
-  }, []);
-
-  // An address naming a game that does not exist (deleted, mistyped) opens nothing and is cleared.
-  useEffect(() => {
-    if (loading || !open || !byAddress.current || games.some((g) => g.id === open.id)) return;
-    closeSheet();
-  }, [loading, open, games, closeSheet]);
-
-  /** Opens a game from a link inside the app (the checker): the address names it, and opens it
-   *  even when the address is already that one. */
-  const openFromLink = (id: string) => {
-    setChecking(false);
-    const hash = gameHash(id);
-    if (window.location.hash !== hash) {
-      pushed.current = true;
-      window.location.hash = hash;
-    }
-    byAddress.current = true;
-    setOpen({ id, system: '' });
-  };
 
   const visible = filtered.slice(0, shown);
 
@@ -306,7 +254,7 @@ export default function LibraryPage() {
       {open && <GameDetail gameId={open.id} system={open.system} onClose={closeSheet} onOpenGame={(id) => setOpen({ id, system: '' })} nav={nav}
         onEdition={(system) => setOpen((o) => (o ? { ...o, system } : o))}
         onPlatform={(p) => { closeSheet(); setFilters((f) => ({ ...f, platforms: [p] })); }} />}
-      {checking && <OwnershipDialog onClose={() => setChecking(false)} onOpenGame={openFromLink} />}
+      {checking && <OwnershipDialog onClose={() => setChecking(false)} onOpenGame={(id) => { setChecking(false); openAddress(id); }} />}
       {creating && <NewGameDialog onClose={() => setCreating(false)} onCreated={(id) => { setCreating(false); setOpen({ id, system: '' }); }} />}
     </div>
   );

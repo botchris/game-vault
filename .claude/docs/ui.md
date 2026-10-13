@@ -7,7 +7,12 @@ because Simple Icons removed them).
 
 ## Structure
 
-- `App.tsx`: shell (sidebar on desktop, bottom tab bar under 860 px), hash router (`#/library`…).
+- `App.tsx`: shell (sidebar on desktop, bottom tab bar under 860 px). Addresses (`#/library`,
+  `#/sources/<id>`, `#/system/backups`, `#/game/<id>`) are parsed only by `lib/route.ts` and followed
+  only by `lib/useHashRoute.ts` (`replaceRoute` changes the address without a history entry); pages
+  get the route's `target`. A new page scrolls to the top; an address within a page does not.
+  `lib/useGameAddress.ts` owns the library's open sheet and its `#/game/<id>` address, which follows
+  the game the sheet shows.
 - `state/AppData.tsx`: the catalog and sources shared by every page; mutations call `putGame`
   instead of refetching.
 - `features/library/`: `LibraryPage` (search, sort, A–Z rail, filters, by platform or by game, posters/list,
@@ -18,7 +23,7 @@ because Simple Icons removed them).
   `SheetDialogs` with `EditCopyDialog`, sharing the types in `sheet.ts`), `GameSheet` (details from metadata providers),
   `CopyPhotos` (a copy's thumbnail strip, uploads with progress, the viewer with its photo footer),
   `OwnershipDialog` ("Do I own it?": paste box, rows, full screen on phones); `LibraryPage` opens the
-  sheet a `#/game/<id>` address names.
+  sheet a `#/game/<id>` address names (`useGameAddress`).
 - `features/system/AccessTokens`: create (shown once), list, revoke.
 - `lib/ownership.ts`: paste cleaning, request chunks, rows (pure, Node-tested); `lib/gameRoute.ts`:
   `#/game/<id>`. `components/ui.tsx`: `Modal` has `phoneFull`.

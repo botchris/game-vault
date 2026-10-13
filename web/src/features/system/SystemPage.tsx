@@ -7,7 +7,9 @@ import type { SyncReport } from '../../gen/gamevault/v1/source_pb';
 import type { GetCollectionValueResponse } from '../../gen/gamevault/v1/valuation_pb';
 import { currencyList, formatAmount, regionCurrency } from '../../lib/money';
 import { downloadBytes, toDate } from '../../lib/model';
-import { hashTarget, issueHref, issueTitle, reasonText, sinceText } from '../../lib/health';
+import { issueHref, issueTitle, reasonText, sinceText } from '../../lib/health';
+import { parseHash } from '../../lib/route';
+import { replaceRoute } from '../../lib/useHashRoute';
 import { useHealth } from '../../state/Health';
 import { useAppData } from '../../state/AppData';
 import SecurityCard from './SecurityCard';
@@ -21,23 +23,26 @@ const CSV_TEMPLATE =
   'Escape from Tarkov;Battlestate (Tarkov);library;owned;Edge of Darkness;;;;;;;;\n' +
   "Assassin's Creed Unity;Ubisoft Connect;library;owned;;;;;;;;;\n";
 
-/** Scrolls to the card a "#/system/<id>" address names. */
-function scrollToTarget(hash: string) {
-  const id = hashTarget(hash);
+/** Scrolls to the card named `id` ("#/system/<id>"). */
+function scrollToCard(id: string) {
   if (id) document.getElementById(id)?.scrollIntoView({ block: 'start' });
 }
 
 /** Follows a link to this page's own cards by scrolling: a click on the address already shown
  *  changes no hash, so it would do nothing. Links to other pages navigate as usual. */
 function followOnPage(e: { preventDefault: () => void }, href: string) {
-  if (!href.startsWith('#/system/')) return;
+  const route = parseHash(href);
+  if (route.page !== 'system') return;
   e.preventDefault();
-  window.history.replaceState(null, '', href);
-  scrollToTarget(href);
+  replaceRoute(href);
+  scrollToCard(route.target);
 }
 
 /** Status, backups of the /config data and CSV import/export. */
-export default function SystemPage() {
+export default function SystemPage({ target }: {
+  /** The card the address names ("#/system/backups", a health issue's link), if any. */
+  target: string;
+}) {
   const { t, i18n } = useTranslation();
   const fmt = useFormatters();
   const { reloadGames, preferences, reloadPreferences } = useAppData();
@@ -72,16 +77,12 @@ export default function SystemPage() {
     load().catch((e) => setError(errorMessage(e)));
   }, [load, setError]);
 
-  // "#/system/backups" (a health issue's link) scrolls to that card, now and on later clicks.
+  // "#/system/backups" scrolls to that card, when the page opens on it and when the address changes
+  // to it. After the shell's scroll to the top of a new page, which runs after this page's effects.
   useEffect(() => {
-    const scroll = () => scrollToTarget(window.location.hash);
-    const timer = window.setTimeout(scroll, 0); // after the page's first render
-    window.addEventListener('hashchange', scroll);
-    return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener('hashchange', scroll);
-    };
-  }, []);
+    const timer = window.setTimeout(() => scrollToCard(target), 0);
+    return () => window.clearTimeout(timer);
+  }, [target]);
 
   const act = (name: string, fn: () => Promise<void>) => {
     setDoing(name);
