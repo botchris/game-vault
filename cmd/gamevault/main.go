@@ -161,24 +161,10 @@ func run() error {
 		Space: diskspace.Statfs{},
 	})
 
-	// Background jobs
-	if cfg.NoUnattended {
-		log.Warn("scheduled scans, keep-alives and price estimates are off (-no-unattended)")
-	} else {
-		go syncSvc.RunScheduler(ctx, time.Minute, 30*time.Minute)
-		go syncSvc.RunKeepAlive(ctx, time.Minute, 10*time.Minute)
-		go valuationSvc.RunScheduler(ctx)
-	}
-
-	go mediaSvc.RunDetailsScanner(ctx, 2*time.Second) // gentle enough for the strictest store API (Steam: ~200 requests / 5 min)
-	go mediaSvc.RunAutoLinker(ctx, 2*time.Second)     // one game at a time, jittered, after cover downloads
-	go mediaSvc.RunPhotoCleanup(ctx, time.Hour, 24*time.Hour)
-
-	if cfg.BackupInterval > 0 {
-		go systemSvc.RunScheduledBackups(ctx, cfg.BackupInterval)
-	}
-
-	// Certificate validation applies to every outgoing HTTPS request (they all use the default transport).
+	// Certificate validation applies to every outgoing HTTPS request (they all use the default
+	// transport). It must be installed, and the saved setting applied by authSvc.Init, before any
+	// background job starts: Install writes to the shared transport, which would race with a job
+	// already using it, and until Init runs requests would ignore the user's certificate setting.
 	certs := tlspolicy.Install(http.DefaultTransport.(*http.Transport))
 
 	authSvc := auth.NewService(sqlite.NewAuthRepository(db), settingsRepo, passwordhash.New(), certs, now, log)
@@ -190,6 +176,25 @@ func run() error {
 
 	if err := authSvc.Init(ctx); err != nil {
 		return fmt.Errorf("applying security settings: %w", err)
+	}
+
+	// Background jobs (only after the TLS policy and the security settings above are in place)
+	// Every job that makes requests nobody asked for at that moment is off with -no-unattended. The
+	// auto-linker stays on: without the details scanner it only searches games a person opened.
+	if cfg.NoUnattended {
+		log.Warn("scheduled scans, keep-alives, price estimates and the background details scan are off (-no-unattended)")
+	} else {
+		go syncSvc.RunScheduler(ctx, time.Minute, 30*time.Minute)
+		go syncSvc.RunKeepAlive(ctx, time.Minute, 10*time.Minute)
+		go valuationSvc.RunScheduler(ctx)
+		go mediaSvc.RunDetailsScanner(ctx, 2*time.Second) // 2-4 s apart: gentle enough for the strictest store API (Steam: ~200 requests / 5 min)
+	}
+
+	go mediaSvc.RunAutoLinker(ctx, 2*time.Second) // one game at a time, jittered, after cover downloads
+	go mediaSvc.RunPhotoCleanup(ctx, time.Hour, 24*time.Hour)
+
+	if cfg.BackupInterval > 0 {
+		go systemSvc.RunScheduledBackups(ctx, cfg.BackupInterval)
 	}
 
 	// Inbound adapter

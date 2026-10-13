@@ -2,6 +2,7 @@ package cex
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
 )
 
@@ -184,8 +186,37 @@ func TestLookup_failures(t *testing.T) {
 				require.ErrorIs(t, err, ErrBlocked)
 				assert.Len(t, fake.asked, 1)
 			})
+
+			t.Run("AND it is an outage of the provider, not an answer about the code", func(t *testing.T) {
+				require.ErrorIs(t, err, provider.ErrUnavailable)
+			})
 		})
 	})
+
+	for status, want := range map[int]error{
+		http.StatusTooManyRequests: provider.ErrRateLimited,
+		http.StatusBadGateway:      provider.ErrUnavailable,
+	} {
+		t.Run(fmt.Sprintf("GIVEN CeX's API answers HTTP %d with JSON", status), func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(status)
+				w.Write([]byte(`{"response":{"ack":"Failure","data":null,"error":{}}}`))
+			}))
+			t.Cleanup(srv.Close)
+
+			p := New()
+			p.API.BaseURL, p.API.HTTP = srv.URL+"/%s", srv.Client()
+
+			t.Run("WHEN a code is scanned", func(t *testing.T) {
+				_, err := p.Lookup(ctx, "5030934110075", schema.Settings{})
+
+				t.Run("THEN the error says it is a passing trouble", func(t *testing.T) {
+					require.ErrorIs(t, err, want)
+				})
+			})
+		})
+	}
 
 	t.Run("GIVEN CeX answers with a bot check page to the connection test", func(t *testing.T) {
 		srv := httptest.NewServer(&fakeCeX{blocked: true})

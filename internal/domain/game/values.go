@@ -227,6 +227,17 @@ func SameTitle(a, b string) bool {
 	return len(wa) > 0 && slices.Equal(wa, wb)
 }
 
+// SameMatchKey reports whether two titles have the same MatchKey, the loose comparison that also
+// ignores edition and store tags ("Example Quest - Deluxe Edition" is "Example Quest"). Titles
+// whose key is empty are never the same: MatchKey keeps only Latin letters and digits, so every
+// title in another script (Japanese, Cyrillic, Greek…) reduces to "", and two different games
+// would otherwise match. Providers compare with SameTitle first, which handles every script.
+func SameMatchKey(a, b string) bool {
+	k := MatchKey(a)
+
+	return k != "" && k == MatchKey(b)
+}
+
 // TitleKey returns the words SameTitle compares, joined by single spaces: two titles are the same
 // for SameTitle exactly when their keys are equal and not empty. Lookups index titles by it instead
 // of comparing every title with every other.

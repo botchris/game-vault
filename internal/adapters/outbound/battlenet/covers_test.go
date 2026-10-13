@@ -81,6 +81,39 @@ func TestCovers(t *testing.T) {
 	}
 }
 
+// otherScriptSearch answers every search with one game whose title is in a script MatchKey drops.
+type otherScriptSearch struct{}
+
+func (otherScriptSearch) LinkStore() game.Store { return game.Store{Key: game.LinkSteam} }
+
+func (otherScriptSearch) SearchLinks(context.Context, string) ([]media.LinkMatch, error) {
+	return []media.LinkMatch{{
+		ID:   "777",
+		Name: "ドラゴンクエスト",
+	}}, nil
+}
+
+func TestCovers_otherScripts(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a Steam search whose only result is another game titled in another script", func(t *testing.T) {
+		c := NewCovers(otherScriptSearch{}, &fakeSteam{})
+
+		t.Run("WHEN covers are asked for a game titled in a script MatchKey drops", func(t *testing.T) {
+			got, err := c.Covers(ctx, media.CoverQuery{
+				Title: "ファイナルクエスト",
+				Links: game.Links{"battlenet": "1"},
+			}, nil)
+
+			t.Run("THEN the other game's art is not proposed", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.Empty(t, got)
+			})
+		})
+	})
+}
+
 type failingSearch struct{}
 
 func (failingSearch) LinkStore() game.Store { return game.Store{Key: game.LinkSteam} }

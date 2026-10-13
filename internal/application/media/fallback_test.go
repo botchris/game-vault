@@ -67,6 +67,9 @@ type quotaArt struct {
 
 	// art makes it find a box.
 	art atomic.Bool
+
+	// browsed records whether the last query was the cover picker's (CoverQuery.Browse).
+	browsed atomic.Bool
 }
 
 func (*quotaArt) Descriptor() provider.Descriptor {
@@ -85,8 +88,9 @@ func (*quotaArt) Applies(q media.CoverQuery) bool {
 	return q.HasPhysical() || !q.HasStoreLink() || q.Fallback
 }
 
-func (a *quotaArt) Covers(context.Context, media.CoverQuery, schema.Settings) ([]media.CoverCandidate, error) {
+func (a *quotaArt) Covers(_ context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	a.calls.Add(1)
+	a.browsed.Store(q.Browse)
 
 	if a.exhausted.Load() {
 		return nil, provider.ErrQuotaExhausted
@@ -293,6 +297,40 @@ func TestCoverCandidates_providerOnBothPasses(t *testing.T) {
 				require.Len(t, candidates, 2)
 				assert.Equal(t, provider.ID("quota"), candidates[0].Provider)
 				assert.Equal(t, provider.ID("per-game"), candidates[1].Provider)
+			})
+		})
+	})
+}
+
+// TestCoverQuery_browse checks that only the cover picker asks for near matches: the automatic
+// resolution stores the first candidate, which must then be the game itself.
+func TestCoverQuery_browse(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a disc", func(t *testing.T) {
+		env := newFallbackEnv(t, ctx)
+		env.quota.art.Store(true)
+		g := saveGame(t, ctx, env.games, "Disc Quest", nil, game.CopyDetails{
+			Kind:     game.KindPhysical,
+			Platform: "PS4",
+		})
+
+		t.Run("WHEN its cover candidates are listed in the picker", func(t *testing.T) {
+			_, _, _, err := env.svc.CoverCandidates(ctx, g.ID(), "PS4")
+			require.NoError(t, err)
+
+			t.Run("THEN the providers are asked to browse", func(t *testing.T) {
+				assert.True(t, env.quota.browsed.Load())
+			})
+		})
+
+		t.Run("WHEN its cover is resolved automatically", func(t *testing.T) {
+			_, err := env.svc.EditionCover(ctx, g.ID(), "PS4")
+			require.NoError(t, err)
+
+			t.Run("THEN the providers are not asked to browse", func(t *testing.T) {
+				assert.False(t, env.quota.browsed.Load())
 			})
 		})
 	})

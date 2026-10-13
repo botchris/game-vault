@@ -13,6 +13,8 @@ import (
 
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/provider"
+	"gamevault/internal/domain/source"
 )
 
 func TestCovers(t *testing.T) {
@@ -121,4 +123,54 @@ func TestCovers_Test(t *testing.T) {
 			})
 		})
 	})
+}
+
+// TestCovers_passingTroubles checks that a rate limit and an outage, of the token endpoint or of
+// the catalog, are told apart from "no cover": the chain asks again later instead of marking the
+// edition's cover missing.
+func TestCovers_passingTroubles(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	q := media.CoverQuery{
+		Title: "Control",
+		Links: game.Links{"epic": "abc"},
+	}
+
+	for _, endpoint := range []string{"token", "catalog"} {
+		for status, want := range map[int]error{
+			http.StatusTooManyRequests: provider.ErrRateLimited,
+			http.StatusBadGateway:      provider.ErrUnavailable,
+		} {
+			t.Run(fmt.Sprintf("GIVEN Epic's %s endpoint answers HTTP %d", endpoint, status), func(t *testing.T) {
+				mux := http.NewServeMux()
+				mux.HandleFunc("POST /account/api/oauth/token", func(w http.ResponseWriter, _ *http.Request) {
+					if endpoint == "token" {
+						w.WriteHeader(status)
+						return
+					}
+
+					fmt.Fprint(w, `{"access_token":"app","expires_at":"2099-01-01T00:00:00.000Z"}`)
+				})
+				mux.HandleFunc("GET /catalog/api/shared/bulk/items", func(w http.ResponseWriter, _ *http.Request) {
+					w.WriteHeader(status)
+				})
+
+				srv := httptest.NewServer(mux)
+				defer srv.Close()
+
+				c := NewCovers()
+				c.p.OAuthURL, c.p.CatalogURL = srv.URL, srv.URL
+
+				t.Run("WHEN covers are asked", func(t *testing.T) {
+					_, err := c.Covers(ctx, q, nil)
+
+					t.Run("THEN the error says it is a passing trouble, not a signed-out session", func(t *testing.T) {
+						require.ErrorIs(t, err, want)
+						assert.NotErrorIs(t, err, source.ErrSignedOut)
+					})
+				})
+			})
+		}
+	}
 }

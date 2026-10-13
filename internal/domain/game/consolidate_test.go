@@ -372,3 +372,87 @@ func TestConsolidatorFirstCopyTakesCoverOnSourceSystem(t *testing.T) {
 		})
 	})
 }
+
+// reimport imports one copy with details d from a file, matched by its external id.
+func reimport(games []*Game, d CopyDetails) ConsolidationResult {
+	return NewConsolidator(games).Apply("", []ImportedCopy{{
+		ExternalID: "file:1",
+		Title:      "Portal",
+		Details:    d,
+	}}, t0)
+}
+
+func TestConsolidator_kindChangeDropsTheOldKindsFields(t *testing.T) {
+	t.Run("library to key and back drops the key", func(t *testing.T) {
+		g := reimport(nil, CopyDetails{
+			Kind:     KindLibrary,
+			Platform: "Steam",
+		}).Changed[0]
+
+		reimport([]*Game{g}, CopyDetails{
+			Kind:     KindKey,
+			Platform: "Steam",
+			Status:   StatusRevealed,
+			Key:      "AAAA-BBBB-CCCC",
+			RedeemBy: "2030-01-31",
+		})
+		require.Equal(t, "AAAA-BBBB-CCCC", g.Copies()[0].Key)
+
+		reimport([]*Game{g}, CopyDetails{
+			Kind:     KindLibrary,
+			Platform: "Steam",
+		})
+
+		c := g.Copies()[0]
+		assert.Equal(t, KindLibrary, c.Kind)
+		assert.Equal(t, StatusOwned, c.Status)
+		assert.Empty(t, c.Key)
+		assert.Empty(t, c.RedeemBy)
+		assert.False(t, c.IsPendingKey())
+	})
+
+	t.Run("physical to library drops the barcode and keeps what the user wrote", func(t *testing.T) {
+		g := reimport(nil, CopyDetails{
+			Kind:     KindPhysical,
+			Platform: "PS4",
+			Barcode:  "4006381333931",
+			Grade:    GradeMint,
+			Contents: 1,
+			Location: "Shelf 2",
+			Notes:    "Signed by a friend",
+			System:   "PS5",
+			Price: Money{
+				Amount:   2000,
+				Currency: "EUR",
+			},
+		}).Changed[0]
+		id := g.Copies()[0].ID
+		require.NoError(t, g.SetCopyFields(id, FieldValues{"shelf": {Text: "top"}}, t0))
+
+		_, found := g.CopyWithBarcode("4006381333931")
+		require.True(t, found)
+
+		reimport([]*Game{g}, CopyDetails{
+			Kind:     KindLibrary,
+			Platform: "PlayStation Store",
+		})
+
+		c := g.Copies()[0]
+		assert.Equal(t, KindLibrary, c.Kind)
+		assert.Empty(t, c.Barcode)
+		assert.Empty(t, c.Grade)
+		assert.Zero(t, c.Contents)
+		assert.Empty(t, c.Location)
+
+		_, found = g.CopyWithBarcode("4006381333931")
+		assert.False(t, found, "a barcode scan must not find a copy that is no longer physical")
+
+		assert.Equal(t, "Signed by a friend", c.Notes)
+		assert.Equal(t, "PS5", c.CopyDetails.System)
+		assert.Equal(t, "top", c.Fields["shelf"].Text)
+		assert.Equal(t, Money{
+			Amount:   2000,
+			Currency: "EUR",
+		}, c.Price)
+	})
+}

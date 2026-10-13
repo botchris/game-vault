@@ -182,6 +182,32 @@ func TestExclusions(t *testing.T) {
 		})
 	})
 
+	t.Run("GIVEN a removed item titled in another script whose old id the store now gives to an item titled in a third one", func(t *testing.T) {
+		svc, p, games, id := setup(t)
+		p.items = append(p.items, item("ls:harbor", "港のクエスト"))
+		_, err := svc.Sync(ctx, id)
+		require.NoError(t, err)
+
+		gameID, copyID := copyOf(t, games, "港のクエスト")
+		_, err = svc.ExcludeCopy(ctx, gameID, copyID)
+		require.NoError(t, err)
+
+		// Neither title has a Latin letter or digit, so both have an empty MatchKey.
+		harbor := item("ls:v2:harbor", "港のクエスト")
+		harbor.PreviousExternalID = "ls:harbor"
+		north := item("ls:v2:north", "Северная сага")
+		north.PreviousExternalID = "ls:harbor"
+		p.items = []game.ImportedCopy{harbor, north, item("ls:netflix", "Netflix"), item("ls:journey", "Journey")}
+
+		v, err := svc.Sync(ctx, id)
+		require.NoError(t, err)
+
+		t.Run("THEN the removed item stays out and the other one is imported", func(t *testing.T) {
+			assert.ElementsMatch(t, []string{"Journey", "Netflix", "Северная сага"}, titles(t, games))
+			assert.Equal(t, 1, v.LastSync().Excluded)
+		})
+	})
+
 	t.Run("GIVEN a removed item whose game was renamed WHEN the store reports it under a new id format", func(t *testing.T) {
 		svc, p, games, id := setup(t)
 		gameID, copyID := copyOf(t, games, "Netflix")

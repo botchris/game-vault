@@ -28,6 +28,7 @@ import (
 	gosync "sync"
 	"time"
 
+	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
@@ -202,21 +203,23 @@ func (p *Provider) live(ctx context.Context, form url.Values) (liveToken, error)
 
 	res, err := p.Client.Do(req)
 	if err != nil {
-		return liveToken{}, err
+		return liveToken{}, apiclient.ClassifyError(ctx, err)
 	}
 	defer res.Body.Close()
 
+	// login.live.com refuses a used code or a stale refresh token with a 400 invalid_grant; a 429
+	// or an outage is a passing trouble, after which the same code or session still works.
 	body, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
 	if res.StatusCode != http.StatusOK {
-		if res.StatusCode < 500 && form.Get("grant_type") == "authorization_code" {
+		if apiclient.Rejected(res.StatusCode) && form.Get("grant_type") == "authorization_code" {
 			return liveToken{}, ErrBadCode
 		}
 
-		if res.StatusCode < 500 {
+		if apiclient.Rejected(res.StatusCode) {
 			return liveToken{}, ErrSessionExpired
 		}
 
-		return liveToken{}, fmt.Errorf("microsoft sign-in: HTTP %d", res.StatusCode)
+		return liveToken{}, fmt.Errorf("microsoft sign-in: %w", apiclient.ClassifyStatus(res.StatusCode))
 	}
 
 	var tok liveToken
@@ -484,7 +487,7 @@ func catalog(ctx context.Context, client *http.Client, base, market, language st
 
 		res, err := client.Do(req)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("microsoft store catalog: %w", apiclient.ClassifyError(ctx, err))
 		}
 
 		var page struct {
@@ -494,8 +497,13 @@ func catalog(ctx context.Context, client *http.Client, base, market, language st
 		err = json.NewDecoder(io.LimitReader(res.Body, 16<<20)).Decode(&page)
 		res.Body.Close()
 
-		if res.StatusCode != http.StatusOK || err != nil {
-			return nil, fmt.Errorf("microsoft store catalog: HTTP %d", res.StatusCode)
+		// A 429 or an outage says nothing about the products: callers ask again later.
+		if res.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("microsoft store catalog: %w", apiclient.ClassifyStatus(res.StatusCode))
+		}
+
+		if err != nil {
+			return nil, fmt.Errorf("microsoft store catalog: unexpected answer: %w", err)
 		}
 
 		for _, pr := range page.Products {

@@ -2,13 +2,15 @@ package upcitemdb
 
 import (
 	"context"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
 )
 
@@ -40,8 +42,52 @@ func TestLookup(t *testing.T) {
 		t.Fatalf("unknown code must be no match, not an error: %+v %v", m, err)
 	}
 
-	if _, err := p.Lookup(context.Background(), "0000000000000", schema.Settings{}); err == nil {
-		t.Fatal("rate limit must be an error")
+	_, err = p.Lookup(context.Background(), "0000000000000", schema.Settings{})
+	require.ErrorIs(t, err, provider.ErrRateLimited, "a burst limit (TOO_FAST) is a rate limit")
+	assert.NotErrorIs(t, err, provider.ErrQuotaExhausted, "a burst limit is not the daily allowance")
+}
+
+// TestLookup_failures checks that every failure says what kind it is, so the provider's status
+// shows it and the barcode chain moves on: the daily allowance, an outage, no answer.
+func TestLookup_failures(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	cases := map[string]struct {
+		status int
+		body   string
+		want   error
+	}{
+		// UPCitemdb's documented error codes: TOO_FAST per minute, EXCEED_LIMIT per day.
+		"the daily allowance is used up": {http.StatusTooManyRequests, `{"code":"EXCEED_LIMIT","message":"Exceed limit"}`, provider.ErrQuotaExhausted},
+		"the service is down":            {http.StatusBadGateway, ``, provider.ErrUnavailable},
+		"nothing answers":                {0, ``, provider.ErrUnavailable},
+	}
+	for name, c := range cases {
+		t.Run("GIVEN "+name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(c.status)
+				w.Write([]byte(c.body))
+			}))
+			defer srv.Close()
+
+			p := &Provider{
+				BaseURL: srv.URL,
+				Client:  srv.Client(),
+			}
+
+			if c.status == 0 {
+				srv.Close()
+			}
+
+			t.Run("WHEN a code is looked up", func(t *testing.T) {
+				_, err := p.Lookup(ctx, "5030934110075", schema.Settings{})
+
+				t.Run("THEN the error says what kind of failure it is", func(t *testing.T) {
+					require.ErrorIs(t, err, c.want)
+				})
+			})
+		})
 	}
 }
 
@@ -96,8 +142,8 @@ func TestProviderTest(t *testing.T) {
 		t.Run("WHEN it is tested with a rejected key", func(t *testing.T) {
 			err := p.Test(ctx, schema.Settings{settingUserKey: "rejected"})
 
-			t.Run("THEN it fails with the service's message", func(t *testing.T) {
-				require.Error(t, err)
+			t.Run("THEN it fails with a settings problem and the service's message", func(t *testing.T) {
+				require.ErrorIs(t, err, provider.ErrBadSettings)
 				assert.Contains(t, err.Error(), "Invalid user key")
 			})
 		})
@@ -118,8 +164,8 @@ func TestProviderTest(t *testing.T) {
 		t.Run("WHEN it is tested", func(t *testing.T) {
 			err := p.Test(ctx, schema.Settings{})
 
-			t.Run("THEN it fails and suggests a user key", func(t *testing.T) {
-				require.Error(t, err)
+			t.Run("THEN it fails with a used-up allowance and suggests a user key", func(t *testing.T) {
+				require.ErrorIs(t, err, provider.ErrQuotaExhausted)
 				assert.Contains(t, err.Error(), "user key")
 			})
 		})

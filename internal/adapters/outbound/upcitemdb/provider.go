@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"time"
 
+	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
@@ -93,7 +94,7 @@ func (p *Provider) Lookup(ctx context.Context, code game.Barcode, s schema.Setti
 
 	res, err := p.Client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, apiclient.ClassifyError(ctx, err)
 	}
 	defer res.Body.Close()
 
@@ -107,17 +108,30 @@ func (p *Provider) Lookup(ctx context.Context, code game.Barcode, s schema.Setti
 	}
 
 	_ = json.NewDecoder(res.Body).Decode(&out)
+
+	// UPCitemdb's error codes tell its two limits apart: TOO_FAST is a burst (requests per
+	// minute), EXCEED_LIMIT the daily allowance. A rejected user key is a settings problem. All
+	// three are the provider's status, not an answer about the code.
 	switch {
+	case out.Code == "EXCEED_LIMIT":
+		return nil, fmt.Errorf("daily lookup limit reached; try again tomorrow or add a user key: %w", provider.ErrQuotaExhausted)
 	case res.StatusCode == http.StatusTooManyRequests:
-		return nil, fmt.Errorf("daily lookup limit reached; try again tomorrow or add a user key")
+		return nil, fmt.Errorf("too many lookups at once; try again in a minute: %w", provider.ErrRateLimited)
 	case out.Code == "INVALID_UPC" || out.Code == "NOT_FOUND":
 		return nil, nil
-	case res.StatusCode != http.StatusOK:
-		if out.Message != "" {
-			return nil, fmt.Errorf("%s (HTTP %d)", out.Message, res.StatusCode)
+	case res.StatusCode == http.StatusUnauthorized || res.StatusCode == http.StatusForbidden:
+		msg := out.Message
+		if msg == "" {
+			msg = fmt.Sprintf("the user key was rejected (HTTP %d)", res.StatusCode)
 		}
 
-		return nil, fmt.Errorf("HTTP %d", res.StatusCode)
+		return nil, provider.BadSettings(msg + ": check the UPCitemdb user key in the settings")
+	case res.StatusCode != http.StatusOK:
+		if out.Message != "" {
+			return nil, fmt.Errorf("%s: %w", out.Message, apiclient.ClassifyStatus(res.StatusCode))
+		}
+
+		return nil, apiclient.ClassifyStatus(res.StatusCode)
 	}
 
 	var matches []media.BarcodeMatch

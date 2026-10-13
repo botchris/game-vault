@@ -19,6 +19,7 @@ import (
 	"golang.org/x/sync/singleflight"
 
 	"gamevault/internal/application/port"
+	"gamevault/internal/application/unattended"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
@@ -137,6 +138,12 @@ type CoverQuery struct {
 	// title: set for a virtual PC edition (game.Game.BorrowsPCBox), whose PC box must be the linked
 	// store's art and nothing a title search might confuse with it.
 	LinksOnly bool
+
+	// Browse is set where the user chooses (the cover picker, the scan page's typed search): a
+	// title search may then also propose near matches (other games its search found), after the
+	// game's own art. The automatic resolution and barcode lookup never set it, since they keep
+	// the first candidate.
+	Browse bool
 }
 
 // HasStoreLink reports whether the game is linked to a store, whose providers have its own art.
@@ -320,6 +327,9 @@ type Service struct {
 
 	// linker saves automatic links (the catalog); nil turns them off.
 	linker GameLinker
+
+	// rhythm varies and waits the background details scan's pauses (RunDetailsScanner).
+	rhythm unattended.Rhythm
 }
 
 // Providers groups the provider implementations available to the service. Their DefaultOrder (then
@@ -978,6 +988,7 @@ func (s *Service) CoverCandidates(ctx context.Context, id game.ID, system string
 	}
 
 	first := QueryFor(g, system)
+	first.Browse = true // the user chooses: near matches may follow the game's own art
 	fallback := first
 	fallback.Fallback = true
 	asked := map[provider.ID]bool{}
@@ -1266,7 +1277,8 @@ func (s *Service) IdentifyBarcode(ctx context.Context, raw string) (BarcodeResul
 		return res, nil
 	}
 
-	sugg, existing, warnings, err := s.suggest(ctx, games, res.Match.Title, res.Match.Platform)
+	// The lookup is automatic and keeps the first proposal, so providers are not asked to browse.
+	sugg, existing, warnings, err := s.suggest(ctx, games, res.Match.Title, res.Match.Platform, false)
 	res.Suggestions, res.Existing = sugg, existing
 	res.Warnings = append(res.Warnings, warnings...)
 
@@ -1281,16 +1293,22 @@ func (s *Service) SuggestGames(ctx context.Context, title, platform string) ([]S
 		return nil, nil, nil, err
 	}
 
-	return s.suggest(ctx, games, title, platform)
+	// The user picks from the list, so providers may also propose near matches.
+	return s.suggest(ctx, games, title, platform, true)
 }
 
-func (s *Service) suggest(ctx context.Context, games []*game.Game, title, platform string) ([]Suggestion, []GameRef, []string, error) {
+// suggest asks the cover providers for canonical games with the title on the platform. Browse
+// is set when the user picks from the proposals (CoverQuery.Browse).
+func (s *Service) suggest(ctx context.Context, games []*game.Game, title, platform string, browse bool) ([]Suggestion, []GameRef, []string, error) {
 	title, platform = strings.TrimSpace(title), game.CanonicalPlatform(platform)
 	if title == "" {
 		return nil, nil, nil, nil
 	}
 
-	q := CoverQuery{Title: title}
+	q := CoverQuery{
+		Title:  title,
+		Browse: browse,
+	}
 	if platform != "" {
 		q.PhysicalPlatforms, q.Platforms = []string{platform}, []string{platform}
 		q.System = game.SystemOf(platform)

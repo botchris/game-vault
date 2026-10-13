@@ -267,7 +267,7 @@ func (c *Client) searchTitle(ctx context.Context, s schema.Settings, q media.Cov
 func pick(games []gameJSON, title string) *gameJSON {
 	for _, same := range []func(string) bool{
 		func(t string) bool { return game.SameTitle(t, title) },
-		func(t string) bool { return game.MatchKey(t) == game.MatchKey(title) },
+		func(t string) bool { return game.SameMatchKey(t, title) },
 	} {
 		var matches []gameJSON
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Icon } from './Icon';
+import { useEscape } from './useEscape';
 
 const MAX_SCALE = 5;
 const STEP = 1.5;
@@ -103,6 +104,10 @@ export default function Lightbox({ images, index, onIndex, onClose, label, foote
     return () => document.removeEventListener('fullscreenchange', onChange);
   }, []);
 
+  // Escape goes through the shared stack, where the viewer sits above the dialog or sheet it opened
+  // from. It stays registered while fading out, and `close` runs once, so a second Esc does nothing.
+  useEscape(close);
+
   // Capture phase + stopPropagation: these keys act on the viewer, not on the dialog behind it.
   // Keys typed into a field (the caption) are left alone.
   useEffect(() => {
@@ -112,7 +117,6 @@ export default function Lightbox({ images, index, onIndex, onClose, label, foote
       if (closingRef.current) { e.stopPropagation(); return; }
       if (target?.closest('input, textarea, [contenteditable="true"]')) return;
       const actions: Record<string, () => void> = {
-        Escape: close,
         ArrowLeft: () => go(-1),
         ArrowRight: () => go(1),
         '+': () => zoomAt(view.scale * STEP),
@@ -129,7 +133,7 @@ export default function Lightbox({ images, index, onIndex, onClose, label, foote
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [close, go, zoomAt, view.scale, canFullscreen, toggleFullscreen]);
+  }, [go, zoomAt, view.scale, canFullscreen, toggleFullscreen]);
 
   // Ctrl/⌘ + wheel and trackpad pinches (which arrive as Ctrl + wheel) zoom at the pointer; a plain
   // wheel pans a zoomed image. Not passive, to keep the page from zooming or scrolling.

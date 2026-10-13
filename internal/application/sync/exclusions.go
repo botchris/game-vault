@@ -134,7 +134,10 @@ func skipExcluded(src *source.Source, copies []game.ImportedCopy) ([]game.Import
 
 // excludedItem reports whether the user removed this imported item. Its old id counts too, so a
 // store that changed its id format does not bring it back. When the old id is shared by several
-// items (Humble's named an order, not a key), it only counts for the item with the removed title.
+// items (Humble's named an order, not a key), it only counts for the item with the removed title:
+// the same title in any script (SameTitle), or the same MatchKey, which also ignores edition and
+// store tags. SameMatchKey alone would never match a title in another script (its key is empty),
+// and the plain key comparison would match every such title with every other.
 func excludedItem(src *source.Source, c game.ImportedCopy, sharedPrevious bool) bool {
 	if src.Excludes(c.ExternalID) {
 		return true
@@ -149,5 +152,5 @@ func excludedItem(src *source.Source, c game.ImportedCopy, sharedPrevious bool) 
 		return false
 	}
 
-	return !sharedPrevious || game.MatchKey(e.Title) == game.MatchKey(c.Title)
+	return !sharedPrevious || game.SameTitle(e.Title, c.Title) || game.SameMatchKey(e.Title, c.Title)
 }

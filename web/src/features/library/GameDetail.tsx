@@ -5,6 +5,7 @@ import { Cover } from '../../components/Cover';
 import { Icon } from '../../components/Icon';
 import { PlatformBadge, platformHoldings } from '../../components/PlatformBadge';
 import { Alert, KeyCell, useFormatters } from '../../components/ui';
+import { useEscape } from '../../components/useEscape';
 import { groupCopies, openEdition, systemOf } from '../../lib/editions';
 import { formatAmount } from '../../lib/money';
 import {
@@ -124,16 +125,15 @@ function GameDetailBody({ game, system, onClose, onOpenGame, onEdition, onPlatfo
   const release = details?.releaseDate.match(/\b(19|20)\d\d\b/)?.[0] ?? (game.releaseYear || '');
   const genres = details?.genres.length ? details.genres : game.genres;
 
-  // Escape closes the sheet and ← → move to the previous / next game, only when no nested dialog is
-  // on top of it. The image viewer catches the arrows first (capture phase) and keeps them; arrows
-  // typed in a field, or with a modifier (Alt+← is the browser's Back), are left alone.
+  // Escape closes the sheet and ← → move to the previous / next game, only when no overlay is on top
+  // of it: dialogs opened from the sheet or from inside a tab (the store-link search) register
+  // above it on the Escape stack. The image viewer catches the arrows first (capture phase) and
+  // keeps them; arrows typed in a field, or with a modifier (Alt+← is the browser's Back), are left
+  // alone.
+  const onTop = useEscape(onClose);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (dialog) return;
-      if (e.key === 'Escape') {
-        onClose();
-        return;
-      }
+      if (!onTop()) return;
       if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
       if ((e.target as HTMLElement | null)?.closest('input, textarea, select, [contenteditable="true"]')) return;
       const go = e.key === 'ArrowLeft' ? nav?.previous : e.key === 'ArrowRight' ? nav?.next : undefined;
@@ -143,7 +143,7 @@ function GameDetailBody({ game, system, onClose, onOpenGame, onEdition, onPlatfo
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [dialog, onClose, nav]);
+  }, [onTop, nav]);
 
   // Another game in the same sheet: drop what belonged to the previous one and start at the top.
   const overlay = useRef<HTMLDivElement>(null);

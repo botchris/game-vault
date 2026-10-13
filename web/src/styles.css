@@ -884,6 +884,9 @@ button.link.edition-main:hover:not(:disabled) { color: #fff; }
 .copy-actions .icon-button { width: 34px; height: 34px; }
 .copy-key { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: var(--surface); border-radius: 8px; padding: 6px 6px 6px 12px; }
 .copy-key .keycell { flex: 1; min-width: 0; }
+/* Kept in the accessibility tree while empty, so the failure is announced when it appears. */
+.keycell-status:empty { position: absolute; }
+.copy-key .keycell-status { flex-basis: 100%; }
 .copy-deadline { font-size: 14px; font-variant-numeric: tabular-nums; }
 .redeem { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
 
