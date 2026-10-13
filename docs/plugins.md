@@ -27,8 +27,12 @@ Plugins are compiled in. To add one, write its package and add one line to
 | Package | Use it for |
 | --- | --- |
 | `internal/application/plugin` | The `Plugin` type your package returns, and the registry that checks ids are unique |
-| `internal/adapters/outbound/apiclient` | Calling a JSON API: base URL, User-Agent, headers, size limit, `IsStatus(err, 401, 403)` |
-| `internal/adapters/outbound/browsersession` | Reusing cookies the user copies from their browser, keeping the ones the site renews |
+| `internal/adapters/outbound/apiclient` | Every HTTP call to the service: base URL, User-Agent (`BrowserUserAgent` for cookie-based stores), headers, JSON, form (`Request.Form`, `BasicAuth`) and GraphQL (`GraphQL`, `IsGraphQLCode`) requests, a size limit, `Send` for the whole answer (a redirect's `Location` with `NoRedirects`, the page a session ended on), `IsStatus(err, 401, 403)`, and the passing-trouble helpers (`Transient`, `ClassifyError`, `Rejected`) |
+| `internal/adapters/outbound/browsersession` | Reusing cookies the user copies from their browser, keeping the ones the site renews; its client becomes the `apiclient.Client`'s `HTTP` |
+| `internal/adapters/outbound/oauthsession` | A source that signs in with a one-time code: `Prepare`, the rotating session, access tokens, `WithRetry` after a rejected token |
+| `internal/adapters/outbound/oauthapp` | An application token (OAuth client credentials) shared by a provider's requests, renewed once when refused |
+| `internal/adapters/outbound/ratelimit` | Pacing a service's requests: a gap, a burst, a maximum wait and queue, a back-off after a 429 |
+| `internal/application/unattended` | The jitter and the waits of a background loop (requests nobody asked for at that moment) |
 | `internal/application/plugin/plugintest` | The completeness check every registered plugin passes (run by `task test`) |
 | `internal/adapters/outbound/example` | A complete plugin to copy (see below) |
 | `internal/domain/game` | `ImportedCopy`, `CopyDetails`, `Links`, `Store`: what a source returns |
@@ -91,6 +95,23 @@ The Fanatical plugin is a real, small one: one source, `apiclient`, a fake-serve
 - Optional interfaces, implemented only when needed: `sync.Preparer` (turn a one-time code into
   a stored session on save) and `sync.KeepAliver` (renew a browser session that expires when idle).
 
+### The HTTP plumbing
+
+Do not write requests by hand: every source calls its service through an `apiclient.Client` (one
+per host), so the body limit, the User-Agent, errors without secrets and the status rules are the
+same everywhere, and tests point it at a fake server through `BaseURL` and `HTTP`.
+
+- **A one-time code** (OAuth authorization code, a pasted redirect address): build an
+  `oauthsession.Sessions[yourSession]` with your `Exchange`, `Refresh` and the session's shape,
+  and let `Prepare` and `WithRetry` do the rest. Never cache tokens or codes yourself: it hands the
+  newest rotated session back into the settings and never sends a spent refresh token again.
+- **A rejected access token**: return an error wrapping `apiclient.ErrTokenRejected` (usually on a
+  401); `WithRetry` renews it once and only a second refusal signs the user out.
+- **GraphQL**: `Client.GraphQL` (or `Response.GraphQL` for a persisted query sent by GET) checks
+  the status before the body; match codes with `apiclient.IsGraphQLCode(err, "UNAUTHENTICATED")`.
+- **Background requests** (a keep-alive, a scheduled scan): draw every pause with
+  `unattended.Rhythm`, never a fixed interval.
+
 ### Letting the browser extension fill a credential
 
 Give the credential field a `SignIn` recipe (`schema.SignInRecipe`) so the Game Vault Connector
@@ -121,6 +142,12 @@ extension update: discuss it first.
 - Providers of one service that share a key set the same `SettingsGroup`.
 - A dependency on another plugin's piece is a parameter of `Plugin()` (Battle.net's covers receive
   the Steam store), so it is visible in `plugins.go` and checked by the compiler.
+- A service with a rate limit, a quota or terms that ask for restraint paces its requests with one
+  `ratelimit.Throttle` per service (shared by its cover and details providers), configured from its
+  documented limits; a caller that would wait too long gets `ratelimit.ErrBusy`, a kind of
+  `provider.ErrRateLimited`, so nothing is remembered as missing.
+- An application token (client credentials: a Client ID and Secret) lives in an
+  `oauthapp.Tokens`, keyed by `oauthapp.Key(id, secret)`, used through `WithRetry`.
 
 ## Tests
 
