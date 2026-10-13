@@ -233,7 +233,7 @@ func (d *Details) findGame(ctx context.Context, q media.CoverQuery, lang string)
 	}
 
 	var wanted []string
-	for _, system := range searchSystems(q) {
+	for _, system := range q.SearchSystems() {
 		wanted = append(wanted, platformItems[system]...)
 	}
 
@@ -280,10 +280,7 @@ func (d *Details) candidates(ctx context.Context, title, lang string) (ids []str
 		langs = append(langs, lang)
 	}
 
-	terms := []string{game.SearchTitle(title)}
-	if raw := game.NormalizeTitle(title); raw != terms[0] { // a ™ alone is no other title
-		terms = append(terms, raw)
-	}
+	terms := game.SearchTerms(title)
 
 	exact = map[string]bool{}
 
@@ -628,28 +625,6 @@ func serverTrouble(err error) bool {
 	var ue *url.Error
 
 	return errors.As(err, &ue)
-}
-
-// searchSystems returns the systems the game is matched on: the edition's system, or without one
-// the systems of the game's physical copies, or else of all its copies.
-func searchSystems(q media.CoverQuery) []string {
-	if q.System != "" {
-		return []string{q.System}
-	}
-
-	platforms := q.PhysicalPlatforms
-	if len(platforms) == 0 {
-		platforms = q.Platforms
-	}
-
-	systems := make([]string, 0, len(platforms))
-	for _, pl := range platforms {
-		if s := game.SystemOf(pl); s != game.SystemOther && !slices.Contains(systems, s) {
-			systems = append(systems, s)
-		}
-	}
-
-	return systems
 }
 
 // labelLanguages are the languages labels are looked for in, best first.

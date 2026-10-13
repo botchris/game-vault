@@ -15,7 +15,6 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -294,30 +293,6 @@ func (p *Provider) platformIDs(ctx context.Context, apiKey string, names []strin
 	return ids
 }
 
-// searchSystems returns the systems a search for q is filtered to: the edition's system, or without
-// one the systems of the game's physical copies, or else of all its copies. Platforms are named by
-// their system ("PlayStation Store" → "PS4", "Steam" → "PC"), the names platformNames knows, so
-// covers and sheets map a copy to the same TheGamesDB platform.
-func searchSystems(q media.CoverQuery) []string {
-	if q.System != "" {
-		return []string{q.System} // an edition's box art: its system names TheGamesDB's platform
-	}
-
-	platforms := q.PhysicalPlatforms
-	if len(platforms) == 0 {
-		platforms = q.Platforms
-	}
-
-	systems := make([]string, 0, len(platforms))
-	for _, pl := range platforms {
-		if s := game.SystemOf(pl); s != game.SystemOther && !slices.Contains(systems, s) {
-			systems = append(systems, s)
-		}
-	}
-
-	return systems
-}
-
 type searchResponse struct {
 	Data struct {
 		Games []struct {
@@ -346,25 +321,47 @@ type searchResponse struct {
 // Covers searches the game by title on the edition's system (or, without one, the platforms of its
 // physical copies or all its platforms) and returns the front box art of the game itself: exact
 // title matches first, then its other releases (same game.MatchKey). The picker (q.Browse) also
-// gets the other games the search found, last.
+// gets the other games the search found, last. The game's name is searched first, then the raw
+// title when that finds nothing (game.SearchTerms): a second request only for an edition title
+// TheGamesDB does not know by its name.
 func (p *Provider) Covers(ctx context.Context, q media.CoverQuery, s schema.Settings) ([]media.CoverCandidate, error) {
 	key := s[settingAPIKey]
+	filter := p.platformFilter(ctx, key, q.SearchSystems())
 
-	params := url.Values{"apikey": {key}, "name": {q.Title}, "include": {"boxart,platform"}}
-	if ids := p.platformIDs(ctx, key, searchSystems(q)); len(ids) > 0 {
-		parts := make([]string, len(ids))
-		for i, id := range ids {
-			parts[i] = strconv.FormatInt(id, 10)
+	for _, term := range game.SearchTerms(q.Title) {
+		params := url.Values{"apikey": {key}, "name": {term}, "include": {"boxart,platform"}}
+		if filter != "" {
+			params.Set("filter[platform]", filter)
 		}
 
-		params.Set("filter[platform]", strings.Join(parts, ","))
+		var out searchResponse
+		if err := p.get(ctx, "/v1.1/Games/ByGameName", params, &out); err != nil {
+			return nil, err
+		}
+
+		if found := coversOf(out, q); len(found) > 0 {
+			return found, nil
+		}
 	}
 
-	var out searchResponse
-	if err := p.get(ctx, "/v1.1/Games/ByGameName", params, &out); err != nil {
-		return nil, err
+	return nil, nil
+}
+
+// platformFilter returns the filter[platform] value of a search on systems: TheGamesDB's ids of
+// them, comma separated, or empty to search every platform.
+func (p *Provider) platformFilter(ctx context.Context, key string, systems []string) string {
+	ids := p.platformIDs(ctx, key, systems)
+	parts := make([]string, len(ids))
+
+	for i, id := range ids {
+		parts[i] = strconv.FormatInt(id, 10)
 	}
 
+	return strings.Join(parts, ",")
+}
+
+// coversOf returns the front box art of the games in a search for q, best matches first.
+func coversOf(out searchResponse, q media.CoverQuery) []media.CoverCandidate {
 	base := out.Include.Boxart.BaseURL
 
 	large, thumb := base["large"], base["thumb"]
@@ -421,5 +418,5 @@ func (p *Provider) Covers(ctx context.Context, q media.CoverQuery, s schema.Sett
 		all = append(all, others...)
 	}
 
-	return all[:min(len(all), maxCandidates)], nil
+	return all[:min(len(all), maxCandidates)]
 }

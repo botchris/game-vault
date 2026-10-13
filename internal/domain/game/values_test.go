@@ -46,3 +46,19 @@ func TestParseStoreDate(t *testing.T) {
 		assert.Equal(t, want, ParseStoreDate(in), in)
 	}
 }
+
+func TestSearchTerms(t *testing.T) {
+	for _, tc := range []struct {
+		title string
+		want  []string
+	}{
+		{"Example West GOTY", []string{"Example West", "Example West GOTY"}},
+		{"Example Game (PC Key)", []string{"Example Game", "Example Game (PC Key)"}},
+		{"Example™  Quest", []string{"Example Quest"}}, // a ™ alone is no other title
+		{"Example Quest", []string{"Example Quest"}},
+		{"", nil},
+		{"   ", nil},
+	} {
+		assert.Equal(t, tc.want, SearchTerms(tc.title), tc.title)
+	}
+}

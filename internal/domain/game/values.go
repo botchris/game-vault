@@ -206,6 +206,24 @@ func SearchTitle(title string) string {
 	return s
 }
 
+// SearchTerms returns the names to search a game database for, in order: the title without its
+// edition and store tags (SearchTitle), since databases name the game and not the edition a copy is
+// ("Example West", not the "GOTY" disc), then the raw title (NormalizeTitle) for when stripping
+// went too far ("Gold Rush!" became "Rush!"). The raw title is left out when it is the same name
+// (a ™ alone, or casing, is no other title), and so are empty names. Every provider that searches by
+// title uses these terms, so an edition title is found the same way everywhere.
+func SearchTerms(title string) []string {
+	var terms []string
+
+	for _, t := range []string{SearchTitle(title), NormalizeTitle(title)} {
+		if t != "" && !slices.ContainsFunc(terms, func(x string) bool { return strings.EqualFold(x, t) }) {
+			terms = append(terms, t)
+		}
+	}
+
+	return terms
+}
+
 // reNotLetterOrDigit matches what separates the words SameTitle compares.
 var reNotLetterOrDigit = regexp.MustCompile(`[^\p{L}\p{N}]+`)
 

@@ -54,28 +54,6 @@ var platformIDs = map[string][]int{
 	game.SystemGameBoy:    {33},
 }
 
-// searchSystems returns the systems a title search for q is filtered to: the edition's system, or
-// without one the systems of the game's physical copies, or else of all its copies.
-func searchSystems(q media.CoverQuery) []string {
-	if q.System != "" {
-		return []string{q.System}
-	}
-
-	platforms := q.PhysicalPlatforms
-	if len(platforms) == 0 {
-		platforms = q.Platforms
-	}
-
-	systems := make([]string, 0, len(platforms))
-	for _, pl := range platforms {
-		if s := game.SystemOf(pl); s != game.SystemOther && !slices.Contains(systems, s) {
-			systems = append(systems, s)
-		}
-	}
-
-	return systems
-}
-
 // gameJSON is a game as an expanded games query returns it; fields not asked for stay empty.
 type gameJSON struct {
 	ID               int64  `json:"id"`
@@ -217,15 +195,15 @@ var reUnsafe = regexp.MustCompile(`["\\]+`)
 func (c *Client) findByTitle(ctx context.Context, s schema.Settings, q media.CoverQuery, fields []string) (*gameJSON, error) {
 	clean := func(t string) string { return strings.Join(strings.Fields(reUnsafe.ReplaceAllString(t, " ")), " ") }
 
-	terms := []string{clean(game.SearchTitle(q.Title))}
-	if raw := clean(game.NormalizeTitle(q.Title)); raw != terms[0] { // a ™ alone is no other title
-		terms = append(terms, raw)
+	var terms []string
+
+	for _, t := range game.SearchTerms(q.Title) {
+		if t = clean(t); t != "" && !slices.Contains(terms, t) { // IGDB's unsafe characters gone, two may be one
+			terms = append(terms, t)
+		}
 	}
 
 	for _, term := range terms {
-		if term == "" {
-			continue
-		}
 
 		g, err := c.searchTitle(ctx, s, q, term, fields)
 		if err != nil || g != nil {
@@ -243,7 +221,7 @@ func (c *Client) searchTitle(ctx context.Context, s schema.Settings, q media.Cov
 
 	var ids []string
 
-	for _, system := range searchSystems(q) {
+	for _, system := range q.SearchSystems() {
 		for _, id := range platformIDs[system] {
 			ids = append(ids, strconv.Itoa(id))
 		}

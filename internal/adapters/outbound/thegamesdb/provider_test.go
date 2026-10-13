@@ -276,3 +276,69 @@ func TestProvider_providerLevelErrors(t *testing.T) {
 		})
 	})
 }
+
+// TestCovers_editionTitles checks that an edition's title ("… GOTY") finds the game, whose name
+// TheGamesDB lists without the tag, as IGDB, Wikidata, Steam and SteamGridDB do.
+func TestCovers_editionTitles(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN TheGamesDB, which knows the game by its name only", func(t *testing.T) {
+		var names []string
+
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/v1.1/Games/ByGameName" {
+				w.Write([]byte(`{"data":{}}`))
+				return
+			}
+
+			names = append(names, r.URL.Query().Get("name"))
+			if r.URL.Query().Get("name") != "Example West" {
+				w.Write([]byte(`{"data":{"count":0,"games":[]},"include":{"boxart":{"base_url":{},"data":{}}}}`))
+				return
+			}
+
+			w.Write([]byte(`{"data":{"count":1,"games":[{"id":7,"game_title":"Example West","platform":1,"overview":"A western."}]},
+			 "include":{"boxart":{"base_url":{"large":"https://cdn.test/large/"},
+				"data":{"7":[{"side":"front","filename":"boxart/front/7-1.jpg"}]}}}}`))
+		}))
+		defer srv.Close()
+
+		p := testProvider(srv)
+		q := media.CoverQuery{Title: "Example West GOTY"}
+
+		t.Run("WHEN the covers of its GOTY edition are searched", func(t *testing.T) {
+			names = nil
+			got, err := p.Covers(ctx, q, schema.Settings{settingAPIKey: "k"})
+			require.NoError(t, err)
+
+			t.Run("THEN the game's name is searched first and its box found", func(t *testing.T) {
+				assert.Equal(t, []string{"Example West"}, names)
+				require.Len(t, got, 1)
+				assert.Equal(t, "https://cdn.test/large/boxart/front/7-1.jpg", got[0].URL)
+			})
+		})
+
+		t.Run("WHEN its sheet is asked", func(t *testing.T) {
+			names = nil
+			got, err := NewDetails(p).Details(ctx, q, "en", schema.Settings{settingAPIKey: "k"})
+			require.NoError(t, err)
+
+			t.Run("THEN the game's name finds it too", func(t *testing.T) {
+				assert.Equal(t, []string{"Example West"}, names)
+				require.NotNil(t, got)
+				assert.Equal(t, "A western.", got.Summary)
+			})
+		})
+
+		t.Run("WHEN a title only TheGamesDB's raw search could find is searched", func(t *testing.T) {
+			names = nil
+			_, err := p.Covers(ctx, media.CoverQuery{Title: "Unknown Quest Deluxe"}, schema.Settings{settingAPIKey: "k"})
+			require.NoError(t, err)
+
+			t.Run("THEN the raw title gets a second search", func(t *testing.T) {
+				assert.Equal(t, []string{"Unknown Quest", "Unknown Quest Deluxe"}, names)
+			})
+		})
+	})
+}
