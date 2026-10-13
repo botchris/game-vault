@@ -402,6 +402,8 @@
     "currency": "Default currency",
     "currencyHelp": "Used for new prices and for CSV rows without a currency.",
     "currencyNotSaved": "Proposed from your browser region, not saved yet: save it so CSV rows without a currency use it.",
+    "preferencesUnavailable": "Your preferences could not be read ({{error}}), so the saved default currency is unknown.",
+    "preferencesRetry": "Try again",
     "backupPhotos": "Photos",
     "photoStore": "Photos in backups: {{size}} in all; each photo is stored once, however many backups have it.",
     "collectionValue": "Collection value",

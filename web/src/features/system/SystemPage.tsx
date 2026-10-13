@@ -8,6 +8,7 @@ import type { SyncReport } from '../../gen/gamevault/v1/source_pb';
 import type { GetCollectionValueResponse } from '../../gen/gamevault/v1/valuation_pb';
 import { currencyList, formatAmount, regionCurrency } from '../../lib/money';
 import { downloadBytes, toDate } from '../../lib/model';
+import { currencyView } from '../../lib/preferences';
 import { issueHref, issueTitle, reasonText, sinceText } from '../../lib/health';
 import { parseHash } from '../../lib/route';
 import { replaceRoute } from '../../lib/useHashRoute';
@@ -50,8 +51,9 @@ export default function SystemPage({ target }: {
   const region = regionCurrency(i18n.language);
   // Until the user saves one, the region's currency is only proposed: CSV prices without a
   // currency are not imported, so the proposal must be easy to save as it is.
-  const currencySaved = preferences.currency !== '';
-  const currency = preferences.currency || region;
+  // Preferences that could not be read leave the saved currency unknown: nothing is offered for
+  // saving then, so a saved currency is never overwritten by the region's proposal.
+  const { currency, saved: currencySaved, unknown: currencyUnknown, error: preferencesError } = currencyView(preferences, region);
   const [status, setStatus] = useState<GetStatusResponse | null>(null);
   const [backups, setBackups] = useState<Backup[]>([]);
   const [photoStore, setPhotoStore] = useState(0n);
@@ -169,14 +171,17 @@ export default function SystemPage({ target }: {
         <label className="field">
           {t('system.currency')}
           <span className="row tight">
-            <select value={currency} disabled={busy} onChange={(e) => saveCurrency(e.target.value)}>
+            <select value={currency} disabled={busy || currencyUnknown} onChange={(e) => saveCurrency(e.target.value)}>
               {[region, ...currencyList().filter((c) => c !== region)].map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
-            {!currencySaved && (
+            {!currencySaved && !currencyUnknown && (
               <button type="button" className="primary" disabled={busy} onClick={() => saveCurrency(currency)}>{t('common.save')}</button>
             )}
+            {currencyUnknown && <button type="button" onClick={() => void reloadPreferences()}>{t('system.preferencesRetry')}</button>}
           </span>
-          <span className="help">{currencySaved ? t('system.currencyHelp') : t('system.currencyNotSaved')}</span>
+          {currencyUnknown
+            ? <span className="help error">{t('system.preferencesUnavailable', { error: preferencesError || t('common.loading') })}</span>
+            : <span className="help">{currencySaved ? t('system.currencyHelp') : t('system.currencyNotSaved')}</span>}
         </label>
       </section>
 

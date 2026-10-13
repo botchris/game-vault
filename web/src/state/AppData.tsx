@@ -4,6 +4,7 @@ import { errorMessage, fieldClient, gameClient, sourceClient, systemClient } fro
 import type { FieldDefinition } from '../gen/gamevault/v1/field_pb';
 import type { Game } from '../gen/gamevault/v1/game_pb';
 import type { Source, SourceType } from '../gen/gamevault/v1/source_pb';
+import type { PreferencesState } from '../lib/preferences';
 
 interface AppData {
   games: Game[];
@@ -15,8 +16,8 @@ interface AppData {
   error: string;
   /** Games whose details (genres, year) are already downloaded in the UI language. */
   detailsCached: number;
-  /** The user's preferences; `currency` is '' until one is saved. */
-  preferences: Preferences;
+  /** The user's preferences: unknown (with the error) until they are read. */
+  preferences: PreferencesState;
   reloadGames: () => Promise<void>;
   reloadSources: () => Promise<void>;
   reloadFields: () => Promise<void>;
@@ -25,12 +26,6 @@ interface AppData {
   putGame: (g: Game) => void;
   dropGame: (id: string) => void;
   sourceName: (id: string) => string;
-}
-
-/** The preferences the UI uses. */
-export interface Preferences {
-  /** Default currency of new prices (ISO 4217); '' until the user saves one. */
-  currency: string;
 }
 
 const Ctx = createContext<AppData | null>(null);
@@ -44,7 +39,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [sources, setSources] = useState<Source[]>([]);
   const [fields, setFields] = useState<FieldDefinition[]>([]);
   const [sourceTypes, setSourceTypes] = useState<SourceType[]>([]);
-  const [preferences, setPreferences] = useState<Preferences>({ currency: '' });
+  const [preferences, setPreferences] = useState<PreferencesState>({ loaded: false, error: '' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -82,9 +77,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const reloadPreferences = useCallback(async () => {
     try {
       const res = await systemClient.getPreferences({});
-      setPreferences({ currency: res.preferences?.currency ?? '' });
-    } catch {
-      // Without them the region's currency is proposed, as before one is saved.
+      setPreferences({ loaded: true, currency: res.preferences?.currency ?? '' });
+    } catch (e) {
+      // The money inputs propose the region's currency meanwhile; System says the saved one is
+      // unknown instead of offering to save over it.
+      setPreferences({ loaded: false, error: errorMessage(e) });
     }
   }, []);
 

@@ -402,6 +402,8 @@
     "currency": "Moneda por defecto",
     "currencyHelp": "Se usa en los precios nuevos y en las filas de CSV sin moneda.",
     "currencyNotSaved": "Propuesta según la región de tu navegador, aún sin guardar: guárdala para que las filas de CSV sin moneda la usen.",
+    "preferencesUnavailable": "No se han podido leer tus preferencias ({{error}}), así que no se sabe qué moneda por defecto tienes guardada.",
+    "preferencesRetry": "Reintentar",
     "backupPhotos": "Fotos",
     "photoStore": "Fotos en las copias de seguridad: {{size}} en total; cada foto se guarda una sola vez, la tengan las copias que la tengan.",
     "collectionValue": "Valor de la colección",
