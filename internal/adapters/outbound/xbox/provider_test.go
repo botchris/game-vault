@@ -9,9 +9,14 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/source"
 )
 
@@ -20,11 +25,19 @@ type fakeMicrosoft struct {
 	refresh   string
 	exchanges int
 	pages     int
+
+	// tokenStatus, when set, is the only answer of the token endpoint (a rate limit, an outage).
+	tokenStatus int
 }
 
 func (f *fakeMicrosoft) handler(t *testing.T) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /oauth20_token.srf", func(w http.ResponseWriter, r *http.Request) {
+		if f.tokenStatus != 0 {
+			w.WriteHeader(f.tokenStatus)
+			return
+		}
+
 		r.ParseForm()
 
 		if r.Form.Get("client_id") != clientID || r.Form.Get("scope") != scope {
@@ -210,6 +223,42 @@ func TestErrors(t *testing.T) {
 
 	if _, _, err := p.Fetch(ctx, source.Settings{settingSession: `{"refresh_token":"stale"}`}); !errors.Is(err, ErrSessionExpired) {
 		t.Errorf("stale session: %v", err)
+	}
+}
+
+// TestTokenEndpoint_passingTroubles checks that a rate limit or an outage of the token endpoint is
+// not taken for a rejected code or session: signing in again would not help, and it would rotate
+// the credentials for nothing.
+func TestTokenEndpoint_passingTroubles(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	for status, want := range map[int]error{
+		http.StatusTooManyRequests:    provider.ErrRateLimited,
+		http.StatusServiceUnavailable: provider.ErrUnavailable,
+	} {
+		t.Run(fmt.Sprintf("GIVEN the token endpoint answers HTTP %d", status), func(t *testing.T) {
+			p, f := newTest(t)
+			f.tokenStatus = status
+
+			t.Run("WHEN a code is pasted", func(t *testing.T) {
+				_, err := p.Prepare(ctx, source.Settings{settingCode: "M.C5_good"})
+
+				t.Run("THEN it is a passing trouble, not a rejected code", func(t *testing.T) {
+					require.ErrorIs(t, err, want)
+					assert.NotErrorIs(t, err, ErrBadCode)
+				})
+			})
+
+			t.Run("WHEN the library is scanned with a stored session", func(t *testing.T) {
+				_, _, err := p.Fetch(ctx, source.Settings{settingSession: `{"refresh_token":"good"}`})
+
+				t.Run("THEN it is a passing trouble, not a signed-out session", func(t *testing.T) {
+					require.ErrorIs(t, err, want)
+					assert.NotErrorIs(t, err, source.ErrSignedOut)
+				})
+			})
+		})
 	}
 }
 

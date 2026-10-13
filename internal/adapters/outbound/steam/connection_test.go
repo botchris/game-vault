@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
 )
 
@@ -97,9 +98,26 @@ func TestDetailsTest(t *testing.T) {
 		t.Run("WHEN it is tested", func(t *testing.T) {
 			err := d.Test(ctx, schema.Settings{})
 
-			t.Run("THEN it fails with the rate limit message", func(t *testing.T) {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), "too many requests")
+			t.Run("THEN it fails with a rate limit, the provider's status rather than a sheet warning", func(t *testing.T) {
+				require.ErrorIs(t, err, provider.ErrRateLimited)
+				assert.NotErrorIs(t, err, provider.ErrUnavailable)
+			})
+		})
+	})
+
+	t.Run("GIVEN a store that is down", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusBadGateway)
+		}))
+		defer srv.Close()
+
+		d := NewDetails(testStore(srv))
+
+		t.Run("WHEN it is tested", func(t *testing.T) {
+			err := d.Test(ctx, schema.Settings{})
+
+			t.Run("THEN it fails with an outage", func(t *testing.T) {
+				require.ErrorIs(t, err, provider.ErrUnavailable)
 			})
 		})
 	})

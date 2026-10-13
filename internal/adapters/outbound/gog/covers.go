@@ -124,12 +124,14 @@ func (c *Covers) get(ctx context.Context, path string, out any) error {
 		return nil // product unknown to the API: no candidates
 	}
 
+	// A 429 or an outage says nothing about the game: the chain asks again later instead of
+	// marking the cover missing.
 	var se *apiclient.StatusError
 	if errors.As(err, &se) {
-		return fmt.Errorf("gog %s: HTTP %d", path, se.Status)
+		return fmt.Errorf("gog %s: %w", path, apiclient.ClassifyStatus(se.Status))
 	}
 
-	return err
+	return apiclient.ClassifyError(ctx, err)
 }
 
 // testProductID is a long-lived GOG product (The Witcher: Enhanced Edition) used to probe the API.

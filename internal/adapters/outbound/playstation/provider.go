@@ -26,6 +26,7 @@ import (
 	gosync "sync"
 	"time"
 
+	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/adapters/outbound/browsersession"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
@@ -198,10 +199,15 @@ func (p *Provider) authorize(ctx context.Context, npsso string) (string, error) 
 
 	res, err := p.Client.Do(req)
 	if err != nil {
-		return "", err
+		return "", apiclient.ClassifyError(ctx, err)
 	}
 
 	res.Body.Close()
+
+	// A 429 or an outage is a passing trouble, not a refused NPSSO: it says nothing about it.
+	if res.StatusCode == http.StatusTooManyRequests || res.StatusCode >= http.StatusInternalServerError {
+		return "", fmt.Errorf("playstation sign-in: %w", apiclient.ClassifyStatus(res.StatusCode))
+	}
 
 	loc := res.Header.Get("Location")
 	if !strings.HasPrefix(loc, redirectURI) {
@@ -230,17 +236,19 @@ func (p *Provider) token(ctx context.Context, form url.Values) (tokenResponse, e
 
 	res, err := p.Client.Do(req)
 	if err != nil {
-		return tokenResponse{}, err
+		return tokenResponse{}, apiclient.ClassifyError(ctx, err)
 	}
 	defer res.Body.Close()
 
+	// Sony refuses a stale refresh token or code with a 400 invalid_grant; a 429 or an outage is a
+	// passing trouble, after which the same session still works.
 	body, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
 	if res.StatusCode != http.StatusOK {
-		if res.StatusCode < 500 {
+		if apiclient.Rejected(res.StatusCode) {
 			return tokenResponse{}, ErrSignedOut
 		}
 
-		return tokenResponse{}, fmt.Errorf("playstation sign-in: HTTP %d", res.StatusCode)
+		return tokenResponse{}, fmt.Errorf("playstation sign-in: %w", apiclient.ClassifyStatus(res.StatusCode))
 	}
 
 	var tok tokenResponse
@@ -383,7 +391,8 @@ func (p *Provider) page(ctx context.Context, token, hash string, start int) ([]t
 
 	if len(out.Errors) > 0 {
 		if strings.Contains(out.Errors[0].Message, "authorized") || res.StatusCode == http.StatusUnauthorized {
-			return nil, false, ErrSignedOut
+			p.forget(token) // the next accessToken renews it
+			return nil, false, errTokenRejected
 		}
 
 		return nil, false, fmt.Errorf("playstation library: %s", out.Errors[0].Message)
@@ -400,6 +409,39 @@ func (p *Provider) page(ctx context.Context, token, hash string, start int) ([]t
 }
 
 var errQueryRetired = errors.New("playstation library: the library query is no longer registered by Sony")
+
+// errTokenRejected means the library refused an access token: it may have expired or been revoked
+// before its time. The caller renews it once (withToken); only a refused renewal is signed out.
+var errTokenRejected = errors.New("playstation rejected the access token")
+
+// forget drops a cached access token the library refused, so the next accessToken renews it.
+func (p *Provider) forget(token string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	for k, v := range p.tokens {
+		if v.token == token {
+			delete(p.tokens, k)
+		}
+	}
+}
+
+// withToken runs call with an access token, and once more with a renewed one when the library
+// refuses the first (errTokenRejected): only a refused renewal means the user must sign in again.
+func (p *Provider) withToken(ctx context.Context, settings source.Settings, call func(token string) error) error {
+	for range 2 {
+		token, err := p.accessToken(ctx, settings)
+		if err != nil {
+			return err
+		}
+
+		if err := call(token); !errors.Is(err, errTokenRejected) {
+			return err
+		}
+	}
+
+	return ErrSignedOut
+}
 
 func (p *Provider) purchased(ctx context.Context, token string) ([]title, error) {
 	var lastErr error
@@ -531,24 +573,28 @@ func mapTitles(titles []title, nonGames *nonGameIndex) (out []game.ImportedCopy,
 
 // Test implements sync.Provider: it signs in and reads the purchases, without the played titles.
 func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
-	token, err := p.accessToken(ctx, settings)
-	if err != nil {
+	return p.withToken(ctx, settings, func(token string) error {
+		_, err := p.purchased(ctx, token)
+
 		return err
-	}
-
-	_, err = p.purchased(ctx, token)
-
-	return err
+	})
 }
 
 // Fetch implements sync.Provider.
 func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.ImportedCopy, []string, error) {
-	token, err := p.accessToken(ctx, settings)
-	if err != nil {
-		return nil, nil, err
-	}
+	var (
+		titles []title
+		token  string
+	)
 
-	titles, err := p.purchased(ctx, token)
+	err := p.withToken(ctx, settings, func(tok string) error {
+		var err error
+
+		token = tok
+		titles, err = p.purchased(ctx, tok)
+
+		return err
+	})
 	if err != nil {
 		return nil, nil, err
 	}

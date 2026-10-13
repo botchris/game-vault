@@ -262,7 +262,7 @@ func (g tgdbGame) richness() int {
 func pickGame(games []tgdbGame, title string) (tgdbGame, bool) {
 	for _, same := range []func(string) bool{
 		func(t string) bool { return game.SameTitle(t, title) },
-		func(t string) bool { return sameMatchKey(t, title) },
+		func(t string) bool { return game.SameMatchKey(t, title) },
 	} {
 		best, found := tgdbGame{}, false
 		for _, g := range games {

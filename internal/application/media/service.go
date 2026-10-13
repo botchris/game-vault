@@ -138,6 +138,11 @@ type CoverQuery struct {
 	// title: set for a virtual PC edition (game.Game.BorrowsPCBox), whose PC box must be the linked
 	// store's art and nothing a title search might confuse with it.
 	LinksOnly bool
+
+	// Browse is set by the cover picker, where the user chooses: a title search may then also
+	// propose near matches (other games its search found), after the game's own art. The
+	// automatic resolution never sets it, since it stores the first candidate.
+	Browse bool
 }
 
 // HasStoreLink reports whether the game is linked to a store, whose providers have its own art.
@@ -982,6 +987,7 @@ func (s *Service) CoverCandidates(ctx context.Context, id game.ID, system string
 	}
 
 	first := QueryFor(g, system)
+	first.Browse = true // the user chooses: near matches may follow the game's own art
 	fallback := first
 	fallback.Fallback = true
 	asked := map[provider.ID]bool{}

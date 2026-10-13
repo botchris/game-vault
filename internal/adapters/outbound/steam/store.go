@@ -261,7 +261,7 @@ func (s *Store) uniqueApp(ctx context.Context, term, title string, loose bool) (
 		},
 	}
 	if loose {
-		matchers = append(matchers, func(name string) bool { return game.MatchKey(name) == game.MatchKey(title) })
+		matchers = append(matchers, func(name string) bool { return game.SameMatchKey(name, title) })
 	}
 
 	for _, same := range matchers {

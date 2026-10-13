@@ -93,12 +93,25 @@ func TestCoversPlatformFilterAndRanking(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(got) != 3 || got[0].URL != "https://cdn.test/large/boxart/front/1-1.jpg" || got[0].Label != "Halo 3 · Microsoft Xbox 360 · 2007" {
-		t.Fatalf("exact title match must come first with its front art: %+v", got)
+	if len(got) != 2 || got[0].URL != "https://cdn.test/large/boxart/front/1-1.jpg" || got[0].Label != "Halo 3 · Microsoft Xbox 360 · 2007" {
+		t.Fatalf("exact title match must come first with its front art, and no other game: %+v", got)
 	}
 
-	if got[1].Title != "Halo 3 (Platinum Hits)" || got[2].Title != "Halo 3: ODST" {
-		t.Fatalf("other releases of the same game must come before other games: %+v", got)
+	if got[1].Title != "Halo 3 (Platinum Hits)" {
+		t.Fatalf("other releases of the same game follow: %+v", got)
+	}
+
+	// The cover picker browses: other games the search found follow, for the user to choose.
+	browse := q
+	browse.Browse = true
+
+	got, err = p.Covers(context.Background(), browse, schema.Settings{settingAPIKey: "good"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(got) != 3 || got[0].Title != "Halo 3" || got[1].Title != "Halo 3 (Platinum Hits)" || got[2].Title != "Halo 3: ODST" {
+		t.Fatalf("the picker lists other games after the game's own releases: %+v", got)
 	}
 
 	if !strings.Contains((*calls)[len(*calls)-1], "filter%5Bplatform%5D=15") {

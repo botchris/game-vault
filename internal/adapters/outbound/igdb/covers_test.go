@@ -156,6 +156,32 @@ func TestCovers(t *testing.T) {
 	})
 }
 
+func TestPick_otherScripts(t *testing.T) {
+	t.Run("GIVEN a search result in another script than the title, also in a script MatchKey drops", func(t *testing.T) {
+		games := []gameJSON{{
+			ID:   1,
+			Name: "ドラゴンクエスト",
+		}}
+
+		t.Run("WHEN a game is picked for another title", func(t *testing.T) {
+			got := pick(games, "ファイナルクエスト")
+
+			t.Run("THEN none is: two empty match keys are not the same game", func(t *testing.T) {
+				assert.Nil(t, got)
+			})
+		})
+
+		t.Run("WHEN a game is picked for the same title", func(t *testing.T) {
+			got := pick(games, "ドラゴンクエスト")
+
+			t.Run("THEN it is the exact match", func(t *testing.T) {
+				require.NotNil(t, got)
+				assert.Equal(t, int64(1), got.ID)
+			})
+		})
+	})
+}
+
 func TestPick_punctuation(t *testing.T) {
 	t.Run("GIVEN search results named with ': ' for a title written with ' - '", func(t *testing.T) {
 		games := []gameJSON{

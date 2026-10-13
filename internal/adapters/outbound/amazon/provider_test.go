@@ -3,6 +3,7 @@ package amazon
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/source"
 )
 
@@ -41,6 +43,7 @@ type fakeAmazon struct {
 	expireFirst    bool // reject the first access token, as when it expired mid-scan
 	revoked        bool // refresh token no longer valid
 	refreshes      int
+	accountStatus  int // when set, the account API (register, token) answers only this status
 }
 
 func (f *fakeAmazon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -49,6 +52,11 @@ func (f *fakeAmazon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var body map[string]any
 
 	_ = json.Unmarshal(raw, &body)
+
+	if f.accountStatus != 0 && strings.HasPrefix(r.URL.Path, "/auth/") {
+		w.WriteHeader(f.accountStatus)
+		return
+	}
 
 	switch r.URL.Path {
 	case "/auth/register":
@@ -234,6 +242,40 @@ func TestFetch_readsTheLibrary(t *testing.T) {
 			})
 		})
 	})
+}
+
+// TestAccountAPI_passingTroubles checks that a rate limit or an outage of the account API is not
+// taken for a rejected code or session: signing in again would not help.
+func TestAccountAPI_passingTroubles(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	for status, want := range map[int]error{
+		http.StatusTooManyRequests:    provider.ErrRateLimited,
+		http.StatusServiceUnavailable: provider.ErrUnavailable,
+	} {
+		t.Run(fmt.Sprintf("GIVEN the account API answers HTTP %d", status), func(t *testing.T) {
+			p := newTestProvider(t, &fakeAmazon{accountStatus: status})
+
+			t.Run("WHEN a code is pasted", func(t *testing.T) {
+				_, err := p.Prepare(ctx, source.Settings{settingCode: "GOODCODE"})
+
+				t.Run("THEN it is a passing trouble, not a rejected code", func(t *testing.T) {
+					require.ErrorIs(t, err, want)
+					assert.NotErrorIs(t, err, ErrBadCode)
+				})
+			})
+
+			t.Run("WHEN the library is scanned with a stored session", func(t *testing.T) {
+				_, _, err := p.Fetch(ctx, source.Settings{settingSession: `{"refresh_token":"Atnr|good","serial":"SERIAL"}`})
+
+				t.Run("THEN it is a passing trouble, not a signed-out session", func(t *testing.T) {
+					require.ErrorIs(t, err, want)
+					assert.NotErrorIs(t, err, source.ErrSignedOut)
+				})
+			})
+		})
+	}
 }
 
 func TestCleanCode(t *testing.T) {

@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
@@ -130,7 +131,7 @@ func (p *Provider) accessToken(ctx context.Context, s schema.Settings) (string, 
 
 	res, err := p.Client.Do(req)
 	if err != nil {
-		return "", err
+		return "", apiclient.ClassifyError(ctx, err)
 	}
 	defer res.Body.Close()
 
@@ -142,12 +143,19 @@ func (p *Provider) accessToken(ctx context.Context, s schema.Settings) (string, 
 	}
 
 	_ = json.NewDecoder(res.Body).Decode(&out)
-	if res.StatusCode != http.StatusOK || out.AccessToken == "" {
+
+	// Only a 400, 401 or 403 (invalid_client, invalid_scope…) means the keys are wrong; a 429 or an
+	// outage is a passing trouble, after which the same keys work again.
+	switch {
+	case res.StatusCode == http.StatusOK && out.AccessToken != "":
+	case res.StatusCode == http.StatusOK || apiclient.Rejected(res.StatusCode):
 		if out.Description != "" {
-			return "", fmt.Errorf("eBay rejected the keys: %s", out.Description)
+			return "", provider.BadSettings("eBay rejected the keys: " + out.Description)
 		}
 
-		return "", fmt.Errorf("eBay rejected the keys (HTTP %d)", res.StatusCode)
+		return "", provider.BadSettings(fmt.Sprintf("eBay rejected the keys (HTTP %d): check them in the settings", res.StatusCode))
+	default:
+		return "", fmt.Errorf("eBay sign-in: %w", apiclient.ClassifyStatus(res.StatusCode))
 	}
 
 	p.mu.Lock()
@@ -205,12 +213,12 @@ func (p *Provider) search(ctx context.Context, tok, marketplace string, q url.Va
 
 	res, err := p.Client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, apiclient.ClassifyError(ctx, err)
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("eBay %s search: HTTP %d", marketplace, res.StatusCode)
+		return nil, fmt.Errorf("eBay %s search: %w", marketplace, apiclient.ClassifyStatus(res.StatusCode))
 	}
 
 	var out struct {

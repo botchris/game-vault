@@ -9,10 +9,12 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/source"
 )
 
@@ -36,11 +38,23 @@ type fakeSony struct {
 
 	// gameListCalls counts the requests to the played-titles list, by categories parameter.
 	gameListCalls map[string]int
+
+	// authStatus, when set, is the only answer of the sign-in endpoints (authorize and token): a
+	// rate limit, an outage.
+	authStatus int
+
+	// rejectAll makes the library refuse every access token, as for a revoked session.
+	rejectAll bool
 }
 
 func (f *fakeSony) handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /authorize", func(w http.ResponseWriter, r *http.Request) {
+		if f.authStatus != 0 {
+			w.WriteHeader(f.authStatus)
+			return
+		}
+
 		if c, err := r.Cookie("npsso"); err != nil || c.Value != "good-npsso" {
 			http.Redirect(w, r, "https://my.account.sony.com/sonyacct/signin/", http.StatusFound)
 			return
@@ -52,6 +66,11 @@ func (f *fakeSony) handler() http.Handler {
 		w.WriteHeader(http.StatusFound)
 	})
 	mux.HandleFunc("POST /token", func(w http.ResponseWriter, r *http.Request) {
+		if f.authStatus != 0 {
+			w.WriteHeader(f.authStatus)
+			return
+		}
+
 		r.ParseForm()
 
 		if u, pw, _ := r.BasicAuth(); u != clientID || pw != clientSecret {
@@ -87,7 +106,7 @@ func (f *fakeSony) handler() http.Handler {
 			return
 		}
 
-		if r.Header.Get("Authorization") != "Bearer access" || r.Header.Get("Content-Type") != "application/json" {
+		if f.rejectAll || r.Header.Get("Authorization") != "Bearer access" || r.Header.Get("Content-Type") != "application/json" {
 			fmt.Fprint(w, `{"errors":[{"message":"Access denied! You need to be authorized to perform this action!"}],"data":{"purchasedTitlesRetrieve":null}}`)
 			return
 		}
@@ -182,6 +201,82 @@ func TestSignedOut(t *testing.T) {
 	if _, _, err := p.Fetch(context.Background(), source.Settings{}); !errors.Is(err, ErrNoNPSSO) {
 		t.Fatalf("got %v", err)
 	}
+}
+
+// TestSignIn_passingTroubles checks that a rate limit or an outage of Sony's sign-in is not taken
+// for a refused NPSSO or session: signing in again would not help.
+func TestSignIn_passingTroubles(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	for status, want := range map[int]error{
+		http.StatusTooManyRequests:    provider.ErrRateLimited,
+		http.StatusServiceUnavailable: provider.ErrUnavailable,
+	} {
+		t.Run(fmt.Sprintf("GIVEN the sign-in endpoints answer HTTP %d", status), func(t *testing.T) {
+			p, f := newTest(t)
+			f.authStatus = status
+
+			for name, settings := range map[string]source.Settings{
+				"an NPSSO":         {settingNPSSO: "good-npsso"},
+				"a stored session": {settingSession: `{"refresh_token":"refresh-ok"}`},
+			} {
+				t.Run("WHEN the library is scanned with "+name, func(t *testing.T) {
+					_, _, err := p.Fetch(ctx, settings)
+
+					t.Run("THEN it is a passing trouble, not a signed-out session", func(t *testing.T) {
+						require.ErrorIs(t, err, want)
+						assert.NotErrorIs(t, err, source.ErrSignedOut)
+					})
+				})
+			}
+		})
+	}
+}
+
+// TestFetch_renewsARejectedAccessToken checks that an access token the library refuses (it expired
+// or was revoked before its time) is renewed once, instead of asking the user to sign in again.
+func TestFetch_renewsARejectedAccessToken(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	stale := func(p *Provider) {
+		p.tokens = map[string]accessToken{"refresh-ok": {
+			token:   "stale",
+			expires: p.Now().Add(time.Hour),
+		}}
+	}
+
+	t.Run("GIVEN a cached access token the library no longer accepts", func(t *testing.T) {
+		p, f := newTest(t)
+		stale(p)
+
+		t.Run("WHEN the library is scanned", func(t *testing.T) {
+			copies, _, err := p.Fetch(ctx, source.Settings{settingSession: `{"refresh_token":"refresh-ok"}`})
+
+			t.Run("THEN the token is renewed once and the scan works", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.NotEmpty(t, copies)
+				assert.Equal(t, 1, f.refreshes)
+			})
+		})
+	})
+
+	t.Run("GIVEN a library that refuses even a renewed access token", func(t *testing.T) {
+		p, f := newTest(t)
+		f.rejectAll = true
+
+		stale(p)
+
+		t.Run("WHEN the source is tested", func(t *testing.T) {
+			err := p.Test(ctx, source.Settings{settingSession: `{"refresh_token":"refresh-ok"}`})
+
+			t.Run("THEN it is signed out after one renewal", func(t *testing.T) {
+				require.ErrorIs(t, err, source.ErrSignedOut)
+				assert.Equal(t, 1, f.refreshes)
+			})
+		})
+	})
 }
 
 func TestMapTitles_systems(t *testing.T) {

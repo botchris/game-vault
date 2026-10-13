@@ -52,8 +52,19 @@ const (
 var Countries = []string{"uk", "es", "ie", "pt", "au", "in", "mx", "it", "pl"}
 
 // ErrBlocked means CeX answered with something other than its JSON API, typically a bot
-// protection page.
-var ErrBlocked = errors.New("CeX is not answering lookups right now (its site may be checking for bots); the next barcode database is used instead")
+// protection page. It matches provider.ErrUnavailable: the provider's status shows it, and it says
+// nothing about the code.
+var ErrBlocked error = blocked{}
+
+// blocked is ErrBlocked's type: its own message, unwrapping to provider.ErrUnavailable.
+type blocked struct{}
+
+func (blocked) Error() string {
+	return "CeX is not answering lookups right now (its site may be checking for bots); the next barcode database is used instead"
+}
+
+// Unwrap makes errors.Is(ErrBlocked, provider.ErrUnavailable) true.
+func (blocked) Unwrap() error { return provider.ErrUnavailable }
 
 // Provider implements media.BarcodeProvider.
 type Provider struct {
@@ -179,10 +190,15 @@ func (p *Provider) get(ctx context.Context, country, path string, out any) error
 	}
 
 	if se != nil {
-		return fmt.Errorf("CeX %s: HTTP %d", country, se.Status)
+		return fmt.Errorf("CeX %s: %w", country, apiclient.ClassifyStatus(se.Status))
 	}
 
 	if err != nil {
+		// No answer at all is an outage; an answer of another shape may be a changed API.
+		if err = apiclient.ClassifyError(ctx, err); errors.Is(err, provider.ErrRateLimited) {
+			return fmt.Errorf("CeX %s: %w", country, err)
+		}
+
 		return fmt.Errorf("unexpected CeX answer: %w", err)
 	}
 
