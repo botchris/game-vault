@@ -68,6 +68,15 @@ export const CONTENTS = [CopyContent.BOX, CopyContent.MANUAL, CopyContent.MEDIA,
 export const gradeKey = (g: CopyGrade) => CopyGrade[g].toLowerCase();
 export const contentKey = (c: CopyContent) => CopyContent[c].toLowerCase();
 
+/** A physical copy's grade and contents in words ('' for each one not set), as the copy card and
+ *  the scan batch show them. */
+export function describePhysical(t: (key: string) => string, d: { grade: CopyGrade; contents: CopyContent[] }): { grade: string; contents: string } {
+  return {
+    grade: d.grade ? t(`grade.${gradeKey(d.grade)}`) : '',
+    contents: d.contents.map((c) => t(`content.${contentKey(c)}`)).join(', '),
+  };
+}
+
 /** The distinct places copies are kept in, sorted, for the location suggestions. */
 export function usedLocations(games: Game[]): string[] {
   const set = new Set<string>();

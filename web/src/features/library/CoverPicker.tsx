@@ -139,7 +139,7 @@ export default function CoverPicker({ game, system, photosOnly = false, onPick, 
             {candidates && (
               <div className="posters picker-grid">
                 <button className={`poster ${automatic ? 'selected' : ''}`} onClick={() => onPick({ case: 'clear', value: true })}>
-                  <WholeCover placeholder={<div className="cover-placeholder"><span>AUTO</span></div>} />
+                  <WholeCover placeholder={<div className="cover-placeholder"><span>{t('coverPicker.automaticShort')}</span></div>} />
                   <div className="poster-caption">
                     <span className="poster-title">{t('coverPicker.automatic')}</span>
                     <span className="muted small">{t('coverPicker.automaticHint')}</span>

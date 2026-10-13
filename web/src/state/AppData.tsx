@@ -1,9 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { errorMessage, fieldClient, gameClient, sourceClient } from '../api/client';
+import { errorMessage, fieldClient, gameClient, sourceClient, systemClient } from '../api/client';
 import type { FieldDefinition } from '../gen/gamevault/v1/field_pb';
 import type { Game } from '../gen/gamevault/v1/game_pb';
 import type { Source, SourceType } from '../gen/gamevault/v1/source_pb';
+import type { PreferencesState } from '../lib/preferences';
 
 interface AppData {
   games: Game[];
@@ -11,14 +12,16 @@ interface AppData {
   /** Custom field definitions, in display order. */
   fields: FieldDefinition[];
   sourceTypes: SourceType[];
-  secretPlaceholder: string;
   loading: boolean;
   error: string;
   /** Games whose details (genres, year) are already downloaded in the UI language. */
   detailsCached: number;
+  /** The user's preferences: unknown (with the error) until they are read. */
+  preferences: PreferencesState;
   reloadGames: () => Promise<void>;
   reloadSources: () => Promise<void>;
   reloadFields: () => Promise<void>;
+  reloadPreferences: () => Promise<void>;
   /** Replace (or add) a game after a mutation, without refetching everything. */
   putGame: (g: Game) => void;
   dropGame: (id: string) => void;
@@ -36,7 +39,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [sources, setSources] = useState<Source[]>([]);
   const [fields, setFields] = useState<FieldDefinition[]>([]);
   const [sourceTypes, setSourceTypes] = useState<SourceType[]>([]);
-  const [secretPlaceholder, setSecretPlaceholder] = useState('');
+  const [preferences, setPreferences] = useState<PreferencesState>({ loaded: false, error: '' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -56,7 +59,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       const [list, types] = await Promise.all([sourceClient.listSources({}), sourceClient.listSourceTypes({})]);
       setSources(list.sources);
       setSourceTypes(types.types);
-      setSecretPlaceholder(types.secretPlaceholder);
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -70,9 +72,22 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Loaded once for every component that needs them (the money inputs, System), and again when
+  // System saves them.
+  const reloadPreferences = useCallback(async () => {
+    try {
+      const res = await systemClient.getPreferences({});
+      setPreferences({ loaded: true, currency: res.preferences?.currency ?? '' });
+    } catch (e) {
+      // The money inputs propose the region's currency meanwhile; System says the saved one is
+      // unknown instead of offering to save over it.
+      setPreferences({ loaded: false, error: errorMessage(e) });
+    }
+  }, []);
+
   useEffect(() => {
-    Promise.all([reloadGames(), reloadSources(), reloadFields()]).finally(() => setLoading(false));
-  }, [reloadGames, reloadSources, reloadFields]);
+    Promise.all([reloadGames(), reloadSources(), reloadFields(), reloadPreferences()]).finally(() => setLoading(false));
+  }, [reloadGames, reloadSources, reloadFields, reloadPreferences]);
 
   const putGame = useCallback((g: Game) => {
     setGames((list) => {
@@ -89,11 +104,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AppData>(() => {
     const names = new Map(sources.map((s) => [s.id, s.name]));
     return {
-      games, sources, fields, sourceTypes, secretPlaceholder, loading, error, detailsCached,
-      reloadGames, reloadSources, reloadFields, putGame, dropGame,
+      games, sources, fields, sourceTypes, loading, error, detailsCached, preferences,
+      reloadGames, reloadSources, reloadFields, reloadPreferences, putGame, dropGame,
       sourceName: (id) => names.get(id) ?? '',
     };
-  }, [games, sources, fields, sourceTypes, secretPlaceholder, loading, error, detailsCached, reloadGames, reloadSources, reloadFields, putGame, dropGame]);
+  }, [games, sources, fields, sourceTypes, loading, error, detailsCached, preferences, reloadGames, reloadSources, reloadFields,
+    reloadPreferences, putGame, dropGame]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

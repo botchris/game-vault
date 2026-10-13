@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { errorMessage, gameClient } from '../../api/client';
+import { PageHeader } from '../../components/PageHeader';
+import { gameClient } from '../../api/client';
 import { Cover } from '../../components/Cover';
 import { Icon } from '../../components/Icon';
 import { Alert, useFormatters } from '../../components/ui';
+import { deadlineTone, expiresSoon } from '../../lib/deadlines';
 import { searchableText } from '../../lib/fields';
+import { useGameAddress } from '../../lib/useGameAddress';
+import { useStoredChoice } from '../../lib/useStoredChoice';
 import { CopyStatus, PlayStatus, daysUntil, isPendingKey, nextDeadline, playKey, toDate, type Game } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
 import {
@@ -12,12 +16,13 @@ import {
   sortItems, type Filters, type Grouping, type LibraryItem,
 } from '../../lib/editions';
 import FilterPanel from './FilterPanel';
-import GameDetail, { type SheetNav } from './GameDetail';
+import GameDetail from './GameDetail';
+import type { SheetNav } from './sheet';
 import NewGameDialog from './NewGameDialog';
 import OwnershipDialog from './OwnershipDialog';
-import { gameHash, gameIdFromHash } from '../../lib/gameRoute';
 import { Stars } from './PlayControls';
 import PosterGrid, { ItemBadges, moreStoresId } from './PosterGrid';
+import { useAction } from '../../lib/useAction';
 
 type Quick = 'pending' | 'expiring' | 'redundant' | 'several' | null;
 export type SortBy = 'titleAsc' | 'titleDesc' | 'added' | 'year' | 'deadline' | 'copies' | 'rating';
@@ -25,29 +30,7 @@ type View = 'list' | 'posters';
 
 const SORTS: SortBy[] = ['titleAsc', 'titleDesc', 'added', 'year', 'deadline', 'copies', 'rating'];
 const CHUNK = 120;
-const EXPIRING_DAYS = 30;
 const LETTERS = ['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'];
-
-/** Remembered per device: purely a viewing preference. */
-function usePref<T extends string>(key: string, fallback: T, allowed: readonly T[]): [T, (v: T) => void] {
-  const [value, setValue] = useState<T>(() => {
-    try {
-      const v = localStorage.getItem(key) as T | null;
-      return v && allowed.includes(v) ? v : fallback;
-    } catch {
-      return fallback;
-    }
-  });
-  const set = (v: T) => {
-    setValue(v);
-    try {
-      localStorage.setItem(key, v);
-    } catch {
-      /* private mode: not remembered */
-    }
-  };
-  return [value, set];
-}
 
 /** First letter for the A–Z bar: accents folded, digits and symbols under "#". */
 export function initialOf(title: string): string {
@@ -55,10 +38,7 @@ export function initialOf(title: string): string {
   return /[A-Z]/.test(c) ? c : '#';
 }
 
-const isExpiring = (g: Game) => {
-  const d = daysUntil(nextDeadline(g));
-  return d !== null && d <= EXPIRING_DAYS;
-};
+const isExpiring = (g: Game) => expiresSoon(daysUntil(nextDeadline(g)));
 
 export default function LibraryPage() {
   const { t, i18n } = useTranslation();
@@ -70,15 +50,17 @@ export default function LibraryPage() {
   // Values of fields deleted or choices removed since they were picked no longer filter or count.
   const filters = useMemo(() => pruneFilters(chosenFilters, fields), [chosenFilters, fields]);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [sortBy, setSortBy] = usePref<SortBy>('gamevault.librarySort', 'titleAsc', SORTS);
-  const [view, setView] = usePref<View>('gamevault.libraryView', 'posters', ['list', 'posters']);
-  const [grouping, setGrouping] = usePref<Grouping>('gamevault.libraryGrouping', 'platform', ['platform', 'game']);
+  const [sortBy, setSortBy] = useStoredChoice<SortBy>('gamevault.librarySort', 'titleAsc', SORTS);
+  const [view, setView] = useStoredChoice<View>('gamevault.libraryView', 'posters', ['list', 'posters']);
+  const [grouping, setGrouping] = useStoredChoice<Grouping>('gamevault.libraryGrouping', 'platform', ['platform', 'game']);
   const [shown, setShown] = useState(CHUNK);
-  // The open sheet: a game and the edition it was opened on ('' for the main one).
-  const [open, setOpen] = useState<{ id: string; system: string } | null>(null);
+  // The open sheet, which a "#/game/<id>" address opens too.
+  const exists = useCallback((id: string) => games.some((g) => g.id === id), [games]);
+  const { open, setOpen, close: closeSheet, openFromLink: openAddress } = useGameAddress(loading ? null : exists);
   const [creating, setCreating] = useState(false);
   const [checking, setChecking] = useState(false);
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
+  const redeem = useAction({ onError: (text) => setNotice({ tone: 'error', text }) });
   const sentinel = useRef<HTMLDivElement>(null);
 
   // The library's items: one per edition ("By platform") or per game ("By game"); filters, counts and
@@ -139,59 +121,6 @@ export default function LibraryPage() {
     return () => io.disconnect();
   }, [filtered.length, view]);
 
-  // "#/game/<id>" (links from the bundle checker and the browser extension) opens that game's
-  // sheet, now and whenever the address changes. `byAddress` is true while the open sheet came from an
-  // address, so going back closes it; `pushed` is true when the app added that history entry
-  // itself, so closing goes back to the entry before it instead of adding a second "#/library".
-  const byAddress = useRef(false);
-  const pushed = useRef(false);
-  useEffect(() => {
-    const follow = () => {
-      const id = gameIdFromHash(window.location.hash);
-      if (id) {
-        byAddress.current = true;
-        setOpen({ id, system: '' });
-      } else if (byAddress.current) {
-        byAddress.current = false;
-        pushed.current = false;
-        setOpen(null);
-      }
-    };
-    follow();
-    window.addEventListener('hashchange', follow);
-    return () => window.removeEventListener('hashchange', follow);
-  }, []);
-
-  /** Every way of closing the sheet: clears a game address so a reload does not reopen it. */
-  const closeSheet = useCallback(() => {
-    setOpen(null);
-    const wasPushed = pushed.current;
-    byAddress.current = false;
-    pushed.current = false;
-    if (!gameIdFromHash(window.location.hash)) return;
-    if (wasPushed) history.back();
-    else history.replaceState(null, '', '#/library');
-  }, []);
-
-  // An address naming a game that does not exist (deleted, mistyped) opens nothing and is cleared.
-  useEffect(() => {
-    if (loading || !open || !byAddress.current || games.some((g) => g.id === open.id)) return;
-    closeSheet();
-  }, [loading, open, games, closeSheet]);
-
-  /** Opens a game from a link inside the app (the checker): the address names it, and opens it
-   *  even when the address is already that one. */
-  const openFromLink = (id: string) => {
-    setChecking(false);
-    const hash = gameHash(id);
-    if (window.location.hash !== hash) {
-      pushed.current = true;
-      window.location.hash = hash;
-    }
-    byAddress.current = true;
-    setOpen({ id, system: '' });
-  };
-
   const visible = filtered.slice(0, shown);
 
   // The open sheet moves through the list as the library shows it (search, filters, sort), loading
@@ -213,15 +142,11 @@ export default function LibraryPage() {
   }));
   const nFilters = activeFilterCount(filters);
 
-  const markRedeemed = async () => {
-    try {
-      const res = await gameClient.markRedeemedKeys({});
-      await reloadGames();
-      setNotice({ tone: 'ok', text: t('library.markedRedeemed', { count: res.updated }) });
-    } catch (e) {
-      setNotice({ tone: 'error', text: errorMessage(e) });
-    }
-  };
+  const markRedeemed = () => redeem.run(async () => {
+    const res = await gameClient.markRedeemedKeys({});
+    await reloadGames();
+    setNotice({ tone: 'ok', text: t('library.markedRedeemed', { count: res.updated }) });
+  });
 
   const quickChips: { key: Exclude<Quick, null>; count: number; tone?: string }[] = [
     { key: 'pending', count: counts.pending },
@@ -232,20 +157,19 @@ export default function LibraryPage() {
 
   return (
     <div className="library">
-      <header className="page-head">
-        <h1 className="page-title">{t('nav.library')}</h1>
-        <span className="page-count">{grouping === 'platform'
+      <PageHeader title={t('nav.library')}
+        count={grouping === 'platform'
           ? t('library.showingEditions', {
             editions: t('library.editionCount', { count: filtered.length, n: filtered.length.toLocaleString(i18n.language) }),
             games: t('library.gameCount', { count: itemCounts(filtered).games, n: itemCounts(filtered).games.toLocaleString(i18n.language) }),
           })
-          : t('library.showing', { shown: filtered.length.toLocaleString(i18n.language), total: games.length.toLocaleString(i18n.language) })}</span>
-        <span className="spacer" />
-        <button onClick={() => setChecking(true)} title={t('library.checkOwnership')} aria-label={t('library.checkOwnership')}>
-          <Icon name="check" size={18} /><span className="hide-narrow">{t('library.checkOwnership')}</span>
-        </button>
-        <button className="primary" onClick={() => setCreating(true)}><Icon name="plus" size={18} /><span className="hide-narrow">{t('library.addGame')}</span></button>
-      </header>
+          : t('library.showing', { shown: filtered.length.toLocaleString(i18n.language), total: games.length.toLocaleString(i18n.language) })}
+        actions={<>
+          <button onClick={() => setChecking(true)} title={t('library.checkOwnership')} aria-label={t('library.checkOwnership')}>
+            <Icon name="check" size={18} /><span className="hide-narrow">{t('library.checkOwnership')}</span>
+          </button>
+          <button className="primary" onClick={() => setCreating(true)}><Icon name="plus" size={18} /><span className="hide-narrow">{t('library.addGame')}</span></button>
+        </>} />
 
       <div className="toolbar library-toolbar">
         <label className="search-field">
@@ -294,7 +218,7 @@ export default function LibraryPage() {
       {quick === 'redundant' && counts.revealedRedundant > 0 && (
         <div className="hint-bar">
           <span>{t('library.markRedeemedHelp')}</span>
-          <button onClick={markRedeemed}>{t('library.markRedeemed', { count: counts.revealedRedundant })}</button>
+          <button onClick={markRedeemed} disabled={redeem.busy}>{t('library.markRedeemed', { count: counts.revealedRedundant })}</button>
         </div>
       )}
       {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
@@ -330,7 +254,7 @@ export default function LibraryPage() {
       {open && <GameDetail gameId={open.id} system={open.system} onClose={closeSheet} onOpenGame={(id) => setOpen({ id, system: '' })} nav={nav}
         onEdition={(system) => setOpen((o) => (o ? { ...o, system } : o))}
         onPlatform={(p) => { closeSheet(); setFilters((f) => ({ ...f, platforms: [p] })); }} />}
-      {checking && <OwnershipDialog onClose={() => setChecking(false)} onOpenGame={openFromLink} />}
+      {checking && <OwnershipDialog onClose={() => setChecking(false)} onOpenGame={(id) => { setChecking(false); openAddress(id); }} />}
       {creating && <NewGameDialog onClose={() => setCreating(false)} onCreated={(id) => { setCreating(false); setOpen({ id, system: '' }); }} />}
     </div>
   );
@@ -370,7 +294,7 @@ function GameRow({ item, grouping, onOpen, onSystem, activeSystems }: {
           {redundant > 0 && <span className="badge warn">{t('library.redundantBadge', { count: redundant })}</span>}
           {pending > 0 && redundant === 0 && <span className="badge">{t('library.pendingBadge', { count: pending })}</span>}
           {days !== null && (
-            <span className={`row-deadline ${days <= EXPIRING_DAYS ? 'danger' : days <= 90 ? 'warn' : ''}`}>
+            <span className={`row-deadline ${deadlineTone(days) ?? ''}`}>
               {fmt.date(deadline)} · {t('common.daysLeft', { count: days })}
             </span>
           )}

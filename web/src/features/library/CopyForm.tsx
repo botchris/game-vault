@@ -1,19 +1,20 @@
 import { create } from '@bufbuild/protobuf';
-import { useMemo, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { errorMessage } from '../../api/client';
 import { Alert, Modal } from '../../components/ui';
-import { CopyGrade, MoneySchema } from '../../gen/gamevault/v1/game_pb';
+import { MoneySchema } from '../../gen/gamevault/v1/game_pb';
 import { SYSTEMS, systemOf } from '../../lib/editions';
 import { copyValuesFor } from '../../lib/fields';
-import { amountInput, currencyDigits, currencyList, parseAmount } from '../../lib/money';
+import { amountInput, currencyList } from '../../lib/money';
 import {
-  CONTENTS, CopyKind, GRADES, KINDS, PHYSICAL_PLATFORMS, STATUSES_BY_KIND, STORE_PLATFORMS, contentKey, emptyDetails,
-  gradeKey, kindKey, statusKey, usedLocations, type CopyDetailsInput,
+  CopyKind, KINDS, PHYSICAL_PLATFORMS, STATUSES_BY_KIND, STORE_PLATFORMS, emptyDetails, kindKey, statusKey, type CopyDetailsInput,
 } from '../../lib/model';
 import { usePreferredCurrency } from '../../lib/usePreferences';
 import { useAppData } from '../../state/AppData';
 import { FieldInputs, applyField, cleanFields, useFieldValidity } from '../fields/FieldInput';
+import { ContentsToggles, GradeSelect, LocationInput } from './PhysicalInputs';
+import { useAmountReading } from '../../lib/useAmountReading';
+import { useAction } from '../../lib/useAction';
 
 interface Props {
   initial?: CopyDetailsInput;
@@ -28,18 +29,17 @@ interface Props {
 /** Add or edit one copy of a game. */
 export default function CopyForm({ initial, managedBy, sourceSystem, onSubmit, onClose }: Props) {
   const { t, i18n } = useTranslation();
-  const { games, fields } = useAppData();
-  const locations = useMemo(() => usedLocations(games), [games]);
+  const { fields } = useAppData();
   const preferred = usePreferredCurrency(i18n.language);
   const [d, setD] = useState<CopyDetailsInput>(initial ?? emptyDetails());
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  // The dialog closes on success, so it stays busy until it goes.
+  const { busy, error, run } = useAction({ keepBusyOnSuccess: true });
   const [amount, setAmount] = useState(() => (d.price?.amountMinor ? amountInput(d.price.amountMinor, d.price.currency, i18n.language) : ''));
   const [chosenCurrency, setCurrency] = useState(d.price?.currency ?? '');
   // A new price uses the default currency until the user picks another one.
   const currency = chosenCurrency || preferred;
-  const minor = amount.trim() === '' ? 0n : parseAmount(amount, currencyDigits(currency));
-  const amountInvalid = minor === null;
+  const price = useAmountReading(currency, amount);
+  const amountInvalid = price.invalid;
   // A custom field holding invalid text (a number, a year) blocks Save until it is fixed or cleared.
   const [fieldsInvalid, reportField] = useFieldValidity();
   // What an empty System means: the source's system, else the platform's (it follows the platform as
@@ -60,9 +60,7 @@ export default function CopyForm({ initial, managedBy, sourceSystem, onSubmit, o
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (amountInvalid || fieldsInvalid) return;
-    setBusy(true);
-    setError('');
-    try {
+    await run(async () => {
       // The server replaces the copy's values: drop only those of known fields that no longer apply
       // after a kind change; values of fields this page does not know are kept, never erased.
       const values = cleanFields(copyValuesFor(d.fields, fields, d.kind));
@@ -70,11 +68,8 @@ export default function CopyForm({ initial, managedBy, sourceSystem, onSubmit, o
       // (when that is known).
       const typed = d.system.trim();
       const system = typed === '' || (systemEdited && automatic !== null && systemOf(typed) === automatic) ? '' : typed;
-      await onSubmit({ ...d, system, price: minor ? create(MoneySchema, { amountMinor: minor, currency }) : undefined, fields: values });
-    } catch (err) {
-      setError(errorMessage(err));
-      setBusy(false);
-    }
+      await onSubmit({ ...d, system, price: price.minor ? create(MoneySchema, { amountMinor: price.minor, currency }) : undefined, fields: values });
+    });
   };
 
   const platforms = d.kind === CopyKind.PHYSICAL ? PHYSICAL_PLATFORMS : STORE_PLATFORMS;
@@ -127,32 +122,9 @@ export default function CopyForm({ initial, managedBy, sourceSystem, onSubmit, o
           )}
           {d.kind === CopyKind.PHYSICAL && (
             <>
-              <label>
-                {t('copy.grade')}
-                <select value={d.grade} onChange={(e) => set('grade', Number(e.target.value))}>
-                  <option value={CopyGrade.UNSPECIFIED}>{t('grade.unspecified')}</option>
-                  {GRADES.map((g) => <option key={g} value={g}>{t(`grade.${gradeKey(g)}`)}</option>)}
-                </select>
-              </label>
-              <label>
-                {t('copy.location')}
-                <input list="copy-locations" value={d.location} onChange={(e) => set('location', e.target.value)} placeholder={t('copy.locationPlaceholder')} />
-                <datalist id="copy-locations">{locations.map((l) => <option key={l} value={l} />)}</datalist>
-              </label>
-              <div className="span2 field">
-                <span className="field-label">{t('copy.contents')}</span>
-                <div className="toggles" role="group" aria-label={t('copy.contents')}>
-                  {CONTENTS.map((c) => {
-                    const on = d.contents.includes(c);
-                    return (
-                      <button type="button" key={c} className={on ? 'toggle on' : 'toggle'} aria-pressed={on}
-                        onClick={() => set('contents', on ? d.contents.filter((x) => x !== c) : [...d.contents, c])}>
-                        {t(`content.${contentKey(c)}`)}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              <GradeSelect value={d.grade} onChange={(g) => set('grade', g)} />
+              <LocationInput value={d.location} onChange={(l) => set('location', l)} />
+              <ContentsToggles className="span2" value={d.contents} onChange={(c) => set('contents', c)} />
               <label>
                 {t('copy.barcode')}
                 <input className="mono" inputMode="numeric" value={d.barcode} onChange={(e) => set('barcode', e.target.value)} placeholder="2 001234 567893" />
@@ -171,7 +143,7 @@ export default function CopyForm({ initial, managedBy, sourceSystem, onSubmit, o
             {t('copy.price')}
             <span className="row tight">
               <input inputMode="decimal" value={amount} aria-invalid={amountInvalid}
-                onChange={(e) => setAmount(e.target.value)} placeholder={amountInput(2995n, currency, i18n.language)} />
+                onChange={(e) => setAmount(e.target.value)} placeholder={price.placeholder} />
               <select className="currency" value={currency} onChange={(e) => setCurrency(e.target.value)} aria-label={t('copy.currency')}>
                 {currencyList().map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
@@ -180,7 +152,7 @@ export default function CopyForm({ initial, managedBy, sourceSystem, onSubmit, o
           </label>
           <label>
             {t('copy.edition')}
-            <input value={d.edition} onChange={(e) => set('edition', e.target.value)} placeholder="GOTY, Collector's…" />
+            <input value={d.edition} onChange={(e) => set('edition', e.target.value)} placeholder={t('copy.editionPlaceholder')} />
           </label>
           <label className="span2">
             {t('common.notes')}

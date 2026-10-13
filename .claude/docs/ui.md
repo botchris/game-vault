@@ -7,17 +7,23 @@ because Simple Icons removed them).
 
 ## Structure
 
-- `App.tsx`: shell (sidebar on desktop, bottom tab bar under 860 px), hash router (`#/library`…).
+- `App.tsx`: shell (sidebar on desktop, bottom tab bar under 860 px). Addresses (`#/library`,
+  `#/sources/<id>`, `#/system/backups`, `#/game/<id>`) are parsed only by `lib/route.ts` and followed
+  only by `lib/useHashRoute.ts` (`replaceRoute` changes the address without a history entry); pages
+  get the route's `target`. A new page scrolls to the top; an address within a page does not.
+  `lib/useGameAddress.ts` owns the library's open sheet and its `#/game/<id>` address (history rules in `lib/gameAddress.ts`, tested on happy-dom), which follows
+  the game the sheet shows.
 - `state/AppData.tsx`: the catalog and sources shared by every page; mutations call `putGame`
   instead of refetching.
 - `features/library/`: `LibraryPage` (search, sort, A–Z rail, filters, by platform or by game, posters/list,
   infinite scroll), `FilterPanel` (popover / bottom sheet), `PosterGrid`, `GameDetail` (the game sheet:
   hero, edition chips, Overview / Copies / Edit tabs; ‹ › and ← → move through the library's current list, keeping the
   tab, with no animation; the image viewer catches the arrows first; the sheet is not remounted per
-  game, only its body is keyed), `GameSheet` (details from metadata providers),
+  game, only its body is keyed; its parts are `SheetHero`, `CopiesTab` with `CopyCard`, `EditTab`, and
+  `SheetDialogs` with `EditCopyDialog`, sharing the types in `sheet.ts`), `GameSheet` (details from metadata providers),
   `CopyPhotos` (a copy's thumbnail strip, uploads with progress, the viewer with its photo footer),
   `OwnershipDialog` ("Do I own it?": paste box, rows, full screen on phones); `LibraryPage` opens the
-  sheet a `#/game/<id>` address names.
+  sheet a `#/game/<id>` address names (`useGameAddress`).
 - `features/system/AccessTokens`: create (shown once), list, revoke.
 - `lib/ownership.ts`: paste cleaning, request chunks, rows (pure, Node-tested); `lib/gameRoute.ts`:
   `#/game/<id>`. `components/ui.tsx`: `Modal` has `phoneFull`.
@@ -54,6 +60,14 @@ because Simple Icons removed them).
 - Covers carry the colour. No all-caps labels, no decorative eyebrows, no gradients for decoration.
 - Mobile: 3-column poster grid, filters as a bottom sheet, game sheet full screen, 16 px inputs
   (no iOS zoom), safe-area insets on fixed bars.
+- Tokens on `:root` in `styles.css`, used instead of literals: radii (`--radius-xs` 4 … `--radius-sheet`
+  20, `--radius-pill`), the always-dark surfaces (`--ink`, `--on-dark`, `--on-dark-soft`,
+  `--on-dark-muted`, `--glass`, `--glass-strong`, `--glass-border`, `--scrim`, `--label-on-cover`;
+  not redefined for dark mode), the fixed platform colours (`--platform-*`, which the hero uses and
+  the light theme's `--xbox`… point to) and the layers (`--z-sticky` < `--z-sidebar` < `--z-nav` <
+  `--z-popover` < `--z-bar` < `--z-modal` < `--z-viewer`; 1 and 2 only order a component's own parts).
+- Breakpoints (media queries cannot read tokens): phones `max-width: 860px`, desktops
+  `min-width: 861px`; narrower steps at 760, 640, 600 and 520 px.
 
 ## Motion (Emil Kowalski's rules)
 

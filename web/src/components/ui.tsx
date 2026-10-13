@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LANGUAGES } from '../i18n';
 import { copyText } from '../lib/clipboard';
@@ -8,13 +8,16 @@ import { useEscape } from './useEscape';
 /** Centered dialog. Closes on Escape (when it is the overlay on top) and on backdrop click. */
 export function Modal(props: { title: ReactNode; onClose: () => void; children: ReactNode; footer?: ReactNode; wide?: boolean; phoneFull?: boolean }) {
   const { onClose } = props;
+  const { t } = useTranslation();
+  const titleId = useId();
   useEscape(onClose);
   return (
     <div className="overlay" onMouseDown={onClose}>
-      <div className={`modal ${props.wide ? 'wide' : ''} ${props.phoneFull ? 'phone-full' : ''}`} role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
+      <div className={`modal ${props.wide ? 'wide' : ''} ${props.phoneFull ? 'phone-full' : ''}`} role="dialog" aria-modal="true" aria-labelledby={titleId}
+        onMouseDown={(e) => e.stopPropagation()}>
         <header className="modal-head">
-          <h2>{props.title}</h2>
-          <button className="icon-button" onClick={onClose} aria-label="Close"><Icon name="close" size={18} /></button>
+          <h2 id={titleId}>{props.title}</h2>
+          <button className="icon-button" onClick={onClose} aria-label={t('common.close')}><Icon name="close" size={18} /></button>
         </header>
         <div className="modal-body">{props.children}</div>
         {props.footer && <footer className="modal-foot">{props.footer}</footer>}
@@ -66,8 +69,12 @@ export function KeyCell({ value }: { value: string }) {
     <>
       <span className="keycell" onClick={(e) => e.stopPropagation()}>
         <code>{shown ? value : value.replace(/[A-Za-z0-9]/g, '•')}</code>
-        <button className="icon" title={toggleLabel} aria-label={toggleLabel} onClick={() => setShown(!shown)}>{shown ? '🙈' : '👁'}</button>
-        <button className="icon" title={copyLabel} aria-label={copyLabel} onClick={copy}>{copied ? '✓' : '⧉'}</button>
+        <button className="icon" title={toggleLabel} aria-label={toggleLabel} onClick={() => setShown(!shown)}>
+          <Icon name={shown ? 'eyeOff' : 'eye'} size={16} />
+        </button>
+        <button className="icon" title={copyLabel} aria-label={copyLabel} onClick={copy}>
+          <Icon name={copied ? 'check' : 'copy'} size={16} />
+        </button>
       </span>
       <span className="keycell-status small danger" role="status">{failed ? t('copy.copyFailed') : ''}</span>
     </>

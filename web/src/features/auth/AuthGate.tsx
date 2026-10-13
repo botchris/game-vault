@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { authClient, errorMessage, UNAUTHENTICATED_EVENT } from '../../api/client';
 import { Alert, LanguageSwitcher } from '../../components/ui';
 import type { GetAuthStatusResponse, Principal } from '../../gen/gamevault/v1/auth_pb';
+import { useAction } from '../../lib/useAction';
 
 interface AuthCtx {
   principal: Principal;
@@ -84,21 +85,16 @@ function CredentialsForm({ mode, onDone }: { mode: 'login' | 'setup'; onDone: ()
   const { t } = useTranslation();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  // Signed in, the form goes away, so it stays busy until it does.
+  const { busy, error, run } = useAction({ keepBusyOnSuccess: true });
 
-  const submit = async (e: FormEvent) => {
+  const submit = (e: FormEvent) => {
     e.preventDefault();
-    setBusy(true);
-    setError('');
-    try {
+    run(async () => {
       if (mode === 'setup') await authClient.setup({ username, password });
       else await authClient.login({ username, password });
       onDone();
-    } catch (err) {
-      setError(errorMessage(err));
-      setBusy(false);
-    }
+    });
   };
 
   return (

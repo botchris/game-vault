@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { dotLabel, hashTarget, issueHref, issueTitle, reasonText, sinceText, worstLevel } from '../src/lib/health.ts';
+import { dotLabel, issueHref, issueTitle, reasonText, sinceText, worstLevel } from '../src/lib/health.ts';
+import { parseHash } from '../src/lib/route.ts';
 
 const t = (key, opts) => `${key}${opts ? ' ' + JSON.stringify(opts) : ''}`;
 const now = new Date('2026-10-11T12:00:00Z');
@@ -24,9 +25,8 @@ test('an issue links to where it can be fixed: the source itself, the backups ca
   assert.equal(issueHref({ target: 'system/backups', targetId: '' }), '#/system/backups');
   assert.equal(issueHref({ target: '', targetId: '' }), null);
   assert.equal(issueHref({ target: 'somewhere-new', targetId: '' }), null);
-  assert.equal(hashTarget('#/sources/s%201'), 's 1');
-  assert.equal(hashTarget('#/system/backups'), 'backups');
-  assert.equal(hashTarget('#/sources'), '');
+  assert.equal(parseHash(issueHref({ target: 'sources', targetId: 's 1' })).target, 's 1', 'the page opens what the link names');
+  assert.equal(parseHash(issueHref({ target: 'system/backups', targetId: '' })).target, 'backups');
 });
 
 test('the backups and the disk are named in the UI language, providers and sources by their name', () => {

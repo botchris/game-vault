@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { PageHeader } from '../../components/PageHeader';
 import { errorMessage, systemClient, valuationClient } from '../../api/client';
 import { Alert, useFormatters } from '../../components/ui';
 import type { Backup, GetStatusResponse } from '../../gen/gamevault/v1/system_pb';
@@ -7,10 +8,14 @@ import type { SyncReport } from '../../gen/gamevault/v1/source_pb';
 import type { GetCollectionValueResponse } from '../../gen/gamevault/v1/valuation_pb';
 import { currencyList, formatAmount, regionCurrency } from '../../lib/money';
 import { downloadBytes, toDate } from '../../lib/model';
-import { hashTarget, issueHref, issueTitle, reasonText, sinceText } from '../../lib/health';
+import { currencyView } from '../../lib/preferences';
+import { issueHref, issueTitle, reasonText, sinceText } from '../../lib/health';
+import { parseHash } from '../../lib/route';
+import { replaceRoute } from '../../lib/useHashRoute';
 import { useHealth } from '../../state/Health';
 import { useAppData } from '../../state/AppData';
 import SecurityCard from './SecurityCard';
+import { useAction } from '../../lib/useAction';
 
 const CSV_TEMPLATE =
   'title;platform;kind;status;edition;grade;contents;location;acquiredOn;price;currency;origin;notes\n' +
@@ -20,97 +25,93 @@ const CSV_TEMPLATE =
   'Escape from Tarkov;Battlestate (Tarkov);library;owned;Edge of Darkness;;;;;;;;\n' +
   "Assassin's Creed Unity;Ubisoft Connect;library;owned;;;;;;;;;\n";
 
-/** Scrolls to the card a "#/system/<id>" address names. */
-function scrollToTarget(hash: string) {
-  const id = hashTarget(hash);
+/** Scrolls to the card named `id` ("#/system/<id>"). */
+function scrollToCard(id: string) {
   if (id) document.getElementById(id)?.scrollIntoView({ block: 'start' });
 }
 
 /** Follows a link to this page's own cards by scrolling: a click on the address already shown
  *  changes no hash, so it would do nothing. Links to other pages navigate as usual. */
 function followOnPage(e: { preventDefault: () => void }, href: string) {
-  if (!href.startsWith('#/system/')) return;
+  const route = parseHash(href);
+  if (route.page !== 'system') return;
   e.preventDefault();
-  window.history.replaceState(null, '', href);
-  scrollToTarget(href);
+  replaceRoute(href);
+  scrollToCard(route.target);
 }
 
 /** Status, backups of the /config data and CSV import/export. */
-export default function SystemPage() {
+export default function SystemPage({ target }: {
+  /** The card the address names ("#/system/backups", a health issue's link), if any. */
+  target: string;
+}) {
   const { t, i18n } = useTranslation();
   const fmt = useFormatters();
-  const { reloadGames } = useAppData();
+  const { reloadGames, preferences, reloadPreferences } = useAppData();
   const region = regionCurrency(i18n.language);
-  const [currency, setCurrency] = useState(region);
   // Until the user saves one, the region's currency is only proposed: CSV prices without a
   // currency are not imported, so the proposal must be easy to save as it is.
-  const [currencySaved, setCurrencySaved] = useState(true);
+  // Preferences that could not be read leave the saved currency unknown: nothing is offered for
+  // saving then, so a saved currency is never overwritten by the region's proposal.
+  const { currency, saved: currencySaved, unknown: currencyUnknown, error: preferencesError } = currencyView(preferences, region);
   const [status, setStatus] = useState<GetStatusResponse | null>(null);
   const [backups, setBackups] = useState<Backup[]>([]);
   const [photoStore, setPhotoStore] = useState(0n);
   const [value, setValue] = useState<GetCollectionValueResponse | null>(null);
   const { issues, unavailable, reload: reloadHealth } = useHealth();
-  const [busy, setBusy] = useState('');
-  const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string; report?: SyncReport } | null>(null);
+  const { busy, error, setError, run } = useAction();
+  // Which action runs, for its button's "Working…".
+  const [doing, setDoing] = useState('');
+  const [notice, setNotice] = useState<{ text: string; report?: SyncReport } | null>(null);
 
   const load = useCallback(async () => {
-    const [st, bk, prefs, val] = await Promise.all([systemClient.getStatus({}), systemClient.listBackups({}), systemClient.getPreferences({}),
+    const [st, bk, val] = await Promise.all([systemClient.getStatus({}), systemClient.listBackups({}),
       valuationClient.getCollectionValue({}).catch((e) => {
-        setNotice({ tone: 'error', text: errorMessage(e) }); // the rest of the page still works
+        setError(errorMessage(e)); // the rest of the page still works
         return null;
       })]);
     setValue(val);
     setStatus(st);
     setBackups(bk.backups);
     setPhotoStore(bk.photoStoreBytes);
-    if (prefs.preferences?.currency) setCurrency(prefs.preferences.currency);
-    setCurrencySaved(!!prefs.preferences?.currency);
-  }, []);
+  }, [setError]);
 
   useEffect(() => {
-    load().catch((e) => setNotice({ tone: 'error', text: errorMessage(e) }));
-  }, [load]);
+    load().catch((e) => setError(errorMessage(e)));
+  }, [load, setError]);
 
-  // "#/system/backups" (a health issue's link) scrolls to that card, now and on later clicks.
+  // "#/system/backups" scrolls to that card, when the page opens on it and when the address changes
+  // to it. After the shell's scroll to the top of a new page, which runs after this page's effects.
   useEffect(() => {
-    const scroll = () => scrollToTarget(window.location.hash);
-    const timer = window.setTimeout(scroll, 0); // after the page's first render
-    window.addEventListener('hashchange', scroll);
-    return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener('hashchange', scroll);
-    };
-  }, []);
+    const timer = window.setTimeout(() => scrollToCard(target), 0);
+    return () => window.clearTimeout(timer);
+  }, [target]);
 
-  const run = async (name: string, fn: () => Promise<void>) => {
-    setBusy(name);
+  const act = (name: string, fn: () => Promise<void>) => {
+    setDoing(name);
     setNotice(null);
-    try {
-      await fn();
-    } catch (e) {
-      setNotice({ tone: 'error', text: errorMessage(e) });
-    } finally {
-      setBusy('');
-    }
+    return run(fn);
   };
 
-  const saveCurrency = (c: string) => run('currency', async () => {
-    const res = await systemClient.updatePreferences({ preferences: { currency: c } });
-    setCurrency(res.preferences?.currency || c);
-    setCurrencySaved(true);
+  const saveCurrency = (c: string) => act('currency', async () => {
+    await systemClient.updatePreferences({ preferences: { currency: c } });
+    // Every money input already open follows the new default.
+    await reloadPreferences();
   });
 
-  const importCsv = (file: File) => run('import', async () => {
+  const importCsv = (file: File) => act('import', async () => {
     const res = await systemClient.importCsv({ content: new Uint8Array(await file.arrayBuffer()) });
     const r = res.report!;
-    setNotice({ tone: 'ok', report: r, text: t('system.importDone', { added: r.copiesAdded, updated: r.copiesUpdated, unchanged: r.copiesUnchanged, games: r.gamesCreated }) });
+    setNotice({ report: r, text: t('system.importDone', { added: r.copiesAdded, updated: r.copiesUpdated, unchanged: r.copiesUnchanged, games: r.gamesCreated }) });
     await Promise.all([reloadGames(), load()]);
   });
 
   return (
     <div className="page">
+      <PageHeader title={t('nav.system')} />
+      {error && <Alert tone="error">{error}</Alert>}
       {notice && (
-        <Alert tone={notice.tone}>
+        <Alert tone="ok">
           {notice.text}
           {notice.report && notice.report.warnings.length > 0 && (
             <details><summary>{t('sources.warnings', { count: notice.report.warnings.length })}</summary>
@@ -170,14 +171,17 @@ export default function SystemPage() {
         <label className="field">
           {t('system.currency')}
           <span className="row tight">
-            <select value={currency} disabled={!!busy} onChange={(e) => saveCurrency(e.target.value)}>
+            <select value={currency} disabled={busy || currencyUnknown} onChange={(e) => saveCurrency(e.target.value)}>
               {[region, ...currencyList().filter((c) => c !== region)].map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
-            {!currencySaved && (
-              <button type="button" className="primary" disabled={!!busy} onClick={() => saveCurrency(currency)}>{t('common.save')}</button>
+            {!currencySaved && !currencyUnknown && (
+              <button type="button" className="primary" disabled={busy} onClick={() => saveCurrency(currency)}>{t('common.save')}</button>
             )}
+            {currencyUnknown && <button type="button" onClick={() => void reloadPreferences()}>{t('system.preferencesRetry')}</button>}
           </span>
-          <span className="help">{currencySaved ? t('system.currencyHelp') : t('system.currencyNotSaved')}</span>
+          {currencyUnknown
+            ? <span className="help error">{t('system.preferencesUnavailable', { error: preferencesError || t('common.loading') })}</span>
+            : <span className="help">{currencySaved ? t('system.currencyHelp') : t('system.currencyNotSaved')}</span>}
         </label>
       </section>
 
@@ -208,12 +212,12 @@ export default function SystemPage() {
       <section className="card" id="backups">
         <div className="section-head">
           <h2>{t('system.backups')}</h2>
-          <button className="primary" disabled={!!busy} onClick={() => run('backup', async () => {
+          <button className="primary" disabled={busy} onClick={() => act('backup', async () => {
             const res = await systemClient.createBackup({});
             reloadHealth(); // a backup may clear a failed one
-            setNotice({ tone: 'ok', text: t('system.backupCreated', { name: res.backup?.name }) });
+            setNotice({ text: t('system.backupCreated', { name: res.backup?.name }) });
             await load();
-          })}>{busy === 'backup' ? t('common.working') : t('system.backupNow')}</button>
+          })}>{busy && doing === 'backup' ? t('common.working') : t('system.backupNow')}</button>
         </div>
         {backups.length === 0 ? <p className="muted">{t('system.noBackups')}</p> : (
           <table>
@@ -234,12 +238,12 @@ export default function SystemPage() {
         <p className="muted">{t('system.csvIntro')}</p>
         <div className="row">
           <label className={`button primary file ${busy ? 'disabled' : ''}`}>
-            {busy === 'import' ? t('common.working') : t('system.importCsv')}
-            <input type="file" accept=".csv,text/csv" hidden disabled={!!busy}
+            {busy && doing === 'import' ? t('common.working') : t('system.importCsv')}
+            <input type="file" accept=".csv,text/csv" hidden disabled={busy}
               onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) importCsv(f); }} />
           </label>
           <button onClick={() => downloadBytes('gamevault-template.csv', new TextEncoder().encode(CSV_TEMPLATE), 'text/csv')}>{t('system.downloadTemplate')}</button>
-          <button disabled={!!busy} onClick={() => run('export', async () => {
+          <button disabled={busy} onClick={() => act('export', async () => {
             const res = await systemClient.exportCsv({});
             downloadBytes(res.filename, res.content, 'text/csv');
           })}>{t('system.exportCsv')}</button>

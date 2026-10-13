@@ -16,3 +16,7 @@ metadata:
 - Never run a bare `golangci-lint run --fix`: staticcheck's SA9004 fix typed every constant in
   mixed `const (ID provider.ID = …; settingToken = "token")` blocks and broke four adapters.
   `task lint:fix` limits fixes to wsl_v5, godot and misspell. See the `write-go` skill.
+- The web UI's hook lint (2026-10) is oxlint with only `rules-of-hooks` and `exhaustive-deps`
+  (`web/.oxlintrc.json`, `npm run lint`, part of `task lint`): ESLint with typescript-eslint
+  cannot parse the code, because TypeScript 7's npm package no longer ships the compiler API
+  the parser needs. Disable comments keep the ESLint names (`react-hooks/exhaustive-deps`).

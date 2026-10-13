@@ -3,7 +3,7 @@
 // Captured values go only to the tab that asked, in the reply; nothing is stored or logged.
 
 import { startRun } from './lib/engine.js';
-import { RECIPE_VERSION, validate } from './lib/recipe.js';
+import { RECIPE_VERSION, codedError, validate } from './lib/recipe.js';
 import { hostsGranted, originAllowed, rememberAllowed } from './lib/capture.js';
 import { enableOrigin, registerBridge } from './lib/bridges.js';
 import { createLookup, storeForUrl, syncStoreScripts } from './lib/ownership.js';
@@ -22,8 +22,6 @@ const syncStores = () => syncStoreScripts(chrome).catch((err) => console.warn('o
 try {
   chrome.storage.local.setAccessLevel?.({ accessLevel: 'TRUSTED_CONTEXTS' })?.catch?.(() => {});
 } catch { /* not supported by this browser */ }
-
-const coded = (code, message) => Object.assign(new Error(message ?? code), { code });
 
 async function enabledOrigins() {
   return (await chrome.storage.local.get('origins')).origins ?? [];
@@ -97,7 +95,7 @@ async function ensureGranted(origin, hosts, onWindow) {
     chrome.windows.create({ url: chrome.runtime.getURL(`confirm.html?${query}`), type: 'popup', width: 460, height: 320 })
       .then((w) => { pending.set(id, { resolve, windowId: w.id }); onWindow(w.id); }, reject);
   });
-  if (!answer.allow) throw coded('denied', 'access was not allowed');
+  if (!answer.allow) throw codedError('denied', 'access was not allowed');
   // Plain http on the network can be impersonated by anyone on it: such an address asks every time.
   if (answer.remember && rememberAllowed(origin)) {
     grants[origin] = [...new Set([...known, ...hosts])];
@@ -112,7 +110,7 @@ chrome.windows.onRemoved.addListener((windowId) => {
 async function handle(msg, port) {
   const sender = port.sender;
   const origin = sender.origin ?? new URL(sender.url).origin;
-  if (!sender.tab || !originAllowed(origin, await enabledOrigins())) throw coded('denied', 'this address is not enabled in the extension');
+  if (!sender.tab || !originAllowed(origin, await enabledOrigins())) throw codedError('denied', 'this address is not enabled in the extension');
   switch (msg.op) {
     case 'hello':
       return {
@@ -128,7 +126,7 @@ async function handle(msg, port) {
       return { op: 'cancelled' };
     }
     case 'connect': {
-      if ([...running.values()].some((r) => r.tab === sender.tab.id)) throw coded('busy', 'a sign-in is already running in this tab');
+      if ([...running.values()].some((r) => r.tab === sender.tab.id)) throw codedError('busy', 'a sign-in is already running in this tab');
       const { hosts } = validate(msg.recipe);
       // Registered before anything opens, so a cancel during the confirmation is not lost.
       let run;
@@ -142,7 +140,7 @@ async function handle(msg, port) {
         cancel: () => {
           run?.cancel();
           if (confirmWindow !== undefined) chrome.windows.remove(confirmWindow).catch(() => {});
-          abort(coded('cancelled', 'cancelled'));
+          abort(codedError('cancelled', 'cancelled'));
         },
       });
       try {
@@ -155,7 +153,7 @@ async function handle(msg, port) {
       }
     }
     default:
-      throw coded('invalid', `unknown request ${msg.op}`);
+      throw codedError('invalid', `unknown request ${msg.op}`);
   }
 }
 
@@ -171,15 +169,6 @@ chrome.runtime.onConnect.addListener((port) => {
   port.onDisconnect.addListener(() => {
     for (const r of running.values()) if (r.port === port) r.cancel();
   });
-});
-
-// Answers of the confirmation window (an extension page).
-chrome.runtime.onMessage.addListener((msg, sender) => {
-  if (msg?.op !== 'confirm' || !sender.url?.startsWith(chrome.runtime.getURL('confirm.html'))) return;
-  const p = pending.get(msg.id);
-  if (!p) return;
-  pending.delete(msg.id);
-  p.resolve({ allow: Boolean(msg.allow), remember: Boolean(msg.remember) });
 });
 
 // Registered bridges survive restarts; re-register them in case the browser dropped them (it
@@ -202,16 +191,30 @@ chrome.permissions.onAdded?.addListener(async (added) => {
   await enableOrigin(pendingEnable.origin, pendingEnable.tabId).catch(() => {});
 });
 
-// Lookups from the store content scripts: only from this extension's own scripts, in a tab, on a
-// store page. Every other message is denied, except the confirmation window's answer (handled above).
+// One-off messages, routed by op. Only two are accepted: the confirmation window's answer (an
+// extension page) and lookups from the store content scripts (this extension's own scripts, in a
+// tab, on a store page). Every other message, or one from anywhere else, is denied.
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg?.op === 'confirm' && sender.url?.startsWith(chrome.runtime.getURL('confirm.html'))) return undefined;
-  if (msg?.op !== 'ownership' || sender.id !== chrome.runtime.id || !sender.tab || !storeForUrl(sender.url ?? '')) {
+  const deny = () => {
     sendResponse({ status: 'unavailable', reason: 'denied' });
     return undefined;
+  };
+  switch (msg?.op) {
+    case 'confirm': {
+      if (!sender.url?.startsWith(chrome.runtime.getURL('confirm.html'))) return deny();
+      const p = pending.get(msg.id);
+      if (!p) return undefined;
+      pending.delete(msg.id);
+      p.resolve({ allow: Boolean(msg.allow), remember: Boolean(msg.remember) });
+      return undefined;
+    }
+    case 'ownership':
+      if (sender.id !== chrome.runtime.id || !sender.tab || !storeForUrl(sender.url ?? '')) return deny();
+      ownership.check(msg.items).then(sendResponse, () => sendResponse({ status: 'unavailable', reason: 'unreachable' }));
+      return true; // the answer comes later
+    default:
+      return deny();
   }
-  ownership.check(msg.items).then(sendResponse, () => sendResponse({ status: 'unavailable', reason: 'unreachable' }));
-  return true; // the answer comes later
 });
 
 // The store scripts follow the option and the browser's permissions; changed settings drop the

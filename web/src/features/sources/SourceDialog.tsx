@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { errorMessage, sourceClient } from '../../api/client';
-import { FieldHelp } from '../../components/FieldHelp';
 import { Icon } from '../../components/Icon';
+import { ConsentNotices, SettingInputs, SettingsResultAlert, TestButton, consentFields, useSettingsTest } from '../../components/SettingsForm';
 import { Alert, Modal, useFormatters } from '../../components/ui';
-import { SettingField_Kind, type SettingField, type Source, type SourceType } from '../../gen/gamevault/v1/source_pb';
+import type { SettingField, Source, SourceType } from '../../gen/gamevault/v1/source_pb';
 import { connect, ConnectorError, detect, type Connector, type Recipe } from '../../lib/connector';
 import { toDate } from '../../lib/model';
+import { consentMissing } from '../../lib/settingsForm';
+import { useAction } from '../../lib/useAction';
 import { useAppData } from '../../state/AppData';
 
 interface Props {
@@ -26,9 +28,11 @@ export default function SourceDialog({ type, source, onClose, onSaved, onDeleted
   // Some stores (Fanatical) start with manual scans: every request is one the user chose to make.
   const [syncHours, setSyncHours] = useState(source?.syncIntervalHours ?? (type.manualScans ? 0 : 24));
   const [settings, setSettings] = useState<Record<string, string>>(() => ({ ...(source?.settings ?? {}) }));
-  const [busy, setBusy] = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [result, setResult] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
+  const input = (with_ = settings) => ({ type: type.id, name, enabled, syncIntervalHours: syncHours, settings: with_ });
+  const { testing, result, setResult, test } = useSettingsTest((with_) => sourceClient.testSource({ id: source?.id ?? '', source: input(with_) }));
+  // Saving and deleting close the dialog on success, so it stays busy until it goes.
+  const action = useAction({ keepBusyOnSuccess: true, onError: (text) => setResult({ tone: 'error', text }) });
+  const busy = testing || action.busy;
   // The Game Vault Connector extension, when installed and enabled on this address.
   const [connector, setConnector] = useState<Connector | null>(null);
   const [connecting, setConnecting] = useState<{ key: string; cancel: () => void } | null>(null);
@@ -44,48 +48,20 @@ export default function SourceDialog({ type, source, onClose, onSaved, onDeleted
     };
   }, []);
 
-  const input = (with_ = settings) => ({ type: type.id, name, enabled, syncIntervalHours: syncHours, settings: with_ });
   const recipeOf = (f: SettingField): Recipe | null => {
     try { return f.signIn ? JSON.parse(f.signIn) as Recipe : null; } catch { return null; }
   };
   // A required risk not accepted yet blocks testing and saving (the server refuses it too).
-  const consents = type.fields.filter((f) => f.kind === SettingField_Kind.CONSENT);
-  const consentMissing = consents.some((f) => f.required && settings[f.key] !== 'yes');
+  const noConsent = consentMissing(consentFields(type.fields), settings);
   // While a sign-in runs the field is about to change: testing, saving and deleting wait for it.
   const locked = busy || !!connecting;
 
-  // Tests the given settings (the form's by default) and reports whether they work.
-  const test = async (with_ = settings) => {
-    setBusy(true);
-    setTesting(true);
-    setResult(null);
-    try {
-      const res = await sourceClient.testSource({ id: source?.id ?? '', source: input(with_) });
-      setResult(res.success
-        ? { tone: 'ok', text: t('sources.testOk') }
-        : { tone: 'error', text: res.message });
-      return res.success;
-    } catch (e) {
-      setResult({ tone: 'error', text: errorMessage(e) });
-      return false;
-    } finally {
-      setBusy(false);
-      setTesting(false);
-    }
-  };
-
-  const saveWith = async (with_: Record<string, string>, syncNow = false) => {
-    setBusy(true);
-    try {
-      const res = source
-        ? await sourceClient.updateSource({ id: source.id, source: input(with_) })
-        : await sourceClient.createSource({ source: input(with_) });
-      onSaved(res.source!.id, syncNow);
-    } catch (err) {
-      setResult({ tone: 'error', text: errorMessage(err) });
-      setBusy(false);
-    }
-  };
+  const saveWith = (with_: Record<string, string>, syncNow = false) => action.run(async () => {
+    const res = source
+      ? await sourceClient.updateSource({ id: source.id, source: input(with_) })
+      : await sourceClient.createSource({ source: input(with_) });
+    onSaved(res.source!.id, syncNow);
+  });
 
   const save = async (e: FormEvent, syncNow = false) => {
     e.preventDefault();
@@ -118,14 +94,35 @@ export default function SourceDialog({ type, source, onClose, onSaved, onDeleted
   const remove = async () => {
     if (!source || !confirm(t('sources.confirmDelete', { name: source.name }))) return;
     const deleteCopies = source.copyCount > 0 && confirm(t('sources.confirmDeleteCopies', { count: source.copyCount }));
-    setBusy(true);
-    try {
+    await action.run(async () => {
       await sourceClient.deleteSource({ id: source.id, deleteCopies });
       onDeleted();
-    } catch (e) {
-      setResult({ tone: 'error', text: errorMessage(e) });
-      setBusy(false);
-    }
+    });
+  };
+
+  // Under a field the store signs in for: the sign-in page, and Connect when the extension can run
+  // its recipe.
+  const signInRow = (f: SettingField) => {
+    const recipe = recipeOf(f);
+    return (
+      <>
+        {(f.helpUrl || recipe) && (
+          <div className="connector-row">
+            <a className="button small-button" href={recipe?.open || f.helpUrl} target="_blank" rel="noreferrer">
+              {t('connector.openSignIn')}<Icon name="external" size={14} />
+            </a>
+            {recipe && connector && recipe.version <= connector.recipeVersion && (
+              connecting?.key === f.key
+                ? <><span className="muted small">{t('connector.waiting')}</span><button type="button" className="small-button" onClick={connecting.cancel}>{t('common.cancel')}</button></>
+                : <button type="button" className="small-button primary" disabled={locked || noConsent} onClick={() => connectField(f, recipe)}>{t('connector.connect')}</button>
+            )}
+            {recipe && connector && recipe.version > connector.recipeVersion && <span className="muted small">{t('connector.update')}</span>}
+            {recipe && !connector && <span className="muted small">{t('connector.install')} <a href="https://github.com/botchris/game-vault/tree/main/extension" target="_blank" rel="noreferrer">{t('connector.howTo')}</a></span>}
+          </div>
+        )}
+        {recipe?.private && connector && <p className="muted small">{t(connector.privateAllowed ? 'connector.privateOn' : 'connector.privateOff')}</p>}
+      </>
+    );
   };
 
   const r = source?.lastSync;
@@ -148,24 +145,14 @@ export default function SourceDialog({ type, source, onClose, onSaved, onDeleted
     <Modal title={source ? t('sources.editTitle', { name: source.name }) : t('sources.addTitle', { type: type.name })} onClose={onClose}
       footer={<>
         {source && <button type="button" className="danger" onClick={remove} disabled={locked}>{t('common.delete')}</button>}
-        <button type="button" onClick={() => test()} disabled={locked || consentMissing}>{testing ? t('sources.testing') : t('sources.test')}</button>
+        <TestButton testing={testing} disabled={locked || noConsent} onClick={() => test(settings)} />
         <span className="spacer" />
         <button type="button" onClick={onClose}>{t('common.cancel')}</button>
-        {!source && <button type="button" onClick={(e) => save(e, true)} disabled={locked || consentMissing}>{t('sources.saveAndSync')}</button>}
-        <button type="submit" form="source-form" className="primary" disabled={locked || consentMissing}>{t('common.save')}</button>
+        {!source && <button type="button" onClick={(e) => save(e, true)} disabled={locked || noConsent}>{t('sources.saveAndSync')}</button>}
+        <button type="submit" form="source-form" className="primary" disabled={locked || noConsent}>{t('common.save')}</button>
       </>}>
       <form id="source-form" onSubmit={(e) => save(e)}>
-        {consents.map((f) => (
-          <section key={f.key} className="risk-notice" role="alert">
-            <h3 className="risk-title">{t('sources.riskTitle')}</h3>
-            {f.helpKey && <FieldHelp text={t(f.helpKey)} url={f.helpUrl} linkLabel={t('sources.readTerms')} />}
-            <label className="check risk-accept">
-              <input type="checkbox" checked={settings[f.key] === 'yes'}
-                onChange={(e) => setSettings({ ...settings, [f.key]: e.target.checked ? 'yes' : '' })} />
-              {t(f.labelKey)}
-            </label>
-          </section>
-        ))}
+        <ConsentNotices fields={type.fields} settings={settings} onChange={setSettings} />
         <p className="muted">{t(type.descriptionKey)}</p>
         {r && (
           <section className={`source-report ${r.success ? '' : 'failed'}`}>
@@ -203,37 +190,9 @@ export default function SourceDialog({ type, source, onClose, onSaved, onDeleted
             {t('sources.name')}
             <input value={name} onChange={(e) => setName(e.target.value)} />
           </label>
-          {type.fields.filter((f) => f.kind !== SettingField_Kind.CONSENT).map((f) => { const recipe = recipeOf(f); return (
-            <div key={f.key} className="span2 field">
-              <label htmlFor={`source-${f.key}`}>{t(f.labelKey)}{f.required && ' *'}</label>
-              <input
-                id={`source-${f.key}`}
-                type={f.kind === SettingField_Kind.SECRET ? 'password' : 'text'}
-                autoComplete="off"
-                required={f.required}
-                value={settings[f.key] ?? ''}
-                onFocus={(e) => f.kind === SettingField_Kind.SECRET && e.target.select()}
-                onChange={(e) => setSettings({ ...settings, [f.key]: e.target.value })}
-              />
-              {(f.helpUrl || recipe) && (
-                <div className="connector-row">
-                  <a className="button small-button" href={recipe?.open || f.helpUrl} target="_blank" rel="noreferrer">
-                    {t('connector.openSignIn')}<Icon name="external" size={14} />
-                  </a>
-                  {recipe && connector && recipe.version <= connector.recipeVersion && (
-                    connecting?.key === f.key
-                      ? <><span className="muted small">{t('connector.waiting')}</span><button type="button" className="small-button" onClick={connecting.cancel}>{t('common.cancel')}</button></>
-                      : <button type="button" className="small-button primary" disabled={locked || consentMissing} onClick={() => connectField(f, recipe)}>{t('connector.connect')}</button>
-                  )}
-                  {recipe && connector && recipe.version > connector.recipeVersion && <span className="muted small">{t('connector.update')}</span>}
-                  {recipe && !connector && <span className="muted small">{t('connector.install')} <a href="https://github.com/botchris/game-vault/tree/main/extension" target="_blank" rel="noreferrer">{t('connector.howTo')}</a></span>}
-                </div>
-              )}
-              {recipe?.private && connector && <p className="muted small">{t(connector.privateAllowed ? 'connector.privateOn' : 'connector.privateOff')}</p>}
-              {/* The sign-in link is the button above, not repeated in the help. */}
-              {f.helpKey && <FieldHelp text={t(f.helpKey)} />}
-            </div>
-          ); })}
+          {/* The sign-in link is the button of the connector row, not repeated in the help. */}
+          <SettingInputs fields={type.fields} settings={settings} onChange={setSettings} idPrefix="source" helpLinks={false}
+            renderExtra={signInRow} />
           <label>
             {t('sources.interval')}
             <select value={syncHours} onChange={(e) => setSyncHours(Number(e.target.value))}>
@@ -248,7 +207,7 @@ export default function SourceDialog({ type, source, onClose, onSaved, onDeleted
           </label>
         </div>
         <p className="muted small">{t('sources.secretsNote')}</p>
-        {result && <Alert tone={result.tone}>{result.text}</Alert>}
+        <SettingsResultAlert result={result} />
       </form>
     </Modal>
   );

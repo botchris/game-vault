@@ -433,7 +433,7 @@ Store covers: every library source links the games it imports to its store (Stea
 - **Genres and release year** come from the game details. Game Vault downloads the details of Steam-linked games in the background (in the UI language, at a gentle pace: 2 to 4 seconds between games, a minute ±20% after a provider complains, a new round every hour ±10%, starting 30 to 60 seconds after start-up; off with `-no-unattended`), so the genre filter fills in over the first hours; the filter panel says how many games are covered so far.
 - **System badges** in "By game" show where you have the game: the store or console logo (with the generation for consoles: PS3, 360…). Solid badges are copies you own; hollow ones with a key glyph are keys you have not redeemed yet. Sold, gifted and expired copies are not shown. Logos come from [Simple Icons](https://simpleicons.org) (CC0); Xbox and Nintendo, which Simple Icons does not ship, use simple drawn glyphs. Brand logos are trademarks of their owners.
 - On phones the sidebar becomes a bottom tab bar, filters open as a bottom sheet and the game sheet takes the full screen.
-- A `#/game/<id>` address opens that game's sheet; closing it returns to `#/library`.
+- A `#/game/<id>` address opens that game's sheet; moving to another game in that sheet (‹ ›, ← →) updates the address to the game shown, and closing it returns to `#/library`. Changing the address within a page (a sheet over the library, a card of System) keeps the scroll position; only a new page starts at the top.
 
 ## Game sheets
 

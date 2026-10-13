@@ -1,12 +1,8 @@
-import { useEffect, useState } from 'react';
-import { systemClient } from '../api/client';
+import { useAppData } from '../state/AppData';
 import { regionCurrency } from './money';
+import { currencyView } from './preferences';
 
-/** The default currency: the saved one, else the browser region's. */
+/** The default currency: the saved one (loaded once, in the app's data), else the browser region's. */
 export function usePreferredCurrency(locale: string): string {
-  const [currency, setCurrency] = useState(() => regionCurrency(locale));
-  useEffect(() => {
-    systemClient.getPreferences({}).then((r) => { if (r.preferences?.currency) setCurrency(r.preferences.currency); }, () => {});
-  }, []);
-  return currency;
+  return currencyView(useAppData().preferences, regionCurrency(locale)).currency;
 }

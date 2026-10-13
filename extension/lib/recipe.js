@@ -8,6 +8,12 @@ const REQUIRED = { cookie: ['url', 'name'], cookies: ['url'], storage: ['origin'
 const ADDRESS = { cookie: 'url', cookies: 'url', storage: 'origin', redirect: 'prefix', fetch: 'url' };
 const HOST = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/;
 
+/** An error with a code the page understands ('denied', 'cancelled', 'timeout'…), sent back to the
+ *  Game Vault page that asked. */
+export function codedError(code, message) {
+  return Object.assign(new Error(message ?? code), { code });
+}
+
 /** A recipe the extension refuses; code is 'invalid' or 'unsupported' (newer than this extension). */
 export class RecipeError extends Error {
   constructor(message, code = 'invalid') {

@@ -6,6 +6,7 @@ import { Icon } from '../../components/Icon';
 import Lightbox from '../../components/Lightbox';
 import { preparePhoto, UnreadablePhotoError, uploadPhoto } from '../../lib/photos';
 import { toDate, type Copy, type Game } from '../../lib/model';
+import { useAction } from '../../lib/useAction';
 import { useAppData } from '../../state/AppData';
 
 const STRIP = 6;
@@ -122,8 +123,7 @@ function PhotoFooter({ game, copy, index, onIndex, onEmpty, onEditionCover }: {
 }) {
   const { t, i18n } = useTranslation();
   const { putGame } = useAppData();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  const { busy, error, run } = useAction();
   const photos = copy.photos;
   const photo = photos[index]!;
   const [caption, setCaption] = useState(photo.caption);
@@ -135,11 +135,6 @@ function PhotoFooter({ game, copy, index, onIndex, onEmpty, onEditionCover }: {
   const isMain = game.editions.find((e) => e.system === system)?.main ?? true;
   const taken = toDate(photo.takenAt);
 
-  const run = async (fn: () => Promise<void>) => {
-    setBusy(true);
-    setError('');
-    try { await fn(); } catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
-  };
   const ids = photos.map((p) => p.id);
   const move = (delta: number) => run(async () => {
     const order = [...ids];

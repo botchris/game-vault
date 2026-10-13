@@ -67,9 +67,3 @@ export function sinceText(since: Date, now: Date, locale: string): string {
   if (ms >= 90 * 60 * 1000) return rtf.format(-Math.round(ms / hour), 'hour');
   return rtf.format(-Math.max(1, Math.round(ms / 60000)), 'minute');
 }
-
-/** The part of the address after the page ("#/sources/s1" → "s1"), naming what to open there. */
-export function hashTarget(hash: string): string {
-  const [, rest = ''] = hash.replace(/^#\/?/, '').split(/\/(.*)/s);
-  return decodeURIComponent(rest);
-}

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { CACHE_MS, MAX_ITEMS, STORE_ORIGINS, createLookup, nextOwnership, removableOrigins, scriptFor, tokenInClear } from '../lib/ownership.js';
+import { CACHE_MS, MAX_ITEMS, STORE_ORIGINS, activeSettings, createLookup, nextOwnership, removableOrigins, scriptFor, tokenInClear } from '../lib/ownership.js';
 
 const GV = 'http://127.0.0.1:8093';
 const json = (body, status = 200) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
@@ -189,4 +189,19 @@ test('a redirect is never followed, so the token is not re-sent elsewhere, and r
   // With redirect: 'error', fetch rejects on a 3xx answer.
   const refused = setup({ answer: () => { throw new TypeError('Failed to fetch: unexpected redirect'); } });
   assert.deepEqual(await refused.lookup.check([{ title: 'Lantern Keep' }]), { status: 'unavailable', reason: 'unreachable' });
+});
+
+test('the option is on only when enabled, with an address, for an address still enabled in the extension', async () => {
+  const storage = (data) => ({ get: async (k) => ({ [k]: data[k] }) });
+  assert.deepEqual(await activeSettings(storage({ ownership: { enabled: true, origin: GV, token: ' gvt_test ' }, origins: [GV] })),
+    { origin: GV, token: 'gvt_test' });
+  assert.deepEqual(await activeSettings(storage({ ownership: { enabled: true, origin: GV }, origins: [GV] })), { origin: GV, token: '' });
+  for (const data of [
+    { ownership: { enabled: false, origin: GV, token: 't' }, origins: [GV] },
+    { ownership: { enabled: true, origin: '', token: 't' }, origins: [GV] },
+    { ownership: { enabled: true, origin: GV, token: 't' }, origins: [] },
+    { ownership: undefined, origins: [GV] },
+  ]) {
+    assert.equal(await activeSettings(storage(data)), null, JSON.stringify(data));
+  }
 });

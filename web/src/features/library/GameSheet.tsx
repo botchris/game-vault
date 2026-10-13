@@ -6,6 +6,7 @@ import Lightbox from '../../components/Lightbox';
 import { Alert, useFormatters } from '../../components/ui';
 import VideoPlayer from '../../components/VideoPlayer';
 import type { GameDetails } from '../../gen/gamevault/v1/metadata_pb';
+import { answerFor, type DetailsAnswer } from '../../lib/gameDetails';
 import { httpsUrl } from '../../lib/links';
 import { sheetFooterParts } from '../../lib/sheetFooter';
 import { toDate, type Game } from '../../lib/model';
@@ -16,44 +17,50 @@ import { FieldList, hasFieldList } from '../fields/FieldList';
  *  arrow keys does not fetch every sheet (an unknown one may spend TheGamesDB's monthly quota). */
 const DETAILS_DELAY_MS = 300;
 
-/** Loads the game's details from the metadata providers (cached server-side). */
+/** Loads the game's details from the metadata providers (cached server-side). The answer is kept
+ *  with the game it is for, so a sheet that moved to another game never shows the previous game's
+ *  year, genres or facts while the new one loads. */
 export function useGameDetails(game: Game) {
   const { i18n } = useTranslation();
-  const [details, setDetails] = useState<GameDetails | null>(null);
-  const [warnings, setWarnings] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const language = i18n.resolvedLanguage ?? 'en';
+  const [answer, setAnswer] = useState<DetailsAnswer<GameDetails> | null>(null);
+  const [pending, setPending] = useState(true);
   const linksKey = JSON.stringify(Object.entries(game.links).sort());
-  // Only the latest request may update the sheet: an answer for a game left behind is dropped.
+  // Only the latest request may store its answer: one for a game left behind arrives too late.
   const latest = useRef(0);
+  const gameId = game.id;
 
   const load = useCallback(async (refresh = false) => {
     const request = ++latest.current;
-    setLoading(true);
-    setError('');
+    setPending(true);
     try {
-      const res = await metadataClient.getGameDetails({ gameId: game.id, language: i18n.resolvedLanguage ?? 'en', refresh });
-      if (request !== latest.current) return;
-      setDetails(res.details ?? null);
-      setWarnings(res.warnings);
+      const res = await metadataClient.getGameDetails({ gameId, language, refresh });
+      if (request === latest.current) setAnswer({ gameId, details: res.details ?? null, warnings: res.warnings, error: '' });
     } catch (e) {
-      if (request === latest.current) setError(errorMessage(e));
+      // A failed refresh keeps what the game already showed, with the error above it.
+      if (request === latest.current) {
+        setAnswer((a) => ({ ...(answerFor(a, gameId) ?? { gameId, details: null, warnings: [] }), error: errorMessage(e) }));
+      }
     } finally {
-      if (request === latest.current) setLoading(false);
+      if (request === latest.current) setPending(false);
     }
-    // Reload when the links change (the server invalidates its cache then too).
-  }, [game.id, linksKey, i18n.resolvedLanguage]);
+  }, [gameId, language]);
 
+  // Reload when the links change too (the server invalidates its cache then).
   useEffect(() => {
-    setLoading(true);
+    setPending(true);
     const timer = window.setTimeout(() => { load(); }, DETAILS_DELAY_MS);
-    return () => {
-      window.clearTimeout(timer);
-      latest.current++; // the game changed: a request still running is for the one left behind
-    };
-  }, [load]);
+    return () => window.clearTimeout(timer);
+  }, [load, linksKey]);
 
-  return { details, warnings, loading, error, refresh: () => load(true) };
+  const shown = answerFor(answer, gameId);
+  return {
+    details: shown?.details ?? null,
+    warnings: shown?.warnings ?? [],
+    loading: pending || !shown,
+    error: shown?.error ?? '',
+    refresh: () => load(true),
+  };
 }
 
 /** Header facts next to the cover: release, genres, companies, rating, players, Metacritic. */

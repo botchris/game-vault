@@ -5,6 +5,7 @@ import { Alert } from '../../components/ui';
 import type { GetAuthSettingsResponse } from '../../gen/gamevault/v1/auth_pb';
 import { useAuth } from '../auth/AuthGate';
 import AccessTokens from './AccessTokens';
+import { useAction } from '../../lib/useAction';
 
 const AUTH_MODES = ['trusted_networks', 'required'] as const;
 const CERT_MODES = ['enabled', 'local_disabled', 'disabled'] as const;
@@ -17,8 +18,8 @@ export default function SecurityCard() {
   const [authentication, setAuthentication] = useState('trusted_networks');
   const [networks, setNetworks] = useState('');
   const [certs, setCerts] = useState('enabled');
-  const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
-  const [busy, setBusy] = useState(false);
+  const { busy, error, setError, run } = useAction();
+  const [saved, setSaved] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -28,9 +29,9 @@ export default function SecurityCard() {
       setNetworks(res.settings!.trustedNetworks.join('\n'));
       setCerts(res.settings!.certificateValidation);
     } catch (e) {
-      setNotice({ tone: 'error', text: errorMessage(e) });
+      setError(errorMessage(e));
     }
-  }, []);
+  }, [setError]);
 
   useEffect(() => {
     load();
@@ -42,20 +43,15 @@ export default function SecurityCard() {
   const dirty = authentication !== s.authentication || certs !== s.certificateValidation ||
     typedNetworks.join('\n') !== s.trustedNetworks.join('\n');
 
-  const save = async (e: FormEvent) => {
+  const save = (e: FormEvent) => {
     e.preventDefault();
-    setBusy(true);
-    setNotice(null);
-    try {
+    setSaved(false);
+    run(async () => {
       await authClient.updateAuthSettings({ settings: { authentication, trustedNetworks: typedNetworks, certificateValidation: certs } });
       await load();
       await refresh();
-      setNotice({ tone: 'ok', text: t('security.saved') });
-    } catch (err) {
-      setNotice({ tone: 'error', text: errorMessage(err) });
-    } finally {
-      setBusy(false);
-    }
+      setSaved(true);
+    });
   };
 
   const addMine = () => setNetworks((n) => [n.trim(), data.clientAddress].filter(Boolean).join('\n'));
@@ -64,7 +60,8 @@ export default function SecurityCard() {
     <section className="card">
       <h2>{t('security.title')}</h2>
       <p className="muted small">{principal.method === 'trusted' ? t('security.youAreTrusted') : t('security.youAre', { name: principal.name })}</p>
-      {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
+      {error && <Alert tone="error">{error}</Alert>}
+      {saved && <Alert tone="ok">{t('security.saved')}</Alert>}
 
       <form className="grid security-form" onSubmit={save}>
         <div className="span2 field">

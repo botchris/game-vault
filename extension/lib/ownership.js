@@ -2,6 +2,7 @@
 // scripts, and the lookups they ask for, sent only to the user's own Game Vault. Pages never see
 // the token: only this module talks to Game Vault.
 import '../ownership/stores.js';
+import { isPrivateTransport } from './origin.js';
 
 const { STORES } = globalThis.gvOwnership;
 
@@ -66,10 +67,20 @@ export function syncStoreScripts(api) {
   return run;
 }
 
+/**
+ * The store-page option's settings while it is on, for an address still enabled in the extension:
+ * {origin, token} (the token trimmed, '' when none), else null. Both the content scripts'
+ * registration and the lookups follow it, so they never disagree about whether the option is on.
+ */
+export async function activeSettings(storage) {
+  const { ownership } = await storage.get('ownership');
+  const { origins = [] } = await storage.get('origins');
+  if (!ownership?.enabled || !ownership.origin || !origins.includes(ownership.origin)) return null;
+  return { origin: ownership.origin, token: typeof ownership.token === 'string' ? ownership.token.trim() : '' };
+}
+
 async function syncOnce(api) {
-  const { ownership } = await api.storage.local.get('ownership');
-  const { origins = [] } = await api.storage.local.get('origins');
-  const on = Boolean(ownership?.enabled) && Boolean(ownership.origin) && origins.includes(ownership.origin);
+  const on = (await activeSettings(api.storage.local)) !== null;
   const registered = new Map((await api.scripting.getRegisteredContentScripts({ ids: STORES.map(scriptId) })).map((s) => [s.id, s]));
   for (const store of STORES) {
     const id = scriptId(store);
@@ -90,18 +101,14 @@ async function syncOnce(api) {
 
 /**
  * Whether a token sent to this Game Vault address would travel unencrypted over a network: plain
- * http to anything but this computer (127.0.0.0/8, ::1, localhost). The popup warns about it.
+ * http to anything but this computer (see isLoopback). The popup warns about it.
  */
 export function tokenInClear(origin) {
-  let url;
   try {
-    url = new URL(origin);
+    return new URL(origin).protocol === 'http:' && !isPrivateTransport(origin);
   } catch {
     return false;
   }
-  if (url.protocol !== 'http:') return false;
-  const host = url.hostname;
-  return !(host === 'localhost' || host === '[::1]' || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host));
 }
 
 /**
@@ -178,11 +185,9 @@ export function createLookup({ storage, fetch, now }) {
 
     async check(raw) {
       const started = generation;
-      const { ownership } = await storage.get('ownership');
-      const { origins = [] } = await storage.get('origins');
-      if (!ownership?.enabled || !ownership.origin || !origins.includes(ownership.origin)) return unavailable('setup');
-      const origin = ownership.origin;
-      const token = typeof ownership.token === 'string' ? ownership.token.trim() : '';
+      const active = await activeSettings(storage);
+      if (!active) return unavailable('setup');
+      const { origin, token } = active;
       const items = (Array.isArray(raw) ? raw : []).slice(0, MAX_PAGE_ITEMS).map(cleanItem);
       const results = new Array(items.length);
       const missing = [];

@@ -183,12 +183,14 @@ tasks:
       - '{{.IN_TOOLCHAIN}} gofmt -w internal cmd'
 
   lint:
-    desc: Lint the Go code (golangci-lint, formatting included, and the doc-comment layout) and the protobuf definitions
-    deps: [toolchain]
+    desc: Lint the Go code (golangci-lint, formatting included, and the doc-comment layout), the protobuf definitions and the React hooks of the web UI
+    deps: [deps:web]
     cmds:
       # tools/docspacing and tools/fieldlines check house rules no linter has: blank lines around
       # member doc comments, a doc comment on every interface method, and one struct field per line.
-      - '{{.IN_TOOLCHAIN}} sh -c "golangci-lint run ./... && go run ./tools/docspacing internal cmd tools && go run ./tools/fieldlines ./... && buf lint"'
+      # The web UI's lint is oxlint with only the React hook rules (web/.oxlintrc.json): ESLint's
+      # TypeScript parser needs the compiler API that TypeScript 7 no longer ships.
+      - '{{.IN_TOOLCHAIN}} sh -c "golangci-lint run ./... && go run ./tools/docspacing internal cmd tools && go run ./tools/fieldlines ./... && buf lint && cd web && npm run --silent lint"'
 
   lint:fix:
     desc: Apply the safe automatic lint fixes (one field per line, blank lines, comment periods, spelling, formatting)

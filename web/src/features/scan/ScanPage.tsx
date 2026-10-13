@@ -1,15 +1,18 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { PageHeader } from '../../components/PageHeader';
 import { errorMessage, gameClient, lookupClient } from '../../api/client';
 import { Cover } from '../../components/Cover';
 import { Icon } from '../../components/Icon';
 import { Alert } from '../../components/ui';
 import type { IdentifyBarcodeResponse } from '../../gen/gamevault/v1/lookup_pb';
 import { CopyContent, CopyGrade } from '../../gen/gamevault/v1/game_pb';
-import { CONTENTS, CopyKind, CopyStatus, GRADES, PHYSICAL_PLATFORMS, contentKey, emptyDetails, gradeKey } from '../../lib/model';
+import { CopyKind, CopyStatus, PHYSICAL_PLATFORMS, describePhysical, emptyDetails } from '../../lib/model';
 import { normalizeBarcode } from '../../lib/barcode.ts';
+import { recall, remember } from '../../lib/storage';
 import { useAppData } from '../../state/AppData';
 import GameDetail from '../library/GameDetail';
+import { ContentsToggles, GradeSelect, LocationInput } from '../library/PhysicalInputs';
 import { signal, unlockAudio } from './feedback';
 import { createLookupQueue } from './lookupQueue';
 import { ScanRow } from './ScanRow';
@@ -34,44 +37,23 @@ const NO_DEFAULTS: Defaults = { platform: '', grade: CopyGrade.UNSPECIFIED, cont
 function loadDefaults(): Defaults {
   try {
     // Older versions stored a free-text condition: it is dropped.
-    const { condition: _old, ...saved } = JSON.parse(localStorage.getItem(DEFAULTS_KEY) ?? '{}');
+    const { condition: _old, ...saved } = JSON.parse(recall(DEFAULTS_KEY) ?? '{}');
     return { ...NO_DEFAULTS, ...saved };
   } catch {
-    return NO_DEFAULTS;
+    return NO_DEFAULTS; // saved by hand or damaged: not JSON
   }
 }
 
 /** The camera starts open on phones (where it is the scanner) unless it was closed last time. */
 function initialCamera(): boolean {
-  try {
-    const saved = localStorage.getItem(CAMERA_KEY);
-    if (saved !== null) return saved === '1';
-  } catch {
-    /* fall through to the device default */
-  }
+  const saved = recall(CAMERA_KEY);
+  if (saved !== null) return saved === '1';
   return window.isSecureContext && window.matchMedia('(pointer: coarse)').matches;
 }
 
 const LIST_KEY = 'gamevault.scanList';
 const MUTED_KEY = 'gamevault.scanMuted';
 const SEND_CHUNK = 200;
-
-function remember(key: string, value: string): boolean {
-  try {
-    localStorage.setItem(key, value);
-    return true;
-  } catch {
-    return false; // private mode: not remembered
-  }
-}
-
-function recall(key: string): string | null {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
 
 /** A row id: unique on this device (crypto.randomUUID needs HTTPS, which a LAN address may lack). */
 const newId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -258,9 +240,7 @@ export default function ScanPage() {
 
   return (
     <div className="page scan">
-      <header className="page-head">
-        <h1 className="page-title">{t('scan.title')}</h1>
-      </header>
+      <PageHeader title={t('scan.title')} />
       <p className="muted scan-intro">{t('scan.intro')}</p>
 
       <section className="card scanner">
@@ -354,13 +334,14 @@ function BatchBar({ defaults, onChange }: { defaults: Defaults; onChange: (d: De
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const value = (v: string, empty: string) => v || empty;
+  const physical = describePhysical(t, defaults);
   return (
     <div className="batch">
       <button type="button" className="batch-summary" onClick={() => setEditing(!editing)} aria-expanded={editing}>
         <span className="batch-label">{t('scan.batch.label')}</span>
         <span className="batch-chip">{t('scan.batch.platform')}: <strong>{value(defaults.platform, t('scan.batch.auto'))}</strong></span>
-        <span className="batch-chip">{t('copy.grade')}: <strong>{defaults.grade ? t(`grade.${gradeKey(defaults.grade)}`) : '—'}</strong></span>
-        <span className="batch-chip">{t('copy.contents')}: <strong>{defaults.contents.length ? defaults.contents.map((c) => t(`content.${contentKey(c)}`)).join(', ') : '—'}</strong></span>
+        <span className="batch-chip">{t('copy.grade')}: <strong>{value(physical.grade, '—')}</strong></span>
+        <span className="batch-chip">{t('copy.contents')}: <strong>{value(physical.contents, '—')}</strong></span>
         <span className="batch-chip">{t('copy.location')}: <strong>{value(defaults.location, '—')}</strong></span>
         <span className="batch-edit-label">{editing ? t('scan.batch.done') : t('scan.batch.change')}</span>
       </button>
@@ -371,31 +352,9 @@ function BatchBar({ defaults, onChange }: { defaults: Defaults; onChange: (d: De
             <input list="scan-platforms" value={defaults.platform} autoFocus
               onChange={(e) => onChange({ ...defaults, platform: e.target.value })} placeholder={t('scan.batch.platformAuto')} />
           </label>
-          <label>
-            {t('copy.grade')}
-            <select value={defaults.grade} onChange={(e) => onChange({ ...defaults, grade: Number(e.target.value) })}>
-              <option value={CopyGrade.UNSPECIFIED}>{t('grade.unspecified')}</option>
-              {GRADES.map((g) => <option key={g} value={g}>{t(`grade.${gradeKey(g)}`)}</option>)}
-            </select>
-          </label>
-          <div className="field">
-            <span className="field-label">{t('copy.contents')}</span>
-            <div className="toggles" role="group" aria-label={t('copy.contents')}>
-              {CONTENTS.map((c) => {
-                const on = defaults.contents.includes(c);
-                return (
-                  <button type="button" key={c} className={on ? 'toggle on' : 'toggle'} aria-pressed={on}
-                    onClick={() => onChange({ ...defaults, contents: on ? defaults.contents.filter((x) => x !== c) : [...defaults.contents, c] })}>
-                    {t(`content.${contentKey(c)}`)}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          <label>
-            {t('copy.location')}
-            <input value={defaults.location} onChange={(e) => onChange({ ...defaults, location: e.target.value })} placeholder={t('copy.locationPlaceholder')} />
-          </label>
+          <GradeSelect value={defaults.grade} onChange={(grade) => onChange({ ...defaults, grade })} />
+          <ContentsToggles value={defaults.contents} onChange={(contents) => onChange({ ...defaults, contents })} />
+          <LocationInput value={defaults.location} onChange={(location) => onChange({ ...defaults, location })} />
           <p className="muted small batch-hint">{t('scan.batch.hint')}</p>
         </div>
       )}

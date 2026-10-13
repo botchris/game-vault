@@ -1,14 +1,16 @@
 import { create } from '@bufbuild/protobuf';
 import { useCallback, useEffect, useId, useRef, useState, type ChangeEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { errorMessage, fieldClient } from '../../api/client';
+import { fieldClient } from '../../api/client';
 import { Icon } from '../../components/Icon';
 import type { FieldDefinition } from '../../gen/gamevault/v1/field_pb';
 import { ChoiceListSchema, FieldValueSchema, MoneySchema, type FieldValue } from '../../gen/gamevault/v1/game_pb';
 import { numberInput, parseNumber } from '../../lib/fields';
-import { amountInput, currencyDigits, parseAmount } from '../../lib/money';
+import { amountInput, readAmount } from '../../lib/money';
+import { useAmountReading } from '../../lib/useAmountReading';
 import { usePreferredCurrency } from '../../lib/usePreferences';
 import { useAppData } from '../../state/AppData';
+import { useAction } from '../../lib/useAction';
 
 /** Values by field id, as the game and the copy details carry them. */
 export type FieldValues = { [id: string]: FieldValue };
@@ -259,16 +261,18 @@ function MoneyInput({ def, value, onChange, onInvalid }: InputProps<{ amountMino
   const { t, i18n } = useTranslation();
   const preferred = usePreferredCurrency(i18n.language);
   const currency = def.currency || value?.currency || preferred;
-  const digits = currencyDigits(currency);
   const formatted = value ? amountInput(value.amountMinor, currency, i18n.language) || '0' : '';
-  const keyOf = (s: string) => (s.trim() === '' ? '' : String(parseAmount(s, digits)));
+  const keyOf = (s: string) => {
+    const minor = readAmount(s, currency);
+    return minor === undefined ? '' : String(minor);
+  };
   const [text, setText] = useDraft(value ? String(value.amountMinor) : '', formatted, keyOf);
-  const invalid = text.trim() !== '' && parseAmount(text, digits) === null;
+  const { invalid, placeholder } = useAmountReading(currency, text);
   useReportInvalid(invalid, onInvalid);
   const change = (s: string) => {
     setText(s);
-    const minor = parseAmount(s, digits);
-    if (s.trim() === '') onChange(() => EMPTY);
+    const minor = readAmount(s, currency);
+    if (minor === undefined) onChange(() => EMPTY);
     else if (minor !== null) onChange(() => make({ case: 'money', value: create(MoneySchema, { amountMinor: minor, currency }) }));
   };
   return (
@@ -277,7 +281,7 @@ function MoneyInput({ def, value, onChange, onInvalid }: InputProps<{ amountMino
         <span className="row tight">
           <input id={id} inputMode="decimal" value={text} aria-invalid={invalid} aria-describedby={describedBy}
             onChange={(e) => change(e.target.value)} onBlur={() => { if (!invalid) setText(formatted); }}
-            placeholder={amountInput(2995n, currency, i18n.language)} />
+            placeholder={placeholder} />
           <span className="field-unit">{currency}</span>
         </span>
       )}
@@ -411,8 +415,7 @@ function MultiListInput({ def, ids, onChange }: { def: FieldDefinition; ids: str
   const { t } = useTranslation();
   const { reloadFields } = useAppData();
   const [text, setText] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  const { busy, error, run } = useAction();
   const list = (next: string[]) => (next.length ? make({ case: 'choices', value: create(ChoiceListSchema, { ids: next }) }) : EMPTY);
   // Every change applies to the latest ids, not the ones of this render: a value added after a
   // round trip must not bring back a chip removed while the request was in flight.
@@ -432,18 +435,12 @@ function MultiListInput({ def, ids, onChange }: { def: FieldDefinition; ids: str
       return;
     }
     // A new value joins the field's list first; the server reuses a name that differs only in case.
-    setBusy(true);
-    setError('');
-    try {
+    await run(async () => {
       const res = await fieldClient.addChoice({ fieldId: def.id, name: clean });
       await reloadFields();
       addId(res.choice!.id);
       setText('');
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
   // A pick from the datalist arrives as a replacement of the whole text, not as typing.
