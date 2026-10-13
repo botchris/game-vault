@@ -56,7 +56,7 @@ func TestRegistry(t *testing.T) {
 
 		t.Run("THEN each piece goes to its service, in plugin order", func(t *testing.T) {
 			require.Len(t, r.Sources(), 1)
-			covers := r.Media().Covers
+			covers := r.Providers()
 			require.Len(t, covers, 2)
 			assert.Equal(t, provider.ID("store"), covers[0].Descriptor().ID)
 			assert.Equal(t, provider.ID("db"), covers[1].Descriptor().ID)
@@ -112,10 +112,17 @@ func TestRegistry_valuations(t *testing.T) {
 		r, err := plugin.NewRegistry(shop)
 		require.NoError(t, err)
 
-		t.Run("THEN the valuation service gets it, and the media service configures it", func(t *testing.T) {
+		t.Run("THEN the valuation service gets it, and the providers registry configures it", func(t *testing.T) {
 			require.Len(t, r.Valuations(), 1)
-			require.Len(t, r.Media().Valuations, 1)
-			assert.Equal(t, provider.ID("shop-prices"), r.Media().Valuations[0].Descriptor().ID)
+
+			all := r.Providers()
+			ids := make([]provider.ID, 0, len(all))
+
+			for _, p := range all {
+				ids = append(ids, p.Descriptor().ID)
+			}
+
+			assert.Contains(t, ids, provider.ID("shop-prices"))
 		})
 	})
 

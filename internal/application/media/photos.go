@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"image"
 	_ "image/jpeg" // registers the JPEG decoder for image.DecodeConfig
+	"log/slog"
 	"time"
 
+	"gamevault/internal/application/port"
 	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 )
@@ -57,13 +59,29 @@ type PhotoUpload struct {
 	TakenAt time.Time
 }
 
-// UploadPhoto checks and stores a photo and its thumbnail, both JPEG, and reads when the photo was
-// taken. The id is the photo's SHA-256, so uploading the same photo again gives the same id.
-func (s *Service) UploadPhoto(photo, thumb []byte) (PhotoUpload, error) {
-	if s.photos == nil {
-		return PhotoUpload{}, errors.New("photos are not available on this server")
-	}
+// Photos keeps the photos users upload of their copies, and deletes those no copy shows any more.
+type Photos struct {
+	games game.Repository
+	store PhotoStore
+	now   port.Clock
+	log   *slog.Logger
+}
 
+// NewPhotos builds the photos service over store. Options: WithClock, WithLogger.
+func NewPhotos(games game.Repository, store PhotoStore, opts ...Option) *Photos {
+	o := newOptions(opts)
+
+	return &Photos{
+		games: games,
+		store: store,
+		now:   o.now,
+		log:   o.log,
+	}
+}
+
+// Upload checks and stores a photo and its thumbnail, both JPEG, and reads when the photo was
+// taken. The id is the photo's SHA-256, so uploading the same photo again gives the same id.
+func (s *Photos) Upload(photo, thumb []byte) (PhotoUpload, error) {
 	if err := checkJPEG("photo", photo, MaxPhotoBytes, maxPhotoSide); err != nil {
 		return PhotoUpload{}, err
 	}
@@ -73,7 +91,7 @@ func (s *Service) UploadPhoto(photo, thumb []byte) (PhotoUpload, error) {
 	}
 
 	id := game.PhotoIDOf(photo)
-	if err := s.photos.Put(id, photo, thumb); err != nil {
+	if err := s.store.Put(id, photo, thumb); err != nil {
 		return PhotoUpload{}, fmt.Errorf("storing the photo: %w", err)
 	}
 
@@ -107,20 +125,12 @@ func checkJPEG(what string, data []byte, maxBytes, maxSide int) error {
 }
 
 // Photo returns a stored photo or its thumbnail, or ErrNoPhoto.
-func (s *Service) Photo(id game.PhotoID, thumb bool) (Image, error) {
-	if s.photos == nil {
-		return Image{}, ErrNoPhoto
-	}
-
-	return s.photos.Open(id, thumb)
+func (s *Photos) Photo(id game.PhotoID, thumb bool) (Image, error) {
+	return s.store.Open(id, thumb)
 }
 
-// PrunePhotos deletes the stored photos no copy shows any more, once they are a day old.
-func (s *Service) PrunePhotos(ctx context.Context) (int, error) {
-	if s.photos == nil {
-		return 0, nil
-	}
-
+// Prune deletes the stored photos no copy shows any more, once they are a day old.
+func (s *Photos) Prune(ctx context.Context) (int, error) {
 	games, err := s.games.List(ctx)
 	if err != nil {
 		return 0, err
@@ -134,11 +144,11 @@ func (s *Service) PrunePhotos(ctx context.Context) (int, error) {
 		}
 	}
 
-	return s.photos.Prune(keep, s.now().Add(-unattachedGrace))
+	return s.store.Prune(keep, s.now().Add(-unattachedGrace))
 }
 
-// RunPhotoCleanup prunes unused photos after first and then every interval until ctx ends.
-func (s *Service) RunPhotoCleanup(ctx context.Context, first, every time.Duration) {
+// RunCleanup prunes unused photos after first and then every interval until ctx ends.
+func (s *Photos) RunCleanup(ctx context.Context, first, every time.Duration) {
 	timer := time.NewTimer(first)
 	defer timer.Stop()
 
@@ -147,7 +157,7 @@ func (s *Service) RunPhotoCleanup(ctx context.Context, first, every time.Duratio
 		case <-ctx.Done():
 			return
 		case <-timer.C:
-			if n, err := s.PrunePhotos(ctx); err != nil {
+			if n, err := s.Prune(ctx); err != nil {
 				s.log.Warn("pruning unused photos", "error", err)
 			} else if n > 0 {
 				s.log.Info("unused photos deleted", "count", n)
@@ -157,3 +167,17 @@ func (s *Service) RunPhotoCleanup(ctx context.Context, first, every time.Duratio
 		}
 	}
 }
+
+// errNoPhotos is what a server without a photo store answers an upload.
+var errNoPhotos = errors.New("photos are not available on this server")
+
+// noPhotos is the PhotoStore of a server that keeps no photos: nothing is stored, nothing found.
+type noPhotos struct{}
+
+func (noPhotos) Put(game.PhotoID, []byte, []byte) error { return errNoPhotos }
+
+func (noPhotos) Has(game.PhotoID) bool { return false }
+
+func (noPhotos) Open(game.PhotoID, bool) (Image, error) { return Image{}, ErrNoPhoto }
+
+func (noPhotos) Prune(map[game.PhotoID]bool, time.Time) (int, error) { return 0, nil }

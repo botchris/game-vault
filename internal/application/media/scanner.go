@@ -9,6 +9,10 @@ import (
 	"gamevault/internal/domain/game"
 )
 
+// languageActiveFor is how long a language the catalog was browsed in keeps being scanned: a
+// language nobody used for a month is not worth the providers' requests.
+const languageActiveFor = 30 * 24 * time.Hour
+
 // languages tracks the UI languages the catalog is browsed in, so the background scan fetches
 // details (and genres) in the languages actually used.
 type languages struct {
@@ -31,7 +35,8 @@ func (l *languages) note(lang string, now time.Time) {
 	l.seen[lang] = now
 }
 
-// active returns the languages used in the last month, most recent first ("en" if none yet).
+// active returns the languages used in the last languageActiveFor, most recent first (the default
+// language if none yet).
 func (l *languages) active(now time.Time) []string {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -39,7 +44,7 @@ func (l *languages) active(now time.Time) []string {
 	var out []string
 
 	for lang, at := range l.seen {
-		if now.Sub(at) < 30*24*time.Hour {
+		if now.Sub(at) < languageActiveFor {
 			out = append(out, lang)
 		}
 	}
@@ -47,7 +52,7 @@ func (l *languages) active(now time.Time) []string {
 	slices.SortFunc(out, func(a, b string) int { return l.seen[b].Compare(l.seen[a]) })
 
 	if len(out) == 0 {
-		out = []string{"en"}
+		out = []string{defaultLanguage}
 	}
 
 	return out
@@ -55,30 +60,30 @@ func (l *languages) active(now time.Time) []string {
 
 // CatalogSummaries returns the genres and release date of every game with cached details in the
 // language, and remembers that language for the background scan.
-func (s *Service) CatalogSummaries(ctx context.Context, language string) (map[game.ID]Summary, error) {
+func (s *Details) CatalogSummaries(ctx context.Context, language string) (map[game.ID]Summary, error) {
 	if language == "" {
-		language = "en"
+		language = defaultLanguage
 	}
 
 	s.langs.note(language, s.now())
 
-	return s.details.Summaries(ctx, language)
+	return s.store.Summaries(ctx, language)
 }
 
-// RunDetailsScanner downloads, in the background and slowly, the details of games linked to a store
+// RunScanner downloads, in the background and slowly, the details of games linked to a store
 // that have none yet, so the catalog can filter by genre and sort by year without opening each
 // game. Store providers answer linked games without a quota; games without links would reach
 // quota-limited providers, so they get their details when opened. Sheet images are not downloaded here (they come when a sheet is
 // opened). Its requests are unattended, so no wait follows a fixed rhythm: games are pause to twice
 // pause apart, rounds an hour ±10%, and a provider's complaint rests it a minute ±20%.
-func (s *Service) RunDetailsScanner(ctx context.Context, pause time.Duration) {
+func (s *Details) RunScanner(ctx context.Context, pause time.Duration) {
 	wait := func(d time.Duration) bool { return s.rhythm.Wait(ctx, d) }
 	if !wait(s.rhythm.Between(scanSettle, 2*scanSettle)) { // let start-up settle
 		return
 	}
 
 	for {
-		s.autoLinkPass(ctx)
+		s.autoLinks.EnqueueDue(ctx)
 
 		fetched := 0
 
@@ -101,7 +106,7 @@ func (s *Service) RunDetailsScanner(ctx context.Context, pause time.Duration) {
 	}
 }
 
-// Timing of the background details scan (see RunDetailsScanner).
+// Timing of the background details scan (see RunScanner).
 const (
 	scanSettle        = 30 * time.Second // shortest wait after start-up
 	scanRound         = time.Hour        // time between two rounds, before jitter
@@ -110,32 +115,16 @@ const (
 	scanBackOffJitter = 0.2
 )
 
-// autoLinkPass queues for the automatic-links worker the games without a Steam link that are due
-// (see AutoLink). It only queues, so the details scan that follows is never held back.
-func (s *Service) autoLinkPass(ctx context.Context) {
-	if !s.hasLinkFinders() {
-		return
-	}
-
-	games, err := s.games.List(ctx)
-	if err != nil {
-		s.log.Warn("automatic links: listing games", "error", err)
-		return
-	}
-
-	for _, g := range games {
-		s.enqueueAutoLink(g)
-	}
-}
-
-func (s *Service) scanOnce(ctx context.Context, lang string, pause time.Duration, wait func(time.Duration) bool) (int, bool) {
+// scanOnce fetches, in one language, the sheets of the linked games that have none or an expired
+// one, waiting between games. It reports how many it fetched, and false when ctx ended.
+func (s *Details) scanOnce(ctx context.Context, lang string, pause time.Duration, wait func(time.Duration) bool) (int, bool) {
 	games, err := s.games.List(ctx)
 	if err != nil {
 		s.log.Warn("details scan: listing games", "error", err)
 		return 0, true
 	}
 
-	have, err := s.details.Summaries(ctx, lang)
+	have, err := s.store.Summaries(ctx, lang)
 	if err != nil {
 		s.log.Warn("details scan: reading cache", "error", err)
 		return 0, true

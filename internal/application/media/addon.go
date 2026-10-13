@@ -8,6 +8,17 @@ import (
 	"gamevault/internal/domain/game"
 )
 
+// Limits of the search for an add-on's base game.
+const (
+	// minBaseKeyLen is the shortest match key a base game may have: shorter titles ("Go") prefix
+	// too many add-ons by chance.
+	minBaseKeyLen = 3
+
+	// maxBaseQueries is how many titles a store is searched by for the base game: each is one
+	// request to a rate-limited store.
+	maxBaseQueries = 4
+)
+
 // isWordPrefix reports whether every word of short starts long, and long has more words.
 func isWordPrefix(short, long string) bool {
 	return short != "" && len(short) < len(long) && strings.HasPrefix(long, short+" ")
@@ -24,7 +35,7 @@ func baseGameOf(add *game.Game, catalog []*game.Game) *game.Game {
 
 	for _, g := range catalog {
 		k := game.MatchKey(g.Title())
-		if g.ID() == add.ID() || len(k) < 3 || len(k) <= bestLen || !isWordPrefix(k, key) {
+		if g.ID() == add.ID() || len(k) < minBaseKeyLen || len(k) <= bestLen || !isWordPrefix(k, key) {
 			continue
 		}
 
@@ -41,7 +52,7 @@ func baseQueries(title string) []string {
 
 	add := func(q string) {
 		q = strings.Trim(strings.TrimSpace(q), ":-–—, ")
-		if len(q) >= 2 && !slices.Contains(out, q) && len(out) < 4 {
+		if len(q) >= minSearchLen && !slices.Contains(out, q) && len(out) < maxBaseQueries {
 			out = append(out, q)
 		}
 	}
@@ -61,17 +72,17 @@ func baseQueries(title string) []string {
 // addOnCover finds a cover for an add-on's edition nobody has art for: the base game's cover for
 // the same system, from the catalog when you own the base game on it, else from a store after
 // finding the base game in its catalog by title.
-func (s *Service) addOnCover(ctx context.Context, g *game.Game, system string) (Image, bool) {
+func (c *Covers) addOnCover(ctx context.Context, g *game.Game, system string) (Image, bool) {
 	if !game.IsAddOnTitle(g.Title()) {
 		return Image{}, false
 	}
 
 	ref := GameRef{g.ID(), g.Title()}
-	if catalog, err := s.games.List(ctx); err == nil {
+	if catalog, err := c.games.List(ctx); err == nil {
 		if base := baseGameOf(g, catalog); base != nil {
-			if img, ok := s.baseEditionCover(ctx, base, system); ok {
-				if err := s.store.PutCover(ref, system, img); err == nil {
-					s.log.Info("add-on cover taken from its base game", "game", g.Title(), "base", base.Title(), "system", system)
+			if img, ok := c.baseEditionCover(ctx, base, system); ok {
+				if err := c.store.PutCover(ref, system, img); err == nil {
+					c.log.Info("add-on cover taken from its base game", "game", g.Title(), "base", base.Title(), "system", system)
 					return img, true
 				}
 			}
@@ -84,8 +95,8 @@ func (s *Service) addOnCover(ctx context.Context, g *game.Game, system string) (
 		return Image{}, false
 	}
 
-	for _, ls := range s.searchers {
-		if img, ok := s.baseCoverIn(ctx, ls, g, ref, system); ok {
+	for _, ls := range c.searchers {
+		if img, ok := c.baseCoverIn(ctx, ls, g, ref, system); ok {
 			return img, true
 		}
 	}
@@ -95,7 +106,7 @@ func (s *Service) addOnCover(ctx context.Context, g *game.Game, system string) (
 
 // baseEditionCover is the base game's cover on system (its main edition's when system is empty),
 // when the base game has a copy on it.
-func (s *Service) baseEditionCover(ctx context.Context, base *game.Game, system string) (Image, bool) {
+func (c *Covers) baseEditionCover(ctx context.Context, base *game.Game, system string) (Image, bool) {
 	if system == "" {
 		system = base.MainEdition().System
 	}
@@ -104,13 +115,13 @@ func (s *Service) baseEditionCover(ctx context.Context, base *game.Game, system 
 		return Image{}, false
 	}
 
-	img, err := s.EditionCover(ctx, base.ID(), system)
+	img, err := c.EditionCover(ctx, base.ID(), system)
 
 	return img, err == nil
 }
 
 // baseCoverIn looks for the base game of the add-on g in one store's catalog.
-func (s *Service) baseCoverIn(ctx context.Context, ls LinkSearcher, g *game.Game, ref GameRef, system string) (Image, bool) {
+func (c *Covers) baseCoverIn(ctx context.Context, ls LinkSearcher, g *game.Game, ref GameRef, system string) (Image, bool) {
 	store := ls.LinkStore()
 	key := game.MatchKey(g.Title())
 
@@ -130,8 +141,8 @@ func (s *Service) baseCoverIn(ctx context.Context, ls LinkSearcher, g *game.Game
 				System: system,
 				Links:  game.Links{store.Key: m.ID},
 			}
-			if img, err := s.coverFromChain(ctx, ref, system, cq, newLookup()); err == nil {
-				s.log.Info("add-on cover taken from its base game", "game", g.Title(), "base", m.Name, "store", store.Name)
+			if img, err := c.coverFromChain(ctx, ref, system, cq, newLookup()); err == nil {
+				c.log.Info("add-on cover taken from its base game", "game", g.Title(), "base", m.Name, "store", store.Name)
 				return img, true
 			}
 		}

@@ -3,8 +3,6 @@ package media_test
 import (
 	"context"
 	"fmt"
-	"io"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -20,6 +18,7 @@ import (
 	"gamevault/internal/adapters/outbound/sqlite"
 	"gamevault/internal/adapters/outbound/thegamesdb"
 	"gamevault/internal/application/media"
+	"gamevault/internal/application/providers"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
@@ -94,12 +93,8 @@ func TestRateLimitedProvider(t *testing.T) {
 		require.NoError(t, err)
 
 		games, details := sqlite.NewGameRepository(db), sqlite.NewDetailsStore(db)
-		svc := media.NewService(games, sqlite.NewProviderRepository(db), assets, nil, details, echo{}, time.Now,
-			slog.New(slog.NewTextHandler(io.Discard, nil)), media.Providers{
-				Covers:   []media.CoverProvider{tgdb},
-				Metadata: []media.MetadataProvider{otherDetails{}, thegamesdb.NewDetails(tgdb)},
-			})
-		_, err = svc.ConfigureProvider(ctx, thegamesdb.ID, true, schema.Settings{"api_key": "k"})
+		svc := newServices(db, games, assets, echo{}, []providers.Provider{tgdb, otherDetails{}, thegamesdb.NewDetails(tgdb)}, media.WithDetailsStore(details))
+		_, err = svc.Registry.ConfigureProvider(ctx, thegamesdb.ID, true, schema.Settings{"api_key": "k"})
 		require.NoError(t, err)
 
 		g := saveGame(t, ctx, games, "Halo 3", nil, game.CopyDetails{
@@ -108,7 +103,7 @@ func TestRateLimitedProvider(t *testing.T) {
 		})
 
 		t.Run("WHEN the PS3 edition's cover is asked", func(t *testing.T) {
-			_, err := svc.EditionCover(ctx, g.ID(), "PS3")
+			_, err := svc.Covers.EditionCover(ctx, g.ID(), "PS3")
 
 			t.Run("THEN it has no cover this time, and no miss is remembered", func(t *testing.T) {
 				require.ErrorIs(t, err, media.ErrNoCover)
@@ -120,16 +115,16 @@ func TestRateLimitedProvider(t *testing.T) {
 		})
 
 		t.Run("WHEN the game sheet is asked", func(t *testing.T) {
-			d, warnings, err := svc.GameDetails(ctx, g.ID(), "en", false)
+			d, warnings, err := svc.Details.GameDetails(ctx, g.ID(), "en", false)
 			require.NoError(t, err)
 
 			t.Run("THEN it shows what the other provider knows; TheGamesDB's status, not the sheet, says it is busy", func(t *testing.T) {
 				assert.Equal(t, []string{"Shooter"}, d.Genres)
 				assert.Empty(t, warnings)
 
-				st := svc.ProviderStatuses()
+				st := svc.Registry.Statuses()
 				require.NotEmpty(t, st)
-				assert.Equal(t, media.StatusRateLimited, st[0].Kind)
+				assert.Equal(t, providers.StatusRateLimited, st[0].Kind)
 				assert.Contains(t, st[0].Message, "too many requests")
 			})
 
@@ -143,8 +138,8 @@ func TestRateLimitedProvider(t *testing.T) {
 		t.Run("WHEN TheGamesDB answers again and both are asked once more", func(t *testing.T) {
 			busy.Store(false)
 
-			img, coverErr := svc.EditionCover(ctx, g.ID(), "PS3")
-			d, warnings, err := svc.GameDetails(ctx, g.ID(), "en", false)
+			img, coverErr := svc.Covers.EditionCover(ctx, g.ID(), "PS3")
+			d, warnings, err := svc.Details.GameDetails(ctx, g.ID(), "en", false)
 			require.NoError(t, err)
 
 			t.Run("THEN the edition gets its box and the sheet TheGamesDB's summary", func(t *testing.T) {
@@ -153,7 +148,7 @@ func TestRateLimitedProvider(t *testing.T) {
 				assert.Equal(t, "Finish the fight.", d.Summary)
 
 				t.Run("AND its status is cleared", func(t *testing.T) {
-					assert.Empty(t, svc.ProviderStatuses())
+					assert.Empty(t, svc.Registry.Statuses())
 				})
 			})
 		})
@@ -170,17 +165,17 @@ func TestQuotaExhaustedProvider(t *testing.T) {
 		refresh   int
 		cause     error
 		message   string
-		kind      media.StatusKind
+		kind      providers.StatusKind
 	}{
 		{
 			"this month's allowance used up", 0, 1036800, provider.ErrQuotaExhausted,
 			"the API key has used this month's allowance: covers and sheets resume when it renews in 12 days",
-			media.StatusQuota,
+			providers.StatusQuota,
 		},
 		{
 			"an unknown key", 0, 0, provider.ErrRateLimited,
 			"the API key was not recognized: check it in the provider settings",
-			media.StatusSettings,
+			providers.StatusSettings,
 		},
 	} {
 		testUnavailableTheGamesDB(t, ctx, quota.name, quota.remaining, quota.refresh, quota.cause, quota.message, quota.kind)
@@ -191,7 +186,7 @@ func TestQuotaExhaustedProvider(t *testing.T) {
 // remaining and refresh: covers fail with cause, TheGamesDB's status says message (of kind), the
 // sheet shows no warning, and nothing is remembered from it.
 func testUnavailableTheGamesDB(t *testing.T, ctx context.Context, name string, remaining, refresh int, cause error, message string,
-	kind media.StatusKind) {
+	kind providers.StatusKind) {
 	t.Helper()
 
 	t.Run("GIVEN TheGamesDB answering 429 with "+name+", and a game with a PS3 disc", func(t *testing.T) {
@@ -209,12 +204,8 @@ func testUnavailableTheGamesDB(t *testing.T, ctx context.Context, name string, r
 		require.NoError(t, err)
 
 		games, details := sqlite.NewGameRepository(db), sqlite.NewDetailsStore(db)
-		svc := media.NewService(games, sqlite.NewProviderRepository(db), assets, nil, details, echo{}, time.Now,
-			slog.New(slog.NewTextHandler(io.Discard, nil)), media.Providers{
-				Covers:   []media.CoverProvider{tgdb},
-				Metadata: []media.MetadataProvider{otherDetails{}, thegamesdb.NewDetails(tgdb)},
-			})
-		_, err = svc.ConfigureProvider(ctx, thegamesdb.ID, true, schema.Settings{"api_key": "k"})
+		svc := newServices(db, games, assets, echo{}, []providers.Provider{tgdb, otherDetails{}, thegamesdb.NewDetails(tgdb)}, media.WithDetailsStore(details))
+		_, err = svc.Registry.ConfigureProvider(ctx, thegamesdb.ID, true, schema.Settings{"api_key": "k"})
 		require.NoError(t, err)
 
 		g := saveGame(t, ctx, games, "Halo 3", nil, game.CopyDetails{
@@ -223,7 +214,7 @@ func testUnavailableTheGamesDB(t *testing.T, ctx context.Context, name string, r
 		})
 
 		t.Run("WHEN the PS3 edition's cover is asked", func(t *testing.T) {
-			_, err := svc.EditionCover(ctx, g.ID(), "PS3")
+			_, err := svc.Covers.EditionCover(ctx, g.ID(), "PS3")
 
 			t.Run("THEN it has no cover this time, and says why", func(t *testing.T) {
 				require.ErrorIs(t, err, media.ErrNoCover)
@@ -237,7 +228,7 @@ func testUnavailableTheGamesDB(t *testing.T, ctx context.Context, name string, r
 		})
 
 		t.Run("WHEN the game sheet is asked", func(t *testing.T) {
-			d, warnings, err := svc.GameDetails(ctx, g.ID(), "en", false)
+			d, warnings, err := svc.Details.GameDetails(ctx, g.ID(), "en", false)
 			require.NoError(t, err)
 
 			t.Run("THEN it shows what the other provider knows, without TheGamesDB's provider-level problem", func(t *testing.T) {
@@ -246,7 +237,7 @@ func testUnavailableTheGamesDB(t *testing.T, ctx context.Context, name string, r
 			})
 
 			t.Run("AND TheGamesDB's status says why it has nothing", func(t *testing.T) {
-				st := svc.ProviderStatuses()
+				st := svc.Registry.Statuses()
 				require.Len(t, st, 1)
 				assert.Equal(t, kind, st[0].Kind)
 				assert.Equal(t, message, st[0].Message)

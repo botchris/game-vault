@@ -13,7 +13,7 @@ import (
 // GET /media/covers/{id}/{system} (an edition's; the system is URL-escaped, so it may contain
 // spaces or slashes). Images are plain HTTP rather than RPC so browsers can load them with
 // <img src> and cache them. Clients add ?v=<updatedAt> to bust the cache.
-func coverHandler(m *media.Service) http.Handler {
+func coverHandler(m *media.Covers) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := game.ID(r.PathValue("id"))
 
@@ -61,10 +61,10 @@ func coverHandler(m *media.Service) http.Handler {
 	})
 }
 
-// imageProxyHandler serves GET /media/proxy?url=… for provider thumbnails (see media.ProxyImage).
-func imageProxyHandler(m *media.Service) http.Handler {
+// imageProxyHandler serves GET /media/proxy?url=… for provider thumbnails (see media.ImageProxy).
+func imageProxyHandler(m *media.ImageProxy) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		img, err := m.ProxyImage(r.Context(), r.URL.Query().Get("url"))
+		img, err := m.Fetch(r.Context(), r.URL.Query().Get("url"))
 		switch {
 		case errors.Is(err, media.ErrImageNotAllowed):
 			http.Error(w, "image host not allowed", http.StatusForbidden)
@@ -82,8 +82,8 @@ func imageProxyHandler(m *media.Service) http.Handler {
 }
 
 // gameAssetHandler serves GET /media/games/{id}/assets/{name}: an image of the game's sheet from its
-// folder, downloading it first if it is not stored yet (see media.Service.Asset).
-func gameAssetHandler(m *media.Service) http.Handler {
+// folder, downloading it first if it is not stored yet (see media.Assets.Asset).
+func gameAssetHandler(m *media.Assets) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		img, err := m.Asset(r.Context(), game.ID(r.PathValue("id")), r.PathValue("name"))
 		switch {

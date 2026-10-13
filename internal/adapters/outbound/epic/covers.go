@@ -131,7 +131,7 @@ func (c *Covers) appToken(ctx context.Context) (oauthapp.Token, error) {
 	}, nil
 }
 
-// Test implements media.Provider: it requests a fresh application token (client credentials
+// Test implements providers.Provider: it requests a fresh application token (client credentials
 // grant), which proves the launcher credentials and the sign-in endpoint work. Any HTTP or
 // transport failure is reported.
 func (c *Covers) Test(ctx context.Context, _ schema.Settings) error {

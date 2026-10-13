@@ -36,6 +36,7 @@ import (
 	"gamevault/internal/application/logs"
 	"gamevault/internal/application/media"
 	"gamevault/internal/application/ownership"
+	"gamevault/internal/application/providers"
 	"gamevault/internal/application/sync"
 	"gamevault/internal/application/system"
 	"gamevault/internal/application/transfer"
@@ -139,16 +140,20 @@ func run() error {
 		return fmt.Errorf("applying log settings: %w", err)
 	}
 
-	mediaSvc := media.NewService(games, sqlite.NewProviderRepository(db), assets, photos, sqlite.NewDetailsStore(db), imagefetch.New(), now, log,
-		plugins.Media())
-	valuationSvc := valuation.NewService(games, db, mediaSvc, settingsRepo, now, log, plugins.Valuations()...)
+	// The providers' configuration is read once, on first use, and then kept in memory.
+	registry := providers.NewRegistry(sqlite.NewProviderRepository(db), plugins.Providers(),
+		providers.WithClock(now), providers.WithLogger(log))
+	mediaSvcs := media.New(games, registry, assets, imagefetch.New(),
+		media.WithPhotos(photos), media.WithDetailsStore(sqlite.NewDetailsStore(db)), media.WithClock(now), media.WithLogger(log))
+	valuationSvc := valuation.NewService(games, db, registry, settingsRepo, now, log, plugins.Valuations()...)
 	fieldsSvc := fields.NewService(settingsRepo, games, db, now)
-	catalogSvc := catalog.NewService(games, db, now, mediaSvc, photos, settingsRepo)
+	catalogSvc := catalog.NewService(games, db, now, mediaSvcs.Covers, photos, settingsRepo)
 	ownershipSvc := ownership.NewService(games)
 
-	mediaSvc.SetGameLinker(catalogSvc) // automatic links are saved by the catalog, in its transactions
-	syncSvc := sync.NewService(sources, games, db, mediaSvc, now, log, plugins.Sources()...)
-	transferSvc := transfer.NewService(games, db, settingsRepo, now, csvfile.Codec{}, mediaSvc)
+	mediaSvcs.AutoLinks.SetGameLinker(catalogSvc) // automatic links are saved by the catalog, in its transactions
+	syncSvc := sync.NewService(sources, games, db, mediaSvcs.Covers, now, log, plugins.Sources()...)
+	linkStores := media.NewStores(registry, syncSvc)
+	transferSvc := transfer.NewService(games, db, settingsRepo, now, csvfile.Codec{}, mediaSvcs.Covers)
 	systemSvc := system.NewService(games, db, settingsRepo, photostore.NewArchive(photos, backupPhotos), now, log, system.Status{
 		Version:      version,
 		ConfigDir:    cfg.ConfigDir,
@@ -156,7 +161,7 @@ func run() error {
 		StartedAt:    now(),
 	}, cfg.BackupDir(), cfg.BackupKeep)
 
-	healthSvc := health.NewService(mediaSvc, syncSvc, systemSvc, health.DiskCheck{
+	healthSvc := health.NewService(registry, syncSvc, systemSvc, health.DiskCheck{
 		Path:  cfg.ConfigDir,
 		Space: diskspace.Statfs{},
 	})
@@ -187,11 +192,11 @@ func run() error {
 		go syncSvc.RunScheduler(ctx, time.Minute, 30*time.Minute)
 		go syncSvc.RunKeepAlive(ctx, time.Minute, 10*time.Minute)
 		go valuationSvc.RunScheduler(ctx)
-		go mediaSvc.RunDetailsScanner(ctx, 2*time.Second) // 2-4 s apart: gentle enough for the strictest store API (Steam: ~200 requests / 5 min)
+		go mediaSvcs.Details.RunScanner(ctx, 2*time.Second) // 2-4 s apart: gentle enough for the strictest store API (Steam: ~200 requests / 5 min)
 	}
 
-	go mediaSvc.RunAutoLinker(ctx, 2*time.Second) // one game at a time, jittered, after cover downloads
-	go mediaSvc.RunPhotoCleanup(ctx, time.Hour, 24*time.Hour)
+	go mediaSvcs.AutoLinks.Run(ctx, 2*time.Second) // one game at a time, jittered, after cover downloads
+	go mediaSvcs.Photos.RunCleanup(ctx, time.Hour, 24*time.Hour)
 
 	if cfg.BackupInterval > 0 {
 		go systemSvc.RunScheduledBackups(ctx, cfg.BackupInterval)
@@ -201,12 +206,15 @@ func run() error {
 	handler := rpc.NewHTTPHandler(rpc.Handlers{
 		Auth:        rpc.NewAuthHandler(authSvc),
 		AuthService: authSvc,
-		Games:       rpc.NewGameHandler(catalogSvc, mediaSvc, syncSvc),
+		Games:       rpc.NewGameHandler(catalogSvc, mediaSvcs.Details, linkStores, syncSvc),
 		Sources:     rpc.NewSourceHandler(syncSvc),
 		System:      rpc.NewSystemHandler(systemSvc, transferSvc),
 		Logs:        rpc.NewLogHandler(logsSvc),
-		MediaRPC:    rpc.NewMediaHandler(mediaSvc),
-		Media:       mediaSvc,
+		MediaRPC:    rpc.NewMediaHandler(registry, mediaSvcs.Covers, mediaSvcs.Details, mediaSvcs.Identifier),
+		Covers:      mediaSvcs.Covers,
+		Assets:      mediaSvcs.Assets,
+		Photos:      mediaSvcs.Photos,
+		Proxy:       mediaSvcs.Proxy,
 		Valuation:   rpc.NewValuationHandler(valuationSvc),
 		Fields:      rpc.NewFieldHandler(fieldsSvc),
 		Health:      rpc.NewHealthHandler(healthSvc),

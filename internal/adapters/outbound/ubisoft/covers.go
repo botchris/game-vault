@@ -214,7 +214,7 @@ func pickStoreCovers(title string, hits []storeHit) []media.CoverCandidate {
 	return append(standard, others...)
 }
 
-// Test implements media.Provider: it runs one search on the Ubisoft Store's public product index and
+// Test implements providers.Provider: it runs one search on the Ubisoft Store's public product index and
 // fails if the store answers with an error or something that is not a search result.
 func (c *Covers) Test(ctx context.Context, _ schema.Settings) error {
 	if _, err := c.storeCovers(ctx, "Assassin's Creed"); err != nil {

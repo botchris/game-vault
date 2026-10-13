@@ -212,7 +212,7 @@ func (c *Covers) Covers(ctx context.Context, q media.GameQuery, _ schema.Setting
 	return cands, nil
 }
 
-// Test implements media.Provider: it asks EA's public catalog for one well-known game by slug and
+// Test implements providers.Provider: it asks EA's public catalog for one well-known game by slug and
 // fails on a transport error, an HTTP error or a GraphQL rejection. An unknown slug is not a failure.
 func (c *Covers) Test(ctx context.Context, _ schema.Settings) error {
 	var data map[string]*eaGame

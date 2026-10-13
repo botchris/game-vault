@@ -61,7 +61,7 @@ func (p *Provider) Descriptor() provider.Descriptor {
 	}
 }
 
-// Test implements media.Provider: it looks up a well-known EAN with the configured endpoint (trial
+// Test implements providers.Provider: it looks up a well-known EAN with the configured endpoint (trial
 // or user key). An unknown code still counts as working; a rate limit, a rejected key or any other
 // HTTP error does not.
 func (p *Provider) Test(ctx context.Context, s schema.Settings) error {

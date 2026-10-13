@@ -230,7 +230,7 @@ func (p *Provider) getNow(ctx context.Context, path string, q url.Values, out an
 // ErrUnknownKey means TheGamesDB does not know the API key.
 var ErrUnknownKey = errkind.New(errkind.Precondition, "the API key was not recognized: check it in the provider settings")
 
-// Test implements media.Provider by reading the remaining allowance; that endpoint does not consume
+// Test implements providers.Provider by reading the remaining allowance; that endpoint does not consume
 // it. It answers 200 even for unknown keys, with no allowance and a zero refresh timer, which is how
 // those are detected. A valid key that used up its allowance still has a refresh timer. The check
 // bypasses the throttle: the user is waiting for it, and it must not queue behind cover lookups.

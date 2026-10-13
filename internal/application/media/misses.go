@@ -1,6 +1,7 @@
 package media
 
 import (
+	"maps"
 	"sync"
 	"time"
 
@@ -68,15 +69,29 @@ func (m *misses) remember(id game.ID, system string, providers []provider.ID, no
 	}
 }
 
-// forget drops what is remembered for a game (every edition when system is "*"), or for every game
-// when id is empty.
-func (m *misses) forget(id game.ID, system string) {
+// forgetAll drops what is remembered for every game.
+func (m *misses) forgetAll() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	for k := range m.entries {
-		if id == "" || (k.game == id && (system == "*" || k.system == system)) {
-			delete(m.entries, k)
-		}
-	}
+	clear(m.entries)
+}
+
+// forgetGame drops what is remembered for every edition of a game.
+func (m *misses) forgetGame(id game.ID) {
+	m.drop(func(k missKey) bool { return k.game == id })
+}
+
+// forgetEdition drops what is remembered for a game's edition on system (the empty system is the
+// edition of a game without copies).
+func (m *misses) forgetEdition(id game.ID, system string) {
+	m.drop(func(k missKey) bool { return k.game == id && k.system == system })
+}
+
+// drop deletes the entries match selects.
+func (m *misses) drop(match func(missKey) bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	maps.DeleteFunc(m.entries, func(k missKey, _ time.Time) bool { return match(k) })
 }

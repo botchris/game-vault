@@ -111,7 +111,7 @@ func (d *Details) fetch(ctx context.Context, appID int64, lang string) (app appD
 	return app, ok && app.Success, nil
 }
 
-// Test implements media.Provider: it asks the store for Portal 2 (app 620), so only transport
+// Test implements providers.Provider: it asks the store for Portal 2 (app 620), so only transport
 // errors, rate limits and HTTP errors fail it; a store with no data for the app still works.
 func (d *Details) Test(ctx context.Context, _ schema.Settings) error {
 	if _, _, err := d.fetch(ctx, 620, "english"); err != nil {

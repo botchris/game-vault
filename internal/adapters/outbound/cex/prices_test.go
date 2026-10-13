@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gamevault/internal/application/media"
+	"gamevault/internal/application/providers"
 	"gamevault/internal/application/valuation"
 	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
@@ -138,7 +138,7 @@ func TestPrices(t *testing.T) {
 		})
 
 		t.Run("AND it is a problem of the provider, shown as its status, not a price warning", func(t *testing.T) {
-			assert.True(t, media.ProviderLevel(err))
+			assert.True(t, providers.ProviderLevel(err))
 			assert.NotContains(t, err.Error(), "CeX")
 			assert.Equal(t, errkind.Unavailable, errkind.Of(err))
 		})

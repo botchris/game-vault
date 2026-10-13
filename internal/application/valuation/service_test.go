@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/adapters/outbound/sqlite"
-	"gamevault/internal/application/media"
+	"gamevault/internal/application/providers"
 	"gamevault/internal/application/valuation"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
@@ -76,12 +76,12 @@ func (c *configs) ReportResult(id provider.ID, err error) {
 	c.reported[id] = err
 }
 
-func (c *configs) Providers(_ context.Context, kind provider.Kind) ([]media.ProviderView, error) {
-	out := make([]media.ProviderView, 0, len(c.impls))
+func (c *configs) Providers(_ context.Context, kind provider.Kind) ([]providers.View, error) {
+	out := make([]providers.View, 0, len(c.impls))
 
 	for i, p := range c.impls {
 		d := p.Descriptor()
-		out = append(out, media.ProviderView{
+		out = append(out, providers.View{
 			Provider:   provider.Rehydrate(d.ID, kind, c.on[d.ID], i, nil, now),
 			Descriptor: d,
 		})

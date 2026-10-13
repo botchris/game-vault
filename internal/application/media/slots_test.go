@@ -2,8 +2,6 @@ package media_test
 
 import (
 	"context"
-	"io"
-	"log/slog"
 	"path/filepath"
 	"strconv"
 	"testing"
@@ -15,6 +13,7 @@ import (
 	"gamevault/internal/adapters/outbound/gamedata"
 	"gamevault/internal/adapters/outbound/sqlite"
 	"gamevault/internal/application/media"
+	"gamevault/internal/application/providers"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
@@ -66,8 +65,7 @@ func TestCoverLookups_doNotHoldDownloadSlots(t *testing.T) {
 			release: make(chan struct{}),
 		}
 		games := sqlite.NewGameRepository(db)
-		svc := media.NewService(games, sqlite.NewProviderRepository(db), assets, nil, nil, echo{}, time.Now,
-			slog.New(slog.NewTextHandler(io.Discard, nil)), media.Providers{Covers: []media.CoverProvider{pcStore{}, slow}})
+		svc := newServices(db, games, assets, echo{}, []providers.Provider{pcStore{}, slow})
 
 		const waiting = 8
 
@@ -77,7 +75,7 @@ func TestCoverLookups_doNotHoldDownloadSlots(t *testing.T) {
 				Platform: "PS3",
 			})
 
-			go func() { _, _ = svc.EditionCover(ctx, g.ID(), "PS3") }()
+			go func() { _, _ = svc.Covers.EditionCover(ctx, g.ID(), "PS3") }()
 		}
 
 		t.Cleanup(func() { close(slow.release) })
@@ -99,7 +97,7 @@ func TestCoverLookups_doNotHoldDownloadSlots(t *testing.T) {
 			done := make(chan string, 1)
 
 			go func() {
-				img, err := svc.EditionCover(ctx, pc.ID(), "PC")
+				img, err := svc.Covers.EditionCover(ctx, pc.ID(), "PC")
 				if err != nil {
 					done <- err.Error()
 					return

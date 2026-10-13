@@ -32,6 +32,7 @@ import (
 	"gamevault/internal/application/logs"
 	"gamevault/internal/application/media"
 	"gamevault/internal/application/ownership"
+	"gamevault/internal/application/providers"
 	"gamevault/internal/application/sync"
 	"gamevault/internal/application/system"
 	"gamevault/internal/application/transfer"
@@ -354,14 +355,12 @@ func newServer(t *testing.T, p sync.Provider) clients {
 	images := &fakeImages{}
 	boxart := &fakeBoxArt{}
 	boxDet := &fakeBoxDetails{}
-	mediaSvc := media.NewService(games, sqlite.NewProviderRepository(db), covers, photos, sqlite.NewDetailsStore(db), images, time.Now, log,
-		media.Providers{
-			Covers:     []media.CoverProvider{fakeSteamStore{}, boxart},
-			Barcodes:   []media.BarcodeProvider{&fakeBarcodes{}},
-			Metadata:   []media.MetadataProvider{fakeStoreDetails{}, boxDet},
-			Valuations: []media.Provider{fakePrices{}},
-		})
-	valuationSvc := valuation.NewService(games, db, mediaSvc, sqlite.NewSettingsRepository(db), time.Now, log, fakePrices{})
+	registry := providers.NewRegistry(sqlite.NewProviderRepository(db), []providers.Provider{
+		fakeSteamStore{}, boxart, &fakeBarcodes{}, fakeStoreDetails{}, boxDet, fakePrices{},
+	}, providers.WithLogger(log))
+	mediaSvcs := media.New(games, registry, covers, images,
+		media.WithPhotos(photos), media.WithDetailsStore(sqlite.NewDetailsStore(db)), media.WithLogger(log))
+	valuationSvc := valuation.NewService(games, db, registry, sqlite.NewSettingsRepository(db), time.Now, log, fakePrices{})
 	logsSvc := logs.NewService(sqlite.NewSettingsRepository(db), logFiles, logFiles)
 	authSvc := appauth.NewService(sqlite.NewAuthRepository(db), sqlite.NewSettingsRepository(db), passwordhash.Bcrypt{Cost: 4}, noCerts{}, time.Now, log)
 	syncSvc := sync.NewService(sources, games, db, nil, time.Now, log, p)
@@ -371,15 +370,19 @@ func newServer(t *testing.T, p sync.Provider) clients {
 		Auth:        rpc.NewAuthHandler(authSvc),
 		AuthService: authSvc,
 		Logs:        rpc.NewLogHandler(logsSvc),
-		Media:       mediaSvc,
-		MediaRPC:    rpc.NewMediaHandler(mediaSvc),
+		Covers:      mediaSvcs.Covers,
+		Assets:      mediaSvcs.Assets,
+		Photos:      mediaSvcs.Photos,
+		Proxy:       mediaSvcs.Proxy,
+		MediaRPC:    rpc.NewMediaHandler(registry, mediaSvcs.Covers, mediaSvcs.Details, mediaSvcs.Identifier),
 		Valuation:   rpc.NewValuationHandler(valuationSvc),
 		Fields:      rpc.NewFieldHandler(fields.NewService(sqlite.NewSettingsRepository(db), games, db, time.Now)),
-		Games:       rpc.NewGameHandler(catalog.NewService(games, db, time.Now, mediaSvc, photos, sqlite.NewSettingsRepository(db)), mediaSvc, syncSvc),
-		Sources:     rpc.NewSourceHandler(syncSvc),
+		Games: rpc.NewGameHandler(catalog.NewService(games, db, time.Now, mediaSvcs.Covers, photos, sqlite.NewSettingsRepository(db)),
+			mediaSvcs.Details, media.NewStores(registry, syncSvc), syncSvc),
+		Sources: rpc.NewSourceHandler(syncSvc),
 		System: rpc.NewSystemHandler(systemSvc,
 			transfer.NewService(games, db, sqlite.NewSettingsRepository(db), time.Now, csvfile.Codec{}, nil)),
-		Health:    rpc.NewHealthHandler(health.NewService(mediaSvc, syncSvc, systemSvc)),
+		Health:    rpc.NewHealthHandler(health.NewService(registry, syncSvc, systemSvc)),
 		Ownership: rpc.NewOwnershipHandler(ownership.NewService(games)),
 	}, rpc.Options{Log: log})
 	srv := httptest.NewServer(h)

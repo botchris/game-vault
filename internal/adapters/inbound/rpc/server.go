@@ -25,10 +25,15 @@ type Handlers struct {
 	System  *SystemHandler
 	Logs    *LogHandler
 
-	// MediaRPC serves the provider and cover services; Media serves the cover images.
+	// MediaRPC serves the provider, cover, lookup and metadata services.
 	MediaRPC *MediaHandler
-	Media    *media.Service
-	Auth     *AuthHandler
+
+	// Covers, Assets, Photos and Proxy serve the images over plain HTTP.
+	Covers *media.Covers
+	Assets *media.Assets
+	Photos *media.Photos
+	Proxy  *media.ImageProxy
+	Auth   *AuthHandler
 
 	// Fields serves the custom field definitions.
 	Fields *FieldHandler
@@ -80,13 +85,13 @@ func NewHTTPHandler(h Handlers, opts Options) http.Handler {
 	mux.Handle(gamevaultv1connect.NewFieldServiceHandler(h.Fields, ic))
 	mux.Handle(gamevaultv1connect.NewHealthServiceHandler(h.Health, ic))
 	mux.Handle(gamevaultv1connect.NewOwnershipServiceHandler(h.Ownership, ic, connect.WithReadMaxBytes(ownershipMaxBytes)))
-	mux.Handle("GET /media/covers/{id}", coverHandler(h.Media))
-	mux.Handle("GET /media/covers/{id}/{system...}", coverHandler(h.Media))
-	mux.Handle("GET /media/proxy", imageProxyHandler(h.Media))
-	mux.Handle("GET /media/games/{id}/assets/{name}", gameAssetHandler(h.Media))
-	mux.Handle("POST /media/photos", photoUploadHandler(h.Media))
-	mux.Handle("GET /media/photos/{id}", photoHandler(h.Media, false))
-	mux.Handle("GET /media/photos/{id}/thumb", photoHandler(h.Media, true))
+	mux.Handle("GET /media/covers/{id}", coverHandler(h.Covers))
+	mux.Handle("GET /media/covers/{id}/{system...}", coverHandler(h.Covers))
+	mux.Handle("GET /media/proxy", imageProxyHandler(h.Proxy))
+	mux.Handle("GET /media/games/{id}/assets/{name}", gameAssetHandler(h.Assets))
+	mux.Handle("POST /media/photos", photoUploadHandler(h.Photos))
+	mux.Handle("GET /media/photos/{id}", photoHandler(h.Photos, false))
+	mux.Handle("GET /media/photos/{id}/thumb", photoHandler(h.Photos, true))
 
 	if opts.UIDir != "" {
 		mux.Handle("/", spa(opts.UIDir))

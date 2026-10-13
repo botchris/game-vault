@@ -131,7 +131,7 @@ func (c *Covers) get(ctx context.Context, path string, out any) error {
 // testProductID is a long-lived GOG product (The Witcher: Enhanced Edition) used to probe the API.
 const testProductID = "1207658924"
 
-// Test implements media.Provider: it looks up one well-known product in GOG's public product API.
+// Test implements providers.Provider: it looks up one well-known product in GOG's public product API.
 // An unknown product still means the API works; transport errors, HTTP errors and rate limits fail.
 func (c *Covers) Test(ctx context.Context, _ schema.Settings) error {
 	var ignored json.RawMessage

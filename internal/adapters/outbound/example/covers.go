@@ -109,7 +109,7 @@ func (c *Covers) Covers(ctx context.Context, q media.GameQuery, _ schema.Setting
 // testProductID is a product that exists in the catalog, used to check the API answers.
 const testProductID = "1"
 
-// Test implements media.Provider: one request to the public catalog. No key is needed, so only
+// Test implements providers.Provider: one request to the public catalog. No key is needed, so only
 // transport and HTTP errors fail it.
 func (c *Covers) Test(ctx context.Context, _ schema.Settings) error {
 	var p product

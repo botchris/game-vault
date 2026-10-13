@@ -2,8 +2,6 @@ package media_test
 
 import (
 	"context"
-	"io"
-	"log/slog"
 	"path/filepath"
 	"sync/atomic"
 	"testing"
@@ -15,6 +13,7 @@ import (
 	"gamevault/internal/adapters/outbound/gamedata"
 	"gamevault/internal/adapters/outbound/sqlite"
 	"gamevault/internal/application/media"
+	"gamevault/internal/application/providers"
 	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
@@ -148,7 +147,7 @@ func (a *perGameArt) Covers(_ context.Context, q media.GameQuery, _ schema.Setti
 }
 
 type fallbackEnv struct {
-	svc     *media.Service
+	svc     *media.Services
 	games   game.Repository
 	assets  *gamedata.Store
 	store   *countingStore
@@ -173,10 +172,7 @@ func newFallbackEnv(t *testing.T, ctx context.Context) fallbackEnv {
 		quota:   &quotaArt{},
 		perGame: &perGameArt{},
 	}
-	env.svc = media.NewService(env.games, sqlite.NewProviderRepository(db), assets, nil, nil, echo{}, time.Now,
-		slog.New(slog.NewTextHandler(io.Discard, nil)), media.Providers{
-			Covers: []media.CoverProvider{env.store, env.quota, env.perGame},
-		})
+	env.svc = newServices(db, env.games, assets, echo{}, []providers.Provider{env.store, env.quota, env.perGame})
 
 	return env
 }
@@ -193,7 +189,7 @@ func TestCovers_fallbackForGamesWithoutLinks(t *testing.T) {
 		})
 
 		t.Run("WHEN its PS4 cover is asked", func(t *testing.T) {
-			img, err := env.svc.EditionCover(ctx, g.ID(), "PS4")
+			img, err := env.svc.Covers.EditionCover(ctx, g.ID(), "PS4")
 
 			t.Run("THEN the per-game cover is used on the fallback pass", func(t *testing.T) {
 				assert.Equal(t, "https://img.test/per-game", cover(t, img, err))
@@ -213,7 +209,7 @@ func TestCovers_fallbackForGamesWithoutLinks(t *testing.T) {
 		})
 
 		t.Run("WHEN its PC cover is asked", func(t *testing.T) {
-			img, err := env.svc.EditionCover(ctx, g.ID(), game.SystemPC)
+			img, err := env.svc.Covers.EditionCover(ctx, g.ID(), game.SystemPC)
 
 			t.Run("THEN the fallback pass finds one", func(t *testing.T) {
 				assert.Equal(t, "https://img.test/per-game", cover(t, img, err))
@@ -222,7 +218,7 @@ func TestCovers_fallbackForGamesWithoutLinks(t *testing.T) {
 		})
 
 		t.Run("WHEN its cover candidates are listed", func(t *testing.T) {
-			candidates, warnings, _, err := env.svc.CoverCandidates(ctx, g.ID(), game.SystemPC)
+			candidates, warnings, _, err := env.svc.Covers.CoverCandidates(ctx, g.ID(), game.SystemPC)
 			require.NoError(t, err)
 
 			t.Run("THEN the fallback providers are offered too, since nothing else had one", func(t *testing.T) {
@@ -241,7 +237,7 @@ func TestCovers_fallbackForGamesWithoutLinks(t *testing.T) {
 		})
 
 		t.Run("WHEN its PC cover is asked", func(t *testing.T) {
-			img, err := env.svc.EditionCover(ctx, g.ID(), game.SystemPC)
+			img, err := env.svc.Covers.EditionCover(ctx, g.ID(), game.SystemPC)
 
 			t.Run("THEN the store's art is used and nothing else is asked, as before", func(t *testing.T) {
 				assert.Equal(t, "https://img.test/store-620", cover(t, img, err))
@@ -253,7 +249,7 @@ func TestCovers_fallbackForGamesWithoutLinks(t *testing.T) {
 		t.Run("WHEN its cover candidates are listed", func(t *testing.T) {
 			env.quota.art.Store(true)
 
-			candidates, _, _, err := env.svc.CoverCandidates(ctx, g.ID(), game.SystemPC)
+			candidates, _, _, err := env.svc.Covers.CoverCandidates(ctx, g.ID(), game.SystemPC)
 			require.NoError(t, err)
 
 			t.Run("THEN the fallback providers are offered too, after the store's art", func(t *testing.T) {
@@ -290,7 +286,7 @@ func TestCoverCandidates_providerOnBothPasses(t *testing.T) {
 		})
 
 		t.Run("WHEN its cover candidates are listed", func(t *testing.T) {
-			candidates, _, _, err := env.svc.CoverCandidates(ctx, g.ID(), "PS4")
+			candidates, _, _, err := env.svc.Covers.CoverCandidates(ctx, g.ID(), "PS4")
 			require.NoError(t, err)
 
 			t.Run("THEN it is asked once, its box first, then the fallback-only provider's", func(t *testing.T) {
@@ -318,7 +314,7 @@ func TestGameQuery_browse(t *testing.T) {
 		})
 
 		t.Run("WHEN its cover candidates are listed in the picker", func(t *testing.T) {
-			_, _, _, err := env.svc.CoverCandidates(ctx, g.ID(), "PS4")
+			_, _, _, err := env.svc.Covers.CoverCandidates(ctx, g.ID(), "PS4")
 			require.NoError(t, err)
 
 			t.Run("THEN the providers are asked to browse", func(t *testing.T) {
@@ -327,7 +323,7 @@ func TestGameQuery_browse(t *testing.T) {
 		})
 
 		t.Run("WHEN its cover is resolved automatically", func(t *testing.T) {
-			_, err := env.svc.EditionCover(ctx, g.ID(), "PS4")
+			_, err := env.svc.Covers.EditionCover(ctx, g.ID(), "PS4")
 			require.NoError(t, err)
 
 			t.Run("THEN the providers are not asked to browse", func(t *testing.T) {
@@ -353,8 +349,8 @@ func TestCovers_fallbackMisses(t *testing.T) {
 		g := saveGame(t, ctx, env.games, "Console Quest", nil, console)
 
 		t.Run("WHEN the cover is asked twice", func(t *testing.T) {
-			_, err1 := env.svc.EditionCover(ctx, g.ID(), "PS4")
-			_, err2 := env.svc.EditionCover(ctx, g.ID(), "PS4")
+			_, err1 := env.svc.Covers.EditionCover(ctx, g.ID(), "PS4")
+			_, err2 := env.svc.Covers.EditionCover(ctx, g.ID(), "PS4")
 
 			t.Run("THEN the fallback provider, which truly answered none, is asked only once", func(t *testing.T) {
 				require.ErrorIs(t, err1, media.ErrNoCover)
@@ -370,10 +366,10 @@ func TestCovers_fallbackMisses(t *testing.T) {
 		})
 
 		t.Run("WHEN the providers are reconfigured (retry missing covers)", func(t *testing.T) {
-			_, err := env.svc.RefreshCovers(ctx, true)
+			_, err := env.svc.Covers.RefreshCovers(ctx, true)
 			require.NoError(t, err)
 
-			_, _ = env.svc.EditionCover(ctx, g.ID(), "PS4")
+			_, _ = env.svc.Covers.EditionCover(ctx, g.ID(), "PS4")
 
 			t.Run("THEN the fallback provider is asked again", func(t *testing.T) {
 				assert.Equal(t, int32(2), env.perGame.calls.Load())
@@ -387,7 +383,7 @@ func TestCovers_fallbackMisses(t *testing.T) {
 		g := saveGame(t, ctx, env.games, "Console Quest", nil, console)
 
 		t.Run("WHEN the cover is asked", func(t *testing.T) {
-			_, err := env.svc.EditionCover(ctx, g.ID(), "PS4")
+			_, err := env.svc.Covers.EditionCover(ctx, g.ID(), "PS4")
 
 			t.Run("THEN no miss is remembered: the next view asks again", func(t *testing.T) {
 				require.ErrorIs(t, err, media.ErrNoCover)
@@ -413,11 +409,11 @@ func TestCovers_fallbackMisses(t *testing.T) {
 			Platform: "Steam",
 		})
 
-		_, err := env.svc.EditionCover(ctx, base.ID(), game.SystemPC)
+		_, err := env.svc.Covers.EditionCover(ctx, base.ID(), game.SystemPC)
 		require.NoError(t, err)
 
 		t.Run("WHEN its cover is asked", func(t *testing.T) {
-			img, err := env.svc.EditionCover(ctx, add.ID(), game.SystemPC)
+			img, err := env.svc.Covers.EditionCover(ctx, add.ID(), game.SystemPC)
 
 			t.Run("THEN it borrows the base game's before any fallback search", func(t *testing.T) {
 				assert.Equal(t, "https://img.test/store-10", cover(t, img, err))
@@ -441,7 +437,7 @@ func TestCovers_pcBoxForConsoleOnlyGames(t *testing.T) {
 		g := saveGame(t, ctx, env.games, "Console Quest", game.Links{"psn": "PPSA0001", game.LinkSteam: "100"}, ps4)
 
 		t.Run("WHEN its PC box is asked", func(t *testing.T) {
-			img, err := env.svc.EditionCover(ctx, g.ID(), game.SystemPC)
+			img, err := env.svc.Covers.EditionCover(ctx, g.ID(), game.SystemPC)
 
 			t.Run("THEN the PC store's art is served, and neither the box art database nor the fallback providers are asked", func(t *testing.T) {
 				assert.Equal(t, "https://img.test/store-100", cover(t, img, err))
@@ -456,7 +452,7 @@ func TestCovers_pcBoxForConsoleOnlyGames(t *testing.T) {
 		g := saveGame(t, ctx, env.games, "Console Quest", game.Links{"psn": "PPSA0002"}, ps4)
 
 		t.Run("WHEN its PC box is asked", func(t *testing.T) {
-			_, err := env.svc.EditionCover(ctx, g.ID(), game.SystemPC)
+			_, err := env.svc.Covers.EditionCover(ctx, g.ID(), game.SystemPC)
 
 			t.Run("THEN there is none, and nothing is asked", func(t *testing.T) {
 				require.ErrorIs(t, err, media.ErrNoCover)
@@ -501,7 +497,7 @@ func TestCovers_pcBoxMisses(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	setup := func(t *testing.T) (*media.Service, game.Repository, *gamedata.Store, *missingStore, *perGameArt) {
+	setup := func(t *testing.T) (*media.Services, game.Repository, *gamedata.Store, *missingStore, *perGameArt) {
 		t.Helper()
 
 		db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "gamevault.db"), "")
@@ -512,8 +508,7 @@ func TestCovers_pcBoxMisses(t *testing.T) {
 		require.NoError(t, err)
 
 		games, store, perGame := sqlite.NewGameRepository(db), &missingStore{}, &perGameArt{}
-		svc := media.NewService(games, sqlite.NewProviderRepository(db), assets, nil, nil, echo{}, time.Now,
-			slog.New(slog.NewTextHandler(io.Discard, nil)), media.Providers{Covers: []media.CoverProvider{store, perGame}})
+		svc := newServices(db, games, assets, echo{}, []providers.Provider{store, perGame})
 
 		return svc, games, assets, store, perGame
 	}
@@ -526,8 +521,8 @@ func TestCovers_pcBoxMisses(t *testing.T) {
 		})
 
 		t.Run("WHEN its PC box is asked twice", func(t *testing.T) {
-			_, err1 := svc.EditionCover(ctx, g.ID(), game.SystemPC)
-			_, err2 := svc.EditionCover(ctx, g.ID(), game.SystemPC)
+			_, err1 := svc.Covers.EditionCover(ctx, g.ID(), game.SystemPC)
+			_, err2 := svc.Covers.EditionCover(ctx, g.ID(), game.SystemPC)
 
 			t.Run("THEN the miss is marked under PC and the second answer comes from the marker", func(t *testing.T) {
 				require.ErrorIs(t, err1, media.ErrNoCover)
@@ -554,7 +549,7 @@ func TestCovers_pcBoxMisses(t *testing.T) {
 		})
 
 		t.Run("WHEN its PC cover is asked", func(t *testing.T) {
-			img, err := svc.EditionCover(ctx, g.ID(), game.SystemPC)
+			img, err := svc.Covers.EditionCover(ctx, g.ID(), game.SystemPC)
 
 			t.Run("THEN the fallback pass still runs, as for any real edition", func(t *testing.T) {
 				assert.Equal(t, "https://img.test/per-game", cover(t, img, err))
@@ -582,7 +577,7 @@ func TestCovers_pcBoxMisses(t *testing.T) {
 			return games.Save(ctx, g)
 		}())
 
-		_, err := svc.EditionCover(ctx, base.ID(), game.SystemPC)
+		_, err := svc.Covers.EditionCover(ctx, base.ID(), game.SystemPC)
 		require.NoError(t, err)
 
 		add := saveGame(t, ctx, games, "Base Quest Soundtrack", game.Links{game.LinkSteam: "100"}, game.CopyDetails{
@@ -591,7 +586,7 @@ func TestCovers_pcBoxMisses(t *testing.T) {
 		})
 
 		t.Run("WHEN its PC box is asked", func(t *testing.T) {
-			_, err := svc.EditionCover(ctx, add.ID(), game.SystemPC)
+			_, err := svc.Covers.EditionCover(ctx, add.ID(), game.SystemPC)
 
 			t.Run("THEN it does not borrow the base game's: a PC box is the store's art, or none", func(t *testing.T) {
 				require.ErrorIs(t, err, media.ErrNoCover)

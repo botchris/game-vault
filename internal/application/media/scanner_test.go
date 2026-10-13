@@ -32,25 +32,23 @@ func recordedRhythm(random float64, waits int, cancel context.CancelFunc) (unatt
 	}, &got
 }
 
-func TestRunDetailsScanner_jitter(t *testing.T) {
+func TestRunScanner_jitter(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
 	t.Run("GIVEN a Steam game without details and a random source that always draws 0.75", func(t *testing.T) {
-		env := newDetailsEnv(t, ctx, time.Now, &media.GameDetails{Summary: "A PC classic."})
+		scanCtx, stop := context.WithCancel(ctx)
+		defer stop()
+
+		rhythm, waits := recordedRhythm(0.75, 3, stop)
+		env := newDetailsEnv(t, ctx, time.Now, &media.GameDetails{Summary: "A PC classic."}, media.WithRhythm(rhythm))
 		saveGame(t, ctx, env.games, "PC Classic", game.Links{game.LinkSteam: "10"}, game.CopyDetails{
 			Kind:     game.KindLibrary,
 			Platform: "Steam",
 		})
 
-		scanCtx, stop := context.WithCancel(ctx)
-		defer stop()
-
-		rhythm, waits := recordedRhythm(0.75, 3, stop)
-		env.svc.SetRhythm(rhythm)
-
 		t.Run("WHEN the scanner runs one round with a 2 s pause", func(t *testing.T) {
-			env.svc.RunDetailsScanner(scanCtx, 2*time.Second)
+			env.svc.Details.RunScanner(scanCtx, 2*time.Second)
 
 			t.Run("THEN no wait is the fixed value: each is drawn within its range", func(t *testing.T) {
 				assert.Equal(t, []time.Duration{
@@ -67,21 +65,19 @@ func TestRunDetailsScanner_jitter(t *testing.T) {
 	})
 
 	t.Run("GIVEN a linked PS4 disc whose only details provider fails", func(t *testing.T) {
-		env := newDetailsEnv(t, ctx, time.Now, nil)
+		scanCtx, stop := context.WithCancel(ctx)
+		defer stop()
+
+		rhythm, waits := recordedRhythm(0.75, 2, stop)
+		env := newDetailsEnv(t, ctx, time.Now, nil, media.WithRhythm(rhythm))
 		env.quota.failing.Store(true)
 		saveGame(t, ctx, env.games, "Console Quest", game.Links{"playstation": "PPSA0001"}, game.CopyDetails{
 			Kind:     game.KindPhysical,
 			Platform: "PS4",
 		})
 
-		scanCtx, stop := context.WithCancel(ctx)
-		defer stop()
-
-		rhythm, waits := recordedRhythm(0.75, 2, stop)
-		env.svc.SetRhythm(rhythm)
-
 		t.Run("WHEN the scanner reaches it", func(t *testing.T) {
-			env.svc.RunDetailsScanner(scanCtx, 2*time.Second)
+			env.svc.Details.RunScanner(scanCtx, 2*time.Second)
 
 			t.Run("THEN it backs off for a minute ±20%, not exactly a minute", func(t *testing.T) {
 				require.Len(t, *waits, 2)

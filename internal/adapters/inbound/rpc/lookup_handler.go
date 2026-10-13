@@ -42,7 +42,7 @@ func gameRefsToPB(in []media.GameRef) []*pb.GameRef {
 
 // IdentifyBarcode identifies a physical game from its barcode.
 func (h *MediaHandler) IdentifyBarcode(ctx context.Context, req *connect.Request[pb.IdentifyBarcodeRequest]) (*connect.Response[pb.IdentifyBarcodeResponse], error) {
-	res, err := h.media.IdentifyBarcode(ctx, req.Msg.Barcode)
+	res, err := h.identifier.IdentifyBarcode(ctx, req.Msg.Barcode)
 	if err != nil {
 		return nil, toConnectError(err)
 	}
@@ -81,7 +81,7 @@ func (h *MediaHandler) IdentifyBarcode(ctx context.Context, req *connect.Request
 
 // SuggestGames proposes games matching a partial title, for quick registration.
 func (h *MediaHandler) SuggestGames(ctx context.Context, req *connect.Request[pb.SuggestGamesRequest]) (*connect.Response[pb.SuggestGamesResponse], error) {
-	res, err := h.media.SuggestGames(ctx, req.Msg.Title, req.Msg.Platform)
+	res, err := h.identifier.SuggestGames(ctx, req.Msg.Title, req.Msg.Platform)
 	if err != nil {
 		return nil, toConnectError(err)
 	}

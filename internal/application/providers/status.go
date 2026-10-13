@@ -1,4 +1,4 @@
-package media
+package providers
 
 import (
 	"cmp"
@@ -12,7 +12,7 @@ import (
 	"gamevault/internal/domain/provider"
 )
 
-// StatusKind is the kind of temporary, provider-level problem a ProviderStatus reports.
+// StatusKind is the kind of temporary, provider-level problem a Status reports.
 type StatusKind string
 
 // Values of StatusKind.
@@ -29,9 +29,9 @@ const (
 	statusOtherFor       = time.Hour
 )
 
-// ProviderStatus is a provider's current problem: one that concerns the provider, not a game, so the
+// Status is a provider's current problem: one that concerns the provider, not a game, so the
 // System and Providers pages show it instead of every game sheet.
-type ProviderStatus struct {
+type Status struct {
 	// Provider names the service: its settings group, or its id when it has none.
 	Provider provider.ID
 
@@ -55,7 +55,7 @@ type ProviderStatus struct {
 // statuses keeps the providers' current problems in memory, by service.
 type statuses struct {
 	mu      sync.Mutex
-	entries map[provider.ID]ProviderStatus
+	entries map[provider.ID]Status
 }
 
 // statusKey names the service a provider belongs to.
@@ -67,26 +67,14 @@ func statusKey(d provider.Descriptor) provider.ID {
 	return d.ID
 }
 
-// ProviderLevel reports whether err is a problem of the provider rather than of a game: a rate limit
-// (busy, quota, outage) or rejected settings. Those are reported in the provider's status, not on
-// game sheets, in the cover picker or as a copy's price warning.
-func ProviderLevel(err error) bool {
-	return errors.Is(err, provider.ErrRateLimited) || errors.Is(err, provider.ErrBadSettings)
-}
-
-// ReportResult records what a provider's answer to a caller outside this service (the valuation
-// service asking its price providers) says about the provider, as noteResult does for the
-// service's own calls.
-func (s *Service) ReportResult(id provider.ID, err error) { s.noteResult(id, err) }
-
-// noteResult records what a provider's answer says about the provider: a provider-level problem sets
+// ReportResult records what a provider's answer says about the provider: a provider-level problem sets
 // its status, a successful answer clears it, and any other error (a failure for one game) leaves it.
 // Providers answer success only when they did reach the service (one without its settings returns
 // provider.ErrBadSettings, not an empty answer), so a sibling that sent nothing never clears a
 // status. Answers are recorded as they arrive, not in request order: a slow request sent with the
 // old settings that ends after new ones were saved can set "settings" again, until the next answer.
-func (s *Service) noteResult(id provider.ID, err error) {
-	impl, ok := s.impls[id]
+func (r *Registry) ReportResult(id provider.ID, err error) {
+	impl, ok := r.impls[id]
 	if !ok {
 		return
 	}
@@ -94,11 +82,11 @@ func (s *Service) noteResult(id provider.ID, err error) {
 	d := impl.Descriptor()
 	key := statusKey(d)
 
-	s.status.mu.Lock()
-	defer s.status.mu.Unlock()
+	r.status.mu.Lock()
+	defer r.status.mu.Unlock()
 
 	if err == nil {
-		delete(s.status.entries, key)
+		delete(r.status.entries, key)
 		return
 	}
 
@@ -106,8 +94,8 @@ func (s *Service) noteResult(id provider.ID, err error) {
 		return
 	}
 
-	now := s.now()
-	st := ProviderStatus{
+	now := r.now()
+	st := Status{
 		Provider: key,
 		Name:     d.Name,
 		Message:  err.Error(),
@@ -125,20 +113,20 @@ func (s *Service) noteResult(id provider.ID, err error) {
 		st.Kind, st.Until = StatusRateLimited, now.Add(statusRateLimitedFor)
 	}
 
-	var r provider.Resumer
-	if errors.As(err, &r) && r.ResumesAt().After(now) {
-		st.Until = r.ResumesAt()
+	var resumer provider.Resumer
+	if errors.As(err, &resumer) && resumer.ResumesAt().After(now) {
+		st.Until = resumer.ResumesAt()
 	}
 
-	if prev, ok := s.status.entries[key]; ok && prev.Kind == st.Kind && now.Before(prev.Until) {
+	if prev, ok := r.status.entries[key]; ok && prev.Kind == st.Kind && now.Before(prev.Until) {
 		st.Since = prev.Since // the same problem going on
 	}
 
-	if s.status.entries == nil {
-		s.status.entries = map[provider.ID]ProviderStatus{}
+	if r.status.entries == nil {
+		r.status.entries = map[provider.ID]Status{}
 	}
 
-	s.status.entries[key] = st
+	r.status.entries[key] = st
 }
 
 // forget drops a service's status.
@@ -149,25 +137,25 @@ func (st *statuses) forget(key provider.ID) {
 	delete(st.entries, key)
 }
 
-// ProviderStatuses returns the providers' current problems, by name.
-func (s *Service) ProviderStatuses() []ProviderStatus {
-	now := s.now()
+// Statuses returns the providers' current problems, by name.
+func (r *Registry) Statuses() []Status {
+	now := r.now()
 
-	s.status.mu.Lock()
-	defer s.status.mu.Unlock()
+	r.status.mu.Lock()
+	defer r.status.mu.Unlock()
 
-	out := make([]ProviderStatus, 0, len(s.status.entries))
+	out := make([]Status, 0, len(r.status.entries))
 
-	for key, st := range s.status.entries {
+	for key, st := range r.status.entries {
 		if !now.Before(st.Until) {
-			delete(s.status.entries, key)
+			delete(r.status.entries, key)
 			continue
 		}
 
 		st.Providers = nil
 
-		for _, id := range s.order {
-			if statusKey(s.impls[id].Descriptor()) == key {
+		for _, id := range r.order {
+			if statusKey(r.impls[id].Descriptor()) == key {
 				st.Providers = append(st.Providers, id)
 			}
 		}
@@ -176,7 +164,7 @@ func (s *Service) ProviderStatuses() []ProviderStatus {
 	}
 
 	// Services may share a name (Steam's covers and details): the id keeps the order stable.
-	slices.SortFunc(out, func(a, b ProviderStatus) int {
+	slices.SortFunc(out, func(a, b Status) int {
 		return cmp.Or(cmp.Compare(a.Name, b.Name), cmp.Compare(a.Provider, b.Provider))
 	})
 
@@ -186,8 +174,8 @@ func (s *Service) ProviderStatuses() []ProviderStatus {
 // Issues implements health.Check: the providers' current problems. Rejected settings are an error
 // (the provider stays useless until they are fixed); a used-up allowance, a rate limit or an outage a
 // warning (it ends on its own).
-func (s *Service) Issues(context.Context) []health.Issue {
-	statuses := s.ProviderStatuses()
+func (r *Registry) Issues(context.Context) []health.Issue {
+	statuses := r.Statuses()
 	out := make([]health.Issue, 0, len(statuses))
 
 	for _, st := range statuses {

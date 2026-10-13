@@ -53,7 +53,7 @@ func (d *Details) Descriptor() provider.Descriptor {
 	}
 }
 
-// Test implements media.Provider: it checks the shared API key and its allowance, exactly as the
+// Test implements providers.Provider: it checks the shared API key and its allowance, exactly as the
 // cover provider does, because both use the same key.
 func (d *Details) Test(ctx context.Context, s schema.Settings) error { return d.p.Test(ctx, s) }
 

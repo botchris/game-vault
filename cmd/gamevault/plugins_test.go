@@ -23,6 +23,7 @@ import (
 	"gamevault/internal/adapters/outbound/wikipedia"
 	"gamevault/internal/adapters/outbound/xbox"
 	"gamevault/internal/application/media"
+	"gamevault/internal/application/plugin"
 	"gamevault/internal/application/plugin/plugintest"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
@@ -169,7 +170,7 @@ func TestCoverProviders_appliesBySystem(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("THEN each store's provider is in the table below", func(t *testing.T) {
-			for _, p := range plugins.Media().Covers {
+			for _, p := range coversOf(plugins) {
 				if id := p.Descriptor().ID; id != thegamesdb.ID {
 					assert.Contains(t, providers, id)
 				}
@@ -194,7 +195,7 @@ func TestMetadataChain_defaultOrder(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("WHEN they are put in their default order", func(t *testing.T) {
-			chain := plugins.Media().Metadata
+			chain := metadataOf(plugins)
 			slices.SortStableFunc(chain, func(a, b media.MetadataProvider) int {
 				return cmp.Compare(a.Descriptor().DefaultOrder, b.Descriptor().DefaultOrder)
 			})
@@ -219,7 +220,7 @@ func TestCoverProviders_pcStoreLinks(t *testing.T) {
 		plugins, err := newPlugins(slog.New(slog.NewTextHandler(io.Discard, nil)))
 		require.NoError(t, err)
 
-		for _, p := range plugins.Media().Covers {
+		for _, p := range coversOf(plugins) {
 			linker, ok := p.(media.StoreLinker)
 			if !ok {
 				continue
@@ -249,26 +250,14 @@ func TestPlugins_linkKeysAreTheDomains(t *testing.T) {
 		plugins, err := newPlugins(slog.New(slog.NewTextHandler(io.Discard, nil)))
 		require.NoError(t, err)
 
-		m := plugins.Media()
-		linkers := make([]any, 0, len(plugins.Sources())+len(m.Covers)+len(m.Metadata)+len(m.Barcodes)+len(m.Valuations))
+		all := plugins.Providers()
+		linkers := make([]any, 0, len(plugins.Sources())+len(all))
 
 		for _, s := range plugins.Sources() {
 			linkers = append(linkers, s)
 		}
 
-		for _, p := range m.Covers {
-			linkers = append(linkers, p)
-		}
-
-		for _, p := range m.Metadata {
-			linkers = append(linkers, p)
-		}
-
-		for _, p := range m.Barcodes {
-			linkers = append(linkers, p)
-		}
-
-		for _, p := range m.Valuations {
+		for _, p := range all {
 			linkers = append(linkers, p)
 		}
 
@@ -291,4 +280,24 @@ func TestPlugins_linkKeysAreTheDomains(t *testing.T) {
 			assert.NotZero(t, seen)
 		})
 	})
+}
+
+// coversOf returns the cover providers of every plugin, in registration order.
+func coversOf(r *plugin.Registry) []media.CoverProvider {
+	var out []media.CoverProvider
+	for _, p := range r.Plugins() {
+		out = append(out, p.Covers...)
+	}
+
+	return out
+}
+
+// metadataOf returns the metadata providers of every plugin, in registration order.
+func metadataOf(r *plugin.Registry) []media.MetadataProvider {
+	var out []media.MetadataProvider
+	for _, p := range r.Plugins() {
+		out = append(out, p.Metadata...)
+	}
+
+	return out
 }
