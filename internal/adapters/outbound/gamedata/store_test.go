@@ -3,12 +3,10 @@ package gamedata
 import (
 	"os"
 	"path/filepath"
-	"slices"
 	"testing"
 	"time"
 
 	"gamevault/internal/application/media"
-	"gamevault/internal/domain/game"
 )
 
 var jpg = media.Image{
@@ -93,74 +91,5 @@ func TestLayoutRenameAndPrune(t *testing.T) {
 
 	if entries, _ := os.ReadDir(root); len(entries) != 0 {
 		t.Fatalf("game folder not deleted: %v", entries)
-	}
-}
-
-func TestMigrateLegacyCovers(t *testing.T) {
-	root, legacy := t.TempDir(), t.TempDir()
-	os.WriteFile(filepath.Join(legacy, "019a-1.jpg"), jpg.Data, 0o644)
-	os.WriteFile(filepath.Join(legacy, "019a-2.missing"), []byte(time.Now().UTC().Format(time.RFC3339)), 0o644)
-	os.WriteFile(filepath.Join(legacy, "019a-gone.jpg"), jpg.Data, 0o644) // game deleted meanwhile
-
-	s, _ := Open(root)
-
-	n, err := s.MigrateLegacyCovers(legacy, map[game.ID]string{"019a-1": "Portal 2", "019a-2": "Big Rigs"})
-	if err != nil || n != 2 {
-		t.Fatalf("migrated %d, %v", n, err)
-	}
-
-	if !s.HasLegacyCover("019a-1") || !s.HasLegacyCover("019a-2") {
-		t.Fatal("a migrated cover or missing marker is a cover from before editions")
-	}
-
-	if s.HasLegacyCover("019a-new") {
-		t.Fatal("a game without a folder has no cover from before editions")
-	}
-
-	if _, ok, _ := s.AdoptLegacyCover(media.GameRef{
-		ID:    "019a-1",
-		Title: "Portal 2",
-	}, "PS3"); !ok {
-		t.Fatal("cover not migrated")
-	}
-
-	if s.HasLegacyCover("019a-1") {
-		t.Fatal("an adopted cover is no longer a cover from before editions")
-	}
-
-	if _, err := os.Stat(filepath.Join(root, "Big Rigs [019a-2]", "cover.missing")); err != nil {
-		t.Fatalf("missing marker not migrated: %v", err)
-	}
-
-	if _, err := os.Stat(legacy); !os.IsNotExist(err) {
-		t.Fatal("empty legacy directory must be removed")
-	}
-}
-
-func TestStore_legacyCoverIDs(t *testing.T) {
-	root := t.TempDir()
-
-	for dir, file := range map[string]string{
-		"Portal 2 [019a-1]": "cover.jpg",
-		"Big Rigs [019a-2]": "cover.missing",
-		"Halo 3 [019a-3]":   "cover-ps3-1a2b3c4d.jpg",
-	} {
-		if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {
-			t.Fatal(err)
-		}
-
-		if err := os.WriteFile(filepath.Join(root, dir, file), jpg.Data, 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	s, err := Open(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	got := s.LegacyCoverIDs()
-	if want := []game.ID{"019a-1", "019a-2"}; !slices.Equal(got, want) {
-		t.Fatalf("games with a cover from before editions: %v, want %v", got, want)
 	}
 }

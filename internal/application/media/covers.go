@@ -209,19 +209,11 @@ func coverEdition(g *game.Game, system string) (edition game.Edition, virtual, o
 	return game.Edition{}, false, false
 }
 
-// chosen returns the image already decided for the edition, and whether there is one: the cover
-// cached before editions (main edition only), then a photo of the user's own copy, then a cover the
-// user picked or pasted. A chosen image that cannot be had any more falls back to the providers.
+// chosen returns the image already decided for the edition, and whether there is one: a photo of
+// the user's own copy, then a cover the user picked or pasted. A chosen image that cannot be had any
+// more falls back to the providers.
 func (c *Covers) chosen(ctx context.Context, g *game.Game, ref GameRef, edition game.Edition) (Image, bool, error) {
 	system := edition.System
-	if system == g.MainEdition().System {
-		img, ok, err := c.adoptLegacyCover(g, ref, edition)
-		if err != nil {
-			c.log.Warn("settling the cover cached before editions", "game", g.Title(), "error", err)
-		} else if ok {
-			return img, true, nil
-		}
-	}
 
 	// A photo of the user's own copy chosen as the cover wins over everything.
 	if id := edition.Cover.Photo; id != "" {
@@ -248,28 +240,6 @@ func (c *Covers) chosen(ctx context.Context, g *game.Game, ref GameRef, edition 
 	}
 
 	return Image{}, false, nil
-}
-
-// adoptLegacyCover makes the cover cached before editions the main edition's, and reports whether
-// there was one. That file was resolved for the whole game, so it may show another system's box:
-// it is only adopted when it can only be this edition's (the game has at most one system) or when
-// it came from the cover the user chose, which went to this edition. Otherwise it is deleted and
-// the edition resolves its own.
-func (c *Covers) adoptLegacyCover(g *game.Game, ref GameRef, main game.Edition) (Image, bool, error) {
-	if len(g.Systems()) > 1 && main.Cover.IsZero() {
-		if err := c.store.DeleteLegacyCover(g.ID()); err != nil {
-			return Image{}, false, fmt.Errorf("deleting: %w", err)
-		}
-
-		return Image{}, false, nil
-	}
-
-	img, ok, err := c.store.AdoptLegacyCover(ref, main.System)
-	if err != nil {
-		return Image{}, false, fmt.Errorf("adopting: %w", err)
-	}
-
-	return img, ok, nil
 }
 
 // rememberMissing marks the edition without cover when a provider was asked, and queues the game for

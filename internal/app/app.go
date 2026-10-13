@@ -55,17 +55,11 @@ type Plugins interface {
 	Valuations() []valuation.Provider
 }
 
-// App is Game Vault built: the HTTP handler, and the services and stores the server still needs to
-// start the background jobs and run the start-up chores.
+// App is Game Vault built: the HTTP handler, and the services the server still needs to start the
+// background jobs.
 type App struct {
 	// Handler serves the API, the media endpoints and the web UI.
 	Handler http.Handler
-
-	// Games is the catalog's repository.
-	Games *sqlite.GameRepository
-
-	// Assets is the folder of downloaded game images.
-	Assets *gamedata.Store
 
 	// Sync scans the sources and keeps their sessions alive.
 	Sync *sync.Service
@@ -244,8 +238,6 @@ func Build(ctx context.Context, cfg config.Config, db *sqlite.DB, logFiles *logf
 
 	return &App{
 		Handler:   handler,
-		Games:     games,
-		Assets:    assets,
 		Sync:      syncSvc,
 		Valuation: valuationSvc,
 		Media:     mediaSvcs,

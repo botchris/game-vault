@@ -52,9 +52,6 @@ func (c Config) GameDataDir() string { return filepath.Join(c.ConfigDir, "game-d
 // PhotosDir holds the photos users upload of their copies (see photostore).
 func (c Config) PhotosDir() string { return filepath.Join(c.ConfigDir, "photos") }
 
-// LegacyCoverDir is where versions before game-data kept covers; migrated on start.
-func (c Config) LegacyCoverDir() string { return filepath.Join(c.ConfigDir, "covers") }
-
 func env(key, def string) string {
 	if v, ok := os.LookupEnv(key); ok {
 		return v

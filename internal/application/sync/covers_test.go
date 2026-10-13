@@ -57,8 +57,6 @@ func (c *covers) Invalidate(_ context.Context, id game.ID) error {
 	return nil
 }
 
-func (c *covers) DropLegacyCover(context.Context, game.ID) error { return nil }
-
 func (c *covers) InvalidateEdition(_ context.Context, id game.ID, system string) error {
 	c.editions = append(c.editions, string(id)+"|"+system)
 	return nil
