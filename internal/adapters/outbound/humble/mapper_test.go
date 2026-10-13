@@ -1,8 +1,10 @@
 package humble
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -132,16 +134,16 @@ func TestMapOrders_nonGameKeys(t *testing.T) {
 	})
 }
 
-func TestSkippedWarnings(t *testing.T) {
+func TestSkippedKeys(t *testing.T) {
 	t.Run("GIVEN a scan that skipped three keys that are not games", func(t *testing.T) {
-		t.Run("THEN they are counted in one warning", func(t *testing.T) {
-			assert.Equal(t, []string{"3 Humble Bundle items were not imported: software, courses, in-game items and store coupons"}, skippedWarnings(3))
-		})
-	})
+		t.Run("WHEN they are logged", func(t *testing.T) {
+			var logs bytes.Buffer
 
-	t.Run("GIVEN a scan that skipped nothing", func(t *testing.T) {
-		t.Run("THEN there is no warning", func(t *testing.T) {
-			assert.Empty(t, skippedWarnings(0))
+			skippedKeys(3).Log(slog.New(slog.NewTextHandler(&logs, nil)))
+
+			t.Run("THEN one line counts them", func(t *testing.T) {
+				assert.Contains(t, logs.String(), `store="Humble Bundle" reason="software, courses, in-game items and store coupons" count=3`)
+			})
 		})
 	})
 }

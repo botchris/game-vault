@@ -1,10 +1,12 @@
 package epic
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -180,13 +182,18 @@ func TestPrepareTestAndFetch(t *testing.T) {
 		t.Fatalf("test: %v", err)
 	}
 
+	var logs bytes.Buffer
+
+	p.log = slog.New(slog.NewTextHandler(&logs, nil))
+
 	copies, warnings, err := p.Fetch(ctx, settings)
 	if err != nil {
 		t.Fatalf("fetch: %v", err)
 	}
 
-	// The library's DLC is left out and counted.
-	assert.Equal(t, []string{"1 Epic Games Store item was not imported: DLC, add-ons and applications"}, warnings)
+	// The library's DLC is left out and counted in the log, not in a warning on every scan.
+	assert.Empty(t, warnings)
+	assert.Contains(t, logs.String(), `reason="DLC, add-ons and applications" count=1`)
 
 	titles := make([]string, 0, len(copies))
 	for _, c := range copies {

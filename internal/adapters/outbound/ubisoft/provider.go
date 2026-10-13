@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"slices"
@@ -146,6 +147,9 @@ func hash(s string) string {
 // oauthsession's: the ticket is not an OAuth refresh token (no code, no access token lifetime), and
 // the pasted ticket and session id are tried before spending it.
 type Provider struct {
+	// log receives what a scan skips on purpose (WithLogger).
+	log *slog.Logger
+
 	// API calls Ubisoft's public gateway (sign-in and library); tests point it at a fake server.
 	API *apiclient.Client
 
@@ -166,16 +170,21 @@ type cached struct {
 const sessionTTL = time.Hour
 
 // NewProvider returns the Ubisoft Connect source with its production endpoints.
-func NewProvider() *Provider {
+func NewProvider(opts ...Option) *Provider {
 	// The gateway serves the session of the user's browser, so requests look like that browser.
 	api := apiclient.New(defaultAPIURL)
 	api.HTTP.Timeout = 30 * time.Second
 	api.UserAgent = apiclient.BrowserUserAgent
 
-	return &Provider{
+	p := &Provider{
 		API: api,
 		Now: time.Now,
 	}
+	for _, opt := range opts {
+		opt(p)
+	}
+
+	return p
 }
 
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
@@ -517,8 +526,8 @@ func onPC(n node) bool {
 }
 
 // mapNodes turns owned games into copies, one per game; console games linked to the account are
-// left out (they are not in the Ubisoft Connect library) and counted in the warnings it returns.
-func mapNodes(nodes []node) ([]game.ImportedCopy, []string) {
+// left out (they are not in the Ubisoft Connect library) and counted in the Skipped it returns.
+func mapNodes(nodes []node) ([]game.ImportedCopy, source.Skipped) {
 	seen := map[string]bool{}
 	skipped := source.Skipped{Store: "Ubisoft"}
 
@@ -558,7 +567,7 @@ func mapNodes(nodes []node) ([]game.ImportedCopy, []string) {
 
 	sort.Slice(out, func(i, j int) bool { return out[i].Title < out[j].Title })
 
-	return out, skipped.Warnings()
+	return out, skipped
 }
 
 // Test implements sync.Provider: it opens (or reuses) a session and sends the request of a scan's
@@ -578,10 +587,22 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 		return nil, nil, err
 	}
 
-	copies, warnings := mapNodes(nodes)
+	copies, skipped := mapNodes(nodes)
+	skipped.Log(p.log)
+
+	var warnings []string
 	if len(copies) == 0 {
 		warnings = append(warnings, "Ubisoft returned no PC games for this account")
 	}
 
 	return copies, warnings, nil
+}
+
+// Option configures a Provider.
+type Option func(*Provider)
+
+// WithLogger sends what a scan skips on purpose (DLC, subscription games, what is not a game) to
+// log, one line per reason with its count. Without it nothing is logged.
+func WithLogger(log *slog.Logger) Option {
+	return func(p *Provider) { p.log = log }
 }

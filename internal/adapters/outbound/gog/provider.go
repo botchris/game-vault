@@ -13,6 +13,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -75,6 +76,9 @@ type session struct {
 
 // Provider implements sync.Provider and sync.Preparer for GOG accounts.
 type Provider struct {
+	// log receives what a scan skips on purpose (WithLogger).
+	log *slog.Logger
+
 	// Auth calls GOG's sign-in service (codes and tokens); tests point it at a fake server.
 	Auth *apiclient.Client
 
@@ -89,7 +93,7 @@ type Provider struct {
 }
 
 // NewProvider returns the GOG source with its production endpoints.
-func NewProvider() *Provider {
+func NewProvider(opts ...Option) *Provider {
 	p := &Provider{
 		Auth:  newClient(defaultAuthURL),
 		Embed: newClient(defaultEmbedURL),
@@ -105,6 +109,10 @@ func NewProvider() *Provider {
 		ErrNoCredentials: ErrNoCredentials,
 		ErrSignedOut:     ErrSignedOut,
 		Now:              func() time.Time { return p.Now() },
+	}
+
+	for _, opt := range opts {
+		opt(p)
 	}
 
 	return p
@@ -231,14 +239,15 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 		return nil, nil, err
 	}
 
-	copies, warnings := mapProducts(products)
+	copies, skipped := mapProducts(products)
+	skipped.Log(p.log)
 
-	return copies, warnings, nil
+	return copies, nil, nil
 }
 
 // mapProducts turns owned products into copies: games only (mediaType 1 already excludes movies;
-// one that slips through is counted in the warnings it returns).
-func mapProducts(products []product) ([]game.ImportedCopy, []string) {
+// one that slips through is counted in the Skipped it returns).
+func mapProducts(products []product) ([]game.ImportedCopy, source.Skipped) {
 	seen := map[int64]bool{}
 	skipped := source.Skipped{Store: Platform}
 
@@ -270,7 +279,7 @@ func mapProducts(products []product) ([]game.ImportedCopy, []string) {
 		})
 	}
 
-	return out, skipped.Warnings()
+	return out, skipped
 }
 
 // ---- OAuth ----
@@ -369,4 +378,13 @@ func (p *Provider) get(ctx context.Context, token, path string, q url.Values, ou
 	}
 
 	return fmt.Errorf("gog %s: %w", path, apiclient.ClassifyError(ctx, err))
+}
+
+// Option configures a Provider.
+type Option func(*Provider)
+
+// WithLogger sends what a scan skips on purpose (DLC, subscription games, what is not a game) to
+// log, one line per reason with its count. Without it nothing is logged.
+func WithLogger(log *slog.Logger) Option {
+	return func(p *Provider) { p.log = log }
 }

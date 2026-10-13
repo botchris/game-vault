@@ -3,6 +3,8 @@
 package itch
 
 import (
+	"log/slog"
+
 	"gamevault/internal/application/plugin"
 	"gamevault/internal/application/sync"
 	"gamevault/internal/domain/game"
@@ -16,10 +18,10 @@ var LinkedStore = game.Store{
 }
 
 // Plugin is the itch.io plugin: the games an itch.io account owns.
-func Plugin() plugin.Plugin {
+func Plugin(log *slog.Logger) plugin.Plugin {
 	return plugin.Plugin{
 		ID:      "itch",
 		Name:    "itch.io",
-		Sources: []sync.Provider{NewProvider()},
+		Sources: []sync.Provider{NewProvider(WithLogger(log))},
 	}
 }

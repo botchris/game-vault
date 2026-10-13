@@ -1,7 +1,9 @@
 package itch
 
 import (
+	"bytes"
 	"context"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -90,6 +92,10 @@ func TestProvider_Fetch(t *testing.T) {
 	t.Run("GIVEN an account whose keys span two pages and an empty one", func(t *testing.T) {
 		p := newTestProvider(t)
 
+		var logs bytes.Buffer
+
+		p.log = slog.New(slog.NewTextHandler(&logs, nil))
+
 		t.Run("WHEN it is scanned", func(t *testing.T) {
 			copies, warnings, err := p.Fetch(ctx, schema.Settings{settingAPIKey: " good-key "})
 			require.NoError(t, err)
@@ -119,9 +125,9 @@ func TestProvider_Fetch(t *testing.T) {
 				})
 			})
 
-			t.Run("AND assets and soundtracks are skipped with a warning", func(t *testing.T) {
-				require.Len(t, warnings, 1)
-				assert.Contains(t, warnings[0], "2 itch.io items")
+			t.Run("AND assets and soundtracks are skipped and counted in the log, not in a warning", func(t *testing.T) {
+				assert.Empty(t, warnings)
+				assert.Contains(t, logs.String(), `reason="tools, assets, soundtracks, books and other things that are not games" count=2`)
 			})
 		})
 	})

@@ -47,7 +47,7 @@ not registered, so it never shows up in Game Vault. It has the two pieces most s
 | File | What it shows |
 | --- | --- |
 | `plugin.go` | `Plugin()`, and the `LinkedStore` the source and the cover provider share |
-| `source.go` | A source: a token setting, `apiclient`, `Test`, `Fetch`, sentinel errors, skipping what is not an owned game, linking each game to the store, and counting what it skips (`source.Skipped`). `ImportedCopy.System` stays empty: a PC store's platform already says PC, and only a store that says more than its platform sets it (PlayStation, which names the console) |
+| `source.go` | A source: a token setting, `apiclient`, `Test`, `Fetch`, sentinel errors, skipping what is not an owned game, linking each game to the store, and counting what it skips in the log (`source.Skipped`, `WithLogger`). `ImportedCopy.System` stays empty: a PC store's platform already says PC, and only a store that says more than its platform sets it (PlayStation, which names the console) |
 | `covers.go` | A cover provider: `DefaultOrder`, `Applies` from the game's link, candidates best first, "unknown game" as no candidates, image hosts |
 | `plugin_test.go` | A fake store with its failures, GIVEN / WHEN / THEN tests, and `plugintest` |
 
@@ -72,11 +72,12 @@ The Fanatical plugin is a real, small one: one source, `apiclient`, a fake-serve
   `game.MatchKey`, which changes as matching improves (Battle.net, EA and CSV rows without
   `externalId` do this).
 - **Only import what the account owns**: skip subscriptions (Game Pass, PS Plus…), trials, and
-  what is not a game (DLC, software, vouchers), counting the skipped items in the scan's warnings
-  with a `source.Skipped` (one warning per reason: "3 Epic Games Store items were not imported:
-  DLC, add-ons and applications"), so a user can tell why a game they own is missing. An item
-  without a store id whose title gives no `game.TitleIDKey` either (a title with no Latin letters
-  or digits) is skipped and counted too: every such item would share one id.
+  what is not a game (DLC, software, vouchers), counting the skipped items with a
+  `source.Skipped` and writing it to the logger the plugin receives (`Plugin(log)`, the
+  provider's `WithLogger`): one line per reason with its count. These skips happen on every scan,
+  so they are never warnings. An item without a store id whose title gives no `game.TitleIDKey`
+  either (a title with no Latin letters or digits) is skipped too, but the user loses a game
+  there, so that count is a warning (`Skipped.Warnings`): every such item would share one id.
 - **Withdraw** what you imported by mistake: return the item with `Withdrawn: true` and the copy
   is removed on the next scan.
 - **Use the domain's names**: platforms, systems and link keys are constants in

@@ -1,7 +1,9 @@
 package example
 
 import (
+	"bytes"
 	"context"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -63,7 +65,7 @@ func TestPlugin_isComplete(t *testing.T) {
 		}
 
 		t.Run("THEN it passes the checks every plugin passes", func(t *testing.T) {
-			assert.Empty(t, plugintest.Problems(Plugin(), plugintest.Translations{"en": keys, "es": keys}))
+			assert.Empty(t, plugintest.Problems(Plugin(nil), plugintest.Translations{"en": keys, "es": keys}))
 		})
 	})
 }
@@ -73,7 +75,10 @@ func TestSource(t *testing.T) {
 	defer cancel()
 
 	srv := fakeStore(t)
-	p := NewProvider()
+
+	var logs bytes.Buffer
+
+	p := NewProvider(WithLogger(slog.New(slog.NewTextHandler(&logs, nil))))
 	p.API.BaseURL, p.API.HTTP = srv.URL, srv.Client()
 
 	t.Run("GIVEN an account with a game, a soundtrack and a refunded game", func(t *testing.T) {
@@ -90,9 +95,9 @@ func TestSource(t *testing.T) {
 				assert.Equal(t, game.KindLibrary, copies[0].Details.Kind)
 			})
 
-			t.Run("AND the other two are counted in a warning", func(t *testing.T) {
-				require.Len(t, warnings, 1)
-				assert.Contains(t, warnings[0], "2 Example Store items")
+			t.Run("AND the other two are counted in the log, not in a warning on every scan", func(t *testing.T) {
+				assert.Empty(t, warnings)
+				assert.Contains(t, logs.String(), `reason="DLC, soundtracks or no longer owned" count=2`)
 			})
 		})
 	})

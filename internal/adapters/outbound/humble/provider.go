@@ -119,21 +119,21 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 
 	copies, skipped, warnings := MapOrders(orders, time.Now())
 	if len(skipped) > 0 {
-		// The count is a warning, like every source's; the titles only go to the log.
-		p.logf("humble: skipped keys that are not games", "count", len(skipped), "titles", strings.Join(skipped, "; "))
+		skippedKeys(len(skipped)).Log(p.Log)
+		p.logf("humble: skipped keys that are not games", "titles", strings.Join(skipped, "; "))
 	}
 
-	return copies, append(warnings, skippedWarnings(len(skipped))...), nil
+	return copies, warnings, nil
 }
 
-// skippedWarnings counts the n keys that are not games in a warning.
-func skippedWarnings(n int) []string {
-	skipped := source.Skipped{Store: "Humble Bundle"}
+// skippedKeys counts the n keys that are not games.
+func skippedKeys(n int) *source.Skipped {
+	skipped := &source.Skipped{Store: "Humble Bundle"}
 	for range n {
 		skipped.Add("software, courses, in-game items and store coupons")
 	}
 
-	return skipped.Warnings()
+	return skipped
 }
 
 // get reads one of Humble's endpoints with the session cookie. A refusal or a redirect to the

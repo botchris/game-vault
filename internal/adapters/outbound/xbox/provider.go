@@ -15,6 +15,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -80,6 +81,9 @@ type session struct {
 
 // Provider implements sync.Provider and sync.Preparer for Xbox accounts.
 type Provider struct {
+	// log receives what a scan skips on purpose (WithLogger).
+	log *slog.Logger
+
 	// Live calls the Microsoft account service (codes and tokens); tests point it at a fake server.
 	Live *apiclient.Client
 
@@ -109,7 +113,7 @@ type Provider struct {
 }
 
 // NewProvider returns the Xbox / Microsoft Store source with its production endpoints.
-func NewProvider() *Provider {
+func NewProvider(opts ...Option) *Provider {
 	p := &Provider{
 		Live:        newClient(defaultLiveURL, 30*time.Second),
 		UserAuth:    newClient(defaultUserAuthURL, 30*time.Second),
@@ -130,6 +134,10 @@ func NewProvider() *Provider {
 		ErrNoCredentials: ErrNoCredentials,
 		ErrSignedOut:     ErrSignedOut,
 		Now:              func() time.Time { return p.Now() },
+	}
+
+	for _, opt := range opts {
+		opt(p)
 	}
 
 	return p
@@ -498,11 +506,11 @@ func (p *Provider) collections(ctx context.Context, settings schema.Settings, pa
 const notOwned = "Game Pass games, trials, add-ons and expired or revoked items"
 
 // owned reads the games the account owns: its entitlements, then their titles in the catalog. What
-// it leaves out is counted in the warnings it returns.
-func (p *Provider) owned(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, []string, error) {
+// it leaves out is counted in the Skipped it returns.
+func (p *Provider) owned(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, source.Skipped, error) {
 	ents, err := p.collections(ctx, settings, maxPages)
 	if err != nil {
-		return nil, nil, err
+		return nil, source.Skipped{}, err
 	}
 
 	var ids []string
@@ -531,7 +539,7 @@ func (p *Provider) owned(ctx context.Context, settings schema.Settings) ([]game.
 
 	products, err := catalog(ctx, p.Catalog, p.Market, p.Language, ids)
 	if err != nil {
-		return nil, nil, err
+		return nil, source.Skipped{}, err
 	}
 
 	var out []game.ImportedCopy
@@ -567,7 +575,7 @@ func (p *Provider) owned(ctx context.Context, settings schema.Settings) ([]game.
 
 	sort.Slice(out, func(i, j int) bool { return out[i].Title < out[j].Title })
 
-	return out, skipped.Warnings(), nil
+	return out, skipped, nil
 }
 
 // Test implements sync.Provider: it signs in to Xbox Live and sends the request of a scan's first
@@ -581,14 +589,26 @@ func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
 
 // Fetch implements sync.Provider.
 func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, []string, error) {
-	copies, warnings, err := p.owned(ctx, settings)
+	copies, skipped, err := p.owned(ctx, settings)
 	if err != nil {
 		return nil, nil, err
 	}
 
+	skipped.Log(p.log)
+
+	var warnings []string
 	if len(copies) == 0 {
 		warnings = append(warnings, "the Microsoft Store returned no games bought with this account (Game Pass games are not imported)")
 	}
 
 	return copies, warnings, nil
+}
+
+// Option configures a Provider.
+type Option func(*Provider)
+
+// WithLogger sends what a scan skips on purpose (DLC, subscription games, what is not a game) to
+// log, one line per reason with its count. Without it nothing is logged.
+func WithLogger(log *slog.Logger) Option {
+	return func(p *Provider) { p.log = log }
 }

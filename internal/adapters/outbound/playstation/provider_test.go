@@ -1,10 +1,12 @@
 package playstation
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -212,13 +214,18 @@ func TestFetch(t *testing.T) {
 	p, f := newTest(t)
 	settings := schema.Settings{settingNPSSO: `{"npsso":"good-npsso"}`}
 
+	var logs bytes.Buffer
+
+	p.Log = slog.New(slog.NewTextHandler(&logs, nil))
+
 	copies, warnings, err := p.Fetch(context.Background(), settings)
 	if err != nil {
 		t.Fatalf("fetch: %v", err)
 	}
 
-	// The PS Plus game is left out and counted.
-	assert.Equal(t, []string{"1 PlayStation item was not imported: PS Plus games"}, warnings)
+	// The PS Plus game is left out and counted in the log, not in a warning on every scan.
+	assert.Empty(t, warnings)
+	assert.Contains(t, logs.String(), `reason="PS Plus games" count=1`)
 
 	byTitle := map[string]string{}
 	for _, c := range copies {

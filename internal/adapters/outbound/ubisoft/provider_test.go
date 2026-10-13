@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -140,10 +141,15 @@ func TestFetchRotatesTheTicket(t *testing.T) {
 		t.Fatalf("second scan: %s", got)
 	}
 
-	// The console games linked to the account are left out and counted.
+	// The console games linked to the account are left out and counted in the log.
+	var logs bytes.Buffer
+
+	p.log = slog.New(slog.NewTextHandler(&logs, nil))
+
 	_, warnings, err := p.Fetch(context.Background(), settings)
 	require.NoError(t, err)
-	assert.Equal(t, []string{"48 Ubisoft items were not imported: console games, which are not in the Ubisoft Connect library"}, warnings)
+	assert.Empty(t, warnings)
+	assert.Contains(t, logs.String(), `reason="console games, which are not in the Ubisoft Connect library" count=48`)
 }
 
 func TestFallsBackToTheMinimalQuery(t *testing.T) {

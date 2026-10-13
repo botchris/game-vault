@@ -1,10 +1,12 @@
 package eaapp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -108,13 +110,18 @@ func TestFetch(t *testing.T) {
 	p := newTest(t)
 	settings := schema.Settings{settingCookies: "Cookie: sid=good; remid=r"}
 
+	var logs bytes.Buffer
+
+	p.log = slog.New(slog.NewTextHandler(&logs, nil))
+
 	copies, warnings, err := p.Fetch(context.Background(), settings)
 	if err != nil {
 		t.Fatalf("fetch: %v", err)
 	}
 
-	// The EA Play game is left out and counted.
-	assert.Equal(t, []string{"1 EA item was not imported: EA Play games"}, warnings)
+	// The EA Play game is left out and counted in the log, not in a warning on every scan.
+	assert.Empty(t, warnings)
+	assert.Contains(t, logs.String(), `reason="EA Play games" count=1`)
 
 	got := make([]string, 0, len(copies))
 	for _, c := range copies {
@@ -208,7 +215,7 @@ func TestMapItems_idWithoutProductID(t *testing.T) {
 	it.Product.Name = "Example Racer™ Deluxe Edition"
 	it.Product.BaseItem.Title = "Example Racer™"
 
-	got, warnings := mapItems([]item{it})
+	got, warnings, _ := mapItems([]item{it})
 	require.Len(t, got, 1)
 	assert.Equal(t, "ea:example racer", got[0].ExternalID)
 	assert.Empty(t, warnings)
@@ -224,9 +231,9 @@ func TestMapItems_titlesWithoutAnID(t *testing.T) {
 		second.Product.BaseItem.Title = "Приключение"
 
 		t.Run("WHEN they are mapped", func(t *testing.T) {
-			got, warnings := mapItems([]item{first, second})
+			got, warnings, _ := mapItems([]item{first, second})
 
-			t.Run("THEN neither is imported, and both are counted in a warning", func(t *testing.T) {
+			t.Run("THEN neither is imported, and both are counted in a warning: the user loses them", func(t *testing.T) {
 				assert.Empty(t, got)
 				assert.Equal(t, []string{"2 EA items were not imported: " + unkeyed}, warnings)
 			})

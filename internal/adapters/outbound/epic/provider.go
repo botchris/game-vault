@@ -12,6 +12,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -82,6 +83,9 @@ type session struct {
 
 // Provider implements sync.Provider and sync.Preparer for Epic accounts.
 type Provider struct {
+	// log receives what a scan skips on purpose (WithLogger).
+	log *slog.Logger
+
 	// OAuth calls Epic's account service (sign-in, tokens); tests point it at a fake server.
 	OAuth *apiclient.Client
 
@@ -102,7 +106,7 @@ type Provider struct {
 }
 
 // NewProvider returns the Epic source with its production endpoints.
-func NewProvider() *Provider {
+func NewProvider(opts ...Option) *Provider {
 	p := &Provider{
 		OAuth:   newClient(defaultOAuthURL),
 		Library: newClient(defaultLibraryURL),
@@ -119,6 +123,10 @@ func NewProvider() *Provider {
 		ErrNoCredentials: ErrNoCredentials,
 		ErrSignedOut:     ErrSignedOut,
 		Now:              func() time.Time { return p.Now() },
+	}
+
+	for _, opt := range opts {
+		opt(p)
 	}
 
 	return p
@@ -255,13 +263,14 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 	}
 
 	copies, skipped := mapLibrary(records, items)
+	skipped.Log(p.log)
 
-	return copies, append(warnings, skipped...), nil
+	return copies, warnings, nil
 }
 
 // mapLibrary turns library records into copies: games only (no DLC, add-ons or Unreal assets),
-// one copy per catalog item. What is not a game is counted in the warnings it returns.
-func mapLibrary(records []libraryRecord, items map[string]catalogItem) ([]game.ImportedCopy, []string) {
+// one copy per catalog item. What is not a game is counted in the Skipped it returns.
+func mapLibrary(records []libraryRecord, items map[string]catalogItem) ([]game.ImportedCopy, source.Skipped) {
 	seen := map[string]bool{}
 	skipped := source.Skipped{Store: "Epic Games Store"}
 
@@ -293,7 +302,7 @@ func mapLibrary(records []libraryRecord, items map[string]catalogItem) ([]game.I
 		})
 	}
 
-	return out, skipped.Warnings()
+	return out, skipped
 }
 
 // ---- OAuth ----
@@ -585,4 +594,13 @@ func (p *Provider) get(ctx context.Context, api *apiclient.Client, token, path s
 	}
 
 	return fmt.Errorf("epic %s: %w", path, apiclient.ClassifyError(ctx, err))
+}
+
+// Option configures a Provider.
+type Option func(*Provider)
+
+// WithLogger sends what a scan skips on purpose (DLC, subscription games, what is not a game) to
+// log, one line per reason with its count. Without it nothing is logged.
+func WithLogger(log *slog.Logger) Option {
+	return func(p *Provider) { p.log = log }
 }

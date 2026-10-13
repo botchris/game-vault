@@ -12,6 +12,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -45,16 +46,24 @@ var (
 
 // Provider implements sync.Provider for Fanatical accounts.
 type Provider struct {
+	// log receives what a scan skips on purpose (WithLogger).
+	log *slog.Logger
+
 	// API calls fanatical.com; tests point it at a fake server.
 	API *apiclient.Client
 }
 
 // NewProvider returns the Fanatical source with its production endpoints.
-func NewProvider() *Provider {
+func NewProvider(opts ...Option) *Provider {
 	api := apiclient.New(defaultBaseURL)
 	api.UserAgent = userAgent
 
-	return &Provider{API: api}
+	p := &Provider{API: api}
+	for _, opt := range opts {
+		opt(p)
+	}
+
+	return p
 }
 
 // Descriptor implements sync.Provider.
@@ -222,9 +231,9 @@ func statusOf(s string) game.Status {
 }
 
 // mapItems turns keys into copies: games only (DLC, software, books, audio and vouchers are
-// left out), on the store the key is for. Skipped items are counted in a warning. Bundle purchases
+// left out), on the store the key is for. Skipped items are counted (see Fetch). Bundle purchases
 // are not keys: they are returned withdrawn, so a copy imported for one before is removed.
-func mapItems(items []item) ([]game.ImportedCopy, []string) {
+func mapItems(items []item) ([]game.ImportedCopy, source.Skipped) {
 	var copies []game.ImportedCopy
 
 	skipped := source.Skipped{Store: "Fanatical"}
@@ -263,7 +272,7 @@ func mapItems(items []item) ([]game.ImportedCopy, []string) {
 		})
 	}
 
-	return copies, skipped.Warnings()
+	return copies, skipped
 }
 
 // Test implements sync.Provider: it reads the key list once.
@@ -279,7 +288,17 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 		return nil, nil, err
 	}
 
-	copies, warnings := mapItems(items)
+	copies, skipped := mapItems(items)
+	skipped.Log(p.log)
 
-	return copies, warnings, nil
+	return copies, nil, nil
+}
+
+// Option configures a Provider.
+type Option func(*Provider)
+
+// WithLogger sends what a scan skips on purpose (DLC, subscription games, what is not a game) to
+// log, one line per reason with its count. Without it nothing is logged.
+func WithLogger(log *slog.Logger) Option {
+	return func(p *Provider) { p.log = log }
 }

@@ -662,12 +662,13 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 	skips := source.Skipped{Store: "PlayStation"}
 
 	copies, skipped := mapTitles(titles, p.playedNonGames(ctx, token), &skips)
+	skips.Log(p.Log)
+
 	if len(skipped) > 0 && p.Log != nil {
-		// The count is a warning, like every source's; the titles only go to the log.
-		p.Log.Info("playstation: skipped titles that are not games", "count", len(skipped), "titles", strings.Join(skipped, "; "))
+		p.Log.Info("playstation: skipped titles that are not games", "titles", strings.Join(skipped, "; "))
 	}
 
-	warnings := skips.Warnings()
+	var warnings []string
 	if len(copies) == len(skipped) {
 		warnings = append(warnings, "PlayStation returned no games bought with this account (PS Plus games are not imported)")
 	}

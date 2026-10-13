@@ -1,10 +1,12 @@
 package xbox
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -208,13 +210,18 @@ func TestPrepareAndFetch(t *testing.T) {
 		t.Fatalf("test then save should share the code: %v (%d exchanges)", err, f.exchanges)
 	}
 
+	var logs bytes.Buffer
+
+	p.log = slog.New(slog.NewTextHandler(&logs, nil))
+
 	copies, warnings, err := p.Fetch(ctx, settings)
 	if err != nil {
 		t.Fatalf("fetch: %v", err)
 	}
 
-	// Game Pass, the trial, the DLC and the revoked game are left out and counted.
-	assert.Equal(t, []string{"4 Microsoft Store items were not imported: Game Pass games, trials, add-ons and expired or revoked items"}, warnings)
+	// Game Pass, the trial, the DLC and the revoked game are left out and counted in the log.
+	assert.Empty(t, warnings)
+	assert.Contains(t, logs.String(), `reason="Game Pass games, trials, add-ons and expired or revoked items" count=4`)
 
 	got := make([]string, 0, len(copies))
 	for _, c := range copies {
