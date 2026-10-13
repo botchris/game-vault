@@ -72,9 +72,8 @@ func (c *Covers) LinkStore() game.Store { return LinkedStore }
 func (c *Covers) Applies(q media.CoverQuery) bool { return q.ForPC() && q.Links[LinkedStore.Key] != "" }
 
 var (
-	reYearSuffix = regexp.MustCompile(`\s*\(\d{4}\)\s*$`)
-	reNonSlug    = regexp.MustCompile(`[^a-z0-9]+`)
-	reLocale     = regexp.MustCompile(`^[a-z]{2}-[a-z]{2}_`)
+	reNonSlug = regexp.MustCompile(`[^a-z0-9]+`)
+	reLocale  = regexp.MustCompile(`^[a-z]{2}-[a-z]{2}_`)
 )
 
 // slugify turns a title into an EA game slug: "Need for Speed™ Heat" → "need-for-speed-heat".
@@ -96,7 +95,7 @@ func slugCandidates(title string, productIDs []string) []string {
 		}
 	}
 	add(slugify(title))
-	add(slugify(reYearSuffix.ReplaceAllString(title, "")))
+	add(slugify(game.StripYearSuffix(title)))
 
 	for _, id := range productIDs {
 		body, _, _ := strings.Cut(reLocale.ReplaceAllString(id, ""), "_")

@@ -187,6 +187,16 @@ func NormalizeTitle(title string) string {
 	return strings.Join(strings.Fields(reTrademarks.ReplaceAllString(title, "")), " ")
 }
 
+// reYearSuffix matches a year in parentheses at the end of a title, with the spaces around it.
+var reYearSuffix = regexp.MustCompile(`\s*\(\d{4}\)\s*$`)
+
+// StripYearSuffix drops a year in parentheses at the end of a title ("Example Quest Remastered
+// (2017)" → "Example Quest Remastered"), which stores add to tell a remake or a remaster from the
+// original while other stores name it without. Nothing else changes, spaces at the start included.
+func StripYearSuffix(title string) string {
+	return reYearSuffix.ReplaceAllString(title, "")
+}
+
 // SearchTitle returns the title to search a game database for: the title without the edition and
 // store tags MatchKey ignores ("Example West GOTY" → "Example West", "Example Game (PC
 // Key)" → "Example Game"), its other words, numbers and casing kept. Databases name the game, not

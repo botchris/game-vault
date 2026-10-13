@@ -3,7 +3,6 @@ package battlenet
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"gamevault/internal/application/media"
@@ -55,12 +54,10 @@ func (c *Covers) Applies(q media.CoverQuery) bool {
 	return q.ForPC() && q.Links[LinkedStore.Key] != "" && !q.LinksOnly
 }
 
-// reYear drops a year Battle.net adds to tell remasters apart: "… Remastered (2017)".
-var reYear = regexp.MustCompile(`\s*\(\d{4}\)\s*$`)
-
 // Covers implements media.CoverProvider.
 func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, settings schema.Settings) ([]media.CoverCandidate, error) {
-	title := strings.TrimSpace(reYear.ReplaceAllString(q.Title, ""))
+	// Battle.net adds a year to tell remasters apart ("… Remastered (2017)"); Steam does not.
+	title := strings.TrimSpace(game.StripYearSuffix(q.Title))
 
 	matches, err := c.Search.SearchLinks(ctx, title)
 	if err != nil {

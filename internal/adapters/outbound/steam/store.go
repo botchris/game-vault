@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -407,12 +406,10 @@ func (s *Store) SearchLinks(ctx context.Context, query string) ([]media.LinkMatc
 	return slices.Clone(matches), nil
 }
 
-var reYearSuffix = regexp.MustCompile(`\s*\(\d{4}\)\s*$`)
-
 // searchTerm is what the store is searched for: the query trimmed, without a trailing year in
 // parentheses.
 func searchTerm(query string) string {
-	return strings.Join(strings.Fields(reYearSuffix.ReplaceAllString(query, "")), " ")
+	return strings.Join(strings.Fields(game.StripYearSuffix(query)), " ")
 }
 
 // search asks the store's search for query, through the throttle.
