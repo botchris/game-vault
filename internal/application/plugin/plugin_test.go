@@ -115,14 +115,8 @@ func TestRegistry_valuations(t *testing.T) {
 		t.Run("THEN the valuation service gets it, and the providers registry configures it", func(t *testing.T) {
 			require.Len(t, r.Valuations(), 1)
 
-			all := r.Providers()
-			ids := make([]provider.ID, 0, len(all))
-
-			for _, p := range all {
-				ids = append(ids, p.Descriptor().ID)
-			}
-
-			assert.Contains(t, ids, provider.ID("shop-prices"))
+			require.Len(t, r.Providers(), 1)
+			assert.Equal(t, provider.ID("shop-prices"), r.Providers()[0].Descriptor().ID)
 		})
 	})
 
