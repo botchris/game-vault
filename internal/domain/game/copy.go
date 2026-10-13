@@ -95,10 +95,6 @@ func (d CopyDetails) normalize() (CopyDetails, error) {
 
 	d.System = system
 
-	if d.Kind != KindKey {
-		d.Key, d.RedeemBy = "", ""
-	}
-
 	if !d.Grade.Valid() {
 		return d, invalid("grade %q is not valid", d.Grade)
 	}
@@ -113,12 +109,23 @@ func (d CopyDetails) normalize() (CopyDetails, error) {
 	}
 
 	d.Price = price
+	d.dropOtherKindFields()
+
+	return d, nil
+}
+
+// dropOtherKindFields clears the fields that only a key or only a physical copy can have when d
+// is of another kind. It is the one rule for every path that sets a kind (creating, editing and
+// importing a copy), so a copy that changes kind never keeps the old kind's key or barcode.
+// Price, notes, the system override and the other fields belong to every kind and stay.
+func (d *CopyDetails) dropOtherKindFields() {
+	if d.Kind != KindKey {
+		d.Key, d.RedeemBy = "", ""
+	}
 
 	if d.Kind != KindPhysical {
 		d.Barcode, d.Grade, d.Contents, d.Location = "", "", 0, ""
 	}
-
-	return d, nil
 }
 
 // Copy is one owned instance of a game. It is an entity inside the Game aggregate.
@@ -224,6 +231,12 @@ func (c *Copy) applyImport(in CopyDetails) bool {
 	if !c.Kind.Allows(c.Status) {
 		c.Status = c.Kind.DefaultStatus()
 	}
+
+	// The fields above are only overwritten when the source gives a value, so a copy whose kind
+	// changes would keep the old kind's key or barcode (and barcode scans would still find it).
+	// Photos stay: any kind can have them, editing a copy's kind keeps them too, and the game's
+	// cover may be one of them.
+	c.dropOtherKindFields()
 
 	// Estimates belong to the product the barcode names.
 	if c.Kind != KindPhysical || c.Barcode != before.Barcode {
