@@ -3,7 +3,6 @@ package steam
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -213,14 +212,13 @@ func (p *Provider) resolveSteamID(ctx context.Context, key, profile string) (str
 func (p *Provider) get(ctx context.Context, path string, q url.Values, out any) error {
 	err := p.API.Get(ctx, path, q, out)
 
-	var se *apiclient.StatusError
-	if !errors.As(err, &se) {
-		return err
-	}
-
-	if se.Status == http.StatusUnauthorized || se.Status == http.StatusForbidden {
+	switch {
+	case err == nil:
+		return nil
+	case apiclient.IsStatus(err, http.StatusUnauthorized, http.StatusForbidden):
 		return ErrSignedOut
 	}
 
-	return fmt.Errorf("steam %s: HTTP %d", path, se.Status)
+	// A 429, an outage, no answer or a web page is a passing trouble, not a refused key.
+	return fmt.Errorf("steam %s: %w", path, apiclient.ClassifyError(ctx, err))
 }

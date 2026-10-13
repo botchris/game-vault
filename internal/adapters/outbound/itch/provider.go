@@ -173,7 +173,8 @@ func (p *Provider) ownedKeys(ctx context.Context, settings schema.Settings, n, s
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("itch.io owned keys: %w", err)
+		// A 429, an outage, no answer or a web page is a passing trouble, not a refused key.
+		return nil, fmt.Errorf("itch.io owned keys: %w", apiclient.ClassifyError(ctx, err))
 	}
 
 	if len(out.Errors) > 0 {

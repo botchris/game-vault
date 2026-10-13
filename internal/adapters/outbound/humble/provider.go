@@ -6,6 +6,7 @@ package humble
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -172,8 +173,14 @@ func (p *Provider) listGamekeys(ctx context.Context, cookie string) ([]string, e
 	var list []struct {
 		Gamekey string `json:"gamekey"`
 	}
-	if err := res.Decode(&list); err != nil {
+
+	err = res.Decode(&list)
+
+	switch {
+	case errors.Is(err, apiclient.ErrNotJSON):
 		return nil, ErrSignedOut // an HTML sign-in page served with a 200 instead of the list
+	case err != nil:
+		return nil, fmt.Errorf("humble bundle order list: %w", err)
 	}
 
 	keys := make([]string, len(list))

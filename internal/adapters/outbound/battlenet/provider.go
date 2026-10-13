@@ -171,8 +171,13 @@ func api(ctx context.Context, account *apiclient.Client, path string, out any) e
 		return fmt.Errorf("battle.net %s: %w", path, res.Err())
 	}
 
-	if err := res.Decode(out); err != nil {
+	err = res.Decode(out)
+
+	switch {
+	case errors.Is(err, apiclient.ErrNotJSON):
 		return ErrSignedOut // an HTML page instead of JSON: not signed in
+	case err != nil:
+		return fmt.Errorf("battle.net %s: %w", path, err)
 	}
 
 	return nil

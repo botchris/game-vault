@@ -173,7 +173,8 @@ func (p *Provider) keys(ctx context.Context, settings schema.Settings) ([]item, 
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("fanatical keys: %w", err)
+		// A 429, an outage, no answer or a web page is a passing trouble, not a refused session.
+		return nil, fmt.Errorf("fanatical keys: %w", apiclient.ClassifyError(ctx, err))
 	}
 
 	return items, nil
