@@ -25,7 +25,7 @@ dependencies: the host only needs Docker and Task.
 | Build everything (web, then server binary for this machine) | `task build` |
 | Run (real data, port 8080) | `task run` — the user's own server; do not start or stop it |
 | Go vet + tests, TS type check, i18n check | `task test` |
-| Format / lint Go (golangci-lint) + buf lint | `task fmt` / `task lint` |
+| Format / lint Go (golangci-lint) + buf lint + React hook rules (oxlint) | `task fmt` / `task lint` |
 | Apply the safe automatic lint fixes (incl. one struct field per line) | `task lint:fix` |
 | Regenerate API code after editing `proto/` | `task generate` |
 | Test server on a copy of the config (port 8093) | `task test-server` (`-- --full` copies images), `task test-server:stop` |

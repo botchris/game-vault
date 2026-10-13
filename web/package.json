@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
+    "lint": "oxlint --max-warnings=0 src",
     "generate": "cd .. && buf generate"
   },
   "dependencies": {
@@ -31,6 +32,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "happy-dom": "20.14.5",
+    "oxlint": "1.85.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.3"
   }

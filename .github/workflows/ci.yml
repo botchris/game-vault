@@ -28,7 +28,8 @@ jobs:
 
       - uses: ./.github/actions/toolchain
 
-      # golangci-lint, the house layout rules (tools/docspacing, tools/fieldlines) and buf lint.
+      # golangci-lint, the house layout rules (tools/docspacing, tools/fieldlines), buf lint and the
+      # web UI's React hook rules (oxlint).
       - name: task lint
         run: task lint
 

@@ -1,0 +1,26 @@
+{
+  // Only the React hook rules (rules-of-hooks, exhaustive-deps): `task lint` runs this through
+  // `npm run lint`. A deliberate exception is marked on its line with
+  // `// eslint-disable-next-line react-hooks/exhaustive-deps -- <why>`.
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "react"
+  ],
+  "categories": {
+    "correctness": "off",
+    "suspicious": "off",
+    "pedantic": "off",
+    "perf": "off",
+    "style": "off",
+    "restriction": "off",
+    "nursery": "off"
+  },
+  "rules": {
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "error"
+  },
+  "ignorePatterns": [
+    "src/gen/**",
+    "dist/**"
+  ]
+}

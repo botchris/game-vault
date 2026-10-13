@@ -457,8 +457,10 @@ function EditTab({ game, busy, onSave, setDialog, run, onDeleted }: {
   const gameDefs = fields.filter((f) => f.scope === 'game');
   const infoOf = (g: Game) => ({ title: g.title, links: { ...g.links }, notes: g.notes, fields: { ...g.fields } });
   const [info, setInfo] = useState(() => infoOf(game));
-  // What the form last took from the game: telling it apart from info says what the user changed.
-  const [base, setBase] = useState(() => infoOf(game));
+  // The game as the form last took it: telling its info apart from the form's says what the user
+  // changed.
+  const [baseGame, setBaseGame] = useState(game);
+  const base = infoOf(baseGame);
   // Discard remounts the field inputs, so text they kept locally (an invalid number) goes too.
   const [discarded, setDiscarded] = useState(0);
   // A field holding invalid text (a number, a year) blocks Save until it is fixed or cleared.
@@ -474,18 +476,19 @@ function EditTab({ game, busy, onSave, setDialog, run, onDeleted }: {
 
   // The game as it is now, so the links shown include any found automatically since the page loaded.
   useEffect(() => {
+    // Only when the tab opens for a game (putGame never changes): later changes arrive through the
+    // game itself.
     gameClient.getGame({ id: game.id }).then((res) => { if (res.game) putGame(res.game); }, () => {});
-    // Only when the tab opens for a game: later changes arrive through the game itself.
-  }, [game.id]);
+  }, [game.id, putGame]);
 
   // When the game changes while the tab is open (reloaded above, a link found automatically, this
   // form's own save), the form takes the new values and keeps only what the user changed in it, so
-  // neither their typing nor the new links are lost.
-  useEffect(() => {
-    const next = infoOf(game);
-    setInfo((x) => rebaseInfo(base, x, next));
-    setBase(next);
-  }, [game]);
+  // neither their typing nor the new links are lost. Adjusted during render, not in an effect, so
+  // the form never renders once with the old base.
+  if (game !== baseGame) {
+    setBaseGame(game);
+    setInfo((x) => rebaseInfo(base, x, infoOf(game)));
+  }
 
   // One row per store the game is linked to, plus the searchable ones (to link it by title), in the
   // server's order; a link to a store nobody describes any more keeps a row named by its key.
