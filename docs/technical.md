@@ -79,6 +79,18 @@ The registry checks that ids are unique and hands each piece to the sync or medi
 media provider declares its default place in its chain (`DefaultOrder`); the user's order replaces
 it once saved. How to write one: [`docs/plugins.md`](plugins.md).
 
+**Errors** carry their kind (`internal/domain/errkind`): invalid input, not found, already exists,
+conflict, unauthenticated, permission denied, precondition, exhausted or unavailable. Sentinel
+errors get theirs from `errkind.New`, rule violations are the one `errkind.ValidationError` (each
+domain package aliases it as its own `ValidationError`), and `errkind.Wrap` gives one to an error
+that has none (the CSV codec's errors are the file's, so `Invalid`). The RPC layer maps kinds, not
+sentinels, to Connect codes in one table (`toConnectError`), so handlers never map errors
+themselves. An error without a kind is a failure of Game Vault itself: it is answered `Internal`
+and logged at error level. Only Game Vault's own sign-in is `Unauthenticated` (the web page signs
+the user out on it); a store or provider that rejects its credentials is `Precondition`. A test
+lists every exported sentinel of the domain and application packages with its code, so a new one
+cannot fall through to `Internal` unnoticed.
+
 ## Domain model
 
 | Concept          | Kind                  | Notes |

@@ -80,7 +80,13 @@ The Fanatical plugin is a real, small one: one source, `apiclient`, a fake-serve
 - **`Test(ctx, settings) error`** makes one cheap request to the real service. Nil means the
   settings work; the error says what is wrong and what to do.
 - **Errors the user sees** say what happened and how to fix it ("… paste a new token"), as
-  sentinel errors so callers can match them with `errors.Is`. A store that no longer accepts the
+  sentinel errors so callers can match them with `errors.Is`. Every source uses the same names
+  for the same meaning: `ErrNoCredentials` (the credential setting is empty), `ErrBadCode` (the
+  store rejected a one-time code) and `ErrSignedOut` (below); other sentinels name what happened
+  (`ErrPrivateProfile`, `ErrProfileNotFound`). Give each one its kind with `errkind.New`
+  (`errkind.Invalid` for input to fix): the API answers by kind, and an error without one is
+  reported as a failure of Game Vault. A source's texts name the store (they also show in the
+  store's own dialog). A store that no longer accepts the
   saved session or key returns `source.SignedOut("… sign in again …")`, which matches
   `source.ErrSignedOut`: System → Health then shows it as an error that says to sign in again.
   Only a real refusal is one: a token endpoint's 400 (`invalid_grant`), 401 or 403
@@ -135,6 +141,12 @@ extension update: discuss it first.
   (see `xbox.IsXboxSystem`). A provider with a monthly quota also checks
   `q.HasStoreLink()` and `q.Fallback` so it is not spent on games stores already cover.
 - Return `nil, nil` when the service does not know the game; an error only for real failures.
+- **Error texts do not name the provider**: the media service puts the provider's name before
+  them in warnings ("TheGamesDB: …") and the status badges and Health show it next to them, so
+  "IGDB is not answering" would read "IGDB: IGDB is not answering". Name another service only
+  when the trouble is that one's (IGDB's sign-in through Twitch). Problems of the provider rather
+  than of a game wrap `provider.ErrRateLimited`, `ErrQuotaExhausted`, `ErrUnavailable` or come from
+  `provider.BadSettings`, which carry their kind already.
 - `ImageHosts()` (`media.ImageHoster`) lists the hosts of the images it returns: the browser only
   loads them through Game Vault's image proxy, which refuses other hosts.
 - A provider that reads a store's links implements `media.StoreLinker`; if it can also search the
