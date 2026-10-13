@@ -9,8 +9,6 @@ package igdb
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
@@ -19,9 +17,8 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/sync/singleflight"
-
 	"gamevault/internal/adapters/outbound/apiclient"
+	"gamevault/internal/adapters/outbound/oauthapp"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
 )
@@ -52,12 +49,6 @@ var (
 // IGDB: the warnings that show it already do.
 var errTooManyRequests = fmt.Errorf("HTTP %d: %w", http.StatusTooManyRequests, provider.ErrRateLimited)
 
-// token is an app access token and when to stop using it.
-type token struct {
-	value   string
-	renewAt time.Time
-}
-
 // Client calls IGDB with an app access token it asks Twitch for and keeps in memory until shortly
 // before it expires. The covers and the details share one Client, so they share its token and its
 // limiter.
@@ -74,13 +65,8 @@ type Client struct {
 	// now is the clock.
 	now func() time.Time
 
-	mu sync.Mutex
-
-	// tokens holds the access token of each Client ID and Secret (by their hash).
-	tokens map[string]token
-
-	// group makes concurrent callers needing a token share one request.
-	group singleflight.Group
+	// tokens holds the access token of each Client ID and Secret.
+	tokens *oauthapp.Tokens
 }
 
 // NewClient returns a client with IGDB's and Twitch's production endpoints.
@@ -90,13 +76,15 @@ func NewClient() *Client {
 	auth := apiclient.New(defaultAuthURL)
 	auth.HTTP.Timeout = 20 * time.Second
 
-	return &Client{
+	c := &Client{
 		API:     api,
 		Auth:    auth,
 		limiter: newLimiter(requestGap, maxOpen, time.Now),
 		now:     time.Now,
-		tokens:  map[string]token{},
 	}
+	c.tokens = &oauthapp.Tokens{Now: func() time.Time { return c.now() }}
+
+	return c
 }
 
 // credentials returns the Client ID, the Secret and the key of their cached token.
@@ -106,104 +94,51 @@ func credentials(s schema.Settings) (id, secret, key string, err error) {
 		return "", "", "", ErrNotConfigured
 	}
 
-	// The secret is not kept as a map key in clear: a hash identifies the pair just as well.
-	sum := sha256.Sum256([]byte(id + "\x00" + secret))
-
-	return id, secret, hex.EncodeToString(sum[:]), nil
+	return id, secret, oauthapp.Key(id, secret), nil
 }
 
-// accessToken returns the cached token of the settings' credentials. It asks Twitch for a new one
-// when there is none, it is about to expire, or it is stale: the token IGDB just refused (empty when
-// none was). Concurrent callers share one request, and a caller holding a refused token that another
-// one already replaced gets the replacement without asking again.
-func (c *Client) accessToken(ctx context.Context, s schema.Settings, stale string) (string, error) {
-	id, secret, key, err := credentials(s)
-	if err != nil {
-		return "", err
-	}
-
-	c.mu.Lock()
-	tok, ok := c.tokens[key]
-	c.mu.Unlock()
-
-	if ok && tok.value != stale && c.now().Before(tok.renewAt) {
-		return tok.value, nil
-	}
-
-	// The key is a hash of the credentials, so concurrent callers with the same ones share the
-	// request; it runs to completion even if the first caller gives up, as the others still wait.
-	v, err, _ := c.group.Do(key, func() (any, error) {
-		c.mu.Lock()
-		tok, ok := c.tokens[key]
-		c.mu.Unlock()
-
-		if ok && tok.value != stale && c.now().Before(tok.renewAt) {
-			return tok.value, nil // renewed by the request that just finished
+// fetchToken returns the request of an app access token for the credentials. They go in a form
+// body, never in the URL: a transport error names the URL, and errors reach warnings and logs.
+func (c *Client) fetchToken(id, secret string) oauthapp.Fetch {
+	return func(ctx context.Context) (oauthapp.Token, error) {
+		var out struct {
+			AccessToken string `json:"access_token"`
+			ExpiresIn   int64  `json:"expires_in"`
 		}
 
-		return c.newToken(context.WithoutCancel(ctx), id, secret, key)
-	})
-	if err != nil {
-		return "", err
+		err := c.Auth.Do(ctx, apiclient.Request{
+			Method: http.MethodPost,
+			Path:   "/oauth2/token",
+			Form: url.Values{
+				"client_id":     {id},
+				"client_secret": {secret},
+				"grant_type":    {"client_credentials"},
+			},
+		}, &out)
+
+		var se *apiclient.StatusError
+
+		switch {
+		case apiclient.IsStatus(err, http.StatusTooManyRequests):
+			return oauthapp.Token{}, errTooManyRequests
+		case errors.As(err, &se) && se.Status >= 500:
+			return oauthapp.Token{}, errTwitchDown
+		case apiclient.IsStatus(err, http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden):
+			// Twitch answers 400 "invalid client" for an unknown Client ID and 403 "invalid client
+			// secret" for a wrong secret.
+			return oauthapp.Token{}, ErrBadCredentials
+		case err != nil:
+			// Not wrapped: nothing of the request, which carries the secret, may reach the message.
+			return oauthapp.Token{}, errTwitchUnreachable
+		}
+
+		// A missing lifetime counts as oauthapp.DefaultLifetime rather than asking for a token on
+		// every query.
+		return oauthapp.Token{
+			Value:    out.AccessToken,
+			Lifetime: time.Duration(out.ExpiresIn) * time.Second,
+		}, nil
 	}
-
-	return v.(string), nil
-}
-
-// newToken asks Twitch for an app access token and caches it under key. The credentials go in a
-// form body, never in the URL: a transport error names the URL, and errors reach warnings and logs.
-func (c *Client) newToken(ctx context.Context, id, secret, key string) (string, error) {
-	var out struct {
-		AccessToken string `json:"access_token"`
-		ExpiresIn   int64  `json:"expires_in"`
-	}
-
-	err := c.Auth.Do(ctx, apiclient.Request{
-		Method: http.MethodPost,
-		Path:   "/oauth2/token",
-		Header: http.Header{"Content-Type": {"application/x-www-form-urlencoded"}},
-		Text: url.Values{
-			"client_id":     {id},
-			"client_secret": {secret},
-			"grant_type":    {"client_credentials"},
-		}.Encode(),
-	}, &out)
-
-	var se *apiclient.StatusError
-
-	switch {
-	case apiclient.IsStatus(err, http.StatusTooManyRequests):
-		return "", errTooManyRequests
-	case errors.As(err, &se) && se.Status >= 500:
-		return "", errTwitchDown
-	case apiclient.IsStatus(err, http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden):
-		// Twitch answers 400 "invalid client" for an unknown Client ID and 403 "invalid client
-		// secret" for a wrong secret.
-		return "", ErrBadCredentials
-	case err != nil:
-		// Not wrapped: nothing of the request, which carries the secret, may reach the message.
-		return "", errTwitchUnreachable
-	case out.AccessToken == "":
-		return "", errors.New("the access token was missing from Twitch's answer: try again later")
-	}
-
-	// Renew shortly before it expires: five minutes early, or halfway for a short-lived token. A
-	// missing or zero lifetime counts as an hour rather than asking for a token on every query.
-	life := time.Duration(out.ExpiresIn) * time.Second
-	if life <= 0 {
-		life = time.Hour
-	}
-
-	tok := token{
-		value:   out.AccessToken,
-		renewAt: c.now().Add(life - min(5*time.Minute, life/2)),
-	}
-
-	c.mu.Lock()
-	c.tokens[key] = tok
-	c.mu.Unlock()
-
-	return tok.value, nil
 }
 
 // Twitch outages say nothing about a game: like rate limits, nothing is remembered from them (no
@@ -220,32 +155,28 @@ var (
 // answer into out. A token IGDB refuses (it expired early, or was revoked) is renewed once and the
 // query sent again.
 func (c *Client) query(ctx context.Context, s schema.Settings, endpoint, body string, out any) error {
-	refused, err := c.send(ctx, s, endpoint, body, out, "")
-	if errors.Is(err, errTokenRefused) {
-		_, err = c.send(ctx, s, endpoint, body, out, refused)
-		if errors.Is(err, errTokenRefused) {
-			// A token Twitch just issued that IGDB still refuses belongs to other credentials.
-			return ErrBadCredentials
-		}
+	id, secret, key, err := credentials(s)
+	if err != nil {
+		return err
+	}
+
+	err = c.tokens.WithRetry(ctx, key, c.fetchToken(id, secret), func(tok string) error {
+		return c.send(ctx, id, tok, endpoint, body, out)
+	})
+	if errors.Is(err, apiclient.ErrTokenRejected) {
+		// A token Twitch just issued that IGDB still refuses belongs to other credentials.
+		return ErrBadCredentials
 	}
 
 	return err
 }
 
 // errTokenRefused is IGDB's HTTP 401 to an access token.
-var errTokenRefused = errors.New("IGDB refused the access token")
+var errTokenRefused = fmt.Errorf("IGDB refused the access token: %w", apiclient.ErrTokenRejected)
 
-// send makes one attempt of query with the current token (a new one if stale is the cached one),
-// and returns the token it used.
-func (c *Client) send(ctx context.Context, s schema.Settings, endpoint, body string, out any, stale string) (string, error) {
-	tok, err := c.accessToken(ctx, s, stale)
-	if err != nil {
-		return "", err
-	}
-
-	id, _, _, _ := credentials(s) // already checked by accessToken
-
-	err = c.limiter.do(ctx, func() error {
+// send makes one attempt of query with the token.
+func (c *Client) send(ctx context.Context, id, tok, endpoint, body string, out any) error {
+	err := c.limiter.do(ctx, func() error {
 		return c.API.Do(ctx, apiclient.Request{
 			Method: http.MethodPost,
 			Path:   "/" + endpoint,
@@ -261,41 +192,39 @@ func (c *Client) send(ctx context.Context, s schema.Settings, endpoint, body str
 
 	switch {
 	case err == nil, errors.Is(err, provider.ErrRateLimited), errors.Is(err, apiclient.ErrNotJSON):
-		return tok, err
+		return err
 	case !errors.As(err, &se):
 		// No answer (no connection, a timeout): it says nothing about the game.
-		return tok, fmt.Errorf("IGDB is not answering, try again later (%w): %w", err, provider.ErrUnavailable)
+		return fmt.Errorf("IGDB is not answering, try again later (%w): %w", err, provider.ErrUnavailable)
 	case se.Status >= 500:
-		return tok, fmt.Errorf("IGDB is not answering (HTTP %d): try again later: %w", se.Status, provider.ErrUnavailable)
+		return fmt.Errorf("IGDB is not answering (HTTP %d): try again later: %w", se.Status, provider.ErrUnavailable)
 	}
 
 	switch se.Status {
 	case http.StatusUnauthorized:
-		return tok, errTokenRefused
+		return errTokenRefused
 	case http.StatusTooManyRequests:
-		return tok, errTooManyRequests
+		return errTooManyRequests
 	case http.StatusForbidden:
-		return tok, ErrBadCredentials
+		return ErrBadCredentials
 	}
 
 	// IGDB explains a refused query in the body ([{"title":"Syntax Error","cause":"…"}]): keep it so
 	// the user can paste it back.
-	return tok, fmt.Errorf("HTTP %d: %s: try again later; if it persists, report this message", se.Status, se.Body)
+	return fmt.Errorf("HTTP %d: %s: try again later; if it persists, report this message", se.Status, se.Body)
 }
 
 // Test checks the credentials with a new access token and one minimal query.
 func (c *Client) Test(ctx context.Context, s schema.Settings) error {
 	// The cached token, if any, counts as stale: the check must reach Twitch with these credentials.
-	_, _, key, err := credentials(s)
+	id, secret, key, err := credentials(s)
 	if err != nil {
 		return err
 	}
 
-	c.mu.Lock()
-	cached := c.tokens[key].value
-	c.mu.Unlock()
+	c.tokens.Forget(key)
 
-	if _, err := c.accessToken(ctx, s, cached); err != nil {
+	if _, err := c.tokens.Get(ctx, key, c.fetchToken(id, secret)); err != nil {
 		return err
 	}
 

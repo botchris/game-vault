@@ -143,6 +143,11 @@ var (
 	// check or a maintenance notice.
 	ErrNotJSON = errors.New("the service did not answer with JSON")
 
+	// ErrTokenRejected means a service refused an access token (usually HTTP 401): it expired or
+	// was revoked before its time. The shared token caches (oauthapp, oauthsession) renew it once
+	// when a call returns an error that wraps it; only a second refusal reaches the user.
+	ErrTokenRejected = errors.New("the service rejected the access token")
+
 	// ErrTooLarge means an answer was longer than the client's MaxBody: the library or the page is
 	// larger than expected, not a change of the service.
 	ErrTooLarge = errors.New("the answer is larger than expected")
