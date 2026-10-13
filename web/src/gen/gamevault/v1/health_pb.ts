@@ -29,14 +29,14 @@ export type HealthIssue = Message<"gamevault.v1.HealthIssue"> & {
   key: string;
 
   /**
-   * "error" (stopped working until the user acts) or "warning".
+   * "error" (stopped working until the user acts) or "warning"; the server sends no other value.
    *
    * @generated from field: string level = 2;
    */
   level: string;
 
   /**
-   * "provider", "source", "backups" or "disk".
+   * "provider", "source", "backups" or "disk"; the server sends no other value.
    *
    * @generated from field: string kind = 3;
    */

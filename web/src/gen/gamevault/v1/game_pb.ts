@@ -2055,7 +2055,8 @@ export const GameService: GenService<{
   },
   /**
    * Removes a copy a source imported and keeps the source from importing it again. A copy added
-   * by hand is refused (delete it instead).
+   * by hand is refused (delete it instead). The copy then lives only on the source's removed
+   * list, so its inverse is SourceService.IncludeCopy.
    *
    * @generated from rpc gamevault.v1.GameService.ExcludeCopy
    */

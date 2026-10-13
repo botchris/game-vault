@@ -55,9 +55,18 @@ func TestValuation_endToEnd(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, "EUR", v.Msg.Currency)
 				require.Len(t, v.Msg.Totals, 1)
-				assert.Equal(t, int64(2000), v.Msg.Totals[0].SellMinor)
-				assert.Equal(t, int64(600), v.Msg.Totals[0].BuyCashMinor)
-				assert.Equal(t, int32(1), v.Msg.Totals[0].Copies)
+
+				total := v.Msg.Totals[0]
+				assert.Equal(t, int64(2000), total.GetSell().GetAmountMinor())
+				assert.Equal(t, "EUR", total.GetSell().GetCurrency())
+				assert.Equal(t, int64(600), total.GetBuyCash().GetAmountMinor())
+				assert.Equal(t, "EUR", total.GetBuyCredit().GetCurrency())
+				assert.Equal(t, int32(1), total.Copies)
+
+				t.Run("AND older clients still read the deprecated minor-unit amounts", func(t *testing.T) {
+					assert.Equal(t, int64(2000), total.SellMinor)
+					assert.Equal(t, int64(600), total.BuyCashMinor)
+				})
 			})
 		})
 

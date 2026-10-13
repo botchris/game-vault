@@ -171,6 +171,8 @@ service SourceService {
   rpc TestSource(TestSourceRequest) returns (TestSourceResponse);
   rpc SyncSource(SyncSourceRequest) returns (SyncSourceResponse);
   rpc SyncAllSources(SyncAllSourcesRequest) returns (SyncAllSourcesResponse);
-  // Takes an item off the source's removed list: the next scan imports it again.
+  // Takes an item off the source's removed list: the next scan imports it again. The inverse of
+  // GameService.ExcludeCopy; it lives here because an excluded item is no longer a copy of any game,
+  // only an entry of the source.
   rpc IncludeCopy(IncludeCopyRequest) returns (IncludeCopyResponse);
 }

@@ -26,7 +26,8 @@ const (
 type Principal struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// "trusted" (a trusted network, no sign-in) or "session" (signed in with the password). Never
-	// "token": access tokens cannot call AuthService, so they never see a Principal.
+	// "token": access tokens cannot call AuthService, so they never see a Principal. The server
+	// sends no other value.
 	Method        string `protobuf:"bytes,1,opt,name=method,proto3" json:"method,omitempty"`
 	Name          string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -80,12 +81,14 @@ func (x *Principal) GetName() string {
 // AuthSettings are the security settings.
 type AuthSettings struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// "required" (everyone signs in) or "trusted_networks" (not required from trusted networks).
+	// "required" (everyone signs in) or "trusted_networks" (not required from trusted networks);
+	// empty saves "trusted_networks". The server refuses any other value (InvalidArgument).
 	Authentication string `protobuf:"bytes,4,opt,name=authentication,proto3" json:"authentication,omitempty"`
 	// CIDR prefixes or single addresses whose requests need no sign-in, e.g. "192.168.1.0/24".
 	TrustedNetworks []string `protobuf:"bytes,5,rep,name=trusted_networks,json=trustedNetworks,proto3" json:"trusted_networks,omitempty"`
 	// HTTPS certificates of the services Game Vault connects to: "enabled", "local_disabled"
-	// (not checked for local addresses) or "disabled".
+	// (not checked for local addresses) or "disabled"; empty saves "enabled". The server refuses any
+	// other value (InvalidArgument).
 	CertificateValidation string `protobuf:"bytes,6,opt,name=certificate_validation,json=certificateValidation,proto3" json:"certificate_validation,omitempty"`
 	unknownFields         protoimpl.UnknownFields
 	sizeCache             protoimpl.SizeCache
