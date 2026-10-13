@@ -237,6 +237,9 @@ func (e *allowanceError) Unwrap() error { return provider.ErrQuotaExhausted }
 // meanwhile are the same error.
 func (e *allowanceError) Is(target error) bool { return target == ErrNoAllowance }
 
+// Kind returns ErrNoAllowance's kind: the service answers again when the allowance renews.
+func (e *allowanceError) Kind() errkind.Kind { return errkind.Unavailable }
+
 // renewsIn describes a wait in round days, hours or minutes ("12 days").
 func renewsIn(d time.Duration) string {
 	const day = 24 * time.Hour
