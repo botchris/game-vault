@@ -40,12 +40,12 @@ function followOnPage(e: { preventDefault: () => void }, href: string) {
 export default function SystemPage() {
   const { t, i18n } = useTranslation();
   const fmt = useFormatters();
-  const { reloadGames } = useAppData();
+  const { reloadGames, preferences, reloadPreferences } = useAppData();
   const region = regionCurrency(i18n.language);
-  const [currency, setCurrency] = useState(region);
   // Until the user saves one, the region's currency is only proposed: CSV prices without a
   // currency are not imported, so the proposal must be easy to save as it is.
-  const [currencySaved, setCurrencySaved] = useState(true);
+  const currencySaved = preferences.currency !== '';
+  const currency = preferences.currency || region;
   const [status, setStatus] = useState<GetStatusResponse | null>(null);
   const [backups, setBackups] = useState<Backup[]>([]);
   const [photoStore, setPhotoStore] = useState(0n);
@@ -57,7 +57,7 @@ export default function SystemPage() {
   const [notice, setNotice] = useState<{ text: string; report?: SyncReport } | null>(null);
 
   const load = useCallback(async () => {
-    const [st, bk, prefs, val] = await Promise.all([systemClient.getStatus({}), systemClient.listBackups({}), systemClient.getPreferences({}),
+    const [st, bk, val] = await Promise.all([systemClient.getStatus({}), systemClient.listBackups({}),
       valuationClient.getCollectionValue({}).catch((e) => {
         setError(errorMessage(e)); // the rest of the page still works
         return null;
@@ -66,8 +66,6 @@ export default function SystemPage() {
     setStatus(st);
     setBackups(bk.backups);
     setPhotoStore(bk.photoStoreBytes);
-    if (prefs.preferences?.currency) setCurrency(prefs.preferences.currency);
-    setCurrencySaved(!!prefs.preferences?.currency);
   }, [setError]);
 
   useEffect(() => {
@@ -92,9 +90,9 @@ export default function SystemPage() {
   };
 
   const saveCurrency = (c: string) => act('currency', async () => {
-    const res = await systemClient.updatePreferences({ preferences: { currency: c } });
-    setCurrency(res.preferences?.currency || c);
-    setCurrencySaved(true);
+    await systemClient.updatePreferences({ preferences: { currency: c } });
+    // Every money input already open follows the new default.
+    await reloadPreferences();
   });
 
   const importCsv = (file: File) => act('import', async () => {
