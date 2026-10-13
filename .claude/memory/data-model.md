@@ -35,7 +35,10 @@ metadata:
   whose changes would re-key those copies.
 - **Storage (since migration 0009, 2026-10-09):** games (copies inside), sources and providers are
   JSON documents `(id, doc)`; the adapter's `gameDoc`/`copyDoc`/`sourceDoc`/`providerDoc` field
-  names never change once released (like ExternalID prefixes). A new field needs no migration;
+  names never change once released (like ExternalID prefixes). Since 2026-10-13 (audit PR 6) the
+  details cache has its stored form too (`detailsDoc`, Go field names as tags), `testdata/` holds a
+  fixture per format that must round-trip byte for byte, and aggregates are rebuilt from one
+  `game.Snapshot` / `source.Snapshot` (the v2 cover is its `LegacyCover`). A new field needs no migration;
   changing a field's meaning bumps `"v"`. Opening an older database writes
   `backups/pre-migration-NNNN.db` first.
 - **Copies (2026-10-09, part 1 of the physical-copy work):** `Grade`, `Contents` (a bit set, so
