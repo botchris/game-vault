@@ -551,3 +551,33 @@ func TestSetGameLinker_whileSearching(t *testing.T) {
 		})
 	})
 }
+
+func TestAutoLink_chainOrder(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN two finders that know different links, the second one moved first in its chain", func(t *testing.T) {
+		env := newAutoLinkEnv(t, ctx)
+		env.trusted.set(game.Links{game.LinkSteam: "100"}, nil)
+		env.search.set(game.Links{game.LinkSteam: "200"}, nil)
+
+		_, err := env.svc.Registry.ReorderProviders(ctx, provider.KindCover, []provider.ID{"search", "trusted"})
+		require.NoError(t, err)
+
+		g := saveGame(t, ctx, env.games, "Console Quest", nil, game.CopyDetails{
+			Kind:     game.KindPhysical,
+			Platform: "PS4",
+		})
+
+		t.Run("WHEN the game's links are looked for", func(t *testing.T) {
+			require.NoError(t, env.svc.AutoLinks.AutoLink(ctx, g.ID()))
+
+			t.Run("THEN the finder first in the user's order wins", func(t *testing.T) {
+				got, err := env.games.Get(ctx, g.ID())
+				require.NoError(t, err)
+				assert.Equal(t, "200", got.Links()[game.LinkSteam])
+				assert.Zero(t, env.trusted.asked())
+			})
+		})
+	})
+}

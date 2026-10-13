@@ -87,8 +87,8 @@ type AutoLinker struct {
 	log       *slog.Logger
 	group     singleflight.Group
 
-	// finders reports that a provider can find links (LinkFinder).
-	finders bool
+	// finders are the providers that can find links (LinkFinder), by id.
+	finders map[provider.ID]LinkFinder
 
 	// misses are the covers' "no cover" answers, which links found make stale.
 	misses *misses
@@ -109,11 +109,11 @@ type AutoLinker struct {
 // WithLogger.
 func NewAutoLinker(games game.Repository, reg *providers.Registry, opts ...Option) *AutoLinker {
 	o := newOptions(opts)
-	finders := false
+	finders := map[provider.ID]LinkFinder{}
 
 	for _, p := range reg.All() {
-		if _, ok := p.(LinkFinder); ok {
-			finders = true
+		if f, ok := p.(LinkFinder); ok {
+			finders[p.Descriptor().ID] = f
 		}
 	}
 
@@ -158,7 +158,7 @@ func needsAutoLink(g *game.Game) bool { return g.Links()[game.LinkSteam] == "" }
 // hasLinkFinders reports whether links can be looked for and saved: a provider can find them and a
 // GameLinker saves them.
 func (s *AutoLinker) hasLinkFinders() bool {
-	return s.gameLinker() != nil && s.finders
+	return s.gameLinker() != nil && len(s.finders) > 0
 }
 
 // AutoLink looks for the store links of a game that has no Steam link and adds those found without
@@ -187,7 +187,7 @@ func (s *AutoLinker) autoLinkReporting(ctx context.Context, id game.ID) (limited
 
 func (s *AutoLinker) autoLink(ctx context.Context, id game.ID) (bool, error) {
 	linker := s.gameLinker()
-	if linker == nil || !s.finders {
+	if linker == nil || len(s.finders) == 0 {
 		return false, nil
 	}
 
@@ -236,38 +236,39 @@ func (s *AutoLinker) autoLinkDue(g *game.Game, now time.Time) bool {
 	return t.IsZero() || now.Sub(t) >= autoLinkRetry
 }
 
-// findLinks asks the enabled link finders in chain order and returns the first links found. A
-// finder that asks to slow down or fails (an outage, a timeout) stops the search (limited): its
-// answer is unknown and the next finders are less reliable, so the search waits for it rather than
-// recording "nothing found" for a month. One without its settings is skipped: it would fail the
-// same way until the user fixes them, and its status already says so.
+// finderKinds are the chains link finders are taken from, most trusted first: a sheet provider
+// names the store ids of the game it matched (IGDB), a cover provider's title search only guesses
+// from the title (Steam's only app with exactly that title).
+var finderKinds = []provider.Kind{provider.KindMetadata, provider.KindCover}
+
+// findLinks asks the enabled link finders, chain by chain (finderKinds) in the user's order, and
+// returns the first links found. A finder that asks to slow down or fails (an outage, a timeout)
+// stops the search (limited): its answer is unknown and the next finders are less reliable, so the
+// search waits for it rather than recording "nothing found" for a month. One without its settings
+// is skipped: it would fail the same way until the user fixes them, and its status already says so.
 func (s *AutoLinker) findLinks(ctx context.Context, q GameQuery) (links game.Links, limited bool) {
-	for _, p := range s.reg.All() {
-		f, ok := p.(LinkFinder)
-		if !ok {
+	for _, kind := range finderKinds {
+		chain, err := s.reg.Enabled(ctx, kind)
+		if err != nil {
+			s.log.Warn("automatic links: reading the providers", "error", err)
 			continue
 		}
 
-		id := p.Descriptor().ID
+		for _, v := range withImpl(chain, s.finders) {
+			links, err := s.finders[v.ID()].FindLinks(ctx, q, v.Settings())
+			s.reg.ReportResult(v.ID(), err)
 
-		v, err := s.reg.Find(ctx, id)
-		if err != nil || !v.Enabled() {
-			continue
-		}
-
-		links, err := f.FindLinks(ctx, q, v.Settings())
-		s.reg.ReportResult(id, err)
-
-		switch {
-		case errors.Is(err, provider.ErrBadSettings):
-			continue
-		case errors.Is(err, provider.ErrRateLimited):
-			return nil, true
-		case err != nil:
-			s.log.Warn("automatic links: a finder failed, asking again later", "provider", id, "game", q.Title, "error", err)
-			return nil, true
-		case len(links) > 0:
-			return links, false
+			switch {
+			case errors.Is(err, provider.ErrBadSettings):
+				continue
+			case errors.Is(err, provider.ErrRateLimited):
+				return nil, true
+			case err != nil:
+				s.log.Warn("automatic links: a finder failed, asking again later", "provider", v.ID(), "game", q.Title, "error", err)
+				return nil, true
+			case len(links) > 0:
+				return links, false
+			}
 		}
 	}
 
