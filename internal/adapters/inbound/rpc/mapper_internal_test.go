@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -108,4 +109,41 @@ func TestGameToPB_autoLinks(t *testing.T) {
 			assert.Equal(t, "100", got.Links[game.LinkSteam])
 		})
 	})
+}
+
+func TestDetailsFromPB_enums(t *testing.T) {
+	t.Run("GIVEN copy details that leave every closed value unspecified", func(t *testing.T) {
+		in := &pb.CopyDetails{Contents: []pb.CopyContent{pb.CopyContent_COPY_CONTENT_UNSPECIFIED}}
+
+		t.Run("WHEN they are read", func(t *testing.T) {
+			got, err := detailsFromPB(in)
+			require.NoError(t, err)
+
+			t.Run("THEN each value is left empty for the domain to fill in", func(t *testing.T) {
+				assert.Empty(t, got.Kind)
+				assert.Empty(t, got.Status)
+				assert.Empty(t, got.Grade)
+				assert.Empty(t, got.Contents.List())
+			})
+		})
+	})
+
+	// A tab left open across an upgrade may send values this server does not know: they are
+	// refused, so the copy is not quietly changed to a default.
+	for name, in := range map[string]*pb.CopyDetails{
+		"kind":    {Kind: pb.CopyKind(99)},
+		"status":  {Status: pb.CopyStatus(99)},
+		"grade":   {Grade: pb.CopyGrade(99)},
+		"content": {Contents: []pb.CopyContent{pb.CopyContent_COPY_CONTENT_BOX, pb.CopyContent(99)}},
+	} {
+		t.Run("GIVEN copy details with an unknown "+name, func(t *testing.T) {
+			_, err := detailsFromPB(in)
+
+			t.Run("THEN they are refused as an invalid argument that asks to reload", func(t *testing.T) {
+				require.Error(t, err)
+				assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+				assert.Contains(t, err.Error(), "reload the page")
+			})
+		})
+	}
 }

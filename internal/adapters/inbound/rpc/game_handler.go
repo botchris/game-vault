@@ -110,9 +110,9 @@ func (h *GameHandler) CreateGame(ctx context.Context, req *connect.Request[pb.Cr
 
 // UpdateGame changes the editable fields of a game.
 func (h *GameHandler) UpdateGame(ctx context.Context, req *connect.Request[pb.UpdateGameRequest]) (*connect.Response[pb.UpdateGameResponse], error) {
-	status, ok := playStatusFromPB[req.Msg.PlayStatus]
-	if !ok {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("the play status is not valid: reload the page and try again"))
+	status, err := enumFromPB(playStatusFromPB, req.Msg.PlayStatus, "play status")
+	if err != nil {
+		return nil, err
 	}
 
 	info := game.Info{

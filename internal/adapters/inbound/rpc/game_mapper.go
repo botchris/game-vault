@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"connectrpc.com/connect"
@@ -59,6 +60,27 @@ var (
 	gradeFromPB      = invert(gradeToPB)
 	contentFromPB    = invert(contentToPB)
 )
+
+// enumFromPB reads a closed value from the API: the unspecified value (the enum's zero) is the
+// domain's zero value, for the domain to fill in, and a value this server does not know is refused.
+// An old tab left open across an upgrade sends such values; refusing them asks for a reload
+// instead of quietly saving a default. what names the value in the error ("copy status").
+func enumFromPB[K any, V comparable](m map[V]K, v V, what string) (K, error) {
+	if k, ok := m[v]; ok {
+		return k, nil
+	}
+
+	var (
+		none        K
+		unspecified V
+	)
+
+	if v == unspecified {
+		return none, nil
+	}
+
+	return none, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("the %s is not valid: reload the page and try again", what))
+}
 
 func invert[K, V comparable](m map[K]V) map[V]K {
 	out := make(map[V]K, len(m))
@@ -205,16 +227,31 @@ func detailsFromPB(d *pb.CopyDetails) (game.CopyDetails, error) {
 		return game.CopyDetails{}, err
 	}
 
+	kind, err := enumFromPB(kindFromPB, d.Kind, "copy kind")
+	if err != nil {
+		return game.CopyDetails{}, err
+	}
+
+	status, err := enumFromPB(statusFromPB, d.Status, "copy status")
+	if err != nil {
+		return game.CopyDetails{}, err
+	}
+
+	grade, err := enumFromPB(gradeFromPB, d.Grade, "copy grade")
+	if err != nil {
+		return game.CopyDetails{}, err
+	}
+
 	return game.CopyDetails{
-		Kind:       kindFromPB[d.Kind],
+		Kind:       kind,
 		Platform:   d.Platform,
-		Status:     statusFromPB[d.Status],
+		Status:     status,
 		Key:        d.Key,
 		RedeemBy:   redeemBy,
 		Origin:     d.Origin,
 		AcquiredOn: acquired,
 		Edition:    d.Edition,
-		Grade:      gradeFromPB[d.Grade],
+		Grade:      grade,
 		Contents:   contents,
 		Location:   d.Location,
 		Price: game.Money{
@@ -241,7 +278,12 @@ func contentsToPB(c game.Contents) []pb.CopyContent {
 func contentsFromPB(in []pb.CopyContent) (game.Contents, error) {
 	parts := make([]game.Content, 0, len(in))
 	for _, x := range in {
-		if c, ok := contentFromPB[x]; ok {
+		c, err := enumFromPB(contentFromPB, x, "copy content")
+		if err != nil {
+			return 0, err
+		}
+
+		if c != "" { // unspecified: nothing to add
 			parts = append(parts, c)
 		}
 	}
