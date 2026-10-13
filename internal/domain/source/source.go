@@ -172,20 +172,37 @@ func New(d TypeDescriptor, cfg Config, now time.Time) (*Source, error) {
 	}, nil
 }
 
-// Rehydrate rebuilds a source from storage. Only repositories should call it.
-func Rehydrate(id ID, typ Type, name string, enabled bool, interval time.Duration, settings schema.Settings,
-	lastSync *SyncReport, exclusions []Exclusion, createdAt, updatedAt time.Time) *Source {
+// Snapshot is a source as a repository stored it: everything Rehydrate needs to rebuild it.
+type Snapshot struct {
+	ID           ID
+	Type         Type
+	Name         string
+	Enabled      bool
+	SyncInterval time.Duration
+	Settings     schema.Settings
+
+	// LastSync is the last scan's report, nil when the source was never scanned.
+	LastSync *SyncReport
+
+	// Exclusions are the items the user removed, newest first.
+	Exclusions []Exclusion
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+}
+
+// Rehydrate rebuilds a stored source. Only repositories should call it.
+func Rehydrate(s Snapshot) *Source {
 	return &Source{
-		id:           id,
-		typ:          typ,
-		name:         name,
-		enabled:      enabled,
-		syncInterval: interval,
-		settings:     settings,
-		lastSync:     lastSync,
-		exclusions:   exclusions,
-		createdAt:    createdAt,
-		updatedAt:    updatedAt,
+		id:           s.ID,
+		typ:          s.Type,
+		name:         s.Name,
+		enabled:      s.Enabled,
+		syncInterval: s.SyncInterval,
+		settings:     s.Settings,
+		lastSync:     s.LastSync,
+		exclusions:   s.Exclusions,
+		createdAt:    s.CreatedAt,
+		updatedAt:    s.UpdatedAt,
 	}
 }
 

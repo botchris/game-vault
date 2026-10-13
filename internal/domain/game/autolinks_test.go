@@ -118,11 +118,18 @@ func TestAutoLinks(t *testing.T) {
 	})
 
 	t.Run("GIVEN stored origins, WHEN the game is rebuilt", func(t *testing.T) {
-		g := Rehydrate(NewID(), Info{
-			Title: "Console Quest",
-			Links: Links{LinkSteam: "100", "psn": "1"},
-		}, nil, t0, t0)
-		g.RestoreLinkOrigins([]string{LinkSteam, "gone"}, []LinkRef{{"gog", "200"}}, t1)
+		g := Rehydrate(Snapshot{
+			ID: NewID(),
+			Info: Info{
+				Title: "Console Quest",
+				Links: Links{LinkSteam: "100", "psn": "1"},
+			},
+			AutoLinks:       []string{LinkSteam, "gone"},
+			RejectedLinks:   []LinkRef{{"gog", "200"}},
+			AutoLinkTriedAt: t1,
+			CreatedAt:       t0,
+			UpdatedAt:       t0,
+		})
 
 		t.Run("THEN they are back, minus marks of links no longer there", func(t *testing.T) {
 			assert.Equal(t, []string{LinkSteam}, g.AutoLinks())

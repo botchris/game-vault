@@ -246,21 +246,21 @@ func (g *Game) reconcileEditions() {
 	}
 }
 
-// RestoreEditions sets the chosen covers and the main system read from storage, dropping what no
-// longer fits the copies. Only repositories call it, right after Rehydrate.
-func (g *Game) RestoreEditions(covers map[string]EditionCover, mainSystem string) {
+// restoreEditions sets the chosen covers and the main system read from storage, dropping what no
+// longer fits the copies.
+func (g *Game) restoreEditions(covers map[string]EditionCover, mainSystem string) {
 	g.covers = maps.Clone(covers)
 	g.mainSystem = mainSystem
 	g.reconcileEditions()
 }
 
-// AdoptGameCover turns the single cover a game had before editions (stored documents of version 2)
+// adoptGameCover turns the single cover a game had before editions (LegacyCover)
 // into edition covers. A photo goes to the edition of a copy that has it, and that edition becomes
 // the main one, so the game looks as before. A URL goes to the main edition by the default rule,
 // unless the photo took that edition; that system is stored as the main one when no photo set it.
-// A game without copies keeps the URL as its cover (see SetEditionCover). Only repositories call
-// it, right after Rehydrate.
-func (g *Game) AdoptGameCover(coverURL string, photo PhotoID) {
+// A game without copies keeps the URL as its cover (see SetEditionCover).
+func (g *Game) adoptGameCover(legacy LegacyCover) {
+	coverURL, photo := legacy.URL, legacy.Photo
 	defaultMain := g.mainOf()
 
 	if photo != "" {

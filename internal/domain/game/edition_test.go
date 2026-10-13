@@ -269,21 +269,24 @@ func TestAdoptGameCover(t *testing.T) {
 
 	t.Run("GIVEN a version-2 cover URL only THEN it goes to the default main edition, stored as the main one", func(t *testing.T) {
 		g := discs(t)
-		g.AdoptGameCover(url, "")
+		g.adoptGameCover(LegacyCover{URL: url})
 		assert.Equal(t, map[string]EditionCover{"Xbox 360": {URL: url}}, g.Covers())
 		assert.Equal(t, "Xbox 360", g.MainSystem())
 	})
 
 	t.Run("GIVEN a cover photo only THEN it goes to its copy's edition, which becomes the main one", func(t *testing.T) {
 		g := discs(t)
-		g.AdoptGameCover("", pid(7))
+		g.adoptGameCover(LegacyCover{Photo: pid(7)})
 		assert.Equal(t, map[string]EditionCover{"PS3": {Photo: pid(7)}}, g.Covers())
 		assert.Equal(t, "PS3", g.MainSystem())
 	})
 
 	t.Run("GIVEN both, the photo on another edition than the default main one", func(t *testing.T) {
 		g := discs(t)
-		g.AdoptGameCover(url, pid(7))
+		g.adoptGameCover(LegacyCover{
+			URL:   url,
+			Photo: pid(7),
+		})
 
 		t.Run("THEN the photo keeps its edition and the main place, and the URL goes to the default main edition", func(t *testing.T) {
 			assert.Equal(t, map[string]EditionCover{"PS3": {Photo: pid(7)}, "Xbox 360": {URL: url}}, g.Covers())
@@ -296,14 +299,20 @@ func TestAdoptGameCover(t *testing.T) {
 		_, err := g.AddPhotos(g.Copies()[0].ID, []Photo{{ID: pid(7)}}, t0)
 		require.NoError(t, err)
 
-		g.AdoptGameCover(url, pid(7))
+		g.adoptGameCover(LegacyCover{
+			URL:   url,
+			Photo: pid(7),
+		})
 		assert.Equal(t, map[string]EditionCover{"PS3": {Photo: pid(7)}}, g.Covers())
 		assert.Equal(t, "PS3", g.MainSystem())
 	})
 
 	t.Run("GIVEN a game without copies THEN it keeps the URL as the cover the game has until it has editions", func(t *testing.T) {
 		g := gameWith(t)
-		g.AdoptGameCover(url, pid(7))
+		g.adoptGameCover(LegacyCover{
+			URL:   url,
+			Photo: pid(7),
+		})
 		assert.Equal(t, map[string]EditionCover{"": {URL: url}}, g.Covers())
 		assert.Equal(t, EditionCover{URL: url}, g.MainEdition().Cover)
 		assert.Empty(t, g.Editions())
@@ -312,7 +321,10 @@ func TestAdoptGameCover(t *testing.T) {
 
 	t.Run("GIVEN a photo no copy has any more THEN only the URL is adopted", func(t *testing.T) {
 		g := discs(t)
-		g.AdoptGameCover(url, pid(9))
+		g.adoptGameCover(LegacyCover{
+			URL:   url,
+			Photo: pid(9),
+		})
 		assert.Equal(t, map[string]EditionCover{"Xbox 360": {URL: url}}, g.Covers())
 		assert.Equal(t, "Xbox 360", g.MainSystem())
 	})

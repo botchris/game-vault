@@ -47,7 +47,7 @@ type gameDoc struct {
 	Notes string     `json:"notes,omitempty"`
 
 	// CoverURL and CoverPhoto are the game's single cover of version-2 documents, converted to
-	// edition covers when read (game.AdoptGameCover); never written.
+	// edition covers when read (game.LegacyCover); never written.
 	CoverURL   string `json:"coverUrl,omitempty"`
 	CoverPhoto string `json:"coverPhoto,omitempty"`
 
@@ -320,22 +320,6 @@ func decodeGame(id game.ID, raw string) (*game.Game, error) {
 		copies = append(copies, cp)
 	}
 
-	info := game.Info{
-		Title:      doc.Title,
-		Links:      doc.Links,
-		Notes:      doc.Notes,
-		PlayStatus: game.PlayStatus(doc.PlayStatus),
-		Rating:     game.Rating(doc.Rating),
-		Fields:     fieldsFromDoc(doc.Fields),
-	}
-
-	g := game.Rehydrate(id, info, copies, parseTime(doc.CreatedAt), parseTime(doc.UpdatedAt))
-	if doc.V < 3 {
-		g.AdoptGameCover(doc.CoverURL, game.PhotoID(doc.CoverPhoto))
-	} else {
-		g.RestoreEditions(coversFromDoc(doc.Covers), doc.MainSystem)
-	}
-
 	rejected := make([]game.LinkRef, 0, len(doc.RejectedLinks))
 	for _, r := range doc.RejectedLinks {
 		rejected = append(rejected, game.LinkRef{
@@ -344,9 +328,33 @@ func decodeGame(id game.ID, raw string) (*game.Game, error) {
 		})
 	}
 
-	g.RestoreLinkOrigins(doc.AutoLinks, rejected, parseTime(doc.AutoLinkTriedAt))
+	snap := game.Snapshot{
+		ID: id,
+		Info: game.Info{
+			Title:      doc.Title,
+			Links:      doc.Links,
+			Notes:      doc.Notes,
+			PlayStatus: game.PlayStatus(doc.PlayStatus),
+			Rating:     game.Rating(doc.Rating),
+			Fields:     fieldsFromDoc(doc.Fields),
+		},
+		Copies:          copies,
+		Covers:          coversFromDoc(doc.Covers),
+		MainSystem:      doc.MainSystem,
+		AutoLinks:       doc.AutoLinks,
+		RejectedLinks:   rejected,
+		AutoLinkTriedAt: parseTime(doc.AutoLinkTriedAt),
+		CreatedAt:       parseTime(doc.CreatedAt),
+		UpdatedAt:       parseTime(doc.UpdatedAt),
+	}
+	if doc.V < 3 { // the game had one cover, before editions
+		snap.LegacyCover = &game.LegacyCover{
+			URL:   doc.CoverURL,
+			Photo: game.PhotoID(doc.CoverPhoto),
+		}
+	}
 
-	return g, nil
+	return game.Rehydrate(snap), nil
 }
 
 func coversToDoc(covers map[string]game.EditionCover) map[string]coverDoc {
@@ -439,9 +447,18 @@ func decodeSource(id source.ID, raw string) (*source.Source, error) {
 		})
 	}
 
-	return source.Rehydrate(id, source.Type(doc.Type), doc.Name, doc.Enabled,
-		time.Duration(doc.SyncIntervalSeconds)*time.Second, doc.Settings, lastSync, exclusions,
-		parseTime(doc.CreatedAt), parseTime(doc.UpdatedAt)), nil
+	return source.Rehydrate(source.Snapshot{
+		ID:           id,
+		Type:         source.Type(doc.Type),
+		Name:         doc.Name,
+		Enabled:      doc.Enabled,
+		SyncInterval: time.Duration(doc.SyncIntervalSeconds) * time.Second,
+		Settings:     doc.Settings,
+		LastSync:     lastSync,
+		Exclusions:   exclusions,
+		CreatedAt:    parseTime(doc.CreatedAt),
+		UpdatedAt:    parseTime(doc.UpdatedAt),
+	}), nil
 }
 
 func encodeProvider(p *provider.Provider) (string, error) {

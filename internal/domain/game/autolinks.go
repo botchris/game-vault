@@ -65,10 +65,9 @@ func (g *Game) rejected(key, id string) bool {
 // AutoLinkTriedAt returns when links were last searched for automatically; zero when never.
 func (g *Game) AutoLinkTriedAt() time.Time { return g.autoLinkTriedAt }
 
-// RestoreLinkOrigins sets the automatic links' marks, the rejected links and the last automatic
-// search read from storage, dropping marks of links that are gone. Only repositories call it, right
-// after Rehydrate.
-func (g *Game) RestoreLinkOrigins(auto []string, rejected []LinkRef, triedAt time.Time) {
+// restoreLinkOrigins sets the automatic links' marks, the rejected links and the last automatic
+// search read from storage, dropping marks of links that are gone.
+func (g *Game) restoreLinkOrigins(auto []string, rejected []LinkRef, triedAt time.Time) {
 	g.autoLinks = nil
 
 	for _, k := range auto {
