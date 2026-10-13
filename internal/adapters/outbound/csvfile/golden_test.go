@@ -135,9 +135,29 @@ func TestGolden_export(t *testing.T) {
 }
 
 func TestGolden_import(t *testing.T) {
-	for _, name := range []string{"import.csv", "import-semicolon.csv", "export.golden.csv"} {
-		t.Run("GIVEN the file "+name, func(t *testing.T) {
-			in, err := os.ReadFile(filepath.Join("testdata", name))
+	// The export golden is imported back too: its result is export.reimport.json, not a second
+	// ".golden" in the name.
+	files := []struct {
+		in     string
+		golden string
+	}{
+		{
+			in:     "import.csv",
+			golden: "import.golden.json",
+		},
+		{
+			in:     "import-semicolon.csv",
+			golden: "import-semicolon.golden.json",
+		},
+		{
+			in:     "export.golden.csv",
+			golden: "export.reimport.json",
+		},
+	}
+
+	for _, f := range files {
+		t.Run("GIVEN the file "+f.in, func(t *testing.T) {
+			in, err := os.ReadFile(filepath.Join("testdata", f.in))
 			require.NoError(t, err)
 
 			t.Run("WHEN it is imported", func(t *testing.T) {
@@ -151,7 +171,7 @@ func TestGolden_import(t *testing.T) {
 					}{copies, warnings}, "", "  ")
 					require.NoError(t, err)
 
-					golden(t, strings.TrimSuffix(name, ".csv")+".golden.json", string(out)+"\n")
+					golden(t, f.golden, string(out)+"\n")
 				})
 			})
 		})
