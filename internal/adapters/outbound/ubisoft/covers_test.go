@@ -2,6 +2,7 @@ package ubisoft
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -81,6 +82,22 @@ func TestCovers(t *testing.T) {
 	if err != nil || len(got) != 1 || got[0].URL != srv.URL+"/space-with-art/spaceCardAsset/boxArt_mobile.jpg" {
 		t.Fatalf("links only: %v %v", got, err)
 	}
+}
+
+func TestPickStoreCovers_otherScripts(t *testing.T) {
+	t.Run("GIVEN a store hit titled in a script MatchKey drops", func(t *testing.T) {
+		var hits []storeHit
+		require.NoError(t, json.Unmarshal([]byte(`[{"title":"ドラゴンクエスト","short_title":"ドラゴンクエスト","Edition":"Standard Edition",
+		  "product_type":"Games","dlcType":null,"image_groups":[{"images":[{"dis_base_link":"https://store.ubisoft.com/other.jpg"}]}]}]`), &hits))
+
+		t.Run("WHEN covers are picked for another game titled in such a script", func(t *testing.T) {
+			got := pickStoreCovers("ファイナルクエスト", hits)
+
+			t.Run("THEN the other game's packshot is not proposed", func(t *testing.T) {
+				assert.Empty(t, got)
+			})
+		})
+	})
 }
 
 func TestCovers_Test(t *testing.T) {

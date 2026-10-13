@@ -68,10 +68,9 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, settings schema
 	}
 
 	store := c.Search.LinkStore().Key
-	key := game.MatchKey(title)
 
 	for _, m := range matches {
-		if game.MatchKey(m.Name) != key {
+		if !game.SameMatchKey(m.Name, title) {
 			continue
 		}
 

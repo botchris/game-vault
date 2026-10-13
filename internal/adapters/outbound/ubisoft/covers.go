@@ -173,8 +173,6 @@ func (c *Covers) storeCovers(ctx context.Context, title string) ([]media.CoverCa
 }
 
 func pickStoreCovers(title string, hits []storeHit) []media.CoverCandidate {
-	key := game.MatchKey(title)
-
 	var standard, others []media.CoverCandidate
 
 	seen := map[string]bool{}
@@ -184,7 +182,7 @@ func pickStoreCovers(title string, hits []storeHit) []media.CoverCandidate {
 			continue
 		}
 
-		if game.MatchKey(h.ShortTitle) != key && game.MatchKey(h.Title) != key {
+		if !game.SameMatchKey(h.ShortTitle, title) && !game.SameMatchKey(h.Title, title) {
 			continue
 		}
 

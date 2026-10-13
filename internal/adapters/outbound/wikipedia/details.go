@@ -287,7 +287,7 @@ func (d *Details) candidates(ctx context.Context, title, lang string) (ids []str
 
 			for _, h := range hits {
 				strict := game.SameTitle(h.Label, title) || game.SameTitle(h.Match.Text, title)
-				if !strict && !looseTitle(h.Label, title) && !looseTitle(h.Match.Text, title) {
+				if !strict && !game.SameMatchKey(h.Label, title) && !game.SameMatchKey(h.Match.Text, title) {
 					continue
 				}
 
@@ -670,11 +670,6 @@ func pick(labels map[string]string, ids []string) []string {
 	}
 
 	return out
-}
-
-// looseTitle compares titles as game.MatchKey does (edition tags, trademarks and accents ignored).
-func looseTitle(a, b string) bool {
-	return a != "" && b != "" && game.MatchKey(a) == game.MatchKey(b)
 }
 
 // capitalize upper-cases the first letter: Wikidata labels genres in lower case ("puzzle video

@@ -82,6 +82,27 @@ func TestNormalizeTitle(t *testing.T) {
 	}
 }
 
+func TestSameMatchKey(t *testing.T) {
+	for _, tc := range []struct {
+		a    string
+		b    string
+		want bool
+	}{
+		{"Example Quest™ (Steam Key)", "Example Quest", true},
+		{"Example Quest - Deluxe Edition", "EXAMPLE QUEST", true},
+		{"Example Quest 2", "Example Quest", false},
+		// Titles in other scripts reduce to an empty key: two different games must not match.
+		{"ファイナルクエスト", "ドラゴンクエスト", false},
+		{"Пример Квест", "Другая Игра", false},
+		{"Παράδειγμα", "ファイナルクエスト", false},
+		{"ファイナルクエスト", "ファイナルクエスト", false},
+		{"", "", false},
+		{"!!!", "???", false},
+	} {
+		assert.Equal(t, tc.want, SameMatchKey(tc.a, tc.b), "%q vs %q", tc.a, tc.b)
+	}
+}
+
 func TestSameTitle(t *testing.T) {
 	for _, tc := range []struct {
 		a    string

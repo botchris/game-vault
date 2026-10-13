@@ -390,7 +390,7 @@ func (p *Provider) Covers(ctx context.Context, q media.CoverQuery, s schema.Sett
 			switch {
 			case game.SameTitle(g.Title, q.Title):
 				strict = append(strict, c)
-			case sameMatchKey(g.Title, q.Title):
+			case game.SameMatchKey(g.Title, q.Title):
 				exact = append(exact, c) // same game, other release: "[Platinum]", "(PAL)"...
 			default:
 				others = append(others, c)
@@ -403,12 +403,4 @@ func (p *Provider) Covers(ctx context.Context, q media.CoverQuery, s schema.Sett
 	all := append(append(strict, exact...), others...)
 
 	return all[:min(len(all), maxCandidates)], nil
-}
-
-// sameMatchKey compares titles as game.MatchKey does (edition tags ignored), never calling two titles
-// the same when neither has a key: titles in other scripts reduce to an empty one.
-func sameMatchKey(a, b string) bool {
-	k := game.MatchKey(a)
-
-	return k != "" && k == game.MatchKey(b)
 }

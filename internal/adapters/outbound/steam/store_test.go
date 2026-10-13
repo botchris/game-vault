@@ -98,6 +98,26 @@ func titleSearchStore(t *testing.T, items map[string]string, status int) (*Store
 	return s, &searched
 }
 
+func TestUniqueApp_otherScripts(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a store search whose only app is another game titled in a script MatchKey drops", func(t *testing.T) {
+		s, _ := titleSearchStore(t, map[string]string{
+			"ファイナルクエスト": `[{"type":"app","name":"ドラゴンクエスト","id":777}]`,
+		}, 0)
+
+		t.Run("WHEN the app of a game titled in such a script is looked up, loosely", func(t *testing.T) {
+			id, err := s.uniqueApp(ctx, "ファイナルクエスト", "ファイナルクエスト", true)
+
+			t.Run("THEN none is found: two empty match keys are not the same game", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.Zero(t, id)
+			})
+		})
+	})
+}
+
 func TestCovers_titleSearch(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()

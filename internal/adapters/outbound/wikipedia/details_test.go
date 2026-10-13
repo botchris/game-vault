@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/application/media"
+	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 )
 
@@ -381,6 +382,42 @@ func TestDetails_trademarkedTitleSearchedOnce(t *testing.T) {
 			t.Run("THEN it is searched once: the trademark sign alone makes no other title", func(t *testing.T) {
 				assert.Nil(t, got)
 				assert.Equal(t, []string{"en:Plain Quest"}, f.searchLog())
+			})
+		})
+	})
+}
+
+func TestDetails_otherScripts(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN Wikidata only knows another game, titled in a script MatchKey drops", func(t *testing.T) {
+		const title = "ファイナルクエスト"
+
+		f := newFakeWiki(t)
+		f.entities["Q700"] = entity{
+			labels: map[string]string{"mul": "ドラゴンクエスト"},
+			claims: map[string][]string{
+				"P31":  {videoGame},
+				"P400": {windows},
+			},
+			sitelinks: map[string]string{"enwiki": "Invented Other Quest"},
+		}
+		f.articles["en:Invented Other Quest"] = article{extract: "Another invented game."}
+
+		for _, term := range []string{game.SearchTitle(title), game.NormalizeTitle(title)} {
+			f.searches["en:"+term] = []string{"Q700"}
+		}
+
+		t.Run("WHEN the sheet of a game titled in such a script is asked", func(t *testing.T) {
+			got, err := f.details().Details(ctx, media.CoverQuery{
+				Title:     title,
+				Platforms: []string{"Steam"},
+			}, "en", nil)
+			require.NoError(t, err)
+
+			t.Run("THEN the other game's sheet is not used: two empty match keys are not the same game", func(t *testing.T) {
+				assert.Nil(t, got)
 			})
 		})
 	})

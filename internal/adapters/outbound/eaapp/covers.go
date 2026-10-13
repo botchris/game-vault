@@ -193,7 +193,7 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 	}
 
 	sort.Slice(games, func(i, j int) bool {
-		mi, mj := game.MatchKey(games[i].g.Title) == game.MatchKey(q.Title), game.MatchKey(games[j].g.Title) == game.MatchKey(q.Title)
+		mi, mj := game.SameMatchKey(games[i].g.Title, q.Title), game.SameMatchKey(games[j].g.Title, q.Title)
 		if mi != mj {
 			return mi
 		}
