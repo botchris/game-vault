@@ -56,7 +56,7 @@ func TestCovers(t *testing.T) {
 	defer srv.Close()
 
 	c := NewCovers()
-	c.GraphQLURL = srv.URL
+	c.API.BaseURL = srv.URL
 
 	q := media.CoverQuery{
 		Title: "Battlefield™ 1",
@@ -88,7 +88,7 @@ func TestCovers_Test(t *testing.T) {
 		defer srv.Close()
 
 		c := NewCovers()
-		c.GraphQLURL = srv.URL
+		c.API.BaseURL = srv.URL
 
 		return c.Test(ctx, nil)
 	}
@@ -155,7 +155,7 @@ func TestCovers_passingTroubles(t *testing.T) {
 			defer srv.Close()
 
 			c := NewCovers()
-			c.GraphQLURL = srv.URL
+			c.API.BaseURL = srv.URL
 
 			if status == 0 {
 				srv.Close()
@@ -178,4 +178,37 @@ func TestCovers_passingTroubles(t *testing.T) {
 			})
 		})
 	}
+}
+
+// TestCovers_gatewayRefusal checks that a refusal by the gateway in front of the catalog (an error
+// status with its own JSON and no GraphQL "errors") is an error, not an answer without the game,
+// which would mark the edition's cover missing.
+func TestCovers_gatewayRefusal(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a catalog whose gateway answers HTTP 403 with a JSON object", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			fmt.Fprint(w, `{"message":"Forbidden"}`)
+		}))
+		defer srv.Close()
+
+		c := NewCovers()
+		c.API.BaseURL = srv.URL
+
+		t.Run("WHEN covers are asked", func(t *testing.T) {
+			got, err := c.Covers(ctx, media.CoverQuery{
+				Title: "Battlefield 1",
+				Links: game.Links{"ea": "battlefield-1"},
+			}, nil)
+
+			t.Run("THEN it is an error that names the status", func(t *testing.T) {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "HTTP 403")
+				assert.Empty(t, got)
+			})
+		})
+	})
 }

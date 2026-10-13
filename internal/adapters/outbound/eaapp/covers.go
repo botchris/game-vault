@@ -1,12 +1,9 @@
 package eaapp
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"regexp"
 	"slices"
 	"sort"
@@ -33,8 +30,9 @@ const CoverProviderID provider.ID = "ea-covers"
 // EA's catalog, which the EA app API serves without sign-in. Games are looked up by their slug,
 // guessed from the title and the product id ("en-us_battlefield-1-standard-edition-…").
 type Covers struct {
-	GraphQLURL string
-	Client     *http.Client
+	// API calls EA's GraphQL endpoint (its BaseURL is the endpoint itself); tests point it at a
+	// fake server.
+	API *apiclient.Client
 }
 
 var (
@@ -44,10 +42,12 @@ var (
 
 // NewCovers returns the EA app cover provider with its production endpoints.
 func NewCovers() *Covers {
-	return &Covers{
-		GraphQLURL: defaultGraphQLURL,
-		Client:     &http.Client{Timeout: 20 * time.Second},
-	}
+	api := apiclient.New(defaultGraphQLURL)
+	api.HTTP.Timeout = 20 * time.Second
+	api.UserAgent = apiclient.BrowserUserAgent
+	api.MaxBody = 4 << 20
+
+	return &Covers{API: api}
 }
 
 // Descriptor implements media.CoverProvider.
@@ -140,41 +140,21 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 	}
 
 	b.WriteString(" }")
-	body, _ := json.Marshal(map[string]string{"query": b.String()})
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.GraphQLURL, bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
+	// Unknown slugs come back null, sometimes with an error each: only an answer without any data
+	// is a failure. A 429 or an outage says nothing about the game: the chain asks again later
+	// instead of marking the cover missing.
+	var data map[string]*eaGame
 
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", apiclient.BrowserUserAgent)
+	err := c.API.GraphQL(ctx, "", apiclient.GraphQLBody{Query: b.String()}, nil, &data)
 
-	res, err := c.Client.Do(req)
-	if err != nil {
+	var ge *apiclient.GraphQLError
+
+	partial := errors.As(err, &ge) && ge.Partial
+	if err != nil && !partial {
 		return nil, fmt.Errorf("ea catalog: %w", apiclient.ClassifyError(ctx, err))
 	}
-	defer res.Body.Close()
 
-	// A 429 or an outage says nothing about the game: the chain asks again later instead of
-	// marking the cover missing. Other statuses may carry GraphQL errors, read below.
-	if apiclient.Transient(res.StatusCode) {
-		return nil, fmt.Errorf("ea catalog: %w", apiclient.ClassifyStatus(res.StatusCode))
-	}
-
-	var out struct {
-		Data   map[string]*eaGame `json:"data"`
-		Errors []struct {
-			Message string `json:"message"`
-		} `json:"errors"`
-	}
-	if err := json.NewDecoder(io.LimitReader(res.Body, 4<<20)).Decode(&out); err != nil {
-		return nil, fmt.Errorf("ea catalog: HTTP %d, unexpected answer", res.StatusCode)
-	}
-
-	if out.Data == nil && len(out.Errors) > 0 {
-		return nil, fmt.Errorf("ea catalog: %s", out.Errors[0].Message)
-	}
 	// Prefer the game whose title matches; otherwise the first (most likely) candidate found.
 	type found struct {
 		order int
@@ -183,7 +163,7 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 
 	var games []found
 
-	for alias, g := range out.Data {
+	for alias, g := range data {
 		if g == nil {
 			continue
 		}
@@ -236,38 +216,23 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 // Test implements media.Provider: it asks EA's public catalog for one well-known game by slug and
 // fails on a transport error, an HTTP error or a GraphQL rejection. An unknown slug is not a failure.
 func (c *Covers) Test(ctx context.Context, _ schema.Settings) error {
-	body, _ := json.Marshal(map[string]string{"query": `{ g0: game(slug: "battlefield-1") { slug title } }`})
+	var data map[string]*eaGame
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.GraphQLURL, bytes.NewReader(body))
-	if err != nil {
-		return err
+	err := c.API.GraphQL(ctx, "", apiclient.GraphQLBody{Query: `{ g0: game(slug: "battlefield-1") { slug title } }`}, nil, &data)
+
+	var (
+		ge *apiclient.GraphQLError
+		se *apiclient.StatusError
+	)
+
+	switch {
+	case err == nil:
+		return nil
+	case errors.As(err, &ge):
+		return fmt.Errorf("EA's catalog rejected the request (%s); try again later", ge.Message)
+	case errors.As(err, &se):
+		return fmt.Errorf("EA's catalog answered (%w); try again later", apiclient.ClassifyError(ctx, err))
 	}
 
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", apiclient.BrowserUserAgent)
-
-	res, err := c.Client.Do(req)
-	if err != nil {
-		return fmt.Errorf("EA's catalog is not reachable (%w); check the connection and try again", apiclient.ClassifyError(ctx, err))
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("EA's catalog answered (%w); try again later", apiclient.ClassifyStatus(res.StatusCode))
-	}
-
-	var out struct {
-		Errors []struct {
-			Message string `json:"message"`
-		} `json:"errors"`
-	}
-	if err := json.NewDecoder(io.LimitReader(res.Body, 1<<20)).Decode(&out); err != nil {
-		return fmt.Errorf("EA's catalog sent an unexpected answer (%w); try again later", err)
-	}
-
-	if len(out.Errors) > 0 {
-		return fmt.Errorf("EA's catalog rejected the request (%s); try again later", out.Errors[0].Message)
-	}
-
-	return nil
+	return fmt.Errorf("EA's catalog is not reachable (%w); check the connection and try again", apiclient.ClassifyError(ctx, err))
 }
