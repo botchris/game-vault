@@ -47,8 +47,11 @@ const (
 	renewMargin = time.Minute
 
 	// successorTTL is how long a spent refresh token is remembered with the session that replaced
-	// it: long enough for any caller that read the settings before the rotation.
-	successorTTL = 24 * time.Hour
+	// it: long enough for any caller that read the settings before the rotation. The longest is a
+	// source scanned weekly (168 h, the longest interval offered) whose scan the scheduler's ±10%
+	// jitter pushes to 185 h; a day, as before, left such a caller sending the spent token and
+	// signed out. Eight days covers it, and a successor costs a few bytes per rotation.
+	successorTTL = 8 * 24 * time.Hour
 )
 
 // Grant is a token endpoint's answer: the session to store and an access token.

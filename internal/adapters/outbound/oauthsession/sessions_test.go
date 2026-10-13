@@ -501,6 +501,47 @@ func TestSessions_token(t *testing.T) {
 	})
 }
 
+func TestSessions_successorsOutliveAWeeklyScan(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN two sessions, the first rotated now", func(t *testing.T) {
+		st := newStore()
+		st.live["a-0"], st.live["b-0"] = true, true
+		c := &clock{now: time.Date(2026, 10, 12, 12, 0, 0, 0, time.UTC)}
+		sessions := newSessions(st, c)
+
+		_, err := sessions.Token(ctx, source.Settings{"session": `{"refresh_token":"a-0"}`})
+		require.NoError(t, err)
+
+		t.Run("WHEN the second rotates a weekly scan later (168 h plus 10% jitter), pruning what expired", func(t *testing.T) {
+			c.advance(185 * time.Hour)
+
+			second := source.Settings{"session": `{"refresh_token":"b-0"}`}
+			_, err := sessions.Token(ctx, second)
+			require.NoError(t, err)
+
+			stale := source.Settings{"session": `{"refresh_token":"a-0"}`}
+			_, err = sessions.Token(ctx, stale)
+
+			t.Run("THEN a caller still holding the first's spent token gets its successor, not a sign-out", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.NotEqual(t, "a-0", stored(t, stale).RefreshToken)
+			})
+
+			t.Run("AND long after both rotated, another refresh prunes them", func(t *testing.T) {
+				c.advance(9 * 24 * time.Hour)
+
+				_, err := sessions.Token(ctx, second)
+				require.NoError(t, err)
+
+				_, err = sessions.Token(ctx, source.Settings{"session": `{"refresh_token":"b-0"}`})
+				require.ErrorIs(t, err, source.ErrSignedOut, "the spent token is sent again once its successor is forgotten")
+			})
+		})
+	})
+}
+
 func TestSessions_withRetry(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
