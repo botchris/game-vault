@@ -15,11 +15,12 @@ type ProviderRepository struct {
 // NewProviderRepository returns the repository backed by db.
 func NewProviderRepository(db *DB) *ProviderRepository {
 	return &ProviderRepository{docs: docTable[provider.ID, *provider.Provider]{
-		db:     db,
-		table:  "providers",
-		noun:   "provider",
-		encode: encodeProvider,
-		decode: decodeProvider,
+		db:       db,
+		table:    "providers",
+		noun:     "provider",
+		encode:   encodeProvider,
+		decode:   decodeProvider,
+		notFound: provider.ErrNotFound,
 	}}
 }
 
