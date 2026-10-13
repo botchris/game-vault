@@ -68,12 +68,20 @@ The Fanatical plugin is a real, small one: one source, `apiclient`, a fake-serve
 
 - **`ExternalID`** is `"<name>:<id>"` and never changes format: a scan matches copies by it, so a
   new format duplicates every copy. If it must change, set `PreviousExternalID` on the copies.
+  An item the store gives no id gets one from its title with `game.TitleIDKey` (frozen), never
+  `game.MatchKey`, which changes as matching improves.
 - **Only import what the account owns**: skip subscriptions (Game Pass, PS Plus…), trials, and
   what is not a game (DLC, software, vouchers), counting the skipped items in a warning.
 - **Withdraw** what you imported by mistake: return the item with `Withdrawn: true` and the copy
   is removed on the next scan.
-- **Reuse platform names** (`"Steam"`, `"GOG"`, `"Epic Games"`… see `game.IsKnownPlatform`): keys
-  are flagged as already owned by comparing them with the library of the same platform.
+- **Use the domain's names**: platforms, systems and link keys are constants in
+  `internal/domain/game/platforms.go` (`game.PlatformSteam`, `game.SystemPS4`, `game.LinkGOG`…),
+  never string literals. Keys are flagged as already owned by comparing their platform with the
+  library of the same platform exactly, and the names are stored in documents, CSV files and file
+  names. A new store or console is one line in that file's table, plus its constant.
+  `TestVocabulary_adaptersUseTheDomainNames` (cmd/gamevault) fails on a platform or system written
+  as a literal; a value of an external API that happens to look like one ("PS5" in Sony's answers)
+  goes in its `rawVocabulary` list with the reason.
 - **Link** every copy to the store it comes from (`Links`), and implement `sync.StoreLinker`.
   Sources that sell keys for other stores (Humble, Fanatical) link only what they know (Humble
   gives Steam AppIDs).
@@ -139,7 +147,10 @@ extension update: discuss it first.
 - `Applies(q)` decides from the query alone, without network: `q.Links[LinkedStore.Key]`,
   `q.Platforms`, `q.PhysicalPlatforms`. `q.System` is the edition's system (`""` when the query
   names none): a store provider applies only when `q.ForPC()`; a console catalog checks the system
-  (see `xbox.IsXboxSystem`). A provider with a monthly quota also checks
+  (see `xbox.IsXboxSystem`). A title search filters to `q.SearchSystems()` and searches the terms
+  of `game.SearchTerms(q.Title)` in order (the game's name, then the raw title); a table mapping
+  systems to the service's own ids is keyed by the `game.System…` constants and checked against
+  `game.Consoles()` in a test. A provider with a monthly quota also checks
   `q.HasStoreLink()` and `q.Fallback` so it is not spent on games stores already cover.
 - Return `nil, nil` when the service does not know the game; an error only for real failures.
 - **Error texts do not name the provider**: the media service puts the provider's name before

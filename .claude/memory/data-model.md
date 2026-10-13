@@ -24,6 +24,14 @@ metadata:
 - Platform names are shared between sources so Humble keys are flagged as redundant when the
   game is already in that store: "Steam", "Epic Games", "GOG", "Battle.net", "EA App",
   "Ubisoft Connect", "Microsoft Store / Xbox"; PlayStation copies use "PS4"/"PS5".
+  Since 2026-10-13 (audit PR 4) every platform, system and link key is a constant in
+  `internal/domain/game/platforms.go`, built into one table (name, system, link key);
+  `TestVocabulary_valuesNeverChange` pins the strings and a cmd/gamevault test rejects literals in
+  adapters (allowlist `rawVocabulary` for external API values). The EA source's `Origin` stays
+  "EA app" (lowercase, as stored) while its platform is "EA App".
+- Battle.net and EA items without a store id get `<prefix>:` + `game.TitleIDKey(title)`, a frozen
+  copy of `MatchKey` as of 2026-10-13 (pinned by a test): never `MatchKey`, whose changes would
+  re-key those copies.
 - **Storage (since migration 0009, 2026-10-09):** games (copies inside), sources and providers are
   JSON documents `(id, doc)`; the adapter's `gameDoc`/`copyDoc`/`sourceDoc`/`providerDoc` field
   names never change once released (like ExternalID prefixes). A new field needs no migration;

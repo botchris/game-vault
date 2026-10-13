@@ -309,7 +309,7 @@ func mapItems(items []item) []game.ImportedCopy {
 		}
 
 		if id == "" {
-			id = game.MatchKey(title)
+			id = game.TitleIDKey(title) // frozen: the id must never change
 		}
 
 		edition := ""

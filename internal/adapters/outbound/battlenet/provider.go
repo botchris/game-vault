@@ -217,7 +217,7 @@ func collectTitles(v any, out map[string]title) {
 		if name, ok := x["localizedGameName"].(string); ok && strings.TrimSpace(name) != "" {
 			id := fmt.Sprint(firstOf(x, "titleId", "gameTitleId", "productId"))
 			if id == "" || id == "<nil>" {
-				id = game.MatchKey(name)
+				id = game.TitleIDKey(name) // frozen: the id must never change
 			}
 
 			if _, seen := out[id]; !seen {

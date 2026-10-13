@@ -162,3 +162,15 @@ func TestOwnedItems_passingTroubles(t *testing.T) {
 		})
 	})
 }
+
+// TestMapItems_idWithoutProductID pins the ExternalID of a game the EA app lists without a product or
+// offer id: it is built from the title and must never change (game.TitleIDKey, not MatchKey).
+func TestMapItems_idWithoutProductID(t *testing.T) {
+	var it item
+	it.Product.Name = "Example Racer™ Deluxe Edition"
+	it.Product.BaseItem.Title = "Example Racer™"
+
+	got := mapItems([]item{it})
+	require.Len(t, got, 1)
+	assert.Equal(t, "ea:example racer", got[0].ExternalID)
+}

@@ -153,3 +153,15 @@ func TestFetch_outageIsNotSignedOut(t *testing.T) {
 		})
 	})
 }
+
+// TestCollectTitles_idWithoutTitleID pins the id of a game Battle.net lists without a title id: the
+// copy's ExternalID is built from it, so it must never change (game.TitleIDKey, not MatchKey).
+func TestCollectTitles_idWithoutTitleID(t *testing.T) {
+	out := map[string]title{}
+	collectTitles(map[string]any{"localizedGameName": "Example Quest™ (Battle.net Key)"}, out)
+
+	assert.Equal(t, map[string]title{"example quest": {
+		ID:   "example quest",
+		Name: "Example Quest™ (Battle.net Key)",
+	}}, out)
+}
