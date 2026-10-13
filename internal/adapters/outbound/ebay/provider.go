@@ -9,20 +9,17 @@ package ebay
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/hex"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"regexp"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"gamevault/internal/adapters/outbound/apiclient"
+	"gamevault/internal/adapters/outbound/oauthapp"
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
@@ -45,18 +42,22 @@ const (
 	listingsPerLookup = 20
 )
 
-// Provider implements media.BarcodeProvider.
+// ErrKeysRefused means eBay refused, twice, an access token it had just issued for the keys: they
+// are not allowed to use the Browse API.
+var ErrKeysRefused = provider.BadSettings("eBay refused the access token of these keys: check them in the settings")
+
+// errTokenRefused is the Browse API's HTTP 401 to an access token.
+var errTokenRefused = fmt.Errorf("eBay refused the access token: %w", apiclient.ErrTokenRejected)
+
+// Provider implements media.BarcodeProvider. The barcode and price providers share one, so they
+// share its access tokens.
 type Provider struct {
-	BaseURL string
-	Client  *http.Client
+	// API calls eBay's REST APIs (the token endpoint and the Browse API); tests point it at a fake
+	// server.
+	API *apiclient.Client
 
-	mu     sync.Mutex
-	tokens map[string]token // by hash of client id + secret, so changed keys get a new token
-}
-
-type token struct {
-	value   string
-	expires time.Time
+	// tokens holds the application token of each set of keys.
+	tokens oauthapp.Tokens
 }
 
 var (
@@ -65,11 +66,10 @@ var (
 
 // New returns the eBay barcode provider with its production endpoints.
 func New() *Provider {
-	return &Provider{
-		BaseURL: defaultBaseURL,
-		Client:  &http.Client{Timeout: 15 * time.Second},
-		tokens:  map[string]token{},
-	}
+	api := apiclient.New(defaultBaseURL)
+	api.HTTP.Timeout = 15 * time.Second
+
+	return &Provider{API: api}
 }
 
 // Descriptor implements media.BarcodeProvider.
@@ -106,71 +106,76 @@ func (p *Provider) Descriptor() provider.Descriptor {
 	}
 }
 
-// accessToken returns an application token (client credentials grant), cached until it expires.
-func (p *Provider) accessToken(ctx context.Context, s schema.Settings) (string, error) {
-	id, secret := strings.TrimSpace(s[settingClientID]), strings.TrimSpace(s[settingClientSecret])
-	sum := sha256.Sum256([]byte(id + "\x00" + secret))
-	cacheKey := hex.EncodeToString(sum[:])
+// credentials returns the client id, the secret and the key of their cached token.
+func credentials(s schema.Settings) (id, secret, key string) {
+	id, secret = strings.TrimSpace(s[settingClientID]), strings.TrimSpace(s[settingClientSecret])
 
-	p.mu.Lock()
-	if t, ok := p.tokens[cacheKey]; ok && time.Now().Before(t.expires) {
-		p.mu.Unlock()
-		return t.value, nil
-	}
-	p.mu.Unlock()
-
-	form := url.Values{"grant_type": {"client_credentials"}, "scope": {"https://api.ebay.com/oauth/api_scope"}}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.BaseURL+"/identity/v1/oauth2/token", strings.NewReader(form.Encode()))
-	if err != nil {
-		return "", err
-	}
-
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(id+":"+secret)))
-
-	res, err := p.Client.Do(req)
-	if err != nil {
-		return "", apiclient.ClassifyError(ctx, err)
-	}
-	defer res.Body.Close()
-
-	var out struct {
-		AccessToken string `json:"access_token"`
-		ExpiresIn   int    `json:"expires_in"`
-		Error       string `json:"error"`
-		Description string `json:"error_description"`
-	}
-
-	_ = json.NewDecoder(res.Body).Decode(&out)
-
-	// Only a 400, 401 or 403 (invalid_client, invalid_scope…) means the keys are wrong; a 429 or an
-	// outage is a passing trouble, after which the same keys work again.
-	switch {
-	case res.StatusCode == http.StatusOK && out.AccessToken != "":
-	case res.StatusCode == http.StatusOK || apiclient.Rejected(res.StatusCode):
-		if out.Description != "" {
-			return "", provider.BadSettings("eBay rejected the keys: " + out.Description)
-		}
-
-		return "", provider.BadSettings(fmt.Sprintf("eBay rejected the keys (HTTP %d): check them in the settings", res.StatusCode))
-	default:
-		return "", fmt.Errorf("eBay sign-in: %w", apiclient.ClassifyStatus(res.StatusCode))
-	}
-
-	p.mu.Lock()
-	p.tokens[cacheKey] = token{
-		value:   out.AccessToken,
-		expires: time.Now().Add(time.Duration(out.ExpiresIn)*time.Second - time.Minute),
-	}
-	p.mu.Unlock()
-
-	return out.AccessToken, nil
+	return id, secret, oauthapp.Key(id, secret)
 }
 
-// Test checks the keys by getting a token.
+// accessToken returns an application token (client credentials grant) for the keys, cached until
+// shortly before it expires.
+func (p *Provider) accessToken(ctx context.Context, s schema.Settings) (string, error) {
+	id, secret, key := credentials(s)
+
+	return p.tokens.Get(ctx, key, p.fetchToken(id, secret))
+}
+
+// fetchToken returns the request of an application token for the keys.
+func (p *Provider) fetchToken(id, secret string) oauthapp.Fetch {
+	return func(ctx context.Context) (oauthapp.Token, error) {
+		res, err := p.API.Send(ctx, apiclient.Request{
+			Method: http.MethodPost,
+			Path:   "/identity/v1/oauth2/token",
+			Header: http.Header{"Authorization": {apiclient.BasicAuth(id, secret)}},
+			Form: url.Values{
+				"grant_type": {"client_credentials"},
+				"scope":      {"https://api.ebay.com/oauth/api_scope"},
+			},
+		})
+		if err != nil {
+			return oauthapp.Token{}, fmt.Errorf("eBay sign-in: %w", apiclient.ClassifyError(ctx, err))
+		}
+
+		var out struct {
+			AccessToken string `json:"access_token"`
+			ExpiresIn   int64  `json:"expires_in"`
+			Description string `json:"error_description"`
+		}
+
+		decodeErr := res.Decode(&out)
+
+		// Only a 400, 401 or 403 (invalid_client, invalid_scope…) means the keys are wrong; a 429,
+		// an outage or a web page instead of JSON is a passing trouble, after which the same keys
+		// work again.
+		switch {
+		case res.OK() && errors.Is(decodeErr, apiclient.ErrNotJSON):
+			return oauthapp.Token{}, fmt.Errorf("eBay sign-in: %w", apiclient.ClassifyError(ctx, decodeErr))
+		case res.OK() && out.AccessToken != "":
+			// A zero lifetime counts as oauthapp.DefaultLifetime, not as a token already expired.
+			return oauthapp.Token{
+				Value:    out.AccessToken,
+				Lifetime: time.Duration(out.ExpiresIn) * time.Second,
+			}, nil
+		case res.OK() || apiclient.Rejected(res.Status):
+			if out.Description != "" {
+				return oauthapp.Token{}, provider.BadSettings("eBay rejected the keys: " + out.Description)
+			}
+
+			return oauthapp.Token{}, provider.BadSettings(fmt.Sprintf("eBay rejected the keys (HTTP %d): check them in the settings", res.Status))
+		}
+
+		return oauthapp.Token{}, fmt.Errorf("eBay sign-in: %w", apiclient.ClassifyError(ctx, res.Err()))
+	}
+}
+
+// Test checks the keys by getting a new token: a cached one would not reach eBay.
 func (p *Provider) Test(ctx context.Context, s schema.Settings) error {
+	_, _, key := credentials(s)
+	p.tokens.Forget(key)
+
 	_, err := p.accessToken(ctx, s)
+
 	return err
 }
 
@@ -202,46 +207,59 @@ type listing struct {
 	} `json:"image"`
 }
 
-func (p *Provider) search(ctx context.Context, tok, marketplace string, q url.Values) ([]listing, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.BaseURL+"/buy/browse/v1/item_summary/search?"+q.Encode(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Authorization", "Bearer "+tok)
-	req.Header.Set("X-EBAY-C-MARKETPLACE-ID", marketplace)
-
-	res, err := p.Client.Do(req)
-	if err != nil {
-		return nil, apiclient.ClassifyError(ctx, err)
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("eBay %s search: %w", marketplace, apiclient.ClassifyStatus(res.StatusCode))
-	}
+// search asks the Browse API for the listings matching q on a marketplace. A token eBay refuses
+// (it expired early, or was revoked) is renewed once and the search sent again.
+func (p *Provider) search(ctx context.Context, s schema.Settings, marketplace string, q url.Values) ([]listing, error) {
+	id, secret, key := credentials(s)
 
 	var out struct {
 		ItemSummaries []listing `json:"itemSummaries"`
 	}
-	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+
+	err := p.tokens.WithRetry(ctx, key, p.fetchToken(id, secret), func(tok string) error {
+		err := p.API.Do(ctx, apiclient.Request{
+			Path:  "/buy/browse/v1/item_summary/search",
+			Query: q,
+			Header: http.Header{
+				"Authorization":           {"Bearer " + tok},
+				"X-EBAY-C-MARKETPLACE-ID": {marketplace},
+			},
+		}, &out)
+		if apiclient.IsStatus(err, http.StatusUnauthorized) {
+			return errTokenRefused
+		}
+
+		return err
+	})
+
+	switch {
+	case err == nil:
+		return out.ItemSummaries, nil
+	case errors.Is(err, apiclient.ErrTokenRejected):
+		// A token eBay just issued that it still refuses: the keys may not use the Browse API.
+		return nil, ErrKeysRefused
+	case errors.Is(err, provider.ErrBadSettings):
 		return nil, err
 	}
 
-	return out.ItemSummaries, nil
+	return nil, fmt.Errorf("eBay %s search: %w", marketplace, apiclient.ClassifyError(ctx, err))
 }
 
 // Lookup searches the marketplaces in order and stops at the first one with listings.
 func (p *Provider) Lookup(ctx context.Context, code game.Barcode, s schema.Settings) ([]media.BarcodeMatch, error) {
-	tok, err := p.accessToken(ctx, s)
-	if err != nil {
+	// The token first: keys eBay rejects fail the lookup once, not once per marketplace.
+	if _, err := p.accessToken(ctx, s); err != nil {
 		return nil, err
 	}
 
 	var lastErr error
 
 	for _, m := range marketplaces(s) {
-		items, err := p.search(ctx, tok, m, url.Values{"gtin": {string(code)}, "limit": {fmt.Sprint(listingsPerLookup)}})
+		items, err := p.search(ctx, s, m, url.Values{"gtin": {string(code)}, "limit": {fmt.Sprint(listingsPerLookup)}})
+		if errors.Is(err, provider.ErrBadSettings) {
+			return nil, err
+		}
+
 		if err != nil {
 			lastErr = err
 			continue

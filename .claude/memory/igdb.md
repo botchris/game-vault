@@ -19,7 +19,7 @@ settings group `igdb`):
   Client ID (documented 403 `invalid client secret`) could not be probed without an application.
 - **API:** `POST https://api.igdb.com/v4/<endpoint>`, headers `Client-ID` + `Authorization: Bearer`,
   Apicalypse body (`apiclient.Request.Text`). Limits: 4 req/s, 8 open; 429 when exceeded
-  (→ `provider.ErrRateLimited`). Adapter: 250 ms gap, 8 slots, waits > 10 s fail as busy.
+  (→ `provider.ErrRateLimited`). Adapter: `ratelimit` with a 250 ms gap, 8 slots, waits > 10 s (slot included) fail as busy; a 429 or 5xx rests it 30 s (or `Retry-After`) since 2026-10-13.
 - **Deprecated fields (docs, 2026-10):** `external_games.category` → `external_game_source`
   (same ids: 1 Steam, 5 GOG, 26 Epic, 11 Microsoft, 36 PlayStation Store US, 20 Amazon ASIN);
   `age_ratings.category/rating` → `organization` (expand `.name`) and `rating_category` (expand

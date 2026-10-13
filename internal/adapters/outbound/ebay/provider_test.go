@@ -51,11 +51,7 @@ func TestLookupConsensusAndMarketplaceFallback(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := &Provider{
-		BaseURL: srv.URL,
-		Client:  srv.Client(),
-		tokens:  map[string]token{},
-	}
+	p := testProvider(srv)
 	s := schema.Settings{settingClientID: "id", settingClientSecret: "secret", settingMarketplaces: "EBAY_ES, EBAY_GB"}
 
 	m, err := p.Lookup(context.Background(), "5030934110075", s)
@@ -100,11 +96,7 @@ func TestLookup_passingTroubles(t *testing.T) {
 				}))
 				defer srv.Close()
 
-				p := &Provider{
-					BaseURL: srv.URL,
-					Client:  srv.Client(),
-					tokens:  map[string]token{},
-				}
+				p := testProvider(srv)
 
 				t.Run("WHEN a code is looked up", func(t *testing.T) {
 					_, err := p.Lookup(ctx, "5030934110075", schema.Settings{settingClientID: "id", settingClientSecret: "secret"})

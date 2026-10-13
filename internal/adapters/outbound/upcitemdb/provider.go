@@ -6,7 +6,6 @@ package upcitemdb
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -29,18 +28,18 @@ const (
 
 // Provider implements media.BarcodeProvider.
 type Provider struct {
-	BaseURL string
-	Client  *http.Client
+	// API calls UPCitemdb's API; tests point it at a fake server.
+	API *apiclient.Client
 }
 
 var _ media.BarcodeProvider = (*Provider)(nil)
 
 // New returns the UPCitemdb barcode provider with its production endpoints.
 func New() *Provider {
-	return &Provider{
-		BaseURL: defaultBaseURL,
-		Client:  &http.Client{Timeout: 15 * time.Second},
-	}
+	api := apiclient.New(defaultBaseURL)
+	api.HTTP.Timeout = 15 * time.Second
+
+	return &Provider{API: api}
 }
 
 // Descriptor implements media.BarcodeProvider.
@@ -75,28 +74,23 @@ func (p *Provider) Test(ctx context.Context, s schema.Settings) error {
 
 // Lookup queries the trial endpoint, or the paid one when a user key is configured.
 func (p *Provider) Lookup(ctx context.Context, code game.Barcode, s schema.Settings) ([]media.BarcodeMatch, error) {
-	path := "/prod/trial/lookup"
-	if s[settingUserKey] != "" {
-		path = "/prod/v1/lookup"
+	req := apiclient.Request{
+		Path:  "/prod/trial/lookup",
+		Query: url.Values{"upc": {string(code)}},
 	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.BaseURL+path+"?"+url.Values{"upc": {string(code)}}.Encode(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Accept", "application/json")
 
 	if k := s[settingUserKey]; k != "" {
-		req.Header.Set("user_key", k)
-		req.Header.Set("key_type", "3scale")
+		req.Path = "/prod/v1/lookup"
+		req.Header = http.Header{
+			"user_key": {k},
+			"key_type": {"3scale"},
+		}
 	}
 
-	res, err := p.Client.Do(req)
+	res, err := p.API.Send(ctx, req)
 	if err != nil {
 		return nil, apiclient.ClassifyError(ctx, err)
 	}
-	defer res.Body.Close()
 
 	var out struct {
 		Code    string `json:"code"`
@@ -107,7 +101,11 @@ func (p *Provider) Lookup(ctx context.Context, code game.Barcode, s schema.Setti
 		} `json:"items"`
 	}
 
-	_ = json.NewDecoder(res.Body).Decode(&out)
+	// An error answer is read for its code and message only, which it may lack; an answer to the
+	// lookup must be JSON (a web page instead is an outage, not "no match").
+	if err := res.Decode(&out); err != nil && res.OK() {
+		return nil, apiclient.ClassifyError(ctx, err)
+	}
 
 	// UPCitemdb's error codes tell its two limits apart: TOO_FAST is a burst (requests per
 	// minute), EXCEED_LIMIT the daily allowance. A rejected user key is a settings problem. All
@@ -115,23 +113,24 @@ func (p *Provider) Lookup(ctx context.Context, code game.Barcode, s schema.Setti
 	switch {
 	case out.Code == "EXCEED_LIMIT":
 		return nil, fmt.Errorf("daily lookup limit reached; try again tomorrow or add a user key: %w", provider.ErrQuotaExhausted)
-	case res.StatusCode == http.StatusTooManyRequests:
+	case res.Status == http.StatusTooManyRequests:
 		return nil, fmt.Errorf("too many lookups at once; try again in a minute: %w", provider.ErrRateLimited)
 	case out.Code == "INVALID_UPC" || out.Code == "NOT_FOUND":
 		return nil, nil
-	case res.StatusCode == http.StatusUnauthorized || res.StatusCode == http.StatusForbidden:
+	case res.Status == http.StatusUnauthorized || res.Status == http.StatusForbidden:
 		msg := out.Message
 		if msg == "" {
-			msg = fmt.Sprintf("the user key was rejected (HTTP %d)", res.StatusCode)
+			msg = fmt.Sprintf("the user key was rejected (HTTP %d)", res.Status)
 		}
 
 		return nil, provider.BadSettings(msg + ": check the UPCitemdb user key in the settings")
-	case res.StatusCode != http.StatusOK:
+	case !res.OK():
+		err := apiclient.ClassifyError(ctx, res.Err())
 		if out.Message != "" {
-			return nil, fmt.Errorf("%s: %w", out.Message, apiclient.ClassifyStatus(res.StatusCode))
+			return nil, fmt.Errorf("%s: %w", out.Message, err)
 		}
 
-		return nil, apiclient.ClassifyStatus(res.StatusCode)
+		return nil, err
 	}
 
 	var matches []media.BarcodeMatch

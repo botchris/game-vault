@@ -34,16 +34,17 @@ var sites = map[string]string{
 // listings with the product's barcode on the first configured marketplace. eBay keeps sold prices
 // for approved partners, so these are asking prices.
 type Prices struct {
-	// API is the eBay client (token and search) the barcode provider uses too; its own instance.
-	API *Provider
+	// Ebay is the barcode provider, whose client and access tokens the prices share.
+	Ebay *Provider
 }
 
-// NewPrices returns the eBay price provider with its production endpoints.
-func NewPrices() *Prices { return &Prices{API: New()} }
+// NewPrices returns the eBay price provider on the barcode provider's client, so both share one
+// access token for one set of keys.
+func NewPrices(ebay *Provider) *Prices { return &Prices{Ebay: ebay} }
 
 // Descriptor implements valuation.Provider. Its settings are the barcode provider's (one group).
 func (p *Prices) Descriptor() provider.Descriptor {
-	d := p.API.Descriptor()
+	d := p.Ebay.Descriptor()
 
 	return provider.Descriptor{
 		ID:             PricesID,
@@ -57,15 +58,10 @@ func (p *Prices) Descriptor() provider.Descriptor {
 }
 
 // Test implements valuation.Provider by getting a token.
-func (p *Prices) Test(ctx context.Context, s schema.Settings) error { return p.API.Test(ctx, s) }
+func (p *Prices) Test(ctx context.Context, s schema.Settings) error { return p.Ebay.Test(ctx, s) }
 
 // Estimate implements valuation.Provider.
 func (p *Prices) Estimate(ctx context.Context, s schema.Settings, code game.Barcode) (game.Estimate, error) {
-	tok, err := p.API.accessToken(ctx, s)
-	if err != nil {
-		return game.Estimate{}, err
-	}
-
 	marketplace := marketplaces(s)[0]
 	q := url.Values{
 		"gtin":   {string(code)},
@@ -73,7 +69,7 @@ func (p *Prices) Estimate(ctx context.Context, s schema.Settings, code game.Barc
 		"limit":  {strconv.Itoa(listingsPerEstimate)},
 	}
 
-	items, err := p.API.search(ctx, tok, marketplace, q)
+	items, err := p.Ebay.search(ctx, s, marketplace, q)
 	if err != nil {
 		return game.Estimate{}, err
 	}

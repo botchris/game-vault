@@ -4,9 +4,7 @@ package eansearch
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -26,12 +24,18 @@ const ID provider.ID = "eansearch"
 const (
 	settingToken   = "token"
 	defaultBaseURL = "https://api.ean-search.org"
+
+	// maxBody bounds an answer: a lookup returns a handful of products.
+	maxBody = 1 << 20
+
+	// retryWait is how long a lookup waits before its one retry after HTTP 429.
+	retryWait = time.Second
 )
 
 // Provider implements media.BarcodeProvider.
 type Provider struct {
-	BaseURL string
-	Client  *http.Client
+	// API calls EAN-Search's API; tests point it at a fake server.
+	API *apiclient.Client
 }
 
 var (
@@ -40,10 +44,11 @@ var (
 
 // New returns the EAN-Search barcode provider with its production endpoints.
 func New() *Provider {
-	return &Provider{
-		BaseURL: defaultBaseURL,
-		Client:  &http.Client{Timeout: 15 * time.Second},
-	}
+	api := apiclient.New(defaultBaseURL)
+	api.HTTP.Timeout = 15 * time.Second
+	api.MaxBody = maxBody
+
+	return &Provider{API: api}
 }
 
 // Descriptor implements media.BarcodeProvider.
@@ -66,39 +71,31 @@ func (p *Provider) Descriptor() provider.Descriptor {
 }
 
 // call runs an API operation, retrying once when the API asks to slow down (HTTP 429), and
-// returns the body and the remaining credits (X-Credits-Remaining, -1 when absent). The token
-// travels in the query (the only way the API takes it), so no error returned here may show the
-// URL's query: transport errors go through apiclient.ClassifyError, which drops it.
-func (p *Provider) call(ctx context.Context, q url.Values) ([]byte, int, error) {
+// returns the answer and the remaining credits (X-Credits-Remaining, -1 when absent). The token
+// travels in the query (the only way the API takes it); apiclient never shows the query in an
+// error, so none returned here names the token.
+func (p *Provider) call(ctx context.Context, q url.Values) (*apiclient.Response, int, error) {
 	for attempt := 0; ; attempt++ {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.BaseURL+"/api", nil)
-		if err != nil {
-			return nil, -1, err
-		}
-
-		req.URL.RawQuery = q.Encode()
-		req.Header.Set("User-Agent", apiclient.UserAgent)
-
-		res, err := p.Client.Do(req)
+		res, err := p.API.Send(ctx, apiclient.Request{
+			Path:  "/api",
+			Query: q,
+		})
 		if err != nil {
 			return nil, -1, apiclient.ClassifyError(ctx, err)
 		}
 
-		body, err := io.ReadAll(io.LimitReader(res.Body, 1<<20))
-		res.Body.Close()
+		// One quick retry: EAN-Search's 429 is a short burst limit, and the lookup is on demand.
+		if res.Status == http.StatusTooManyRequests && attempt == 0 {
+			timer := time.NewTimer(retryWait)
 
-		if res.StatusCode == http.StatusTooManyRequests && attempt == 0 {
 			select {
 			case <-ctx.Done():
+				timer.Stop()
 				return nil, -1, ctx.Err()
-			case <-time.After(time.Second):
+			case <-timer.C:
 			}
 
 			continue
-		}
-
-		if err != nil {
-			return nil, -1, err
 		}
 
 		remaining := -1
@@ -106,11 +103,11 @@ func (p *Provider) call(ctx context.Context, q url.Values) ([]byte, int, error) 
 			remaining = n
 		}
 
-		if res.StatusCode != http.StatusOK {
-			return nil, remaining, apiError(res.StatusCode, body)
+		if !res.OK() {
+			return nil, remaining, apiError(ctx, res)
 		}
 
-		return body, remaining, nil
+		return res, remaining, nil
 	}
 }
 
@@ -118,10 +115,10 @@ func (p *Provider) call(ctx context.Context, q url.Values) ([]byte, int, error) 
 // and a JSON array holding one {"error": "Invalid token"} (probed with a bogus token on
 // 2026-10-13): that is a settings problem, reported in the provider's status with the API's words.
 // A message about credits is a used-up plan; a 429 or a 5xx is a passing trouble.
-func apiError(status int, body []byte) error {
+func apiError(ctx context.Context, res *apiclient.Response) error {
 	var out []result
 	// Best effort: without a readable message the status alone describes the error.
-	_ = json.Unmarshal(body, &out)
+	_ = res.Decode(&out)
 
 	msg := ""
 	if len(out) > 0 {
@@ -131,17 +128,17 @@ func apiError(status int, body []byte) error {
 	switch {
 	case isNoCredits(msg):
 		return ErrNoCredits
-	case status == http.StatusUnauthorized || status == http.StatusForbidden:
+	case res.Status == http.StatusUnauthorized || res.Status == http.StatusForbidden:
 		if msg == "" {
-			msg = fmt.Sprintf("the token was rejected (HTTP %d)", status)
+			msg = fmt.Sprintf("the token was rejected (HTTP %d)", res.Status)
 		}
 
 		return provider.BadSettings(msg + ": check the EAN-Search token in the settings")
 	case msg != "":
-		return fmt.Errorf("%s: %w", msg, apiclient.ClassifyStatus(status))
+		return fmt.Errorf("%s: %w", msg, apiclient.ClassifyError(ctx, res.Err()))
 	}
 
-	return apiclient.ClassifyStatus(status)
+	return apiclient.ClassifyError(ctx, res.Err())
 }
 
 // isNoCredits reports whether an API message says the plan has no lookups left.
@@ -159,14 +156,15 @@ func isNotFound(msg string) bool { return strings.Contains(strings.ToLower(msg),
 func (p *Provider) Lookup(ctx context.Context, code game.Barcode, s schema.Settings) ([]media.BarcodeMatch, error) {
 	q := url.Values{"token": {s[settingToken]}, "op": {"barcode-lookup"}, "ean": {string(code)}, "format": {"json"}}
 
-	body, _, err := p.call(ctx, q)
+	res, _, err := p.call(ctx, q)
 	if err != nil {
 		return nil, err
 	}
 
+	// A web page instead of JSON (a bot check, a maintenance notice) is an outage.
 	var out []result
-	if err := json.Unmarshal(body, &out); err != nil {
-		return nil, fmt.Errorf("unexpected answer: %w", err)
+	if err := res.Decode(&out); err != nil {
+		return nil, apiclient.ClassifyError(ctx, err)
 	}
 
 	var matches []media.BarcodeMatch
@@ -199,13 +197,13 @@ func (p *Provider) Lookup(ctx context.Context, code game.Barcode, s schema.Setti
 func (p *Provider) Test(ctx context.Context, s schema.Settings) error {
 	q := url.Values{"token": {s[settingToken]}, "op": {"verify-checksum"}, "ean": {"5030934110075"}, "format": {"json"}}
 
-	body, remaining, err := p.call(ctx, q)
+	res, remaining, err := p.call(ctx, q)
 	if err != nil {
 		return err
 	}
 
 	var out []result
-	if json.Unmarshal(body, &out) == nil && len(out) > 0 && out[0].Error != "" {
+	if res.Decode(&out) == nil && len(out) > 0 && out[0].Error != "" {
 		if isNoCredits(out[0].Error) {
 			return ErrNoCredits
 		}

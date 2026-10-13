@@ -59,16 +59,15 @@ func TestLookupAndTest(t *testing.T) {
 			w.WriteHeader(http.StatusTooManyRequests)
 		case q.Get("ean") == "4006381333948":
 			w.WriteHeader(http.StatusBadGateway)
+		case q.Get("ean") == "4006381333955": // a maintenance page instead of JSON
+			w.Write([]byte(`<html><body>Down for maintenance</body></html>`))
 		default:
 			w.Write([]byte(`[{"ean":"` + q.Get("ean") + `","error":"Barcode not found"}]`))
 		}
 	}))
 	defer srv.Close()
 
-	p := &Provider{
-		BaseURL: srv.URL,
-		Client:  srv.Client(),
-	}
+	p := testProvider(srv)
 	good := schema.Settings{settingToken: "good"}
 
 	m, err := p.Lookup(ctx, "5030934110075", good)
@@ -108,6 +107,11 @@ func TestLookupAndTest(t *testing.T) {
 		_, err := p.Lookup(ctx, "4006381333948", good)
 		require.ErrorIs(t, err, provider.ErrUnavailable)
 	})
+
+	t.Run("a web page instead of JSON is an outage", func(t *testing.T) {
+		_, err := p.Lookup(ctx, "4006381333955", good)
+		require.ErrorIs(t, err, provider.ErrUnavailable)
+	})
 }
 
 // TestLookup_transportErrorsHideTheToken checks that no answer at all (the connection dropped) is
@@ -126,10 +130,7 @@ func TestLookup_transportErrorsHideTheToken(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := &Provider{
-		BaseURL: srv.URL,
-		Client:  srv.Client(),
-	}
+	p := testProvider(srv)
 
 	_, err := p.Lookup(ctx, "5030934110075", schema.Settings{settingToken: "tok-s3cret-123"})
 	require.Error(t, err)
@@ -139,4 +140,12 @@ func TestLookup_transportErrorsHideTheToken(t *testing.T) {
 	err = p.Test(ctx, schema.Settings{settingToken: "tok-s3cret-123"})
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), "tok-s3cret-123")
+}
+
+// testProvider is the provider pointed at the fake server.
+func testProvider(srv *httptest.Server) *Provider {
+	p := New()
+	p.API.BaseURL, p.API.HTTP = srv.URL, srv.Client()
+
+	return p
 }
