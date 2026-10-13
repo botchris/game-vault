@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"slices"
@@ -441,8 +442,15 @@ func toConnectError(err error) error {
 	}
 
 	var ce *connect.Error
-	if errors.As(err, &ce) {
+
+	switch {
+	case errors.As(err, &ce):
 		return err
+	case errors.Is(err, context.Canceled):
+		// The caller went away (a closed page): not a failure of Game Vault.
+		return connect.NewError(connect.CodeCanceled, err)
+	case errors.Is(err, context.DeadlineExceeded):
+		return connect.NewError(connect.CodeDeadlineExceeded, err)
 	}
 
 	if code, ok := kindCodes[errkind.Of(err)]; ok {

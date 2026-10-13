@@ -1,6 +1,7 @@
 package errkind_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -38,6 +39,8 @@ func TestOf(t *testing.T) {
 		{"an error given a kind by Wrap", errkind.Wrap(errkind.Invalid, errBare), errkind.Invalid},
 		{"the outermost kind wins", errkind.Wrap(errkind.Unavailable, errSentinel), errkind.Unavailable},
 		{"Wrap with Unknown hides the kinds inside", errkind.Wrap(errkind.Unknown, errSentinel), errkind.Unknown},
+		{"Wrap leaves a canceled request alone", errkind.Wrap(errkind.Unavailable, fmt.Errorf("search: %w", context.Canceled)), errkind.Unknown},
+		{"Wrap leaves a deadline alone", errkind.Wrap(errkind.Unavailable, context.DeadlineExceeded), errkind.Unknown},
 	}
 
 	for _, tt := range tests {

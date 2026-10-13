@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"go/ast"
@@ -253,6 +254,8 @@ func TestToConnectError_byKind(t *testing.T) {
 		{"an error without a kind", errDisk, connect.CodeInternal},
 		{"a store that signed the user out", source.SignedOut("sign in again"), connect.CodeFailedPrecondition},
 		{"a connect error as it is", connect.NewError(connect.CodeCanceled, errDisk), connect.CodeCanceled},
+		{"a canceled request", fmt.Errorf("search: %w", context.Canceled), connect.CodeCanceled},
+		{"a request past its deadline", fmt.Errorf("search: %w", context.DeadlineExceeded), connect.CodeDeadlineExceeded},
 	}
 
 	for _, tt := range tests {

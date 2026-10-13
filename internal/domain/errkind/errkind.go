@@ -9,6 +9,7 @@
 package errkind
 
 import (
+	"context"
 	"errors"
 	"fmt"
 )
@@ -145,10 +146,13 @@ func (e *wrapped) Unwrap() error { return e.err }
 func (e *wrapped) Kind() Kind { return e.kind }
 
 // Wrap gives err a kind and keeps its message; errors.Is and errors.As still see err. It returns
-// nil for a nil err. Wrap(Unknown, err) hides the kinds inside err: Of then reads Unknown.
+// nil for a nil err. Wrap(Unknown, err) hides the kinds inside err: Of then reads Unknown. A
+// canceled request or one past its deadline (context.Canceled, context.DeadlineExceeded) is
+// returned as it is: it says nothing about the service or the input, and adapters answer it as
+// such.
 func Wrap(kind Kind, err error) error {
-	if err == nil {
-		return nil
+	if err == nil || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return err
 	}
 
 	return &wrapped{
