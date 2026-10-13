@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/domain/game"
@@ -214,16 +213,6 @@ func statusOf(s string) game.Status {
 	return game.StatusUnrevealed
 }
 
-func date(v string) game.Date {
-	for _, layout := range []string{time.RFC3339, "2006-01-02T15:04:05.000Z", time.DateOnly} {
-		if t, err := time.Parse(layout, strings.TrimSpace(v)); err == nil {
-			return game.DateOf(t)
-		}
-	}
-
-	return ""
-}
-
 // mapItems turns keys into copies: games only (DLC, software, books, audio and vouchers are
 // left out), on the store the key is for. Skipped items are counted in a warning. Bundle purchases
 // are not keys: they are returned withdrawn, so a copy imported for one before is removed.
@@ -261,8 +250,8 @@ func mapItems(items []item) ([]game.ImportedCopy, []string) {
 				Status:     it.status(),
 				Key:        strings.TrimSpace(it.Key),
 				Origin:     it.origin(),
-				RedeemBy:   date(it.SerialExpiry),
-				AcquiredOn: date(it.Purchased),
+				RedeemBy:   game.ParseStoreDate(it.SerialExpiry),
+				AcquiredOn: game.ParseStoreDate(it.Purchased),
 			},
 		})
 	}

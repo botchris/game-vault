@@ -175,11 +175,6 @@ func deadline(t map[string]any, now time.Time) game.Date {
 	return ""
 }
 
-var dateLayouts = []string{
-	"2006-01-02T15:04:05.999999", "2006-01-02T15:04:05", time.RFC3339, time.DateOnly,
-	"January 2, 2006", "January 2 2006", "Jan 2, 2006", "Jan 2 2006",
-}
-
 func parseDate(v any) game.Date {
 	switch x := v.(type) {
 	case float64:
@@ -187,12 +182,7 @@ func parseDate(v any) game.Date {
 			return game.DateOf(time.Unix(int64(x), 0).UTC())
 		}
 	case string:
-		x = strings.TrimSpace(x)
-		for _, l := range dateLayouts {
-			if t, err := time.Parse(l, x); err == nil {
-				return game.DateOf(t)
-			}
-		}
+		return game.ParseStoreDate(x)
 	}
 
 	return ""
