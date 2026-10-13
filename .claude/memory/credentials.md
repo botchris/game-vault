@@ -9,8 +9,8 @@ metadata:
   (`Source.UpdateState`).
 - One-time codes are exchanged in `sync.Preparer.Prepare`, with an in-memory cache by
   `sha256(code)` so "Test" then "Save" reuse the same code. Code-based OAuth sources use
-  `internal/adapters/outbound/oauthsession` for it (Epic first; GOG, Xbox, Amazon, PlayStation
-  to follow): one refresh at a time, the newest session always handed back, and a spent refresh
+  `internal/adapters/outbound/oauthsession` for it (Epic, GOG, Xbox and Amazon; PlayStation to
+  follow): one refresh at a time, the newest session always handed back, and a spent refresh
   token remembered with its replacement so it is never sent again. Application tokens (client
   credentials) use `oauthapp`.
 - If a provider also caches in memory, it must still hand the latest value back on every call:
