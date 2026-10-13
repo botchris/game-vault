@@ -72,3 +72,8 @@ func (st *StaleCovers) Drop(ctx context.Context, covers CoverCache) {
 		_ = covers.Invalidate(ctx, id)
 	}
 }
+
+// DropCovers drops from the service's cover cache the covers a change made stale, once the change
+// is saved. Best effort, like StaleCovers.Drop. Other use cases that change games (source scans
+// and deletions) call it, so the cover cache is wired in one place.
+func (s *Service) DropCovers(ctx context.Context, stale *StaleCovers) { stale.Drop(ctx, s.covers) }

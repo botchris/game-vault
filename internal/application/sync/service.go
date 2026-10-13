@@ -73,7 +73,6 @@ type Service struct {
 	games     game.Repository
 	tx        port.TxManager
 	catalog   *catalog.Service
-	covers    catalog.CoverCache
 	now       port.Clock
 	providers map[source.Type]Provider
 	log       *slog.Logger
@@ -103,7 +102,8 @@ type keepAliveFailure struct {
 }
 
 // NewService builds the service. Each provider is registered under its descriptor's type; scans
-// merge their copies into the catalog through cat. Options: WithClock, WithLogger, WithCoverCache.
+// merge their copies into the catalog through cat, which also drops the cached covers their changes
+// make stale. Options: WithClock, WithLogger.
 func NewService(sources source.Repository, games game.Repository, tx port.TxManager, cat *catalog.Service,
 	providers []Provider, opts ...Option) *Service {
 	m := map[source.Type]Provider{}
@@ -116,7 +116,6 @@ func NewService(sources source.Repository, games game.Repository, tx port.TxMana
 		games:         games,
 		tx:            tx,
 		catalog:       cat,
-		covers:        catalog.NoCoverCache{},
 		now:           time.Now,
 		providers:     m,
 		log:           slog.New(slog.DiscardHandler),
@@ -133,15 +132,13 @@ func NewService(sources source.Repository, games game.Repository, tx port.TxMana
 // Option configures NewService.
 type Option func(*Service)
 
-// WithClock sets the clock that dates scans and settings (time.Now by default).
+// WithClock sets the clock that dates scans and settings (time.Now by default). Give it the clock
+// of the catalog it is built with: the catalog dates the copies a scan imports, and the scan's
+// report should not disagree with them.
 func WithClock(now port.Clock) Option { return func(s *Service) { s.now = now } }
 
 // WithLogger sets the logger (discarded by default).
 func WithLogger(log *slog.Logger) Option { return func(s *Service) { s.log = log } }
-
-// WithCoverCache sets the cache whose covers deleting a source or removing one of its copies drops
-// (none by default). Scans drop covers through the catalog, which has its own.
-func WithCoverCache(covers catalog.CoverCache) Option { return func(s *Service) { s.covers = covers } }
 
 // Types lists the available source types, sorted by name.
 func (s *Service) Types() []source.TypeDescriptor {
@@ -362,7 +359,7 @@ func (s *Service) delete(ctx context.Context, id source.ID, detach func(g *game.
 		return s.sources.Delete(ctx, id)
 	})
 	if err == nil {
-		stale.Drop(ctx, s.covers)
+		s.catalog.DropCovers(ctx, &stale)
 	}
 
 	return err
@@ -477,6 +474,8 @@ func (s *Service) scan(ctx context.Context, src *source.Source, p Provider, sett
 		return 0, err
 	}
 
+	var excluded int
+
 	res, err := s.catalog.Consolidate(ctx, string(src.ID()), func(ctx context.Context) ([]game.ImportedCopy, error) {
 		// The user may have removed items since the scan started: ask the source as it is now.
 		fresh, err := s.sources.Get(ctx, src.ID())
@@ -484,14 +483,16 @@ func (s *Service) scan(ctx context.Context, src *source.Source, p Provider, sett
 			return nil, err
 		}
 
-		copies, report.Excluded = skipExcluded(fresh, copies)
+		kept, skipped := skipExcluded(fresh, copies)
+		excluded = skipped
 
-		return copies, nil
+		return kept, nil
 	})
 	if err != nil {
-		return 0, err
+		return 0, err // nothing was saved, so nothing was skipped either
 	}
 
+	report.Excluded = excluded
 	res.AddTo(report)
 
 	// The invalid systems count as warned only now that the scan is saved: a failed one warns again.

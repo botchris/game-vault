@@ -86,7 +86,7 @@ func (s *Service) ExcludeCopy(ctx context.Context, gameID, copyID game.ID) (*gam
 		stale.AddEditions(gameID, before, out.CoverFingerprints())
 	}
 
-	stale.Drop(ctx, s.covers)
+	s.catalog.DropCovers(ctx, &stale)
 
 	return out, nil
 }

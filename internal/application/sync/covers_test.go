@@ -102,7 +102,7 @@ func TestCoverPhotoLeavesWithTheSourcesCopy(t *testing.T) {
 			p := &withdrawing{}
 			cache := &covers{}
 			svc := sync.NewService(sqlite.NewSourceRepository(db), games, db, catalog.NewService(games, db, catalog.WithCoverCache(cache)),
-				[]sync.Provider{p}, sync.WithCoverCache(cache), sync.WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil))))
+				[]sync.Provider{p}, sync.WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil))))
 
 			v, err := svc.Create(ctx, "wd", source.Config{Enabled: true})
 			require.NoError(t, err)
@@ -183,7 +183,7 @@ func TestSync_editions(t *testing.T) {
 		p := &consoleSource{}
 		cache := &covers{}
 		svc := sync.NewService(sqlite.NewSourceRepository(db), games, db, catalog.NewService(games, db, catalog.WithCoverCache(cache)),
-			[]sync.Provider{p}, sync.WithCoverCache(cache), sync.WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil))))
+			[]sync.Provider{p}, sync.WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil))))
 
 		v, err := svc.Create(ctx, "console", source.Config{Enabled: true})
 		require.NoError(t, err)

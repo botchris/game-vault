@@ -376,3 +376,65 @@ func TestSyncLogsAFailedSave(t *testing.T) {
 		})
 	})
 }
+
+// lockingGames is a game repository whose Save fails once locked is set.
+type lockingGames struct {
+	game.Repository
+
+	locked bool
+}
+
+func (l *lockingGames) Save(ctx context.Context, g *game.Game) error {
+	if l.locked {
+		return errLocked
+	}
+
+	return l.Repository.Save(ctx, g)
+}
+
+func TestExclusions_failedScanCountsNone(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a source with an item the user removed", func(t *testing.T) {
+		db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "gamevault.db"), "")
+		require.NoError(t, err)
+		t.Cleanup(func() { db.Close() })
+
+		games := &lockingGames{Repository: sqlite.NewGameRepository(db)}
+		p := &listing{items: []game.ImportedCopy{item("ls:netflix", "Netflix"), item("ls:journey", "Journey")}}
+		svc := sync.NewService(sqlite.NewSourceRepository(db), games, db, catalog.NewService(games, db),
+			[]sync.Provider{p}, sync.WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil))))
+
+		v, err := svc.Create(ctx, "ls", source.Config{Enabled: true})
+		require.NoError(t, err)
+		_, err = svc.Sync(ctx, v.ID())
+		require.NoError(t, err)
+
+		list, err := games.List(ctx)
+		require.NoError(t, err)
+
+		for _, g := range list {
+			if g.Title() == "Netflix" {
+				_, err = svc.ExcludeCopy(ctx, g.ID(), g.Copies()[0].ID)
+				require.NoError(t, err)
+			}
+		}
+
+		t.Run("WHEN a scan fails to save the games", func(t *testing.T) {
+			p.items = append(p.items, item("ls:abzu", "Abzu")) // a change to save
+			games.locked = true
+
+			_, err := svc.Sync(ctx, v.ID())
+			require.ErrorIs(t, err, errLocked)
+
+			t.Run("THEN its report counts nothing as skipped: nothing was saved", func(t *testing.T) {
+				got, err := svc.Get(ctx, v.ID())
+				require.NoError(t, err)
+				require.NotNil(t, got.LastSync())
+				assert.NotEmpty(t, got.LastSync().Err)
+				assert.Zero(t, got.LastSync().Excluded)
+			})
+		})
+	})
+}

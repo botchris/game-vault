@@ -132,6 +132,8 @@ func run() error {
 		return err
 	}
 
+	// One clock for every service: a scan's report, the copies the catalog dates for it and the
+	// covers' and prices' dates must never disagree because two services read different clocks.
 	now := time.Now
 
 	// Application services
@@ -153,7 +155,7 @@ func run() error {
 
 	mediaSvcs.AutoLinks.SetGameLinker(catalogSvc) // automatic links are saved by the catalog, in its transactions
 	syncSvc := sync.NewService(sources, games, db, catalogSvc, plugins.Sources(),
-		sync.WithClock(now), sync.WithLogger(log), sync.WithCoverCache(mediaSvcs.Covers))
+		sync.WithClock(now), sync.WithLogger(log))
 	linkStores := media.NewStores(registry, syncSvc)
 	transferSvc := transfer.NewService(games, catalogSvc, settingsRepo, csvfile.Codec{}, transfer.WithClock(now))
 	systemSvc := system.NewService(games, db, settingsRepo, photostore.NewArchive(photos, backupPhotos), now, log, system.Status{
