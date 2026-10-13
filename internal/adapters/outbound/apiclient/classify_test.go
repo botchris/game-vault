@@ -116,6 +116,32 @@ func TestClassifyError(t *testing.T) {
 		require.ErrorIs(t, ClassifyError(ctx, ErrNotJSON), provider.ErrUnavailable)
 	})
 
+	t.Run("GIVEN an error already classified that names a URL with a query", func(t *testing.T) {
+		raw := &url.Error{
+			Op:  "Get",
+			URL: "https://api.example.com/api?token=s3cret&op=lookup",
+			Err: errors.New("connection reset by peer"),
+		}
+		classified := fmt.Errorf("looking the game up: %w: %w", raw, provider.ErrUnavailable)
+
+		t.Run("WHEN it is classified again", func(t *testing.T) {
+			err := ClassifyError(ctx, classified)
+
+			t.Run("THEN it keeps its kind and drops the query", func(t *testing.T) {
+				require.ErrorIs(t, err, provider.ErrUnavailable)
+				assert.NotContains(t, err.Error(), "s3cret")
+				assert.Contains(t, err.Error(), "looking the game up")
+				assert.Contains(t, err.Error(), "https://api.example.com/api")
+
+				t.Run("AND the transport error it wraps drops it too", func(t *testing.T) {
+					var ue *url.Error
+					require.ErrorAs(t, err, &ue)
+					assert.NotContains(t, ue.URL, "s3cret")
+				})
+			})
+		})
+	})
+
 	t.Run("GIVEN an error already classified or none", func(t *testing.T) {
 		bad := provider.BadSettings("the key was rejected")
 		assert.Equal(t, bad, ClassifyError(ctx, bad))

@@ -220,7 +220,9 @@ func (c *Client) maxBody() int64 {
 }
 
 // withoutQuery drops the query from the URL a transport error (*url.Error) names: some services
-// take their API key in the query, and these errors end up in warnings and logs.
+// take their API key in the query, and these errors end up in warnings and logs. The error may
+// wrap the transport error (a caller's context, a classification): the wrappers' messages already
+// hold the URL, so the result says the same without the query and still matches what err matched.
 func withoutQuery(err error) error {
 	var ue *url.Error
 	if !errors.As(err, &ue) {
@@ -235,12 +237,51 @@ func withoutQuery(err error) error {
 		clean = clean[:i]
 	}
 
-	return &url.Error{
+	cleaned := &url.Error{
 		Op:  ue.Op,
 		URL: clean,
 		Err: ue.Err,
 	}
+	if err == error(ue) {
+		return cleaned
+	}
+
+	if clean == ue.URL {
+		return err
+	}
+
+	return &queryless{
+		msg:       strings.ReplaceAll(err.Error(), ue.URL, clean),
+		original:  err,
+		transport: cleaned,
+	}
 }
+
+// queryless is an error that wraps a transport error, with the query dropped from its URL.
+type queryless struct {
+	msg       string
+	original  error
+	transport *url.Error
+}
+
+// Error implements error.
+func (e *queryless) Error() string { return e.msg }
+
+// Is reports whether the original error matches target, so a classification survives.
+func (e *queryless) Is(target error) bool { return errors.Is(e.original, target) }
+
+// As finds target in the original error, except the transport error, whose URL holds the query:
+// errors.As then finds the cleaned one through Unwrap.
+func (e *queryless) As(target any) bool {
+	if _, ok := target.(**url.Error); ok {
+		return false
+	}
+
+	return errors.As(e.original, target)
+}
+
+// Unwrap returns the transport error without the query.
+func (e *queryless) Unwrap() error { return e.transport }
 
 // snippet keeps the start of an error answer, on one line.
 func snippet(b []byte) string {

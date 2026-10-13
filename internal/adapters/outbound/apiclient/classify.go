@@ -40,12 +40,13 @@ func Rejected(status int) bool {
 // the query of its URL, which may hold an API key. Errors already classified, other statuses, and
 // errors after the caller gave up (ctx done) are returned as they are.
 func ClassifyError(ctx context.Context, err error) error {
-	if err == nil || errors.Is(err, provider.ErrRateLimited) || errors.Is(err, provider.ErrBadSettings) {
-		return err
+	if err == nil {
+		return nil
 	}
 
+	// The query goes first, so no path returns an error that names it.
 	err = withoutQuery(err)
-	if ctx.Err() != nil {
+	if ctx.Err() != nil || errors.Is(err, provider.ErrRateLimited) || errors.Is(err, provider.ErrBadSettings) {
 		return err
 	}
 
