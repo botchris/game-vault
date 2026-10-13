@@ -249,7 +249,38 @@ var nonGameMarkers = strings.Join([]string{
 	`avatar(?:es)`, // the Spanish plural, spelled this way so the English spell check leaves it alone
 }, "|")
 
+// leadingNonGameMarkers are the phrases that mark a non-game when a name starts with them, each
+// with the joining word or separator that follows (a marker word alone starting a name is
+// usually a real title: "Theme Park Rush", "Soundtrack Hero", "Tema Rally"). Spanish accounts
+// list soundtracks as "Banda sonora de <game>", English ones as "Soundtrack of <game>" or
+// "Original Soundtrack: <game>". "of" is not a joiner for demo, trial, theme or avatar, because
+// "Trial of the Lantern" is a game.
+var leadingNonGameMarkers = strings.Join([]string{
+	// Spanish.
+	`banda sonora (?:original )?de\s`,
+	`tema(?: din[aá]mico)? de\s`,
+	`avatar(?:es)? de\s`,
+	`demo de\s`,
+	`versi[oó]n de prueba de\s`,
+	`prueba(?: gratuita)? de\s`,
+	`libro de arte de\s`,
+	// English.
+	`(?:(?:original|digital) )?soundtrack(?: of\s|:| [-–])`,
+	`ost(?: of\s|:| -)`,
+	`(?:dynamic )?theme(?:[:]| -)`,
+	`avatars?(?:[:]| -)`,
+	`(?:digital )?art ?book(?: of\s|:| -)`,
+	`demo(?:[:]| -)`,
+	`trial(?:[:]| -)`,
+}, "|")
+
+// trademarkSymbols are dropped from a name before it is matched: "Demo™" is still a demo.
+var trademarkSymbols = strings.NewReplacer("™", "", "®", "", "℠", "")
+
 var (
+	// reLeadingMarker matches a marker phrase and its joiner at the start of the name.
+	reLeadingMarker = regexp.MustCompile(`(?i)^(?:` + leadingNonGameMarkers + `)`)
+
 	// reTrailingMarker matches a marker as the last word or phrase, after a space, a dash, a colon
 	// or an en dash, or inside trailing parentheses or brackets.
 	reTrailingMarker = regexp.MustCompile(`(?i)(?:[\s:\-–—](?:` + nonGameMarkers + `)|[(\[]\s*(?:` + nonGameMarkers + `)\s*[)\]])$`)
@@ -258,11 +289,11 @@ var (
 	reAnywhereMarker = regexp.MustCompile(`(?i)\b(?:behind the scenes|making of)\b`)
 )
 
-// nonGameName reports whether a title's name clearly marks it as something other than a game: a
-// demo, trial, beta, soundtrack, theme, avatar, art book or making-of video. A marker word that
-// is part of a real title ("Theme Park Rush", "Trial of the Lantern") does not count.
+// nonGameName reports whether a title's name clearly marks it as something other than a game, by
+// a marker at its end or at its start followed by a joiner: a demo, trial, beta, soundtrack,
+// theme, avatar, art book or making-of video. A marker word that is part of a real title ("Theme Park Rush", "Trial of the Lantern") does not count.
 func nonGameName(name string) bool {
-	name = strings.TrimSpace(name)
+	name = strings.TrimSpace(trademarkSymbols.Replace(name))
 
-	return reTrailingMarker.MatchString(name) || reAnywhereMarker.MatchString(name)
+	return reLeadingMarker.MatchString(name) || reTrailingMarker.MatchString(name) || reAnywhereMarker.MatchString(name)
 }
