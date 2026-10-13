@@ -388,15 +388,19 @@ func (e entitlement) owned() bool {
 	return !strings.EqualFold(e.AcquisitionType, "Recurring")
 }
 
-func (p *Provider) entitlements(ctx context.Context, auth string) ([]entitlement, error) {
+// entitlementsPage is the largest page of the Store collections asked for.
+const entitlementsPage = 1000
+
+// entitlements reads up to pages pages of size entitlements from the Store collections.
+func (p *Provider) entitlements(ctx context.Context, auth string, pages, size int) ([]entitlement, error) {
 	var all []entitlement
 
 	token := ""
 
-	for range maxPages {
+	for range pages {
 		// beneficiaries is required; empty means the signed-in user (the XBL3.0 token).
 		body := map[string]any{
-			"beneficiaries": []any{}, "maxPageSize": 1000, "market": p.Market, "languages": []string{p.Language},
+			"beneficiaries": []any{}, "maxPageSize": size, "market": p.Market, "languages": []string{p.Language},
 			"validityType": "Valid", "excludeDuplicates": true, "productSkuIds": []string{}, "entitlementFilters": []string{},
 		}
 		if token != "" {
@@ -471,9 +475,9 @@ func catalog(ctx context.Context, api *apiclient.Client, market, language string
 	return out, nil
 }
 
-// owned reads the games the account owns. A rejected access token is renewed once, and the Xbox
-// Live tokens made again from the new one.
-func (p *Provider) owned(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, error) {
+// collections reads up to pages pages of size entitlements. A rejected access token is renewed
+// once, and the Xbox Live tokens made again from the new one.
+func (p *Provider) collections(ctx context.Context, settings schema.Settings, pages, size int) ([]entitlement, error) {
 	var ents []entitlement
 
 	err := p.sessions.WithRetry(ctx, settings, func(access string) error {
@@ -482,10 +486,17 @@ func (p *Provider) owned(ctx context.Context, settings schema.Settings) ([]game.
 			return err
 		}
 
-		ents, err = p.entitlements(ctx, auth)
+		ents, err = p.entitlements(ctx, auth, pages, size)
 
 		return err
 	})
+
+	return ents, err
+}
+
+// owned reads the games the account owns: its entitlements, then their titles in the catalog.
+func (p *Provider) owned(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, error) {
+	ents, err := p.collections(ctx, settings, maxPages, entitlementsPage)
 	if err != nil {
 		return nil, err
 	}
@@ -536,9 +547,12 @@ func (p *Provider) owned(ctx context.Context, settings schema.Settings) ([]game.
 	return out, nil
 }
 
-// Test implements sync.Provider.
+// Test implements sync.Provider: it signs in to Xbox Live and asks the Store for one entitlement,
+// which proves the session (renewed on the way, so the rotated one is handed back) without reading
+// the collections or the catalog.
 func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
-	_, err := p.owned(ctx, settings)
+	_, err := p.collections(ctx, settings, 1, 1)
+
 	return err
 }
 

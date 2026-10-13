@@ -270,10 +270,12 @@ func (p *Provider) titles(ctx context.Context, settings schema.Settings) (map[st
 	return found, nil
 }
 
-// Test implements sync.Provider.
+// Test implements sync.Provider: it reads the games overview alone (renewing the session on the
+// way, and keeping the cookies the site renews), without the classic games list.
 func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
-	_, err := p.titles(ctx, settings)
-	return err
+	var overview any
+
+	return p.getJSON(ctx, settings, "/api/games-and-subs", &overview)
 }
 
 // Fetch implements sync.Provider.

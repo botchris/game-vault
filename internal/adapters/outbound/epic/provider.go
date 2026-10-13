@@ -200,11 +200,14 @@ func (p *Provider) Prepare(ctx context.Context, settings schema.Settings) (schem
 	return p.sessions.Prepare(ctx, settings)
 }
 
-// Test implements sync.Provider: it lists the library without reading the catalog.
+// Test implements sync.Provider: it reads the first library page, which proves the session (renewed
+// on the way, so the rotated one is handed back), without the rest of the library or the catalog.
 func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
-	_, _, err := p.libraryWithToken(ctx, settings)
+	return p.sessions.WithRetry(ctx, settings, func(token string) error {
+		_, err := p.library(ctx, token, 1)
 
-	return err
+		return err
+	})
 }
 
 // errTokenRejected means Epic refused an access token (HTTP 401): it may have expired or been
@@ -222,7 +225,7 @@ func (p *Provider) libraryWithToken(ctx context.Context, settings schema.Setting
 	err := p.sessions.WithRetry(ctx, settings, func(token string) error {
 		var err error
 
-		records, err = p.library(ctx, token)
+		records, err = p.library(ctx, token, maxLibraryPages)
 		used = token
 
 		return err
@@ -429,12 +432,16 @@ func (it catalogItem) isGame() bool {
 	return len(paths) == 0 || slices.Contains(paths, "games")
 }
 
-func (p *Provider) library(ctx context.Context, token string) ([]libraryRecord, error) {
+// maxLibraryPages is far beyond any real library; it guards against a paging loop.
+const maxLibraryPages = 200
+
+// library reads up to pages pages of the library.
+func (p *Provider) library(ctx context.Context, token string, pages int) ([]libraryRecord, error) {
 	var out []libraryRecord
 
 	cursor := ""
 
-	for range 200 { // ~ 200 pages is far beyond any real library; it guards against a loop
+	for range pages {
 		q := url.Values{"includeMetadata": {"true"}}
 		if cursor != "" {
 			q.Set("cursor", cursor)

@@ -495,7 +495,8 @@ var errQueryRetired = errors.New("playstation library: the library query is no l
 // before its time. The sessions renew it once (WithRetry); only a refused renewal is signed out.
 var errTokenRejected = fmt.Errorf("playstation rejected the access token: %w", apiclient.ErrTokenRejected)
 
-func (p *Provider) purchased(ctx context.Context, token string) ([]title, error) {
+// purchased reads up to pages pages of purchases, with the first library query Sony still runs.
+func (p *Provider) purchased(ctx context.Context, token string, pages int) ([]title, error) {
 	var lastErr error
 
 	for _, hash := range purchasedQueryHashes {
@@ -504,7 +505,7 @@ func (p *Provider) purchased(ctx context.Context, token string) ([]title, error)
 			err error
 		)
 
-		for page := 0; page < maxPages; page++ {
+		for range pages {
 			var (
 				batch []title
 				last  bool
@@ -626,10 +627,11 @@ func mapTitles(titles []title, nonGames *nonGameIndex) (out []game.ImportedCopy,
 	return out, skipped
 }
 
-// Test implements sync.Provider: it signs in and reads the purchases, without the played titles.
+// Test implements sync.Provider: it signs in and reads the first page of purchases, without the rest
+// of the library or the played titles.
 func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
 	return p.withToken(ctx, settings, func(token string) error {
-		_, err := p.purchased(ctx, token)
+		_, err := p.purchased(ctx, token, 1)
 
 		return err
 	})
@@ -646,7 +648,7 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 		var err error
 
 		token = tok
-		titles, err = p.purchased(ctx, tok)
+		titles, err = p.purchased(ctx, tok, maxPages)
 
 		return err
 	})

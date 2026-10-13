@@ -35,6 +35,9 @@ type fakeEpic struct {
 
 	// revoked holds the access tokens Epic revoked before their time.
 	revoked map[string]bool
+
+	// libraryPages counts the library pages served.
+	libraryPages int
 }
 
 func (f *fakeEpic) handler(t *testing.T) http.Handler {
@@ -85,6 +88,7 @@ func (f *fakeEpic) handler(t *testing.T) http.Handler {
 	mux.HandleFunc("GET /library/api/public/items", func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		revoked := f.revoked[strings.TrimPrefix(r.Header.Get("Authorization"), "bearer ")]
+		f.libraryPages++
 		f.mu.Unlock()
 
 		if f.rejectAll || revoked || !strings.HasPrefix(r.Header.Get("Authorization"), "bearer access-") {
@@ -224,6 +228,32 @@ func TestPrepareErrors(t *testing.T) {
 	if !errors.Is(err, ErrSignedOut) {
 		t.Errorf("stale session: %v", err)
 	}
+}
+
+// TestTest_readsOnePage checks that "Test connection" reads one library page, not the whole
+// library, and still hands back the rotated session.
+func TestTest_readsOnePage(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a stored session and a library of two pages", func(t *testing.T) {
+		p, f := newTestProvider(t)
+		f.refresh = "refresh-0"
+		settings := schema.Settings{settingSession: `{"refresh_token":"refresh-0","account_id":"acc1"}`}
+
+		t.Run("WHEN the source is tested", func(t *testing.T) {
+			err := p.Test(ctx, settings)
+
+			t.Run("THEN it works after reading one page", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.Equal(t, 1, f.libraryPages)
+
+				t.Run("AND the rotated session is handed back", func(t *testing.T) {
+					assert.Contains(t, settings[settingSession], "refresh-1")
+				})
+			})
+		})
+	})
 }
 
 // TestTokenEndpoint_passingTroubles checks that a rate limit or an outage of the token endpoint is

@@ -1,10 +1,12 @@
 package ubisoft
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -291,6 +293,50 @@ func TestTicketSurvivesTestSaveScanRestart(t *testing.T) {
 	if err := restarted.KeepAlive(ctx, saved); err != nil {
 		t.Fatalf("keep-alive: %v", err)
 	}
+}
+
+// TestTest_readsOneGame checks that "Test connection" opens a session and asks the library for one
+// game, not the whole library, and still hands back the rotated ticket.
+func TestTest_readsOneGame(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a remember-me ticket and a library of two pages", func(t *testing.T) {
+		var limits []float64
+
+		inner := fakeUbisoft(t, true).Config.Handler
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/v1/profiles/me/uplay/graphql" {
+				raw, _ := io.ReadAll(r.Body)
+
+				var body struct{ Variables map[string]float64 }
+				json.Unmarshal(raw, &body)
+
+				limits = append(limits, body.Variables["limit"])
+				r.Body = io.NopCloser(bytes.NewReader(raw))
+			}
+
+			inner.ServeHTTP(w, r)
+		}))
+		t.Cleanup(srv.Close)
+
+		p := NewProvider()
+		p.API.BaseURL = srv.URL
+		settings := schema.Settings{settingLoginData: `{"rememberMeTicket":"rm-1"}`}
+
+		t.Run("WHEN the source is tested", func(t *testing.T) {
+			err := p.Test(ctx, settings)
+
+			t.Run("THEN it works after one library request for one game", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.Equal(t, []float64{1}, limits)
+
+				t.Run("AND the rotated ticket is handed back", func(t *testing.T) {
+					assert.Contains(t, settings[settingSession], "rm-2")
+				})
+			})
+		})
+	})
 }
 
 // TestSession_triesEachAppOnce checks that a refused remember-me ticket is offered to each app once:

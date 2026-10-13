@@ -37,6 +37,12 @@ type fakeMicrosoft struct {
 
 	// tokenStatus, when set, is the only answer of the token endpoint (a rate limit, an outage).
 	tokenStatus int
+
+	// pageSizes are the maxPageSize of the collections requests, in order.
+	pageSizes []float64
+
+	// catalogCalls counts the catalog requests.
+	catalogCalls int
 }
 
 func (f *fakeMicrosoft) handler(t *testing.T) http.Handler {
@@ -112,8 +118,11 @@ func (f *fakeMicrosoft) handler(t *testing.T) http.Handler {
 		var body struct {
 			ContinuationToken string
 			Beneficiaries     *[]any
+			MaxPageSize       float64
 		}
 		json.NewDecoder(r.Body).Decode(&body)
+
+		f.pageSizes = append(f.pageSizes, body.MaxPageSize)
 
 		if body.Beneficiaries == nil { // what the real service answers
 			http.Error(w, `{"errors":{"beneficiaries":["Required property 'beneficiaries' not found in JSON."]}}`, http.StatusBadRequest)
@@ -137,6 +146,8 @@ func (f *fakeMicrosoft) handler(t *testing.T) http.Handler {
 		  {"productId":"9GONE","productKind":"Game","status":"Revoked","acquisitionType":"Single"}]}`)
 	})
 	mux.HandleFunc("GET /v7.0/products", func(w http.ResponseWriter, r *http.Request) {
+		f.catalogCalls++
+
 		titles := map[string]string{"9FORZA": "Forza Horizon 5 Standard Edition", "9HALO": "Halo Infinite"}
 
 		var products []string
@@ -228,6 +239,33 @@ func TestPrepareAndFetch(t *testing.T) {
 	if settings[settingSession] == before {
 		t.Fatal("the rotated refresh token should be written back")
 	}
+}
+
+// TestTest_readsOneEntitlement checks that "Test connection" signs in to Xbox Live and asks the
+// Store for one entitlement, without the rest of the collections or the catalog.
+func TestTest_readsOneEntitlement(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a stored session and collections of two pages", func(t *testing.T) {
+		p, f := newTest(t)
+		f.refresh = "good"
+		settings := schema.Settings{settingSession: `{"refresh_token":"good"}`}
+
+		t.Run("WHEN the source is tested", func(t *testing.T) {
+			err := p.Test(ctx, settings)
+
+			t.Run("THEN it works after one request for one entitlement, and no catalog request", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.Equal(t, []float64{1}, f.pageSizes)
+				assert.Zero(t, f.catalogCalls)
+
+				t.Run("AND the rotated session is handed back", func(t *testing.T) {
+					assert.Contains(t, settings[settingSession], "good+")
+				})
+			})
+		})
+	})
 }
 
 func TestErrors(t *testing.T) {

@@ -63,6 +63,9 @@ type fakeSony struct {
 	// libraryStatus, when set, makes the library answer every request with this HTTP status and a
 	// web page: a rate limit, an outage.
 	libraryStatus int
+
+	// libraryRequests counts the library requests with the registered query.
+	libraryRequests int
 }
 
 func (f *fakeSony) handler() http.Handler {
@@ -133,6 +136,8 @@ func (f *fakeSony) handler() http.Handler {
 
 			return
 		}
+
+		f.libraryRequests++
 
 		if f.libraryStatus != 0 {
 			w.WriteHeader(f.libraryStatus)
@@ -242,6 +247,26 @@ func TestFetch(t *testing.T) {
 	if f.authorizes != before || f.refreshes != 1 {
 		t.Fatalf("authorizes=%d refreshes=%d", f.authorizes, f.refreshes)
 	}
+}
+
+// TestTest_readsOnePage checks that "Test connection" reads one page of purchases, not the whole
+// library.
+func TestTest_readsOnePage(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a valid NPSSO and a library of two pages", func(t *testing.T) {
+		p, f := newTest(t)
+
+		t.Run("WHEN the source is tested", func(t *testing.T) {
+			err := p.Test(ctx, schema.Settings{settingNPSSO: `{"npsso":"good-npsso"}`})
+
+			t.Run("THEN it works after reading one page", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.Equal(t, 1, f.libraryRequests)
+			})
+		})
+	})
 }
 
 func TestSignedOut(t *testing.T) {

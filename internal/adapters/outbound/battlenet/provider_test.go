@@ -21,6 +21,15 @@ import (
 // fakeAccount mimics account.battle.net: the API needs a SESSION cookie; the renewal path gives a
 // new one if the long-lived login cookie is valid, else it ends on the login page.
 func fakeAccount(t *testing.T) *httptest.Server {
+	srv, _ := fakeAccountPaths(t)
+
+	return srv
+}
+
+// fakeAccountPaths is fakeAccount, with the paths it was asked for.
+func fakeAccountPaths(t *testing.T) (*httptest.Server, *[]string) {
+	var paths []string
+
 	mux := http.NewServeMux()
 	signedIn := func(r *http.Request) bool {
 		c, err := r.Cookie("SESSION")
@@ -79,10 +88,13 @@ func fakeAccount(t *testing.T) *httptest.Server {
 	})
 	mux.HandleFunc("GET /login/en/", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "<html>login") })
 	mux.HandleFunc("GET /overview", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "<html>ok") })
-	srv := httptest.NewServer(mux)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+		mux.ServeHTTP(w, r)
+	}))
 	t.Cleanup(srv.Close)
 
-	return srv
+	return srv, &paths
 }
 
 func TestFetchRenewsTheSession(t *testing.T) {
@@ -117,6 +129,28 @@ func TestFetchRenewsTheSession(t *testing.T) {
 	if c := browsersession.Current(settings[settingCookies], settings[settingSession]); c["SESSION"] != "other" {
 		t.Fatalf("cookies after a new paste: %v", c)
 	}
+}
+
+// TestTest_readsOneEndpoint checks that "Test connection" reads the games overview only, not the
+// classic games list a scan reads too.
+func TestTest_readsOneEndpoint(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a fresh session", func(t *testing.T) {
+		srv, paths := fakeAccountPaths(t)
+		p := NewProvider()
+		p.Account.BaseURL = srv.URL
+
+		t.Run("WHEN the source is tested", func(t *testing.T) {
+			err := p.Test(ctx, schema.Settings{settingCookies: "SESSION=fresh"})
+
+			t.Run("THEN it works after one request", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.Equal(t, []string{"/api/games-and-subs"}, *paths)
+			})
+		})
+	})
 }
 
 func TestSignedOut(t *testing.T) {

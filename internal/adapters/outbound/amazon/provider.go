@@ -420,7 +420,7 @@ type entitlement struct {
 var errTokenRejected = fmt.Errorf("amazon rejected the access token: %w", apiclient.ErrTokenRejected)
 
 // page reads one page of entitlements.
-func (p *Provider) page(ctx context.Context, access, serial, next string) ([]entitlement, string, error) {
+func (p *Provider) page(ctx context.Context, access, serial, next string, size int) ([]entitlement, string, error) {
 	hw := sha256.Sum256([]byte(serial))
 
 	var out struct {
@@ -438,7 +438,7 @@ func (p *Provider) page(ctx context.Context, access, serial, next string) ([]ent
 		},
 		Body: map[string]any{
 			"Operation": "GetEntitlements", "clientId": "Sonic", "syncPoint": nil, "nextToken": nilIfEmpty(next),
-			"maxResults": pageSize, "productIdFilter": nil, "keyId": keyID,
+			"maxResults": size, "productIdFilter": nil, "keyId": keyID,
 			"hardwareHash": strings.ToUpper(hex.EncodeToString(hw[:])),
 		},
 	}, &out)
@@ -470,7 +470,7 @@ func (p *Provider) all(ctx context.Context, access, serial string) ([]entitlemen
 	)
 
 	for range maxPages {
-		batch, n, err := p.page(ctx, access, serial, next)
+		batch, n, err := p.page(ctx, access, serial, next, pageSize)
 		if err != nil {
 			return nil, err
 		}
@@ -487,8 +487,9 @@ func (p *Provider) all(ctx context.Context, access, serial string) ([]entitlemen
 	return items, nil
 }
 
-// owned reads the account's games, renewing the access token once if it was rejected.
-func (p *Provider) owned(ctx context.Context, settings schema.Settings) ([]entitlement, error) {
+// owned reads the account's games with read (every page, or a sample), renewing the access token
+// once if it was rejected.
+func (p *Provider) owned(ctx context.Context, settings schema.Settings, read func(ctx context.Context, access, serial string) ([]entitlement, error)) ([]entitlement, error) {
 	s, err := p.sessions.Current(settings)
 	if err != nil {
 		return nil, err
@@ -497,8 +498,8 @@ func (p *Provider) owned(ctx context.Context, settings schema.Settings) ([]entit
 	var items []entitlement
 
 	err = p.sessions.WithRetry(ctx, settings, func(access string) error {
-		read, err := p.all(ctx, access, s.Serial)
-		items = read
+		got, err := read(ctx, access, s.Serial)
+		items = got
 
 		return err
 	})
@@ -554,15 +555,21 @@ func mapEntitlements(items []entitlement) ([]game.ImportedCopy, []string) {
 	return copies, warnings
 }
 
-// Test implements sync.Provider: it reads the library once.
+// Test implements sync.Provider: it asks for one entitlement, which proves the session (renewing
+// the access token on the way, so the newest session is handed back) without reading the library.
 func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
-	_, err := p.owned(ctx, settings)
+	_, err := p.owned(ctx, settings, func(ctx context.Context, access, serial string) ([]entitlement, error) {
+		items, _, err := p.page(ctx, access, serial, "", 1)
+
+		return items, err
+	})
+
 	return err
 }
 
 // Fetch implements sync.Provider.
 func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, []string, error) {
-	items, err := p.owned(ctx, settings)
+	items, err := p.owned(ctx, settings, p.all)
 	if err != nil {
 		return nil, nil, err
 	}

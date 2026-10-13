@@ -19,7 +19,9 @@ import (
 	"gamevault/internal/domain/schema"
 )
 
-func fakeEA(t *testing.T) *httptest.Server {
+// fakeEA serves EA's silent sign-in and the library GraphQL; queries collects the library queries
+// it received.
+func fakeEA(t *testing.T, queries *[]string) *httptest.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /connect/auth", func(w http.ResponseWriter, r *http.Request) {
 		if c, err := r.Cookie("sid"); err != nil || c.Value != "good" {
@@ -59,6 +61,8 @@ func fakeEA(t *testing.T) *httptest.Server {
 		}
 		json.NewDecoder(r.Body).Decode(&body)
 
+		*queries = append(*queries, body.Query)
+
 		if !strings.Contains(body.Query, "ownedGameProducts") {
 			http.Error(w, "bad query", http.StatusBadRequest)
 			return
@@ -83,12 +87,21 @@ func fakeEA(t *testing.T) *httptest.Server {
 }
 
 func newTest(t *testing.T) *Provider {
-	srv := fakeEA(t)
+	p, _ := newTestQueries(t)
+
+	return p
+}
+
+// newTestQueries returns a provider on a fake EA, and the library queries it receives.
+func newTestQueries(t *testing.T) (*Provider, *[]string) {
+	var queries []string
+
+	srv := fakeEA(t, &queries)
 	p := NewProvider()
 	p.Accounts.BaseURL = srv.URL
 	p.Library.BaseURL = srv.URL + "/graphql"
 
-	return p
+	return p, &queries
 }
 
 func TestFetch(t *testing.T) {
@@ -115,6 +128,27 @@ func TestFetch(t *testing.T) {
 	}
 }
 
+// TestTest_readsOneGame checks that "Test connection" signs in and asks the library for one game,
+// not the whole library.
+func TestTest_readsOneGame(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN cookies that sign in and a library of two pages", func(t *testing.T) {
+		p, queries := newTestQueries(t)
+
+		t.Run("WHEN the source is tested", func(t *testing.T) {
+			err := p.Test(ctx, schema.Settings{settingCookies: "Cookie: sid=good; remid=r"})
+
+			t.Run("THEN it works after one library request for one game", func(t *testing.T) {
+				require.NoError(t, err)
+				require.Len(t, *queries, 1)
+				assert.Contains(t, (*queries)[0], "limit: 1,")
+			})
+		})
+	})
+}
+
 func TestSignedOut(t *testing.T) {
 	p := newTest(t)
 	if _, _, err := p.Fetch(context.Background(), schema.Settings{settingCookies: "sid=expired"}); !errors.Is(err, ErrSignedOut) {
@@ -134,7 +168,7 @@ func TestOwnedItems_passingTroubles(t *testing.T) {
 		p := newTest(t)
 
 		t.Run("WHEN the library is read", func(t *testing.T) {
-			_, err := p.ownedItems(ctx, "busy")
+			_, err := p.ownedItems(ctx, "busy", maxPages, libraryPage)
 
 			t.Run("THEN it is a rate limit, not a signed-out session", func(t *testing.T) {
 				require.ErrorIs(t, err, provider.ErrRateLimited)
