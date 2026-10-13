@@ -120,8 +120,9 @@ func (t *Tokens) Get(ctx context.Context, key string, fetch Fetch) (string, erro
 }
 
 // Drop forgets the token of key if it is still value: the service refused it, so the next Get
-// fetches a new one. A caller holding a refused token that another caller already replaced
-// leaves the replacement alone.
+// fetches a new one. Dropping goes by the refused value, as oauthsession.Sessions.Drop does: a
+// caller holding a refused token that another caller already replaced leaves the replacement
+// alone.
 func (t *Tokens) Drop(key, value string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -131,8 +132,8 @@ func (t *Tokens) Drop(key, value string) {
 	}
 }
 
-// Forget drops whatever token key has, for a check that must reach the token endpoint with the
-// credentials (a provider's Test).
+// Forget forgets whatever token key has, by the key alone, for a check that must reach the token
+// endpoint with the credentials (a provider's Test).
 func (t *Tokens) Forget(key string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()

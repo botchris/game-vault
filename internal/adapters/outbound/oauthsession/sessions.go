@@ -228,9 +228,10 @@ func (s *Sessions[S]) Current(settings source.Settings) (S, error) {
 	return session, nil
 }
 
-// ForgetCode drops the session cached for a code (as pasted: it is cleaned the same way), so the
-// next Prepare of that code exchanges it again. For a code that is not one-time (PlayStation's
-// NPSSO) after the store refused the session it gave: the cache would hand that session back.
+// ForgetCode forgets the session cached for a code, by the code as pasted (cleaned the same way),
+// so the next Prepare of it exchanges it again: forgetting goes by key, as oauthapp.Tokens.Forget
+// does. For a code that is not one-time (PlayStation's NPSSO) whose session the store refused:
+// the cache would hand that session back.
 func (s *Sessions[S]) ForgetCode(pasted string) {
 	code, err := s.clean(pasted)
 	if err != nil || code == "" {
@@ -243,8 +244,9 @@ func (s *Sessions[S]) ForgetCode(pasted string) {
 	delete(s.codes, hash(code))
 }
 
-// Forget drops a cached access token the store refused, so the next Token refreshes the session.
-func (s *Sessions[S]) Forget(token string) {
+// Drop forgets a cached access token the store refused, by its value (as oauthapp.Tokens.Drop
+// does), so the next Token refreshes the session. WithRetry calls it.
+func (s *Sessions[S]) Drop(token string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -270,7 +272,7 @@ func (s *Sessions[S]) WithRetry(ctx context.Context, settings source.Settings, c
 			return err
 		}
 
-		s.Forget(token)
+		s.Drop(token)
 	}
 
 	return s.ErrSignedOut
