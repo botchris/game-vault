@@ -28,6 +28,7 @@ import (
 	"time"
 	"unicode"
 
+	"gamevault/internal/adapters/outbound/fsatomic"
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
 )
@@ -184,14 +185,10 @@ func removeImage(dir, name string) error {
 	return nil
 }
 
-// writeFile writes atomically, so readers never see a half-written file.
+// writeFile writes atomically, so readers never see a half-written file, and the details scanner
+// and a page view saving the same image at once never mix their data.
 func writeFile(path string, data []byte) error {
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
-		return err
-	}
-
-	return os.Rename(tmp, path)
+	return fsatomic.WriteFile(path, data, 0o644)
 }
 
 func writeImage(dir, name string, img media.Image) error {
