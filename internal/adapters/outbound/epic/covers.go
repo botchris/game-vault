@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-	gosync "sync"
-	"time"
 
+	"gamevault/internal/adapters/outbound/oauthapp"
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
@@ -20,11 +19,10 @@ const CoverProviderID provider.ID = "epic-covers"
 // Covers is a cover provider for games imported from an Epic library: the store's own box art,
 // read from the public catalog with an application token (no user session needed).
 type Covers struct {
-	p *Provider // shares the HTTP client, endpoints and launcher credentials
+	p *Provider // shares the HTTP clients, endpoints and launcher credentials
 
-	mu      gosync.Mutex
-	token   string
-	expires time.Time
+	// tokens keeps the application token.
+	tokens oauthapp.Tokens
 }
 
 var (
@@ -66,12 +64,6 @@ var imageOrder = []string{"DieselGameBoxTall", "OfferImageTall", "CodeRedemption
 // Covers implements media.CoverProvider.
 func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	ids := []string{q.Links[LinkedStore.Key]}
-
-	token, err := c.appToken(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	v := url.Values{"id": ids, "country": {"US"}, "locale": {"en-US"}}
 
 	var items map[string]struct {
@@ -81,11 +73,12 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 			URL  string `json:"url"`
 		} `json:"keyImages"`
 	}
-	if err := c.p.get(ctx, token, c.p.CatalogURL+"/catalog/api/shared/bulk/items?"+v.Encode(), &items); err != nil {
-		c.mu.Lock()
-		c.token = "" // maybe expired early: get a new one next time
-		c.mu.Unlock()
 
+	// A token Epic refuses (it expired early) is renewed once.
+	err := c.tokens.WithRetry(ctx, appTokenKey, c.appToken, func(token string) error {
+		return c.p.get(ctx, c.p.Catalog, token, "/catalog/api/shared/bulk/items", v, &items)
+	})
+	if err != nil {
 		return nil, err
 	}
 
@@ -122,23 +115,20 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 	return out, nil
 }
 
-// appToken returns an application token (client credentials grant): enough for the catalog.
-func (c *Covers) appToken(ctx context.Context) (string, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+// appTokenKey is the one application token's key: the launcher's credentials never change.
+const appTokenKey = "launcher"
 
-	if c.token != "" && time.Now().Add(time.Minute).Before(c.expires) {
-		return c.token, nil
-	}
-
+// appToken asks for an application token (client credentials grant): enough for the catalog.
+func (c *Covers) appToken(ctx context.Context) (oauthapp.Token, error) {
 	tok, err := c.p.oauthRaw(ctx, url.Values{"grant_type": {"client_credentials"}, "token_type": {"eg1"}})
 	if err != nil {
-		return "", fmt.Errorf("epic catalog token: %w", err)
+		return oauthapp.Token{}, fmt.Errorf("epic catalog token: %w", err)
 	}
 
-	c.token, c.expires = tok.AccessToken, tok.ExpiresAt
-
-	return c.token, nil
+	return oauthapp.Token{
+		Value:   tok.AccessToken,
+		Expires: tok.ExpiresAt,
+	}, nil
 }
 
 // Test implements media.Provider: it requests a fresh application token (client credentials

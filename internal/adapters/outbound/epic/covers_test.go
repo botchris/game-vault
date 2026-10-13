@@ -49,7 +49,7 @@ func TestCovers(t *testing.T) {
 	defer srv.Close()
 
 	c := NewCovers()
-	c.p.OAuthURL, c.p.CatalogURL = srv.URL, srv.URL
+	c.p.OAuth.BaseURL, c.p.Catalog.BaseURL = srv.URL, srv.URL
 
 	q := media.CoverQuery{
 		Title: "Control",
@@ -94,7 +94,7 @@ func TestCovers_Test(t *testing.T) {
 		defer srv.Close()
 
 		c := NewCovers()
-		c.p.OAuthURL = srv.URL
+		c.p.OAuth.BaseURL = srv.URL
 
 		t.Run("WHEN the provider is tested", func(t *testing.T) {
 			err := c.Test(ctx, nil)
@@ -112,7 +112,7 @@ func TestCovers_Test(t *testing.T) {
 		defer srv.Close()
 
 		c := NewCovers()
-		c.p.OAuthURL = srv.URL
+		c.p.OAuth.BaseURL = srv.URL
 
 		t.Run("WHEN the provider is tested", func(t *testing.T) {
 			err := c.Test(ctx, nil)
@@ -160,7 +160,7 @@ func TestCovers_passingTroubles(t *testing.T) {
 				defer srv.Close()
 
 				c := NewCovers()
-				c.p.OAuthURL, c.p.CatalogURL = srv.URL, srv.URL
+				c.p.OAuth.BaseURL, c.p.Catalog.BaseURL = srv.URL, srv.URL
 
 				t.Run("WHEN covers are asked", func(t *testing.T) {
 					_, err := c.Covers(ctx, q, nil)
