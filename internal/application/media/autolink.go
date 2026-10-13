@@ -120,7 +120,7 @@ func NewAutoLinker(games game.Repository, reg *providers.Registry, opts ...Optio
 		now:       o.now,
 		log:       o.log,
 		finders:   finders,
-		misses:    &misses{},
+		misses:    o.misses,
 		queue:     newAutoLinkQueue(),
 		rhythm:    o.rhythm,
 	}

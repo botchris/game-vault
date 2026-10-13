@@ -37,6 +37,7 @@ type options struct {
 	downloads *Downloads
 	autoLinks linkQueue
 	rhythm    unattended.Rhythm
+	misses    *misses
 }
 
 // WithClock sets the clock (time.Now by default).
@@ -63,6 +64,10 @@ func WithAutoLinks(a *AutoLinker) Option { return func(o *options) { o.autoLinks
 // auto-linker), so tests control its timing (real randomness and sleeps by default).
 func WithRhythm(r unattended.Rhythm) Option { return func(o *options) { o.rhythm = r } }
 
+// withMisses shares the covers' "no cover" answers between the covers and the auto-linker, whose
+// links found make them stale.
+func withMisses(m *misses) Option { return func(o *options) { o.misses = m } }
+
 // newOptions applies opts over the defaults: no-op ports, the real clock, a silent logger.
 func newOptions(opts []Option) options {
 	o := options{
@@ -71,6 +76,7 @@ func newOptions(opts []Option) options {
 		photos:    noPhotos{},
 		details:   noDetails{},
 		autoLinks: noAutoLinks{},
+		misses:    &misses{},
 	}
 	for _, opt := range opts {
 		opt(&o)
@@ -117,13 +123,14 @@ func New(games game.Repository, reg *providers.Registry, store AssetStore, fetch
 	o := newOptions(opts)
 	downloads := NewDownloads(fetch)
 
-	autoLinks := NewAutoLinker(games, reg, slices.Concat(opts, []Option{WithDownloads(downloads)})...)
+	// Links found for a game give it the stores' art: the auto-linker makes the covers forget what
+	// they missed for it.
+	missed := &misses{}
+
+	autoLinks := NewAutoLinker(games, reg, slices.Concat(opts, []Option{WithDownloads(downloads), withMisses(missed)})...)
 	assets := NewAssets(games, store, downloads, opts...)
 	shared := slices.Concat(opts, []Option{WithAutoLinks(autoLinks)})
-	covers := NewCovers(games, reg, store, downloads, shared...)
-
-	// Links found for a game give it the stores' art: the covers forget what they missed for it.
-	autoLinks.misses = covers.misses
+	covers := NewCovers(games, reg, store, downloads, slices.Concat(shared, []Option{withMisses(missed)})...)
 
 	reg.OnCoversChanged(covers.forgetMissing)
 

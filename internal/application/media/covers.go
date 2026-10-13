@@ -64,7 +64,7 @@ func NewCovers(games game.Repository, reg *providers.Registry, store AssetStore,
 		searchers: searchers,
 		now:       o.now,
 		log:       o.log,
-		misses:    &misses{},
+		misses:    o.misses,
 	}
 }
 
