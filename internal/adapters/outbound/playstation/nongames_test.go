@@ -42,7 +42,7 @@ func (f *fakeSony) gameList(w http.ResponseWriter, r *http.Request) {
 
 	f.gameListCalls[categories]++
 
-	if r.Header.Get("Authorization") != "Bearer access" || f.gameListStatus == http.StatusUnauthorized {
+	if !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer access-") || f.gameListStatus == http.StatusUnauthorized {
 		w.WriteHeader(http.StatusUnauthorized)
 		fmt.Fprint(w, `{"error":{"referenceId":"00000000-0000-0000-0000-000000000000","code":2241801,"message":"Invalid token","reason":"invalidToken","source":"token"}}`)
 

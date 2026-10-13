@@ -43,6 +43,12 @@ type fakeSony struct {
 	// rate limit, an outage.
 	authStatus int
 
+	// issued counts the access tokens the token endpoint gave ("access-1", "access-2"…).
+	issued int
+
+	// revoked are access tokens the library refuses before their time.
+	revoked map[string]bool
+
 	// rejectAll makes the library refuse every access token, as for a revoked session.
 	rejectAll bool
 
@@ -101,7 +107,8 @@ func (f *fakeSony) handler() http.Handler {
 			f.refreshes++
 		}
 
-		fmt.Fprint(w, `{"access_token":"access","refresh_token":"refresh-ok","expires_in":3600}`)
+		f.issued++
+		fmt.Fprintf(w, `{"access_token":"access-%d","refresh_token":"refresh-ok","expires_in":3600}`, f.issued)
 	})
 	mux.HandleFunc("GET /graphql", func(w http.ResponseWriter, r *http.Request) {
 		var ext struct{ PersistedQuery struct{ Sha256Hash string } }
@@ -121,7 +128,8 @@ func (f *fakeSony) handler() http.Handler {
 			return
 		}
 
-		if f.rejectAll || r.Header.Get("Authorization") != "Bearer access" || r.Header.Get("Content-Type") != "application/json" {
+		token, _ := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+		if f.rejectAll || !strings.HasPrefix(token, "access-") || f.revoked[token] || r.Header.Get("Content-Type") != "application/json" {
 			if f.rejectHTML {
 				w.WriteHeader(http.StatusUnauthorized)
 				fmt.Fprint(w, `<html><body>401 Authorization Required</body></html>`)
@@ -170,9 +178,16 @@ func newTest(t *testing.T) (*Provider, *fakeSony) {
 	t.Cleanup(srv.Close)
 
 	p := NewProvider(nil)
-	p.AuthURL, p.LibraryURL, p.GameListURL = srv.URL, srv.URL+"/graphql", srv.URL+"/gamelist"
+	pointAt(p, srv.URL)
 
 	return p, f
+}
+
+// pointAt points the provider's clients at the fake server.
+func pointAt(p *Provider, base string) {
+	p.Auth.BaseURL = base
+	p.Library.BaseURL = base + "/graphql"
+	p.GameList.BaseURL = base + "/gamelist"
 }
 
 func TestFetch(t *testing.T) {
@@ -203,7 +218,8 @@ func TestFetch(t *testing.T) {
 
 	// Next process: the refresh token is used, not the NPSSO.
 	p2, _ := newTest(t)
-	p2.AuthURL, p2.LibraryURL, p2.GameListURL = p.AuthURL, p.LibraryURL, p.GameListURL
+	pointAt(p2, p.Auth.BaseURL)
+
 	before := f.authorizes
 
 	if _, _, err := p2.Fetch(context.Background(), settings); err != nil {
@@ -263,57 +279,78 @@ func TestFetch_renewsARejectedAccessToken(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	stale := func(p *Provider) {
-		p.tokens = map[string]accessToken{"refresh-ok": {
-			token:   "stale",
-			expires: p.Now().Add(time.Hour),
-		}}
+	// withCachedToken returns a provider holding a cached access token (from a first scan), and the
+	// settings it scanned with. That token is "access-1".
+	withCachedToken := func(t *testing.T) (*Provider, *fakeSony, source.Settings) {
+		p, f := newTest(t)
+		settings := source.Settings{settingSession: `{"refresh_token":"refresh-ok"}`}
+
+		require.NoError(t, p.Test(ctx, settings))
+		require.Equal(t, 1, f.refreshes)
+
+		return p, f, settings
 	}
 
 	t.Run("GIVEN a cached access token the library no longer accepts", func(t *testing.T) {
-		p, f := newTest(t)
-		stale(p)
+		p, f, settings := withCachedToken(t)
+		f.revoked = map[string]bool{"access-1": true}
 
 		t.Run("WHEN the library is scanned", func(t *testing.T) {
-			copies, _, err := p.Fetch(ctx, source.Settings{settingSession: `{"refresh_token":"refresh-ok"}`})
+			copies, _, err := p.Fetch(ctx, settings)
 
 			t.Run("THEN the token is renewed once and the scan works", func(t *testing.T) {
 				require.NoError(t, err)
 				assert.NotEmpty(t, copies)
-				assert.Equal(t, 1, f.refreshes)
+				assert.Equal(t, 2, f.refreshes)
 			})
 		})
 	})
 
 	t.Run("GIVEN a cached access token the library refuses with a plain 401 and a web page", func(t *testing.T) {
-		p, f := newTest(t)
+		p, f, settings := withCachedToken(t)
 		f.rejectHTML = true
-
-		stale(p)
+		f.revoked = map[string]bool{"access-1": true}
 
 		t.Run("WHEN the library is scanned", func(t *testing.T) {
-			copies, _, err := p.Fetch(ctx, source.Settings{settingSession: `{"refresh_token":"refresh-ok"}`})
+			copies, _, err := p.Fetch(ctx, settings)
 
 			t.Run("THEN the token is renewed once and the scan works", func(t *testing.T) {
 				require.NoError(t, err)
 				assert.NotEmpty(t, copies)
-				assert.Equal(t, 1, f.refreshes)
+				assert.Equal(t, 2, f.refreshes)
 			})
 		})
 	})
 
 	t.Run("GIVEN a library that refuses even a renewed access token", func(t *testing.T) {
-		p, f := newTest(t)
+		p, f, settings := withCachedToken(t)
 		f.rejectAll = true
 
-		stale(p)
-
 		t.Run("WHEN the source is tested", func(t *testing.T) {
-			err := p.Test(ctx, source.Settings{settingSession: `{"refresh_token":"refresh-ok"}`})
+			err := p.Test(ctx, settings)
 
 			t.Run("THEN it is signed out after one renewal", func(t *testing.T) {
 				require.ErrorIs(t, err, source.ErrSignedOut)
-				assert.Equal(t, 1, f.refreshes)
+				assert.Equal(t, 2, f.refreshes)
+			})
+		})
+	})
+
+	t.Run("GIVEN a stored session Sony no longer renews and a valid NPSSO", func(t *testing.T) {
+		p, f := newTest(t)
+		settings := source.Settings{
+			settingNPSSO:   "good-npsso",
+			settingSession: `{"refresh_token":"refresh-revoked"}`,
+		}
+
+		t.Run("WHEN the library is scanned", func(t *testing.T) {
+			copies, _, err := p.Fetch(ctx, settings)
+
+			t.Run("THEN it signs in again with the NPSSO and keeps the new session", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.NotEmpty(t, copies)
+				assert.Equal(t, 1, f.authorizes)
+				assert.Contains(t, settings[settingSession], "refresh-ok")
 			})
 		})
 	})
@@ -347,7 +384,7 @@ func TestFetch_libraryPassingTroubles(t *testing.T) {
 
 	t.Run("GIVEN a library that does not answer at all", func(t *testing.T) {
 		p, _ := newTest(t)
-		p.LibraryURL = "http://127.0.0.1:1/graphql"
+		p.Library.BaseURL = "http://127.0.0.1:1/graphql"
 
 		t.Run("WHEN the library is scanned", func(t *testing.T) {
 			_, _, err := p.Fetch(ctx, source.Settings{settingSession: `{"refresh_token":"refresh-ok"}`})

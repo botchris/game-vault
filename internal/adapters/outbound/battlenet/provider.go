@@ -10,10 +10,8 @@ package battlenet
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"sort"
 	"strings"
@@ -52,16 +50,19 @@ var (
 
 // Provider implements sync.Provider for Battle.net accounts.
 type Provider struct {
-	AccountURL string
-	Timeout    time.Duration
+	// Account calls account.battle.net; tests point it at a fake server. Each scan sends through a
+	// copy whose HTTP client holds the session's cookies.
+	Account *apiclient.Client
 }
 
 // NewProvider returns the Battle.net source with its production endpoints.
 func NewProvider() *Provider {
-	return &Provider{
-		AccountURL: defaultAccountURL,
-		Timeout:    30 * time.Second,
-	}
+	// The site serves the session of the user's browser, so requests look like that browser.
+	account := apiclient.New(defaultAccountURL)
+	account.HTTP.Timeout = 30 * time.Second
+	account.UserAgent = apiclient.BrowserUserAgent
+
+	return &Provider{Account: account}
 }
 
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
@@ -117,18 +118,21 @@ func (p *Provider) getJSON(ctx context.Context, settings source.Settings, path s
 		return ErrNoCookies
 	}
 
-	sess, err := browsersession.New(p.AccountURL, "battle.net", c, p.Timeout)
+	sess, err := browsersession.New(p.Account.BaseURL, "battle.net", c, p.Account.HTTP.Timeout)
 	if err != nil {
 		return err
 	}
 
-	err = p.api(ctx, sess.Client, path, out)
+	account := *p.Account
+	account.HTTP = sess.Client
+
+	err = api(ctx, &account, path, out)
 	if errors.Is(err, ErrSignedOut) {
-		if err := p.renew(ctx, sess.Client); err != nil {
+		if err := renew(ctx, &account); err != nil {
 			return err
 		}
 
-		err = p.api(ctx, sess.Client, path, out)
+		err = api(ctx, &account, path, out)
 	}
 
 	if err != nil {
@@ -149,30 +153,24 @@ func (p *Provider) KeepAlive(ctx context.Context, settings source.Settings) erro
 	return p.getJSON(ctx, settings, "/api/games-and-subs", &overview)
 }
 
-func (p *Provider) api(ctx context.Context, client *http.Client, path string, out any) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.AccountURL+path, nil)
+// api reads an API path with the session's client. A refusal, the sign-in page or a web page
+// instead of JSON is ErrSignedOut; a 429, an outage or no answer is a passing trouble.
+func api(ctx context.Context, account *apiclient.Client, path string, out any) error {
+	res, err := account.Send(ctx, apiclient.Request{Path: path})
 	if err != nil {
-		return err
+		return fmt.Errorf("battle.net %s: %w", path, apiclient.ClassifyError(ctx, err))
 	}
 
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", apiclient.BrowserUserAgent)
-
-	res, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
-
-	body, _ := io.ReadAll(io.LimitReader(res.Body, 8<<20))
 	switch {
-	case res.StatusCode == http.StatusUnauthorized || res.StatusCode == http.StatusForbidden || strings.Contains(res.Request.URL.Path, "login"):
+	case apiclient.Transient(res.Status):
+		return fmt.Errorf("battle.net %s: %w", path, apiclient.ClassifyError(ctx, res.Err()))
+	case res.Status == http.StatusUnauthorized || res.Status == http.StatusForbidden || strings.Contains(res.URL.Path, "login"):
 		return ErrSignedOut
-	case res.StatusCode != http.StatusOK:
-		return fmt.Errorf("battle.net %s: HTTP %d", path, res.StatusCode)
+	case !res.OK():
+		return fmt.Errorf("battle.net %s: %w", path, res.Err())
 	}
 
-	if err := json.Unmarshal(body, out); err != nil {
+	if err := res.Decode(out); err != nil {
 		return ErrSignedOut // an HTML page instead of JSON: not signed in
 	}
 
@@ -180,26 +178,25 @@ func (p *Provider) api(ctx context.Context, client *http.Client, path string, ou
 }
 
 // renew follows the single sign-on round trip; it fails if it ends on a login page.
-func (p *Provider) renew(ctx context.Context, client *http.Client) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.AccountURL+renewPath, nil)
+func renew(ctx context.Context, account *apiclient.Client) error {
+	res, err := account.Send(ctx, apiclient.Request{
+		Path: renewPath,
+		// A navigation, not an API call: no Accept header, as before the shared client, so the
+		// sign-in hops answer with their redirects rather than a JSON refusal.
+		Header: http.Header{"Accept": nil},
+	})
 	if err != nil {
-		return err
+		return fmt.Errorf("battle.net session renewal: %w", apiclient.ClassifyError(ctx, err))
 	}
 
-	req.Header.Set("User-Agent", apiclient.BrowserUserAgent)
-
-	res, err := client.Do(req)
-	if err != nil {
-		return err
+	// A rate limit or an outage on the way says nothing about the session.
+	if apiclient.Transient(res.Status) {
+		return fmt.Errorf("battle.net session renewal: %w", apiclient.ClassifyError(ctx, res.Err()))
 	}
-	defer res.Body.Close()
 
-	// Only the status and the final URL matter; draining the body lets the connection be reused.
-	_, _ = io.Copy(io.Discard, io.LimitReader(res.Body, 1<<20))
-
-	if res.StatusCode >= 400 || strings.Contains(res.Request.URL.Path, "login") {
+	if res.Status >= 400 || strings.Contains(res.URL.Path, "login") {
 		// Where the sign-in round trip ended (no query string: it may carry tokens).
-		return fmt.Errorf("%w (session renewal ended at %s%s, HTTP %d)", ErrSignedOut, res.Request.URL.Host, res.Request.URL.Path, res.StatusCode)
+		return fmt.Errorf("%w (session renewal ended at %s%s, HTTP %d)", ErrSignedOut, res.URL.Host, res.URL.Path, res.Status)
 	}
 
 	return nil

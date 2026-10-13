@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/source"
 )
 
@@ -135,6 +136,11 @@ func TestFetchAgainstFakeServer(t *testing.T) {
 	defer cancel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if c, _ := r.Cookie("_simpleauth_sess"); c != nil && c.Value == "outage" {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+
 		if c, _ := r.Cookie("_simpleauth_sess"); c == nil || c.Value != "good" {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
@@ -151,10 +157,10 @@ func TestFetchAgainstFakeServer(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := &Provider{
-		BaseURL: srv.URL,
-		Client:  srv.Client(),
-	}
+	p := NewProvider(nil)
+	p.API.BaseURL = srv.URL
+	p.API.HTTP = srv.Client()
+	p.Pause = 0
 
 	copies, _, err := p.Fetch(ctx, source.Settings{settingSession: "good"})
 	if err != nil || len(copies) != 6 {
@@ -164,6 +170,11 @@ func TestFetchAgainstFakeServer(t *testing.T) {
 	if _, _, err := p.Fetch(ctx, source.Settings{settingSession: "bad"}); err != ErrUnauthorized {
 		t.Fatalf("expected ErrUnauthorized, got %v", err)
 	}
+
+	// An outage is a passing trouble, never "copy the cookie again".
+	_, _, err = p.Fetch(ctx, source.Settings{settingSession: "outage"})
+	require.ErrorIs(t, err, provider.ErrUnavailable)
+	assert.NotErrorIs(t, err, source.ErrSignedOut)
 
 	// Test only lists orders, and tolerates the cookie pasted as "_simpleauth_sess=...;" with quotes.
 	ordersRequests = 0
