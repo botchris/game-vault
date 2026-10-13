@@ -307,7 +307,21 @@ func TestNonGameName(t *testing.T) {
 		{"Paper Kites: Behind the Scenes", true},
 		{"Behind the Scenes of Paper Kites", true},
 		{"The Making of Paper Kites", true},
+		{"Banda sonora de Lantern Keep™", true},
+		{"Banda sonora original de Paper Comet™ 2", true},
+		{"Tema dinámico de Harbor Lights", true},
+		{"Soundtrack of Night Ferry", true},
+		{"Original Soundtrack: Echo Valley", true},
+		{"Digital Soundtrack - Echo Valley", true},
+		{"Dynamic Theme - Copper Coast", true},
+		{"Avatares de Glass Orchard", true}, //nolint:misspell // Spanish plural of avatar
+		{"Demo de Lantern Keep®", true},
+		{"Paper Kites Demo™", true},
 		{"Beta Protocol", false},
+		{"Soundtrack Hero", false},
+		{"Tema Rally", false},
+		{"Demon's Lantern", false},
+		{"OSTRICH RUN", false},
 		{"Theme Park Rush", false},
 		{"Demolition Crew", false},
 		{"Avatar Legends of Glass", false},
@@ -319,4 +333,27 @@ func TestNonGameName(t *testing.T) {
 	for _, c := range cases {
 		assert.Equal(t, c.want, nonGameName(c.name), c.name)
 	}
+}
+
+func TestFetch_leadingMarkerWithdrawsEarlierImport(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	p, f := newTest(t)
+	f.library = []string{
+		`{"name":"Moonlit Harbor","platform":"PS4","entitlementId":"EP0001-CUSA10001_00-MOONLIT","titleId":"CUSA10001_00","conceptId":"1001","membership":"NONE","isActive":true}`,
+		`{"name":"Banda sonora de Moonlit Harbor™","platform":"PS4","entitlementId":"EP0001-CUSA10001_00-BSO","titleId":"CUSA10001_00","conceptId":"1001","membership":"NONE","isActive":true}`,
+	}
+
+	copies, _, err := p.Fetch(ctx, schema.Settings{settingNPSSO: "good-npsso"})
+	require.NoError(t, err)
+
+	got := byExternalID(copies)
+	require.Len(t, got, 2)
+
+	// The copy keeps the id it had when it was imported as a game, so the scan removes it.
+	soundtrack := got["psn:EP0001-CUSA10001_00-BSO"]
+	assert.True(t, soundtrack.Withdrawn)
+	assert.Equal(t, "Banda sonora de Moonlit Harbor™", soundtrack.Title)
+	assert.False(t, got["psn:EP0001-CUSA10001_00-MOONLIT"].Withdrawn)
 }
