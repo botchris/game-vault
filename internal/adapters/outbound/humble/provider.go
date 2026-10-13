@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -35,8 +34,8 @@ var ErrUnauthorized = source.SignedOut("humble bundle rejected the session cooki
 
 // Provider implements sync.Provider for Humble Bundle.
 type Provider struct {
-	BaseURL string
-	Client  *http.Client
+	// API calls humblebundle.com; tests point it at a fake server.
+	API *apiclient.Client
 
 	// Pause between batched requests, to be gentle with Humble.
 	Pause time.Duration
@@ -47,11 +46,14 @@ type Provider struct {
 
 // NewProvider returns the Humble Bundle source with its production endpoints.
 func NewProvider(log *slog.Logger) *Provider {
+	// The orders API serves the session of the user's browser, so requests look like that browser.
+	api := apiclient.New(defaultBaseURL)
+	api.UserAgent = apiclient.BrowserUserAgent
+
 	return &Provider{
-		BaseURL: defaultBaseURL,
-		Client:  &http.Client{Timeout: 60 * time.Second},
-		Pause:   500 * time.Millisecond,
-		Log:     log,
+		API:   api,
+		Pause: 500 * time.Millisecond,
+		Log:   log,
 	}
 }
 
@@ -122,31 +124,27 @@ func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.
 	return copies, warnings, nil
 }
 
-func (p *Provider) get(ctx context.Context, cookie, path string) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.BaseURL+path, nil)
+// get reads one of Humble's endpoints with the session cookie. A refusal or a redirect to the
+// sign-in page is ErrUnauthorized; a 429, an outage or no answer is a passing trouble.
+func (p *Provider) get(ctx context.Context, cookie, path string, q url.Values) (*apiclient.Response, error) {
+	res, err := p.API.Send(ctx, apiclient.Request{
+		Path:   path,
+		Query:  q,
+		Header: http.Header{"Cookie": {"_simpleauth_sess=" + cookie}},
+	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("humble bundle %s: %w", path, apiclient.ClassifyError(ctx, err))
 	}
 
-	req.Header.Set("Cookie", "_simpleauth_sess="+cookie)
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", apiclient.BrowserUserAgent)
-
-	res, err := p.Client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode == http.StatusUnauthorized || res.StatusCode == http.StatusForbidden || strings.Contains(res.Request.URL.Path, "login") {
+	if res.Status == http.StatusUnauthorized || res.Status == http.StatusForbidden || strings.Contains(res.URL.Path, "login") {
 		return nil, ErrUnauthorized
 	}
 
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("humble bundle %s: HTTP %d", path, res.StatusCode)
+	if err := res.Err(); err != nil {
+		return nil, fmt.Errorf("humble bundle %s: %w", path, apiclient.ClassifyError(ctx, err))
 	}
 
-	return io.ReadAll(res.Body)
+	return res, nil
 }
 
 // listGamekeys returns the id of every order in the account.
@@ -155,7 +153,7 @@ func (p *Provider) listGamekeys(ctx context.Context, cookie string) ([]string, e
 		return nil, ErrUnauthorized
 	}
 
-	body, err := p.get(ctx, cookie, "/api/v1/user/order")
+	res, err := p.get(ctx, cookie, "/api/v1/user/order", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -163,8 +161,8 @@ func (p *Provider) listGamekeys(ctx context.Context, cookie string) ([]string, e
 	var list []struct {
 		Gamekey string `json:"gamekey"`
 	}
-	if err := json.Unmarshal(body, &list); err != nil {
-		return nil, ErrUnauthorized // an HTML login page instead of JSON
+	if err := res.Decode(&list); err != nil {
+		return nil, ErrUnauthorized // an HTML sign-in page served with a 200 instead of the list
 	}
 
 	keys := make([]string, len(list))
@@ -191,14 +189,14 @@ func (p *Provider) fetchOrders(ctx context.Context, cookie string) ([]json.RawMe
 			q.Add("gamekeys", k)
 		}
 
-		body, err := p.get(ctx, cookie, "/api/v1/orders?"+q.Encode())
+		res, err := p.get(ctx, cookie, "/api/v1/orders", q)
 		if err != nil {
 			return nil, err
 		}
 
 		var byKey map[string]json.RawMessage
-		if err := json.Unmarshal(body, &byKey); err != nil {
-			return nil, fmt.Errorf("unexpected humble bundle response: %w", err)
+		if err := res.Decode(&byKey); err != nil {
+			return nil, fmt.Errorf("humble bundle orders: %w", err)
 		}
 
 		for _, o := range byKey {
