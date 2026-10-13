@@ -227,6 +227,61 @@ func TestTokens_oneRequestAtATime(t *testing.T) {
 	})
 }
 
+func TestTokens_callerGivesUp(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	key := oauthapp.Key("client-id", "client-secret")
+
+	t.Run("GIVEN a token request under way that does not end", func(t *testing.T) {
+		release := make(chan struct{})
+		started := make(chan struct{})
+		fetch := func(context.Context) (oauthapp.Token, error) {
+			close(started)
+			<-release
+
+			return oauthapp.Token{Value: "token-1"}, nil
+		}
+		tokens := &oauthapp.Tokens{}
+
+		first := make(chan string, 1)
+
+		go func() {
+			tok, _ := tokens.Get(ctx, key, fetch)
+			first <- tok
+		}()
+
+		<-started
+
+		t.Run("WHEN another caller waiting for it gives up", func(t *testing.T) {
+			gone, stop := context.WithTimeout(ctx, 20*time.Millisecond)
+			defer stop()
+
+			// The request ends after 2 s anyway, so a caller that does wait for it fails the test
+			// rather than hanging it.
+			var once sync.Once
+
+			end := func() { once.Do(func() { close(release) }) }
+			time.AfterFunc(2*time.Second, end)
+
+			begin := time.Now()
+			_, err := tokens.Get(gone, key, fetch)
+			waited := time.Since(begin)
+
+			end()
+
+			t.Run("THEN it returns its context's error at once", func(t *testing.T) {
+				require.ErrorIs(t, err, context.DeadlineExceeded)
+				assert.Less(t, waited, time.Second)
+			})
+
+			t.Run("AND the request still ends for the caller that started it", func(t *testing.T) {
+				assert.Equal(t, "token-1", <-first)
+			})
+		})
+	})
+}
+
 func TestTokens_withRetry(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()

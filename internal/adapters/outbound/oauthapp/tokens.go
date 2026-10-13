@@ -79,13 +79,14 @@ func Key(parts ...string) string {
 
 // Get returns the token of key, asking fetch for a new one when there is none or it is about to
 // expire. Concurrent callers of one key share one fetch, which runs to its end even when the
-// caller that started it gives up (the others still wait for it).
+// caller that started it gives up (the others still wait for it). A caller whose ctx ends returns
+// its error at once, without waiting for the fetch.
 func (t *Tokens) Get(ctx context.Context, key string, fetch Fetch) (string, error) {
 	if v, ok := t.cached(key); ok {
 		return v, nil
 	}
 
-	v, err, _ := t.group.Do(key, func() (any, error) {
+	done := t.group.DoChan(key, func() (any, error) {
 		if v, ok := t.cached(key); ok {
 			return v, nil // renewed by the fetch that just finished
 		}
@@ -103,11 +104,19 @@ func (t *Tokens) Get(ctx context.Context, key string, fetch Fetch) (string, erro
 
 		return tok.Value, nil
 	})
-	if err != nil {
-		return "", err
-	}
 
-	return v.(string), nil
+	// A caller that gives up returns at once; the fetch it shares goes on for the others and
+	// caches its token.
+	select {
+	case r := <-done:
+		if r.Err != nil {
+			return "", r.Err
+		}
+
+		return r.Val.(string), nil
+	case <-ctx.Done():
+		return "", ctx.Err()
+	}
 }
 
 // Drop forgets the token of key if it is still value: the service refused it, so the next Get

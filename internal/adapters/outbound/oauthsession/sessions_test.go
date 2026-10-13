@@ -278,6 +278,56 @@ func TestSessions_prepare(t *testing.T) {
 	})
 }
 
+func TestSessions_prepareGivesUpWhileARefreshRuns(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a refresh under way that does not end", func(t *testing.T) {
+		st := newStore()
+		st.live["refresh-0"] = true
+		st.gate, st.entered = make(chan struct{}), make(chan struct{}, 1)
+		sessions := newSessions(st, &clock{now: time.Date(2026, 10, 12, 12, 0, 0, 0, time.UTC)})
+
+		go func() { _, _ = sessions.Token(ctx, source.Settings{"session": `{"refresh_token":"refresh-0"}`}) }()
+
+		<-st.entered
+
+		// The refresh ends after 2 s anyway, so a caller that does wait for it fails the test rather
+		// than hanging it.
+		var once sync.Once
+
+		end := func() { once.Do(func() { close(st.gate) }) }
+		time.AfterFunc(2*time.Second, end)
+
+		t.Run("WHEN a code is prepared by a caller that gives up", func(t *testing.T) {
+			gone, stop := context.WithTimeout(ctx, 20*time.Millisecond)
+			defer stop()
+
+			begin := time.Now()
+			_, err := sessions.Prepare(gone, source.Settings{"code": "good-code"})
+			waited := time.Since(begin)
+
+			end()
+
+			t.Run("THEN it returns its context's error at once", func(t *testing.T) {
+				require.ErrorIs(t, err, context.DeadlineExceeded)
+				assert.Less(t, waited, time.Second)
+			})
+
+			t.Run("AND the exchange still runs, so the next Prepare of the code gets its session", func(t *testing.T) {
+				require.Eventually(t, func() bool {
+					exchanges, _ := st.counts()
+					return exchanges == 1
+				}, 5*time.Second, time.Millisecond)
+
+				out, err := sessions.Prepare(ctx, source.Settings{"code": "good-code"})
+				require.NoError(t, err)
+				assert.NotEmpty(t, stored(t, out).RefreshToken)
+			})
+		})
+	})
+}
+
 func TestSessions_token(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()

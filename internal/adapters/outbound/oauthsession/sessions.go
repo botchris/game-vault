@@ -281,6 +281,33 @@ func (s *Sessions[S]) exchange(ctx context.Context, code string) (S, error) {
 		return session, nil
 	}
 
+	type result struct {
+		session S
+		err     error
+	}
+
+	// The exchange waits for its turn and runs on its own, as Token's refresh does: a caller that
+	// gives up returns at once, even while another refresh holds the turn, and the exchange (a
+	// code is spent once sent) still caches the session it brings back for the next attempt.
+	done := make(chan result, 1)
+
+	go func() {
+		session, err := s.exchangeInTurn(context.WithoutCancel(ctx), code, key)
+		done <- result{session, err}
+	}()
+
+	select {
+	case r := <-done:
+		return r.session, r.err
+	case <-ctx.Done():
+		var zero S
+		return zero, ctx.Err()
+	}
+}
+
+// exchangeInTurn exchanges code once no other refresh or exchange runs, unless one that ran
+// meanwhile already exchanged it.
+func (s *Sessions[S]) exchangeInTurn(ctx context.Context, code, key string) (S, error) {
 	// One exchange at a time: "Test" and "Save" of the same code must not both send it.
 	s.refreshing.Lock()
 	defer s.refreshing.Unlock()
@@ -289,9 +316,7 @@ func (s *Sessions[S]) exchange(ctx context.Context, code string) (S, error) {
 		return session, nil
 	}
 
-	// A code is spent once sent: the exchange runs to its end even when the caller gives up, so a
-	// session it brings back is cached for the next attempt.
-	grant, err := s.Exchange(context.WithoutCancel(ctx), code)
+	grant, err := s.Exchange(ctx, code)
 	if err != nil {
 		var zero S
 		return zero, err
