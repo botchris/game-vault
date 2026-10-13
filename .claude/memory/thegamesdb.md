@@ -26,4 +26,4 @@ As of 2026-10:
   TheGamesDB: sheet warnings already prefix "TheGamesDB: ".
 - 2026-10-13 (audit PRV-9): its title search also returns other games ("Halo 3: ODST" for
   "Halo 3"). `Covers` keeps only the game's own box (`game.SameTitle`, then `game.SameMatchKey`)
-  for the automatic chain; other games are listed only when the picker sets `CoverQuery.Browse`.
+  for the automatic chain; other games are listed only when the picker sets `GameQuery.Browse`.

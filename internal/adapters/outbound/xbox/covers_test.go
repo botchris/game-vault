@@ -88,7 +88,7 @@ func TestCovers_passingTroubles(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	q := media.CoverQuery{
+	q := media.GameQuery{
 		Title: "Minecraft",
 		Links: game.Links{LinkedStore.Key: testProductID},
 	}

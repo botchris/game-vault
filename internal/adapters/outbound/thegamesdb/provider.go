@@ -126,7 +126,7 @@ func (p *Provider) ImageHosts() []string { return []string{"cdn.thegamesdb.net"}
 
 // Applies keeps the monthly allowance for physical copies, games no store knows, and store games no
 // store had art for (the fallback pass).
-func (p *Provider) Applies(q media.CoverQuery) bool {
+func (p *Provider) Applies(q media.GameQuery) bool {
 	return !q.LinksOnly && (q.HasPhysical() || !q.HasStoreLink() || q.Fallback) // it searches by title
 }
 
@@ -326,7 +326,7 @@ type searchResponse struct {
 // tags can go too far ("Gold Rush!" searched as "Rush!" finds "Rush", which only shares the
 // MatchKey), so an exact title from the raw search wins over the name's looser match. A second
 // request only for a title with tags, when its name gave no exact match.
-func (p *Provider) Covers(ctx context.Context, q media.CoverQuery, s schema.Settings) ([]media.CoverCandidate, error) {
+func (p *Provider) Covers(ctx context.Context, q media.GameQuery, s schema.Settings) ([]media.CoverCandidate, error) {
 	key := s[settingAPIKey]
 	filter := p.platformFilter(ctx, key, q.SearchSystems())
 
@@ -370,7 +370,7 @@ func (p *Provider) platformFilter(ctx context.Context, key string, systems []str
 }
 
 // coversOf returns the front box art of the games in a search for q, best matches first.
-func coversOf(out searchResponse, q media.CoverQuery) []media.CoverCandidate {
+func coversOf(out searchResponse, q media.GameQuery) []media.CoverCandidate {
 	base := out.Include.Boxart.BaseURL
 
 	large, thumb := base["large"], base["thumb"]

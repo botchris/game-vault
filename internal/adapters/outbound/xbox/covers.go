@@ -63,7 +63,7 @@ func (c *Covers) LinkStore() game.Store { return LinkedStore }
 
 // Applies reports whether the game is linked to the Microsoft Store and the query is for its PC
 // edition, an Xbox edition, or names no system.
-func (c *Covers) Applies(q media.CoverQuery) bool {
+func (c *Covers) Applies(q media.GameQuery) bool {
 	return (q.ForPC() || game.IsXboxSystem(q.System)) && q.Links[LinkedStore.Key] != ""
 }
 
@@ -71,7 +71,7 @@ func (c *Covers) Applies(q media.CoverQuery) bool {
 var imagePurposes = []string{"Poster", "BoxArt"}
 
 // Covers implements media.CoverProvider.
-func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
+func (c *Covers) Covers(ctx context.Context, q media.GameQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	ids := []string{q.Links[LinkedStore.Key]}
 
 	products, err := catalog(ctx, c.Catalog, c.Market, c.Language, ids)

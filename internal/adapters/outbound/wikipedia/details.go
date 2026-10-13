@@ -141,7 +141,7 @@ func (d *Details) Descriptor() provider.Descriptor {
 // Applies implements media.MetadataProvider. A game linked to Steam gets Steam's localized sheet,
 // whose summary always wins, so Wikipedia's 4-5 requests would be wasted on it (the background scan
 // asks for every game): it only helps there on the fallback pass, when Steam had nothing.
-func (d *Details) Applies(q media.CoverQuery) bool {
+func (d *Details) Applies(q media.GameQuery) bool {
 	return q.Links[game.LinkSteam] == "" || q.Fallback
 }
 
@@ -170,7 +170,7 @@ func wikiLanguage(language string) string {
 }
 
 // Details implements media.MetadataProvider.
-func (d *Details) Details(ctx context.Context, q media.CoverQuery, language string, _ schema.Settings) (*media.GameDetails, error) {
+func (d *Details) Details(ctx context.Context, q media.GameQuery, language string, _ schema.Settings) (*media.GameDetails, error) {
 	lang := wikiLanguage(language)
 
 	item, err := d.findGame(ctx, q, lang)
@@ -203,7 +203,7 @@ func (d *Details) Details(ctx context.Context, q media.CoverQuery, language stri
 // items titled q.Title that are video games, of which exactly one is on one of the game's systems
 // (or, with no system known or none on Wikidata, exactly one at all). A disambiguation must never
 // yield the wrong game.
-func (d *Details) findGame(ctx context.Context, q media.CoverQuery, lang string) (*item, error) {
+func (d *Details) findGame(ctx context.Context, q media.GameQuery, lang string) (*item, error) {
 	ids, exact, err := d.candidates(ctx, q.Title, lang)
 	if err != nil || len(ids) == 0 {
 		return nil, err

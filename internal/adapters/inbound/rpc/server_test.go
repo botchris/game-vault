@@ -107,11 +107,11 @@ func (fakeSteamStore) Descriptor() provider.Descriptor {
 
 func (fakeSteamStore) Test(context.Context, schema.Settings) error { return nil }
 
-func (fakeSteamStore) Applies(q media.CoverQuery) bool {
+func (fakeSteamStore) Applies(q media.GameQuery) bool {
 	return q.ForPC() && q.Links[game.LinkSteam] != ""
 }
 
-func (fakeSteamStore) Covers(_ context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
+func (fakeSteamStore) Covers(_ context.Context, q media.GameQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	return []media.CoverCandidate{
 		{
 			URL:      "https://steam.test/" + q.Links[game.LinkSteam] + "/library.jpg",
@@ -191,9 +191,9 @@ func (fakeStoreDetails) Descriptor() provider.Descriptor {
 
 func (fakeStoreDetails) Test(context.Context, schema.Settings) error { return nil }
 
-func (fakeStoreDetails) Applies(q media.CoverQuery) bool { return q.Links[game.LinkSteam] != "" }
+func (fakeStoreDetails) Applies(q media.GameQuery) bool { return q.Links[game.LinkSteam] != "" }
 
-func (fakeStoreDetails) Details(_ context.Context, q media.CoverQuery, lang string, _ schema.Settings) (*media.GameDetails, error) {
+func (fakeStoreDetails) Details(_ context.Context, q media.GameQuery, lang string, _ schema.Settings) (*media.GameDetails, error) {
 	summary := "A puzzle game."
 	if lang == "es" {
 		summary = "Un juego de puzles."
@@ -232,9 +232,9 @@ func (*fakeBoxDetails) Descriptor() provider.Descriptor {
 
 func (*fakeBoxDetails) Test(context.Context, schema.Settings) error { return nil }
 
-func (*fakeBoxDetails) Applies(q media.CoverQuery) bool { return q.HasPhysical() }
+func (*fakeBoxDetails) Applies(q media.GameQuery) bool { return q.HasPhysical() }
 
-func (f *fakeBoxDetails) Details(_ context.Context, q media.CoverQuery, _ string, s schema.Settings) (*media.GameDetails, error) {
+func (f *fakeBoxDetails) Details(_ context.Context, q media.GameQuery, _ string, s schema.Settings) (*media.GameDetails, error) {
 	f.calls++
 
 	if s["api_key"] != "k" {
@@ -254,11 +254,11 @@ func (f *fakeBoxDetails) Details(_ context.Context, q media.CoverQuery, _ string
 	}, nil
 }
 
-func (*fakeBoxArt) Applies(q media.CoverQuery) bool { return q.HasPhysical() }
+func (*fakeBoxArt) Applies(q media.GameQuery) bool { return q.HasPhysical() }
 
 func (*fakeBoxArt) ImageHosts() []string { return []string{"boxart.test"} }
 
-func (f *fakeBoxArt) Covers(_ context.Context, q media.CoverQuery, s schema.Settings) ([]media.CoverCandidate, error) {
+func (f *fakeBoxArt) Covers(_ context.Context, q media.GameQuery, s schema.Settings) ([]media.CoverCandidate, error) {
 	f.asked++
 
 	if f.limited != nil {

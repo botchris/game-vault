@@ -35,7 +35,7 @@ func TestCoversResolveHashedAssetPaths(t *testing.T) {
 	s := testStore(srv)
 	s.CDNURL, s.AssetsURL = "https://legacy.test", "https://assets.test/store_item_assets/"
 
-	got, err := s.Covers(context.Background(), media.CoverQuery{
+	got, err := s.Covers(context.Background(), media.GameQuery{
 		Title: "Big Rigs",
 		Links: game.Links{game.LinkSteam: "3598130"},
 	}, schema.Settings{})
@@ -49,7 +49,7 @@ func TestCoversResolveHashedAssetPaths(t *testing.T) {
 	}
 
 	// If the API fails, the legacy predictable URLs are still offered.
-	got, _ = s.Covers(context.Background(), media.CoverQuery{
+	got, _ = s.Covers(context.Background(), media.GameQuery{
 		Title: "Portal 2",
 		Links: game.Links{game.LinkSteam: "620"},
 	}, schema.Settings{})
@@ -122,7 +122,7 @@ func TestCovers_titleSearch(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	pcKey := media.CoverQuery{
+	pcKey := media.GameQuery{
 		Title:     "Example Quest™ GOTY",
 		System:    game.SystemPC,
 		Platforms: []string{"Epic Games"},
@@ -334,7 +334,7 @@ func TestCovers_titleSearch(t *testing.T) {
 		}
 
 		t.Run("WHEN a linked game's covers are asked", func(t *testing.T) {
-			got, err := s.Covers(ctx, media.CoverQuery{
+			got, err := s.Covers(ctx, media.GameQuery{
 				Title:  "Portal 2",
 				System: game.SystemPC,
 				Links:  game.Links{game.LinkSteam: "620"},
@@ -357,7 +357,7 @@ func TestCovers_titleSearch(t *testing.T) {
 		})
 
 		t.Run("WHEN a Steam sheet is asked", func(t *testing.T) {
-			_, err := NewDetails(s).Details(ctx, media.CoverQuery{Links: game.Links{game.LinkSteam: "620"}}, "en", schema.Settings{})
+			_, err := NewDetails(s).Details(ctx, media.GameQuery{Links: game.Links{game.LinkSteam: "620"}}, "en", schema.Settings{})
 
 			t.Run("THEN the store page waits its turn too: rate-limited, so the sheet is not cached", func(t *testing.T) {
 				require.ErrorIs(t, err, provider.ErrRateLimited)
@@ -369,7 +369,7 @@ func TestCovers_titleSearch(t *testing.T) {
 		s, searched := titleSearchStore(t, nil, 0)
 
 		t.Run("WHEN its covers are asked", func(t *testing.T) {
-			got, err := s.Covers(ctx, media.CoverQuery{
+			got, err := s.Covers(ctx, media.GameQuery{
 				Title:  "Portal 2",
 				System: game.SystemPC,
 				Links:  game.Links{game.LinkSteam: "620"},
@@ -389,7 +389,7 @@ func TestStore_findLinks(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	disc := media.CoverQuery{
+	disc := media.GameQuery{
 		Title:     "Example Quest",
 		Platforms: []string{"PS4"},
 	}
@@ -421,7 +421,7 @@ func TestStore_findLinks(t *testing.T) {
 		s, searched := titleSearchStore(t, map[string]string{"Example Horror 4": `[{"type":"app","name":"Example Horror 4","id":7}]`}, 0)
 
 		t.Run("THEN no link is saved, nor searched: Steam sells the PC game, often a later one", func(t *testing.T) {
-			got, err := s.FindLinks(ctx, media.CoverQuery{
+			got, err := s.FindLinks(ctx, media.GameQuery{
 				Title:             "Example Horror 4",
 				PhysicalPlatforms: []string{"PS2"},
 				Platforms:         []string{"PS2"},
@@ -437,7 +437,7 @@ func TestStore_findLinks(t *testing.T) {
 
 		t.Run("THEN no link is saved for any of them", func(t *testing.T) {
 			for _, platform := range []string{"PS1", "DS", "3DS", "PSP", "PS Vita", "Xbox 360", "Wii"} {
-				got, err := s.FindLinks(ctx, media.CoverQuery{
+				got, err := s.FindLinks(ctx, media.GameQuery{
 					Title:     "EXAMPLE DOOM",
 					Platforms: []string{platform},
 				}, schema.Settings{})
@@ -453,7 +453,7 @@ func TestStore_findLinks(t *testing.T) {
 		s, _ := titleSearchStore(t, map[string]string{"Example Mafia": `[{"type":"app","name":"Example Mafia: Definitive Edition","id":9}]`}, 0)
 
 		t.Run("THEN no link is saved: only an exact title counts for a saved link", func(t *testing.T) {
-			got, err := s.FindLinks(ctx, media.CoverQuery{
+			got, err := s.FindLinks(ctx, media.GameQuery{
 				Title:     "Example Mafia",
 				Platforms: []string{"PS4"},
 			}, schema.Settings{})

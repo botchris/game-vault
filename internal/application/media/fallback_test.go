@@ -41,11 +41,11 @@ func (*countingStore) Descriptor() provider.Descriptor {
 
 func (*countingStore) Test(context.Context, schema.Settings) error { return nil }
 
-func (*countingStore) Applies(q media.CoverQuery) bool {
+func (*countingStore) Applies(q media.GameQuery) bool {
 	return q.ForPC() && q.Links[game.LinkSteam] != ""
 }
 
-func (s *countingStore) Covers(_ context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
+func (s *countingStore) Covers(_ context.Context, q media.GameQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	s.calls.Add(1)
 
 	if q.Fallback {
@@ -69,7 +69,7 @@ type quotaArt struct {
 	// art makes it find a box.
 	art atomic.Bool
 
-	// browsed records whether the last query was the cover picker's (CoverQuery.Browse).
+	// browsed records whether the last query was the cover picker's (GameQuery.Browse).
 	browsed atomic.Bool
 }
 
@@ -85,11 +85,11 @@ func (*quotaArt) Descriptor() provider.Descriptor {
 
 func (*quotaArt) Test(context.Context, schema.Settings) error { return nil }
 
-func (*quotaArt) Applies(q media.CoverQuery) bool {
+func (*quotaArt) Applies(q media.GameQuery) bool {
 	return q.HasPhysical() || !q.HasStoreLink() || q.Fallback
 }
 
-func (a *quotaArt) Covers(_ context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
+func (a *quotaArt) Covers(_ context.Context, q media.GameQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	a.calls.Add(1)
 	a.browsed.Store(q.Browse)
 
@@ -128,9 +128,9 @@ func (*perGameArt) Descriptor() provider.Descriptor {
 
 func (*perGameArt) Test(context.Context, schema.Settings) error { return nil }
 
-func (*perGameArt) Applies(q media.CoverQuery) bool { return q.Fallback }
+func (*perGameArt) Applies(q media.GameQuery) bool { return q.Fallback }
 
-func (a *perGameArt) Covers(_ context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
+func (a *perGameArt) Covers(_ context.Context, q media.GameQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	a.calls.Add(1)
 
 	switch {
@@ -303,9 +303,9 @@ func TestCoverCandidates_providerOnBothPasses(t *testing.T) {
 	})
 }
 
-// TestCoverQuery_browse checks that only the cover picker asks for near matches: the automatic
+// TestGameQuery_browse checks that only the cover picker asks for near matches: the automatic
 // resolution stores the first candidate, which must then be the game itself.
-func TestCoverQuery_browse(t *testing.T) {
+func TestGameQuery_browse(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
@@ -471,7 +471,7 @@ func TestCovers_pcBoxForConsoleOnlyGames(t *testing.T) {
 // gets, and has no art.
 type missingStore struct {
 	calls   atomic.Int32
-	queries []media.CoverQuery
+	queries []media.GameQuery
 }
 
 func (*missingStore) Descriptor() provider.Descriptor {
@@ -486,11 +486,11 @@ func (*missingStore) Descriptor() provider.Descriptor {
 
 func (*missingStore) Test(context.Context, schema.Settings) error { return nil }
 
-func (*missingStore) Applies(q media.CoverQuery) bool {
+func (*missingStore) Applies(q media.GameQuery) bool {
 	return q.ForPC() && q.Links[game.LinkSteam] != ""
 }
 
-func (s *missingStore) Covers(_ context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
+func (s *missingStore) Covers(_ context.Context, q media.GameQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	s.calls.Add(1)
 	s.queries = append(s.queries, q)
 

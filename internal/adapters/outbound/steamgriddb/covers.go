@@ -143,7 +143,7 @@ func (p *Covers) Descriptor() provider.Descriptor {
 // Applies implements media.CoverProvider: only on the fallback pass, for any system, and never for
 // a virtual PC edition (store links only): SteamGridDB's art is the community's, not a store's box.
 // The key and the consent are checked by Covers, since a provider cannot be enabled without them.
-func (p *Covers) Applies(q media.CoverQuery) bool { return q.Fallback && !q.LinksOnly }
+func (p *Covers) Applies(q media.GameQuery) bool { return q.Fallback && !q.LinksOnly }
 
 // ImageHosts implements media.ImageHoster.
 func (p *Covers) ImageHosts() []string { return []string{imageHost} }
@@ -181,7 +181,7 @@ var reAppID = regexp.MustCompile(`^[0-9]{1,10}$`)
 
 // Covers implements media.CoverProvider. A game linked to Steam is looked up by its AppID; any other,
 // or one SteamGridDB does not know by its AppID, by its title, which must match exactly one game.
-func (p *Covers) Covers(ctx context.Context, q media.CoverQuery, s schema.Settings) ([]media.CoverCandidate, error) {
+func (p *Covers) Covers(ctx context.Context, q media.GameQuery, s schema.Settings) ([]media.CoverCandidate, error) {
 	key, err := apiKey(s)
 	if err != nil {
 		return nil, err

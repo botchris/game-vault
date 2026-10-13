@@ -57,7 +57,7 @@ func (c *Covers) ImageHosts() []string { return []string{imageHost} }
 
 // Applies reports whether the game is linked to the store, for its PC edition. It decides from the
 // query alone, without the network.
-func (c *Covers) Applies(q media.CoverQuery) bool { return q.ForPC() && q.Links[LinkedStore.Key] != "" }
+func (c *Covers) Applies(q media.GameQuery) bool { return q.ForPC() && q.Links[LinkedStore.Key] != "" }
 
 type product struct {
 	Title string `json:"title"`
@@ -69,7 +69,7 @@ type product struct {
 
 // Covers implements media.CoverProvider: the portrait box art first, then the wide banner. A game
 // the catalog does not know is no candidates, not an error.
-func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
+func (c *Covers) Covers(ctx context.Context, q media.GameQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	id := q.Links[LinkedStore.Key]
 	if id == "" {
 		return nil, nil

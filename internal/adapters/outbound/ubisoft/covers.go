@@ -82,7 +82,7 @@ func (c *Covers) LinkStore() game.Store { return LinkedStore }
 
 // Applies reports whether the game is linked to Ubisoft Connect or has a copy for it (a Humble
 // Uplay key, for instance), for its PC edition.
-func (c *Covers) Applies(q media.CoverQuery) bool {
+func (c *Covers) Applies(q media.GameQuery) bool {
 	if !q.ForPC() {
 		return false
 	}
@@ -101,7 +101,7 @@ func (c *Covers) Applies(q media.CoverQuery) bool {
 }
 
 // Covers implements media.CoverProvider.
-func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
+func (c *Covers) Covers(ctx context.Context, q media.GameQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	var out []media.CoverCandidate
 
 	if space := q.Links[LinkedStore.Key]; space != "" {

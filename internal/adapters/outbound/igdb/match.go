@@ -103,7 +103,7 @@ type ageRatingJSON struct {
 // find returns the IGDB game q describes with the fields asked for, or nil when none matches
 // clearly. It looks the game up first by its store links IGDB knows, then by its title on its
 // systems.
-func (c *Client) find(ctx context.Context, s schema.Settings, q media.CoverQuery, fields []string) (*gameJSON, error) {
+func (c *Client) find(ctx context.Context, s schema.Settings, q media.GameQuery, fields []string) (*gameJSON, error) {
 	if g, err := c.findByLinks(ctx, s, q, fields); err != nil || g != nil {
 		return g, err
 	}
@@ -115,7 +115,7 @@ var reUID = regexp.MustCompile(`^[A-Za-z0-9_.:-]{1,64}$`)
 
 // findByLinks looks the game up by its store links, in one query: the external games, each with
 // its game expanded. The first store in externalSources IGDB knows wins.
-func (c *Client) findByLinks(ctx context.Context, s schema.Settings, q media.CoverQuery, fields []string) (*gameJSON, error) {
+func (c *Client) findByLinks(ctx context.Context, s schema.Settings, q media.GameQuery, fields []string) (*gameJSON, error) {
 	var conds []string
 
 	for _, src := range externalSources {
@@ -192,7 +192,7 @@ var reUnsafe = regexp.MustCompile(`["\\]+`)
 // West", not the "GOTY" disc; only when that finds no match is the raw title searched too.
 // Two different games with that title (a 1993 original and its 2016 reboot) give nothing: a wrong
 // sheet is worse than none.
-func (c *Client) findByTitle(ctx context.Context, s schema.Settings, q media.CoverQuery, fields []string) (*gameJSON, error) {
+func (c *Client) findByTitle(ctx context.Context, s schema.Settings, q media.GameQuery, fields []string) (*gameJSON, error) {
 	clean := func(t string) string { return strings.Join(strings.Fields(reUnsafe.ReplaceAllString(t, " ")), " ") }
 
 	var terms []string
@@ -214,7 +214,7 @@ func (c *Client) findByTitle(ctx context.Context, s schema.Settings, q media.Cov
 }
 
 // searchTitle runs one title search for term on q's systems and picks q's game among the results.
-func (c *Client) searchTitle(ctx context.Context, s schema.Settings, q media.CoverQuery, term string, fields []string) (*gameJSON, error) {
+func (c *Client) searchTitle(ctx context.Context, s schema.Settings, q media.GameQuery, term string, fields []string) (*gameJSON, error) {
 	all := append(slices.Clone(fields), "version_parent", "parent_game")
 	body := fmt.Sprintf(`search "%s"; fields %s;`, term, strings.Join(all, ","))
 

@@ -83,17 +83,17 @@ func TestProviders_settingsGroups(t *testing.T) {
 // groupedCovers and groupedDetails are the cover and details providers of the "shop" service.
 type groupedCovers struct{ grouped }
 
-func (groupedCovers) Applies(media.CoverQuery) bool { return true }
+func (groupedCovers) Applies(media.GameQuery) bool { return true }
 
-func (groupedCovers) Covers(context.Context, media.CoverQuery, schema.Settings) ([]media.CoverCandidate, error) {
+func (groupedCovers) Covers(context.Context, media.GameQuery, schema.Settings) ([]media.CoverCandidate, error) {
 	return nil, nil
 }
 
 type groupedDetails struct{ grouped }
 
-func (groupedDetails) Applies(media.CoverQuery) bool { return true }
+func (groupedDetails) Applies(media.GameQuery) bool { return true }
 
-func (groupedDetails) Details(context.Context, media.CoverQuery, string, schema.Settings) (*media.GameDetails, error) {
+func (groupedDetails) Details(context.Context, media.GameQuery, string, schema.Settings) (*media.GameDetails, error) {
 	return nil, nil
 }
 

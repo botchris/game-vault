@@ -167,7 +167,7 @@ func (s *Service) autoLinkDue(g *game.Game, now time.Time) bool {
 // answer is unknown and the next finders are less reliable, so the search waits for it rather than
 // recording "nothing found" for a month. One without its settings is skipped: it would fail the
 // same way until the user fixes them, and its status already says so.
-func (s *Service) findLinks(ctx context.Context, q CoverQuery) (links game.Links, limited bool) {
+func (s *Service) findLinks(ctx context.Context, q GameQuery) (links game.Links, limited bool) {
 	for _, id := range s.order {
 		f, ok := s.impls[id].(LinkFinder)
 		if !ok {

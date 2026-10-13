@@ -47,7 +47,7 @@ func (*switchArt) Descriptor() provider.Descriptor {
 
 func (*switchArt) Test(context.Context, schema.Settings) error { return nil }
 
-func (*switchArt) Applies(media.CoverQuery) bool { return true }
+func (*switchArt) Applies(media.GameQuery) bool { return true }
 
 func (a *switchArt) set(err error) {
 	a.mu.Lock()
@@ -56,7 +56,7 @@ func (a *switchArt) set(err error) {
 	a.err = err
 }
 
-func (a *switchArt) Covers(context.Context, media.CoverQuery, schema.Settings) ([]media.CoverCandidate, error) {
+func (a *switchArt) Covers(context.Context, media.GameQuery, schema.Settings) ([]media.CoverCandidate, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -272,9 +272,9 @@ func (p *serviceProvider) answer() error {
 
 func (p *serviceProvider) Test(context.Context, schema.Settings) error { return p.answer() }
 
-func (*serviceProvider) Applies(media.CoverQuery) bool { return true }
+func (*serviceProvider) Applies(media.GameQuery) bool { return true }
 
-func (p *serviceProvider) Covers(context.Context, media.CoverQuery, schema.Settings) ([]media.CoverCandidate, error) {
+func (p *serviceProvider) Covers(context.Context, media.GameQuery, schema.Settings) ([]media.CoverCandidate, error) {
 	if err := p.answer(); err != nil {
 		return nil, err
 	}
@@ -285,7 +285,7 @@ func (p *serviceProvider) Covers(context.Context, media.CoverQuery, schema.Setti
 	}}, nil
 }
 
-func (p *serviceProvider) Details(context.Context, media.CoverQuery, string, schema.Settings) (*media.GameDetails, error) {
+func (p *serviceProvider) Details(context.Context, media.GameQuery, string, schema.Settings) (*media.GameDetails, error) {
 	if err := p.answer(); err != nil {
 		return nil, err
 	}

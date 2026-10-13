@@ -49,7 +49,7 @@ func TestPlugins(t *testing.T) {
 // coverRow is one query a cover provider is asked whether it applies to.
 type coverRow struct {
 	name string
-	q    media.CoverQuery
+	q    media.GameQuery
 	want bool
 }
 
@@ -59,16 +59,16 @@ func storeRows(link string) []coverRow {
 	linked := game.Links{link: "1"}
 
 	return []coverRow{
-		{"its PC edition", media.CoverQuery{
+		{"its PC edition", media.GameQuery{
 			System: game.SystemPC,
 			Links:  linked,
 		}, true},
-		{"a game without copies", media.CoverQuery{Links: linked}, true},
-		{"its PS3 edition", media.CoverQuery{
+		{"a game without copies", media.GameQuery{Links: linked}, true},
+		{"its PS3 edition", media.GameQuery{
 			System: "PS3",
 			Links:  linked,
 		}, false},
-		{"a PC edition not linked to it", media.CoverQuery{System: game.SystemPC}, false},
+		{"a PC edition not linked to it", media.GameQuery{System: game.SystemPC}, false},
 	}
 }
 
@@ -81,15 +81,15 @@ func TestCoverProviders_appliesBySystem(t *testing.T) {
 	}{
 		// Steam also searches its store by title for a PC edition without an AppID, on the fallback pass.
 		steam.CoverProviderID: {&steam.Store{}, append(storeRows(game.LinkSteam),
-			coverRow{"a PC edition not linked to it, on the fallback pass", media.CoverQuery{
+			coverRow{"a PC edition not linked to it, on the fallback pass", media.GameQuery{
 				System:   game.SystemPC,
 				Fallback: true,
 			}, true},
-			coverRow{"a PS3 edition not linked to it, on the fallback pass", media.CoverQuery{
+			coverRow{"a PS3 edition not linked to it, on the fallback pass", media.GameQuery{
 				System:   "PS3",
 				Fallback: true,
 			}, false},
-			coverRow{"a PC edition not linked to it, with store links only", media.CoverQuery{
+			coverRow{"a PC edition not linked to it, with store links only", media.GameQuery{
 				System:    game.SystemPC,
 				Fallback:  true,
 				LinksOnly: true,
@@ -98,31 +98,31 @@ func TestCoverProviders_appliesBySystem(t *testing.T) {
 		epic.CoverProviderID:  {&epic.Covers{}, storeRows(epic.LinkedStore.Key)},
 		eaapp.CoverProviderID: {&eaapp.Covers{}, storeRows(eaapp.LinkedStore.Key)},
 		battlenet.CoverProviderID: {&battlenet.Covers{}, append(storeRows(battlenet.LinkedStore.Key),
-			coverRow{"a virtual PC edition (store links only): it searches by title", media.CoverQuery{
+			coverRow{"a virtual PC edition (store links only): it searches by title", media.GameQuery{
 				System:    game.SystemPC,
 				Links:     game.Links{battlenet.LinkedStore.Key: "1"},
 				LinksOnly: true,
 			}, false})},
 		example.CoverProviderID: {&example.Covers{}, storeRows(example.LinkedStore.Key)},
 		xbox.CoverProviderID: {&xbox.Covers{}, append(storeRows(xbox.LinkedStore.Key),
-			coverRow{"its Xbox 360 edition", media.CoverQuery{
+			coverRow{"its Xbox 360 edition", media.GameQuery{
 				System: "Xbox 360",
 				Links:  game.Links{xbox.LinkedStore.Key: "1"},
 			}, true})},
 		// IGDB's covers belong to the game, not to a system: any edition, as a last resort.
 		igdb.CoversID: {igdb.NewCovers(igdb.NewClient()), []coverRow{
-			{"a PC edition", media.CoverQuery{System: game.SystemPC}, false},
-			{"a game without copies", media.CoverQuery{}, false},
-			{"a PS3 edition", media.CoverQuery{System: "PS3"}, false},
-			{"a PC edition on the fallback pass", media.CoverQuery{
+			{"a PC edition", media.GameQuery{System: game.SystemPC}, false},
+			{"a game without copies", media.GameQuery{}, false},
+			{"a PS3 edition", media.GameQuery{System: "PS3"}, false},
+			{"a PC edition on the fallback pass", media.GameQuery{
 				System:   game.SystemPC,
 				Fallback: true,
 			}, true},
-			{"a PS3 edition on the fallback pass", media.CoverQuery{
+			{"a PS3 edition on the fallback pass", media.GameQuery{
 				System:   "PS3",
 				Fallback: true,
 			}, true},
-			{"a virtual PC edition (store links only)", media.CoverQuery{
+			{"a virtual PC edition (store links only)", media.GameQuery{
 				System:    game.SystemPC,
 				Links:     game.Links{game.LinkSteam: "1"},
 				Fallback:  true,
@@ -131,22 +131,22 @@ func TestCoverProviders_appliesBySystem(t *testing.T) {
 		}},
 		// SteamGridDB's community art is a last resort too, for any edition, but never a virtual PC box.
 		steamgriddb.ID: {steamgriddb.NewCovers(), []coverRow{
-			{"a PC edition", media.CoverQuery{System: game.SystemPC}, false},
-			{"a game without copies", media.CoverQuery{}, false},
-			{"a PS2 edition", media.CoverQuery{System: "PS2"}, false},
-			{"a PC edition linked to Steam", media.CoverQuery{
+			{"a PC edition", media.GameQuery{System: game.SystemPC}, false},
+			{"a game without copies", media.GameQuery{}, false},
+			{"a PS2 edition", media.GameQuery{System: "PS2"}, false},
+			{"a PC edition linked to Steam", media.GameQuery{
 				System: game.SystemPC,
 				Links:  game.Links{game.LinkSteam: "1"},
 			}, false},
-			{"a PC edition on the fallback pass", media.CoverQuery{
+			{"a PC edition on the fallback pass", media.GameQuery{
 				System:   game.SystemPC,
 				Fallback: true,
 			}, true},
-			{"a PS2 edition on the fallback pass", media.CoverQuery{
+			{"a PS2 edition on the fallback pass", media.GameQuery{
 				System:   "PS2",
 				Fallback: true,
 			}, true},
-			{"a virtual PC edition (store links only)", media.CoverQuery{
+			{"a virtual PC edition (store links only)", media.GameQuery{
 				System:    game.SystemPC,
 				Links:     game.Links{game.LinkSteam: "1"},
 				Fallback:  true,
@@ -154,11 +154,11 @@ func TestCoverProviders_appliesBySystem(t *testing.T) {
 			}, false},
 		}},
 		ubisoft.CoverProviderID: {&ubisoft.Covers{}, append(storeRows(ubisoft.LinkedStore.Key),
-			coverRow{"its PC edition by a Ubisoft Connect copy", media.CoverQuery{
+			coverRow{"its PC edition by a Ubisoft Connect copy", media.GameQuery{
 				System:    game.SystemPC,
 				Platforms: []string{ubisoft.Platform},
 			}, true},
-			coverRow{"its PS4 edition by a Ubisoft Connect copy", media.CoverQuery{
+			coverRow{"its PS4 edition by a Ubisoft Connect copy", media.GameQuery{
 				System:    "PS4",
 				Platforms: []string{ubisoft.Platform},
 			}, false})},
@@ -226,7 +226,7 @@ func TestCoverProviders_pcStoreLinks(t *testing.T) {
 			}
 
 			key := linker.LinkStore().Key
-			if !p.Applies(media.CoverQuery{
+			if !p.Applies(media.GameQuery{
 				System: game.SystemPC,
 				Links:  game.Links{key: "1"},
 			}) {

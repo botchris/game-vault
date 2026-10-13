@@ -68,9 +68,9 @@ func (otherDetails) Descriptor() provider.Descriptor {
 
 func (otherDetails) Test(context.Context, schema.Settings) error { return nil }
 
-func (otherDetails) Applies(media.CoverQuery) bool { return true }
+func (otherDetails) Applies(media.GameQuery) bool { return true }
 
-func (otherDetails) Details(context.Context, media.CoverQuery, string, schema.Settings) (*media.GameDetails, error) {
+func (otherDetails) Details(context.Context, media.GameQuery, string, schema.Settings) (*media.GameDetails, error) {
 	return &media.GameDetails{Genres: []string{"Shooter"}}, nil
 }
 

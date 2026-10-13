@@ -39,9 +39,9 @@ func (*storeDetails) Descriptor() provider.Descriptor {
 
 func (*storeDetails) Test(context.Context, schema.Settings) error { return nil }
 
-func (*storeDetails) Applies(q media.CoverQuery) bool { return q.Links[game.LinkSteam] != "" }
+func (*storeDetails) Applies(q media.GameQuery) bool { return q.Links[game.LinkSteam] != "" }
 
-func (p *storeDetails) Details(context.Context, media.CoverQuery, string, schema.Settings) (*media.GameDetails, error) {
+func (p *storeDetails) Details(context.Context, media.GameQuery, string, schema.Settings) (*media.GameDetails, error) {
 	p.calls.Add(1)
 
 	return p.sheet, nil
@@ -57,7 +57,7 @@ type quotaDetails struct {
 	calls   atomic.Int32
 
 	// asked is the query of the last call.
-	asked media.CoverQuery
+	asked media.GameQuery
 }
 
 func (*quotaDetails) Descriptor() provider.Descriptor {
@@ -72,11 +72,11 @@ func (*quotaDetails) Descriptor() provider.Descriptor {
 
 func (*quotaDetails) Test(context.Context, schema.Settings) error { return nil }
 
-func (*quotaDetails) Applies(q media.CoverQuery) bool {
+func (*quotaDetails) Applies(q media.GameQuery) bool {
 	return q.HasPhysical() || !q.HasStoreLink() || q.Fallback
 }
 
-func (p *quotaDetails) Details(_ context.Context, q media.CoverQuery, _ string, _ schema.Settings) (*media.GameDetails, error) {
+func (p *quotaDetails) Details(_ context.Context, q media.GameQuery, _ string, _ schema.Settings) (*media.GameDetails, error) {
 	p.calls.Add(1)
 	p.asked = q
 
@@ -359,9 +359,9 @@ func (p *sheetDetails) Descriptor() provider.Descriptor {
 
 func (*sheetDetails) Test(context.Context, schema.Settings) error { return nil }
 
-func (*sheetDetails) Applies(media.CoverQuery) bool { return true }
+func (*sheetDetails) Applies(media.GameQuery) bool { return true }
 
-func (p *sheetDetails) Details(context.Context, media.CoverQuery, string, schema.Settings) (*media.GameDetails, error) {
+func (p *sheetDetails) Details(context.Context, media.GameQuery, string, schema.Settings) (*media.GameDetails, error) {
 	sheet := p.sheet
 	return &sheet, nil
 }

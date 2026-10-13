@@ -22,7 +22,7 @@ func TestDetails(t *testing.T) {
 		f := newFakeIGDB(t)
 		f.external = `[{"id": 5, "external_game_source": 1, "uid": "620", "game": ` + exampleQuest + `}]`
 		d := NewDetails(f.client(time.Now))
-		q := media.CoverQuery{
+		q := media.GameQuery{
 			Title:     "Example Quest",
 			Links:     game.Links{game.LinkSteam: "620", "gog": "1207658924"},
 			Platforms: []string{"Steam"},
@@ -67,7 +67,7 @@ func TestDetails(t *testing.T) {
 		f := newFakeIGDB(t)
 		f.search = `[` + exampleQuest + `, {"id": 1002, "name": "Example Quest: Extra Chapter", "summary": "An expansion."}]`
 		d := NewDetails(f.client(time.Now))
-		q := media.CoverQuery{
+		q := media.GameQuery{
 			Title:             "Example Quest",
 			PhysicalPlatforms: []string{"PS4"},
 			Platforms:         []string{"PS4"},
@@ -95,7 +95,7 @@ func TestDetails(t *testing.T) {
 		d := NewDetails(f.client(time.Now))
 
 		t.Run("WHEN its sheet is asked", func(t *testing.T) {
-			got, err := d.Details(ctx, media.CoverQuery{
+			got, err := d.Details(ctx, media.GameQuery{
 				Title:     "Example Quest",
 				Links:     game.Links{game.LinkSteam: "999"},
 				Platforms: []string{"Steam"},
@@ -120,7 +120,7 @@ func TestDetails(t *testing.T) {
 		d := NewDetails(f.client(time.Now))
 
 		t.Run("WHEN its sheet is asked", func(t *testing.T) {
-			got, err := d.Details(ctx, media.CoverQuery{Title: "Remake Quest"}, "en", goodSettings)
+			got, err := d.Details(ctx, media.GameQuery{Title: "Remake Quest"}, "en", goodSettings)
 
 			t.Run("THEN nothing is returned rather than the wrong game", func(t *testing.T) {
 				require.NoError(t, err)
@@ -137,7 +137,7 @@ func TestDetails(t *testing.T) {
 		d := NewDetails(f.client(time.Now))
 
 		t.Run("WHEN its sheet is asked", func(t *testing.T) {
-			got, err := d.Details(ctx, media.CoverQuery{Title: "Edition Quest"}, "en", goodSettings)
+			got, err := d.Details(ctx, media.GameQuery{Title: "Edition Quest"}, "en", goodSettings)
 			require.NoError(t, err)
 
 			t.Run("THEN the game itself is used", func(t *testing.T) {
@@ -153,7 +153,7 @@ func TestDetails(t *testing.T) {
 		d := NewDetails(f.client(time.Now))
 
 		t.Run("WHEN its sheet is asked", func(t *testing.T) {
-			got, err := d.Details(ctx, media.CoverQuery{Title: "Example Quest"}, "en", goodSettings)
+			got, err := d.Details(ctx, media.GameQuery{Title: "Example Quest"}, "en", goodSettings)
 
 			t.Run("THEN nothing is returned", func(t *testing.T) {
 				require.NoError(t, err)
@@ -167,7 +167,7 @@ func TestDetails(t *testing.T) {
 		d := NewDetails(f.client(time.Now))
 
 		t.Run("WHEN its sheet is asked", func(t *testing.T) {
-			_, err := d.Details(ctx, media.CoverQuery{Title: `Say "Hi" \ Bye`}, "en", goodSettings)
+			_, err := d.Details(ctx, media.GameQuery{Title: `Say "Hi" \ Bye`}, "en", goodSettings)
 			require.NoError(t, err)
 
 			t.Run("THEN they cannot break out of the query's string", func(t *testing.T) {
@@ -185,7 +185,7 @@ func TestDetails(t *testing.T) {
 		d := NewDetails(f.client(time.Now))
 
 		t.Run("WHEN a sheet is asked", func(t *testing.T) {
-			_, err := d.Details(ctx, media.CoverQuery{Title: "Example Quest"}, "en", goodSettings)
+			_, err := d.Details(ctx, media.GameQuery{Title: "Example Quest"}, "en", goodSettings)
 
 			t.Run("THEN it is a rate limit, so the sheet is not cached", func(t *testing.T) {
 				require.ErrorIs(t, err, provider.ErrRateLimited)
@@ -198,7 +198,7 @@ func TestDetails_editionTitles(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	disc := media.CoverQuery{
+	disc := media.GameQuery{
 		Title:             "Example West GOTY",
 		PhysicalPlatforms: []string{"Xbox 360"},
 		Platforms:         []string{"Xbox 360"},
@@ -247,7 +247,7 @@ func TestDetails_editionTitles(t *testing.T) {
 		d := NewDetails(f.client(time.Now))
 
 		t.Run("WHEN the sheet is asked", func(t *testing.T) {
-			_, err := d.Details(ctx, media.CoverQuery{Title: "Plain Quest™"}, "en", goodSettings)
+			_, err := d.Details(ctx, media.GameQuery{Title: "Plain Quest™"}, "en", goodSettings)
 			require.NoError(t, err)
 
 			t.Run("THEN it is searched once: the trademark sign alone makes no other title", func(t *testing.T) {
@@ -262,7 +262,7 @@ func TestDetails_editionTitles(t *testing.T) {
 		d := NewDetails(f.client(time.Now))
 
 		t.Run("WHEN the sheet is asked", func(t *testing.T) {
-			_, err := d.Details(ctx, media.CoverQuery{Title: "Plain Quest"}, "en", goodSettings)
+			_, err := d.Details(ctx, media.GameQuery{Title: "Plain Quest"}, "en", goodSettings)
 			require.NoError(t, err)
 
 			t.Run("THEN it is searched once", func(t *testing.T) {
@@ -276,7 +276,7 @@ func TestDetails_severalGamesForOneLink(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	q := media.CoverQuery{
+	q := media.GameQuery{
 		Title: "Example Quest",
 		Links: game.Links{game.LinkSteam: "620"},
 	}
@@ -349,7 +349,7 @@ func TestDetails_findLinks(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	disc := media.CoverQuery{
+	disc := media.GameQuery{
 		Title:             "Example Quest",
 		PhysicalPlatforms: []string{"PS4"},
 		Platforms:         []string{"PS4"},

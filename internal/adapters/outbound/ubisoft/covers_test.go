@@ -45,17 +45,17 @@ func TestCovers(t *testing.T) {
 	c := NewCovers()
 	c.CDN.BaseURL, c.Search.BaseURL = srv.URL, srv.URL+"/search"
 
-	if !c.Applies(media.CoverQuery{
+	if !c.Applies(media.GameQuery{
 		Title:     "x",
 		Platforms: []string{"Ubisoft Connect"},
-	}) || c.Applies(media.CoverQuery{
+	}) || c.Applies(media.GameQuery{
 		Title: "x",
 		Links: game.Links{game.LinkSteam: "1"},
 	}) {
 		t.Fatal("applies to games imported from Ubisoft or with a Ubisoft Connect copy")
 	}
 
-	got, err := c.Covers(context.Background(), media.CoverQuery{
+	got, err := c.Covers(context.Background(), media.GameQuery{
 		Title: "Assassin's Creed® Origins",
 		Links: game.Links{"ubisoft": "space-with-art"},
 	}, nil)
@@ -74,7 +74,7 @@ func TestCovers(t *testing.T) {
 	}
 
 	// A virtual PC box uses the store link alone: the space's art, no store search by title.
-	got, err = c.Covers(context.Background(), media.CoverQuery{
+	got, err = c.Covers(context.Background(), media.GameQuery{
 		Title:     "Assassin's Creed® Origins",
 		Links:     game.Links{"ubisoft": "space-with-art"},
 		LinksOnly: true,
@@ -147,7 +147,7 @@ func TestCovers_passingTroubles(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	q := media.CoverQuery{
+	q := media.GameQuery{
 		Title:     "Assassin's Creed Origins",
 		Platforms: []string{"Ubisoft Connect"},
 	}

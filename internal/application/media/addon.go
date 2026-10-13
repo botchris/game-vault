@@ -80,7 +80,7 @@ func (s *Service) addOnCover(ctx context.Context, g *game.Game, system string) (
 
 	// Only stores' providers answer the search below, and they have art for PC editions only: a
 	// console edition would spend requests to rate-limited stores for nothing.
-	if !(CoverQuery{System: system}).ForPC() {
+	if !(GameQuery{System: system}).ForPC() {
 		return Image{}, false
 	}
 
@@ -125,7 +125,7 @@ func (s *Service) baseCoverIn(ctx context.Context, ls LinkSearcher, g *game.Game
 				continue
 			}
 			// Linked to the store, the query only reaches providers that know it (no quota spent).
-			cq := CoverQuery{
+			cq := GameQuery{
 				Title:  m.Name,
 				System: system,
 				Links:  game.Links{store.Key: m.ID},

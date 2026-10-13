@@ -51,11 +51,11 @@ func TestCovers(t *testing.T) {
 	c := NewCovers()
 	c.p.OAuth.BaseURL, c.p.Catalog.BaseURL = srv.URL, srv.URL
 
-	q := media.CoverQuery{
+	q := media.GameQuery{
 		Title: "Control",
 		Links: game.Links{"steam": "1", "epic": "abc"},
 	}
-	if !c.Applies(q) || c.Applies(media.CoverQuery{
+	if !c.Applies(q) || c.Applies(media.GameQuery{
 		Title: "x",
 		Links: game.Links{"gog": "1"},
 	}) {
@@ -132,7 +132,7 @@ func TestCovers_passingTroubles(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	q := media.CoverQuery{
+	q := media.GameQuery{
 		Title: "Control",
 		Links: game.Links{"epic": "abc"},
 	}

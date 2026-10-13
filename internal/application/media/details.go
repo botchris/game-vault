@@ -160,11 +160,11 @@ type MetadataProvider interface {
 	Provider
 
 	// Applies reports, without any network call, whether the provider can know this game.
-	Applies(q CoverQuery) bool
+	Applies(q GameQuery) bool
 
 	// Details returns what the provider knows in the given UI language ("en", "es"...);
 	// nil when it does not know the game.
-	Details(ctx context.Context, q CoverQuery, language string, settings schema.Settings) (*GameDetails, error)
+	Details(ctx context.Context, q GameQuery, language string, settings schema.Settings) (*GameDetails, error)
 }
 
 // DetailsStore is the port that caches details per game and language.
@@ -276,7 +276,7 @@ type detailsPass struct {
 
 // fetchDetails asks the metadata chain for a game's sheet and caches it. When the chain answered
 // without errors but the sheet is sparse (see GameDetails.sparse), and fallback is set, it runs a
-// second pass with CoverQuery.Fallback set: quota-limited providers (TheGamesDB) that keep out of
+// second pass with GameQuery.Fallback set: quota-limited providers (TheGamesDB) that keep out of
 // games a store knows may then fill the gaps, for a game only a console store knows (a PS4 library
 // copy) whose store has no details provider. The background scanner passes false: it must not spend
 // those providers' quota.
@@ -326,7 +326,7 @@ func (s *Service) fetchDetails(ctx context.Context, id game.ID, language string,
 }
 
 // askChain asks every applicable provider of the chain not asked yet, filling merged's gaps.
-func (s *Service) askChain(ctx context.Context, g *game.Game, chain []ProviderView, q CoverQuery, merged *GameDetails, pass *detailsPass) {
+func (s *Service) askChain(ctx context.Context, g *game.Game, chain []ProviderView, q GameQuery, merged *GameDetails, pass *detailsPass) {
 	for _, p := range chain {
 		impl := s.metadata[p.ID()]
 		if pass.asked[p.ID()] || !impl.Applies(q) {

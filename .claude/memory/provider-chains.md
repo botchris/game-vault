@@ -29,14 +29,14 @@ metadata:
   settings map they get, and the media service persists it with `provider.UpdateState` (wired for
   barcode lookups only so far; CeX's `country_hits`, see [[cex]]).
 - TheGamesDB has a monthly quota (~1,000 requests): it only applies to physical copies, games no
-  store knows (`CoverQuery.HasStoreLink`, which is just `len(Links) > 0`: any store link counts,
+  store knows (`GameQuery.HasStoreLink`, which is just `len(Links) > 0`: any store link counts,
   so a new store needs no change there), and on the fallback pass when no store had art. See
   [[thegamesdb]].
 - When cover resolution improves, bump `coverLogicChanged` in
   `internal/application/media/service.go` to the current UTC time (never in the future) so old
   "no cover" markers are retried.
 - Add-ons (DLC, soundtracks…) borrow the base game's cover for the same system (`media/addon.go`).
-- **Editions (2026-10-10):** covers are per (game, system) (`CoverQuery.System`, `QueryFor(g, system)`).
+- **Editions (2026-10-10):** covers are per (game, system) (`GameQuery.System`, `QueryFor(g, system)`).
   Store providers apply only when `q.ForPC()`, Xbox to the PC and Xbox systems, TheGamesDB to any
   system with its quota rules per edition (its search filtered to the edition's system).
   `coverLogicChanged` was bumped on 2026-10-10 for editions. The pre-editions `cover.jpg` is adopted
@@ -73,7 +73,7 @@ metadata:
   checks with 403). Use them in new providers rather than `fmt.Errorf("HTTP %d")`.
 - **PC box as last resort (2026-10-11, maintainer's request):** a console-only game with a PC-store
   link (`game.IsPCStoreLink`) has a virtual PC edition at `/media/covers/{id}/PC`: first pass only
-  (store links only, `CoverQuery.LinksOnly`: no TheGamesDB, IGDB, Battle.net/Ubisoft/Steam title searches, no fallback pass, no add-on borrowing; an xbox link alone does not count with an Xbox edition), cached/marked under PC, fingerprinted by links; the web appends
+  (store links only, `GameQuery.LinksOnly`: no TheGamesDB, IGDB, Battle.net/Ubisoft/Steam title searches, no fallback pass, no add-on borrowing; an xbox link alone does not count with an Xbox edition), cached/marked under PC, fingerprinted by links; the web appends
   PC last in `coverOrder` when `has_pc_store_link` and no PC edition, labelled "PC box".
 - **Health (2026-10-11, maintainer's request):** System → Health replaces the provider-status
   section; `GetProviderStatus` is gone (status now in `Provider.status` from ListProviders). Checks:
@@ -90,6 +90,6 @@ metadata:
   TheGamesDB) use `game.SameTitle`: word lists compared, case/accents/punctuation ignored, "&" = "and"
   ("A - B" = "A: B", "Re-Volt" ≠ "Revolt", "F.E.A.R." ≠ "Fear"; empty never equal).
 - 2026-10-13 (audit PRV-7): one helper each for the title terms (`game.SearchTerms`) and the systems
-  (`CoverQuery.SearchSystems()`) of every title search; TheGamesDB, which searched the raw title only,
+  (`GameQuery.SearchSystems()`) of every title search; TheGamesDB, which searched the raw title only,
   now searches the game's name first too (second request only on no match). `coverLogicChanged`
   bumped to 2026-10-13 10:50 UTC for it.

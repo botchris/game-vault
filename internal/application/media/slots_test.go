@@ -39,9 +39,9 @@ func (*queued) Descriptor() provider.Descriptor {
 
 func (*queued) Test(context.Context, schema.Settings) error { return nil }
 
-func (*queued) Applies(q media.CoverQuery) bool { return q.System != "" && q.System != game.SystemPC }
+func (*queued) Applies(q media.GameQuery) bool { return q.System != "" && q.System != game.SystemPC }
 
-func (p *queued) Covers(context.Context, media.CoverQuery, schema.Settings) ([]media.CoverCandidate, error) {
+func (p *queued) Covers(context.Context, media.GameQuery, schema.Settings) ([]media.CoverCandidate, error) {
 	p.started <- struct{}{}
 
 	<-p.release

@@ -48,13 +48,13 @@ func (f *linkFinder) Descriptor() provider.Descriptor {
 
 func (*linkFinder) Test(context.Context, schema.Settings) error { return nil }
 
-func (*linkFinder) Applies(media.CoverQuery) bool { return false }
+func (*linkFinder) Applies(media.GameQuery) bool { return false }
 
-func (*linkFinder) Covers(context.Context, media.CoverQuery, schema.Settings) ([]media.CoverCandidate, error) {
+func (*linkFinder) Covers(context.Context, media.GameQuery, schema.Settings) ([]media.CoverCandidate, error) {
 	return nil, nil
 }
 
-func (f *linkFinder) FindLinks(context.Context, media.CoverQuery, schema.Settings) (game.Links, error) {
+func (f *linkFinder) FindLinks(context.Context, media.GameQuery, schema.Settings) (game.Links, error) {
 	f.mu.Lock()
 	f.calls++
 	links, err, during := f.links, f.err, f.during

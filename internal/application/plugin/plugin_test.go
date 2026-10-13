@@ -34,8 +34,8 @@ func (f fakeCovers) Descriptor() provider.Descriptor {
 	}
 }
 func (fakeCovers) Test(context.Context, schema.Settings) error { return nil }
-func (fakeCovers) Applies(media.CoverQuery) bool               { return true }
-func (fakeCovers) Covers(context.Context, media.CoverQuery, schema.Settings) ([]media.CoverCandidate, error) {
+func (fakeCovers) Applies(media.GameQuery) bool                { return true }
+func (fakeCovers) Covers(context.Context, media.GameQuery, schema.Settings) ([]media.CoverCandidate, error) {
 	return nil, nil
 }
 

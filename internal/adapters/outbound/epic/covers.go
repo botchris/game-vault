@@ -56,13 +56,13 @@ func (c *Covers) ImageHosts() []string {
 func (c *Covers) LinkStore() game.Store { return LinkedStore }
 
 // Applies reports whether the game is linked to the Epic Games Store, for its PC edition.
-func (c *Covers) Applies(q media.CoverQuery) bool { return q.ForPC() && q.Links[LinkedStore.Key] != "" }
+func (c *Covers) Applies(q media.GameQuery) bool { return q.ForPC() && q.Links[LinkedStore.Key] != "" }
 
 // imageOrder ranks Epic's key image types: portrait box art first, landscape last.
 var imageOrder = []string{"DieselGameBoxTall", "OfferImageTall", "CodeRedemption_340x440", "DieselGameBox", "OfferImageWide", "Thumbnail"}
 
 // Covers implements media.CoverProvider.
-func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
+func (c *Covers) Covers(ctx context.Context, q media.GameQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	ids := []string{q.Links[LinkedStore.Key]}
 	v := url.Values{"id": ids, "country": {"US"}, "locale": {"en-US"}}
 

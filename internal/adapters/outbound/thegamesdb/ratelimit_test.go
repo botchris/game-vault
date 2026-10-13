@@ -40,7 +40,7 @@ func TestRateLimit(t *testing.T) {
 		t.Cleanup(srv.Close)
 
 		p := testProvider(srv)
-		q := media.CoverQuery{
+		q := media.GameQuery{
 			Title:             "Halo 3",
 			System:            "PS3",
 			PhysicalPlatforms: []string{"PS3"},
@@ -142,7 +142,7 @@ func TestThrottle(t *testing.T) {
 
 			for range 8 {
 				wg.Go(func() {
-					_, err := p.Covers(ctx, media.CoverQuery{Title: "Halo 3"}, schema.Settings{settingAPIKey: "good"})
+					_, err := p.Covers(ctx, media.GameQuery{Title: "Halo 3"}, schema.Settings{settingAPIKey: "good"})
 					assert.NoError(t, err)
 				})
 			}

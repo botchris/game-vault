@@ -113,8 +113,9 @@ type ImageFetcher interface {
 	Fetch(ctx context.Context, url string) (Image, error)
 }
 
-// CoverQuery is what cover providers know about a game.
-type CoverQuery struct {
+// GameQuery is what a provider is told about a game: its title, the edition's system, its store
+// links and its copies' platforms. Cover, details and link-finding providers all take it.
+type GameQuery struct {
 	Title string
 
 	// System is the edition's system ("PC", "PS3"…); empty when the query names none (a game
@@ -149,18 +150,18 @@ type CoverQuery struct {
 
 // HasStoreLink reports whether the game is linked to a store, whose providers have its own art.
 // Quota-limited providers skip those games.
-func (q CoverQuery) HasStoreLink() bool { return len(q.Links) > 0 }
+func (q GameQuery) HasStoreLink() bool { return len(q.Links) > 0 }
 
 // ForPC reports whether PC store art fits the query: its system is PC, or it names none. Store
 // providers apply only then.
-func (q CoverQuery) ForPC() bool { return q.System == "" || q.System == game.SystemPC }
+func (q GameQuery) ForPC() bool { return q.System == "" || q.System == game.SystemPC }
 
 // SearchSystems returns the systems a title search for the query is filtered to: the edition's
 // system, or without one the systems of the game's physical copies (the boxes the user holds), or
 // else of all its copies, each once. Platforms are named by their system ("PlayStation Store" →
 // "PS4", "Steam" → "PC"), the names the game databases' platform tables are keyed by, so covers
 // and sheets map a copy to the same platform there.
-func (q CoverQuery) SearchSystems() []string {
+func (q GameQuery) SearchSystems() []string {
 	if q.System != "" {
 		return []string{q.System}
 	}
@@ -181,12 +182,12 @@ func (q CoverQuery) SearchSystems() []string {
 }
 
 // HasPhysical reports whether the game has at least one physical copy.
-func (q CoverQuery) HasPhysical() bool { return len(q.PhysicalPlatforms) > 0 }
+func (q GameQuery) HasPhysical() bool { return len(q.PhysicalPlatforms) > 0 }
 
-// QueryFor builds the cover query of a game's edition on system, from that edition's copies. An
+// QueryFor builds the query of a game's edition on system, from that edition's copies. An
 // empty system takes every copy and names no system (games without copies, game sheets).
-func QueryFor(g *game.Game, system string) CoverQuery {
-	q := CoverQuery{
+func QueryFor(g *game.Game, system string) GameQuery {
+	q := GameQuery{
 		Title:  g.Title(),
 		System: system,
 		Links:  g.Links(),
@@ -225,10 +226,10 @@ type CoverProvider interface {
 
 	// Applies reports, without any network call, whether the provider can have a cover for q.
 	// It keeps quota-limited providers away from games they cannot help with.
-	Applies(q CoverQuery) bool
+	Applies(q GameQuery) bool
 
 	// Covers returns candidate images, best first. No candidates is not an error.
-	Covers(ctx context.Context, q CoverQuery, settings schema.Settings) ([]CoverCandidate, error)
+	Covers(ctx context.Context, q GameQuery, settings schema.Settings) ([]CoverCandidate, error)
 }
 
 // BarcodeMatch is what a barcode database knows about a product.
@@ -301,7 +302,7 @@ type StoreLinker interface {
 type LinkFinder interface {
 	// FindLinks returns the store links of the game q describes, from a match the provider trusts;
 	// none when it cannot tell. Errors are those of the provider's other calls (rate limits…).
-	FindLinks(ctx context.Context, q CoverQuery, settings schema.Settings) (game.Links, error)
+	FindLinks(ctx context.Context, q GameQuery, settings schema.Settings) (game.Links, error)
 }
 
 // LinkSearcher is an optional port for providers that can also search their store's catalog by
@@ -917,7 +918,7 @@ func newLookup() *lookup { return &lookup{asked: map[provider.ID]bool{}} }
 
 // coverFromChain asks the enabled cover providers that apply to q, in order, and caches the first
 // image that downloads. Providers already asked in look are skipped; the ones asked are added to it.
-func (s *Service) coverFromChain(ctx context.Context, ref GameRef, system string, q CoverQuery, look *lookup) (Image, error) {
+func (s *Service) coverFromChain(ctx context.Context, ref GameRef, system string, q GameQuery, look *lookup) (Image, error) {
 	chain, err := s.chain(ctx)
 	if err != nil {
 		return Image{}, err
@@ -1024,7 +1025,7 @@ func (s *Service) CoverCandidates(ctx context.Context, id game.ID, system string
 
 	// A provider is asked with the first pass's query when it applies to it (as the automatic
 	// resolution would ask it), else with the fallback pass's.
-	for _, q := range []CoverQuery{first, fallback} {
+	for _, q := range []GameQuery{first, fallback} {
 		for _, p := range chain {
 			impl := s.covers[p.ID()]
 			if asked[p.ID()] || !impl.Applies(q) {
@@ -1044,7 +1045,7 @@ func (s *Service) CoverCandidates(ctx context.Context, id game.ID, system string
 // pickerCandidates asks one provider for candidates a user picks from (the cover picker, the scan
 // page's suggestions): its candidates, a warning when it failed for this game, or limited when the
 // problem is the provider's, which only sets its status (see CoverCandidates).
-func (s *Service) pickerCandidates(ctx context.Context, p ProviderView, impl CoverProvider, q CoverQuery) (
+func (s *Service) pickerCandidates(ctx context.Context, p ProviderView, impl CoverProvider, q GameQuery) (
 	candidates []CoverCandidate, warnings []string, limited bool) {
 	c, err := impl.Covers(ctx, q, p.Settings())
 	s.noteResult(p.ID(), err)
@@ -1362,14 +1363,14 @@ func (s *Service) SuggestGames(ctx context.Context, title, platform string) (Sug
 }
 
 // suggest asks the cover providers for canonical games with the title on the platform. Browse
-// is set when the user picks from the proposals (CoverQuery.Browse).
+// is set when the user picks from the proposals (GameQuery.Browse).
 func (s *Service) suggest(ctx context.Context, games []*game.Game, title, platform string, browse bool) (Suggestions, error) {
 	title, platform = strings.TrimSpace(title), game.CanonicalPlatform(platform)
 	if title == "" {
 		return Suggestions{}, nil
 	}
 
-	q := CoverQuery{
+	q := GameQuery{
 		Title:  title,
 		Browse: browse,
 	}

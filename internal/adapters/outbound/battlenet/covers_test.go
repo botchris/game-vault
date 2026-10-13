@@ -36,8 +36,8 @@ func (f *fakeSteam) SearchLinks(_ context.Context, q string) ([]media.LinkMatch,
 }
 func (f *fakeSteam) Descriptor() provider.Descriptor             { return provider.Descriptor{ID: "steam"} }
 func (f *fakeSteam) Test(context.Context, schema.Settings) error { return nil }
-func (f *fakeSteam) Applies(q media.CoverQuery) bool             { return q.Links[game.LinkSteam] != "" }
-func (f *fakeSteam) Covers(_ context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
+func (f *fakeSteam) Applies(q media.GameQuery) bool              { return q.Links[game.LinkSteam] != "" }
+func (f *fakeSteam) Covers(_ context.Context, q media.GameQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	return []media.CoverCandidate{{
 		URL:      "https://steam/" + q.Title,
 		Label:    "Library art",
@@ -49,11 +49,11 @@ func TestCovers(t *testing.T) {
 	steam := &fakeSteam{}
 	c := NewCovers(steam, steam)
 
-	q := media.CoverQuery{
+	q := media.GameQuery{
 		Title: "Call of Duty: Modern Warfare Remastered (2017)",
 		Links: game.Links{"battlenet": "1329875278"},
 	}
-	if !c.Applies(q) || c.Applies(media.CoverQuery{
+	if !c.Applies(q) || c.Applies(media.GameQuery{
 		Title: "x",
 		Links: game.Links{game.LinkSteam: "1"},
 	}) {
@@ -73,7 +73,7 @@ func TestCovers(t *testing.T) {
 		t.Fatalf("the year should be dropped from the search: %q", steam.asked[0])
 	}
 	// No exact title on Steam: nothing (the next providers try).
-	if got, _ := c.Covers(context.Background(), media.CoverQuery{
+	if got, _ := c.Covers(context.Background(), media.GameQuery{
 		Title: "World of Warcraft®",
 		Links: game.Links{"battlenet": "5730135"},
 	}, nil); len(got) != 0 {
@@ -101,7 +101,7 @@ func TestCovers_otherScripts(t *testing.T) {
 		c := NewCovers(otherScriptSearch{}, &fakeSteam{})
 
 		t.Run("WHEN covers are asked for a game titled in a script MatchKey drops", func(t *testing.T) {
-			got, err := c.Covers(ctx, media.CoverQuery{
+			got, err := c.Covers(ctx, media.GameQuery{
 				Title: "ファイナルクエスト",
 				Links: game.Links{"battlenet": "1"},
 			}, nil)

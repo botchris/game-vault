@@ -57,13 +57,13 @@ func (d *Details) Descriptor() provider.Descriptor {
 func (d *Details) Test(ctx context.Context, s schema.Settings) error { return d.c.Test(ctx, s) }
 
 // Applies implements media.MetadataProvider: IGDB has no quota, so it is asked about every game.
-func (d *Details) Applies(media.CoverQuery) bool { return true }
+func (d *Details) Applies(media.GameQuery) bool { return true }
 
 // ImageHosts implements media.ImageHoster: screenshots and YouTube thumbnails go through the proxy.
 func (d *Details) ImageHosts() []string { return []string{"images.igdb.com", "i.ytimg.com"} }
 
 // Details implements media.MetadataProvider.
-func (d *Details) Details(ctx context.Context, q media.CoverQuery, _ string, s schema.Settings) (*media.GameDetails, error) {
+func (d *Details) Details(ctx context.Context, q media.GameQuery, _ string, s schema.Settings) (*media.GameDetails, error) {
 	g, err := d.c.find(ctx, s, q, detailsFields)
 	if err != nil || g == nil {
 		return nil, err
@@ -121,7 +121,7 @@ var linkFields = []string{"name", "external_games.external_game_source", "extern
 // match as the sheet's: a store link it knows, else the only game with the title). IGDB also lists
 // GOG and Epic ids, but their format has not been checked against Game Vault's links with a real
 // account yet (see .claude/memory/igdb.md), so they are not used.
-func (d *Details) FindLinks(ctx context.Context, q media.CoverQuery, s schema.Settings) (game.Links, error) {
+func (d *Details) FindLinks(ctx context.Context, q media.GameQuery, s schema.Settings) (game.Links, error) {
 	g, err := d.c.find(ctx, s, q, linkFields)
 	if err != nil || g == nil {
 		return nil, err

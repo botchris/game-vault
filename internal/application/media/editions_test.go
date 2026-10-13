@@ -35,9 +35,9 @@ func (pcStore) Descriptor() provider.Descriptor {
 
 func (pcStore) Test(context.Context, schema.Settings) error { return nil }
 
-func (pcStore) Applies(q media.CoverQuery) bool { return q.ForPC() && q.Links[game.LinkSteam] != "" }
+func (pcStore) Applies(q media.GameQuery) bool { return q.ForPC() && q.Links[game.LinkSteam] != "" }
 
-func (pcStore) Covers(_ context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
+func (pcStore) Covers(_ context.Context, q media.GameQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	return []media.CoverCandidate{{
 		URL:      "https://img.test/steam-" + q.Links[game.LinkSteam],
 		Provider: "pc-store",
@@ -60,9 +60,9 @@ func (*boxArt) Descriptor() provider.Descriptor {
 
 func (*boxArt) Test(context.Context, schema.Settings) error { return nil }
 
-func (*boxArt) Applies(q media.CoverQuery) bool { return q.System != "" && q.System != game.SystemPC }
+func (*boxArt) Applies(q media.GameQuery) bool { return q.System != "" && q.System != game.SystemPC }
 
-func (b *boxArt) Covers(_ context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
+func (b *boxArt) Covers(_ context.Context, q media.GameQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	b.asked = append(b.asked, q.System)
 	if q.System == "Wii" || game.IsAddOnTitle(q.Title) {
 		return nil, nil

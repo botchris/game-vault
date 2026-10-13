@@ -184,6 +184,10 @@ Dependencies point inward; the compiler won't stop a violation, so watch it:
   cross-cutting (`TxManager`, `Clock`). `internal/adapters/outbound/<name>` implements them;
   `cmd/gamevault/main.go` wires them by hand (no DI framework; registration order = default chain
   order).
+- **Constructors take functional options**, not config/deps structs (maintainer's preference,
+  2026-10-13): required dependencies are positional parameters, everything optional (ports,
+  clocks, random sources, tunables) is a documented `With…` option
+  (`NewCovers(store, opts ...CoverOption)`), and the constructor fills no-op defaults.
 - **Optional capabilities are separate small interfaces** checked with a type assertion
   (`sync.Preparer`, `sync.KeepAliver`, `media.ImageHoster`), never boolean flags. `Test(ctx,
   settings) error` is not optional: it is part of `sync.Provider` and `media.Provider`.
