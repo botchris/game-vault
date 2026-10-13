@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Icon } from '../../components/Icon';
+import { useEscape } from '../../components/useEscape';
 import { MANUAL, NO_FILTERS, activeFilterCount, systemCounts, type Filters } from '../../lib/editions';
 import { filterOptions, isFilterable, type Definition } from '../../lib/fields';
 import { CopyKind, KINDS, PLAY_STATUSES, PlayStatus, kindKey, playKey, type Game } from '../../lib/model';
@@ -28,18 +29,14 @@ export default function FilterPanel({ games, total, filters, onChange, onClose, 
   const panel = useRef<HTMLDivElement>(null);
   const { sources: configured, fields: defs } = useAppData();
 
+  useEscape(onClose);
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     const onDown = (e: PointerEvent) => {
       const target = e.target as Node;
       if (panel.current && !panel.current.contains(target) && !(target as HTMLElement).closest?.('.filter-button')) onClose();
     };
-    window.addEventListener('keydown', onKey);
     window.addEventListener('pointerdown', onDown);
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      window.removeEventListener('pointerdown', onDown);
-    };
+    return () => window.removeEventListener('pointerdown', onDown);
   }, [onClose]);
 
   const { platforms, genres, sources, play } = useMemo(() => {

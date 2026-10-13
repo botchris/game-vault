@@ -196,6 +196,8 @@
     "showKey": "Mostrar clave",
     "hideKey": "Ocultar clave",
     "copyKey": "Copiar al portapapeles",
+    "keyCopied": "Copiada",
+    "copyFailed": "No se pudo copiar la clave aquí. Selecciónala y cópiala a mano.",
     "move": "Mover a otro juego",
     "moveTitle": "Mover copia a…",
     "confirmDelete": "¿Borrar esta copia?",
