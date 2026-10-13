@@ -12,6 +12,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"gamevault/internal/adapters/outbound/apiclient"
 )
 
 // The library website lists apps (streaming, music), demos, soundtracks and videos as PS4 / PS5
@@ -133,7 +135,7 @@ func (p *Provider) gameListPage(ctx context.Context, token string, q url.Values)
 
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("User-Agent", apiclient.BrowserUserAgent)
 
 	res, err := p.Client.Do(req)
 	if err != nil {

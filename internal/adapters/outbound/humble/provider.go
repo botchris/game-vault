@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/adapters/outbound/browsersession"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
@@ -129,7 +130,7 @@ func (p *Provider) get(ctx context.Context, cookie, path string) ([]byte, error)
 
 	req.Header.Set("Cookie", "_simpleauth_sess="+cookie)
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128 Safari/537.36")
+	req.Header.Set("User-Agent", apiclient.BrowserUserAgent)
 
 	res, err := p.Client.Do(req)
 	if err != nil {

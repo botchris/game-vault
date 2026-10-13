@@ -148,7 +148,7 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("User-Agent", apiclient.BrowserUserAgent)
 
 	res, err := c.Client.Do(req)
 	if err != nil {
@@ -158,7 +158,7 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 
 	// A 429 or an outage says nothing about the game: the chain asks again later instead of
 	// marking the cover missing. Other statuses may carry GraphQL errors, read below.
-	if passingTrouble(res.StatusCode) {
+	if apiclient.Transient(res.StatusCode) {
 		return nil, fmt.Errorf("ea catalog: %w", apiclient.ClassifyStatus(res.StatusCode))
 	}
 
@@ -233,11 +233,6 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 	return cands, nil
 }
 
-// passingTrouble reports whether status is a rate limit or an outage.
-func passingTrouble(status int) bool {
-	return status == http.StatusTooManyRequests || status >= http.StatusInternalServerError
-}
-
 // Test implements media.Provider: it asks EA's public catalog for one well-known game by slug and
 // fails on a transport error, an HTTP error or a GraphQL rejection. An unknown slug is not a failure.
 func (c *Covers) Test(ctx context.Context, _ schema.Settings) error {
@@ -249,7 +244,7 @@ func (c *Covers) Test(ctx context.Context, _ schema.Settings) error {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("User-Agent", apiclient.BrowserUserAgent)
 
 	res, err := c.Client.Do(req)
 	if err != nil {

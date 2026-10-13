@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/adapters/outbound/browsersession"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
@@ -44,7 +45,6 @@ const (
 	// tokenPath is the silent sign-in of EA's web SDK: with a signed-in browser session it answers
 	// {"access_token": …}, otherwise {"error": "login_required"}.
 	tokenPath = "/connect/auth?client_id=ORIGIN_JS_SDK&response_type=token&redirect_uri=nucleus:rest&prompt=none"
-	userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128 Safari/537.36"
 	maxPages  = 50
 )
 
@@ -162,7 +162,7 @@ func (p *Provider) accessToken(ctx context.Context, settings source.Settings) (s
 		return "", err
 	}
 
-	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("User-Agent", apiclient.BrowserUserAgent)
 	req.Header.Set("Accept", "application/json")
 
 	res, err := sess.Client.Do(req)
@@ -230,7 +230,7 @@ func (p *Provider) ownedItems(ctx context.Context, token string) ([]item, error)
 
 		req.Header.Set("Authorization", "Bearer "+token)
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("User-Agent", userAgent)
+		req.Header.Set("User-Agent", apiclient.BrowserUserAgent)
 
 		res, err := client.Do(req)
 		if err != nil {

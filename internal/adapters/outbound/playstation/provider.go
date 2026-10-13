@@ -48,7 +48,6 @@ const (
 
 	defaultAuthURL    = "https://ca.account.sony.com/api/authz/v3/oauth"
 	defaultLibraryURL = "https://web.np.playstation.com/api/graphql/v1/op"
-	userAgent         = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128 Safari/537.36"
 
 	pageSize = 24
 	maxPages = 100
@@ -195,7 +194,7 @@ func (p *Provider) authorize(ctx context.Context, npsso string) (string, error) 
 	}
 
 	req.Header.Set("Cookie", "npsso="+npsso)
-	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("User-Agent", apiclient.BrowserUserAgent)
 
 	res, err := p.Client.Do(req)
 	if err != nil {
@@ -205,7 +204,7 @@ func (p *Provider) authorize(ctx context.Context, npsso string) (string, error) 
 	res.Body.Close()
 
 	// A 429 or an outage is a passing trouble, not a refused NPSSO: it says nothing about it.
-	if res.StatusCode == http.StatusTooManyRequests || res.StatusCode >= http.StatusInternalServerError {
+	if apiclient.Transient(res.StatusCode) {
 		return "", fmt.Errorf("playstation sign-in: %w", apiclient.ClassifyStatus(res.StatusCode))
 	}
 
@@ -232,7 +231,7 @@ func (p *Provider) token(ctx context.Context, form url.Values) (tokenResponse, e
 
 	req.SetBasicAuth(clientID, clientSecret)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("User-Agent", apiclient.BrowserUserAgent)
 
 	res, err := p.Client.Do(req)
 	if err != nil {
@@ -356,7 +355,7 @@ func (p *Provider) page(ctx context.Context, token, hash string, start int) ([]t
 
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json") // Sony's GraphQL refuses requests that could be CSRF
-	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("User-Agent", apiclient.BrowserUserAgent)
 
 	res, err := p.Client.Do(req)
 	if err != nil {
@@ -370,7 +369,7 @@ func (p *Provider) page(ctx context.Context, token, hash string, start int) ([]t
 	case res.StatusCode == http.StatusUnauthorized:
 		p.forget(token) // the next accessToken renews it
 		return nil, false, errTokenRejected
-	case res.StatusCode == http.StatusTooManyRequests || res.StatusCode >= http.StatusInternalServerError:
+	case apiclient.Transient(res.StatusCode):
 		return nil, false, fmt.Errorf("playstation library: %w", apiclient.ClassifyStatus(res.StatusCode))
 	}
 

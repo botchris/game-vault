@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/adapters/outbound/browsersession"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
@@ -39,7 +40,6 @@ const (
 
 	// renewPath starts the single sign-on that gives account.battle.net a fresh session.
 	renewPath = "/oauth2/authorization/account-settings"
-	userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128 Safari/537.36"
 )
 
 var (
@@ -156,7 +156,7 @@ func (p *Provider) api(ctx context.Context, client *http.Client, path string, ou
 	}
 
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("User-Agent", apiclient.BrowserUserAgent)
 
 	res, err := client.Do(req)
 	if err != nil {
@@ -186,7 +186,7 @@ func (p *Provider) renew(ctx context.Context, client *http.Client) error {
 		return err
 	}
 
-	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("User-Agent", apiclient.BrowserUserAgent)
 
 	res, err := client.Do(req)
 	if err != nil {

@@ -26,6 +26,7 @@ import (
 	gosync "sync"
 	"time"
 
+	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
@@ -46,9 +47,8 @@ const (
 	// webAppID is ubisoft.com's sign-in (its tickets are renewed with it); pcAppID is the Ubisoft
 	// Connect PC client. connect.ubisoft.com's own app (314d4fef…), used by Lutris and the GOG Galaxy
 	// plugin, is no longer allowed to sign in on the public gateway.
-	webAppID  = "f35adcb5-1911-440c-b1c9-48fdc1701c68"
-	pcAppID   = "f68a4bb5-608a-4ff2-8123-be8ef797e0a6"
-	userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128 Safari/537.36"
+	webAppID = "f35adcb5-1911-440c-b1c9-48fdc1701c68"
+	pcAppID  = "f68a4bb5-608a-4ff2-8123-be8ef797e0a6"
 )
 
 // LoginURL is the sign-in page whose stored login data the user copies.
@@ -362,7 +362,7 @@ func (p *Provider) renew(ctx context.Context, rememberMe, app string) (session, 
 func (p *Provider) headers(req *http.Request, app string) {
 	req.Header.Set("Ubi-AppId", app)
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("User-Agent", apiclient.BrowserUserAgent)
 }
 
 type node struct {
