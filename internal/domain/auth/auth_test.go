@@ -4,10 +4,42 @@ import (
 	"errors"
 	"net/netip"
 	"slices"
+	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"gamevault/internal/domain/errkind"
 )
+
+func TestValidatePassword(t *testing.T) {
+	cases := []struct {
+		name     string
+		password string
+		problem  string // a part of the error's message; empty when the password is accepted
+	}{
+		{"eight letters", "abcdefgh", ""},
+		{"seven letters", "abcdefg", "at least 8 characters"},
+		{"eight accented letters, 16 bytes", strings.Repeat("ñ", 8), ""},
+		{"five accented letters are five characters, not ten", strings.Repeat("ñ", 5), "at least 8 characters"},
+		{"72 letters, bcrypt's limit", strings.Repeat("a", 72), ""},
+		{"73 letters", strings.Repeat("a", 73), "at most 72 characters"},
+		{"36 accented letters, 72 bytes", strings.Repeat("ñ", 36), ""},
+		{"37 accented letters, 74 bytes", strings.Repeat("ñ", 37), "fewer with accented letters or emoji"},
+	}
+	for _, c := range cases {
+		err := ValidatePassword(c.password)
+		if c.problem == "" {
+			assert.NoError(t, err, c.name)
+			continue
+		}
+
+		var v *errkind.ValidationError
+		if assert.ErrorAs(t, err, &v, c.name) {
+			assert.Contains(t, err.Error(), c.problem, c.name)
+		}
+	}
+}
 
 func TestNormalize(t *testing.T) {
 	s, err := Settings{TrustedNetworks: []string{" 192.168.1.77/24 ", "10.0.0.5", "192.168.1.0/24", "", "fd00::/8"}}.Normalize()
