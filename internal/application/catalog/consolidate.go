@@ -23,11 +23,13 @@ func (c Consolidation) AddTo(r *source.SyncReport) {
 }
 
 // Consolidate merges imported copies into the catalog on behalf of sourceID (empty for a file),
-// in one transaction: the games that changed are saved and the games left without copies by a
-// withdrawal are deleted. copies runs first inside that transaction, so what it reads is current
-// when the copies are merged (a source's exclusions, which the user may change during a scan).
-// Once the transaction is committed, the cached covers of the editions that changed and of the
-// deleted games are dropped.
+// in one transaction. It lists the games, then calls copies, inside that transaction, so what
+// copies reads is current when they are merged (a source's exclusions, which the user may change
+// during a scan); then it saves the games that changed and deletes the games a withdrawal left
+// without copies. On success the cached covers of the editions that changed and of the deleted
+// games are dropped: after the commit, unless ctx already carries a transaction (WithinTx then
+// joins it), in which case they are dropped before the outer transaction commits. On failure
+// nothing is saved, no cover is dropped and the Consolidation is zero.
 func (s *Service) Consolidate(ctx context.Context, sourceID string,
 	copies func(ctx context.Context) ([]game.ImportedCopy, error)) (Consolidation, error) {
 	var (
@@ -52,7 +54,6 @@ func (s *Service) Consolidate(ctx context.Context, sourceID string,
 		}
 
 		res = game.NewConsolidator(games).Apply(sourceID, imported, s.now())
-		stale = StaleCovers{} // what an earlier attempt of this function recorded was not saved
 
 		for _, g := range res.Changed {
 			if err := s.games.Save(ctx, g); err != nil {
