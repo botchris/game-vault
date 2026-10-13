@@ -32,8 +32,8 @@ export const STORE_PLATFORMS = [
 ];
 
 // The same names as SYSTEMS in editions.ts (a disc's platform is its system). Both stay literal
-// arrays: TestSystems_webAgrees (cmd/gamevault/system_test.go) reads them from the source and checks
-// them against the server's SystemOf.
+// arrays: TestSystems_webAgrees (internal/domain/game/webparity_test.go) reads them from the
+// source and checks them against the server's SystemOf.
 export const PHYSICAL_PLATFORMS = [
   'PC', 'PS5', 'PS4', 'PS3', 'PS2', 'PS1', 'PSP', 'PS Vita', 'Xbox Series', 'Xbox One', 'Xbox 360', 'Xbox',
   'Switch', 'Wii U', 'Wii', 'GameCube', 'N64', '3DS', 'DS', 'Game Boy',

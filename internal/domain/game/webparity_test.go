@@ -1,10 +1,16 @@
-package main
+package game_test
+
+// The web UI keeps a few tables of its own (currency decimals, the systems, title normalization)
+// that must agree with this package's. These tests read the web's sources and hold them to the
+// server's, so changing either side here runs them.
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -14,6 +20,65 @@ import (
 	"gamevault/internal/domain/game"
 )
 
+// TestCurrencyDigits_webAgrees pins the web UI's currency decimals (web/src/lib/money.ts) to the
+// server's (game.CurrencyDigits): prices are stored in minor units, so a currency with different
+// decimals on each side would be stored 10, 100 or 1000 times off.
+func TestCurrencyDigits_webAgrees(t *testing.T) {
+	t.Run("GIVEN the decimals table of the web UI", func(t *testing.T) {
+		src, err := os.ReadFile(filepath.Join("..", "..", "..", "web", "src", "lib", "money.ts"))
+		require.NoError(t, err)
+
+		table := regexp.MustCompile(`(?s)const CURRENCY_DIGITS[^{]*\{(.*?)\};`).FindSubmatch(src)
+		require.NotNil(t, table, "CURRENCY_DIGITS not found in money.ts")
+
+		web := map[string]int{}
+		for _, m := range regexp.MustCompile(`([A-Z]{3}):\s*(\d)`).FindAllSubmatch(table[1], -1) {
+			web[string(m[1])], _ = strconv.Atoi(string(m[2]))
+		}
+
+		require.NotEmpty(t, web)
+
+		t.Run("THEN every three-letter code has the same decimals on both sides", func(t *testing.T) {
+			for a := 'A'; a <= 'Z'; a++ {
+				for b := 'A'; b <= 'Z'; b++ {
+					for c := 'A'; c <= 'Z'; c++ {
+						code := string([]rune{a, b, c})
+
+						want, ok := web[code]
+						if !ok {
+							want = 2
+						}
+
+						assert.Equal(t, want, game.CurrencyDigits(code), "currency %s", code)
+					}
+				}
+			}
+		})
+	})
+}
+
+// TestSearchTitle_webAgrees pins the web UI's searchTitle (web/src/lib/coverSearch.ts, a port of
+// game.SearchTitle that builds the cover picker's search links) to the server's: both are checked
+// against the same cases, web/tests/searchTitle.cases.json, which the Node tests run through the
+// port. A case added there is checked on both sides.
+func TestSearchTitle_webAgrees(t *testing.T) {
+	t.Run("GIVEN the shared search-title cases", func(t *testing.T) {
+		raw, err := os.ReadFile(filepath.Join("..", "..", "..", "web", "tests", "searchTitle.cases.json"))
+		require.NoError(t, err)
+
+		var cases [][2]string
+
+		require.NoError(t, json.Unmarshal(raw, &cases))
+		require.NotEmpty(t, cases)
+
+		t.Run("THEN game.SearchTitle gives the expected title for each", func(t *testing.T) {
+			for _, c := range cases {
+				assert.Equal(t, c[1], game.SearchTitle(c[0]), "title %q", c[0])
+			}
+		})
+	})
+}
+
 // TestSystems_webAgrees pins the web UI's system tables (SYSTEMS, the PC platforms and the store
 // systems in web/src/lib/editions.ts) to the server's (game.SystemOf), in both directions: the
 // library groups and filters by the system the web computes, so a platform that each side maps
@@ -22,7 +87,7 @@ import (
 // run: go test has no JavaScript runtime.
 func TestSystems_webAgrees(t *testing.T) {
 	t.Run("GIVEN the system tables of the web UI", func(t *testing.T) {
-		src, err := os.ReadFile(filepath.Join("..", "..", "web", "src", "lib", "editions.ts"))
+		src, err := os.ReadFile(filepath.Join("..", "..", "..", "web", "src", "lib", "editions.ts"))
 		require.NoError(t, err)
 
 		systems := webStrings(t, src, `export const SYSTEMS = \[(.*?)\];`)
@@ -73,7 +138,7 @@ func TestSystems_webAgrees(t *testing.T) {
 			}
 
 			// The platforms the web offers in its forms (web/src/lib/model.ts) must agree too.
-			model, err := os.ReadFile(filepath.Join("..", "..", "web", "src", "lib", "model.ts"))
+			model, err := os.ReadFile(filepath.Join("..", "..", "..", "web", "src", "lib", "model.ts"))
 			require.NoError(t, err)
 
 			platforms = append(platforms, webStrings(t, model, `export const STORE_PLATFORMS = \[(.*?)\];`)...)
@@ -86,7 +151,7 @@ func TestSystems_webAgrees(t *testing.T) {
 		})
 
 		t.Run("THEN every platform the server knows is in the web's tables, under the same system", func(t *testing.T) {
-			model, err := os.ReadFile(filepath.Join("..", "..", "web", "src", "lib", "model.ts"))
+			model, err := os.ReadFile(filepath.Join("..", "..", "..", "web", "src", "lib", "model.ts"))
 			require.NoError(t, err)
 
 			offered := append(webStrings(t, model, `export const STORE_PLATFORMS = \[(.*?)\];`),
