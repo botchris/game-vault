@@ -72,7 +72,7 @@ func TestConfigureProvider_siblingRetriesMissingCovers(t *testing.T) {
 		require.NoError(t, err)
 
 		games := sqlite.NewGameRepository(db)
-		svc := newServices(db, games, assets, echo{}, []providers.Provider{groupedCovers{grouped{"shop-covers", provider.KindCover}}, groupedDetails{grouped{"shop-details", provider.KindMetadata}}})
+		svc := newServices(db, games, assets, echo{}, []providers.Impl{groupedCovers{grouped{"shop-covers", provider.KindCover}}, groupedDetails{grouped{"shop-details", provider.KindMetadata}}})
 
 		for _, kind := range []provider.Kind{provider.KindCover, provider.KindMetadata} {
 			_, err := svc.Registry.Providers(ctx, kind)

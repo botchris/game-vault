@@ -93,7 +93,7 @@ func TestRateLimitedProvider(t *testing.T) {
 		require.NoError(t, err)
 
 		games, details := sqlite.NewGameRepository(db), sqlite.NewDetailsStore(db)
-		svc := newServices(db, games, assets, echo{}, []providers.Provider{tgdb, otherDetails{}, thegamesdb.NewDetails(tgdb)}, media.WithDetailsStore(details))
+		svc := newServices(db, games, assets, echo{}, []providers.Impl{tgdb, otherDetails{}, thegamesdb.NewDetails(tgdb)}, media.WithDetailsStore(details))
 		_, err = svc.Registry.ConfigureProvider(ctx, thegamesdb.ID, true, schema.Settings{"api_key": "k"})
 		require.NoError(t, err)
 
@@ -204,7 +204,7 @@ func testUnavailableTheGamesDB(t *testing.T, ctx context.Context, name string, r
 		require.NoError(t, err)
 
 		games, details := sqlite.NewGameRepository(db), sqlite.NewDetailsStore(db)
-		svc := newServices(db, games, assets, echo{}, []providers.Provider{tgdb, otherDetails{}, thegamesdb.NewDetails(tgdb)}, media.WithDetailsStore(details))
+		svc := newServices(db, games, assets, echo{}, []providers.Impl{tgdb, otherDetails{}, thegamesdb.NewDetails(tgdb)}, media.WithDetailsStore(details))
 		_, err = svc.Registry.ConfigureProvider(ctx, thegamesdb.ID, true, schema.Settings{"api_key": "k"})
 		require.NoError(t, err)
 

@@ -119,7 +119,7 @@ func (c *Covers) Covers(ctx context.Context, q media.GameQuery, _ schema.Setting
 // work too, because the catalog answers 200 with no products.
 const testProductID = "9NBLGGH4R315"
 
-// Test implements providers.Provider: it asks the public Store catalog for one product. An empty
+// Test implements providers.Impl: it asks the public Store catalog for one product. An empty
 // answer still means the catalog works; transport errors, HTTP errors and rate limits fail.
 func (c *Covers) Test(ctx context.Context, _ schema.Settings) error {
 	if _, err := catalog(ctx, c.Catalog, c.Market, c.Language, []string{testProductID}); err != nil {

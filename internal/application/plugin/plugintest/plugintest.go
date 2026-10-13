@@ -163,7 +163,7 @@ func (c *checker) source(plugin string, s sync.Provider) {
 	}
 }
 
-func (c *checker) provider(plugin string, p providers.Provider, kind provider.Kind) {
+func (c *checker) provider(plugin string, p providers.Impl, kind provider.Kind) {
 	d := p.Descriptor()
 	where := fmt.Sprintf("plugin %q, provider %q", plugin, d.ID)
 

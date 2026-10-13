@@ -212,7 +212,7 @@ func (s *Identifier) suggest(ctx context.Context, games []*game.Game, title, pla
 		q.System = game.SystemOf(platform)
 	}
 
-	chain, err := s.covers.enabled(ctx)
+	chain, err := s.covers.inOrder(ctx)
 	if err != nil {
 		return Suggestions{}, err
 	}

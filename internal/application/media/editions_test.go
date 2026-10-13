@@ -105,7 +105,7 @@ func newMediaEnv(t *testing.T, ctx context.Context) mediaEnv {
 	require.NoError(t, err)
 
 	games, box := sqlite.NewGameRepository(db), &boxArt{}
-	svc := newServices(db, games, assets, echo{}, []providers.Provider{pcStore{}, box})
+	svc := newServices(db, games, assets, echo{}, []providers.Impl{pcStore{}, box})
 
 	return mediaEnv{
 		svc:    svc,
@@ -412,7 +412,7 @@ func TestInvalidateEditionWithoutCoverFromBeforeEditions(t *testing.T) {
 		require.NoError(t, err)
 
 		games := &countingGames{Repository: sqlite.NewGameRepository(db)}
-		svc := newServices(db, games, assets, echo{}, []providers.Provider{})
+		svc := newServices(db, games, assets, echo{}, []providers.Impl{})
 		g := saveGame(t, ctx, games, "Halo 3", nil, game.CopyDetails{
 			Kind:     game.KindPhysical,
 			Platform: "PS3",
@@ -438,7 +438,7 @@ func TestEditionCover_cachedWithoutReadingTheGame(t *testing.T) {
 		require.NoError(t, err)
 
 		games := &countingGames{Repository: sqlite.NewGameRepository(db)}
-		svc := newServices(db, games, assets, echo{}, []providers.Provider{&boxArt{}})
+		svc := newServices(db, games, assets, echo{}, []providers.Impl{&boxArt{}})
 		g := saveGame(t, ctx, games, "Halo 3", nil, game.CopyDetails{
 			Kind:     game.KindPhysical,
 			Platform: "PS3",

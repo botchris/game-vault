@@ -28,8 +28,9 @@ func newCoverChain(reg *providers.Registry) coverChain {
 	}
 }
 
-// enabled returns the enabled cover providers in priority order.
-func (ch coverChain) enabled(ctx context.Context) ([]providers.View, error) {
+// inOrder returns the cover providers to ask: the enabled ones that are compiled in, in the
+// user's order.
+func (ch coverChain) inOrder(ctx context.Context) ([]providers.View, error) {
 	views, err := ch.reg.Enabled(ctx, provider.KindCover)
 	if err != nil {
 		return nil, err
@@ -132,7 +133,7 @@ func (c *Covers) fromProviders(ctx context.Context, g *game.Game, ref GameRef, s
 // coverFromChain asks the enabled cover providers that apply to q, in order, and caches the first
 // image that downloads. Providers already asked in look are skipped; the ones asked are added to it.
 func (c *Covers) coverFromChain(ctx context.Context, ref GameRef, system string, q GameQuery, look *lookup) (Image, error) {
-	chain, err := c.chain.enabled(ctx)
+	chain, err := c.chain.inOrder(ctx)
 	if err != nil {
 		return Image{}, err
 	}

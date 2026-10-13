@@ -53,7 +53,7 @@ func (d *Details) Descriptor() provider.Descriptor {
 	}
 }
 
-// Test implements providers.Provider.
+// Test implements providers.Impl.
 func (d *Details) Test(ctx context.Context, s schema.Settings) error { return d.c.Test(ctx, s) }
 
 // Applies implements media.MetadataProvider: IGDB has no quota, so it is asked about every game.

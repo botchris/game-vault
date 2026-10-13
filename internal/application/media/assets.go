@@ -113,7 +113,7 @@ func (a *Assets) download(ctx context.Context, id game.ID, name, remote string) 
 	return img, nil
 }
 
-// registerAssets records where the sheet's images come from and downloads the missing ones in the
+// register records where the sheet's images come from and downloads the missing ones in the
 // background, so the next view of the sheet (or any view offline) is served from disk.
 func (a *Assets) register(ctx context.Context, g GameRef, d *GameDetails) {
 	sources := assignAssets(d)

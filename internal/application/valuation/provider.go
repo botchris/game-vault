@@ -18,7 +18,7 @@ var ErrNotListed = errors.New("not listed")
 // Provider estimates the second-hand price of a product by its barcode. Its configuration (enabled,
 // order, settings) is kept by the providers registry with the other providers (provider.KindValuation).
 type Provider interface {
-	providers.Provider
+	providers.Impl
 
 	// Estimate returns the source's price for the product with that barcode, or ErrNotListed. The
 	// service fills in Provider and FetchedAt.

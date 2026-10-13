@@ -21,9 +21,10 @@ import (
 // ErrUnknownProvider means no implementation is registered under that id.
 var ErrUnknownProvider = errkind.New(errkind.NotFound, "unknown provider")
 
-// Provider is what every provider implements, whatever it provides (covers, barcodes, details,
-// prices).
-type Provider interface {
+// Impl is a provider implementation compiled in: what every provider implements, whatever it
+// provides (covers, barcodes, details, prices). It is not called Provider so it is never confused
+// with provider.Provider, the user's configuration of one.
+type Impl interface {
 	// Descriptor describes the provider: its id, kind, name and settings.
 	Descriptor() provider.Descriptor
 

@@ -113,7 +113,7 @@ func newDetailsEnv(t *testing.T, ctx context.Context, now func() time.Time, stor
 
 	games, details := sqlite.NewGameRepository(db), sqlite.NewDetailsStore(db)
 	store, quota := &storeDetails{sheet: storeSheet}, &quotaDetails{}
-	svc := newServicesAt(db, now, games, assets, echo{}, []providers.Provider{store, quota}, append([]media.Option{media.WithDetailsStore(details)}, opts...)...)
+	svc := newServicesAt(db, now, games, assets, echo{}, []providers.Impl{store, quota}, append([]media.Option{media.WithDetailsStore(details)}, opts...)...)
 
 	return detailsEnv{
 		svc:     svc,
@@ -401,7 +401,7 @@ func TestGameDetails_summarySourceAndTrailers(t *testing.T) {
 		}
 
 		games, details := sqlite.NewGameRepository(db), sqlite.NewDetailsStore(db)
-		svc := newServices(db, games, assets, echo{}, []providers.Provider{database, encyclopedia}, media.WithDetailsStore(details))
+		svc := newServices(db, games, assets, echo{}, []providers.Impl{database, encyclopedia}, media.WithDetailsStore(details))
 		g := saveGame(t, ctx, games, "Example Quest", nil, game.CopyDetails{
 			Kind:     game.KindPhysical,
 			Platform: "PS4",

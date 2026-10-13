@@ -21,7 +21,7 @@ const testTimeout = 20 * time.Second
 // Registry keeps the providers compiled in and the user's configuration of each.
 type Registry struct {
 	repo  provider.Repository
-	impls map[provider.ID]Provider
+	impls map[provider.ID]Impl
 	order []provider.ID // default chain order: DefaultOrder, then registration order
 	now   port.Clock
 	log   *slog.Logger
@@ -51,10 +51,10 @@ type Registry struct {
 // NewRegistry builds the registry of the providers compiled in. Their DefaultOrder (then their
 // order here) is the chain order the first time each provider is seen; afterwards the user's order
 // is used.
-func NewRegistry(repo provider.Repository, impls []Provider, opts ...Option) *Registry {
+func NewRegistry(repo provider.Repository, impls []Impl, opts ...Option) *Registry {
 	r := &Registry{
 		repo:          repo,
-		impls:         make(map[provider.ID]Provider, len(impls)),
+		impls:         make(map[provider.ID]Impl, len(impls)),
 		now:           time.Now,
 		log:           slog.New(slog.DiscardHandler),
 		registered:    map[provider.Kind]bool{},
@@ -84,8 +84,8 @@ func NewRegistry(repo provider.Repository, impls []Provider, opts ...Option) *Re
 func (r *Registry) OnCoversChanged(fn func(ctx context.Context) error) { r.coversChanged = fn }
 
 // All returns every provider compiled in, in default chain order.
-func (r *Registry) All() []Provider {
-	out := make([]Provider, len(r.order))
+func (r *Registry) All() []Impl {
+	out := make([]Impl, len(r.order))
 	for i, id := range r.order {
 		out[i] = r.impls[id]
 	}

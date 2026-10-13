@@ -135,7 +135,7 @@ func (p *Provider) Lookup(ctx context.Context, code game.Barcode, s schema.Setti
 	return nil, nil
 }
 
-// Test implements providers.Provider with one light request (the list of top categories) to the first
+// Test implements providers.Impl with one light request (the list of top categories) to the first
 // country that would be asked, which shows whether CeX answers its API at all.
 func (p *Provider) Test(ctx context.Context, s schema.Settings) error {
 	country := order(allowed(s[settingCountries]), parseHits(s[settingHits]))[0]

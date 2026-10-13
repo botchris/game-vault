@@ -32,7 +32,7 @@ func (c *Covers) CoverCandidates(ctx context.Context, id game.ID, system string)
 		return nil, nil, false, fmt.Errorf("%w (%s)", ErrNoEdition, system)
 	}
 
-	chain, err := c.chain.enabled(ctx)
+	chain, err := c.chain.inOrder(ctx)
 	if err != nil {
 		return nil, nil, false, err
 	}

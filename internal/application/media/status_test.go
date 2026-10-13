@@ -85,7 +85,7 @@ func TestProviderStatus_covers(t *testing.T) {
 		clock := func() time.Time { return now }
 		art := &switchArt{}
 		games := sqlite.NewGameRepository(db)
-		svc := newServicesAt(db, clock, games, assets, echo{}, []providers.Provider{art})
+		svc := newServicesAt(db, clock, games, assets, echo{}, []providers.Impl{art})
 
 		renews := now.Add(27 * 24 * time.Hour)
 		art.set(allowanceUsedUp{until: renews})
@@ -328,7 +328,7 @@ func newServiceEnv(t *testing.T, ctx context.Context) serviceEnv {
 			kind:  provider.KindMetadata,
 		},
 	}
-	env.svc = newServices(db, env.games, assets, echo{}, []providers.Provider{env.covers, env.sheets}, media.WithDetailsStore(env.details))
+	env.svc = newServices(db, env.games, assets, echo{}, []providers.Impl{env.covers, env.sheets}, media.WithDetailsStore(env.details))
 	env.game = saveGame(t, ctx, env.games, "Disc Quest", nil, game.CopyDetails{
 		Kind:     game.KindPhysical,
 		Platform: "PS4",

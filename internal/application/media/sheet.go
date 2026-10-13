@@ -146,7 +146,7 @@ func (d *GameDetails) fill(o GameDetails) bool {
 
 // MetadataProvider is the port each details source implements (Steam store, TheGamesDB...).
 type MetadataProvider interface {
-	providers.Provider
+	providers.Impl
 
 	// Applies reports, without any network call, whether the provider can know this game.
 	Applies(q GameQuery) bool

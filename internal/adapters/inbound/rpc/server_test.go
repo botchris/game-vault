@@ -355,7 +355,7 @@ func newServer(t *testing.T, p sync.Provider) clients {
 	images := &fakeImages{}
 	boxart := &fakeBoxArt{}
 	boxDet := &fakeBoxDetails{}
-	registry := providers.NewRegistry(sqlite.NewProviderRepository(db), []providers.Provider{
+	registry := providers.NewRegistry(sqlite.NewProviderRepository(db), []providers.Impl{
 		fakeSteamStore{}, boxart, &fakeBarcodes{}, fakeStoreDetails{}, boxDet, fakePrices{},
 	}, providers.WithLogger(log))
 	mediaSvcs := media.New(games, registry, covers, images,

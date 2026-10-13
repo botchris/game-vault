@@ -102,7 +102,7 @@ func (p Plugin) mediaDescriptors() []provider.Descriptor {
 
 // providersOf returns the plugin's providers of a kind. A new kind of provider is a new field of
 // Plugin and a case here.
-func (p Plugin) providersOf(kind provider.Kind) []providers.Provider {
+func (p Plugin) providersOf(kind provider.Kind) []providers.Impl {
 	switch kind {
 	case provider.KindCover:
 		return asProviders(p.Covers)
@@ -117,8 +117,8 @@ func (p Plugin) providersOf(kind provider.Kind) []providers.Provider {
 	}
 }
 
-func asProviders[T providers.Provider](in []T) []providers.Provider {
-	out := make([]providers.Provider, len(in))
+func asProviders[T providers.Impl](in []T) []providers.Impl {
+	out := make([]providers.Impl, len(in))
 	for i, p := range in {
 		out[i] = p
 	}
@@ -142,13 +142,13 @@ func (r *Registry) Sources() []sync.Provider {
 // Providers returns every plugin's providers (covers, barcodes, metadata, prices), kind by kind in
 // provider.Kinds' order and, within a kind, in registration order: the order that breaks ties
 // between equal DefaultOrders in the providers registry.
-func (r *Registry) Providers() []providers.Provider {
+func (r *Registry) Providers() []providers.Impl {
 	n := 0
 	for _, p := range r.plugins {
 		n += len(p.mediaDescriptors())
 	}
 
-	out := make([]providers.Provider, 0, n)
+	out := make([]providers.Impl, 0, n)
 
 	for _, kind := range provider.Kinds() {
 		for _, p := range r.plugins {

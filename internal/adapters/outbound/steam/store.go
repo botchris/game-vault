@@ -288,7 +288,7 @@ func (s *Store) uniqueApp(ctx context.Context, term, title string, loose bool) (
 	return 0, nil
 }
 
-// Test implements providers.Provider: it asks Steam's store browse API for the art of Portal 2 (app
+// Test implements providers.Impl: it asks Steam's store browse API for the art of Portal 2 (app
 // 620), so only transport errors and HTTP errors (including rate limits) fail it.
 func (s *Store) Test(ctx context.Context, _ schema.Settings) error {
 	if _, _, err := s.assetURLs(ctx, 620); err != nil {

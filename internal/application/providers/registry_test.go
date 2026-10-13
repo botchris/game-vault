@@ -66,7 +66,7 @@ func TestProviders_settingsGroups(t *testing.T) {
 	defer cancel()
 
 	t.Run("GIVEN an enabled barcode provider with a key, and a price provider of the same service seen for the first time", func(t *testing.T) {
-		reg := providers.NewRegistry(newRepo(t, ctx), []providers.Provider{
+		reg := providers.NewRegistry(newRepo(t, ctx), []providers.Impl{
 			grouped{"shop", provider.KindBarcode},
 			grouped{"shop-prices", provider.KindValuation},
 		})
@@ -95,7 +95,7 @@ func TestRegistry_readsOnce(t *testing.T) {
 
 	t.Run("GIVEN a registry with a barcode provider", func(t *testing.T) {
 		repo := newRepo(t, ctx)
-		reg := providers.NewRegistry(repo, []providers.Provider{grouped{"shop", provider.KindBarcode}})
+		reg := providers.NewRegistry(repo, []providers.Impl{grouped{"shop", provider.KindBarcode}})
 
 		t.Run("WHEN its chain is read many times, and the provider configured in between", func(t *testing.T) {
 			for range 5 {

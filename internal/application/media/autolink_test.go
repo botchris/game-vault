@@ -143,7 +143,7 @@ func newAutoLinkEnv(t *testing.T, ctx context.Context) autoLinkEnv {
 		logs: &lockedBuffer{},
 	}
 	clock := func() time.Time { return *env.now }
-	env.svc = newServicesAt(db, clock, env.games, assets, echo{}, []providers.Provider{env.search, env.trusted}, media.WithDetailsStore(env.details))
+	env.svc = newServicesAt(db, clock, env.games, assets, echo{}, []providers.Impl{env.search, env.trusted}, media.WithDetailsStore(env.details))
 	env.catalog = catalog.NewService(env.games, db, clock, env.svc.Covers, nil, nil)
 	env.svc.AutoLinks.SetGameLinker(env.catalog)
 

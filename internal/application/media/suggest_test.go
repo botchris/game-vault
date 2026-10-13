@@ -56,7 +56,7 @@ func TestSuggest_browse(t *testing.T) {
 		require.NoError(t, err)
 
 		art := &quotaArt{}
-		svc := newServices(db, sqlite.NewGameRepository(db), assets, echo{}, []providers.Provider{art, knownCode{}})
+		svc := newServices(db, sqlite.NewGameRepository(db), assets, echo{}, []providers.Impl{art, knownCode{}})
 
 		t.Run("WHEN the user types a title on the scan page", func(t *testing.T) {
 			_, err := svc.Identifier.SuggestGames(ctx, "Shelf Quest", "PS4")
@@ -96,7 +96,7 @@ func TestSuggest_providerStatus(t *testing.T) {
 		art := &quotaArt{}
 		art.exhausted.Store(true)
 
-		svc := newServices(db, sqlite.NewGameRepository(db), assets, echo{}, []providers.Provider{art})
+		svc := newServices(db, sqlite.NewGameRepository(db), assets, echo{}, []providers.Impl{art})
 
 		t.Run("WHEN the user types a title on the scan page", func(t *testing.T) {
 			res, err := svc.Identifier.SuggestGames(ctx, "Shelf Quest", "PS4")
@@ -153,7 +153,7 @@ func TestIdentifyBarcode_providerStatus(t *testing.T) {
 		assets, err := gamedata.Open(filepath.Join(t.TempDir(), "game-data"))
 		require.NoError(t, err)
 
-		svc := newServices(db, sqlite.NewGameRepository(db), assets, echo{}, []providers.Provider{&quotaArt{}, blockedCodes{}, knownCode{}})
+		svc := newServices(db, sqlite.NewGameRepository(db), assets, echo{}, []providers.Impl{&quotaArt{}, blockedCodes{}, knownCode{}})
 
 		t.Run("WHEN a code is scanned", func(t *testing.T) {
 			res, err := svc.Identifier.IdentifyBarcode(ctx, "4006381333931")

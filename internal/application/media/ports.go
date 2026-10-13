@@ -103,7 +103,7 @@ type CoverCandidate struct {
 
 // CoverProvider is the port each cover source implements (TheGamesDB, Steam...).
 type CoverProvider interface {
-	providers.Provider
+	providers.Impl
 
 	// Applies reports, without any network call, whether the provider can have a cover for q.
 	// It keeps quota-limited providers away from games they cannot help with.
@@ -128,7 +128,7 @@ type BarcodeMatch struct {
 
 // BarcodeProvider is the port each barcode database implements (UPCitemdb, EAN-Search...).
 type BarcodeProvider interface {
-	providers.Provider
+	providers.Impl
 
 	// Lookup returns the products registered under the code, best first. No match is not an error.
 	Lookup(ctx context.Context, code game.Barcode, settings schema.Settings) ([]BarcodeMatch, error)

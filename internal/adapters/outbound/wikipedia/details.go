@@ -145,7 +145,7 @@ func (d *Details) Applies(q media.GameQuery) bool {
 	return q.Links[game.LinkSteam] == "" || q.Fallback
 }
 
-// Test implements providers.Provider with one search on Wikidata.
+// Test implements providers.Impl with one search on Wikidata.
 func (d *Details) Test(ctx context.Context, _ schema.Settings) error {
 	if _, err := d.search(ctx, "Portal", "en"); err != nil {
 		return fmt.Errorf("could not reach Wikidata, check the connection and try again: %w", err)

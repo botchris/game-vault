@@ -45,7 +45,7 @@ func (p *Covers) Descriptor() provider.Descriptor {
 	}
 }
 
-// Test implements providers.Provider.
+// Test implements providers.Impl.
 func (p *Covers) Test(ctx context.Context, s schema.Settings) error { return p.c.Test(ctx, s) }
 
 // Applies implements media.CoverProvider: only on the fallback pass, for any system. The media

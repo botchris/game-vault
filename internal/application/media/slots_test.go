@@ -65,7 +65,7 @@ func TestCoverLookups_doNotHoldDownloadSlots(t *testing.T) {
 			release: make(chan struct{}),
 		}
 		games := sqlite.NewGameRepository(db)
-		svc := newServices(db, games, assets, echo{}, []providers.Provider{pcStore{}, slow})
+		svc := newServices(db, games, assets, echo{}, []providers.Impl{pcStore{}, slow})
 
 		const waiting = 8
 

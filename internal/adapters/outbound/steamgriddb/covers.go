@@ -148,7 +148,7 @@ func (p *Covers) Applies(q media.GameQuery) bool { return q.Fallback && !q.Links
 // ImageHosts implements media.ImageHoster.
 func (p *Covers) ImageHosts() []string { return []string{imageHost} }
 
-// Test implements providers.Provider with one search, the cheapest authenticated request.
+// Test implements providers.Impl with one search, the cheapest authenticated request.
 func (p *Covers) Test(ctx context.Context, s schema.Settings) error {
 	key, err := apiKey(s)
 	if err != nil {
