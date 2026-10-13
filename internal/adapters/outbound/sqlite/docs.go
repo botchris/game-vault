@@ -473,7 +473,7 @@ func decodeProvider(id provider.ID, raw string) (*provider.Provider, error) {
 }
 
 func contentStrings(c game.Contents) []string {
-	out := make([]string, 0, len(game.AllContents))
+	out := make([]string, 0, len(game.AllContents()))
 	for _, x := range c.List() {
 		out = append(out, string(x))
 	}

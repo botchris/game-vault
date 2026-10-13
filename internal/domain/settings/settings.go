@@ -9,8 +9,12 @@ import (
 	"gamevault/internal/domain/errkind"
 )
 
-// LogLevels lists the levels accepted by Logging.Level, from most to least verbose.
-var LogLevels = []string{"debug", "info", "warn", "error"}
+// logLevels lists the levels accepted by Logging.Level, from most to least verbose.
+var logLevels = []string{"debug", "info", "warn", "error"}
+
+// LogLevels returns the levels accepted by Logging.Level, from most to least verbose (a copy:
+// callers cannot change the list).
+func LogLevels() []string { return slices.Clone(logLevels) }
 
 // Logging controls the server log and the rotation of its files.
 type Logging struct {
@@ -36,8 +40,8 @@ func DefaultLogging() Logging {
 func (l Logging) Validate() (Logging, error) {
 	l.Level = strings.ToLower(strings.TrimSpace(l.Level))
 	switch {
-	case !slices.Contains(LogLevels, l.Level):
-		return l, errkind.Invalidf("log level must be one of %s", strings.Join(LogLevels, ", "))
+	case !slices.Contains(logLevels, l.Level):
+		return l, errkind.Invalidf("log level must be one of %s", strings.Join(logLevels, ", "))
 	case l.MaxFileSizeMB < 1 || l.MaxFileSizeMB > 100:
 		return l, errkind.Invalidf("max file size must be between 1 and 100 MB")
 	case l.MaxFiles < 1 || l.MaxFiles > 50:

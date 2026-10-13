@@ -17,7 +17,7 @@ func TestAuthSettings(t *testing.T) {
 	db := openTest(t)
 	r := NewSettingsRepository(db)
 
-	if s, err := r.Auth(ctx); err != nil || s.Authentication != auth.AuthTrustedNetworks || !slices.Equal(s.TrustedNetworks, auth.DefaultTrustedNetworks) {
+	if s, err := r.Auth(ctx); err != nil || s.Authentication != auth.AuthTrustedNetworks || !slices.Equal(s.TrustedNetworks, auth.DefaultTrustedNetworks()) {
 		t.Fatalf("defaults: %+v %v", s, err)
 	}
 
@@ -45,7 +45,7 @@ func TestAuthSettings(t *testing.T) {
 		}
 
 		got, err := r.Auth(ctx)
-		if err != nil || got.Authentication != mode || !slices.Equal(got.TrustedNetworks, auth.DefaultTrustedNetworks) {
+		if err != nil || got.Authentication != mode || !slices.Equal(got.TrustedNetworks, auth.DefaultTrustedNetworks()) {
 			t.Fatalf("legacy %s: %+v %v", raw, got, err)
 		}
 	}

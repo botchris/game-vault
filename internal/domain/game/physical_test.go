@@ -32,7 +32,7 @@ func TestContents(t *testing.T) {
 }
 
 func TestGrade(t *testing.T) {
-	for _, g := range append([]Grade{""}, Grades...) {
+	for _, g := range append([]Grade{""}, Grades()...) {
 		assert.True(t, g.Valid(), "grade %q", g)
 	}
 
@@ -140,6 +140,25 @@ func TestCopyDetails_physicalFields(t *testing.T) {
 		t.Run("THEN the copy is refused", func(t *testing.T) {
 			assert.Error(t, errGrade)
 			assert.Error(t, errPrice)
+		})
+	})
+}
+
+func TestGradesAndContents_areReadOnly(t *testing.T) {
+	t.Run("GIVEN a caller that changes the lists it was given", func(t *testing.T) {
+		grades := Grades()
+		grades[0] = "scratched"
+
+		contents := AllContents()
+		contents[0], contents[1] = contents[1], contents[0]
+
+		t.Run("THEN the domain's lists are unchanged", func(t *testing.T) {
+			assert.Equal(t, GradeSealed, Grades()[0])
+			assert.False(t, Grade("scratched").Valid())
+
+			c, err := ContentsOf(ContentBox)
+			require.NoError(t, err)
+			assert.Equal(t, Contents(1), c, "a stored bit set keeps its meaning")
 		})
 	})
 }

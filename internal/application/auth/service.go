@@ -138,7 +138,7 @@ func (s *Service) ResetAuthentication(ctx context.Context) error {
 
 	settings.Authentication = auth.AuthTrustedNetworks
 	if len(settings.TrustedNetworks) == 0 {
-		settings.TrustedNetworks = auth.DefaultTrustedNetworks
+		settings.TrustedNetworks = auth.DefaultTrustedNetworks()
 	}
 
 	s.log.Warn("authentication reset: no password needed from trusted networks", "trusted_networks", settings.TrustedNetworks)
