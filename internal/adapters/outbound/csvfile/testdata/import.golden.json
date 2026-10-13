@@ -2,7 +2,6 @@
   "Copies": [
     {
       "ExternalID": "manual:quest",
-      "PreviousExternalID": "",
       "Withdrawn": false,
       "Title": "Console Quest",
       "Links": {
@@ -36,7 +35,6 @@
     },
     {
       "ExternalID": "csv:key|steam|celeste|KEY-1",
-      "PreviousExternalID": "",
       "Withdrawn": false,
       "Title": "Celeste",
       "Links": null,
@@ -65,7 +63,6 @@
     },
     {
       "ExternalID": "csv:physical|ps2|old disc|",
-      "PreviousExternalID": "",
       "Withdrawn": false,
       "Title": "Old Disc",
       "Links": null,
@@ -94,7 +91,6 @@
     },
     {
       "ExternalID": "csv:library|steam|hades|",
-      "PreviousExternalID": "",
       "Withdrawn": false,
       "Title": "Hades",
       "Links": null,
@@ -123,7 +119,6 @@
     },
     {
       "ExternalID": "csv:key|steam|bad date game|K2",
-      "PreviousExternalID": "",
       "Withdrawn": false,
       "Title": "Bad Date Game",
       "Links": null,
@@ -152,7 +147,6 @@
     },
     {
       "ExternalID": "csv:physical|switch|shelf thing|",
-      "PreviousExternalID": "",
       "Withdrawn": false,
       "Title": "Shelf Thing",
       "Links": null,
@@ -181,7 +175,6 @@
     },
     {
       "ExternalID": "csv:library|steam|link thing|",
-      "PreviousExternalID": "",
       "Withdrawn": false,
       "Title": "Link Thing",
       "Links": {
@@ -212,7 +205,6 @@
     },
     {
       "ExternalID": "csv:physical|ps4|price thing|",
-      "PreviousExternalID": "",
       "Withdrawn": false,
       "Title": "Price Thing",
       "Links": null,
@@ -241,7 +233,6 @@
     },
     {
       "ExternalID": "csv:physical|ps4|cheap thing|",
-      "PreviousExternalID": "",
       "Withdrawn": false,
       "Title": "Cheap Thing",
       "Links": null,
@@ -270,7 +261,6 @@
     },
     {
       "ExternalID": "csv:physical|switch|yen thing|",
-      "PreviousExternalID": "",
       "Withdrawn": false,
       "Title": "Yen Thing",
       "Links": null,
@@ -299,7 +289,6 @@
     },
     {
       "ExternalID": "steam:300",
-      "PreviousExternalID": "",
       "Withdrawn": false,
       "Title": "Linux Thing",
       "Links": null,
@@ -328,7 +317,6 @@
     },
     {
       "ExternalID": "csv:physical|gog|padded title|",
-      "PreviousExternalID": "",
       "Withdrawn": false,
       "Title": "Padded Title",
       "Links": null,

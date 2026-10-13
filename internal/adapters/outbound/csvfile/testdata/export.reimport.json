@@ -2,7 +2,6 @@
   "Copies": [
     {
       "ExternalID": "manual:quest",
-      "PreviousExternalID": "",
       "Withdrawn": false,
       "Title": "Console Quest",
       "Links": {
@@ -35,7 +34,6 @@
     },
     {
       "ExternalID": "humble:A:1",
-      "PreviousExternalID": "",
       "Withdrawn": false,
       "Title": "Console Quest",
       "Links": {
@@ -68,7 +66,6 @@
     },
     {
       "ExternalID": "copy:c3",
-      "PreviousExternalID": "",
       "Withdrawn": false,
       "Title": "Pocket Hero",
       "Links": null,
@@ -97,7 +94,6 @@
     },
     {
       "ExternalID": "steam:300",
-      "PreviousExternalID": "",
       "Withdrawn": false,
       "Title": "Pocket Hero",
       "Links": null,

@@ -113,19 +113,11 @@ func (s *Service) IncludeCopy(ctx context.Context, id source.ID, externalID stri
 func skipExcluded(src *source.Source, copies []game.ImportedCopy) ([]game.ImportedCopy, int) {
 	out := make([]game.ImportedCopy, len(copies))
 	skipped := 0
-	// How many items report each old id: an old id may have named several of them.
-	previous := map[string]int{}
-
-	for _, c := range copies {
-		if c.PreviousExternalID != "" {
-			previous[c.PreviousExternalID]++
-		}
-	}
 
 	for i, c := range copies {
 		out[i] = c
 
-		if c.Withdrawn || !excludedItem(src, c, previous[c.PreviousExternalID] > 1) {
+		if c.Withdrawn || !src.Excludes(c.ExternalID) {
 			continue
 		}
 
@@ -134,27 +126,4 @@ func skipExcluded(src *source.Source, copies []game.ImportedCopy) ([]game.Import
 	}
 
 	return out, skipped
-}
-
-// excludedItem reports whether the user removed this imported item. Its old id counts too, so a
-// store that changed its id format does not bring it back. When the old id is shared by several
-// items (Humble's named an order, not a key), it only counts for the item with the removed title:
-// the same title in any script (SameTitle), or the same MatchKey, which also ignores edition and
-// store tags. SameMatchKey alone would never match a title in another script (its key is empty),
-// and the plain key comparison would match every such title with every other.
-func excludedItem(src *source.Source, c game.ImportedCopy, sharedPrevious bool) bool {
-	if src.Excludes(c.ExternalID) {
-		return true
-	}
-
-	if c.PreviousExternalID == "" {
-		return false
-	}
-
-	e, ok := src.Exclusion(c.PreviousExternalID)
-	if !ok {
-		return false
-	}
-
-	return !sharedPrevious || game.SameTitle(e.Title, c.Title) || game.SameMatchKey(e.Title, c.Title)
 }

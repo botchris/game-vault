@@ -9,8 +9,10 @@ As of 2026-10, `/api/v1/orders?all_tpkds=true` returns each order's keys in `tpk
   every key. `machine_name` (e.g. `tunic_steam`) tells the keys of an order apart.
 - Until 2026-10-08 the ExternalID was `humble:<gamekey>:<keyindex>`, so every key of an order
   shared one id and the consolidator folded them into one copy (game of the first key, key and
-  status of the last); Humble Choice months showed one game each. Now `humble:<gamekey>:<machine_name>:<keyindex>`, with the old id
-  as `PreviousExternalID` (see [[data-model]]).
+  status of the last); Humble Choice months showed one game each. Now `humble:<gamekey>:<machine_name>:<keyindex>`
+  (`humble:<gamekey>:<keyindex>` only for a key without a machine name), pinned by
+  `TestMapOrders_externalIDsNeverChange`. The old id was carried as `PreviousExternalID` until
+  2026-10-13, when the maintainer's data had none left and it was removed (see [[data-model]]).
 - Bundles also hold non-game keys (software: Ashampoo, Corel, Magix; courses: Udemy, Zenva;
   in-game items: Duelyst, Sega, Destiny emblems; "45% off … PS Store Coupon"). Their key type is
   a vendor name, so only keys whose platform is in `game.IsKnownPlatform` (and not a coupon title)

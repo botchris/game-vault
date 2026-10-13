@@ -62,10 +62,9 @@ func MapOrders(orders []json.RawMessage, now time.Time) (copies []game.ImportedC
 			}
 
 			// keyindex only numbers repeated copies of the same game in an order (almost always
-			// 0), so the key is told apart by its machine name. Older versions used
-			// gamekey:keyindex alone, which folded every key of an order into one copy.
-			previous := fmt.Sprintf("humble:%s:%v", gamekey, t["keyindex"])
-			id := previous
+			// 0), so the key is told apart by its machine name. A key without one keeps
+			// gamekey:keyindex. Both formats are stored ids: never change them.
+			id := fmt.Sprintf("humble:%s:%v", gamekey, t["keyindex"])
 
 			if machine := str(t, "machine_name"); machine != "" {
 				id = fmt.Sprintf("humble:%s:%s:%v", gamekey, machine, t["keyindex"])
@@ -76,10 +75,9 @@ func MapOrders(orders []json.RawMessage, now time.Time) (copies []game.ImportedC
 				// Software, courses, in-game items and store coupons come in bundles too. They are
 				// reported as withdrawn so a copy imported before this filter existed is removed.
 				copies = append(copies, game.ImportedCopy{
-					ExternalID:         id,
-					PreviousExternalID: previous,
-					Title:              title,
-					Withdrawn:          true,
+					ExternalID: id,
+					Title:      title,
+					Withdrawn:  true,
 				})
 				skipped = append(skipped, title)
 
@@ -87,10 +85,9 @@ func MapOrders(orders []json.RawMessage, now time.Time) (copies []game.ImportedC
 			}
 
 			copies = append(copies, game.ImportedCopy{
-				ExternalID:         id,
-				PreviousExternalID: previous,
-				Title:              title,
-				Links:              steamLink(t),
+				ExternalID: id,
+				Title:      title,
+				Links:      steamLink(t),
 				Details: game.CopyDetails{
 					Kind:       game.KindKey,
 					Platform:   platform,

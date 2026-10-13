@@ -40,7 +40,7 @@ func TestMapOrders_eachKeyIsOneCopy(t *testing.T) {
 			require.Empty(t, warnings)
 			require.Len(t, copies, 6)
 
-			t.Run("THEN every key gets its own external id, with the old one as previous", func(t *testing.T) {
+			t.Run("THEN every key gets its own external id", func(t *testing.T) {
 				ids := map[string]bool{}
 				for _, c := range copies {
 					ids[c.ExternalID] = true
@@ -49,7 +49,6 @@ func TestMapOrders_eachKeyIsOneCopy(t *testing.T) {
 				assert.Len(t, ids, 6)
 				assert.Equal(t, "humble:AAA:hades_steam:0", copies[0].ExternalID)
 				assert.Equal(t, "humble:AAA:hades_steam:1", copies[1].ExternalID)
-				assert.Equal(t, "humble:AAA:0", copies[0].PreviousExternalID)
 			})
 
 			t.Run("THEN status, platform and redeem-by come from each key", func(t *testing.T) {
@@ -103,6 +102,44 @@ const mixed = `{"gamekey":"CCC","product":{"human_name":"Stand with Ukraine Bund
   {"machine_name":"duelyst_orbs","human_name":"Duelyst - 20 Spirit Orbs","key_type":"generic","key_type_human_name":"Duelyst","keyindex":0},
   {"machine_name":"strider_ps4","human_name":"Strider","key_type":"generic","key_type_human_name":"PS4","keyindex":0},
   {"machine_name":"tunic_steam","human_name":"Tunic","key_type":"steam","keyindex":0}]}}`
+
+// TestMapOrders_externalIDsNeverChange pins the ids Humble keys are stored under: a different id
+// for the same key would duplicate its copy on the next scan and bring back the keys the user
+// removed.
+func TestMapOrders_externalIDsNeverChange(t *testing.T) {
+	now := time.Date(2026, 10, 7, 0, 0, 0, 0, time.UTC)
+	// One order with keys of every shape: with a machine name and keyindex 0 or 1, without a machine
+	// name, with its own gamekey, and a key that is not a game (withdrawn, under the same format).
+	const orders = `{"gamekey":"ORD1","created":"2023-05-01T10:00:00.000000","product":{"human_name":"Bundle"},
+ "tpkd_dict":{"all_tpks":[
+  {"machine_name":"tunic_steam","human_name":"Tunic","key_type":"steam","keyindex":0},
+  {"machine_name":"tunic_steam","human_name":"Tunic","key_type":"steam","keyindex":1},
+  {"human_name":"Celeste","key_type":"steam","keyindex":0},
+  {"gamekey":"OWN2","machine_name":"hades_steam","human_name":"Hades","key_type":"steam","keyindex":0},
+  {"machine_name":"photo_optimizer","human_name":"Photo Optimizer","key_type":"generic","keyindex":0}]}}`
+
+	t.Run("GIVEN an order with keys of every shape", func(t *testing.T) {
+		t.Run("WHEN it is mapped", func(t *testing.T) {
+			copies, _, warnings := MapOrders([]json.RawMessage{json.RawMessage(orders)}, now)
+			require.Empty(t, warnings)
+
+			t.Run("THEN each key keeps the external id it has always had", func(t *testing.T) {
+				ids := make([]string, 0, len(copies))
+				for _, c := range copies {
+					ids = append(ids, c.ExternalID)
+				}
+
+				assert.Equal(t, []string{
+					"humble:ORD1:tunic_steam:0",
+					"humble:ORD1:tunic_steam:1",
+					"humble:ORD1:0",
+					"humble:OWN2:hades_steam:0",
+					"humble:ORD1:photo_optimizer:0",
+				}, ids)
+			})
+		})
+	})
+}
 
 func TestMapOrders_nonGameKeys(t *testing.T) {
 	now := time.Date(2026, 10, 7, 0, 0, 0, 0, time.UTC)
