@@ -40,9 +40,23 @@ var (
 	// key): like a sign-out, it is an error in System → Health.
 	ErrSignedOut = source.SignedOut("steam rejected the API key: create a new one at steamcommunity.com/dev/apikey and paste it")
 
-	// ErrProfileNotFound means Steam knows no profile with that custom URL name.
+	// ErrProfileNotFound means Steam knows no profile with that custom URL name. The error returned
+	// matches it and names the profile (profileNotFound).
 	ErrProfileNotFound = errkind.New(errkind.Invalid, "steam has no profile with that name: check the profile URL or SteamID64 in the settings")
 )
+
+// profileNotFound is ErrProfileNotFound for one profile name, which its message shows.
+type profileNotFound string
+
+func (e profileNotFound) Error() string {
+	return fmt.Sprintf("steam has no profile named %q: check the profile URL or SteamID64 in the settings", string(e))
+}
+
+// Is makes errors.Is(e, ErrProfileNotFound) true.
+func (profileNotFound) Is(target error) bool { return target == ErrProfileNotFound }
+
+// Kind returns ErrProfileNotFound's kind.
+func (profileNotFound) Kind() errkind.Kind { return errkind.Invalid }
 
 // Provider implements sync.Provider for Steam libraries.
 type Provider struct {
@@ -189,7 +203,7 @@ func (p *Provider) resolveSteamID(ctx context.Context, key, profile string) (str
 	}
 
 	if out.Response.Success != 1 {
-		return "", fmt.Errorf("%w (%q)", ErrProfileNotFound, profile)
+		return "", profileNotFound(profile)
 	}
 
 	return out.Response.SteamID, nil

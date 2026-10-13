@@ -109,7 +109,7 @@ func TestTest_countsWithoutDownloading(t *testing.T) {
 
 			t.Run("THEN it says the profile was not found, as input to fix", func(t *testing.T) {
 				require.ErrorIs(t, err, ErrProfileNotFound)
-				assert.Contains(t, err.Error(), "nobody-here")
+				assert.Contains(t, err.Error(), `no profile named "nobody-here"`)
 				assert.Equal(t, errkind.Invalid, errkind.Of(err))
 			})
 		})
