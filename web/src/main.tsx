@@ -4,10 +4,6 @@ import App from './App';
 import '@fontsource-variable/archivo/wdth.css';
 import './i18n';
 import './styles.css';
-import { forget } from './lib/storage';
-
-// Covers once kept their band colours here; the backdrop is now the blurred cover, so drop them.
-forget('gamevault.coverColors');
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

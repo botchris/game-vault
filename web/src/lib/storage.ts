@@ -22,15 +22,6 @@ export function remember(key: string, value: string): boolean {
   }
 }
 
-/** Removes what is saved under `key` (nothing happens when storage is unavailable). */
-export function forget(key: string): void {
-  try {
-    localStorage.removeItem(key);
-  } catch {
-    // Storage blocked: nothing was kept.
-  }
-}
-
 /** The choice saved under `key` while it is one of `allowed` (an older version may have saved
  *  another), else `fallback`. */
 export function recallChoice<T extends string>(key: string, fallback: T, allowed: readonly T[]): T {
