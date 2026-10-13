@@ -63,15 +63,19 @@ type limit struct {
 	Refresh *int `json:"allowance_refresh_timer"`
 }
 
-// verdict reads an API/Limit answer: nil with allowance left, ErrNoAllowance when it is used up, and
+// verdict reads an API/Limit answer read at now: nil with allowance left, an *allowanceError (which
+// matches ErrNoAllowance) when it is used up, the same error lookups get meanwhile, and
 // ErrUnknownKey for an unknown key, which TheGamesDB answers with no allowance and a zero refresh
 // timer (a valid key that used up its allowance still has a refresh timer).
-func (l limit) verdict() error {
+func (l limit) verdict(now time.Time) error {
 	switch {
 	case l.Remaining == nil, *l.Remaining+l.Extra == 0 && l.Refresh != nil && *l.Refresh == 0:
 		return ErrUnknownKey
 	case *l.Remaining+l.Extra == 0:
-		return ErrNoAllowance
+		return &allowanceError{
+			left:  l.renewal(),
+			until: now.Add(l.renewal()),
+		}
 	}
 
 	return nil
@@ -117,11 +121,13 @@ func (p *Provider) note(apiKey string, lim limit, now time.Time) {
 		p.allowance.keys = map[string]keyAllowance{}
 	}
 
+	verdict := lim.verdict(now)
+
 	k := keyAllowance{
 		checked: now,
-		unknown: errors.Is(lim.verdict(), ErrUnknownKey),
+		unknown: errors.Is(verdict, ErrUnknownKey),
 	}
-	if errors.Is(lim.verdict(), ErrNoAllowance) {
+	if errors.Is(verdict, ErrNoAllowance) {
 		k.until = now.Add(lim.renewal())
 	}
 
@@ -160,7 +166,7 @@ func (p *Provider) checkAllowance(ctx context.Context, apiKey string) error {
 
 	p.note(apiKey, lim, p.clock())
 
-	if errors.Is(lim.verdict(), ErrUnknownKey) {
+	if errors.Is(lim.verdict(p.clock()), ErrUnknownKey) {
 		return errUnknownKeyLimited
 	}
 
@@ -226,6 +232,10 @@ func (e *allowanceError) Error() string {
 }
 
 func (e *allowanceError) Unwrap() error { return provider.ErrQuotaExhausted }
+
+// Is matches ErrNoAllowance, so a Test that finds the allowance used up and a lookup refused
+// meanwhile are the same error.
+func (e *allowanceError) Is(target error) bool { return target == ErrNoAllowance }
 
 // renewsIn describes a wait in round days, hours or minutes ("12 days").
 func renewsIn(d time.Duration) string {

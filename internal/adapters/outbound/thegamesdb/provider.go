@@ -227,8 +227,9 @@ func (p *Provider) getNow(ctx context.Context, path string, q url.Values, out an
 	return fmt.Errorf("not answering, try again later (%w): %w", err, provider.ErrUnavailable)
 }
 
-// ErrUnknownKey means TheGamesDB does not know the API key.
-var ErrUnknownKey = errkind.New(errkind.Precondition, "the API key was not recognized: check it in the provider settings")
+// ErrUnknownKey means TheGamesDB does not know the API key. It matches provider.ErrBadSettings, so
+// Test sets the provider's "settings" status as a lookup refused for the key does.
+var ErrUnknownKey = provider.BadSettings("the API key was not recognized: check it in the provider settings")
 
 // Test implements providers.Impl by reading the remaining allowance; that endpoint does not consume
 // it. It answers 200 even for unknown keys, with no allowance and a zero refresh timer, which is how
@@ -244,12 +245,14 @@ func (p *Provider) Test(ctx context.Context, s schema.Settings) error {
 
 	// What the check found also holds for lookups: allowance bought after it ran out lets them
 	// through again at once.
-	p.note(key, out, p.clock())
+	now := p.clock()
+	p.note(key, out, now)
 
-	return out.verdict()
+	return out.verdict(now)
 }
 
-// ErrNoAllowance means the key works but this month's requests are used up.
+// ErrNoAllowance means the key works but this month's requests are used up. Test returns it as an
+// error that also matches provider.ErrQuotaExhausted and says when the allowance renews.
 var ErrNoAllowance = errkind.New(errkind.Unavailable, "the key has used this month's allowance: covers from it resume when the month renews")
 
 // platformIDs resolves Game Vault platform names to TheGamesDB ids, fetching the platform list
