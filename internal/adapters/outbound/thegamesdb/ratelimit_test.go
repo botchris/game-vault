@@ -279,6 +279,7 @@ func TestThrottle_noAnswer(t *testing.T) {
 	t.Run("GIVEN a caller whose deadline ends before TheGamesDB answers", func(t *testing.T) {
 		p := testProvider(srv)
 		p.throttle = newThrottle(time.Millisecond, nil, nil)
+
 		stall.Store(true)
 
 		gone, stop := context.WithTimeout(ctx, 50*time.Millisecond)
@@ -300,6 +301,7 @@ func TestThrottle_noAnswer(t *testing.T) {
 	t.Run("GIVEN TheGamesDB drops the connection without answering", func(t *testing.T) {
 		p := testProvider(srv)
 		p.throttle = newThrottle(time.Millisecond, nil, nil)
+
 		hangUp.Store(true)
 
 		require.ErrorIs(t, lookup(ctx, p), provider.ErrUnavailable)

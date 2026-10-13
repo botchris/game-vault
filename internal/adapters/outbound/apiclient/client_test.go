@@ -187,7 +187,10 @@ func TestClient_nilHeaderRemovesIt(t *testing.T) {
 		t.Run("WHEN a request names Accept and a client header with a nil value", func(t *testing.T) {
 			var out map[string]bool
 
-			err := c.Do(ctx, Request{Path: "/", Header: http.Header{"Accept": nil, "X-Key": nil}}, &out)
+			err := c.Do(ctx, Request{
+				Path:   "/",
+				Header: http.Header{"Accept": nil, "X-Key": nil},
+			}, &out)
 			require.NoError(t, err)
 
 			t.Run("THEN neither the default Accept nor the client's header is sent", func(t *testing.T) {

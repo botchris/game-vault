@@ -287,4 +287,3 @@ func origin(k ownedKey) string {
 
 	return "itch.io bundle, claim or gift"
 }
-
