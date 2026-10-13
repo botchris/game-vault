@@ -49,7 +49,7 @@ func TestCovers(t *testing.T) {
 	defer srv.Close()
 
 	c := NewCovers()
-	c.p.OAuth.BaseURL, c.p.Catalog.BaseURL = srv.URL, srv.URL
+	c.OAuth.BaseURL, c.Catalog.BaseURL = srv.URL, srv.URL
 
 	q := media.GameQuery{
 		Title: "Control",
@@ -94,7 +94,7 @@ func TestCovers_Test(t *testing.T) {
 		defer srv.Close()
 
 		c := NewCovers()
-		c.p.OAuth.BaseURL = srv.URL
+		c.OAuth.BaseURL = srv.URL
 
 		t.Run("WHEN the provider is tested", func(t *testing.T) {
 			err := c.Test(ctx, nil)
@@ -112,7 +112,7 @@ func TestCovers_Test(t *testing.T) {
 		defer srv.Close()
 
 		c := NewCovers()
-		c.p.OAuth.BaseURL = srv.URL
+		c.OAuth.BaseURL = srv.URL
 
 		t.Run("WHEN the provider is tested", func(t *testing.T) {
 			err := c.Test(ctx, nil)
@@ -160,7 +160,7 @@ func TestCovers_passingTroubles(t *testing.T) {
 				defer srv.Close()
 
 				c := NewCovers()
-				c.p.OAuth.BaseURL, c.p.Catalog.BaseURL = srv.URL, srv.URL
+				c.OAuth.BaseURL, c.Catalog.BaseURL = srv.URL, srv.URL
 
 				t.Run("WHEN covers are asked", func(t *testing.T) {
 					_, err := c.Covers(ctx, q, nil)
@@ -173,4 +173,48 @@ func TestCovers_passingTroubles(t *testing.T) {
 			})
 		}
 	}
+}
+
+// TestCovers_refusedToken checks that the catalog refusing the application token renews it once
+// and then reports a plain error: the covers have no user session, so it is never the source's
+// "sign in again".
+func TestCovers_refusedToken(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN Epic's catalog refuses every application token with HTTP 401", func(t *testing.T) {
+		var tokens int
+
+		mux := http.NewServeMux()
+		mux.HandleFunc("POST /account/api/oauth/token", func(w http.ResponseWriter, _ *http.Request) {
+			tokens++
+
+			fmt.Fprint(w, `{"access_token":"app","expires_at":"2099-01-01T00:00:00.000Z"}`)
+		})
+		mux.HandleFunc("GET /catalog/api/shared/bulk/items", func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusUnauthorized)
+		})
+
+		srv := httptest.NewServer(mux)
+		defer srv.Close()
+
+		c := NewCovers()
+		c.OAuth.BaseURL, c.Catalog.BaseURL = srv.URL, srv.URL
+
+		t.Run("WHEN covers are asked", func(t *testing.T) {
+			_, err := c.Covers(ctx, media.GameQuery{
+				Title: "Control",
+				Links: game.Links{"epic": "abc"},
+			}, nil)
+
+			t.Run("THEN it fails without signing a source out", func(t *testing.T) {
+				require.Error(t, err)
+				assert.NotErrorIs(t, err, source.ErrSignedOut)
+
+				t.Run("AND the token was renewed once", func(t *testing.T) {
+					assert.Equal(t, 2, tokens)
+				})
+			})
+		})
+	})
 }

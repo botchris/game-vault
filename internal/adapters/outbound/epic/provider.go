@@ -324,7 +324,7 @@ func (p *Provider) refresh(ctx context.Context, s session) (oauthsession.Grant[s
 
 // grant calls the token endpoint for a user's session.
 func (p *Provider) grant(ctx context.Context, form url.Values) (oauthsession.Grant[session], error) {
-	tok, err := p.oauthRaw(ctx, form)
+	tok, err := requestToken(ctx, p.OAuth, form)
 	if err != nil {
 		return oauthsession.Grant[session]{}, err
 	}
@@ -345,9 +345,11 @@ func (p *Provider) grant(ctx context.Context, form url.Values) (oauthsession.Gra
 	}, nil
 }
 
-// oauthRaw calls the token endpoint. Client-credentials tokens carry no refresh token.
-func (p *Provider) oauthRaw(ctx context.Context, form url.Values) (tokenResponse, error) {
-	res, err := p.OAuth.Send(ctx, apiclient.Request{
+// requestToken calls the token endpoint of Epic's account service through api, for the source's
+// sessions and the covers' application token alike. Client-credentials tokens carry no refresh
+// token.
+func requestToken(ctx context.Context, api *apiclient.Client, form url.Values) (tokenResponse, error) {
+	res, err := api.Send(ctx, apiclient.Request{
 		Method: http.MethodPost,
 		Path:   "/account/api/oauth/token",
 		Form:   form,
