@@ -38,11 +38,25 @@ export function issueTitle(issue: Pick<IssueLike, 'kind' | 'source'>, t: Transla
   return issue.source;
 }
 
-const reasons = new Set([
-  'provider_quota', 'provider_rate_limited', 'provider_unavailable', 'provider_settings',
-  'source_signed_out', 'source_sync_failed', 'source_keepalive_failed', 'source_list_failed',
-  'backup_failed', 'backup_stale', 'disk_low', 'disk_critical',
-]);
+/** The reason codes the server sends (health.Reason, internal/application/health/health.go), each
+ *  translated under health.reasons. TestHealthReasons_webAgrees (cmd/gamevault) keeps the server's
+ *  list, this one and the translations equal. */
+export const Reason = {
+  ProviderQuota: 'provider_quota',
+  ProviderRateLimited: 'provider_rate_limited',
+  ProviderUnavailable: 'provider_unavailable',
+  ProviderSettings: 'provider_settings',
+  SourceSignedOut: 'source_signed_out',
+  SourceSyncFailed: 'source_sync_failed',
+  SourceKeepAliveFailed: 'source_keepalive_failed',
+  SourceListFailed: 'source_list_failed',
+  BackupFailed: 'backup_failed',
+  BackupStale: 'backup_stale',
+  DiskLow: 'disk_low',
+  DiskCritical: 'disk_critical',
+} as const;
+
+const reasons = new Set<string>(Object.values(Reason));
 
 /** The issue's reason in the UI's language ("Monthly allowance used up; renews in 27 days"), or the
  *  server's English message for a reason this version does not know. */

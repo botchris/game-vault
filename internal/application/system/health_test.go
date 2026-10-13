@@ -42,7 +42,7 @@ func TestService_healthIssues(t *testing.T) {
 			t.Run("THEN the failure is an error with its cause, pointing to the backups", func(t *testing.T) {
 				require.NotEmpty(t, issues)
 				assert.Equal(t, health.LevelError, issues[0].Level)
-				assert.Equal(t, "backup_failed", issues[0].Reason)
+				assert.Equal(t, health.ReasonBackupFailed, issues[0].Reason)
 				assert.Empty(t, issues[0].Source, "named by the UI in its language")
 				assert.Equal(t, health.KindBackups, issues[0].Kind)
 				assert.Contains(t, issues[0].Message, "no space left on device")
@@ -63,7 +63,7 @@ func TestService_healthIssues(t *testing.T) {
 			t.Run("THEN it warns that none succeeded lately", func(t *testing.T) {
 				require.Len(t, issues, 1)
 				assert.Equal(t, health.LevelWarning, issues[0].Level)
-				assert.Equal(t, "backup_stale", issues[0].Reason)
+				assert.Equal(t, health.ReasonBackupStale, issues[0].Reason)
 				assert.Equal(t, "4", issues[0].Params["days"])
 				assert.Contains(t, issues[0].Message, "4 days")
 			})
@@ -101,7 +101,7 @@ func TestService_healthIssues(t *testing.T) {
 
 			issues := svc.Issues(ctx)
 			require.Len(t, issues, 1)
-			assert.Equal(t, "backup_failed", issues[0].Reason)
+			assert.Equal(t, health.ReasonBackupFailed, issues[0].Reason)
 		})
 	})
 
@@ -114,7 +114,7 @@ func TestService_healthIssues(t *testing.T) {
 		t.Run("THEN it still warns: the restart made no backup", func(t *testing.T) {
 			issues := svc.Issues(ctx)
 			require.Len(t, issues, 1)
-			assert.Equal(t, "backup_stale", issues[0].Reason)
+			assert.Equal(t, health.ReasonBackupStale, issues[0].Reason)
 		})
 	})
 

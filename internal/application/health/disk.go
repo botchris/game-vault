@@ -61,9 +61,9 @@ func (d DiskCheck) Issues(context.Context) []Issue {
 
 	switch {
 	case free < diskErrorBytes:
-		issue.Level, issue.Reason = LevelError, "disk_critical"
+		issue.Level, issue.Reason = LevelError, ReasonDiskCritical
 	case free < diskWarnBytes || float64(free) < min(diskWarnRatio*float64(total), diskWarnRatioCap):
-		issue.Level, issue.Reason = LevelWarning, "disk_low"
+		issue.Level, issue.Reason = LevelWarning, ReasonDiskLow
 	default:
 		return nil
 	}

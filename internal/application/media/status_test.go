@@ -504,9 +504,9 @@ func TestProviderStatus_healthIssues(t *testing.T) {
 				}
 
 				assert.Equal(t, health.LevelError, byKey["provider:db-details"].Level)
-				assert.Equal(t, "provider_settings", byKey["provider:db-details"].Reason)
+				assert.Equal(t, health.ReasonProviderSettings, byKey["provider:db-details"].Reason)
 				assert.Equal(t, health.LevelWarning, byKey["provider:db"].Level)
-				assert.Equal(t, "provider_quota", byKey["provider:db"].Reason)
+				assert.Equal(t, health.ReasonProviderQuota, byKey["provider:db"].Reason)
 				assert.NotEmpty(t, byKey["provider:db"].Params["until"], "when the allowance renews, for the translated reason")
 
 				for _, i := range issues {

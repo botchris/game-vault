@@ -55,7 +55,7 @@ func (s *Service) Issues(ctx context.Context) []health.Issue {
 			Key:     "sources",
 			Level:   health.LevelWarning,
 			Kind:    health.KindSource,
-			Reason:  "source_list_failed",
+			Reason:  health.ReasonSourceListFailed,
 			Message: "the sources could not be read to check them: " + err.Error() + "; if it persists, report this message",
 			Target:  health.TargetSources,
 		}}
@@ -77,7 +77,7 @@ func (s *Service) Issues(ctx context.Context) []health.Issue {
 		}
 
 		// A signed-out source says to sign in again, then the store's own explanation (raw).
-		issue := func(key, reason string, signedOut bool, warning, raw string) health.Issue {
+		issue := func(key string, reason health.Reason, signedOut bool, warning, raw string) health.Issue {
 			i := health.Issue{
 				Key:      "source:" + string(src.ID()) + key,
 				Level:    health.LevelWarning,
@@ -89,7 +89,7 @@ func (s *Service) Issues(ctx context.Context) []health.Issue {
 				TargetID: string(src.ID()),
 			}
 			if signedOut {
-				i.Level, i.Reason, i.Message = health.LevelError, "source_signed_out", signInAgain+" ("+raw+")"
+				i.Level, i.Reason, i.Message = health.LevelError, health.ReasonSourceSignedOut, signInAgain+" ("+raw+")"
 			}
 
 			return i
@@ -97,13 +97,13 @@ func (s *Service) Issues(ctx context.Context) []health.Issue {
 
 		// A report saved before SignedOut existed stays a warning until the next scan.
 		if r := src.LastSync(); r != nil && !r.Success() {
-			i := issue(":sync", "source_sync_failed", r.SignedOut, "the last scan failed: "+r.Err, r.Err)
+			i := issue(":sync", health.ReasonSourceSyncFailed, r.SignedOut, "the last scan failed: "+r.Err, r.Err)
 			i.Since = cmp.Or(r.FailingSince, r.FinishedAt)
 			out = append(out, i)
 		}
 
 		if f, ok := alive[src.ID()]; ok {
-			i := issue(":keepalive", "source_keepalive_failed", f.signedOut, "keeping the session alive failed: "+f.message, f.message)
+			i := issue(":keepalive", health.ReasonSourceKeepAliveFailed, f.signedOut, "keeping the session alive failed: "+f.message, f.message)
 			i.Since = f.since
 			out = append(out, i)
 		}

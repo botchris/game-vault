@@ -33,7 +33,7 @@ func (s *Service) Issues(ctx context.Context) []health.Issue {
 	}
 
 	if lastErr != nil {
-		issue.Level, issue.Reason, issue.Since = health.LevelError, "backup_failed", lastErrAt
+		issue.Level, issue.Reason, issue.Since = health.LevelError, health.ReasonBackupFailed, lastErrAt
 		issue.Message = fmt.Sprintf("the last backup failed: %v: check the disk space and the log, then make one now in System", lastErr)
 
 		return []health.Issue{issue}
@@ -50,7 +50,7 @@ func (s *Service) Issues(ctx context.Context) []health.Issue {
 	}
 
 	days := strconv.Itoa(int(quiet.Hours() / 24))
-	issue.Level, issue.Reason, issue.Since = health.LevelWarning, "backup_stale", newest
+	issue.Level, issue.Reason, issue.Since = health.LevelWarning, health.ReasonBackupStale, newest
 	issue.Params = map[string]string{"days": days}
 	issue.Message = fmt.Sprintf("no backup has succeeded in %s days: check the log, or make one now in System", days)
 
