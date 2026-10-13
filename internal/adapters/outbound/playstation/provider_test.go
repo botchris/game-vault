@@ -192,12 +192,12 @@ func (f *fakeSony) handler() http.Handler {
 	return mux
 }
 
-func newTest(t *testing.T) (*Provider, *fakeSony) {
+func newTest(t *testing.T, opts ...Option) (*Provider, *fakeSony) {
 	f := &fakeSony{}
 	srv := httptest.NewServer(f.handler())
 	t.Cleanup(srv.Close)
 
-	p := NewProvider(nil)
+	p := NewProvider(opts...)
 	pointAt(p, srv.URL)
 
 	return p, f
@@ -211,12 +211,10 @@ func pointAt(p *Provider, base string) {
 }
 
 func TestFetch(t *testing.T) {
-	p, f := newTest(t)
-	settings := schema.Settings{settingNPSSO: `{"npsso":"good-npsso"}`}
-
 	var logs bytes.Buffer
 
-	p.Log = slog.New(slog.NewTextHandler(&logs, nil))
+	p, f := newTest(t, WithLogger(slog.New(slog.NewTextHandler(&logs, nil))))
+	settings := schema.Settings{settingNPSSO: `{"npsso":"good-npsso"}`}
 
 	copies, warnings, err := p.Fetch(context.Background(), settings)
 	if err != nil {

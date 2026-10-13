@@ -27,7 +27,7 @@ func TestFetch_failures(t *testing.T) {
 			srv := httptest.NewServer(apiclienttest.FailOn(fake.handler(), "/graphql", f.Serve))
 			t.Cleanup(srv.Close)
 
-			p := NewProvider(nil)
+			p := NewProvider()
 			pointAt(p, srv.URL)
 
 			t.Run("WHEN the library is scanned", func(t *testing.T) {

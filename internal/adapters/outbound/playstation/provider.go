@@ -109,8 +109,8 @@ type Provider struct {
 	// Now is the clock.
 	Now func() time.Time
 
-	// Log receives the titles left out as non-games. Optional.
-	Log *slog.Logger
+	// log receives the titles left out as non-games (WithLogger).
+	log *slog.Logger
 
 	// sessions exchanges the NPSSO for a session and keeps the sessions' access tokens. The NPSSO
 	// is not a one-time code: it stays in the settings, so the source does not implement
@@ -119,7 +119,7 @@ type Provider struct {
 }
 
 // NewProvider returns the PlayStation source with its production endpoints.
-func NewProvider(log *slog.Logger) *Provider {
+func NewProvider(opts ...Option) *Provider {
 	auth := newClient(defaultAuthURL)
 	// The authorization step answers with a redirect to the app's custom scheme: read it, do not
 	// follow it.
@@ -130,7 +130,6 @@ func NewProvider(log *slog.Logger) *Provider {
 		Library:  newClient(defaultLibraryURL),
 		GameList: newClient(defaultGameListURL),
 		Now:      time.Now,
-		Log:      log,
 	}
 	p.sessions = &oauthsession.Sessions[session]{
 		CodeField:        settingNPSSO,
@@ -144,7 +143,19 @@ func NewProvider(log *slog.Logger) *Provider {
 		Now:              func() time.Time { return p.Now() },
 	}
 
+	for _, opt := range opts {
+		opt(p)
+	}
+
 	return p
+}
+
+// Option configures a Provider.
+type Option func(*Provider)
+
+// WithLogger sends the titles a scan leaves out as non-games to log. Without it nothing is logged.
+func WithLogger(log *slog.Logger) Option {
+	return func(p *Provider) { p.log = log }
 }
 
 // newClient returns a client of one of Sony's services. They serve the session of the user's
@@ -662,10 +673,10 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 	skips := source.Skipped{Store: "PlayStation"}
 
 	copies, skipped := mapTitles(titles, p.playedNonGames(ctx, token), &skips)
-	skips.Log(p.Log)
+	skips.Log(p.log)
 
-	if len(skipped) > 0 && p.Log != nil {
-		p.Log.Info("playstation: skipped titles that are not games", "titles", strings.Join(skipped, "; "))
+	if len(skipped) > 0 && p.log != nil {
+		p.log.Info("playstation: skipped titles that are not games", "titles", strings.Join(skipped, "; "))
 	}
 
 	var warnings []string

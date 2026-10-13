@@ -41,21 +41,34 @@ type Provider struct {
 	// Pause between batched requests, to be gentle with Humble.
 	Pause time.Duration
 
-	// Log receives progress messages during long scans. Optional.
-	Log *slog.Logger
+	// log receives progress messages during long scans (WithLogger).
+	log *slog.Logger
 }
 
 // NewProvider returns the Humble Bundle source with its production endpoints.
-func NewProvider(log *slog.Logger) *Provider {
+func NewProvider(opts ...Option) *Provider {
 	// The orders API serves the session of the user's browser, so requests look like that browser.
 	api := apiclient.New(defaultBaseURL)
 	api.UserAgent = apiclient.BrowserUserAgent
 
-	return &Provider{
+	p := &Provider{
 		API:   api,
 		Pause: 500 * time.Millisecond,
-		Log:   log,
 	}
+
+	for _, opt := range opts {
+		opt(p)
+	}
+
+	return p
+}
+
+// Option configures a Provider.
+type Option func(*Provider)
+
+// WithLogger sends what a scan reports while it runs (the orders it downloads, the keys that are not games) to log. Without it nothing is logged.
+func WithLogger(log *slog.Logger) Option {
+	return func(p *Provider) { p.log = log }
 }
 
 // cleanCookie accepts the value as copied from the browser: the bare value, "_simpleauth_sess=…",
@@ -119,7 +132,7 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 
 	copies, skipped, warnings := MapOrders(orders, time.Now())
 	if len(skipped) > 0 {
-		skippedKeys(len(skipped)).Log(p.Log)
+		skippedKeys(len(skipped)).Log(p.log)
 		p.logf("humble: skipped keys that are not games", "titles", strings.Join(skipped, "; "))
 	}
 
@@ -236,7 +249,7 @@ func (p *Provider) fetchOrders(ctx context.Context, cookie string) ([]json.RawMe
 }
 
 func (p *Provider) logf(msg string, args ...any) {
-	if p.Log != nil {
-		p.Log.Info(msg, args...)
+	if p.log != nil {
+		p.log.Info(msg, args...)
 	}
 }

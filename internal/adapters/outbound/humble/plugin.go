@@ -12,6 +12,6 @@ func Plugin(log *slog.Logger) plugin.Plugin {
 	return plugin.Plugin{
 		ID:      "humble",
 		Name:    "Humble Bundle",
-		Sources: []sync.Provider{NewProvider(log)},
+		Sources: []sync.Provider{NewProvider(WithLogger(log))},
 	}
 }

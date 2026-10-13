@@ -27,7 +27,7 @@ func TestFetch_failures(t *testing.T) {
 			srv := httptest.NewServer(apiclienttest.FailOn(http.NotFoundHandler(), "/api/v1/user/order", f.Serve))
 			t.Cleanup(srv.Close)
 
-			p := NewProvider(nil)
+			p := NewProvider()
 			p.API.BaseURL = srv.URL
 			p.Pause = 0
 

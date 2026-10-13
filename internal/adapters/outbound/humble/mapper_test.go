@@ -174,7 +174,7 @@ func TestFetchAgainstFakeServer(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := NewProvider(nil)
+	p := NewProvider()
 	p.API.BaseURL = srv.URL
 	p.API.HTTP = srv.Client()
 	p.Pause = 0
