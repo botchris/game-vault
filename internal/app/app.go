@@ -37,6 +37,7 @@ import (
 	"gamevault/internal/application/sync"
 	"gamevault/internal/application/system"
 	"gamevault/internal/application/transfer"
+	"gamevault/internal/application/upgrade"
 	"gamevault/internal/application/valuation"
 	"gamevault/internal/config"
 	domainauth "gamevault/internal/domain/auth"
@@ -180,6 +181,10 @@ func Build(ctx context.Context, cfg config.Config, db *sqlite.DB, logFiles *logf
 		providers.WithClock(now), providers.WithLogger(log))
 	mediaSvcs := media.New(games, registry, assets, o.images,
 		media.WithPhotoStore(photos), media.WithDetailsStore(sqlite.NewDetailsStore(db)), media.WithClock(now), media.WithLogger(log))
+	// What older versions stored in a shape only the readers convert is rewritten once, before any
+	// service reads it and before any background job starts.
+	upgrade.NewService(games, db, settingsRepo, mediaSvcs.Covers, upgrade.WithLogger(log)).Run(ctx)
+
 	valuationSvc := valuation.NewService(games, db, registry, settingsRepo, now, log, o.plugins.Valuations()...)
 	fieldsSvc := fields.NewService(settingsRepo, games, db, now)
 	catalogSvc := catalog.NewService(games, db, catalog.WithClock(now), catalog.WithCoverCache(mediaSvcs.Covers),

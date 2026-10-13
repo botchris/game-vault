@@ -101,6 +101,44 @@ func (c *Covers) DropLegacyCover(_ context.Context, id game.ID) error {
 	return c.store.DeleteLegacyCover(id)
 }
 
+// LegacyCoverIDs returns the games that still have a cover cached before editions, or its "no cover
+// found" marker, for the one-time start-up upgrade (SettleLegacyCover).
+func (c *Covers) LegacyCoverIDs() []game.ID {
+	return c.store.LegacyCoverIDs()
+}
+
+// SettleLegacyCover does now, for the one-time start-up upgrade, what the main edition's next
+// resolution would do with the game's cover cached before editions: it adopts it (true) or removes
+// it (false). It removes it as well when nothing would ever read it again: the game is gone, the
+// main edition already has a cover of its own (the cache answers before the file is looked at),
+// or only the "no cover found" marker is left (resolving the main edition prunes it).
+func (c *Covers) SettleLegacyCover(ctx context.Context, id game.ID) (adopted bool, err error) {
+	g, err := c.games.Get(ctx, id)
+	if errors.Is(err, game.ErrGameNotFound) {
+		return false, c.store.DeleteLegacyCover(id)
+	}
+
+	if err != nil {
+		return false, err
+	}
+
+	main := g.MainEdition()
+
+	_, cached, err := c.store.GetCover(id, main.System)
+	if err != nil {
+		return false, err
+	}
+
+	if !cached {
+		_, adopted, err = c.adoptLegacyCover(g, GameRef{g.ID(), g.Title()}, main)
+		if err != nil || adopted {
+			return adopted, err
+		}
+	}
+
+	return false, c.store.DeleteLegacyCover(id)
+}
+
 // Invalidate drops the game's cover, details and downloaded images (implements catalog.CoverCache):
 // they depend on the custom cover URL and the game's links, and must go when the game is deleted.
 // It deletes all of the game's media, not only its covers (the sheet and its images too), and lives
