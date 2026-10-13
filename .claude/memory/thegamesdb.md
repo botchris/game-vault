@@ -24,3 +24,6 @@ As of 2026-10:
   back-off) saying when it renews; the cover endpoint answers 503 with `Retry-After: 3600`. The
   state is per key and `Test` updates it (extra allowance lifts it). Error texts don't name
   TheGamesDB: sheet warnings already prefix "TheGamesDB: ".
+- 2026-10-13 (audit PRV-9): its title search also returns other games ("Halo 3: ODST" for
+  "Halo 3"). `Covers` keeps only the game's own box (`game.SameTitle`, then `game.SameMatchKey`)
+  for the automatic chain; other games are listed only when the picker sets `CoverQuery.Browse`.

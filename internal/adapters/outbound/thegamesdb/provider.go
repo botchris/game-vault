@@ -333,7 +333,9 @@ type searchResponse struct {
 }
 
 // Covers searches the game by title on the edition's system (or, without one, the platforms of its
-// physical copies or all its platforms) and returns front box art, exact title matches first.
+// physical copies or all its platforms) and returns the front box art of the game itself: exact
+// title matches first, then its other releases (same game.MatchKey). The picker (q.Browse) also
+// gets the other games the search found, last.
 func (p *Provider) Covers(ctx context.Context, q media.CoverQuery, s schema.Settings) ([]media.CoverCandidate, error) {
 	key := s[settingAPIKey]
 
@@ -400,7 +402,13 @@ func (p *Provider) Covers(ctx context.Context, q media.CoverQuery, s schema.Sett
 		}
 	}
 
-	all := append(append(strict, exact...), others...)
+	// Other games the search found ("Halo 3: ODST" for "Halo 3") are never the game: the automatic
+	// resolution would store the first one as its box. Only the picker, where the user chooses,
+	// lists them after the game's own releases.
+	all := append(strict, exact...)
+	if q.Browse {
+		all = append(all, others...)
+	}
 
 	return all[:min(len(all), maxCandidates)], nil
 }
