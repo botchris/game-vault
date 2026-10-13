@@ -29,10 +29,32 @@ func TestAutoLinks(t *testing.T) {
 	}
 
 	t.Run("GIVEN a PS4 game linked to the PlayStation store", func(t *testing.T) {
-		g := newGame(t, Links{"psn": "PPSA0001"})
+		// Each WHEN builds its own game, so it runs the same alone (go test -run) as after its
+		// siblings.
+		withAutoLinks := func(t *testing.T) (*Game, Links) {
+			t.Helper()
+
+			g := newGame(t, Links{"psn": "PPSA0001"})
+
+			return g, g.AddAutoLinks(Links{LinkSteam: "100", "psn": "OTHER", "gog": "200"}, t1)
+		}
+
+		// rejected is the game after the user removed the automatic Steam link and changed the
+		// automatic GOG one.
+		rejected := func(t *testing.T) *Game {
+			t.Helper()
+
+			g, _ := withAutoLinks(t)
+			info := g.Info()
+			info.Links = Links{"psn": "PPSA0001", "gog": "201"}
+			_, err := g.UpdateInfo(info, t1)
+			require.NoError(t, err)
+
+			return g
+		}
 
 		t.Run("WHEN links are found automatically", func(t *testing.T) {
-			added := g.AddAutoLinks(Links{LinkSteam: "100", "psn": "OTHER", "gog": "200"}, t1)
+			g, added := withAutoLinks(t)
 
 			t.Run("THEN only the missing ones are added, marked automatic", func(t *testing.T) {
 				assert.Equal(t, Links{LinkSteam: "100", "gog": "200"}, added)
@@ -46,7 +68,8 @@ func TestAutoLinks(t *testing.T) {
 			})
 		})
 
-		t.Run("WHEN the user keeps the links while editing something else", func(t *testing.T) {
+		t.Run("WHEN the user keeps the automatic links while editing something else", func(t *testing.T) {
+			g, _ := withAutoLinks(t)
 			info := g.Info()
 			info.Notes = "a note"
 			_, err := g.UpdateInfo(info, t1)
@@ -57,11 +80,8 @@ func TestAutoLinks(t *testing.T) {
 			})
 		})
 
-		t.Run("WHEN the user removes the Steam link and changes the GOG one", func(t *testing.T) {
-			info := g.Info()
-			info.Links = Links{"psn": "PPSA0001", "gog": "201"}
-			_, err := g.UpdateInfo(info, t1)
-			require.NoError(t, err)
+		t.Run("WHEN the user removes the automatic Steam link and changes the GOG one", func(t *testing.T) {
+			g := rejected(t)
 
 			t.Run("THEN both automatic links are remembered as rejected, and the user's GOG link is theirs", func(t *testing.T) {
 				assert.Equal(t, []LinkRef{{"gog", "200"}, {LinkSteam, "100"}}, g.RejectedLinks())
@@ -80,7 +100,10 @@ func TestAutoLinks(t *testing.T) {
 			})
 		})
 
-		t.Run("WHEN the user adds the rejected link by hand", func(t *testing.T) {
+		t.Run("WHEN another Steam id was found after the rejection AND the user adds the rejected one by hand", func(t *testing.T) {
+			g := rejected(t)
+			g.AddAutoLinks(Links{LinkSteam: "101"}, t1)
+
 			info := g.Info()
 			info.Links = Links{"psn": "PPSA0001", "gog": "201", LinkSteam: "100"}
 			_, err := g.UpdateInfo(info, t1)

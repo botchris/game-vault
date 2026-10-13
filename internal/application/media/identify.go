@@ -7,9 +7,14 @@ import (
 	"strings"
 
 	"gamevault/internal/application/providers"
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 )
+
+// ErrInvalidBarcode means there is no barcode to look up: the scanned code is empty. A malformed
+// code is refused before, by game.ParseBarcode, with a validation error that says what is wrong.
+var ErrInvalidBarcode = errkind.New(errkind.Invalid, "invalid barcode")
 
 // Suggestion is a canonical game proposed for a title, with its cover.
 type Suggestion struct {
@@ -86,7 +91,7 @@ func (s *Identifier) IdentifyBarcode(ctx context.Context, raw string) (BarcodeRe
 	}
 
 	if code == "" {
-		return BarcodeResult{}, fmt.Errorf("%w: empty barcode", game.ErrInvalidBarcode)
+		return BarcodeResult{}, fmt.Errorf("%w: empty barcode", ErrInvalidBarcode)
 	}
 
 	res := BarcodeResult{Code: code}

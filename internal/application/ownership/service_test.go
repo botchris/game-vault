@@ -3,6 +3,7 @@ package ownership_test
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -235,8 +236,9 @@ func TestCheck_limits(t *testing.T) {
 	t.Run("GIVEN 201 items", func(t *testing.T) {
 		_, err := svc.Check(ctx, make([]ownership.Item, ownership.MaxItems+1))
 
-		t.Run("THEN the check is refused", func(t *testing.T) {
+		t.Run("THEN the check is refused, naming the limit", func(t *testing.T) {
 			assert.ErrorIs(t, err, ownership.ErrTooManyItems)
+			assert.Contains(t, err.Error(), strconv.Itoa(ownership.MaxItems))
 		})
 	})
 

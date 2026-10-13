@@ -413,11 +413,12 @@ func (g *Game) ReleaseCopiesFromSource(sourceID string, now time.Time) int {
 	return n
 }
 
-// CopyWithBarcode returns the copy carrying barcode b, if any.
+// CopyWithBarcode returns the copy carrying barcode b, if any (a copy, like Copies, so callers
+// cannot bypass the aggregate).
 func (g *Game) CopyWithBarcode(b Barcode) (Copy, bool) {
 	for _, c := range g.copies {
 		if b != "" && c.Barcode == b {
-			return c, true
+			return c.clone(), true
 		}
 	}
 

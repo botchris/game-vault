@@ -171,6 +171,14 @@ func (r *Registry) Statuses() []Status {
 	return out
 }
 
+// issueReasons is the health reason of each kind of provider problem.
+var issueReasons = map[StatusKind]health.Reason{
+	StatusQuota:       health.ReasonProviderQuota,
+	StatusRateLimited: health.ReasonProviderRateLimited,
+	StatusUnavailable: health.ReasonProviderUnavailable,
+	StatusSettings:    health.ReasonProviderSettings,
+}
+
 // Issues implements health.Check: the providers' current problems. Rejected settings are an error
 // (the provider stays useless until they are fixed); a used-up allowance, a rate limit or an outage a
 // warning (it ends on its own).
@@ -189,7 +197,7 @@ func (r *Registry) Issues(context.Context) []health.Issue {
 			Level:   level,
 			Kind:    health.KindProvider,
 			Source:  st.Name,
-			Reason:  "provider_" + string(st.Kind),
+			Reason:  issueReasons[st.Kind],
 			Message: st.Message,
 			Since:   st.Since,
 			Target:  health.TargetProviders,

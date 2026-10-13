@@ -53,9 +53,8 @@ func TestConsolidatorMatchesAndDedupes(t *testing.T) {
 			},
 		},
 	}, t0)
-	if lib.GamesCreated != 2 || lib.CopiesAdded != 2 {
-		t.Fatalf("library import: %+v", lib)
-	}
+	require.Equal(t, 2, lib.GamesCreated, "library import")
+	require.Equal(t, 2, lib.CopiesAdded, "library import")
 
 	c := NewConsolidator(lib.Changed)
 
@@ -64,13 +63,13 @@ func TestConsolidatorMatchesAndDedupes(t *testing.T) {
 		key("humble:A:1", "Celeste™ (Steam Key)", 0, StatusUnrevealed), // matched by title
 		key("humble:A:2", "Brand New Game", 0, StatusUnrevealed),       // new game
 	}, t0)
-	if res.GamesCreated != 1 || res.CopiesAdded != 3 {
-		t.Fatalf("humble import: %+v", res)
-	}
+	require.Equal(t, 1, res.GamesCreated, "humble import")
+	require.Equal(t, 3, res.CopiesAdded, "humble import")
 
 	for _, g := range res.Changed {
-		if g.Title() == "Hades" && (len(g.Copies()) != 2 || !g.IsRedundant(g.Copies()[1])) {
-			t.Errorf("Hades should hold the library copy and a redundant key: %+v", g.Copies())
+		if g.Title() == "Hades" {
+			require.Len(t, g.Copies(), 2, "Hades holds the library copy and the key")
+			assert.True(t, g.IsRedundant(g.Copies()[1]), "the key is redundant")
 		}
 	}
 
@@ -78,9 +77,8 @@ func TestConsolidatorMatchesAndDedupes(t *testing.T) {
 	again := NewConsolidator(append(lib.Changed, res.Changed[2])).Apply("humble-src", []ImportedCopy{
 		key("humble:A:0", "Hades", 1145360, StatusRevealed),
 	}, t0)
-	if again.CopiesUnchanged != 1 || again.CopiesAdded != 0 {
-		t.Fatalf("re-scan should not add copies: %+v", again)
-	}
+	assert.Equal(t, 1, again.CopiesUnchanged, "re-scan")
+	assert.Zero(t, again.CopiesAdded, "re-scan should not add copies")
 }
 
 func TestConsolidatorKeepsRedeemed(t *testing.T) {
@@ -95,9 +93,8 @@ func TestConsolidatorKeepsRedeemed(t *testing.T) {
 	}, t0)
 
 	again := NewConsolidator([]*Game{g}).Apply("h", []ImportedCopy{key("humble:B:0", "Portal", 400, StatusRevealed)}, t0)
-	if again.CopiesUnchanged != 1 || g.Copies()[0].Status != StatusRedeemed {
-		t.Fatalf("a redeemed key must stay redeemed: %+v %+v", again, g.Copies()[0])
-	}
+	assert.Equal(t, 1, again.CopiesUnchanged)
+	assert.Equal(t, StatusRedeemed, g.Copies()[0].Status, "a redeemed key must stay redeemed")
 }
 
 func TestConsolidator_adoptsPreviousExternalID(t *testing.T) {

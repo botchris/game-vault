@@ -12,6 +12,7 @@ import (
 	"gamevault/internal/application/port"
 	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/money"
 	"gamevault/internal/domain/settings"
 	"gamevault/internal/domain/source"
 )
@@ -133,7 +134,7 @@ func (s *Service) defaultCurrency(ctx context.Context, copies []game.ImportedCop
 			continue
 		}
 
-		p.Amount = rescale(p.Amount, 2, game.CurrencyDigits(prefs.Currency))
+		p.Amount = rescale(p.Amount, 2, money.CurrencyDigits(prefs.Currency))
 		p.Currency = prefs.Currency
 	}
 

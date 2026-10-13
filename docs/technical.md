@@ -641,8 +641,12 @@ photos themselves go to one store shared by every backup, `config/backups/photos
 `config/photos`), as hard links: a photo costs no extra space while it is still in use, and it is
 stored once however many backups list it. Where hard links are not possible (another file system)
 it is copied. Rotation (`-backup-keep`) deletes a backup's `.db` and `.photos` together, then the
-store's photos no remaining list names. Backups without a list (older ones, `pre-migration-*.db`)
+store's photos no remaining list names; when a remaining list cannot be read, the store's photos are
+left alone until the next backup. Backups without a list (older ones, `pre-migration-*.db`)
 count as having no photos. System → Backups shows the photos of each backup and the store's size.
+The rules (when to back up, how many to keep, which photos to keep) are `system.Service`'s; the
+files and their layout are the `system.BackupStore` port's, implemented by
+`internal/adapters/outbound/backupdir`.
 
 To restore:
 

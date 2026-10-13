@@ -79,7 +79,7 @@ func TestService_healthIssues(t *testing.T) {
 			t.Run("THEN it is a warning with the error, pointing to the source", func(t *testing.T) {
 				require.Len(t, issues, 1)
 				assert.Equal(t, health.LevelWarning, issues[0].Level)
-				assert.Equal(t, "source_sync_failed", issues[0].Reason)
+				assert.Equal(t, health.ReasonSourceSyncFailed, issues[0].Reason)
 				assert.Equal(t, health.KindSource, issues[0].Kind)
 				assert.Equal(t, "My store", issues[0].Source)
 				assert.Contains(t, issues[0].Message, "HTTP 500")
@@ -125,7 +125,7 @@ func TestService_healthIssues(t *testing.T) {
 			t.Run("THEN it is an error that says to sign in again", func(t *testing.T) {
 				require.Len(t, issues, 1)
 				assert.Equal(t, health.LevelError, issues[0].Level)
-				assert.Equal(t, "source_signed_out", issues[0].Reason)
+				assert.Equal(t, health.ReasonSourceSignedOut, issues[0].Reason)
 				assert.Contains(t, issues[0].Message, "sign in again in Sources")
 				assert.Contains(t, issues[0].Message, "paste them")
 			})
@@ -156,7 +156,7 @@ func TestService_healthIssues(t *testing.T) {
 			t.Run("THEN the failed renewal is a warning", func(t *testing.T) {
 				require.Len(t, issues, 1)
 				assert.Equal(t, health.LevelWarning, issues[0].Level)
-				assert.Equal(t, "source_keepalive_failed", issues[0].Reason)
+				assert.Equal(t, health.ReasonSourceKeepAliveFailed, issues[0].Reason)
 				assert.Contains(t, issues[0].Message, "keep")
 				assert.Contains(t, issues[0].Message, "did not answer")
 			})
@@ -272,7 +272,7 @@ func TestService_healthIssuesWhenTheSourcesCannotBeRead(t *testing.T) {
 		t.Run("THEN it says so rather than reporting all is well", func(t *testing.T) {
 			require.Len(t, issues, 1)
 			assert.Equal(t, health.LevelWarning, issues[0].Level)
-			assert.Equal(t, "source_list_failed", issues[0].Reason)
+			assert.Equal(t, health.ReasonSourceListFailed, issues[0].Reason)
 			assert.Contains(t, issues[0].Message, "database is locked")
 		})
 	})

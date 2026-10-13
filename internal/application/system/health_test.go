@@ -3,8 +3,6 @@ package system_test
 import (
 	"context"
 	"errors"
-	"io"
-	"log/slog"
 	"testing"
 	"time"
 
@@ -27,12 +25,10 @@ func TestService_healthIssues(t *testing.T) {
 	defer cancel()
 
 	now := time.Now()
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	longAgo := system.Status{StartedAt: now.Add(-10 * 24 * time.Hour)}
 
 	t.Run("GIVEN daily automatic backups whose last run failed", func(t *testing.T) {
-		dir := t.TempDir()
-		svc := system.NewService(nil, brokenBackup{}, nil, nil, time.Now, logger, longAgo, dir, 3)
+		svc := system.NewService(nil, brokenBackup{}, newBackups(), nil, system.WithStatus(longAgo))
 		svc.ScheduleBackups(24 * time.Hour)
 		require.Error(t, svc.ScheduledBackup(ctx))
 
@@ -42,7 +38,7 @@ func TestService_healthIssues(t *testing.T) {
 			t.Run("THEN the failure is an error with its cause, pointing to the backups", func(t *testing.T) {
 				require.NotEmpty(t, issues)
 				assert.Equal(t, health.LevelError, issues[0].Level)
-				assert.Equal(t, "backup_failed", issues[0].Reason)
+				assert.Equal(t, health.ReasonBackupFailed, issues[0].Reason)
 				assert.Empty(t, issues[0].Source, "named by the UI in its language")
 				assert.Equal(t, health.KindBackups, issues[0].Kind)
 				assert.Contains(t, issues[0].Message, "no space left on device")
@@ -52,9 +48,9 @@ func TestService_healthIssues(t *testing.T) {
 	})
 
 	t.Run("GIVEN daily automatic backups whose newest is four days old", func(t *testing.T) {
-		dir := t.TempDir()
-		writeBackup(t, dir, "gamevault-20261001-120000.db", now.Add(-4*24*time.Hour))
-		svc := system.NewService(nil, fileBackup{}, nil, nil, time.Now, logger, longAgo, dir, 3)
+		store := newBackups()
+		store.put("gamevault-20261001-120000.db", now.Add(-4*24*time.Hour))
+		svc := system.NewService(nil, copier{store}, store, nil, system.WithStatus(longAgo))
 		svc.ScheduleBackups(24 * time.Hour)
 
 		t.Run("WHEN the health issues are asked", func(t *testing.T) {
@@ -63,7 +59,7 @@ func TestService_healthIssues(t *testing.T) {
 			t.Run("THEN it warns that none succeeded lately", func(t *testing.T) {
 				require.Len(t, issues, 1)
 				assert.Equal(t, health.LevelWarning, issues[0].Level)
-				assert.Equal(t, "backup_stale", issues[0].Reason)
+				assert.Equal(t, health.ReasonBackupStale, issues[0].Reason)
 				assert.Equal(t, "4", issues[0].Params["days"])
 				assert.Contains(t, issues[0].Message, "4 days")
 			})
@@ -79,9 +75,12 @@ func TestService_healthIssues(t *testing.T) {
 	})
 
 	t.Run("GIVEN an automatic backup that failed, WHEN one is made by hand", func(t *testing.T) {
-		dir := t.TempDir()
-		failing := &switchBackup{err: errors.New("no space left on device")}
-		svc := system.NewService(nil, failing, nil, nil, time.Now, logger, longAgo, dir, 3)
+		store := newBackups()
+		failing := &switchBackup{
+			copier: copier{store},
+			err:    errors.New("no space left on device"),
+		}
+		svc := system.NewService(nil, failing, store, nil, system.WithStatus(longAgo))
 		svc.ScheduleBackups(24 * time.Hour)
 		require.Error(t, svc.ScheduledBackup(ctx))
 		require.Len(t, svc.Issues(ctx), 1)
@@ -101,25 +100,26 @@ func TestService_healthIssues(t *testing.T) {
 
 			issues := svc.Issues(ctx)
 			require.Len(t, issues, 1)
-			assert.Equal(t, "backup_failed", issues[0].Reason)
+			assert.Equal(t, health.ReasonBackupFailed, issues[0].Reason)
 		})
 	})
 
 	t.Run("GIVEN a server restarted today whose newest backup is four days old", func(t *testing.T) {
-		dir := t.TempDir()
-		writeBackup(t, dir, "gamevault-20261001-120000.db", now.Add(-4*24*time.Hour))
-		svc := system.NewService(nil, fileBackup{}, nil, nil, time.Now, logger, system.Status{StartedAt: now.Add(-time.Hour)}, dir, 3)
+		store := newBackups()
+		store.put("gamevault-20261001-120000.db", now.Add(-4*24*time.Hour))
+		svc := system.NewService(nil, copier{store}, store, nil, system.WithStatus(system.Status{StartedAt: now.Add(-time.Hour)}))
 		svc.ScheduleBackups(24 * time.Hour)
 
 		t.Run("THEN it still warns: the restart made no backup", func(t *testing.T) {
 			issues := svc.Issues(ctx)
 			require.Len(t, issues, 1)
-			assert.Equal(t, "backup_stale", issues[0].Reason)
+			assert.Equal(t, health.ReasonBackupStale, issues[0].Reason)
 		})
 	})
 
 	t.Run("GIVEN a fresh server without backups yet", func(t *testing.T) {
-		svc := system.NewService(nil, fileBackup{}, nil, nil, time.Now, logger, system.Status{StartedAt: now.Add(-time.Hour)}, t.TempDir(), 3)
+		store := newBackups()
+		svc := system.NewService(nil, copier{store}, store, nil, system.WithStatus(system.Status{StartedAt: now.Add(-time.Hour)}))
 		svc.ScheduleBackups(24 * time.Hour)
 
 		t.Run("THEN it is not stale: the schedule has not come round yet", func(t *testing.T) {
@@ -128,9 +128,9 @@ func TestService_healthIssues(t *testing.T) {
 	})
 
 	t.Run("GIVEN automatic backups turned off, and an old backup", func(t *testing.T) {
-		dir := t.TempDir()
-		writeBackup(t, dir, "gamevault-20261001-120000.db", now.Add(-30*24*time.Hour))
-		svc := system.NewService(nil, fileBackup{}, nil, nil, time.Now, logger, longAgo, dir, 3)
+		store := newBackups()
+		store.put("gamevault-20261001-120000.db", now.Add(-30*24*time.Hour))
+		svc := system.NewService(nil, copier{store}, store, nil, system.WithStatus(longAgo))
 
 		t.Run("THEN nothing is expected, so nothing is reported", func(t *testing.T) {
 			assert.Empty(t, svc.Issues(ctx))
@@ -139,12 +139,16 @@ func TestService_healthIssues(t *testing.T) {
 }
 
 // switchBackup fails with err, or writes the copy when nil.
-type switchBackup struct{ err error }
+type switchBackup struct {
+	copier
+
+	err error
+}
 
 func (b *switchBackup) BackupTo(ctx context.Context, path string) error {
 	if b.err != nil {
 		return b.err
 	}
 
-	return fileBackup{}.BackupTo(ctx, path)
+	return b.copier.BackupTo(ctx, path)
 }

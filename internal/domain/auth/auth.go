@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -223,14 +224,27 @@ func ValidateCredentials(username, password string) error {
 	return ValidatePassword(password)
 }
 
+// Password length limits. Only new passwords are checked against them: signing in compares with
+// the stored hash, so a password set under older limits keeps working.
+const (
+	// minPasswordChars is the shortest password, in characters (runes), as the error says.
+	minPasswordChars = 8
+
+	// maxPasswordBytes is bcrypt's limit: it refuses to hash more than 72 bytes. In characters
+	// that is 72 in plain ASCII, fewer when the password has accented letters (2 bytes each in
+	// UTF-8) or emoji (4 bytes).
+	maxPasswordBytes = 72
+)
+
 // ValidatePassword checks a new password.
 func ValidatePassword(password string) error {
-	if len(password) < 8 {
-		return invalid("password must have at least 8 characters")
+	if utf8.RuneCountInString(password) < minPasswordChars {
+		return invalid("password must have at least %d characters", minPasswordChars)
 	}
 
-	if len(password) > 72 {
-		return invalid("password must have at most 72 characters")
+	if len(password) > maxPasswordBytes {
+		return invalid("password must have at most %d characters, fewer with accented letters or emoji",
+			maxPasswordBytes)
 	}
 
 	return nil

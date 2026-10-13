@@ -1,6 +1,10 @@
 package game
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestParseProductName(t *testing.T) {
 	cases := []struct {
@@ -20,8 +24,6 @@ func TestParseProductName(t *testing.T) {
 	}
 	for _, c := range cases {
 		title, platform, edition := ParseProductName(c.raw)
-		if title != c.title || platform != c.platform || edition != c.edition {
-			t.Errorf("ParseProductName(%q) = (%q, %q, %q), want (%q, %q, %q)", c.raw, title, platform, edition, c.title, c.platform, c.edition)
-		}
+		assert.Equal(t, []string{c.title, c.platform, c.edition}, []string{title, platform, edition}, c.raw)
 	}
 }

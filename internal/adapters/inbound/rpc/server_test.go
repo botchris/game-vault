@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/adapters/inbound/rpc"
+	"gamevault/internal/adapters/outbound/backupdir"
 	"gamevault/internal/adapters/outbound/csvfile"
 	"gamevault/internal/adapters/outbound/gamedata"
 	"gamevault/internal/adapters/outbound/logfile"
@@ -366,8 +367,8 @@ func newServer(t *testing.T, p sync.Provider) clients {
 	logsSvc := logs.NewService(sqlite.NewSettingsRepository(db), logFiles, logFiles)
 	authSvc := appauth.NewService(sqlite.NewAuthRepository(db), sqlite.NewSettingsRepository(db), passwordhash.Bcrypt{Cost: 4}, noCerts{}, time.Now, log)
 	syncSvc := sync.NewService(sources, games, db, catalog.NewService(games, db), []sync.Provider{p}, sync.WithLogger(log))
-	systemSvc := system.NewService(games, db, sqlite.NewSettingsRepository(db), nil, time.Now, log, system.Status{Version: "test"},
-		filepath.Join(dir, "backups"), 3)
+	systemSvc := system.NewService(games, db, backupdir.New(filepath.Join(dir, "backups")), sqlite.NewSettingsRepository(db),
+		system.WithLogger(log), system.WithStatus(system.Status{Version: "test"}), system.WithKeep(3))
 	h := rpc.NewHTTPHandler(rpc.Handlers{
 		Auth:        rpc.NewAuthHandler(authSvc),
 		AuthService: authSvc,

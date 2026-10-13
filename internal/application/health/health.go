@@ -41,6 +41,61 @@ const (
 	TargetBackups   Target = "system/backups"
 )
 
+// Reason is a code clients translate. It is part of the API: the web UI lists the same codes
+// (web/src/lib/health.ts) and translates each under health.reasons, and
+// TestHealthReasons_webAgrees (cmd/gamevault) keeps the three equal.
+type Reason string
+
+// Values of Reason.
+const (
+	// ReasonProviderQuota means a provider used up its request allowance; Params has "until".
+	ReasonProviderQuota Reason = "provider_quota"
+
+	// ReasonProviderRateLimited means a provider's service asked to slow down.
+	ReasonProviderRateLimited Reason = "provider_rate_limited"
+
+	// ReasonProviderUnavailable means a provider's service is not answering.
+	ReasonProviderUnavailable Reason = "provider_unavailable"
+
+	// ReasonProviderSettings means a provider's service rejects its settings.
+	ReasonProviderSettings Reason = "provider_settings"
+
+	// ReasonSourceSignedOut means a store no longer accepts a source's saved session.
+	ReasonSourceSignedOut Reason = "source_signed_out"
+
+	// ReasonSourceSyncFailed means a source's last scan failed.
+	ReasonSourceSyncFailed Reason = "source_sync_failed"
+
+	// ReasonSourceKeepAliveFailed means keeping a source's session alive failed.
+	ReasonSourceKeepAliveFailed Reason = "source_keepalive_failed"
+
+	// ReasonSourceListFailed means the sources could not be read to check them.
+	ReasonSourceListFailed Reason = "source_list_failed"
+
+	// ReasonBackupFailed means the last backup failed.
+	ReasonBackupFailed Reason = "backup_failed"
+
+	// ReasonBackupStale means no backup has succeeded for a while; Params has "days".
+	ReasonBackupStale Reason = "backup_stale"
+
+	// ReasonDiskLow means the disk holding the config directory is filling up; Params has "free",
+	// "percent" and "path".
+	ReasonDiskLow Reason = "disk_low"
+
+	// ReasonDiskCritical means that disk is almost full; Params as for ReasonDiskLow.
+	ReasonDiskCritical Reason = "disk_critical"
+)
+
+// reasons lists every Reason.
+var reasons = []Reason{
+	ReasonProviderQuota, ReasonProviderRateLimited, ReasonProviderUnavailable, ReasonProviderSettings,
+	ReasonSourceSignedOut, ReasonSourceSyncFailed, ReasonSourceKeepAliveFailed, ReasonSourceListFailed,
+	ReasonBackupFailed, ReasonBackupStale, ReasonDiskLow, ReasonDiskCritical,
+}
+
+// Reasons returns every reason an issue can have (a copy: callers cannot change the list).
+func Reasons() []Reason { return slices.Clone(reasons) }
+
 // Issue is one problem that needs the user's attention.
 type Issue struct {
 	// Key identifies the issue across checks ("provider:thegamesdb"), so clients can keep track of it.
@@ -53,9 +108,9 @@ type Issue struct {
 	// disk, which clients name in their language by Kind.
 	Source string
 
-	// Reason is a code clients translate ("backup_stale"), with Params filled in ("days": "4"), so
-	// the UI speaks the user's language; Message stays as the English detail.
-	Reason string
+	// Reason is a code clients translate (ReasonBackupStale), with Params filled in ("days": "4"),
+	// so the UI speaks the user's language; Message stays as the English detail.
+	Reason Reason
 	Params map[string]string
 
 	// Message says what happened and what to do, in English, like the app's other errors: the detail

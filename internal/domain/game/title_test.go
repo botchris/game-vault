@@ -135,3 +135,35 @@ func TestSameTitle(t *testing.T) {
 		assert.Equal(t, tc.want, ka != "" && ka == kb, "keys of %q vs %q", tc.a, tc.b)
 	}
 }
+
+func TestStripYearSuffix(t *testing.T) {
+	for in, want := range map[string]string{
+		"Example Quest Remastered (2017)": "Example Quest Remastered",
+		"Example Quest (2016)  ":          "Example Quest",
+		"Example Quest(1999)":             "Example Quest",
+		"Example Quest (2016) Deluxe":     "Example Quest (2016) Deluxe", // only a trailing year
+		"Example Quest (16)":              "Example Quest (16)",          // four digits only
+		"Example Quest (Remastered)":      "Example Quest (Remastered)",
+		"Example 2049":                    "Example 2049",
+		" Example Quest ":                 " Example Quest ", // nothing else is trimmed
+		"(2016)":                          "",
+	} {
+		assert.Equal(t, want, StripYearSuffix(in), in)
+	}
+}
+
+func TestSearchTerms(t *testing.T) {
+	for _, tc := range []struct {
+		title string
+		want  []string
+	}{
+		{"Example West GOTY", []string{"Example West", "Example West GOTY"}},
+		{"Example Game (PC Key)", []string{"Example Game", "Example Game (PC Key)"}},
+		{"Example™  Quest", []string{"Example Quest"}}, // a ™ alone is no other title
+		{"Example Quest", []string{"Example Quest"}},
+		{"", nil},
+		{"   ", nil},
+	} {
+		assert.Equal(t, tc.want, SearchTerms(tc.title), tc.title)
+	}
+}
