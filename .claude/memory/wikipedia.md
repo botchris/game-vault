@@ -9,7 +9,7 @@ enabled by default, no settings):
 - **Terms:** texts are CC BY-SA 4.0: the summary carries `GameDetails.SummarySource` (name, article
   URL, license) and the sheet shows "Source: Wikipedia" linking to the article. Wikimedia's
   User-Agent policy: descriptive agent with contact info → `GameVault/<version>
-  (https://github.com/botchris/game-vault)`; an empty agent gets HTTP 403. Requests one at a time,
+  (https://github.com/botchris/game-vault)`; an empty agent gets HTTP 403. Requests one at a time (`ratelimit`; waits > 10 s fail as rate-limited, a 429/5xx rests it 30 s since 2026-10-13),
   200 ms apart.
 - **Endpoints:** `www.wikidata.org/w/api.php?action=wbsearchentities` (title in "en" and the UI
   language), `action=wbgetentities` (claims, sitelinks `<lang>wiki|enwiki`, labels `<lang>|en|mul`),

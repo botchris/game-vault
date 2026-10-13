@@ -20,6 +20,7 @@ import (
 	"unicode/utf8"
 
 	"gamevault/internal/adapters/outbound/apiclient"
+	"gamevault/internal/adapters/outbound/ratelimit"
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
@@ -36,6 +37,14 @@ const (
 	// requestGap spaces the requests: Wikimedia asks API clients to be polite and not to send
 	// requests in parallel.
 	requestGap = 200 * time.Millisecond
+
+	// maxWait is the longest a request waits for its turn; longer queues fail as rate-limited, so a
+	// library page opening many sheets does not hang (each sheet takes several requests).
+	maxWait = 10 * time.Second
+
+	// backoff is how long the Wikimedia servers are left alone after they answered HTTP 429 or a
+	// server error: asking again at once only prolongs the refusal.
+	backoff = 30 * time.Second
 
 	// license is the license of Wikipedia's texts, shown with the summary and linked to licenseURL.
 	license    = "CC BY-SA 4.0"
@@ -91,8 +100,8 @@ type Details struct {
 	// (https://{lang}.wikipedia.org).
 	Wikipedia *apiclient.Client
 
-	// gate sends one request at a time, spaced.
-	gate *gate
+	// throttle sends one request at a time, spaced; nil sends them at once.
+	throttle *ratelimit.Throttle
 }
 
 var _ media.MetadataProvider = (*Details)(nil)
@@ -113,7 +122,7 @@ func New(version string) *Details {
 	return &Details{
 		Wikidata:  wikidata,
 		Wikipedia: wikipedia,
-		gate:      newGate(requestGap),
+		throttle:  newThrottle(requestGap),
 	}
 }
 
@@ -545,12 +554,21 @@ type apiError struct {
 	} `json:"error"`
 }
 
-// get calls a MediaWiki API (api.php) through the gate and decodes the answer into out, turning the
+// get calls a MediaWiki API (api.php) through the throttle and decodes the answer into out, turning the
 // API's own error (apiErr, part of out) into an error.
 func (d *Details) get(ctx context.Context, c *apiclient.Client, q url.Values, out any, apiErr *apiError) error {
 	q.Set("format", "json")
 
-	err := d.gate.do(ctx, func() error { return c.Get(ctx, "/w/api.php", q, out) })
+	sent := false
+
+	err := d.throttle.Do(ctx, func() error {
+		sent = true
+
+		return c.Get(ctx, "/w/api.php", q, out)
+	})
+	if !sent && ctx.Err() != nil {
+		return fmt.Errorf("%w: %w", errCanceled, ctx.Err())
+	}
 
 	switch {
 	case apiclient.IsStatus(err, http.StatusTooManyRequests):
@@ -586,43 +604,24 @@ func (d *Details) get(ctx context.Context, c *apiclient.Client, q url.Values, ou
 // errCanceled is returned when the context ends while a request waits for its turn.
 var errCanceled = errors.New("the lookup was canceled while waiting for its turn")
 
-// gate lets one request through at a time, at least gap after the previous one started.
-type gate struct {
-	gap  time.Duration
-	turn chan struct{}
-	last time.Time
+// newThrottle returns the throttle of Wikimedia's requests with the given gap: one at a time.
+func newThrottle(gap time.Duration) *ratelimit.Throttle {
+	return ratelimit.New(ratelimit.Config{
+		Gap:       gap,
+		MaxWait:   maxWait,
+		Backoff:   backoff,
+		BackoffOn: serverTrouble,
+	})
 }
 
-func newGate(gap time.Duration) *gate {
-	return &gate{
-		gap:  gap,
-		turn: make(chan struct{}, 1),
-	}
-}
+// serverTrouble reports whether a request's error is the servers asking to slow down or failing (a
+// 429 or a 5xx), which starts the throttle's back-off. It sees the request's own error, a
+// *apiclient.StatusError whose Retry-After the throttle honors; a request that got no answer does
+// not count, since it may only be the caller giving up.
+func serverTrouble(err error) bool {
+	var se *apiclient.StatusError
 
-// do runs fn when its turn comes.
-func (g *gate) do(ctx context.Context, fn func() error) error {
-	select {
-	case g.turn <- struct{}{}:
-	case <-ctx.Done():
-		return fmt.Errorf("%w: %w", errCanceled, ctx.Err())
-	}
-
-	defer func() { <-g.turn }()
-
-	if wait := time.Until(g.last.Add(g.gap)); wait > 0 {
-		timer := time.NewTimer(wait)
-		select {
-		case <-timer.C:
-		case <-ctx.Done():
-			timer.Stop()
-			return fmt.Errorf("%w: %w", errCanceled, ctx.Err())
-		}
-	}
-
-	g.last = time.Now()
-
-	return fn()
+	return errors.As(err, &se) && apiclient.Transient(se.Status)
 }
 
 // searchSystems returns the systems the game is matched on: the edition's system, or without one
