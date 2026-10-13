@@ -27,11 +27,6 @@ message GetCollectionValueRequest {}
 message ProviderTotal {
   string provider = 1;
   string name = 2;
-  // Deprecated: the amounts of sell, buy_cash and buy_credit in minor units of the response's
-  // currency, kept for one release so older clients still read them.
-  int64 sell_minor = 3 [deprecated = true];
-  int64 buy_cash_minor = 4 [deprecated = true];
-  int64 buy_credit_minor = 5 [deprecated = true];
   // How many copies the totals cover.
   int32 copies = 6;
   // Estimates in another currency, left out.

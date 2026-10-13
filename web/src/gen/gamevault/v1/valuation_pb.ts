@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file gamevault/v1/valuation.proto.
  */
 export const file_gamevault_v1_valuation: GenFile = /*@__PURE__*/
-  fileDesc("ChxnYW1ldmF1bHQvdjEvdmFsdWF0aW9uLnByb3RvEgxnYW1ldmF1bHQudjEiNwoTRXN0aW1hdGVDb3B5UmVxdWVzdBIPCgdnYW1lX2lkGAEgASgJEg8KB2NvcHlfaWQYAiABKAkiaQoURXN0aW1hdGVDb3B5UmVzcG9uc2USIAoEZ2FtZRgBIAEoCzISLmdhbWV2YXVsdC52MS5HYW1lEhAKCHdhcm5pbmdzGAIgAygJEh0KFXByb3ZpZGVyc191bmF2YWlsYWJsZRgDIAEoCCIbChlHZXRDb2xsZWN0aW9uVmFsdWVSZXF1ZXN0IpwCCg1Qcm92aWRlclRvdGFsEhAKCHByb3ZpZGVyGAEgASgJEgwKBG5hbWUYAiABKAkSFgoKc2VsbF9taW5vchgDIAEoA0ICGAESGgoOYnV5X2Nhc2hfbWlub3IYBCABKANCAhgBEhwKEGJ1eV9jcmVkaXRfbWlub3IYBSABKANCAhgBEg4KBmNvcGllcxgGIAEoBRIWCg5vdGhlcl9jdXJyZW5jeRgHIAEoBRIhCgRzZWxsGAggASgLMhMuZ2FtZXZhdWx0LnYxLk1vbmV5EiUKCGJ1eV9jYXNoGAkgASgLMhMuZ2FtZXZhdWx0LnYxLk1vbmV5EicKCmJ1eV9jcmVkaXQYCiABKAsyEy5nYW1ldmF1bHQudjEuTW9uZXkiWwoaR2V0Q29sbGVjdGlvblZhbHVlUmVzcG9uc2USEAoIY3VycmVuY3kYASABKAkSKwoGdG90YWxzGAIgAygLMhsuZ2FtZXZhdWx0LnYxLlByb3ZpZGVyVG90YWwy0gEKEFZhbHVhdGlvblNlcnZpY2USVQoMRXN0aW1hdGVDb3B5EiEuZ2FtZXZhdWx0LnYxLkVzdGltYXRlQ29weVJlcXVlc3QaIi5nYW1ldmF1bHQudjEuRXN0aW1hdGVDb3B5UmVzcG9uc2USZwoSR2V0Q29sbGVjdGlvblZhbHVlEicuZ2FtZXZhdWx0LnYxLkdldENvbGxlY3Rpb25WYWx1ZVJlcXVlc3QaKC5nYW1ldmF1bHQudjEuR2V0Q29sbGVjdGlvblZhbHVlUmVzcG9uc2VCMVovZ2FtZXZhdWx0L2ludGVybmFsL2dlbi9nYW1ldmF1bHQvdjE7Z2FtZXZhdWx0djFiBnByb3RvMw", [file_gamevault_v1_game]);
+  fileDesc("ChxnYW1ldmF1bHQvdjEvdmFsdWF0aW9uLnByb3RvEgxnYW1ldmF1bHQudjEiNwoTRXN0aW1hdGVDb3B5UmVxdWVzdBIPCgdnYW1lX2lkGAEgASgJEg8KB2NvcHlfaWQYAiABKAkiaQoURXN0aW1hdGVDb3B5UmVzcG9uc2USIAoEZ2FtZRgBIAEoCzISLmdhbWV2YXVsdC52MS5HYW1lEhAKCHdhcm5pbmdzGAIgAygJEh0KFXByb3ZpZGVyc191bmF2YWlsYWJsZRgDIAEoCCIbChlHZXRDb2xsZWN0aW9uVmFsdWVSZXF1ZXN0IsoBCg1Qcm92aWRlclRvdGFsEhAKCHByb3ZpZGVyGAEgASgJEgwKBG5hbWUYAiABKAkSDgoGY29waWVzGAYgASgFEhYKDm90aGVyX2N1cnJlbmN5GAcgASgFEiEKBHNlbGwYCCABKAsyEy5nYW1ldmF1bHQudjEuTW9uZXkSJQoIYnV5X2Nhc2gYCSABKAsyEy5nYW1ldmF1bHQudjEuTW9uZXkSJwoKYnV5X2NyZWRpdBgKIAEoCzITLmdhbWV2YXVsdC52MS5Nb25leSJbChpHZXRDb2xsZWN0aW9uVmFsdWVSZXNwb25zZRIQCghjdXJyZW5jeRgBIAEoCRIrCgZ0b3RhbHMYAiADKAsyGy5nYW1ldmF1bHQudjEuUHJvdmlkZXJUb3RhbDLSAQoQVmFsdWF0aW9uU2VydmljZRJVCgxFc3RpbWF0ZUNvcHkSIS5nYW1ldmF1bHQudjEuRXN0aW1hdGVDb3B5UmVxdWVzdBoiLmdhbWV2YXVsdC52MS5Fc3RpbWF0ZUNvcHlSZXNwb25zZRJnChJHZXRDb2xsZWN0aW9uVmFsdWUSJy5nYW1ldmF1bHQudjEuR2V0Q29sbGVjdGlvblZhbHVlUmVxdWVzdBooLmdhbWV2YXVsdC52MS5HZXRDb2xsZWN0aW9uVmFsdWVSZXNwb25zZUIxWi9nYW1ldmF1bHQvaW50ZXJuYWwvZ2VuL2dhbWV2YXVsdC92MTtnYW1ldmF1bHR2MWIGcHJvdG8z", [file_gamevault_v1_game]);
 
 /**
  * @generated from message gamevault.v1.EstimateCopyRequest
@@ -98,27 +98,6 @@ export type ProviderTotal = Message<"gamevault.v1.ProviderTotal"> & {
    * @generated from field: string name = 2;
    */
   name: string;
-
-  /**
-   * Deprecated: the amounts of sell, buy_cash and buy_credit in minor units of the response's
-   * currency, kept for one release so older clients still read them.
-   *
-   * @generated from field: int64 sell_minor = 3 [deprecated = true];
-   * @deprecated
-   */
-  sellMinor: bigint;
-
-  /**
-   * @generated from field: int64 buy_cash_minor = 4 [deprecated = true];
-   * @deprecated
-   */
-  buyCashMinor: bigint;
-
-  /**
-   * @generated from field: int64 buy_credit_minor = 5 [deprecated = true];
-   * @deprecated
-   */
-  buyCreditMinor: bigint;
 
   /**
    * How many copies the totals cover.

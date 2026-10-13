@@ -62,11 +62,6 @@ func TestValuation_endToEnd(t *testing.T) {
 				assert.Equal(t, int64(600), total.GetBuyCash().GetAmountMinor())
 				assert.Equal(t, "EUR", total.GetBuyCredit().GetCurrency())
 				assert.Equal(t, int32(1), total.Copies)
-
-				t.Run("AND older clients still read the deprecated minor-unit amounts", func(t *testing.T) {
-					assert.Equal(t, int64(2000), total.SellMinor)
-					assert.Equal(t, int64(600), total.BuyCashMinor)
-				})
 			})
 		})
 

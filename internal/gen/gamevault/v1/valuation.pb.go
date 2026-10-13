@@ -179,15 +179,6 @@ type ProviderTotal struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	Provider string                 `protobuf:"bytes,1,opt,name=provider,proto3" json:"provider,omitempty"`
 	Name     string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// Deprecated: the amounts of sell, buy_cash and buy_credit in minor units of the response's
-	// currency, kept for one release so older clients still read them.
-	//
-	// Deprecated: Marked as deprecated in gamevault/v1/valuation.proto.
-	SellMinor int64 `protobuf:"varint,3,opt,name=sell_minor,json=sellMinor,proto3" json:"sell_minor,omitempty"`
-	// Deprecated: Marked as deprecated in gamevault/v1/valuation.proto.
-	BuyCashMinor int64 `protobuf:"varint,4,opt,name=buy_cash_minor,json=buyCashMinor,proto3" json:"buy_cash_minor,omitempty"`
-	// Deprecated: Marked as deprecated in gamevault/v1/valuation.proto.
-	BuyCreditMinor int64 `protobuf:"varint,5,opt,name=buy_credit_minor,json=buyCreditMinor,proto3" json:"buy_credit_minor,omitempty"`
 	// How many copies the totals cover.
 	Copies int32 `protobuf:"varint,6,opt,name=copies,proto3" json:"copies,omitempty"`
 	// Estimates in another currency, left out.
@@ -243,30 +234,6 @@ func (x *ProviderTotal) GetName() string {
 		return x.Name
 	}
 	return ""
-}
-
-// Deprecated: Marked as deprecated in gamevault/v1/valuation.proto.
-func (x *ProviderTotal) GetSellMinor() int64 {
-	if x != nil {
-		return x.SellMinor
-	}
-	return 0
-}
-
-// Deprecated: Marked as deprecated in gamevault/v1/valuation.proto.
-func (x *ProviderTotal) GetBuyCashMinor() int64 {
-	if x != nil {
-		return x.BuyCashMinor
-	}
-	return 0
-}
-
-// Deprecated: Marked as deprecated in gamevault/v1/valuation.proto.
-func (x *ProviderTotal) GetBuyCreditMinor() int64 {
-	if x != nil {
-		return x.BuyCreditMinor
-	}
-	return 0
 }
 
 func (x *ProviderTotal) GetCopies() int32 {
@@ -369,14 +336,10 @@ const file_gamevault_v1_valuation_proto_rawDesc = "" +
 	"\x04game\x18\x01 \x01(\v2\x12.gamevault.v1.GameR\x04game\x12\x1a\n" +
 	"\bwarnings\x18\x02 \x03(\tR\bwarnings\x123\n" +
 	"\x15providers_unavailable\x18\x03 \x01(\bR\x14providersUnavailable\"\x1b\n" +
-	"\x19GetCollectionValueRequest\"\x86\x03\n" +
+	"\x19GetCollectionValueRequest\"\x8b\x02\n" +
 	"\rProviderTotal\x12\x1a\n" +
 	"\bprovider\x18\x01 \x01(\tR\bprovider\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12!\n" +
-	"\n" +
-	"sell_minor\x18\x03 \x01(\x03B\x02\x18\x01R\tsellMinor\x12(\n" +
-	"\x0ebuy_cash_minor\x18\x04 \x01(\x03B\x02\x18\x01R\fbuyCashMinor\x12,\n" +
-	"\x10buy_credit_minor\x18\x05 \x01(\x03B\x02\x18\x01R\x0ebuyCreditMinor\x12\x16\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x16\n" +
 	"\x06copies\x18\x06 \x01(\x05R\x06copies\x12%\n" +
 	"\x0eother_currency\x18\a \x01(\x05R\rotherCurrency\x12'\n" +
 	"\x04sell\x18\b \x01(\v2\x13.gamevault.v1.MoneyR\x04sell\x12.\n" +
