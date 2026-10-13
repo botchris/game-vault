@@ -255,6 +255,52 @@ func TestThrottle_failsFast(t *testing.T) {
 		})
 	})
 
+	t.Run("GIVEN a caller queued behind a slow request, with MaxWait bounding its whole wait", func(t *testing.T) {
+		clock := newClock()
+		th := on(clock, ratelimit.Config{
+			Gap:      time.Second,
+			AfterEnd: true,
+			MaxWait:  3 * time.Second,
+		})
+
+		release := make(chan struct{})
+		started := make(chan struct{})
+		first := make(chan error, 1)
+
+		go func() {
+			first <- th.Do(ctx, func() error {
+				close(started)
+				<-release
+
+				return nil
+			})
+		}()
+
+		<-started
+
+		second := make(chan error, 1)
+
+		go func() { second <- th.Do(ctx, request) }()
+
+		require.Eventually(t, func() bool { return th.Queued() == 2 }, 5*time.Second, time.Millisecond)
+
+		t.Run("WHEN the slow request ends after 2.5 s and the gap after it is 1 s more", func(t *testing.T) {
+			sent = 0
+
+			clock.advance(2500 * time.Millisecond)
+			close(release)
+			require.NoError(t, <-first)
+
+			err := <-second
+
+			t.Run("THEN the caller is refused as busy: 3.5 s in all is over MaxWait", func(t *testing.T) {
+				require.ErrorIs(t, err, ratelimit.ErrBusy)
+				assert.Zero(t, sent)
+				assert.Empty(t, clock.taken())
+			})
+		})
+	})
+
 	t.Run("GIVEN a caller that gives up while it waits", func(t *testing.T) {
 		th := ratelimit.New(ratelimit.Config{Gap: time.Hour})
 		require.NoError(t, th.Do(ctx, request))
@@ -348,6 +394,30 @@ func TestThrottle_backOff(t *testing.T) {
 			err := th.Do(ctx, request)
 
 			t.Run("THEN it only waits the usual gap, not the back-off", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.Equal(t, 1, sent)
+				assert.Equal(t, []time.Duration{time.Second}, clock.taken())
+			})
+		})
+	})
+
+	t.Run("GIVEN a request that fails because its caller gave up (its connection dropped by us)", func(t *testing.T) {
+		clock := newClock()
+		th := on(clock, config)
+
+		gone, stop := context.WithCancel(ctx)
+		err := th.Do(gone, func() error {
+			stop()
+
+			return fmt.Errorf("no answer: %w", provider.ErrUnavailable)
+		})
+		require.ErrorIs(t, err, provider.ErrUnavailable)
+
+		t.Run("WHEN the next request comes", func(t *testing.T) {
+			sent = 0
+			err := th.Do(ctx, request)
+
+			t.Run("THEN no back-off started: it only waits the gap after the abandoned request", func(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, 1, sent)
 				assert.Equal(t, []time.Duration{time.Second}, clock.taken())

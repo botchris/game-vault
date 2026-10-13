@@ -51,8 +51,9 @@ type Config struct {
 	// Open is how many requests may be under way at once (default 1).
 	Open int
 
-	// MaxWait is the longest a caller waits for its turn, the request under way included: a longer
-	// wait is ErrBusy (or ErrResting) at once. Zero waits until the caller's context ends.
+	// MaxWait is the longest a caller waits for its turn, from its call to Do: the wait for a slot,
+	// the gap and any back-off together. A longer wait is ErrBusy (or ErrResting) as soon as it is
+	// known. Zero waits until the caller's context ends.
 	MaxWait time.Duration
 
 	// MaxQueue is the most callers waiting or sending at once; more are ErrBusy. Zero is no bound.
@@ -60,7 +61,8 @@ type Config struct {
 
 	// Backoff is how long no request is sent after one failed with an error BackoffOn accepts.
 	// An error with a longer Retry-After hint (a RetryAfter() time.Duration method, as
-	// apiclient.StatusError has) rests that long instead, up to an hour. Zero never backs off.
+	// apiclient.StatusError has) rests that long instead, up to an hour. A request whose caller's
+	// context ended starts none: its "no answer" is the caller's doing. Zero never backs off.
 	Backoff time.Duration
 
 	// BackoffOn reports whether a request's error starts the back-off. The default accepts
@@ -121,11 +123,16 @@ func New(cfg Config) *Throttle {
 
 // Do waits for the request's turn, then runs it and returns its error. It returns ErrBusy or
 // ErrResting (both provider.ErrRateLimited) without running request when the wait would exceed
-// MaxWait, and ctx's error when the caller gives up first.
+// MaxWait, and ctx's error when the caller gives up first. A request that fails after ctx ended
+// starts no back-off.
 func (t *Throttle) Do(ctx context.Context, request func() error) error {
 	if t == nil {
 		return request()
 	}
+
+	// MaxWait bounds the whole wait, from here: the time spent waiting for a slot counts against
+	// the wait for the request's start.
+	start := t.cfg.Now()
 
 	if err := t.enqueue(); err != nil {
 		return err
@@ -137,7 +144,7 @@ func (t *Throttle) Do(ctx context.Context, request func() error) error {
 	}
 	defer func() { <-t.slots }()
 
-	wait, err := t.reserve()
+	wait, err := t.reserve(start)
 	if err != nil {
 		return err
 	}
@@ -149,7 +156,7 @@ func (t *Throttle) Do(ctx context.Context, request func() error) error {
 	}
 
 	err = request()
-	t.done(err)
+	t.done(err, ctx.Err() != nil)
 
 	return err
 }
@@ -214,16 +221,17 @@ func (t *Throttle) acquire(ctx context.Context) error {
 	}
 }
 
-// reserve books the request's start and returns how long to wait for it. It refuses a wait longer
-// than MaxWait: a back-off may have started while the caller was queued.
-func (t *Throttle) reserve() (time.Duration, error) {
+// reserve books the request's start and returns how long to wait for it. It refuses when the time
+// waited since start plus that wait exceeds MaxWait: a slow request ahead, or a back-off that
+// started while the caller was queued, must not stretch a caller's wait beyond the bound.
+func (t *Throttle) reserve(start time.Time) (time.Duration, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
 	now := t.cfg.Now()
 
 	wait := t.wait(now)
-	if t.cfg.MaxWait > 0 && wait > t.cfg.MaxWait {
+	if t.cfg.MaxWait > 0 && now.Sub(start)+wait > t.cfg.MaxWait {
 		return 0, t.refusal(now)
 	}
 
@@ -232,8 +240,10 @@ func (t *Throttle) reserve() (time.Duration, error) {
 	return wait, nil
 }
 
-// done records the end of a request: the gap after it, and the back-off its error asks for.
-func (t *Throttle) done(err error) {
+// done records the end of a request: the gap after it, and the back-off its error asks for. A
+// request whose caller gave up (abandoned) starts no back-off: its error ("no answer") is the
+// caller's deadline or cancellation, which says nothing about the service.
+func (t *Throttle) done(err error, abandoned bool) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -242,7 +252,7 @@ func (t *Throttle) done(err error) {
 		t.tat = later(t.tat, end.Add(t.cfg.Gap))
 	}
 
-	if t.cfg.Backoff <= 0 || err == nil || !t.cfg.BackoffOn(err) {
+	if abandoned || t.cfg.Backoff <= 0 || err == nil || !t.cfg.BackoffOn(err) {
 		return
 	}
 
