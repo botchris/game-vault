@@ -3,16 +3,16 @@ package logs
 
 import (
 	"context"
-	"errors"
 	"time"
 
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/settings"
 )
 
 // Errors returned by Files.Read.
 var (
-	ErrInvalidName = errors.New("invalid log file name")
-	ErrNotFound    = errors.New("log file not found")
+	ErrInvalidName = errkind.New(errkind.Invalid, "invalid log file name")
+	ErrNotFound    = errkind.New(errkind.NotFound, "log file not found")
 )
 
 // File describes one log file.

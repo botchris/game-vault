@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"gamevault/internal/domain/errkind"
 )
 
 func eur(minor int64) Money {
@@ -109,7 +111,7 @@ func TestEstimates(t *testing.T) {
 				for _, c := range cases {
 					_, err := g.SetEstimates(id, c, next, t0)
 
-					var ve *ValidationError
+					var ve *errkind.ValidationError
 					assert.ErrorAs(t, err, &ve)
 				}
 			})
@@ -133,7 +135,7 @@ func TestEstimates(t *testing.T) {
 					Sell:     eur(1),
 				}}, next, t0)
 
-				var ve *ValidationError
+				var ve *errkind.ValidationError
 				assert.ErrorAs(t, err, &ve)
 				assert.ErrorAs(t, g.PlanValuation(id, next), &ve)
 			}
@@ -268,6 +270,33 @@ func TestEstimates_details(t *testing.T) {
 
 			t.Run("THEN the game is not changed", func(t *testing.T) {
 				assert.Empty(t, g.Copies()[0].Photos[0].Caption)
+			})
+		})
+	})
+}
+
+func TestUpdateEstimates_keepsWhenFullyValued(t *testing.T) {
+	next := t0.Add(30 * 24 * time.Hour)
+	later := t0.Add(time.Hour)
+
+	t.Run("GIVEN a physical copy checked once by every source", func(t *testing.T) {
+		g, id := valuableGame(t)
+		_, err := g.SetEstimates(id, nil, next, t0)
+		require.NoError(t, err)
+
+		t.Run("WHEN a later round keeps one source's estimate but another source did not answer", func(t *testing.T) {
+			c, err := g.UpdateEstimates(id, []Estimate{{
+				Provider:  "cex-prices",
+				Sell:      eur(2000),
+				FetchedAt: later,
+			}}, next.Add(time.Hour), later)
+			require.NoError(t, err)
+
+			t.Run("THEN the estimates and the next date change, but not when every source last answered", func(t *testing.T) {
+				require.Len(t, c.Estimates, 1)
+				assert.Equal(t, next.Add(time.Hour), c.NextValuation)
+				assert.Equal(t, t0, c.ValuedAt)
+				assert.Equal(t, later, c.UpdatedAt)
 			})
 		})
 	})

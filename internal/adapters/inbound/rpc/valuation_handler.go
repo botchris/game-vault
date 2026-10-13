@@ -26,14 +26,15 @@ func NewValuationHandler(v *valuation.Service) *ValuationHandler {
 
 // EstimateCopy asks every enabled price provider for a copy's price now.
 func (h *ValuationHandler) EstimateCopy(ctx context.Context, req *connect.Request[pb.EstimateCopyRequest]) (*connect.Response[pb.EstimateCopyResponse], error) {
-	g, warnings, err := h.valuation.EstimateCopy(ctx, game.ID(req.Msg.GameId), game.ID(req.Msg.CopyId))
+	g, warnings, unavailable, err := h.valuation.EstimateCopy(ctx, game.ID(req.Msg.GameId), game.ID(req.Msg.CopyId))
 	if err != nil {
 		return nil, toConnectError(err)
 	}
 
 	return connect.NewResponse(&pb.EstimateCopyResponse{
-		Game:     gameToPB(g),
-		Warnings: warnings,
+		Game:                 gameToPB(g),
+		Warnings:             warnings,
+		ProvidersUnavailable: unavailable,
 	}), nil
 }
 

@@ -3,6 +3,7 @@ package rpc_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -283,7 +284,11 @@ func (fakeSteamStore) LinkStore() game.Store {
 	}
 }
 
-func (fakeSteamStore) SearchLinks(context.Context, string) ([]media.LinkMatch, error) {
+func (fakeSteamStore) SearchLinks(_ context.Context, query string) ([]media.LinkMatch, error) {
+	if query == "store offline" {
+		return nil, errors.New("connection refused")
+	}
+
 	return []media.LinkMatch{{
 		ID:   "1064271",
 		Name: "Halo 3",
@@ -566,6 +571,13 @@ func TestCoversAndLogs(t *testing.T) {
 		Query: "halo 3",
 	})); connect.CodeOf(err) != connect.CodeNotFound {
 		t.Fatalf("a store nobody searches: want NotFound, got %v", err)
+	}
+
+	if _, err := c.games.SearchLinks(ctx, connect.NewRequest(&pb.SearchLinksRequest{
+		Store: game.LinkSteam,
+		Query: "store offline",
+	})); connect.CodeOf(err) != connect.CodeUnavailable {
+		t.Fatalf("a store that does not answer: want Unavailable, got %v", err)
 	}
 
 	links := map[string]string{game.LinkSteam: found.Msg.Matches[0].Id}
@@ -1124,6 +1136,9 @@ func TestImportCsv_defaultCurrency(t *testing.T) {
 }
 
 // fakePrices is a price provider that knows one barcode.
+// blockedPrices is a barcode fakePrices answers with a bot check, a provider-level problem.
+const blockedPrices = game.Barcode("4006381333931")
+
 type fakePrices struct{}
 
 func (fakePrices) Descriptor() provider.Descriptor {
@@ -1139,6 +1154,10 @@ func (fakePrices) Descriptor() provider.Descriptor {
 func (fakePrices) Test(context.Context, schema.Settings) error { return nil }
 
 func (fakePrices) Estimate(_ context.Context, _ schema.Settings, code game.Barcode) (game.Estimate, error) {
+	if code == blockedPrices {
+		return game.Estimate{}, fmt.Errorf("asking for a browser check: %w", provider.ErrUnavailable)
+	}
+
 	if code != "5030934110075" {
 		return game.Estimate{}, valuation.ErrNotListed
 	}
@@ -1255,6 +1274,60 @@ func TestProviderStatusAndHealth(t *testing.T) {
 				res, err := c.health.GetHealth(ctx, connect.NewRequest(&pb.GetHealthRequest{}))
 				require.NoError(t, err)
 				assert.Empty(t, res.Msg.Issues)
+			})
+		})
+	})
+}
+
+func TestImportCsv_codes(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	// importer returns a handler whose database is open, or already closed so every query fails.
+	importer := func(t *testing.T, closed bool) *rpc.SystemHandler {
+		t.Helper()
+
+		db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "gamevault.db"), "")
+		require.NoError(t, err)
+
+		if closed {
+			require.NoError(t, db.Close())
+		} else {
+			t.Cleanup(func() { db.Close() })
+		}
+
+		return rpc.NewSystemHandler(nil, transfer.NewService(sqlite.NewGameRepository(db), db, sqlite.NewSettingsRepository(db),
+			time.Now, csvfile.Codec{}, nil))
+	}
+
+	t.Run("GIVEN a working catalog", func(t *testing.T) {
+		h := importer(t, false)
+
+		t.Run("WHEN the file has no title column", func(t *testing.T) {
+			_, err := h.ImportCsv(ctx, connect.NewRequest(&pb.ImportCsvRequest{Content: []byte("name,kind\nOkami,physical\n")}))
+
+			t.Run("THEN it is invalid input", func(t *testing.T) {
+				assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+			})
+		})
+
+		t.Run("WHEN the file is not CSV at all", func(t *testing.T) {
+			_, err := h.ImportCsv(ctx, connect.NewRequest(&pb.ImportCsvRequest{Content: []byte("title\n\"Okami")}))
+
+			t.Run("THEN it is invalid input", func(t *testing.T) {
+				assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+			})
+		})
+	})
+
+	t.Run("GIVEN a catalog whose database fails", func(t *testing.T) {
+		h := importer(t, true)
+
+		t.Run("WHEN a valid file is imported", func(t *testing.T) {
+			_, err := h.ImportCsv(ctx, connect.NewRequest(&pb.ImportCsvRequest{Content: []byte("title,kind\nOkami,physical\n")}))
+
+			t.Run("THEN it is an internal error, not the file's fault", func(t *testing.T) {
+				assert.Equal(t, connect.CodeInternal, connect.CodeOf(err))
 			})
 		})
 	})

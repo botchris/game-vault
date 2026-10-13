@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"gamevault/internal/domain/errkind"
 )
 
 // gameWith returns a game titled "Halo 3" with one copy per details.
@@ -78,8 +80,7 @@ func TestEditions(t *testing.T) {
 		t.Run("WHEN a system the game has no copy on is chosen THEN it is refused, naming it", func(t *testing.T) {
 			err := g.SetMainSystem("Wii", t0)
 
-			var ve *ValidationError
-			require.ErrorAs(t, err, &ve)
+			require.ErrorIs(t, err, ErrEditionNotFound)
 			assert.Contains(t, err.Error(), "Wii")
 		})
 	})
@@ -118,7 +119,7 @@ func TestEditionCovers(t *testing.T) {
 		t.Run("WHEN the PS3 photo is chosen for the Xbox 360 edition THEN it is refused, naming the system", func(t *testing.T) {
 			err := g.SetEditionCover("Xbox 360", EditionCover{Photo: pid(1)}, t0)
 
-			var ve *ValidationError
+			var ve *errkind.ValidationError
 			require.ErrorAs(t, err, &ve)
 			assert.Contains(t, err.Error(), "Xbox 360")
 		})
@@ -126,13 +127,15 @@ func TestEditionCovers(t *testing.T) {
 		t.Run("WHEN a cover is chosen for a system the game has no copy on THEN it is refused, naming it", func(t *testing.T) {
 			err := g.SetEditionCover("Wii", EditionCover{URL: "https://example.test/wii.jpg"}, t0)
 
-			var ve *ValidationError
-			require.ErrorAs(t, err, &ve)
+			require.ErrorIs(t, err, ErrEditionNotFound)
+			assert.Equal(t, errkind.NotFound, errkind.Of(err), "a stale page, like an unknown id")
 			assert.Contains(t, err.Error(), "Wii")
+
+			require.ErrorIs(t, g.SetMainSystem("Wii", t0), ErrEditionNotFound)
 		})
 
 		t.Run("WHEN a URL that is not http(s) is chosen THEN it is refused", func(t *testing.T) {
-			var ve *ValidationError
+			var ve *errkind.ValidationError
 			assert.ErrorAs(t, g.SetEditionCover("PS3", EditionCover{URL: "javascript:alert(1)"}, t0), &ve)
 		})
 
@@ -427,7 +430,7 @@ func TestCoverWithoutCopies(t *testing.T) {
 		})
 
 		t.Run("AND the empty system is refused once the game has copies", func(t *testing.T) {
-			var ve *ValidationError
+			var ve *errkind.ValidationError
 			assert.ErrorAs(t, g.SetEditionCover("", EditionCover{URL: url}, t0), &ve)
 		})
 	})

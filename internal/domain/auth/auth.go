@@ -8,8 +8,6 @@ package auth
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"net/netip"
 	"regexp"
 	"slices"
@@ -17,27 +15,23 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"gamevault/internal/domain/errkind"
 )
 
-// Errors returned by the auth use cases. Callers match them with errors.Is.
+// Errors returned by the auth use cases. Callers match them with errors.Is; their kind (errkind)
+// tells adapters which status to answer with.
 var (
-	ErrUnauthenticated = errors.New("authentication required")
-	ErrBadCredentials  = errors.New("wrong username or password")
-	ErrNotFound        = errors.New("not found")
-	ErrSetupDone       = errors.New("a user already exists")
-	ErrSetupNotTrusted = errors.New("the user can only be created from a trusted network (by default, the computer running Game Vault; in Docker, your local network)")
-	ErrTooManyAttempts = errors.New("too many failed attempts; wait a few minutes")
-	ErrLockout         = &ValidationError{"create a user before making authentication required, or you would lock yourself out"}
+	ErrUnauthenticated = errkind.New(errkind.Unauthenticated, "authentication required")
+	ErrBadCredentials  = errkind.New(errkind.Unauthenticated, "wrong username or password")
+	ErrNotFound        = errkind.New(errkind.NotFound, "not found")
+	ErrSetupDone       = errkind.New(errkind.AlreadyExists, "a user already exists")
+	ErrSetupNotTrusted = errkind.New(errkind.PermissionDenied, "the user can only be created from a trusted network (by default, the computer running Game Vault; in Docker, your local network)")
+	ErrTooManyAttempts = errkind.New(errkind.Exhausted, "too many failed attempts; wait a few minutes")
+	ErrLockout         = errkind.New(errkind.Precondition, "create a user before making authentication required, or you would lock yourself out")
 )
 
-// ValidationError reports input that breaks a rule.
-type ValidationError struct{ msg string }
-
-func (e *ValidationError) Error() string { return e.msg }
-
-func invalid(format string, args ...any) error {
-	return &ValidationError{fmt.Sprintf(format, args...)}
-}
+func invalid(format string, args ...any) error { return errkind.Invalidf(format, args...) }
 
 // Request is what is known about who sent an HTTP request. Adapters fill it in.
 type Request struct {

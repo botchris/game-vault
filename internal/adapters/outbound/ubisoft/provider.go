@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"gamevault/internal/adapters/outbound/apiclient"
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
@@ -57,8 +58,8 @@ const LoginURL = "https://connect.ubisoft.com/login?appId=" + webAppID +
 var appIDs = []string{webAppID, pcAppID}
 
 var (
-	// ErrNoLoginData means nothing usable was pasted.
-	ErrNoLoginData = errors.New("ubisoft: paste the login data of connect.ubisoft.com (see the help below the field)")
+	// ErrNoCredentials means nothing usable was pasted.
+	ErrNoCredentials = errkind.New(errkind.Invalid, "ubisoft: paste the login data of connect.ubisoft.com (see the help below the field)")
 
 	// ErrSignedOut means Ubisoft no longer accepts the ticket.
 	ErrSignedOut = source.SignedOut("ubisoft did not accept the login data: its remember-me ticket is replaced every time it is used, so a value copied earlier stops working. Sign in again on connect.ubisoft.com (a private window is best) and paste the new PRODrememberMe value")
@@ -270,7 +271,7 @@ func (p *Provider) session(ctx context.Context, settings source.Settings, fresh 
 	}
 
 	if d.RememberMeTicket == "" {
-		return session{}, ErrNoLoginData
+		return session{}, ErrNoCredentials
 	}
 
 	order := appIDs

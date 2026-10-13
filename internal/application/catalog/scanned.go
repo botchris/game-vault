@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 )
 
@@ -16,10 +17,10 @@ const MaxScannedCopies = 200
 var (
 	// ErrInvalidScannedCopies means a request the scan page never sends: too many copies, or a
 	// new game without a title.
-	ErrInvalidScannedCopies = errors.New("invalid scanned copies")
+	ErrInvalidScannedCopies = errkind.New(errkind.Invalid, "invalid scanned copies")
 
 	// ErrScannedGameGone is the error of a scanned copy whose game was deleted meanwhile.
-	ErrScannedGameGone = errors.New("the game no longer exists; choose another one")
+	ErrScannedGameGone = errkind.New(errkind.NotFound, "the game no longer exists; choose another one")
 )
 
 // ScannedCopy is one box of a scanning session to save.
@@ -91,8 +92,9 @@ func (s *Service) AddScannedCopies(ctx context.Context, items []ScannedCopy) ([]
 		for _, group := range groupScanned(items) {
 			g, err := s.scannedTarget(ctx, items, group, now)
 			if err != nil {
-				var v *game.ValidationError
-				if !errors.Is(err, game.ErrGameNotFound) && !errors.As(err, &v) {
+				// Invalid input (a rule broken, a bad barcode) fails its boxes alone; anything else
+				// (the database) fails the whole request.
+				if !errors.Is(err, game.ErrGameNotFound) && errkind.Of(err) != errkind.Invalid {
 					return err
 				}
 

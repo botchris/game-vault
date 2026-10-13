@@ -65,10 +65,10 @@ const (
 
 var (
 	// ErrNotConfigured means the API key is missing or the risk was not accepted.
-	ErrNotConfigured = provider.BadSettings("enter your SteamGridDB API key and accept the risk in the provider settings")
+	ErrNotConfigured = provider.BadSettings("enter your API key and accept the risk in the provider settings")
 
 	// ErrBadKey means SteamGridDB rejected the API key (HTTP 401 or 403).
-	ErrBadKey = provider.BadSettings("SteamGridDB rejected the API key: check it in the provider settings")
+	ErrBadKey = provider.BadSettings("the service rejected the API key: check it in the provider settings")
 )
 
 // errNotFound is SteamGridDB's HTTP 404: it does not know the game (or the search found nothing).
@@ -432,7 +432,7 @@ func (p *Covers) send(ctx context.Context, key, path string, query url.Values, o
 		}
 
 		if err := json.Unmarshal(env.Data, out); err != nil {
-			return fmt.Errorf("SteamGridDB answered in an unexpected shape (%w): try again later; if it persists, report this message: %w",
+			return fmt.Errorf("the answer has an unexpected shape (%w): try again later; if it persists, report this message: %w",
 				err, provider.ErrUnavailable)
 		}
 
@@ -494,7 +494,7 @@ func mapError(ctx context.Context, err error, env envelope) error {
 		return nil
 	case err == nil:
 		// A 200 with "success": false: keep SteamGridDB's own words so the user can report them.
-		return fmt.Errorf("SteamGridDB refused the request (%s): try again later; if it persists, report this message: %w",
+		return fmt.Errorf("the request was refused (%s): try again later; if it persists, report this message: %w",
 			strings.Join(env.Errors, ", "), provider.ErrUnavailable)
 	case ctx.Err() != nil:
 		return ctx.Err()
@@ -503,15 +503,15 @@ func mapError(ctx context.Context, err error, env envelope) error {
 	case !errors.As(err, &se):
 		var ue *url.Error
 		if errors.As(err, &ue) {
-			return fmt.Errorf("SteamGridDB is not answering, try again later (%w): %w", err, provider.ErrUnavailable)
+			return fmt.Errorf("not answering, try again later (%w): %w", err, provider.ErrUnavailable)
 		}
 
 		// The answer could not be decoded: the API may have changed.
-		return fmt.Errorf("SteamGridDB: %w: try again later; if it persists, report this message: %w", err, provider.ErrUnavailable)
+		return fmt.Errorf("%w: try again later; if it persists, report this message: %w", err, provider.ErrUnavailable)
 	case se.Status == http.StatusTooManyRequests:
 		return apiclient.ClassifyError(ctx, err) // keeps the Retry-After the throttle rests for
 	case se.Status >= 500:
-		return fmt.Errorf("SteamGridDB is not answering (HTTP %d): try again later: %w", se.Status, provider.ErrUnavailable)
+		return fmt.Errorf("not answering (HTTP %d): try again later: %w", se.Status, provider.ErrUnavailable)
 	case !isAPIError(se.Body):
 		return errWebPage
 	case se.Status == http.StatusUnauthorized, se.Status == http.StatusForbidden:
@@ -520,13 +520,13 @@ func mapError(ctx context.Context, err error, env envelope) error {
 		return errNotFound
 	}
 
-	return fmt.Errorf("SteamGridDB: HTTP %d: %s: try again later; if it persists, report this message: %w",
+	return fmt.Errorf("HTTP %d: %s: try again later; if it persists, report this message: %w",
 		se.Status, se.Body, provider.ErrUnavailable)
 }
 
 // errWebPage is an HTML page instead of the API's JSON (Cloudflare's checks, a maintenance notice):
 // an outage, not an answer about the key or the game.
-var errWebPage = fmt.Errorf("SteamGridDB answered with a web page instead of data: try again later: %w", provider.ErrUnavailable)
+var errWebPage = fmt.Errorf("the answer is a web page instead of data: try again later: %w", provider.ErrUnavailable)
 
 // isAPIError reports whether an error answer's body is the API's own JSON ({"success": false, …}).
 func isAPIError(body string) bool {

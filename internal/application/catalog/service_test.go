@@ -129,8 +129,7 @@ func TestEditionCoverCache(t *testing.T) {
 			svc, _, g := setup(t)
 			_, err := svc.SetEditionCover(ctx, g.ID(), "Wii", game.EditionCover{URL: "https://example.test/wii.jpg"})
 
-			var ve *game.ValidationError
-			require.ErrorAs(t, err, &ve)
+			require.ErrorIs(t, err, game.ErrEditionNotFound)
 			assert.Contains(t, err.Error(), "Wii")
 		})
 

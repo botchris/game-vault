@@ -11,12 +11,12 @@ package fanatical
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
 	"gamevault/internal/adapters/outbound/apiclient"
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
@@ -36,8 +36,8 @@ const (
 )
 
 var (
-	// ErrNoSession means nothing usable was pasted.
-	ErrNoSession = errors.New("fanatical: paste the bsauth value from the site's Local Storage (see the help below the field)")
+	// ErrNoCredentials means nothing usable was pasted.
+	ErrNoCredentials = errkind.New(errkind.Invalid, "fanatical: paste the bsauth value from the site's Local Storage (see the help below the field)")
 
 	// ErrSignedOut means Fanatical rejected the session.
 	ErrSignedOut = source.SignedOut("fanatical did not accept the session: sign in again on fanatical.com and paste the new bsauth value")
@@ -159,7 +159,7 @@ func (it item) origin() string {
 func (p *Provider) keys(ctx context.Context, settings source.Settings) ([]item, error) {
 	tok := token(settings[settingSession])
 	if tok == "" {
-		return nil, ErrNoSession
+		return nil, ErrNoCredentials
 	}
 
 	var items []item

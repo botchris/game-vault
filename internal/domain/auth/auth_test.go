@@ -5,6 +5,8 @@ import (
 	"net/netip"
 	"slices"
 	"testing"
+
+	"gamevault/internal/domain/errkind"
 )
 
 func TestNormalize(t *testing.T) {
@@ -27,7 +29,7 @@ func TestNormalize(t *testing.T) {
 		{Authentication: "sometimes"},
 		{CertificateValidation: "maybe"},
 	} {
-		var v *ValidationError
+		var v *errkind.ValidationError
 		if _, err := bad.Normalize(); !errors.As(err, &v) {
 			t.Errorf("%+v should be rejected, got %v", bad, err)
 		}

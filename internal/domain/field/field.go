@@ -4,13 +4,12 @@ package field
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"slices"
 	"strings"
 
 	"github.com/google/uuid"
 
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 )
 
@@ -54,17 +53,9 @@ const (
 var types = []Type{TypeText, TypeLongText, TypeBool, TypeNumber, TypeMoney, TypeDate, TypeDuration, TypeList, TypeMultiList}
 
 // ErrNotFound means there is no field (or list value) with that id.
-var ErrNotFound = errors.New("custom field not found: reload the page")
+var ErrNotFound = errkind.New(errkind.NotFound, "custom field not found: reload the page")
 
-// ValidationError reports a field definition or value that breaks a rule.
-type ValidationError struct{ msg string }
-
-// Error returns the message, which says what to fix.
-func (e *ValidationError) Error() string { return e.msg }
-
-func invalid(format string, args ...any) error {
-	return &ValidationError{msg: fmt.Sprintf(format, args...)}
-}
+func invalid(format string, args ...any) error { return errkind.Invalidf(format, args...) }
 
 // Choice is one value of a list or multilist field.
 type Choice struct {

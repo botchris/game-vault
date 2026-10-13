@@ -5,10 +5,10 @@ package ownership
 import (
 	"cmp"
 	"context"
-	"errors"
 	"slices"
 	"strings"
 
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 )
 
@@ -19,7 +19,7 @@ const MaxItems = 200
 const maxCandidates = 5
 
 // ErrTooManyItems means a check held more than MaxItems items.
-var ErrTooManyItems = errors.New("at most 200 items can be checked at once; split the list")
+var ErrTooManyItems = errkind.New(errkind.Invalid, "at most 200 items can be checked at once; split the list")
 
 // Status says whether an item is in the catalog.
 type Status string

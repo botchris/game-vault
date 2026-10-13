@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { errorMessage, valuationClient } from '../../api/client';
+import ProvidersUnavailable from '../../components/ProvidersUnavailable';
 import { useFormatters } from '../../components/ui';
 import type { Estimate, Money } from '../../gen/gamevault/v1/game_pb';
 import { formatAmount } from '../../lib/money';
@@ -16,6 +17,8 @@ export default function CopyValue({ game, copy, onAddBarcode }: { game: Game; co
   const providers = usePriceProviders();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // A price source had a provider-level problem in the last update: its status is on System → Health.
+  const [unavailable, setUnavailable] = useState(false);
   if (providers.size === 0) return null;
   if (!copy.details?.barcode) {
     return <p className="small copy-value"><button className="link" onClick={onAddBarcode}>{t('value.addBarcode')}</button></p>;
@@ -31,10 +34,12 @@ export default function CopyValue({ game, copy, onAddBarcode }: { game: Game; co
   const update = async () => {
     setBusy(true);
     setError('');
+    setUnavailable(false);
     try {
       const res = await valuationClient.estimateCopy({ gameId: game.id, copyId: copy.id });
       putGame(res.game!);
       if (res.warnings.length) setError(res.warnings.join(' · '));
+      setUnavailable(res.providersUnavailable);
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -59,6 +64,7 @@ export default function CopyValue({ game, copy, onAddBarcode }: { game: Game; co
       <span className="muted">{status}</span>
       <button className="link" onClick={update} disabled={busy}>{busy ? t('value.updating') : t('value.update')}</button>
       {error && <span className="copy-value-error">{error}</span>}
+      {unavailable && <span className="copy-value-notice"><ProvidersUnavailable /></span>}
     </div>
   );
 }

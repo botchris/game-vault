@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/source"
 )
 
@@ -95,6 +96,34 @@ func TestTest_countsWithoutDownloading(t *testing.T) {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "rejected the API key")
 				assert.ErrorIs(t, err, source.ErrSignedOut)
+				assert.ErrorIs(t, err, ErrSignedOut)
+			})
+		})
+	})
+
+	t.Run("GIVEN a profile name Steam does not know", func(t *testing.T) {
+		settings := source.Settings{settingAPIKey: "good", settingProfile: "nobody-here"}
+
+		t.Run("WHEN the connection is tested", func(t *testing.T) {
+			err := p.Test(ctx, settings)
+
+			t.Run("THEN it says the profile was not found, as input to fix", func(t *testing.T) {
+				require.ErrorIs(t, err, ErrProfileNotFound)
+				assert.Contains(t, err.Error(), `no profile named "nobody-here"`)
+				assert.Equal(t, errkind.Invalid, errkind.Of(err))
+			})
+		})
+	})
+
+	t.Run("GIVEN no API key", func(t *testing.T) {
+		settings := source.Settings{settingAPIKey: " ", settingProfile: "gaben"}
+
+		t.Run("WHEN the connection is tested", func(t *testing.T) {
+			err := p.Test(ctx, settings)
+
+			t.Run("THEN it asks for one without calling Steam", func(t *testing.T) {
+				require.ErrorIs(t, err, ErrNoCredentials)
+				assert.Equal(t, errkind.Invalid, errkind.Of(err))
 			})
 		})
 	})

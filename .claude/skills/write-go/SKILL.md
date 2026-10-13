@@ -59,19 +59,19 @@ constant into its own declaration instead.
   ```go
   // WRONG: doc comments cuddled to the previous member
   var (
-      // ErrNoSession means there is neither a stored session nor a code to start one.
-      ErrNoSession = errors.New("amazon: open the sign-in link…")
+      // ErrNoCredentials means there is neither a stored session nor a code to start one.
+      ErrNoCredentials = errkind.New(errkind.Invalid, "amazon: open the sign-in link…")
       // ErrBadCode means Amazon rejected the code.
-      ErrBadCode = errors.New("amazon rejected the code…")
+      ErrBadCode = errkind.New(errkind.Invalid, "amazon rejected the code…")
   )
 
   // RIGHT
   var (
-      // ErrNoSession means there is neither a stored session nor a code to start one.
-      ErrNoSession = errors.New("amazon: open the sign-in link…")
+      // ErrNoCredentials means there is neither a stored session nor a code to start one.
+      ErrNoCredentials = errkind.New(errkind.Invalid, "amazon: open the sign-in link…")
 
       // ErrBadCode means Amazon rejected the code.
-      ErrBadCode = errors.New("amazon rejected the code…")
+      ErrBadCode = errkind.New(errkind.Invalid, "amazon rejected the code…")
   )
   ```
 
@@ -146,7 +146,10 @@ constant into its own declaration instead.
   gofmt aligns them).
 
 - **Error strings**: lowercase, no trailing punctuation (`revive:error-strings`). Sentinel errors
-  are `ErrX` (exported) / `errX` (`error-naming`) and callers match them with `errors.Is`. Wrap with
+  are `ErrX` (exported) / `errX` (`error-naming`) and callers match them with `errors.Is`. An
+  exported sentinel that can reach the API gets its kind (`errkind.New(errkind.NotFound, …)`;
+  rule violations are `errkind.Invalidf`): the RPC layer maps kinds, and
+  `TestSentinels_haveACode` (rpc) fails until a new domain or application sentinel is listed. Wrap with
   context: `fmt.Errorf("caching cover: %w", err)`. Errors that reach the UI say what happened and
   what to do ("… paste a new code").
 - **Unchecked errors**: `errcheck` is on. When ignoring an error is correct, say so explicitly with

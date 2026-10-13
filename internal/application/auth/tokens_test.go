@@ -17,6 +17,7 @@ import (
 	"gamevault/internal/adapters/outbound/sqlite"
 	appauth "gamevault/internal/application/auth"
 	"gamevault/internal/domain/auth"
+	"gamevault/internal/domain/errkind"
 )
 
 // plainHasher stands in for bcrypt: these tests are about tokens, and bcrypt is slow on purpose.
@@ -140,7 +141,7 @@ func TestAccessTokens(t *testing.T) {
 		_, _, err := svc.CreateAccessToken(ctx, "  ")
 
 		t.Run("THEN no token is created", func(t *testing.T) {
-			var ve *auth.ValidationError
+			var ve *errkind.ValidationError
 			assert.ErrorAs(t, err, &ve)
 		})
 	})

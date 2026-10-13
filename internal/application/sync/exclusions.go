@@ -2,19 +2,19 @@ package sync
 
 import (
 	"context"
-	"errors"
 	"slices"
 
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/source"
 )
 
 var (
 	// ErrNotImported means the copy was added by hand: there is nothing to stop importing.
-	ErrNotImported = errors.New("this copy was added by hand: delete it instead")
+	ErrNotImported = errkind.New(errkind.Precondition, "this copy was added by hand: delete it instead")
 
 	// ErrNotExcluded means the item is not on the source's removed list.
-	ErrNotExcluded = errors.New("this item is not on the source's removed list")
+	ErrNotExcluded = errkind.New(errkind.NotFound, "this item is not on the source's removed list")
 )
 
 // ExcludeCopy removes a copy a source imported and records it on the source, so later scans skip

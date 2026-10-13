@@ -532,7 +532,7 @@ func TestCovers_failures(t *testing.T) {
 
 			t.Run("THEN it says SteamGridDB rejected the key", func(t *testing.T) {
 				require.ErrorIs(t, err, ErrBadKey)
-				assert.Equal(t, "SteamGridDB rejected the API key: check it in the provider settings", err.Error())
+				assert.Equal(t, "the service rejected the API key: check it in the provider settings", err.Error())
 			})
 		})
 	})
@@ -626,6 +626,10 @@ func TestCovers_failures(t *testing.T) {
 						assert.NotErrorIs(t, err, provider.ErrBadSettings)
 					}
 				})
+
+				t.Run("AND its text does not name SteamGridDB, which the caller puts before it", func(t *testing.T) {
+					assert.NotContains(t, err.Error(), "SteamGridDB")
+				})
 			})
 		})
 	}
@@ -641,6 +645,7 @@ func TestCovers_failures(t *testing.T) {
 			t.Run("THEN it counts as unavailable", func(t *testing.T) {
 				require.ErrorIs(t, err, provider.ErrUnavailable)
 				assert.Contains(t, err.Error(), "try again later")
+				assert.NotContains(t, err.Error(), "SteamGridDB")
 			})
 		})
 	})

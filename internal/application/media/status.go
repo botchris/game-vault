@@ -67,12 +67,17 @@ func statusKey(d provider.Descriptor) provider.ID {
 	return d.ID
 }
 
-// providerLevel reports whether err is a problem of the provider rather than of a game: a rate limit
+// ProviderLevel reports whether err is a problem of the provider rather than of a game: a rate limit
 // (busy, quota, outage) or rejected settings. Those are reported in the provider's status, not on
-// game sheets or in the cover picker.
-func providerLevel(err error) bool {
+// game sheets, in the cover picker or as a copy's price warning.
+func ProviderLevel(err error) bool {
 	return errors.Is(err, provider.ErrRateLimited) || errors.Is(err, provider.ErrBadSettings)
 }
+
+// ReportResult records what a provider's answer to a caller outside this service (the valuation
+// service asking its price providers) says about the provider, as noteResult does for the
+// service's own calls.
+func (s *Service) ReportResult(id provider.ID, err error) { s.noteResult(id, err) }
 
 // noteResult records what a provider's answer says about the provider: a provider-level problem sets
 // its status, a successful answer clears it, and any other error (a failure for one game) leaves it.
@@ -97,7 +102,7 @@ func (s *Service) noteResult(id provider.ID, err error) {
 		return
 	}
 
-	if !providerLevel(err) {
+	if !ProviderLevel(err) {
 		return
 	}
 

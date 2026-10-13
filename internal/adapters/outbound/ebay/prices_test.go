@@ -111,8 +111,9 @@ func TestEbayPrices(t *testing.T) {
 		p := (&fakeEbay{badKeys: true}).serve(t)
 		_, err := p.Estimate(ctx, keys, "5030934110075")
 
-		t.Run("THEN it says the keys were rejected", func(t *testing.T) {
-			assert.ErrorContains(t, err, "eBay rejected the keys")
+		t.Run("THEN it says the keys were rejected, without naming eBay (the caller does)", func(t *testing.T) {
+			assert.ErrorContains(t, err, "the keys were rejected")
+			assert.NotContains(t, err.Error(), "eBay")
 		})
 	})
 

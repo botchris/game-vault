@@ -216,7 +216,7 @@ func TestErrors(t *testing.T) {
 	p, _ := newTestProvider(t)
 
 	ctx := context.Background()
-	if _, err := p.Prepare(ctx, source.Settings{}); !errors.Is(err, ErrNoSession) {
+	if _, err := p.Prepare(ctx, source.Settings{}); !errors.Is(err, ErrNoCredentials) {
 		t.Errorf("no code: %v", err)
 	}
 
@@ -224,7 +224,7 @@ func TestErrors(t *testing.T) {
 		t.Errorf("wrong code: %v", err)
 	}
 
-	if err := p.Test(ctx, source.Settings{settingSession: `{"refresh_token":"stale","user_id":"u9"}`}); !errors.Is(err, ErrSessionExpired) {
+	if err := p.Test(ctx, source.Settings{settingSession: `{"refresh_token":"stale","user_id":"u9"}`}); !errors.Is(err, ErrSignedOut) {
 		t.Errorf("stale session: %v", err)
 	}
 	// A token GOG no longer accepts makes it redirect to the login page: the token is rejected (the

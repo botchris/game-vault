@@ -228,10 +228,10 @@ func (c *Covers) Test(ctx context.Context, _ schema.Settings) error {
 	case err == nil:
 		return nil
 	case errors.As(err, &ge):
-		return fmt.Errorf("EA's catalog rejected the request (%s); try again later", ge.Message)
+		return fmt.Errorf("the catalog rejected the request (%s); try again later", ge.Message)
 	case errors.As(err, &se):
-		return fmt.Errorf("EA's catalog answered (%w); try again later", apiclient.ClassifyError(ctx, err))
+		return fmt.Errorf("the catalog answered (%w); try again later", apiclient.ClassifyError(ctx, err))
 	}
 
-	return fmt.Errorf("EA's catalog is not reachable (%w); check the connection and try again", apiclient.ClassifyError(ctx, err))
+	return fmt.Errorf("the catalog is not reachable (%w); check the connection and try again", apiclient.ClassifyError(ctx, err))
 }

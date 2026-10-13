@@ -164,8 +164,9 @@ func TestCovers_passingTroubles(t *testing.T) {
 			t.Run("WHEN covers are asked", func(t *testing.T) {
 				_, err := c.Covers(ctx, q, nil)
 
-				t.Run("THEN the error says it is a passing trouble", func(t *testing.T) {
+				t.Run("THEN the error says it is a passing trouble, without naming EA (the caller does)", func(t *testing.T) {
 					require.ErrorIs(t, err, want)
+					assert.NotContains(t, err.Error(), "EA")
 				})
 			})
 

@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file gamevault/v1/valuation.proto.
  */
 export const file_gamevault_v1_valuation: GenFile = /*@__PURE__*/
-  fileDesc("ChxnYW1ldmF1bHQvdjEvdmFsdWF0aW9uLnByb3RvEgxnYW1ldmF1bHQudjEiNwoTRXN0aW1hdGVDb3B5UmVxdWVzdBIPCgdnYW1lX2lkGAEgASgJEg8KB2NvcHlfaWQYAiABKAkiSgoURXN0aW1hdGVDb3B5UmVzcG9uc2USIAoEZ2FtZRgBIAEoCzISLmdhbWV2YXVsdC52MS5HYW1lEhAKCHdhcm5pbmdzGAIgAygJIhsKGUdldENvbGxlY3Rpb25WYWx1ZVJlcXVlc3QinQEKDVByb3ZpZGVyVG90YWwSEAoIcHJvdmlkZXIYASABKAkSDAoEbmFtZRgCIAEoCRISCgpzZWxsX21pbm9yGAMgASgDEhYKDmJ1eV9jYXNoX21pbm9yGAQgASgDEhgKEGJ1eV9jcmVkaXRfbWlub3IYBSABKAMSDgoGY29waWVzGAYgASgFEhYKDm90aGVyX2N1cnJlbmN5GAcgASgFIlsKGkdldENvbGxlY3Rpb25WYWx1ZVJlc3BvbnNlEhAKCGN1cnJlbmN5GAEgASgJEisKBnRvdGFscxgCIAMoCzIbLmdhbWV2YXVsdC52MS5Qcm92aWRlclRvdGFsMtIBChBWYWx1YXRpb25TZXJ2aWNlElUKDEVzdGltYXRlQ29weRIhLmdhbWV2YXVsdC52MS5Fc3RpbWF0ZUNvcHlSZXF1ZXN0GiIuZ2FtZXZhdWx0LnYxLkVzdGltYXRlQ29weVJlc3BvbnNlEmcKEkdldENvbGxlY3Rpb25WYWx1ZRInLmdhbWV2YXVsdC52MS5HZXRDb2xsZWN0aW9uVmFsdWVSZXF1ZXN0GiguZ2FtZXZhdWx0LnYxLkdldENvbGxlY3Rpb25WYWx1ZVJlc3BvbnNlQjFaL2dhbWV2YXVsdC9pbnRlcm5hbC9nZW4vZ2FtZXZhdWx0L3YxO2dhbWV2YXVsdHYxYgZwcm90bzM", [file_gamevault_v1_game]);
+  fileDesc("ChxnYW1ldmF1bHQvdjEvdmFsdWF0aW9uLnByb3RvEgxnYW1ldmF1bHQudjEiNwoTRXN0aW1hdGVDb3B5UmVxdWVzdBIPCgdnYW1lX2lkGAEgASgJEg8KB2NvcHlfaWQYAiABKAkiaQoURXN0aW1hdGVDb3B5UmVzcG9uc2USIAoEZ2FtZRgBIAEoCzISLmdhbWV2YXVsdC52MS5HYW1lEhAKCHdhcm5pbmdzGAIgAygJEh0KFXByb3ZpZGVyc191bmF2YWlsYWJsZRgDIAEoCCIbChlHZXRDb2xsZWN0aW9uVmFsdWVSZXF1ZXN0Ip0BCg1Qcm92aWRlclRvdGFsEhAKCHByb3ZpZGVyGAEgASgJEgwKBG5hbWUYAiABKAkSEgoKc2VsbF9taW5vchgDIAEoAxIWCg5idXlfY2FzaF9taW5vchgEIAEoAxIYChBidXlfY3JlZGl0X21pbm9yGAUgASgDEg4KBmNvcGllcxgGIAEoBRIWCg5vdGhlcl9jdXJyZW5jeRgHIAEoBSJbChpHZXRDb2xsZWN0aW9uVmFsdWVSZXNwb25zZRIQCghjdXJyZW5jeRgBIAEoCRIrCgZ0b3RhbHMYAiADKAsyGy5nYW1ldmF1bHQudjEuUHJvdmlkZXJUb3RhbDLSAQoQVmFsdWF0aW9uU2VydmljZRJVCgxFc3RpbWF0ZUNvcHkSIS5nYW1ldmF1bHQudjEuRXN0aW1hdGVDb3B5UmVxdWVzdBoiLmdhbWV2YXVsdC52MS5Fc3RpbWF0ZUNvcHlSZXNwb25zZRJnChJHZXRDb2xsZWN0aW9uVmFsdWUSJy5nYW1ldmF1bHQudjEuR2V0Q29sbGVjdGlvblZhbHVlUmVxdWVzdBooLmdhbWV2YXVsdC52MS5HZXRDb2xsZWN0aW9uVmFsdWVSZXNwb25zZUIxWi9nYW1ldmF1bHQvaW50ZXJuYWwvZ2VuL2dhbWV2YXVsdC92MTtnYW1ldmF1bHR2MWIGcHJvdG8z", [file_gamevault_v1_game]);
 
 /**
  * @generated from message gamevault.v1.EstimateCopyRequest
@@ -46,11 +46,21 @@ export type EstimateCopyResponse = Message<"gamevault.v1.EstimateCopyResponse"> 
   game?: Game | undefined;
 
   /**
-   * Sources that failed this time (their previous estimate is kept).
+   * Sources that failed for this product this time (their previous estimate is kept).
+   * Provider-level problems (a bot check, too many requests, not answering, settings rejected) are
+   * not listed: see GetProviderStatus.
    *
    * @generated from field: repeated string warnings = 2;
    */
   warnings: string[];
+
+  /**
+   * A source had a provider-level problem, so the estimates may be incomplete; the copy is then not
+   * marked as checked (valued_at keeps the last time every source answered).
+   *
+   * @generated from field: bool providers_unavailable = 3;
+   */
+  providersUnavailable: boolean;
 };
 
 /**

@@ -3,12 +3,12 @@ package catalog
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 	"time"
 
 	"gamevault/internal/application/port"
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/field"
 	"gamevault/internal/domain/game"
 )
@@ -34,7 +34,13 @@ type PhotoFiles interface {
 
 // ErrPhotoNotUploaded means a photo to attach is not stored: it was never uploaded, or it was
 // pruned before being attached.
-var ErrPhotoNotUploaded = errors.New("photo not uploaded: upload it again")
+var ErrPhotoNotUploaded = errkind.New(errkind.Precondition, "photo not uploaded: upload it again")
+
+// ErrMergeIntoItself means a merge lists the target game among the games to merge into it.
+var ErrMergeIntoItself = errkind.New(errkind.Invalid, "a game cannot be merged into itself")
+
+// ErrCopyAlreadyThere means a copy is moved to the game it is already in.
+var ErrCopyAlreadyThere = errkind.New(errkind.Invalid, "the copy is already in that game")
 
 // Service exposes the catalog use cases.
 type Service struct {
@@ -277,7 +283,7 @@ func (s *Service) DeleteCopy(ctx context.Context, id, copyID game.ID) (*game.Gam
 // MergeGames moves the copies of every source game into target and deletes the sources.
 func (s *Service) MergeGames(ctx context.Context, target game.ID, sources []game.ID) (*game.Game, error) {
 	if slices.Contains(sources, target) {
-		return nil, errors.New("a game cannot be merged into itself")
+		return nil, ErrMergeIntoItself
 	}
 
 	var merged *game.Game
@@ -342,7 +348,7 @@ func (s *Service) MoveCopy(ctx context.Context, from, copyID, target game.ID, ne
 
 		if target != "" {
 			if target == from {
-				return errors.New("the copy is already in that game")
+				return ErrCopyAlreadyThere
 			}
 
 			if dst, err = s.games.Get(ctx, target); err != nil {

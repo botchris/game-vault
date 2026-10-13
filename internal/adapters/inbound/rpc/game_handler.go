@@ -204,7 +204,7 @@ func (h *GameHandler) MoveCopy(ctx context.Context, req *connect.Request[pb.Move
 // whose details cannot be read (a broken barcode…) fails alone, like the ones the catalog refuses.
 func (h *GameHandler) AddScannedCopies(ctx context.Context, req *connect.Request[pb.AddScannedCopiesRequest]) (*connect.Response[pb.AddScannedCopiesResponse], error) {
 	if len(req.Msg.Items) > catalog.MaxScannedCopies {
-		return nil, connect.NewError(connect.CodeInvalidArgument, catalog.ErrInvalidScannedCopies)
+		return nil, toConnectError(catalog.ErrInvalidScannedCopies)
 	}
 
 	// Results come back in the order of the request; at[i] is where the catalog's i-th item was.
@@ -235,10 +235,6 @@ func (h *GameHandler) AddScannedCopies(ctx context.Context, req *connect.Request
 	}
 
 	results, games, err := h.catalog.AddScannedCopies(ctx, items)
-	if errors.Is(err, catalog.ErrInvalidScannedCopies) {
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
 	if err != nil {
 		return nil, toConnectError(err)
 	}
@@ -321,12 +317,8 @@ func (h *GameHandler) ListLinkStores(context.Context, *connect.Request[pb.ListLi
 // SearchLinks searches a store's catalog by title, to link a game to it.
 func (h *GameHandler) SearchLinks(ctx context.Context, req *connect.Request[pb.SearchLinksRequest]) (*connect.Response[pb.SearchLinksResponse], error) {
 	matches, err := h.media.SearchLinks(ctx, req.Msg.Store, req.Msg.Query)
-	if errors.Is(err, media.ErrUnknownStore) {
-		return nil, connect.NewError(connect.CodeNotFound, err)
-	}
-
 	if err != nil {
-		return nil, connect.NewError(connect.CodeUnavailable, err)
+		return nil, toConnectError(err)
 	}
 
 	out := &pb.SearchLinksResponse{}

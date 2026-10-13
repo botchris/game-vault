@@ -12,7 +12,6 @@ package eaapp
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"sort"
@@ -21,6 +20,7 @@ import (
 
 	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/adapters/outbound/browsersession"
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
@@ -49,8 +49,8 @@ const (
 const LoginCheckURL = defaultAccountsURL + tokenPath
 
 var (
-	// ErrNoCookies means nothing usable was pasted.
-	ErrNoCookies = errors.New("ea: paste the cookies of accounts.ea.com (see the help below the field)")
+	// ErrNoCredentials means nothing usable was pasted.
+	ErrNoCredentials = errkind.New(errkind.Invalid, "ea: paste the cookies of accounts.ea.com (see the help below the field)")
 
 	// ErrSignedOut means EA no longer accepts the cookies.
 	ErrSignedOut = source.SignedOut("EA did not accept the cookies: sign in again on ea.com and paste the cookies of accounts.ea.com again")
@@ -158,7 +158,7 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 func (p *Provider) accessToken(ctx context.Context, settings source.Settings) (string, error) {
 	c := browsersession.Current(settings[settingCookies], settings[settingSession])
 	if len(c) == 0 {
-		return "", ErrNoCookies
+		return "", ErrNoCredentials
 	}
 
 	sess, err := browsersession.New(p.Accounts.BaseURL, "ea.com", c, p.Accounts.HTTP.Timeout)

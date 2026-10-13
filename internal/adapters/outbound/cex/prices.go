@@ -20,8 +20,19 @@ import (
 const PricesID provider.ID = "cex-prices"
 
 // ErrPricesBlocked means CeX answered with a bot check instead of its API. It is never worked
-// around (see the safety rules).
-var ErrPricesBlocked = errors.New("CeX is asking for a browser check; prices from CeX are unavailable for now")
+// around (see the safety rules). It matches provider.ErrUnavailable: a problem of the provider,
+// shown as its status on System → Health, not a warning on each copy.
+var ErrPricesBlocked error = pricesBlocked{}
+
+// pricesBlocked is ErrPricesBlocked's type: its own message, unwrapping to provider.ErrUnavailable.
+type pricesBlocked struct{}
+
+func (pricesBlocked) Error() string {
+	return "asking for a browser check; its prices are unavailable for now"
+}
+
+// Unwrap makes errors.Is(ErrPricesBlocked, provider.ErrUnavailable) true.
+func (pricesBlocked) Unwrap() error { return provider.ErrUnavailable }
 
 // currencies of the CeX stores with a box detail API.
 var currencies = map[string]string{

@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"gamevault/internal/domain/errkind"
 )
 
 var t0 = time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
@@ -174,7 +176,7 @@ func TestGame_playStatusAndRating(t *testing.T) {
 			}, t0)
 
 			t.Run("THEN the change is refused and the game keeps its values", func(t *testing.T) {
-				var verr *ValidationError
+				var verr *errkind.ValidationError
 				require.ErrorAs(t, badStatus, &verr)
 				require.ErrorAs(t, badRating, &verr)
 				assert.Equal(t, PlayPlaying, g.PlayStatus())

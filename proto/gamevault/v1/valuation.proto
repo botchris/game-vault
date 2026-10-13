@@ -12,8 +12,13 @@ message EstimateCopyRequest {
 }
 message EstimateCopyResponse {
   Game game = 1;
-  // Sources that failed this time (their previous estimate is kept).
+  // Sources that failed for this product this time (their previous estimate is kept).
+  // Provider-level problems (a bot check, too many requests, not answering, settings rejected) are
+  // not listed: see GetProviderStatus.
   repeated string warnings = 2;
+  // A source had a provider-level problem, so the estimates may be incomplete; the copy is then not
+  // marked as checked (valued_at keeps the last time every source answered).
+  bool providers_unavailable = 3;
 }
 
 message GetCollectionValueRequest {}

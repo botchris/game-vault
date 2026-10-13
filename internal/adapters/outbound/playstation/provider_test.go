@@ -249,7 +249,7 @@ func TestSignedOut(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 
-	if _, _, err := p.Fetch(context.Background(), source.Settings{}); !errors.Is(err, ErrNoNPSSO) {
+	if _, _, err := p.Fetch(context.Background(), source.Settings{}); !errors.Is(err, ErrNoCredentials) {
 		t.Fatalf("got %v", err)
 	}
 }

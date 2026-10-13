@@ -266,6 +266,7 @@ func TestCovers_titleSearch(t *testing.T) {
 
 				t.Run("THEN it counts as limited, so the edition is not marked missing for days", func(t *testing.T) {
 					require.ErrorIs(t, err, provider.ErrRateLimited)
+					assert.NotContains(t, strings.ToLower(err.Error()), "steam", "the caller names the provider")
 				})
 			})
 		})

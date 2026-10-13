@@ -11,6 +11,7 @@ import (
 	"gamevault/internal/application/media"
 	"gamevault/internal/application/port"
 	"gamevault/internal/application/unattended"
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/settings"
@@ -19,10 +20,10 @@ import (
 // Errors returned by the service.
 var (
 	// ErrNotValuable means the copy is not a physical copy with a barcode.
-	ErrNotValuable = errors.New("only physical copies with a barcode can be priced: add the copy's barcode first")
+	ErrNotValuable = errkind.New(errkind.Precondition, "only physical copies with a barcode can be priced: add the copy's barcode first")
 
 	// ErrNoProviders means no price provider is enabled.
-	ErrNoProviders = errors.New("no price provider is enabled: enable one on the Providers page")
+	ErrNoProviders = errkind.New(errkind.Precondition, "no price provider is enabled: enable one on the Providers page")
 
 	// errNotDue means the scheduler found the copy no longer due when its turn came.
 	errNotDue = errors.New("no longer due")
@@ -31,7 +32,7 @@ var (
 	errSkipped = errors.New("skipped for this round after failing")
 
 	// ErrChanged means the copy's barcode changed while its price was being estimated.
-	ErrChanged = errors.New("the copy changed while its price was being estimated: try again")
+	ErrChanged = errkind.New(errkind.Conflict, "the copy changed while its price was being estimated: try again")
 )
 
 // Days between two estimates of a copy (uniform), and within which an undated copy is first planned.
@@ -44,10 +45,15 @@ const (
 // providerTimeout bounds one provider's answer, so a slow source never holds the scheduler.
 const providerTimeout = 20 * time.Second
 
-// Configs is the port that keeps the providers' configuration (implemented by the media service).
+// Configs is the port that keeps the providers' configuration and status (implemented by the media
+// service).
 type Configs interface {
 	// Providers returns the configured providers of a kind in priority order.
 	Providers(ctx context.Context, kind provider.Kind) ([]media.ProviderView, error)
+
+	// ReportResult records what a provider's answer says about the provider: a provider-level
+	// problem (see media.ProviderLevel) becomes its status on System → Health, an answer clears it.
+	ReportResult(id provider.ID, err error)
 }
 
 // Service exposes the valuation use cases.
@@ -110,43 +116,70 @@ type answer struct {
 // EstimateCopy asks every enabled price provider for the copy's barcode, keeps the latest estimate
 // of each (a provider that failed keeps its previous one; one that no longer lists the product
 // loses it) and plans the next valuation 20–40 days ahead. The warnings name the providers that
-// failed. The providers are asked outside the transaction, so a slow source never blocks writes.
-func (s *Service) EstimateCopy(ctx context.Context, gameID, copyID game.ID) (*game.Game, []string, error) {
-	g, warnings, _, err := s.estimate(ctx, gameID, copyID, nil, false)
+// failed for this product; unavailable reports that a provider failed at provider level (its
+// status says why), so the copy's estimates may be incomplete. The copy is stamped as valued only
+// when every provider answered. The providers are asked outside the transaction, so a slow source
+// never blocks writes.
+func (s *Service) EstimateCopy(ctx context.Context, gameID, copyID game.ID) (g *game.Game, warnings []string, unavailable bool, err error) {
+	o, err := s.estimate(ctx, gameID, copyID, nil, false)
 
-	return g, warnings, err
+	return o.game, o.warnings, o.unavailable, err
+}
+
+// outcome is what one estimate of a copy did.
+type outcome struct {
+	game     *game.Game
+	warnings []string
+
+	// failed lists the providers that failed now.
+	failed []provider.ID
+
+	// unavailable reports that a provider failed at provider level (media.ProviderLevel).
+	unavailable bool
 }
 
 // estimate is EstimateCopy for the scheduler too: providers in skip are not asked (they failed
 // earlier in the round) and count as failed; it also returns the providers that failed now. With
 // onlyDue, a copy that is no longer due (priced by hand meanwhile) is left alone (errNotDue).
-func (s *Service) estimate(ctx context.Context, gameID, copyID game.ID, skip map[provider.ID]bool, onlyDue bool) (*game.Game, []string, []provider.ID, error) {
+func (s *Service) estimate(ctx context.Context, gameID, copyID game.ID, skip map[provider.ID]bool, onlyDue bool) (outcome, error) {
 	g, err := s.games.Get(ctx, gameID)
 	if err != nil {
-		return nil, nil, nil, err
+		return outcome{}, err
 	}
 
 	c, err := copyOf(g, copyID)
 	if err != nil {
-		return nil, nil, nil, err
+		return outcome{}, err
 	}
 
 	if onlyDue && c.NextValuation.After(s.now()) {
-		return nil, nil, nil, errNotDue
+		return outcome{}, errNotDue
 	}
 
 	views, err := s.enabled(ctx)
 	if err != nil {
-		return nil, nil, nil, err
+		return outcome{}, err
 	}
 
 	if len(views) == 0 {
-		return nil, nil, nil, ErrNoProviders
+		return outcome{}, ErrNoProviders
 	}
 
-	answers, warnings := s.ask(ctx, views, c.Barcode, skip)
+	answers, warnings, unavailable := s.ask(ctx, views, c.Barcode, skip)
 
-	var out *game.Game
+	var failed []provider.ID
+
+	for _, a := range answers {
+		if a.err != nil {
+			failed = append(failed, a.id)
+		}
+	}
+
+	out := outcome{
+		warnings:    warnings,
+		failed:      failed,
+		unavailable: unavailable,
+	}
 
 	err = s.tx.WithinTx(ctx, func(ctx context.Context) error {
 		g, err := s.games.Get(ctx, gameID)
@@ -163,25 +196,23 @@ func (s *Service) estimate(ctx context.Context, gameID, copyID game.ID, skip map
 			return ErrChanged
 		}
 
+		// "Not listed by any source" is only true when every source answered.
+		set := g.SetEstimates
+		if len(failed) > 0 {
+			set = g.UpdateEstimates
+		}
+
 		next := s.now().Add(s.rhythm.Between(days(minDays), days(maxDays)))
-		if _, err := g.SetEstimates(copyID, merge(current.Estimates, answers), next, s.now()); err != nil {
+		if _, err := set(copyID, merge(current.Estimates, answers), next, s.now()); err != nil {
 			return err
 		}
 
-		out = g
+		out.game = g
 
 		return s.games.Save(ctx, g)
 	})
 
-	var failed []provider.ID
-
-	for _, a := range answers {
-		if a.err != nil {
-			failed = append(failed, a.id)
-		}
-	}
-
-	return out, warnings, failed, err
+	return out, err
 }
 
 func copyOf(g *game.Game, id game.ID) (game.Copy, error) {
@@ -198,10 +229,11 @@ func copyOf(g *game.Game, id game.ID) (game.Copy, error) {
 	return game.Copy{}, game.ErrCopyNotFound
 }
 
-func (s *Service) ask(ctx context.Context, views []media.ProviderView, code game.Barcode, skip map[provider.ID]bool) ([]answer, []string) {
-	answers := make([]answer, 0, len(views))
-
-	var warnings []string
+// ask asks each provider not in skip for the barcode. unavailable reports that one failed at provider
+// level: that is its status, not a warning.
+func (s *Service) ask(ctx context.Context, views []media.ProviderView, code game.Barcode, skip map[provider.ID]bool) (
+	answers []answer, warnings []string, unavailable bool) {
+	answers = make([]answer, 0, len(views))
 
 	for _, v := range views {
 		if skip[v.ID()] {
@@ -220,11 +252,26 @@ func (s *Service) ask(ctx context.Context, views []media.ProviderView, code game
 
 		a := answer{id: v.ID()}
 
+		// "Not listed" is an answer: the provider did reach its service.
+		if errors.Is(err, ErrNotListed) {
+			s.configs.ReportResult(v.ID(), nil)
+		} else {
+			s.configs.ReportResult(v.ID(), err)
+		}
+
 		switch {
 		case errors.Is(err, ErrNotListed):
 		case err != nil:
 			a.err = err
-			warnings = append(warnings, fmt.Sprintf("%s: %v", v.Descriptor.Name, err))
+
+			// A provider-level problem (a bot check, a rate limit, rejected keys) is the provider's
+			// status, not a warning on every copy.
+			if media.ProviderLevel(err) {
+				unavailable = true
+			} else {
+				warnings = append(warnings, fmt.Sprintf("%s: %v", v.Descriptor.Name, err))
+			}
+
 			s.log.Warn("estimating a price", "provider", v.ID(), "barcode", code, "error", err)
 		default:
 			e.Provider, e.FetchedAt = string(v.ID()), s.now()
@@ -243,7 +290,7 @@ func (s *Service) ask(ctx context.Context, views []media.ProviderView, code game
 		answers = append(answers, a)
 	}
 
-	return answers, warnings
+	return answers, warnings, unavailable
 }
 
 // merge builds a copy's new estimates: one per enabled provider that listed the product, the

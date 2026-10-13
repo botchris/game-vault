@@ -3,9 +3,10 @@ package settings
 
 import (
 	"context"
-	"fmt"
 	"slices"
 	"strings"
+
+	"gamevault/internal/domain/errkind"
 )
 
 // LogLevels lists the levels accepted by Logging.Level, from most to least verbose.
@@ -31,21 +32,16 @@ func DefaultLogging() Logging {
 	}
 }
 
-// ValidationError reports settings outside the allowed ranges.
-type ValidationError struct{ msg string }
-
-func (e *ValidationError) Error() string { return e.msg }
-
 // Validate normalises the level and checks the limits.
 func (l Logging) Validate() (Logging, error) {
 	l.Level = strings.ToLower(strings.TrimSpace(l.Level))
 	switch {
 	case !slices.Contains(LogLevels, l.Level):
-		return l, &ValidationError{fmt.Sprintf("log level must be one of %s", strings.Join(LogLevels, ", "))}
+		return l, errkind.Invalidf("log level must be one of %s", strings.Join(LogLevels, ", "))
 	case l.MaxFileSizeMB < 1 || l.MaxFileSizeMB > 100:
-		return l, &ValidationError{"max file size must be between 1 and 100 MB"}
+		return l, errkind.Invalidf("max file size must be between 1 and 100 MB")
 	case l.MaxFiles < 1 || l.MaxFiles > 50:
-		return l, &ValidationError{"max files must be between 1 and 50"}
+		return l, errkind.Invalidf("max files must be between 1 and 50")
 	}
 
 	return l, nil
@@ -61,7 +57,7 @@ type Preferences struct {
 func (p Preferences) Validate() (Preferences, error) {
 	p.Currency = strings.ToUpper(strings.TrimSpace(p.Currency))
 	if p.Currency != "" && !isCurrencyCode(p.Currency) {
-		return p, &ValidationError{"the default currency must be a three-letter code (EUR, USD…)"}
+		return p, errkind.Invalidf("the default currency must be a three-letter code (EUR, USD…)")
 	}
 
 	return p, nil

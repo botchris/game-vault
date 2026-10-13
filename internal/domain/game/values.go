@@ -1,8 +1,6 @@
 package game
 
 import (
-	"errors"
-	"fmt"
 	"regexp"
 	"slices"
 	"strings"
@@ -13,6 +11,8 @@ import (
 	"golang.org/x/text/runes"
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
+
+	"gamevault/internal/domain/errkind"
 )
 
 // ID identifies games and copies. IDs are UUIDv7, so they sort by creation time.
@@ -114,26 +114,26 @@ func gtinChecksumOK(d string) bool {
 	return (10-sum%10)%10 == int(d[len(d)-1]-'0')
 }
 
-// Errors returned by the domain. Adapters map them to transport-specific codes.
+// Errors returned by the domain. Their kind (errkind) tells adapters which status to answer with.
 var (
-	ErrGameNotFound = errors.New("game not found")
-	ErrCopyNotFound = errors.New("copy not found")
+	// ErrGameNotFound means there is no game with that id.
+	ErrGameNotFound = errkind.New(errkind.NotFound, "game not found")
+
+	// ErrCopyNotFound means the game has no copy with that id.
+	ErrCopyNotFound = errkind.New(errkind.NotFound, "copy not found")
 
 	// ErrPhotoNotFound means the copy has no photo with that id.
-	ErrPhotoNotFound = errors.New("photo not found")
+	ErrPhotoNotFound = errkind.New(errkind.NotFound, "photo not found")
 
-	// ErrInvalidBarcode wraps barcode input errors that are not ValidationErrors.
-	ErrInvalidBarcode = errors.New("invalid barcode")
+	// ErrEditionNotFound means the game has no copy on the system asked for: the page is stale.
+	// Like an unknown id, it is NotFound.
+	ErrEditionNotFound = errkind.New(errkind.NotFound, "this game has no copy on that system; reload the page")
+
+	// ErrInvalidBarcode wraps barcode input errors that are not an errkind.ValidationError.
+	ErrInvalidBarcode = errkind.New(errkind.Invalid, "invalid barcode")
 )
 
-// ValidationError reports input that breaks a domain rule.
-type ValidationError struct{ msg string }
-
-func (e *ValidationError) Error() string { return e.msg }
-
-func invalid(format string, args ...any) error {
-	return &ValidationError{msg: fmt.Sprintf(format, args...)}
-}
+func invalid(format string, args ...any) error { return errkind.Invalidf(format, args...) }
 
 var knownPlatforms = []string{
 	// Stores and launchers

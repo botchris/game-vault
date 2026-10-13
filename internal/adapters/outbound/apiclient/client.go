@@ -26,6 +26,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"gamevault/internal/domain/errkind"
 )
 
 // UserAgent identifies Game Vault to services that do not need to see a launcher or a browser.
@@ -441,6 +443,9 @@ func (e *queryless) Error() string { return e.msg }
 
 // Is reports whether the original error matches target, so a classification survives.
 func (e *queryless) Is(target error) bool { return errors.Is(e.original, target) }
+
+// Kind returns the original error's kind, so the classification's kind survives too.
+func (e *queryless) Kind() errkind.Kind { return errkind.Of(e.original) }
 
 // As finds target in the original error, except the transport error, whose URL holds the query:
 // errors.As then finds the cleaned one through Unwrap.

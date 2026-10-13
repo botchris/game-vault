@@ -189,6 +189,7 @@ func TestLookup_failures(t *testing.T) {
 
 			t.Run("AND it is an outage of the provider, not an answer about the code", func(t *testing.T) {
 				require.ErrorIs(t, err, provider.ErrUnavailable)
+				assert.NotContains(t, err.Error(), "CeX")
 			})
 		})
 	})
@@ -211,8 +212,9 @@ func TestLookup_failures(t *testing.T) {
 			t.Run("WHEN a code is scanned", func(t *testing.T) {
 				_, err := p.Lookup(ctx, "5030934110075", schema.Settings{})
 
-				t.Run("THEN the error says it is a passing trouble", func(t *testing.T) {
+				t.Run("THEN the error says it is a passing trouble, without naming CeX (the caller does)", func(t *testing.T) {
 					require.ErrorIs(t, err, want)
+					assert.NotContains(t, err.Error(), "CeX")
 				})
 			})
 		})

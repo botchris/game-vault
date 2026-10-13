@@ -29,8 +29,8 @@ const (
 	batchSize      = 40
 )
 
-// ErrUnauthorized means Humble rejected the session cookie.
-var ErrUnauthorized = source.SignedOut("humble bundle rejected the session cookie; copy _simpleauth_sess again from your browser")
+// ErrSignedOut means Humble rejected the session cookie.
+var ErrSignedOut = source.SignedOut("humble bundle rejected the session cookie; copy _simpleauth_sess again from your browser")
 
 // Provider implements sync.Provider for Humble Bundle.
 type Provider struct {
@@ -125,7 +125,7 @@ func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.
 }
 
 // get reads one of Humble's endpoints with the session cookie. A refusal or a redirect to the
-// sign-in page is ErrUnauthorized; a 429, an outage or no answer is a passing trouble.
+// sign-in page is ErrSignedOut; a 429, an outage or no answer is a passing trouble.
 func (p *Provider) get(ctx context.Context, cookie, path string, q url.Values) (*apiclient.Response, error) {
 	res, err := p.API.Send(ctx, apiclient.Request{
 		Path:   path,
@@ -137,7 +137,7 @@ func (p *Provider) get(ctx context.Context, cookie, path string, q url.Values) (
 	}
 
 	if res.Status == http.StatusUnauthorized || res.Status == http.StatusForbidden || strings.Contains(res.URL.Path, "login") {
-		return nil, ErrUnauthorized
+		return nil, ErrSignedOut
 	}
 
 	if err := res.Err(); err != nil {
@@ -150,7 +150,7 @@ func (p *Provider) get(ctx context.Context, cookie, path string, q url.Values) (
 // listGamekeys returns the id of every order in the account.
 func (p *Provider) listGamekeys(ctx context.Context, cookie string) ([]string, error) {
 	if cookie == "" {
-		return nil, ErrUnauthorized
+		return nil, ErrSignedOut
 	}
 
 	res, err := p.get(ctx, cookie, "/api/v1/user/order", nil)
@@ -162,7 +162,7 @@ func (p *Provider) listGamekeys(ctx context.Context, cookie string) ([]string, e
 		Gamekey string `json:"gamekey"`
 	}
 	if err := res.Decode(&list); err != nil {
-		return nil, ErrUnauthorized // an HTML sign-in page served with a 200 instead of the list
+		return nil, ErrSignedOut // an HTML sign-in page served with a 200 instead of the list
 	}
 
 	keys := make([]string, len(list))

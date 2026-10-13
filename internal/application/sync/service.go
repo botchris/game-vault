@@ -15,6 +15,7 @@ import (
 
 	"gamevault/internal/application/port"
 	"gamevault/internal/application/unattended"
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/source"
 )
@@ -581,7 +582,9 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 		// next scan may find the source signed out.
 		s.log.Error("saving the scan", "source", src.Name(), "error", saveErr)
 
-		return SourceView{}, errors.Join(syncErr, saveErr)
+		// The save failure decides the kind (usually none: Internal), so the scan error's kind (a
+		// sign-out is a Precondition) cannot hide that the report was lost.
+		return SourceView{}, errkind.Wrap(errkind.Of(saveErr), errors.Join(saveErr, syncErr))
 	}
 
 	s.log.Info("source synced", "source", src.Name(), "fetched", report.Fetched, "added", report.CopiesAdded,

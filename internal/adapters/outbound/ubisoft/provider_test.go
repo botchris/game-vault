@@ -153,7 +153,7 @@ func TestErrors(t *testing.T) {
 		t.Fatalf("revoked: %v", err)
 	}
 
-	if _, _, err := p.Fetch(context.Background(), source.Settings{settingLoginData: "hello"}); !errors.Is(err, ErrNoLoginData) {
+	if _, _, err := p.Fetch(context.Background(), source.Settings{settingLoginData: "hello"}); !errors.Is(err, ErrNoCredentials) {
 		t.Fatalf("garbage: %v", err)
 	}
 }

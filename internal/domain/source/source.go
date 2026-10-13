@@ -4,8 +4,6 @@ package source
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"maps"
 	"slices"
 	"strings"
@@ -13,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/schema"
 )
 
@@ -47,13 +46,14 @@ const (
 
 // Errors returned by source lookups and creation. Callers match them with errors.Is.
 var (
-	ErrNotFound    = errors.New("source not found")
-	ErrUnknownType = errors.New("unknown source type")
+	ErrNotFound    = errkind.New(errkind.NotFound, "source not found")
+	ErrUnknownType = errkind.New(errkind.NotFound, "unknown source type")
 
 	// ErrSignedOut means the store no longer accepts the saved session or key (it expired, was
 	// rotated elsewhere or revoked): the user must sign in again. Sources return it through
 	// SignedOut, with a message that says how.
-	ErrSignedOut = errors.New("the store no longer accepts the saved session: sign in again in Sources")
+	// Its kind is Precondition, not Unauthenticated: the user of Game Vault is still signed in.
+	ErrSignedOut = errkind.New(errkind.Precondition, "the store no longer accepts the saved session: sign in again in Sources")
 )
 
 // SignedOut returns an error with msg that matches ErrSignedOut.
@@ -67,14 +67,10 @@ func (e signedOut) Error() string { return string(e) }
 // Is makes errors.Is(e, ErrSignedOut) true.
 func (signedOut) Is(target error) bool { return target == ErrSignedOut }
 
-// ValidationError reports input that breaks a domain rule.
-type ValidationError struct{ msg string }
+// Kind returns ErrSignedOut's kind.
+func (signedOut) Kind() errkind.Kind { return errkind.Precondition }
 
-func (e *ValidationError) Error() string { return e.msg }
-
-func invalid(format string, args ...any) error {
-	return &ValidationError{msg: fmt.Sprintf(format, args...)}
-}
+func invalid(format string, args ...any) error { return errkind.Invalidf(format, args...) }
 
 // TypeDescriptor describes a source type and the settings it needs.
 type TypeDescriptor struct {

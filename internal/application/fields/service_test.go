@@ -166,7 +166,7 @@ func TestFieldsService_updateWithStoredValues(t *testing.T) {
 			_, err := svc.Update(ctx, d)
 
 			t.Run("THEN it is refused, naming the field and how many games hold a value", func(t *testing.T) {
-				require.ErrorIs(t, err, fields.ErrValuesConflict)
+				require.ErrorIs(t, err, fields.ErrValuesDoNotFit)
 				assert.Contains(t, err.Error(), "Weight")
 				assert.Contains(t, err.Error(), "1 game")
 				assert.Contains(t, err.Error(), "decimals")
@@ -209,7 +209,7 @@ func TestFieldsService_updateWithStoredValues(t *testing.T) {
 			_, err := svc.Update(ctx, d)
 
 			t.Run("THEN it is refused, naming the field and how many games do not fit", func(t *testing.T) {
-				require.ErrorIs(t, err, fields.ErrValuesConflict)
+				require.ErrorIs(t, err, fields.ErrValuesDoNotFit)
 				assert.Contains(t, err.Error(), "Paid")
 				assert.Contains(t, err.Error(), "1 game")
 			})
@@ -223,7 +223,7 @@ func TestFieldsService_updateWithStoredValues(t *testing.T) {
 			_, err := svc.Update(ctx, d)
 
 			t.Run("THEN it is refused, because the physical copy would keep a value", func(t *testing.T) {
-				require.ErrorIs(t, err, fields.ErrValuesConflict)
+				require.ErrorIs(t, err, fields.ErrValuesDoNotFit)
 				assert.Contains(t, err.Error(), "Sealed")
 			})
 		})

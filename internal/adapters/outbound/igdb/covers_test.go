@@ -71,6 +71,10 @@ func TestCovers_outages(t *testing.T) {
 					require.ErrorIs(t, err, provider.ErrRateLimited)
 					assert.Contains(t, err.Error(), "try again later")
 				})
+
+				t.Run("AND its text does not name IGDB, which the caller puts before it", func(t *testing.T) {
+					assert.NotContains(t, err.Error(), "IGDB")
+				})
 			})
 		})
 	}

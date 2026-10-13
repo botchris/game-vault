@@ -116,8 +116,8 @@ func TestAccessControl(t *testing.T) {
 			s.Authentication = "required"
 			_, err := local.UpdateAuthSettings(ctx, connect.NewRequest(&pb.UpdateAuthSettingsRequest{Settings: s}))
 
-			t.Run("THEN it is refused, because it would lock the owner out", func(t *testing.T) {
-				assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+			t.Run("THEN it is refused until a user exists, because it would lock the owner out", func(t *testing.T) {
+				assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
 			})
 		})
 

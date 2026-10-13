@@ -233,7 +233,7 @@ func TestErrors(t *testing.T) {
 	p, _ := newTest(t)
 
 	ctx := context.Background()
-	if _, err := p.Prepare(ctx, source.Settings{}); !errors.Is(err, ErrNoSession) {
+	if _, err := p.Prepare(ctx, source.Settings{}); !errors.Is(err, ErrNoCredentials) {
 		t.Errorf("no code: %v", err)
 	}
 
@@ -241,7 +241,7 @@ func TestErrors(t *testing.T) {
 		t.Errorf("wrong code: %v", err)
 	}
 
-	if _, _, err := p.Fetch(ctx, source.Settings{settingSession: `{"refresh_token":"stale"}`}); !errors.Is(err, ErrSessionExpired) {
+	if _, _, err := p.Fetch(ctx, source.Settings{settingSession: `{"refresh_token":"stale"}`}); !errors.Is(err, ErrSignedOut) {
 		t.Errorf("stale session: %v", err)
 	}
 }

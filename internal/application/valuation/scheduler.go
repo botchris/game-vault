@@ -63,8 +63,8 @@ func (s *Service) Tick(ctx context.Context) error {
 			}
 		}
 
-		_, warnings, failed, err := s.estimate(ctx, d.game, d.copy, skip, true)
-		for _, id := range failed {
+		o, err := s.estimate(ctx, d.game, d.copy, skip, true)
+		for _, id := range o.failed {
 			skip[id] = true
 		}
 
@@ -76,8 +76,8 @@ func (s *Service) Tick(ctx context.Context) error {
 			if !errors.Is(err, ErrChanged) && !errors.Is(err, errNotDue) && !errors.Is(err, ErrNotValuable) && !errors.Is(err, game.ErrCopyNotFound) {
 				s.log.Warn("estimating a copy's price", "game", d.game, "error", err)
 			}
-		} else if len(warnings) > 0 {
-			s.log.Info("some price sources failed", "game", d.game, "warnings", warnings)
+		} else if len(o.warnings) > 0 {
+			s.log.Info("some price sources failed", "game", d.game, "warnings", o.warnings)
 		}
 	}
 

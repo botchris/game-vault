@@ -6,11 +6,11 @@ package provider
 
 import (
 	"context"
-	"errors"
 	"maps"
 	"slices"
 	"time"
 
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/schema"
 )
 
@@ -30,11 +30,11 @@ const (
 )
 
 // ErrNotFound means no configuration exists for the provider.
-var ErrNotFound = errors.New("provider not found")
+var ErrNotFound = errkind.New(errkind.NotFound, "provider not found")
 
 // ErrRateLimited means the service asked to slow down (HTTP 429). It is transient: the answer says
 // nothing about the game, so callers must not remember it as "nothing found" and ask again later.
-var ErrRateLimited = errors.New("the service is receiving too many requests: try again in a few minutes")
+var ErrRateLimited = errkind.New(errkind.Unavailable, "the service is receiving too many requests: try again in a few minutes")
 
 // ErrQuotaExhausted means the service's request allowance (a monthly quota) is used up until it
 // renews. It is a kind of ErrRateLimited, so errors.Is matches both: like a rate limit, the answer
@@ -52,6 +52,9 @@ func (quotaExhausted) Error() string {
 // Is makes errors.Is(ErrQuotaExhausted, ErrRateLimited) true without ErrRateLimited's message.
 func (quotaExhausted) Is(target error) bool { return target == ErrRateLimited }
 
+// Kind returns ErrRateLimited's kind.
+func (quotaExhausted) Kind() errkind.Kind { return errkind.Unavailable }
+
 // ErrUnavailable means the service is not answering (a 5xx, no connection). It is a kind of
 // ErrRateLimited, so errors.Is matches both: like a rate limit, the answer says nothing about the
 // game and nothing is remembered from it.
@@ -65,10 +68,13 @@ func (unavailable) Error() string { return "the service is not answering: try ag
 // Is makes errors.Is(ErrUnavailable, ErrRateLimited) true without ErrRateLimited's message.
 func (unavailable) Is(target error) bool { return target == ErrRateLimited }
 
+// Kind returns ErrRateLimited's kind.
+func (unavailable) Kind() errkind.Kind { return errkind.Unavailable }
+
 // ErrBadSettings means the service rejects the provider's settings (an unknown key, wrong
 // credentials): a problem of the provider, not of a game. Providers return it through BadSettings,
 // with a message that says what to fix.
-var ErrBadSettings = errors.New("the service rejects the provider's settings: check them in the provider settings")
+var ErrBadSettings = errkind.New(errkind.Precondition, "the service rejects the provider's settings: check them in the provider settings")
 
 // BadSettings returns an error with msg that matches ErrBadSettings.
 func BadSettings(msg string) error { return badSettings(msg) }
@@ -80,6 +86,9 @@ func (e badSettings) Error() string { return string(e) }
 
 // Is makes errors.Is(e, ErrBadSettings) true.
 func (badSettings) Is(target error) bool { return target == ErrBadSettings }
+
+// Kind returns ErrBadSettings' kind.
+func (badSettings) Kind() errkind.Kind { return errkind.Precondition }
 
 // Resumer is implemented by errors that know when the service answers again (a monthly allowance
 // that renews at a known time).

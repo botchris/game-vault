@@ -982,7 +982,7 @@ type Copy struct {
 	Estimates []*Estimate `protobuf:"bytes,9,rep,name=estimates,proto3" json:"estimates,omitempty"`
 	// When the prices are next estimated; absent when none is planned.
 	NextValuation *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=next_valuation,json=nextValuation,proto3" json:"next_valuation,omitempty"`
-	// When the prices were last asked, whatever the sources answered; absent when never.
+	// When every enabled source last answered (a price or "not listed"); absent when never.
 	ValuedAt *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=valued_at,json=valuedAt,proto3" json:"valued_at,omitempty"`
 	// The system the copy is played on: details.system, else its source's, else the one its
 	// platform implies. Read only.

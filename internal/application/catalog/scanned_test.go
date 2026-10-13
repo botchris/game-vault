@@ -12,6 +12,7 @@ import (
 
 	"gamevault/internal/adapters/outbound/sqlite"
 	"gamevault/internal/application/catalog"
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 )
 
@@ -153,7 +154,7 @@ func TestAddScannedCopies(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("THEN the bad copy fails alone and the game is created with the other", func(t *testing.T) {
-			var v *game.ValidationError
+			var v *errkind.ValidationError
 			assert.True(t, errors.As(results[0].Err, &v))
 			assert.NoError(t, results[1].Err)
 			require.Len(t, games, 1)

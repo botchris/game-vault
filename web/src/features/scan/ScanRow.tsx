@@ -4,6 +4,7 @@ import { errorMessage, lookupClient, proxiedImage } from '../../api/client';
 import { Cover } from '../../components/Cover';
 import { Icon } from '../../components/Icon';
 import { PlatformBadge } from '../../components/PlatformBadge';
+import ProvidersUnavailable from '../../components/ProvidersUnavailable';
 import { Alert } from '../../components/ui';
 import { useAppData } from '../../state/AppData';
 import { lookupLinks } from '../../lib/barcode.ts';
@@ -82,6 +83,7 @@ function RowDetail({ answer, choice, batchPlatform, onAmend, onDone }: {
   const [suggestions, setSuggestions] = useState(answer.suggestions);
   const [existing, setExisting] = useState(answer.existing);
   const [warnings, setWarnings] = useState(answer.warnings);
+  const [unavailable, setUnavailable] = useState(answer.providersUnavailable ?? false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const m = answer.match;
@@ -97,6 +99,7 @@ function RowDetail({ answer, choice, batchPlatform, onAmend, onDone }: {
       setSuggestions(s);
       setExisting(res.existing.map((g) => ({ id: g.id, title: g.title })));
       setWarnings(res.warnings);
+      setUnavailable(res.providersUnavailable);
       const first = s[0];
       set({
         title: first?.title ?? choice.title,
@@ -172,6 +175,7 @@ function RowDetail({ answer, choice, batchPlatform, onAmend, onDone }: {
       )}
 
       {warnings.map((w) => <Alert key={w} tone="warn">{w}</Alert>)}
+      {unavailable && <p><ProvidersUnavailable /></p>}
       {error && <Alert tone="error">{error}</Alert>}
       <div className="scan-actions"><button type="button" className="primary" onClick={onDone}>{t('scan.list.done')}</button></div>
     </div>

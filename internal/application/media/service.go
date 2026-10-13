@@ -20,6 +20,7 @@ import (
 
 	"gamevault/internal/application/port"
 	"gamevault/internal/application/unattended"
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
@@ -31,13 +32,13 @@ import (
 var coverLogicChanged = time.Date(2026, 10, 11, 9, 20, 0, 0, time.UTC) // fallback pass for every game, Steam title search, IGDB
 
 // ErrNoCover means no image could be found for the game.
-var ErrNoCover = errors.New("no cover available")
+var ErrNoCover = errkind.New(errkind.NotFound, "no cover available")
 
 // ErrNoEdition means the game has no copy on the system asked for.
-var ErrNoEdition = errors.New("the game has no copy on that system: reload the page")
+var ErrNoEdition = errkind.New(errkind.NotFound, "the game has no copy on that system: reload the page")
 
 // ErrUnknownProvider means no implementation is registered under that id.
-var ErrUnknownProvider = errors.New("unknown provider")
+var ErrUnknownProvider = errkind.New(errkind.NotFound, "unknown provider")
 
 // Image is an encoded image.
 type Image struct {
@@ -234,7 +235,7 @@ type ImageHoster interface {
 }
 
 // ErrImageNotAllowed means the proxy was asked for an image outside the providers' hosts.
-var ErrImageNotAllowed = errors.New("image host not allowed")
+var ErrImageNotAllowed = errkind.New(errkind.PermissionDenied, "image host not allowed")
 
 // Provider is what every media provider implements, whatever it provides (covers, barcodes,
 // details).
@@ -288,7 +289,7 @@ type LinkSearcher interface {
 }
 
 // ErrUnknownStore means a search named a store no provider can search.
-var ErrUnknownStore = errors.New("no provider can search that store")
+var ErrUnknownStore = errkind.New(errkind.NotFound, "no provider can search that store")
 
 // Service exposes the media use cases.
 type Service struct {
@@ -822,7 +823,9 @@ func (s *Service) resolveEdition(ctx context.Context, g *game.Game, system strin
 		// ones until the edition can be marked missing.
 		s.misses.remember(g.ID(), system, look.none, s.now())
 
-		return Image{}, fmt.Errorf("%w: %w", ErrNoCover, look.limited)
+		// The provider's trouble comes first, so its kind (Unavailable) is the error's, not
+		// ErrNoCover's: errkind.Of reads the first match in depth-first order.
+		return Image{}, fmt.Errorf("%w: %w", look.limited, ErrNoCover)
 	}
 
 	// Add-ons (DLC, soundtracks…) rarely have art of their own: borrow the base game's.
@@ -1013,8 +1016,9 @@ func (s *Service) CoverCandidates(ctx context.Context, id game.ID, system string
 	return candidates, warnings, unavailable, nil
 }
 
-// pickerCandidates asks one provider for the picker: its candidates, a warning when it failed for
-// this game, or limited when the problem is the provider's (see CoverCandidates).
+// pickerCandidates asks one provider for candidates a user picks from (the cover picker, the scan
+// page's suggestions): its candidates, a warning when it failed for this game, or limited when the
+// problem is the provider's, which only sets its status (see CoverCandidates).
 func (s *Service) pickerCandidates(ctx context.Context, p ProviderView, impl CoverProvider, q CoverQuery) (
 	candidates []CoverCandidate, warnings []string, limited bool) {
 	c, err := impl.Covers(ctx, q, p.Settings())
@@ -1023,7 +1027,7 @@ func (s *Service) pickerCandidates(ctx context.Context, p ProviderView, impl Cov
 	switch {
 	case err == nil:
 		return c, nil, false
-	case providerLevel(err):
+	case ProviderLevel(err):
 		// A provider-level problem (busy, allowance used up, rejected key) is the provider's
 		// status, shown on the System and Providers pages, not a warning on every game.
 		return nil, nil, true
@@ -1164,7 +1168,13 @@ func (s *Service) SearchLinks(ctx context.Context, store, query string) ([]LinkM
 			return nil, nil
 		}
 
-		return ls.SearchLinks(ctx, query)
+		matches, err := ls.SearchLinks(ctx, query)
+		if err != nil && errkind.Of(err) == errkind.Unknown {
+			// A search that fails is the store's trouble (busy, not answering), not Game Vault's.
+			return nil, errkind.Wrap(errkind.Unavailable, err)
+		}
+
+		return matches, err
 	}
 
 	return nil, ErrUnknownStore
@@ -1209,6 +1219,10 @@ type BarcodeResult struct {
 	// Existing lists catalog games with the same title, to add the disc as one more copy.
 	Existing []GameRef
 	Warnings []string
+
+	// ProvidersUnavailable reports that a provider had a provider-level problem (see
+	// ProviderStatuses), so some suggestions may be missing.
+	ProvidersUnavailable bool
 }
 
 // IdentifyBarcode looks a scanned code up: first in the catalog, then through the barcode
@@ -1261,8 +1275,15 @@ func (s *Service) IdentifyBarcode(ctx context.Context, raw string) (BarcodeResul
 			}
 		}
 
-		if err != nil {
+		switch {
+		case ProviderLevel(err):
+			// The provider's status, like the suggestions' in the same answer: not a warning.
+			res.ProvidersUnavailable = true
+
+			continue
+		case err != nil:
 			res.Warnings = append(res.Warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
+
 			continue
 		}
 
@@ -1279,19 +1300,36 @@ func (s *Service) IdentifyBarcode(ctx context.Context, raw string) (BarcodeResul
 	}
 
 	// The lookup is automatic and keeps the first proposal, so providers are not asked to browse.
-	sugg, existing, warnings, err := s.suggest(ctx, games, res.Match.Title, res.Match.Platform, false)
-	res.Suggestions, res.Existing = sugg, existing
-	res.Warnings = append(res.Warnings, warnings...)
+	sugg, err := s.suggest(ctx, games, res.Match.Title, res.Match.Platform, false)
+	res.Suggestions, res.Existing = sugg.Suggestions, sugg.Existing
+	res.Warnings = append(res.Warnings, sugg.Warnings...)
+	res.ProvidersUnavailable = res.ProvidersUnavailable || sugg.ProvidersUnavailable
 
 	return res, err
 }
 
+// Suggestions is what SuggestGames proposes for a title.
+type Suggestions struct {
+	// Suggestions are canonical games (with covers) for the title on the platform.
+	Suggestions []Suggestion
+
+	// Existing lists catalog games with the same title.
+	Existing []GameRef
+
+	// Warnings name the providers that failed for this title.
+	Warnings []string
+
+	// ProvidersUnavailable reports that a provider had a provider-level problem (see
+	// ProviderStatuses), so some suggestions may be missing.
+	ProvidersUnavailable bool
+}
+
 // SuggestGames proposes canonical games for a title typed by the user (e.g. when the barcode is
 // unknown), on the given platform, plus catalog games with the same title.
-func (s *Service) SuggestGames(ctx context.Context, title, platform string) ([]Suggestion, []GameRef, []string, error) {
+func (s *Service) SuggestGames(ctx context.Context, title, platform string) (Suggestions, error) {
 	games, err := s.games.List(ctx)
 	if err != nil {
-		return nil, nil, nil, err
+		return Suggestions{}, err
 	}
 
 	// The user picks from the list, so providers may also propose near matches.
@@ -1300,10 +1338,10 @@ func (s *Service) SuggestGames(ctx context.Context, title, platform string) ([]S
 
 // suggest asks the cover providers for canonical games with the title on the platform. Browse
 // is set when the user picks from the proposals (CoverQuery.Browse).
-func (s *Service) suggest(ctx context.Context, games []*game.Game, title, platform string, browse bool) ([]Suggestion, []GameRef, []string, error) {
+func (s *Service) suggest(ctx context.Context, games []*game.Game, title, platform string, browse bool) (Suggestions, error) {
 	title, platform = strings.TrimSpace(title), game.CanonicalPlatform(platform)
 	if title == "" {
-		return nil, nil, nil, nil
+		return Suggestions{}, nil
 	}
 
 	q := CoverQuery{
@@ -1317,13 +1355,10 @@ func (s *Service) suggest(ctx context.Context, games []*game.Game, title, platfo
 
 	chain, err := s.chain(ctx)
 	if err != nil {
-		return nil, nil, nil, err
+		return Suggestions{}, err
 	}
 
-	var (
-		out      []Suggestion
-		warnings []string
-	)
+	var res Suggestions
 
 	for _, p := range chain {
 		impl := s.covers[p.ID()]
@@ -1331,11 +1366,10 @@ func (s *Service) suggest(ctx context.Context, games []*game.Game, title, platfo
 			continue
 		}
 
-		candidates, err := impl.Covers(ctx, q, p.Settings())
-		if err != nil {
-			warnings = append(warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
-			continue
-		}
+		// Asked like the cover picker asks, so a provider-level problem is the provider's status.
+		candidates, w, limited := s.pickerCandidates(ctx, p, impl, q)
+		res.Warnings = append(res.Warnings, w...)
+		res.ProvidersUnavailable = res.ProvidersUnavailable || limited
 
 		for _, c := range candidates {
 			t := c.Title
@@ -1343,7 +1377,7 @@ func (s *Service) suggest(ctx context.Context, games []*game.Game, title, platfo
 				t = title
 			}
 
-			out = append(out, Suggestion{
+			res.Suggestions = append(res.Suggestions, Suggestion{
 				Title:    t,
 				Platform: platform,
 				CoverURL: c.URL,
@@ -1355,19 +1389,17 @@ func (s *Service) suggest(ctx context.Context, games []*game.Game, title, platfo
 	}
 
 	keys := map[string]bool{game.MatchKey(title): true}
-	if len(out) > 0 {
-		keys[game.MatchKey(out[0].Title)] = true
+	if len(res.Suggestions) > 0 {
+		keys[game.MatchKey(res.Suggestions[0].Title)] = true
 	}
-
-	var existing []GameRef
 
 	for _, g := range games {
 		if keys[g.MatchKey()] {
-			existing = append(existing, GameRef{g.ID(), g.Title()})
+			res.Existing = append(res.Existing, GameRef{g.ID(), g.Title()})
 		}
 	}
 
-	return out, existing, warnings, nil
+	return res, nil
 }
 
 // ProxyImage downloads an image for the browser. Only https URLs on hosts declared by a provider

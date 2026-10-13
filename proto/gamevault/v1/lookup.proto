@@ -54,7 +54,11 @@ message IdentifyBarcodeResponse {
   repeated GameSuggestion suggestions = 4;
   // Catalog games with the same title: add the disc to one of them instead of creating a game.
   repeated GameRef existing = 5;
+  // Providers that failed for this game. Provider-level problems (quota used up, too many
+  // requests, not answering, settings rejected) are not listed: see GetProviderStatus.
   repeated string warnings = 6;
+  // A provider had a provider-level problem, so the match or some suggestions may be missing.
+  bool providers_unavailable = 7;
 }
 
 message SuggestGamesRequest {
@@ -65,7 +69,10 @@ message SuggestGamesRequest {
 message SuggestGamesResponse {
   repeated GameSuggestion suggestions = 1;
   repeated GameRef existing = 2;
+  // Providers that failed for this title; provider-level problems are not listed (see above).
   repeated string warnings = 3;
+  // A provider had a provider-level problem, so some suggestions may be missing.
+  bool providers_unavailable = 4;
 }
 
 // LookupService identifies physical games from their barcode or title, for quick registration.

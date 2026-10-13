@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 )
 
@@ -85,7 +86,7 @@ func TestDefinitions(t *testing.T) {
 			} {
 				_, err := NewSet(nil).Add(d)
 
-				var v *ValidationError
+				var v *errkind.ValidationError
 				assert.True(t, errors.As(err, &v), name)
 			}
 		})
@@ -229,7 +230,7 @@ func TestValidate(t *testing.T) {
 		} {
 			_, err := s.Validate(tc.scope, tc.kind, tc.values)
 
-			var v *ValidationError
+			var v *errkind.ValidationError
 			assert.True(t, errors.As(err, &v), name)
 		}
 	})
@@ -298,7 +299,7 @@ func TestSet_Update_choiceIDs(t *testing.T) {
 			err := s.Update(changed)
 
 			t.Run("THEN it is refused and the field is unchanged", func(t *testing.T) {
-				var v *ValidationError
+				var v *errkind.ValidationError
 				require.ErrorAs(t, err, &v)
 
 				got, _ := s.Get(d.ID)
@@ -329,7 +330,7 @@ func TestSet_names_boundaries(t *testing.T) {
 		if tc.ok {
 			assert.NoError(t, err, tc.name)
 		} else {
-			var v *ValidationError
+			var v *errkind.ValidationError
 			assert.ErrorAs(t, err, &v, tc.name)
 		}
 	}
@@ -406,7 +407,7 @@ func TestValidate_wrongMember(t *testing.T) {
 			t.Run("WHEN a "+string(typ)+" gets only a member of another type THEN it is refused", func(t *testing.T) {
 				_, err := s.Validate(ScopeGame, "", game.FieldValues{id: alone[typ]})
 
-				var v *ValidationError
+				var v *errkind.ValidationError
 				require.ErrorAs(t, err, &v)
 				assert.Contains(t, err.Error(), "got a value of another type")
 			})
@@ -445,7 +446,7 @@ func TestValidate_wrongMember(t *testing.T) {
 
 					_, err := s.Validate(ScopeGame, "", game.FieldValues{id: v})
 
-					var verr *ValidationError
+					var verr *errkind.ValidationError
 					assert.ErrorAs(t, err, &verr, "%s with a %s member", typ, other)
 				}
 			})
@@ -523,7 +524,7 @@ func TestValidate_boundaries(t *testing.T) {
 		if tc.ok {
 			assert.NoError(t, err, tc.name)
 		} else {
-			var v *ValidationError
+			var v *errkind.ValidationError
 			assert.ErrorAs(t, err, &v, tc.name)
 		}
 	}
@@ -558,7 +559,7 @@ func TestValidate_dates(t *testing.T) {
 	} {
 		_, err := s.Validate(ScopeGame, "", game.FieldValues{day.ID: {Date: date}})
 
-		var v *ValidationError
+		var v *errkind.ValidationError
 		assert.ErrorAs(t, err, &v, date)
 	}
 }

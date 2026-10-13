@@ -22,6 +22,7 @@ import (
 
 	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/adapters/outbound/oauthsession"
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
@@ -55,17 +56,17 @@ const LoginURL = "https://www.epicgames.com/id/login?redirectUrl=" +
 	"https%3A%2F%2Fwww.epicgames.com%2Fid%2Fapi%2Fredirect%3FclientId%3D" + clientID + "%26responseType%3Dcode"
 
 var (
-	// ErrNoSession means there is neither a stored session nor a code to start one.
-	ErrNoSession = errors.New("epic: paste an authorization code (open the login link, sign in and copy \"authorizationCode\")")
+	// ErrNoCredentials means there is neither a stored session nor a code to start one.
+	ErrNoCredentials = errkind.New(errkind.Invalid, "epic: paste an authorization code (open the login link, sign in and copy \"authorizationCode\")")
 
 	// ErrBadCode means Epic rejected the authorization code.
-	ErrBadCode = errors.New("epic rejected the authorization code: codes work once and expire within minutes, get a new one from the login link")
+	ErrBadCode = errkind.New(errkind.Invalid, "epic rejected the authorization code: codes work once and expire within minutes, get a new one from the login link")
 
-	// ErrSessionExpired means the stored session can no longer be refreshed.
-	ErrSessionExpired = source.SignedOut("the Epic session expired: open the login link and paste a new authorization code")
+	// ErrSignedOut means the stored session can no longer be refreshed.
+	ErrSignedOut = source.SignedOut("the Epic session expired: open the login link and paste a new authorization code")
 
 	// ErrEmailCode means the user pasted the sign-in code Epic emails, not the authorization code.
-	ErrEmailCode = errors.New("that is the sign-in code Epic emails you, not the authorization code: after signing in, open the login link again and copy \"authorizationCode\" from the page it shows")
+	ErrEmailCode = errkind.New(errkind.Invalid, "that is the sign-in code Epic emails you, not the authorization code: after signing in, open the login link again and copy \"authorizationCode\" from the page it shows")
 
 	reCodeJSON  = regexp.MustCompile(`"authorizationCode"\s*:\s*(null|"([^"]*)")`)
 	reEmailCode = regexp.MustCompile(`^\d{4,8}$`)
@@ -109,15 +110,15 @@ func NewProvider() *Provider {
 		Now:     time.Now,
 	}
 	p.sessions = &oauthsession.Sessions[session]{
-		CodeField:    settingAuthCode,
-		StateField:   settingSession,
-		Clean:        cleanCode,
-		Exchange:     p.exchange,
-		Refresh:      p.refresh,
-		RefreshToken: func(s session) string { return s.RefreshToken },
-		ErrNoSession: ErrNoSession,
-		ErrSignedOut: ErrSessionExpired,
-		Now:          func() time.Time { return p.Now() },
+		CodeField:        settingAuthCode,
+		StateField:       settingSession,
+		Clean:            cleanCode,
+		Exchange:         p.exchange,
+		Refresh:          p.refresh,
+		RefreshToken:     func(s session) string { return s.RefreshToken },
+		ErrNoCredentials: ErrNoCredentials,
+		ErrSignedOut:     ErrSignedOut,
+		Now:              func() time.Time { return p.Now() },
 	}
 
 	return p
@@ -311,7 +312,7 @@ func (p *Provider) exchange(ctx context.Context, code string) (oauthsession.Gran
 // refresh renews a session (oauthsession.Sessions.Refresh). Epic rotates the refresh token.
 func (p *Provider) refresh(ctx context.Context, s session) (oauthsession.Grant[session], error) {
 	if !s.RefreshExpiresAt.IsZero() && p.Now().After(s.RefreshExpiresAt) {
-		return oauthsession.Grant[session]{}, ErrSessionExpired
+		return oauthsession.Grant[session]{}, ErrSignedOut
 	}
 
 	return p.grant(ctx, url.Values{
@@ -364,7 +365,7 @@ func (p *Provider) oauthRaw(ctx context.Context, form url.Values) (tokenResponse
 		case form.Get("grant_type") == "authorization_code" && apiclient.Rejected(res.Status):
 			return tokenResponse{}, ErrBadCode
 		case form.Get("grant_type") == "refresh_token" && apiclient.Rejected(res.Status):
-			return tokenResponse{}, ErrSessionExpired
+			return tokenResponse{}, ErrSignedOut
 		}
 
 		var e epicError
