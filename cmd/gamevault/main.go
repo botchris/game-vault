@@ -161,7 +161,24 @@ func run() error {
 		Space: diskspace.Statfs{},
 	})
 
-	// Background jobs
+	// Certificate validation applies to every outgoing HTTPS request (they all use the default
+	// transport). It must be installed, and the saved setting applied by authSvc.Init, before any
+	// background job starts: Install writes to the shared transport, which would race with a job
+	// already using it, and until Init runs requests would ignore the user's certificate setting.
+	certs := tlspolicy.Install(http.DefaultTransport.(*http.Transport))
+
+	authSvc := auth.NewService(sqlite.NewAuthRepository(db), settingsRepo, passwordhash.New(), certs, now, log)
+	if cfg.ResetAuth {
+		if err := authSvc.ResetAuthentication(ctx); err != nil {
+			return fmt.Errorf("resetting authentication: %w", err)
+		}
+	}
+
+	if err := authSvc.Init(ctx); err != nil {
+		return fmt.Errorf("applying security settings: %w", err)
+	}
+
+	// Background jobs (only after the TLS policy and the security settings above are in place)
 	if cfg.NoUnattended {
 		log.Warn("scheduled scans, keep-alives and price estimates are off (-no-unattended)")
 	} else {
@@ -176,20 +193,6 @@ func run() error {
 
 	if cfg.BackupInterval > 0 {
 		go systemSvc.RunScheduledBackups(ctx, cfg.BackupInterval)
-	}
-
-	// Certificate validation applies to every outgoing HTTPS request (they all use the default transport).
-	certs := tlspolicy.Install(http.DefaultTransport.(*http.Transport))
-
-	authSvc := auth.NewService(sqlite.NewAuthRepository(db), settingsRepo, passwordhash.New(), certs, now, log)
-	if cfg.ResetAuth {
-		if err := authSvc.ResetAuthentication(ctx); err != nil {
-			return fmt.Errorf("resetting authentication: %w", err)
-		}
-	}
-
-	if err := authSvc.Init(ctx); err != nil {
-		return fmt.Errorf("applying security settings: %w", err)
 	}
 
 	// Inbound adapter
