@@ -69,8 +69,12 @@ export function KeyCell({ value }: { value: string }) {
     <>
       <span className="keycell" onClick={(e) => e.stopPropagation()}>
         <code>{shown ? value : value.replace(/[A-Za-z0-9]/g, '•')}</code>
-        <button className="icon" title={toggleLabel} aria-label={toggleLabel} onClick={() => setShown(!shown)}>{shown ? '🙈' : '👁'}</button>
-        <button className="icon" title={copyLabel} aria-label={copyLabel} onClick={copy}>{copied ? '✓' : '⧉'}</button>
+        <button className="icon" title={toggleLabel} aria-label={toggleLabel} onClick={() => setShown(!shown)}>
+          <Icon name={shown ? 'eyeOff' : 'eye'} size={16} />
+        </button>
+        <button className="icon" title={copyLabel} aria-label={copyLabel} onClick={copy}>
+          <Icon name={copied ? 'check' : 'copy'} size={16} />
+        </button>
       </span>
       <span className="keycell-status small danger" role="status">{failed ? t('copy.copyFailed') : ''}</span>
     </>
