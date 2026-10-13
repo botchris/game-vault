@@ -569,7 +569,7 @@ offers to add the barcode).
 | Price provider | What the figure is | Settings |
 |---|---|---|
 | CeX (`cex-prices`, on by default) | What CeX sells the product for, and what it pays in cash or store credit, from `boxes/{EAN}/detail` | Shared with CeX barcode lookups (settings group `cex`): countries to ask, in order (`es` when none is set or valid); the first whose catalog has the EAN answers, in its currency |
-| eBay (`ebay-prices`, off by default) | The median asking price of up to 50 used listings with the EAN on the first configured marketplace (shipping excluded; listings in other currencies ignored). eBay keeps sold prices for approved partners | Shares the developer keys and marketplaces of the eBay barcode provider (settings group `ebay`) |
+| eBay (`ebay-prices`, off by default) | The median asking price of up to 50 used listings with the EAN on the first configured marketplace (shipping excluded; listings in other currencies ignored). eBay keeps sold prices for approved partners | Shares the developer keys and marketplaces of the eBay barcode provider (settings group `ebay`), and its client: one application token (cached by `oauthapp` until shortly before it expires, renewed once when eBay refuses it) serves both |
 
 - **What is kept:** each copy keeps the latest estimate of each provider (amounts in the currency's
   minor units, the product's page, the date), when it was last checked and its next valuation date,

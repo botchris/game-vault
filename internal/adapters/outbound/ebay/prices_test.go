@@ -59,8 +59,8 @@ func (f *fakeEbay) serve(t *testing.T) *Prices {
 	}))
 	t.Cleanup(srv.Close)
 
-	p := NewPrices()
-	p.API.BaseURL = srv.URL
+	p := NewPrices(New())
+	p.Ebay.API.BaseURL = srv.URL
 
 	return p
 }
@@ -118,7 +118,7 @@ func TestEbayPrices(t *testing.T) {
 
 	t.Run("GIVEN both eBay providers", func(t *testing.T) {
 		t.Run("THEN they share one settings group, so the keys are entered once", func(t *testing.T) {
-			assert.Equal(t, "ebay", NewPrices().Descriptor().SettingsGroup)
+			assert.Equal(t, "ebay", NewPrices(New()).Descriptor().SettingsGroup)
 			assert.Equal(t, "ebay", New().Descriptor().SettingsGroup)
 		})
 	})
