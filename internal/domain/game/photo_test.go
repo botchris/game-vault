@@ -84,12 +84,16 @@ func TestPhotos_add(t *testing.T) {
 		})
 
 		t.Run("WHEN photos would go over 50", func(t *testing.T) {
+			g, copyID, _ := gameWithTwoCopies(t)
+			_, err := g.AddPhotos(copyID, []Photo{{ID: pid(1)}, {ID: pid(2)}}, now)
+			require.NoError(t, err)
+
 			many := make([]Photo, 0, MaxPhotosPerCopy)
 			for i := 100; i < 100+MaxPhotosPerCopy-1; i++ {
 				many = append(many, Photo{ID: pid(i)})
 			}
 
-			_, err := g.AddPhotos(copyID, many, now)
+			_, err = g.AddPhotos(copyID, many, now)
 
 			t.Run("THEN they are refused and the copy keeps its photos", func(t *testing.T) {
 				var ve *errkind.ValidationError
@@ -143,7 +147,14 @@ func TestPhotos_editReorderRemove(t *testing.T) {
 			})
 		})
 
-		t.Run("WHEN the photos are reordered", func(t *testing.T) {
+		t.Run("WHEN a captioned photo is reordered with the others", func(t *testing.T) {
+			g, copyID, _ := gameWithTwoCopies(t)
+			_, err := g.AddPhotos(copyID, []Photo{{ID: pid(1)}, {
+				ID:      pid(2),
+				Caption: "disc",
+			}, {ID: pid(3)}}, t0)
+			require.NoError(t, err)
+
 			c, err := g.ReorderPhotos(copyID, []PhotoID{pid(3), pid(1), pid(2)}, t0)
 			require.NoError(t, err)
 

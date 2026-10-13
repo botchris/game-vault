@@ -26,60 +26,53 @@ func TestMatchKey(t *testing.T) {
 		"Steam Prison":                    "steam prison",
 	}
 	for in, want := range cases {
-		if got := MatchKey(in); got != want {
-			t.Errorf("MatchKey(%q) = %q, want %q", in, got, want)
-		}
+		assert.Equal(t, want, MatchKey(in), in)
 	}
 }
 
 func TestCopyInvariants(t *testing.T) {
-	g, _ := New("Halo 3", t0)
-	if _, err := g.AddCopy(CopyDetails{
+	g, err := New("Halo 3", t0)
+	require.NoError(t, err)
+
+	_, err = g.AddCopy(CopyDetails{
 		Kind:   KindPhysical,
 		Status: StatusRedeemed,
-	}, t0); err == nil {
-		t.Error("a physical copy cannot be redeemed")
-	}
+	}, t0)
+	assert.Error(t, err, "a physical copy cannot be redeemed")
 
 	c, err := g.AddCopy(CopyDetails{
 		Kind:     KindPhysical,
 		Platform: "xbox 360",
 		Key:      "SHOULD-DROP",
 	}, t0)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if c.Status != StatusOwned || c.Platform != "Xbox 360" || c.Key != "" {
-		t.Errorf("defaults not applied: %+v", c)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, StatusOwned, c.Status)
+	assert.Equal(t, "Xbox 360", c.Platform)
+	assert.Empty(t, c.Key, "a physical copy has no key")
 }
 
 func TestRedundantKeys(t *testing.T) {
-	g, _ := New("Hades", t0)
+	g, err := New("Hades", t0)
+	require.NoError(t, err)
 
-	key, _ := g.AddCopy(CopyDetails{
+	key, err := g.AddCopy(CopyDetails{
 		Kind:     KindKey,
 		Platform: "Steam",
 		Status:   StatusRevealed,
 		Key:      "K",
 	}, t0)
-	if g.IsRedundant(key) {
-		t.Fatal("not redundant without a library copy")
-	}
+	require.NoError(t, err)
+	assert.False(t, g.IsRedundant(key), "not redundant without a library copy")
 
-	g.AddCopy(CopyDetails{
+	_, err = g.AddCopy(CopyDetails{
 		Kind:     KindLibrary,
 		Platform: "steam",
 	}, t0)
+	require.NoError(t, err)
+	assert.True(t, g.IsRedundant(g.Copies()[0]), "redundant once the game is in the Steam library")
 
-	if !g.IsRedundant(g.Copies()[0]) {
-		t.Fatal("expected redundant once the game is in the Steam library")
-	}
-
-	if n := g.MarkRedundantKeysRedeemed(t0); n != 1 || g.Copies()[0].Status != StatusRedeemed {
-		t.Fatalf("expected the key to be redeemed, got n=%d %+v", n, g.Copies()[0])
-	}
+	assert.Equal(t, 1, g.MarkRedundantKeysRedeemed(t0))
+	assert.Equal(t, StatusRedeemed, g.Copies()[0].Status)
 }
 
 func TestAbsorb(t *testing.T) {
@@ -100,9 +93,10 @@ func TestAbsorb(t *testing.T) {
 	}, t0)
 	a.Absorb(b, t0)
 
-	if len(a.Copies()) != 2 || len(b.Copies()) != 0 || a.Links()[LinkSteam] != "292030" || a.Notes() != "GOTY" {
-		t.Fatalf("unexpected merge result: copies=%d links=%v notes=%q", len(a.Copies()), a.Links(), a.Notes())
-	}
+	assert.Len(t, a.Copies(), 2)
+	assert.Empty(t, b.Copies())
+	assert.Equal(t, "292030", a.Links()[LinkSteam])
+	assert.Equal(t, "GOTY", a.Notes())
 }
 
 func TestParseBarcode(t *testing.T) {
@@ -113,36 +107,36 @@ func TestParseBarcode(t *testing.T) {
 		"":                "",
 	}
 	for in, want := range ok {
-		if got, err := ParseBarcode(in); err != nil || got != want {
-			t.Errorf("ParseBarcode(%q) = %q, %v; want %q", in, got, err, want)
-		}
+		got, err := ParseBarcode(in)
+		require.NoError(t, err, in)
+		assert.Equal(t, want, got, in)
 	}
 
 	for _, bad := range []string{"2001234567894", "12345", "20012345678A3"} {
-		if _, err := ParseBarcode(bad); err == nil {
-			t.Errorf("ParseBarcode(%q) should fail", bad)
-		}
+		_, err := ParseBarcode(bad)
+		assert.Error(t, err, bad)
 	}
 
-	g, _ := New("Example West", t0)
-	g.AddCopy(CopyDetails{
+	g, err := New("Example West", t0)
+	require.NoError(t, err)
+
+	_, err = g.AddCopy(CopyDetails{
 		Kind:     KindPhysical,
 		Platform: "Xbox 360",
 		Barcode:  "2001234567893",
 	}, t0)
+	require.NoError(t, err)
 
-	key, _ := g.AddCopy(CopyDetails{
+	key, err := g.AddCopy(CopyDetails{
 		Kind:     KindKey,
 		Platform: "Steam",
 		Barcode:  "2001234567893",
 	}, t0)
-	if key.Barcode != "" {
-		t.Error("only physical copies keep a barcode")
-	}
+	require.NoError(t, err)
+	assert.Empty(t, key.Barcode, "only physical copies keep a barcode")
 
-	if _, ok := g.CopyWithBarcode("2001234567893"); !ok {
-		t.Error("CopyWithBarcode should find the disc")
-	}
+	_, found := g.CopyWithBarcode("2001234567893")
+	assert.True(t, found, "CopyWithBarcode should find the disc")
 }
 
 func TestGame_CopyWithBarcode_cannotChangeTheGame(t *testing.T) {

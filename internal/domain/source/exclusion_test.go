@@ -1,9 +1,13 @@
 package source
 
 import (
-	"gamevault/internal/domain/schema"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"gamevault/internal/domain/schema"
 )
 
 func TestExclusions(t *testing.T) {
@@ -18,12 +22,10 @@ func TestExclusions(t *testing.T) {
 		UpdatedAt: now,
 	})
 
-	if err := src.Exclude(Exclusion{
+	require.Error(t, src.Exclude(Exclusion{
 		Title: "Netflix",
 		At:    now,
-	}); err == nil {
-		t.Fatal("an exclusion needs the item's external id")
-	}
+	}), "an exclusion needs the item's external id")
 
 	netflix := Exclusion{
 		ExternalID: "psn:NETFLIX",
@@ -41,26 +43,19 @@ func TestExclusions(t *testing.T) {
 		Title:      "Renamed",
 		At:         now.Add(2 * time.Hour),
 	}} {
-		if err := src.Exclude(e); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, src.Exclude(e))
 	}
 
 	got := src.Exclusions()
-	if len(got) != 2 || got[0] != spotify || got[1] != netflix {
-		t.Fatalf("newest first, the first entry kept for a repeat: %+v", got)
-	}
+	assert.Equal(t, []Exclusion{spotify, netflix}, got, "newest first, the first entry kept for a repeat")
 
-	if !src.Excludes("psn:NETFLIX") || src.Excludes("psn:YOUTUBE") {
-		t.Fatal("Excludes must answer for listed ids only")
-	}
+	assert.True(t, src.Excludes("psn:NETFLIX"), "a listed id")
+	assert.False(t, src.Excludes("psn:YOUTUBE"), "an id not listed")
 
 	got[0].Title = "changed"
-	if src.Exclusions()[0].Title != "Spotify" {
-		t.Fatal("Exclusions must return a copy")
-	}
+	assert.Equal(t, "Spotify", src.Exclusions()[0].Title, "Exclusions must return a copy")
 
-	if !src.Include("psn:NETFLIX") || src.Include("psn:NETFLIX") || src.Excludes("psn:NETFLIX") {
-		t.Fatal("Include takes an id off the list once")
-	}
+	assert.True(t, src.Include("psn:NETFLIX"), "Include takes a listed id off the list")
+	assert.False(t, src.Include("psn:NETFLIX"), "only once")
+	assert.False(t, src.Excludes("psn:NETFLIX"))
 }
