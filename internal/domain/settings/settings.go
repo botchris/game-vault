@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"gamevault/internal/domain/errkind"
+	"gamevault/internal/domain/money"
 )
 
 // logLevels lists the levels accepted by Logging.Level, from most to least verbose.
@@ -60,27 +61,11 @@ type Preferences struct {
 // Validate normalizes the currency and checks it is a three-letter code (or empty).
 func (p Preferences) Validate() (Preferences, error) {
 	p.Currency = strings.ToUpper(strings.TrimSpace(p.Currency))
-	if p.Currency != "" && !isCurrencyCode(p.Currency) {
+	if p.Currency != "" && !money.IsCurrencyCode(p.Currency) {
 		return p, errkind.Invalidf("the default currency must be a three-letter code (EUR, USD…)")
 	}
 
 	return p, nil
-}
-
-// isCurrencyCode reports whether s is three letters A–Z. It repeats game's check: settings does
-// not import the catalog domain.
-func isCurrencyCode(s string) bool {
-	if len(s) != 3 {
-		return false
-	}
-
-	for _, r := range s {
-		if r < 'A' || r > 'Z' {
-			return false
-		}
-	}
-
-	return true
 }
 
 // Repository is the persistence port for settings.

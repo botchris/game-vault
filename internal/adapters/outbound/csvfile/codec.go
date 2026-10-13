@@ -35,6 +35,7 @@ import (
 	"time"
 
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/money"
 )
 
 var columns = []string{
@@ -225,7 +226,7 @@ func (Codec) Decode(r io.Reader) ([]game.ImportedCopy, []string, error) {
 		}
 
 		currency := strings.ToUpper(get("currency"))
-		if currency != "" && !game.IsCurrencyCode(currency) {
+		if currency != "" && !money.IsCurrencyCode(currency) {
 			warnings = append(warnings, fmt.Sprintf("row %d: currency %q is not a three-letter code", row, currency))
 			currency = ""
 		}
@@ -365,7 +366,7 @@ func contentsText(c game.Contents) string {
 func parsePrice(text, currency string) (int64, bool) {
 	digits := 2
 	if currency != "" {
-		digits = game.CurrencyDigits(currency)
+		digits = money.CurrencyDigits(currency)
 	}
 
 	whole, frac, _ := strings.Cut(strings.ReplaceAll(strings.TrimSpace(text), ",", "."), ".")
@@ -387,7 +388,7 @@ func formatPrice(m game.Money) string {
 		return ""
 	}
 
-	digits := game.CurrencyDigits(m.Currency)
+	digits := money.CurrencyDigits(m.Currency)
 	s := strconv.FormatInt(m.Amount, 10)
 
 	if digits == 0 {

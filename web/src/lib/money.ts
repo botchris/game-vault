@@ -1,6 +1,6 @@
 /**
  * ISO 4217 currencies whose minor unit is not two digits. The same table as the server
- * (internal/domain/game/physical.go): amounts are stored in minor units, so the UI and the server
+ * (internal/domain/money/money.go): amounts are stored in minor units, so the UI and the server
  * must agree on the decimals. The browser's own data (CLDR) differs for some codes (IQD, ESP…).
  */
 const CURRENCY_DIGITS: Record<string, number> = {

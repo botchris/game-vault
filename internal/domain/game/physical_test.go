@@ -79,13 +79,6 @@ func TestMoney(t *testing.T) {
 	}
 }
 
-func TestCurrencyDigits(t *testing.T) {
-	assert.Equal(t, 2, CurrencyDigits("EUR"))
-	assert.Equal(t, 0, CurrencyDigits("JPY"))
-	assert.Equal(t, 3, CurrencyDigits("BHD"))
-	assert.Equal(t, 2, CurrencyDigits("XYZ"), "unknown codes default to 2")
-}
-
 func TestCopyDetails_physicalFields(t *testing.T) {
 	contents, _ := ContentsOf(ContentBox, ContentMedia)
 	physical := CopyDetails{

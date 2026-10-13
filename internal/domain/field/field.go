@@ -11,6 +11,7 @@ import (
 
 	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/money"
 )
 
 // Type is a field's kind of value.
@@ -365,7 +366,7 @@ func (s *Set) check(d Definition) (Definition, error) {
 		return d, invalid("%q: a currency is for money fields", d.Name)
 	}
 
-	if d.Currency != "" && !isCurrencyCode(d.Currency) {
+	if d.Currency != "" && !money.IsCurrencyCode(d.Currency) {
 		return d, invalid("%q: the currency must be a three-letter code (EUR, USD…)", d.Name)
 	}
 
@@ -392,20 +393,6 @@ func (s *Set) check(d Definition) (Definition, error) {
 	}
 
 	return d.clone(), nil
-}
-
-func isCurrencyCode(s string) bool {
-	if len(s) != 3 {
-		return false
-	}
-
-	for _, r := range s {
-		if r < 'A' || r > 'Z' {
-			return false
-		}
-	}
-
-	return true
 }
 
 // Repository stores the custom field definitions.
