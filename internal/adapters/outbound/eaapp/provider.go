@@ -11,17 +11,15 @@
 package eaapp
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"sort"
 	"strings"
 	"time"
 
+	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/adapters/outbound/browsersession"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
@@ -44,7 +42,6 @@ const (
 	// tokenPath is the silent sign-in of EA's web SDK: with a signed-in browser session it answers
 	// {"access_token": …}, otherwise {"error": "login_required"}.
 	tokenPath = "/connect/auth?client_id=ORIGIN_JS_SDK&response_type=token&redirect_uri=nucleus:rest&prompt=none"
-	userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128 Safari/537.36"
 	maxPages  = 50
 )
 
@@ -81,18 +78,30 @@ const ownedGamesQuery = `query OwnedGames($next: String) {
 
 // Provider implements sync.Provider for EA accounts.
 type Provider struct {
-	AccountsURL string
-	GraphQLURL  string
-	Timeout     time.Duration
+	// Accounts calls accounts.ea.com for the access token; tests point it at a fake server. Each
+	// sign-in sends through a copy whose HTTP client holds the session's cookies.
+	Accounts *apiclient.Client
+
+	// Library calls the EA app's GraphQL endpoint (its BaseURL is the endpoint itself).
+	Library *apiclient.Client
 }
 
 // NewProvider returns the EA app source with its production endpoints.
 func NewProvider() *Provider {
 	return &Provider{
-		AccountsURL: defaultAccountsURL,
-		GraphQLURL:  defaultGraphQLURL,
-		Timeout:     30 * time.Second,
+		Accounts: newClient(defaultAccountsURL),
+		Library:  newClient(defaultGraphQLURL),
 	}
+}
+
+// newClient returns a client of one of EA's services. They serve the session of the user's
+// browser, so requests look like that browser.
+func newClient(baseURL string) *apiclient.Client {
+	c := apiclient.New(baseURL)
+	c.HTTP.Timeout = 30 * time.Second
+	c.UserAgent = apiclient.BrowserUserAgent
+
+	return c
 }
 
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
@@ -152,32 +161,30 @@ func (p *Provider) accessToken(ctx context.Context, settings source.Settings) (s
 		return "", ErrNoCookies
 	}
 
-	sess, err := browsersession.New(p.AccountsURL, "ea.com", c, p.Timeout)
+	sess, err := browsersession.New(p.Accounts.BaseURL, "ea.com", c, p.Accounts.HTTP.Timeout)
 	if err != nil {
 		return "", err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.AccountsURL+tokenPath, nil)
+	accounts := *p.Accounts
+	accounts.HTTP = sess.Client
+
+	res, err := accounts.Send(ctx, apiclient.Request{Path: tokenPath})
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("ea sign-in: %w", apiclient.ClassifyError(ctx, err))
 	}
 
-	req.Header.Set("User-Agent", userAgent)
-	req.Header.Set("Accept", "application/json")
-
-	res, err := sess.Client.Do(req)
-	if err != nil {
-		return "", err
+	// A rate limit or an outage says nothing about the cookies. Any other answer is read whatever
+	// its status: EA says "login_required" in the body.
+	if apiclient.Transient(res.Status) {
+		return "", fmt.Errorf("ea sign-in: %w", apiclient.ClassifyError(ctx, res.Err()))
 	}
-	defer res.Body.Close()
-
-	body, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
 
 	var tok struct {
 		AccessToken string `json:"access_token"`
 		Error       string `json:"error"`
 	}
-	if json.Unmarshal(body, &tok) != nil || tok.AccessToken == "" {
+	if res.Decode(&tok) != nil || tok.AccessToken == "" {
 		if tok.Error != "" && tok.Error != "login_required" {
 			return "", fmt.Errorf("ea sign-in: %s", tok.Error)
 		}
@@ -214,61 +221,38 @@ type item struct {
 	} `json:"product"`
 }
 
+// ownedItems lists the owned games, a page at a time. The token comes from a fresh silent sign-in,
+// so a refused one means the cookies no longer sign in.
 func (p *Provider) ownedItems(ctx context.Context, token string) ([]item, error) {
-	client := &http.Client{Timeout: p.Timeout}
+	header := http.Header{"Authorization": {"Bearer " + token}}
 
 	var all []item
 
 	next := "0"
+
 	for range maxPages {
-		body, _ := json.Marshal(map[string]any{"query": ownedGamesQuery, "variables": map[string]any{"next": next}})
-
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.GraphQLURL, bytes.NewReader(body))
-		if err != nil {
-			return nil, err
+		var data struct {
+			Me struct {
+				OwnedGameProducts struct {
+					Next  string `json:"next"`
+					Items []item `json:"items"`
+				} `json:"ownedGameProducts"`
+			} `json:"me"`
 		}
 
-		req.Header.Set("Authorization", "Bearer "+token)
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("User-Agent", userAgent)
+		err := p.Library.GraphQL(ctx, "", apiclient.GraphQLBody{
+			Query:     ownedGamesQuery,
+			Variables: map[string]any{"next": next},
+		}, header, &data)
 
-		res, err := client.Do(req)
-		if err != nil {
-			return nil, err
+		switch {
+		case apiclient.IsGraphQLCode(err, "UNAUTHENTICATED"):
+			return nil, ErrSignedOut
+		case err != nil:
+			return nil, fmt.Errorf("ea library: %w", apiclient.ClassifyError(ctx, err))
 		}
 
-		raw, _ := io.ReadAll(io.LimitReader(res.Body, 16<<20))
-		res.Body.Close()
-
-		var out struct {
-			Data struct {
-				Me struct {
-					OwnedGameProducts struct {
-						Next  string `json:"next"`
-						Items []item `json:"items"`
-					} `json:"ownedGameProducts"`
-				} `json:"me"`
-			} `json:"data"`
-			Errors []struct {
-				Message    string `json:"message"`
-				Extensions struct {
-					Code string `json:"code"`
-				} `json:"extensions"`
-			} `json:"errors"`
-		}
-		if err := json.Unmarshal(raw, &out); err != nil {
-			return nil, fmt.Errorf("ea library: HTTP %d, unexpected answer", res.StatusCode)
-		}
-
-		if len(out.Errors) > 0 {
-			if out.Errors[0].Extensions.Code == "UNAUTHENTICATED" {
-				return nil, ErrSignedOut
-			}
-
-			return nil, fmt.Errorf("ea library: %s", out.Errors[0].Message)
-		}
-
-		page := out.Data.Me.OwnedGameProducts
+		page := data.Me.OwnedGameProducts
 
 		all = append(all, page.Items...)
 		if page.Next == "" || page.Next == next || len(page.Items) == 0 {

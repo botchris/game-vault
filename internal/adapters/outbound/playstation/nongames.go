@@ -6,12 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"gamevault/internal/adapters/outbound/apiclient"
 )
 
 // The library website lists apps (streaming, music), demos, soundtracks and videos as PS4 / PS5
@@ -126,22 +127,13 @@ func (p *Provider) playedTitles(ctx context.Context, token, categories string) (
 }
 
 func (p *Provider) gameListPage(ctx context.Context, token string, q url.Values) ([]playedTitle, *int, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.GameListURL+"?"+q.Encode(), nil)
+	res, err := p.GameList.Send(ctx, apiclient.Request{
+		Query:  q,
+		Header: http.Header{"Authorization": {"Bearer " + token}},
+	})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("playstation played titles: %w", apiclient.ClassifyError(ctx, err))
 	}
-
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", userAgent)
-
-	res, err := p.Client.Do(req)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer res.Body.Close()
-
-	raw, _ := io.ReadAll(io.LimitReader(res.Body, 16<<20))
 
 	var out struct {
 		Titles     []playedTitle `json:"titles"`
@@ -152,15 +144,17 @@ func (p *Provider) gameListPage(ctx context.Context, token string, q url.Values)
 		} `json:"error"`
 	}
 
-	jsonErr := json.Unmarshal(raw, &out)
+	// The error object says why whatever the status ("invalidToken" with a 401), so the body is
+	// read before the status.
+	jsonErr := res.Decode(&out)
 
 	switch {
 	case out.Error != nil:
-		return nil, nil, fmt.Errorf("playstation played titles: HTTP %d, %s %s", res.StatusCode, out.Error.Reason, out.Error.Message)
-	case res.StatusCode != http.StatusOK:
-		return nil, nil, fmt.Errorf("playstation played titles: HTTP %d", res.StatusCode)
+		return nil, nil, fmt.Errorf("playstation played titles: HTTP %d, %s %s", res.Status, out.Error.Reason, out.Error.Message)
+	case !res.OK():
+		return nil, nil, fmt.Errorf("playstation played titles: %w", apiclient.ClassifyError(ctx, res.Err()))
 	case jsonErr != nil:
-		return nil, nil, fmt.Errorf("playstation played titles: unexpected answer: %w", jsonErr)
+		return nil, nil, fmt.Errorf("playstation played titles: %w", jsonErr)
 	}
 
 	return out.Titles, out.NextOffset, nil

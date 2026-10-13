@@ -12,23 +12,18 @@
 package xbox
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"regexp"
 	"sort"
 	"strings"
-	gosync "sync"
 	"time"
 
 	"gamevault/internal/adapters/outbound/apiclient"
+	"gamevault/internal/adapters/outbound/oauthsession"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
@@ -50,12 +45,11 @@ const (
 	scope       = "service::user.auth.xboxlive.com::MBI_SSL"
 
 	defaultLiveURL        = "https://login.live.com"
-	defaultUserAuthURL    = "https://user.auth.xboxlive.com/user/authenticate"
-	defaultXSTSURL        = "https://xsts.auth.xboxlive.com/xsts/authorize"
-	defaultCollectionsURL = "https://collections.mp.microsoft.com/v7.0/collections/query"
-	defaultCatalogURL     = "https://displaycatalog.mp.microsoft.com/v7.0/products"
+	defaultUserAuthURL    = "https://user.auth.xboxlive.com"
+	defaultXSTSURL        = "https://xsts.auth.xboxlive.com"
+	defaultCollectionsURL = "https://collections.mp.microsoft.com"
+	defaultCatalogURL     = "https://displaycatalog.mp.microsoft.com"
 
-	pendingTTL  = 15 * time.Minute
 	catalogPage = 20
 	maxPages    = 50
 )
@@ -83,41 +77,69 @@ type session struct {
 	UserID       string `json:"user_id"`
 }
 
-type pending struct {
-	s       session
-	access  string
-	expires time.Time
-}
-
 // Provider implements sync.Provider and sync.Preparer for Xbox accounts.
 type Provider struct {
-	LiveURL        string
-	UserAuthURL    string
-	XSTSURL        string
-	CollectionsURL string
-	CatalogURL     string
-	Client         *http.Client
-	Market         string
-	Language       string
-	Now            func() time.Time
+	// Live calls the Microsoft account service (codes and tokens); tests point it at a fake server.
+	Live *apiclient.Client
 
-	mu      gosync.Mutex
-	pending map[string]pending // sha256(code) → session from a recent exchange
+	// UserAuth calls Xbox Live's user authentication.
+	UserAuth *apiclient.Client
+
+	// XSTS calls Xbox Live's security token service.
+	XSTS *apiclient.Client
+
+	// Collections calls the Microsoft Store collections (what the account owns).
+	Collections *apiclient.Client
+
+	// Catalog calls the public Microsoft Store catalog.
+	Catalog *apiclient.Client
+
+	// Market is the Store market asked for (a country code).
+	Market string
+
+	// Language is the language of the titles asked for.
+	Language string
+
+	// Now is the clock.
+	Now func() time.Time
+
+	// sessions exchanges the pasted codes and keeps the sessions' access tokens.
+	sessions *oauthsession.Sessions[session]
 }
 
 // NewProvider returns the Xbox / Microsoft Store source with its production endpoints.
 func NewProvider() *Provider {
-	return &Provider{
-		LiveURL:        defaultLiveURL,
-		UserAuthURL:    defaultUserAuthURL,
-		XSTSURL:        defaultXSTSURL,
-		CollectionsURL: defaultCollectionsURL,
-		CatalogURL:     defaultCatalogURL,
-		Client:         &http.Client{Timeout: 30 * time.Second},
-		Market:         "US",
-		Language:       "en-US",
-		Now:            time.Now,
+	p := &Provider{
+		Live:        newClient(defaultLiveURL, 30*time.Second),
+		UserAuth:    newClient(defaultUserAuthURL, 30*time.Second),
+		XSTS:        newClient(defaultXSTSURL, 30*time.Second),
+		Collections: newClient(defaultCollectionsURL, 30*time.Second),
+		Catalog:     newClient(defaultCatalogURL, 30*time.Second),
+		Market:      "US",
+		Language:    "en-US",
+		Now:         time.Now,
 	}
+	p.sessions = &oauthsession.Sessions[session]{
+		CodeField:    settingCode,
+		StateField:   settingSession,
+		Clean:        func(v string) (string, error) { return cleanCode(v), nil },
+		Exchange:     p.exchange,
+		Refresh:      p.refresh,
+		RefreshToken: func(s session) string { return s.RefreshToken },
+		ErrNoSession: ErrNoSession,
+		ErrSignedOut: ErrSessionExpired,
+		Now:          func() time.Time { return p.Now() },
+	}
+
+	return p
+}
+
+// newClient returns a client of one of Microsoft's services.
+func newClient(baseURL string, timeout time.Duration) *apiclient.Client {
+	c := apiclient.New(baseURL)
+	c.HTTP.Timeout = timeout
+
+	return c
 }
 
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
@@ -176,9 +198,10 @@ func cleanCode(v string) string {
 	return strings.Trim(v, `"' `)
 }
 
-func hash(s string) string {
-	h := sha256.Sum256([]byte(s))
-	return hex.EncodeToString(h[:])
+// Prepare implements sync.Preparer: a pasted code is exchanged for a session, which is stored
+// instead of the code (codes work once).
+func (p *Provider) Prepare(ctx context.Context, settings source.Settings) (source.Settings, error) {
+	return p.sessions.Prepare(ctx, settings)
 }
 
 // ---- Microsoft account ----
@@ -190,129 +213,72 @@ type liveToken struct {
 	UserID       string `json:"user_id"`
 }
 
+// exchange trades a code for a session (oauthsession.Sessions.Exchange).
+func (p *Provider) exchange(ctx context.Context, code string) (oauthsession.Grant[session], error) {
+	tok, err := p.live(ctx, url.Values{"grant_type": {"authorization_code"}, "code": {code}, "redirect_uri": {redirectURI}})
+	if err != nil {
+		return oauthsession.Grant[session]{}, err
+	}
+
+	return grant(tok, tok.UserID), nil
+}
+
+// refresh renews a session (oauthsession.Sessions.Refresh). Microsoft rotates the refresh token.
+func (p *Provider) refresh(ctx context.Context, s session) (oauthsession.Grant[session], error) {
+	tok, err := p.live(ctx, url.Values{"grant_type": {"refresh_token"}, "refresh_token": {s.RefreshToken}})
+	if err != nil {
+		return oauthsession.Grant[session]{}, err
+	}
+
+	return grant(tok, s.UserID), nil
+}
+
+// grant is the session and access token of a token answer, for the account userID.
+func grant(tok liveToken, userID string) oauthsession.Grant[session] {
+	return oauthsession.Grant[session]{
+		Session: session{
+			RefreshToken: tok.RefreshToken,
+			UserID:       userID,
+		},
+		AccessToken: tok.AccessToken,
+		Lifetime:    time.Duration(tok.ExpiresIn) * time.Second,
+	}
+}
+
+// live calls the Microsoft account token endpoint.
 func (p *Provider) live(ctx context.Context, form url.Values) (liveToken, error) {
 	form.Set("client_id", clientID)
 	form.Set("scope", scope)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.LiveURL+"/oauth20_token.srf", strings.NewReader(form.Encode()))
-	if err != nil {
-		return liveToken{}, err
-	}
-
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	res, err := p.Client.Do(req)
+	res, err := p.Live.Send(ctx, apiclient.Request{
+		Method: http.MethodPost,
+		Path:   "/oauth20_token.srf",
+		Form:   form,
+	})
 	if err != nil {
 		return liveToken{}, apiclient.ClassifyError(ctx, err)
 	}
-	defer res.Body.Close()
 
 	// login.live.com refuses a used code or a stale refresh token with a 400 invalid_grant; a 429
 	// or an outage is a passing trouble, after which the same code or session still works.
-	body, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
-	if res.StatusCode != http.StatusOK {
-		if apiclient.Rejected(res.StatusCode) && form.Get("grant_type") == "authorization_code" {
+	if !res.OK() {
+		if apiclient.Rejected(res.Status) && form.Get("grant_type") == "authorization_code" {
 			return liveToken{}, ErrBadCode
 		}
 
-		if apiclient.Rejected(res.StatusCode) {
+		if apiclient.Rejected(res.Status) {
 			return liveToken{}, ErrSessionExpired
 		}
 
-		return liveToken{}, fmt.Errorf("microsoft sign-in: %w", apiclient.ClassifyStatus(res.StatusCode))
+		return liveToken{}, fmt.Errorf("microsoft sign-in: %w", apiclient.ClassifyStatus(res.Status))
 	}
 
 	var tok liveToken
-	if err := json.Unmarshal(body, &tok); err != nil || tok.AccessToken == "" || tok.RefreshToken == "" {
+	if err := res.Decode(&tok); err != nil || tok.AccessToken == "" || tok.RefreshToken == "" {
 		return liveToken{}, errors.New("microsoft sign-in: unexpected answer")
 	}
 
 	return tok, nil
-}
-
-// Prepare implements sync.Preparer: a pasted code is exchanged for a session, which is stored
-// instead of the code (codes work once).
-func (p *Provider) Prepare(ctx context.Context, settings source.Settings) (source.Settings, error) {
-	out := source.Settings{}
-	for k, v := range settings {
-		out[k] = v
-	}
-
-	code := cleanCode(settings[settingCode])
-	delete(out, settingCode)
-
-	if code == "" || code == source.SecretPlaceholder {
-		if out[settingSession] == "" {
-			return nil, ErrNoSession
-		}
-
-		return out, nil
-	}
-
-	key := hash(code)
-
-	p.mu.Lock()
-	pend, ok := p.pending[key]
-	p.mu.Unlock()
-
-	if !ok || p.Now().After(pend.expires) {
-		tok, err := p.live(ctx, url.Values{"grant_type": {"authorization_code"}, "code": {code}, "redirect_uri": {redirectURI}})
-		if err != nil {
-			return nil, err
-		}
-
-		pend = pending{
-			s: session{
-				RefreshToken: tok.RefreshToken,
-				UserID:       tok.UserID,
-			},
-			access:  tok.AccessToken,
-			expires: p.Now().Add(pendingTTL),
-		}
-		p.mu.Lock()
-		if p.pending == nil {
-			p.pending = map[string]pending{}
-		}
-
-		p.pending[key] = pend
-		p.mu.Unlock()
-	}
-
-	raw, _ := json.Marshal(pend.s)
-	out[settingSession] = string(raw)
-
-	return out, nil
-}
-
-// accessToken refreshes the session (the refresh token rotates: the new one is written back into
-// settings for the caller to persist), reusing a fresh exchange when there is one.
-func (p *Provider) accessToken(ctx context.Context, settings source.Settings) (string, error) {
-	var s session
-	if json.Unmarshal([]byte(settings[settingSession]), &s) != nil || s.RefreshToken == "" {
-		return "", ErrNoSession
-	}
-
-	p.mu.Lock()
-	for _, pend := range p.pending {
-		if pend.s.RefreshToken == s.RefreshToken && p.Now().Before(pend.expires) {
-			p.mu.Unlock()
-			return pend.access, nil
-		}
-	}
-	p.mu.Unlock()
-
-	tok, err := p.live(ctx, url.Values{"grant_type": {"refresh_token"}, "refresh_token": {s.RefreshToken}})
-	if err != nil {
-		return "", err
-	}
-
-	raw, _ := json.Marshal(session{
-		RefreshToken: tok.RefreshToken,
-		UserID:       s.UserID,
-	})
-	settings[settingSession] = string(raw)
-
-	return tok.AccessToken, nil
 }
 
 // ---- Xbox Live ----
@@ -326,60 +292,53 @@ type xblToken struct {
 	} `json:"DisplayClaims"`
 }
 
-func (p *Provider) postJSON(ctx context.Context, u string, body any, headers map[string]string, out any) (int, error) {
-	raw, _ := json.Marshal(body)
+// errTokenRejected means Xbox Live or the Store refused the Microsoft access token or the Xbox Live
+// token made from it (HTTP 401): it may have expired or been revoked before its time. The sessions
+// renew it once; only a refused refresh is signed out.
+var errTokenRejected = fmt.Errorf("xbox live rejected the access token: %w", apiclient.ErrTokenRejected)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewReader(raw))
-	if err != nil {
-		return 0, err
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-
-	for k, v := range headers {
-		req.Header.Set(k, v)
-	}
-
-	res, err := p.Client.Do(req)
-	if err != nil {
-		return 0, err
-	}
-	defer res.Body.Close()
-
-	data, _ := io.ReadAll(io.LimitReader(res.Body, 32<<20))
-	if res.StatusCode != http.StatusOK {
-		return res.StatusCode, fmt.Errorf("HTTP %d %s", res.StatusCode, strings.TrimSpace(string(data[:min(len(data), 200)])))
-	}
-
-	return res.StatusCode, json.Unmarshal(data, out)
-}
+// xblContract is the header of Xbox Live's authentication API version.
+var xblContract = http.Header{"x-xbl-contract-version": {"1"}}
 
 // storeAuth turns a Microsoft access token into the Xbox Live authorization of the Store
 // ("XBL3.0 x=<user hash>;<token>").
 func (p *Provider) storeAuth(ctx context.Context, access string) (string, error) {
 	var user xblToken
-	if code, err := p.postJSON(ctx, p.UserAuthURL, map[string]any{
-		"RelyingParty": "http://auth.xboxlive.com", "TokenType": "JWT",
-		"Properties": map[string]any{"AuthMethod": "RPS", "SiteName": "user.auth.xboxlive.com", "RpsTicket": "t=" + access},
-	}, map[string]string{"x-xbl-contract-version": "1"}, &user); err != nil {
-		if code == http.StatusUnauthorized {
-			return "", ErrSessionExpired
-		}
 
-		return "", fmt.Errorf("xbox live sign-in: %w", err)
+	err := p.UserAuth.Do(ctx, apiclient.Request{
+		Method: http.MethodPost,
+		Path:   "/user/authenticate",
+		Header: xblContract,
+		Body: map[string]any{
+			"RelyingParty": "http://auth.xboxlive.com", "TokenType": "JWT",
+			"Properties": map[string]any{"AuthMethod": "RPS", "SiteName": "user.auth.xboxlive.com", "RpsTicket": "t=" + access},
+		},
+	}, &user)
+	if apiclient.IsStatus(err, http.StatusUnauthorized) {
+		return "", errTokenRejected
+	}
+
+	if err != nil {
+		return "", fmt.Errorf("xbox live sign-in: %w", apiclient.ClassifyError(ctx, err))
 	}
 
 	var xsts xblToken
-	if code, err := p.postJSON(ctx, p.XSTSURL, map[string]any{
-		"RelyingParty": "http://mp.microsoft.com/", "TokenType": "JWT",
-		"Properties": map[string]any{"UserTokens": []string{user.Token}, "SandboxId": "RETAIL"},
-	}, map[string]string{"x-xbl-contract-version": "1"}, &xsts); err != nil {
-		if code == http.StatusUnauthorized {
-			return "", errors.New("xbox live refused this account (it may need an Xbox profile: sign in once on xbox.com)")
-		}
 
-		return "", fmt.Errorf("xbox live authorization: %w", err)
+	err = p.XSTS.Do(ctx, apiclient.Request{
+		Method: http.MethodPost,
+		Path:   "/xsts/authorize",
+		Header: xblContract,
+		Body: map[string]any{
+			"RelyingParty": "http://mp.microsoft.com/", "TokenType": "JWT",
+			"Properties": map[string]any{"UserTokens": []string{user.Token}, "SandboxId": "RETAIL"},
+		},
+	}, &xsts)
+	if apiclient.IsStatus(err, http.StatusUnauthorized) {
+		return "", errors.New("xbox live refused this account (it may need an Xbox profile: sign in once on xbox.com)")
+	}
+
+	if err != nil {
+		return "", fmt.Errorf("xbox live authorization: %w", apiclient.ClassifyError(ctx, err))
 	}
 
 	if xsts.Token == "" || len(xsts.DisplayClaims.Xui) == 0 {
@@ -387,6 +346,14 @@ func (p *Provider) storeAuth(ctx context.Context, access string) (string, error)
 	}
 
 	return "XBL3.0 x=" + xsts.DisplayClaims.Xui[0].UHS + ";" + xsts.Token, nil
+}
+
+// rejectedXToken reports whether the Store refused the Xbox Live token: a 401, or any error whose
+// answer names an InvalidXToken.
+func rejectedXToken(err error) bool {
+	var se *apiclient.StatusError
+
+	return errors.As(err, &se) && (se.Status == http.StatusUnauthorized || strings.Contains(se.Body, "InvalidXToken"))
 }
 
 // ---- Store ----
@@ -439,12 +406,19 @@ func (p *Provider) entitlements(ctx context.Context, auth string) ([]entitlement
 			Items             []entitlement `json:"items"`
 			ContinuationToken string        `json:"continuationToken"`
 		}
-		if code, err := p.postJSON(ctx, p.CollectionsURL, body, map[string]string{"Authorization": auth}, &out); err != nil {
-			if code == http.StatusUnauthorized || strings.Contains(err.Error(), "InvalidXToken") {
-				return nil, ErrSessionExpired
-			}
 
-			return nil, fmt.Errorf("microsoft store collections: %w", err)
+		err := p.Collections.Do(ctx, apiclient.Request{
+			Method: http.MethodPost,
+			Path:   "/v7.0/collections/query",
+			Body:   body,
+			Header: http.Header{"Authorization": {auth}},
+		}, &out)
+		if rejectedXToken(err) {
+			return nil, errTokenRejected
+		}
+
+		if err != nil {
+			return nil, fmt.Errorf("microsoft store collections: %w", apiclient.ClassifyError(ctx, err))
 		}
 
 		all = append(all, out.Items...)
@@ -473,37 +447,19 @@ type catalogProduct struct {
 	} `json:"LocalizedProperties"`
 }
 
-// catalog reads products from the public Store catalog, a page at a time.
-func catalog(ctx context.Context, client *http.Client, base, market, language string, ids []string) (map[string]catalogProduct, error) {
+// catalog reads products from the public Store catalog, a page at a time. A 429 or an outage says
+// nothing about the products: callers ask again later.
+func catalog(ctx context.Context, api *apiclient.Client, market, language string, ids []string) (map[string]catalogProduct, error) {
 	out := map[string]catalogProduct{}
 
 	for i := 0; i < len(ids); i += catalogPage {
 		q := url.Values{"bigIds": {strings.Join(ids[i:min(i+catalogPage, len(ids))], ",")}, "market": {market}, "languages": {language}}
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"?"+q.Encode(), nil)
-		if err != nil {
-			return nil, err
-		}
-
-		res, err := client.Do(req)
-		if err != nil {
-			return nil, fmt.Errorf("microsoft store catalog: %w", apiclient.ClassifyError(ctx, err))
-		}
-
 		var page struct {
 			Products []catalogProduct `json:"Products"`
 		}
-
-		err = json.NewDecoder(io.LimitReader(res.Body, 16<<20)).Decode(&page)
-		res.Body.Close()
-
-		// A 429 or an outage says nothing about the products: callers ask again later.
-		if res.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("microsoft store catalog: %w", apiclient.ClassifyStatus(res.StatusCode))
-		}
-
-		if err != nil {
-			return nil, fmt.Errorf("microsoft store catalog: unexpected answer: %w", err)
+		if err := api.Get(ctx, "/v7.0/products", q, &page); err != nil {
+			return nil, fmt.Errorf("microsoft store catalog: %w", apiclient.ClassifyError(ctx, err))
 		}
 
 		for _, pr := range page.Products {
@@ -514,18 +470,21 @@ func catalog(ctx context.Context, client *http.Client, base, market, language st
 	return out, nil
 }
 
+// owned reads the games the account owns. A rejected access token is renewed once, and the Xbox
+// Live tokens made again from the new one.
 func (p *Provider) owned(ctx context.Context, settings source.Settings) ([]game.ImportedCopy, error) {
-	access, err := p.accessToken(ctx, settings)
-	if err != nil {
-		return nil, err
-	}
+	var ents []entitlement
 
-	auth, err := p.storeAuth(ctx, access)
-	if err != nil {
-		return nil, err
-	}
+	err := p.sessions.WithRetry(ctx, settings, func(access string) error {
+		auth, err := p.storeAuth(ctx, access)
+		if err != nil {
+			return err
+		}
 
-	ents, err := p.entitlements(ctx, auth)
+		ents, err = p.entitlements(ctx, auth)
+
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -540,7 +499,7 @@ func (p *Provider) owned(ctx context.Context, settings source.Settings) ([]game.
 		}
 	}
 
-	products, err := catalog(ctx, p.Client, p.CatalogURL, p.Market, p.Language, ids)
+	products, err := catalog(ctx, p.Catalog, p.Market, p.Language, ids)
 	if err != nil {
 		return nil, err
 	}

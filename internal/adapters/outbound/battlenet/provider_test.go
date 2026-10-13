@@ -8,8 +8,13 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/adapters/outbound/browsersession"
+	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/source"
 )
 
@@ -22,6 +27,13 @@ func fakeAccount(t *testing.T) *httptest.Server {
 		return err == nil && c.Value == "fresh"
 	}
 	mux.HandleFunc("GET /api/games-and-subs", func(w http.ResponseWriter, r *http.Request) {
+		if c, err := r.Cookie("SESSION"); err == nil && c.Value == "outage" {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			fmt.Fprint(w, "<html>maintenance")
+
+			return
+		}
+
 		if !signedIn(r) {
 			w.WriteHeader(http.StatusUnauthorized)
 			fmt.Fprint(w, "<html>")
@@ -44,6 +56,15 @@ func fakeAccount(t *testing.T) *httptest.Server {
 		fmt.Fprint(w, `{"classicGames":[{"localizedGameName":"Diablo® II"}]}`)
 	})
 	mux.HandleFunc("GET "+renewPath, func(w http.ResponseWriter, r *http.Request) {
+		// The renewal is a browser's navigation: a request that asks for JSON is refused rather
+		// than redirected. This catches the shared client's default Accept leaking in.
+		if _, ok := r.Header["Accept"]; ok {
+			w.WriteHeader(http.StatusForbidden)
+			fmt.Fprint(w, `{"error":"forbidden"}`)
+
+			return
+		}
+
 		if c, err := r.Cookie("BA-tassadar"); err != nil || c.Value != "long-lived" {
 			http.Redirect(w, r, "/login/en/", http.StatusFound)
 			return
@@ -67,7 +88,7 @@ func fakeAccount(t *testing.T) *httptest.Server {
 func TestFetchRenewsTheSession(t *testing.T) {
 	srv := fakeAccount(t)
 	p := NewProvider()
-	p.AccountURL = srv.URL
+	p.Account.BaseURL = srv.URL
 	settings := source.Settings{settingCookies: "Cookie: SESSION=expired; BA-tassadar=long-lived"}
 
 	copies, warnings, err := p.Fetch(context.Background(), settings)
@@ -101,7 +122,7 @@ func TestFetchRenewsTheSession(t *testing.T) {
 func TestSignedOut(t *testing.T) {
 	srv := fakeAccount(t)
 	p := NewProvider()
-	p.AccountURL = srv.URL
+	p.Account.BaseURL = srv.URL
 
 	err := p.Test(context.Background(), source.Settings{settingCookies: "SESSION=expired; BA-tassadar=revoked"})
 	if !errors.Is(err, ErrSignedOut) {
@@ -111,4 +132,24 @@ func TestSignedOut(t *testing.T) {
 	if err := p.Test(context.Background(), source.Settings{settingCookies: " "}); !errors.Is(err, ErrNoCookies) {
 		t.Fatalf("no cookies: %v", err)
 	}
+}
+
+func TestFetch_outageIsNotSignedOut(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN account.battle.net answers 503", func(t *testing.T) {
+		srv := fakeAccount(t)
+		p := NewProvider()
+		p.Account.BaseURL = srv.URL
+
+		t.Run("WHEN a scan runs", func(t *testing.T) {
+			_, _, err := p.Fetch(ctx, source.Settings{settingCookies: "SESSION=outage; BA-tassadar=long-lived"})
+
+			t.Run("THEN it is a passing trouble, not a signed-out session", func(t *testing.T) {
+				require.ErrorIs(t, err, provider.ErrUnavailable)
+				assert.NotErrorIs(t, err, ErrSignedOut)
+			})
+		})
+	})
 }

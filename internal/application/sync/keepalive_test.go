@@ -10,6 +10,7 @@ import (
 
 	"gamevault/internal/adapters/outbound/sqlite"
 	"gamevault/internal/application/sync"
+	"gamevault/internal/application/unattended"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/source"
 )
@@ -95,20 +96,15 @@ func TestKeepAliveSavesRenewedSessions(t *testing.T) {
 	}
 }
 
-func TestJitteredStaysWithinBounds(t *testing.T) {
-	seen := map[time.Duration]bool{}
+func TestKeepAliveDelay_variesByThirtyPercent(t *testing.T) {
+	svc := sync.NewService(nil, nil, nil, nil, nil, nil)
 
-	for range 1000 {
-		d := sync.Jittered(time.Hour)
-		if d < 42*time.Minute || d > 78*time.Minute {
-			t.Fatalf("out of ±30%%: %v", d)
+	for draw, want := range map[float64]time.Duration{0: 42 * time.Minute, 0.5: time.Hour, 1: 78 * time.Minute} {
+		svc.SetRhythm(unattended.Rhythm{Random: func() float64 { return draw }})
+
+		if d := svc.KeepAliveDelay(time.Hour); d != want {
+			t.Fatalf("draw %v: want %v, got %v", draw, want, d)
 		}
-
-		seen[d.Round(time.Minute)] = true
-	}
-
-	if len(seen) < 20 {
-		t.Fatalf("not random enough: %d distinct values", len(seen))
 	}
 }
 
@@ -157,10 +153,14 @@ func TestSchedulerScansOnceAndWaitsForTheVariedInterval(t *testing.T) {
 	}
 }
 
-func TestVaryForScans(t *testing.T) {
-	for range 1000 {
-		if d := sync.Vary(24*time.Hour, 0.1); d < 21*time.Hour+36*time.Minute || d > 26*time.Hour+24*time.Minute {
-			t.Fatalf("out of ±10%%: %v", d)
+func TestScanDelay_variesByTenPercent(t *testing.T) {
+	svc := sync.NewService(nil, nil, nil, nil, nil, nil)
+
+	for draw, want := range map[float64]time.Duration{0: 21*time.Hour + 36*time.Minute, 1: 26*time.Hour + 24*time.Minute} {
+		svc.SetRhythm(unattended.Rhythm{Random: func() float64 { return draw }})
+
+		if d := svc.ScanDelay(24 * time.Hour); d != want {
+			t.Fatalf("draw %v: want %v, got %v", draw, want, d)
 		}
 	}
 }

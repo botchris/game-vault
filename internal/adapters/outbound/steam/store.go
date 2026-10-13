@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -14,6 +13,7 @@ import (
 	"time"
 
 	"gamevault/internal/adapters/outbound/apiclient"
+	"gamevault/internal/adapters/outbound/ratelimit"
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
@@ -68,7 +68,7 @@ type Store struct {
 	AssetsURL string
 
 	// throttle paces the requests to the store (see storeGap); nil sends them at once.
-	throttle *throttle
+	throttle *ratelimit.Throttle
 
 	// now is the clock of the search cache; nil means time.Now.
 	now func() time.Time
@@ -351,7 +351,7 @@ func NewStore() *Store {
 		API:       api,
 		CDNURL:    defaultCDNURL,
 		AssetsURL: defaultAssetsURL,
-		throttle:  newThrottle(storeGap, storeBurst, storeMaxWait, time.Now, sleep),
+		throttle:  newThrottle(storeGap, nil, nil),
 		now:       time.Now,
 	}
 }
@@ -406,12 +406,10 @@ func (s *Store) SearchLinks(ctx context.Context, query string) ([]media.LinkMatc
 	return slices.Clone(matches), nil
 }
 
-var reYearSuffix = regexp.MustCompile(`\s*\(\d{4}\)\s*$`)
-
 // searchTerm is what the store is searched for: the query trimmed, without a trailing year in
 // parentheses.
 func searchTerm(query string) string {
-	return strings.Join(strings.Fields(reYearSuffix.ReplaceAllString(query, "")), " ")
+	return strings.Join(strings.Fields(game.StripYearSuffix(query)), " ")
 }
 
 // search asks the store's search for query, through the throttle.
@@ -427,11 +425,10 @@ func (s *Store) search(ctx context.Context, query string) ([]media.LinkMatch, er
 		} `json:"items"`
 	}
 
-	err := s.throttle.do(ctx, func() error { return s.Site.Get(ctx, "/api/storesearch/", q, &out) })
-	if errors.Is(err, errBusy) {
-		return nil, err
-	}
-
+	// The request's error is classified inside the throttle, so a 429 or an outage starts its rest.
+	err := s.throttle.Do(ctx, func() error {
+		return apiclient.ClassifyError(ctx, s.Site.Get(ctx, "/api/storesearch/", q, &out))
+	})
 	if err != nil {
 		return nil, fmt.Errorf("steam store search: %w", err)
 	}

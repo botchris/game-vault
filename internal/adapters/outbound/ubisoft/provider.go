@@ -11,14 +11,12 @@
 package ubisoft
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"regexp"
 	"sort"
@@ -26,6 +24,7 @@ import (
 	gosync "sync"
 	"time"
 
+	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
@@ -46,9 +45,8 @@ const (
 	// webAppID is ubisoft.com's sign-in (its tickets are renewed with it); pcAppID is the Ubisoft
 	// Connect PC client. connect.ubisoft.com's own app (314d4fef…), used by Lutris and the GOG Galaxy
 	// plugin, is no longer allowed to sign in on the public gateway.
-	webAppID  = "f35adcb5-1911-440c-b1c9-48fdc1701c68"
-	pcAppID   = "f68a4bb5-608a-4ff2-8123-be8ef797e0a6"
-	userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128 Safari/537.36"
+	webAppID = "f35adcb5-1911-440c-b1c9-48fdc1701c68"
+	pcAppID  = "f68a4bb5-608a-4ff2-8123-be8ef797e0a6"
 )
 
 // LoginURL is the sign-in page whose stored login data the user copies.
@@ -141,10 +139,16 @@ func hash(s string) string {
 }
 
 // Provider implements sync.Provider for Ubisoft accounts.
+//
+// It keeps its own memory of the rotated remember-me ticket and of the open session rather than
+// oauthsession's: the ticket is not an OAuth refresh token (no code, no access token lifetime), and
+// the pasted ticket and session id are tried before spending it.
 type Provider struct {
-	APIURL string
-	Client *http.Client
-	Now    func() time.Time
+	// API calls Ubisoft's public gateway (sign-in and library); tests point it at a fake server.
+	API *apiclient.Client
+
+	// Now is the clock.
+	Now func() time.Time
 
 	mu       gosync.Mutex
 	rotated  map[string]state  // hash(pasted) → latest remember-me ticket, until the source is saved
@@ -161,10 +165,14 @@ const sessionTTL = time.Hour
 
 // NewProvider returns the Ubisoft Connect source with its production endpoints.
 func NewProvider() *Provider {
+	// The gateway serves the session of the user's browser, so requests look like that browser.
+	api := apiclient.New(defaultAPIURL)
+	api.HTTP.Timeout = 30 * time.Second
+	api.UserAgent = apiclient.BrowserUserAgent
+
 	return &Provider{
-		APIURL: defaultAPIURL,
-		Client: &http.Client{Timeout: 30 * time.Second},
-		Now:    time.Now,
+		API: api,
+		Now: time.Now,
 	}
 }
 
@@ -324,45 +332,32 @@ func (p *Provider) session(ctx context.Context, settings source.Settings, fresh 
 
 // renew exchanges a remember-me ticket for a session as the given app.
 func (p *Provider) renew(ctx context.Context, rememberMe, app string) (session, string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.APIURL+"/v3/profiles/sessions", strings.NewReader(`{"rememberMe":true}`))
-	if err != nil {
-		return session{}, "", err
-	}
-
-	req.Header.Set("Authorization", "rm_v1 t="+rememberMe)
-	p.headers(req, app)
-
-	res, err := p.Client.Do(req)
-	if err != nil {
-		return session{}, "", err
-	}
-	defer res.Body.Close()
-
-	body, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
-	if res.StatusCode == http.StatusUnauthorized || res.StatusCode == http.StatusForbidden {
-		return session{}, "", ErrSignedOut
-	}
-
-	if res.StatusCode != http.StatusOK {
-		return session{}, "", fmt.Errorf("ubisoft sign-in: HTTP %d", res.StatusCode)
-	}
-
 	var s struct {
 		Ticket           string `json:"ticket"`
 		SessionID        string `json:"sessionId"`
 		RememberMeTicket string `json:"rememberMeTicket"`
 	}
-	if err := json.Unmarshal(body, &s); err != nil || s.Ticket == "" || s.SessionID == "" {
+
+	err := p.API.Do(ctx, apiclient.Request{
+		Method: http.MethodPost,
+		Path:   "/v3/profiles/sessions",
+		Header: http.Header{
+			"Authorization": {"rm_v1 t=" + rememberMe},
+			"Ubi-AppId":     {app},
+		},
+		Body: map[string]bool{"rememberMe": true},
+	}, &s)
+
+	switch {
+	case apiclient.IsStatus(err, http.StatusUnauthorized, http.StatusForbidden):
+		return session{}, "", ErrSignedOut
+	case err != nil:
+		return session{}, "", fmt.Errorf("ubisoft sign-in: %w", apiclient.ClassifyError(ctx, err))
+	case s.Ticket == "" || s.SessionID == "":
 		return session{}, "", errors.New("ubisoft sign-in: unexpected answer")
 	}
 
 	return session{s.Ticket, s.SessionID, app}, s.RememberMeTicket, nil
-}
-
-func (p *Provider) headers(req *http.Request, app string) {
-	req.Header.Set("Ubi-AppId", app)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", userAgent)
 }
 
 type node struct {
@@ -381,56 +376,38 @@ type node struct {
 
 // query reads one page of owned games and the total number of them.
 func (p *Provider) query(ctx context.Context, s session, q string, offset int) ([]node, int, error) {
-	body, _ := json.Marshal(map[string]any{"operationName": "OwnedGames", "query": q,
-		"variables": map[string]any{"limit": pageSize, "offset": offset}})
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.APIURL+"/v1/profiles/me/uplay/graphql", bytes.NewReader(body))
-	if err != nil {
-		return nil, 0, err
+	var data struct {
+		Viewer struct {
+			Games struct {
+				TotalCount int    `json:"totalCount"`
+				Nodes      []node `json:"nodes"`
+			} `json:"games"`
+		} `json:"viewer"`
 	}
 
-	req.Header.Set("Authorization", "Ubi_v1 t="+s.ticket)
-	req.Header.Set("Ubi-SessionId", s.sessionID)
-	p.headers(req, s.appID)
+	err := p.API.GraphQL(ctx, "/v1/profiles/me/uplay/graphql", apiclient.GraphQLBody{
+		OperationName: "OwnedGames",
+		Query:         q,
+		Variables: map[string]any{
+			"limit":  pageSize,
+			"offset": offset,
+		},
+	}, http.Header{
+		"Authorization": {"Ubi_v1 t=" + s.ticket},
+		"Ubi-SessionId": {s.sessionID},
+		"Ubi-AppId":     {s.appID},
+	}, &data)
 
-	res, err := p.Client.Do(req)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer res.Body.Close()
-
-	raw, _ := io.ReadAll(io.LimitReader(res.Body, 16<<20))
-
-	var out struct {
-		Data struct {
-			Viewer struct {
-				Games struct {
-					TotalCount int    `json:"totalCount"`
-					Nodes      []node `json:"nodes"`
-				} `json:"games"`
-			} `json:"viewer"`
-		} `json:"data"`
-		Errors []struct {
-			Message    string `json:"message"`
-			Extensions struct {
-				Code string `json:"code"`
-			} `json:"extensions"`
-		} `json:"errors"`
-	}
-	if err := json.Unmarshal(raw, &out); err != nil {
-		return nil, 0, fmt.Errorf("ubisoft library: HTTP %d, unexpected answer", res.StatusCode)
+	// An expired ticket is reported as a GraphQL error code, or by the gateway as a 401: the
+	// session is renewed with the remember-me ticket.
+	switch {
+	case apiclient.IsGraphQLCode(err, "INVALID_TICKET", "UNAUTHENTICATED") || apiclient.IsStatus(err, http.StatusUnauthorized):
+		return nil, 0, ErrSignedOut
+	case err != nil:
+		return nil, 0, fmt.Errorf("ubisoft library: %w", apiclient.ClassifyError(ctx, err))
 	}
 
-	if len(out.Errors) > 0 {
-		e := out.Errors[0]
-		if e.Extensions.Code == "INVALID_TICKET" || e.Extensions.Code == "UNAUTHENTICATED" {
-			return nil, 0, ErrSignedOut
-		}
-
-		return nil, 0, fmt.Errorf("ubisoft library: %s", e.Message)
-	}
-
-	g := out.Data.Viewer.Games
+	g := data.Viewer.Games
 
 	return g.Nodes, g.TotalCount, nil
 }
@@ -460,8 +437,12 @@ func (p *Provider) owned(ctx context.Context, settings source.Settings) ([]node,
 			return nil, err
 		}
 
+		// Only a query Ubisoft rejects is retried as the minimal one: after a rate limit or an
+		// outage, a second query would meet the same trouble.
 		nodes, err := p.all(ctx, s, ownedGamesQuery)
-		if err != nil && !errors.Is(err, ErrSignedOut) {
+
+		var rejected *apiclient.GraphQLError
+		if errors.As(err, &rejected) {
 			nodes, err = p.all(ctx, s, minimalQuery)
 		}
 

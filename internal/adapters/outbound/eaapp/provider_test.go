@@ -9,8 +9,13 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/adapters/outbound/browsersession"
+	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/source"
 )
 
@@ -35,6 +40,14 @@ func fakeEA(t *testing.T) *httptest.Server {
 		fmt.Fprint(w, `{"access_token":"tok","token_type":"Bearer","expires_in":"3599"}`)
 	})
 	mux.HandleFunc("POST /graphql", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") == "Bearer busy" {
+			// The gateway's rate limit: a 429 whose body may still carry an "errors" list.
+			w.WriteHeader(http.StatusTooManyRequests)
+			fmt.Fprint(w, `{"errors":[{"message":"Too many requests","extensions":{"code":"UNAUTHENTICATED"}}]}`)
+
+			return
+		}
+
 		if r.Header.Get("Authorization") != "Bearer tok" {
 			fmt.Fprint(w, `{"errors":[{"message":"Not authenticated.","extensions":{"code":"UNAUTHENTICATED"}}],"data":null}`)
 			return
@@ -72,7 +85,8 @@ func fakeEA(t *testing.T) *httptest.Server {
 func newTest(t *testing.T) *Provider {
 	srv := fakeEA(t)
 	p := NewProvider()
-	p.AccountsURL, p.GraphQLURL = srv.URL, srv.URL+"/graphql"
+	p.Accounts.BaseURL = srv.URL
+	p.Library.BaseURL = srv.URL + "/graphql"
 
 	return p
 }
@@ -110,4 +124,41 @@ func TestSignedOut(t *testing.T) {
 	if _, _, err := p.Fetch(context.Background(), source.Settings{settingCookies: ""}); !errors.Is(err, ErrNoCookies) {
 		t.Fatalf("no cookies: %v", err)
 	}
+}
+
+func TestOwnedItems_passingTroubles(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN EA's GraphQL gateway rate-limits the token", func(t *testing.T) {
+		p := newTest(t)
+
+		t.Run("WHEN the library is read", func(t *testing.T) {
+			_, err := p.ownedItems(ctx, "busy")
+
+			t.Run("THEN it is a rate limit, not a signed-out session", func(t *testing.T) {
+				require.ErrorIs(t, err, provider.ErrRateLimited)
+				assert.NotErrorIs(t, err, ErrSignedOut)
+			})
+		})
+	})
+
+	t.Run("GIVEN accounts.ea.com is down", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusBadGateway)
+		}))
+		t.Cleanup(srv.Close)
+
+		p := NewProvider()
+		p.Accounts.BaseURL = srv.URL
+
+		t.Run("WHEN a scan signs in", func(t *testing.T) {
+			_, _, err := p.Fetch(ctx, source.Settings{settingCookies: "sid=good"})
+
+			t.Run("THEN it is an outage, not a signed-out session", func(t *testing.T) {
+				require.ErrorIs(t, err, provider.ErrUnavailable)
+				assert.NotErrorIs(t, err, ErrSignedOut)
+			})
+		})
+	})
 }

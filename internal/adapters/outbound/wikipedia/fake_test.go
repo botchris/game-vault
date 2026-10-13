@@ -321,7 +321,7 @@ func (f *fakeWiki) details() *Details {
 	d.Wikidata.HTTP = f.srv.Client()
 	d.Wikipedia.BaseURL = f.srv.URL + "/wiki-{lang}"
 	d.Wikipedia.HTTP = f.srv.Client()
-	d.gate = newGate(0)
+	d.throttle = newThrottle(0)
 
 	return d
 }

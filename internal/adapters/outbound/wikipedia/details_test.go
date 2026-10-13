@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gamevault/internal/adapters/outbound/ratelimit"
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
@@ -291,23 +292,35 @@ func TestDetails(t *testing.T) {
 			})
 		})
 
-		t.Run("WHEN it asks to slow down", func(t *testing.T) {
-			f.setFail("429")
-
-			_, err := d.Details(ctx, pcGame, "en", nil)
-
-			t.Run("THEN it is a rate limit, so the sheet is not cached", func(t *testing.T) {
-				require.ErrorIs(t, err, provider.ErrRateLimited)
-			})
-		})
-
 		t.Run("WHEN it is lagging behind", func(t *testing.T) {
 			f.setFail("maxlag")
 
 			_, err := d.Details(ctx, pcGame, "en", nil)
 
-			t.Run("THEN it is a rate limit too", func(t *testing.T) {
+			t.Run("THEN it is a rate limit", func(t *testing.T) {
 				require.ErrorIs(t, err, provider.ErrRateLimited)
+			})
+		})
+
+		// Last: a 429 leaves the servers alone for a while.
+		t.Run("WHEN it asks to slow down", func(t *testing.T) {
+			f.setFail("429")
+
+			_, err := d.Details(ctx, pcGame, "en", nil)
+
+			t.Run("THEN it is a rate limit too, so the sheet is not cached", func(t *testing.T) {
+				require.ErrorIs(t, err, provider.ErrRateLimited)
+			})
+		})
+
+		t.Run("WHEN another sheet is asked at once", func(t *testing.T) {
+			asked := len(f.actions())
+
+			_, err := d.Details(ctx, pcGame, "en", nil)
+
+			t.Run("THEN it is rate-limited without a request: the servers are left alone for a while", func(t *testing.T) {
+				require.ErrorIs(t, err, provider.ErrRateLimited)
+				assert.Len(t, f.actions(), asked)
 			})
 		})
 	})
@@ -551,6 +564,34 @@ func TestDetails_outages(t *testing.T) {
 	}
 }
 
+func TestDetails_backsOffAfterADroppedConnection(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN Wikidata dropped the connection without answering", func(t *testing.T) {
+		f := newFakeWiki(t)
+		exampleWorld(f)
+		f.setFail("hangup")
+
+		d := f.details()
+
+		_, err := d.Details(ctx, media.CoverQuery{Title: "Example Quest"}, "en", nil)
+		require.ErrorIs(t, err, provider.ErrUnavailable)
+
+		t.Run("WHEN the next sheet is asked", func(t *testing.T) {
+			f.setFail("")
+
+			before := len(f.actions())
+			_, err := d.Details(ctx, media.CoverQuery{Title: "Example Quest"}, "en", nil)
+
+			t.Run("THEN the servers are left alone: it is refused as resting", func(t *testing.T) {
+				require.ErrorIs(t, err, ratelimit.ErrResting)
+				assert.Len(t, f.actions(), before)
+			})
+		})
+	})
+}
+
 func TestTest(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
@@ -576,27 +617,6 @@ func TestTest(t *testing.T) {
 			t.Run("THEN the error says so", func(t *testing.T) {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "readonly")
-			})
-		})
-	})
-}
-
-func TestGate(t *testing.T) {
-	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
-	defer cancel()
-
-	t.Run("GIVEN a gate spacing requests 50 ms apart", func(t *testing.T) {
-		g := newGate(50 * time.Millisecond)
-
-		t.Run("WHEN three requests are sent one after another", func(t *testing.T) {
-			start := time.Now()
-
-			for range 3 {
-				require.NoError(t, g.do(ctx, func() error { return nil }))
-			}
-
-			t.Run("THEN they are spaced", func(t *testing.T) {
-				assert.GreaterOrEqual(t, time.Since(start), 100*time.Millisecond)
 			})
 		})
 	})

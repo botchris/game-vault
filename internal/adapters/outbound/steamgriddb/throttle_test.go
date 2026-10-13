@@ -2,6 +2,7 @@ package steamgriddb
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -47,7 +48,7 @@ func TestThrottle(t *testing.T) {
 
 		t.Run("WHEN three requests are sent in a row", func(t *testing.T) {
 			for range 3 {
-				require.NoError(t, th.do(ctx, request))
+				require.NoError(t, th.Do(ctx, request))
 			}
 
 			t.Run("THEN the first goes at once and each next one waits a second after the previous ended", func(t *testing.T) {
@@ -59,11 +60,11 @@ func TestThrottle(t *testing.T) {
 			clock.sleeps = nil
 			clock.now = clock.now.Add(time.Hour)
 
-			err := th.do(ctx, func() error { return errTooManyRequests })
+			err := th.Do(ctx, func() error { return fmt.Errorf("HTTP 429: %w", provider.ErrRateLimited) })
 			require.ErrorIs(t, err, provider.ErrRateLimited)
 
 			sent := false
-			err = th.do(ctx, func() error { sent = true; return nil })
+			err = th.Do(ctx, func() error { sent = true; return nil })
 
 			t.Run("THEN the next lookup fails fast as rate-limited instead of asking again", func(t *testing.T) {
 				require.ErrorIs(t, err, provider.ErrRateLimited)
@@ -74,38 +75,7 @@ func TestThrottle(t *testing.T) {
 			t.Run("AND after the back-off it is sent again", func(t *testing.T) {
 				clock.now = clock.now.Add(backoff)
 
-				require.NoError(t, th.do(ctx, request))
-			})
-		})
-	})
-
-	t.Run("GIVEN a request under way that takes longer than a lookup may wait", func(t *testing.T) {
-		th := newThrottle(time.Millisecond, time.Now, sleep)
-		th.maxTurn = 20 * time.Millisecond
-
-		release := make(chan struct{})
-		started := make(chan struct{})
-
-		go th.do(ctx, func() error {
-			close(started)
-			<-release
-
-			return nil
-		})
-
-		<-started
-
-		t.Run("WHEN another lookup asks for its turn", func(t *testing.T) {
-			sent := false
-			begin := time.Now()
-			err := th.do(ctx, func() error { sent = true; return nil })
-
-			close(release)
-
-			t.Run("THEN it gives up quickly as rate-limited instead of hanging behind it", func(t *testing.T) {
-				require.ErrorIs(t, err, provider.ErrRateLimited)
-				assert.False(t, sent)
-				assert.Less(t, time.Since(begin), time.Second)
+				require.NoError(t, th.Do(ctx, request))
 			})
 		})
 	})
@@ -134,7 +104,7 @@ func TestThrottle(t *testing.T) {
 		p := NewCovers()
 		p.API.BaseURL = srv.URL
 		p.API.HTTP = srv.Client()
-		p.throttle = newThrottle(10*time.Millisecond, time.Now, sleep)
+		p.throttle = newThrottle(10*time.Millisecond, nil, nil)
 
 		t.Run("WHEN eight lookups run concurrently", func(t *testing.T) {
 			var (

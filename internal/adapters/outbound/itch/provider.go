@@ -12,7 +12,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/domain/game"
@@ -240,7 +239,7 @@ func mapKeys(keys []ownedKey) ([]game.ImportedCopy, []string) {
 			continue
 		}
 
-		acquired := date(k.CreatedAt)
+		acquired := game.ParseStoreDate(k.CreatedAt)
 
 		if i, ok := index[id]; ok {
 			if acquired != "" && (copies[i].Details.AcquiredOn == "" || acquired < copies[i].Details.AcquiredOn) {
@@ -287,16 +286,4 @@ func origin(k ownedKey) string {
 	}
 
 	return "itch.io bundle, claim or gift"
-}
-
-// date reads the key's creation time. The API documents RFC 3339, but its older endpoints wrote
-// "2006-01-02 15:04:05", so both are accepted.
-func date(v string) game.Date {
-	for _, layout := range []string{time.RFC3339, time.DateTime} {
-		if t, err := time.Parse(layout, strings.TrimSpace(v)); err == nil {
-			return game.DateOf(t)
-		}
-	}
-
-	return ""
 }

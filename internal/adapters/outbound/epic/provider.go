@@ -10,12 +10,8 @@ package epic
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -25,6 +21,7 @@ import (
 	"time"
 
 	"gamevault/internal/adapters/outbound/apiclient"
+	"gamevault/internal/adapters/outbound/oauthsession"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
@@ -50,10 +47,7 @@ const (
 	defaultLibraryURL = "https://library-service.live.use1a.on.epicgames.com"
 	defaultCatalogURL = "https://catalog-public-service-prod06.ol.epicgames.com"
 
-	// pendingTTL keeps the session of a just-exchanged code, so "Test" and then "Save" can both
-	// use the same one-time code.
-	pendingTTL = 15 * time.Minute
-	workers    = 4
+	workers = 4
 )
 
 // LoginURL is where the user signs in to get an authorization code.
@@ -85,39 +79,57 @@ type session struct {
 	DisplayName      string    `json:"display_name"`
 }
 
-type accessToken struct {
-	token   string
-	expires time.Time
-}
-
 // Provider implements sync.Provider and sync.Preparer for Epic accounts.
 type Provider struct {
-	OAuthURL   string
-	LibraryURL string
-	CatalogURL string
-	Client     *http.Client
-	Now        func() time.Time
+	// OAuth calls Epic's account service (sign-in, tokens); tests point it at a fake server.
+	OAuth *apiclient.Client
+
+	// Library calls the library service.
+	Library *apiclient.Client
+
+	// Catalog calls the public catalog.
+	Catalog *apiclient.Client
+
+	// Now is the clock.
+	Now func() time.Time
+
+	// sessions exchanges the pasted codes and keeps the sessions' access tokens.
+	sessions *oauthsession.Sessions[session]
 
 	mu      gosync.Mutex
-	pending map[string]pendingSession // sha256(code) → session from a recent exchange
-	tokens  map[string]accessToken    // account id → access token
-	catalog map[string]catalogItem    // namespace/id → item; titles barely change
-}
-
-type pendingSession struct {
-	s       session
-	expires time.Time
+	catalog map[string]catalogItem // namespace/id → item; titles barely change
 }
 
 // NewProvider returns the Epic source with its production endpoints.
 func NewProvider() *Provider {
-	return &Provider{
-		OAuthURL:   defaultOAuthURL,
-		LibraryURL: defaultLibraryURL,
-		CatalogURL: defaultCatalogURL,
-		Client:     &http.Client{Timeout: 30 * time.Second},
-		Now:        time.Now,
+	p := &Provider{
+		OAuth:   newClient(defaultOAuthURL),
+		Library: newClient(defaultLibraryURL),
+		Catalog: newClient(defaultCatalogURL),
+		Now:     time.Now,
 	}
+	p.sessions = &oauthsession.Sessions[session]{
+		CodeField:    settingAuthCode,
+		StateField:   settingSession,
+		Clean:        cleanCode,
+		Exchange:     p.exchange,
+		Refresh:      p.refresh,
+		RefreshToken: func(s session) string { return s.RefreshToken },
+		ErrNoSession: ErrNoSession,
+		ErrSignedOut: ErrSessionExpired,
+		Now:          func() time.Time { return p.Now() },
+	}
+
+	return p
+}
+
+// newClient returns a client of one of Epic's services, sent as the launcher.
+func newClient(baseURL string) *apiclient.Client {
+	c := apiclient.New(baseURL)
+	c.HTTP.Timeout = 30 * time.Second
+	c.UserAgent = userAgent
+
+	return c
 }
 
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
@@ -181,64 +193,10 @@ func cleanCode(v string) (string, error) {
 	return v, nil
 }
 
-func hashCode(code string) string {
-	h := sha256.Sum256([]byte(code))
-	return hex.EncodeToString(h[:])
-}
-
 // Prepare implements sync.Preparer: a pasted authorization code is exchanged for a session,
 // which is stored instead of the code (codes work only once).
 func (p *Provider) Prepare(ctx context.Context, settings source.Settings) (source.Settings, error) {
-	out := source.Settings{}
-	for k, v := range settings {
-		out[k] = v
-	}
-
-	code, err := cleanCode(settings[settingAuthCode])
-	if err != nil {
-		return nil, err
-	}
-
-	delete(out, settingAuthCode)
-
-	if code == "" || code == source.SecretPlaceholder {
-		if out[settingSession] == "" {
-			return nil, ErrNoSession
-		}
-
-		return out, nil
-	}
-
-	key := hashCode(code)
-
-	p.mu.Lock()
-	pend, ok := p.pending[key]
-	p.mu.Unlock()
-
-	s := pend.s
-	if !ok || p.Now().After(pend.expires) {
-		tok, err := p.oauth(ctx, url.Values{"grant_type": {"authorization_code"}, "code": {code}, "token_type": {"eg1"}})
-		if err != nil {
-			return nil, err
-		}
-
-		s = p.remember(tok)
-		p.mu.Lock()
-		if p.pending == nil {
-			p.pending = map[string]pendingSession{}
-		}
-
-		p.pending[key] = pendingSession{
-			s:       s,
-			expires: p.Now().Add(pendingTTL),
-		}
-		p.mu.Unlock()
-	}
-
-	raw, _ := json.Marshal(s)
-	out[settingSession] = string(raw)
-
-	return out, nil
+	return p.sessions.Prepare(ctx, settings)
 }
 
 // Test implements sync.Provider: it lists the library without reading the catalog.
@@ -249,25 +207,30 @@ func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
 }
 
 // errTokenRejected means Epic refused an access token (HTTP 401): it may have expired or been
-// revoked before its time. The caller renews it once; only a refused refresh is signed out.
-var errTokenRejected = errors.New("epic rejected the access token")
+// revoked before its time. The sessions renew it once; only a refused refresh is signed out.
+var errTokenRejected = fmt.Errorf("epic rejected the access token: %w", apiclient.ErrTokenRejected)
 
 // libraryWithToken lists the library with an access token, and once more with a renewed one when
 // Epic rejects the first. It returns the token that worked, for the catalog reads that follow.
 func (p *Provider) libraryWithToken(ctx context.Context, settings source.Settings) ([]libraryRecord, string, error) {
-	for range 2 {
-		token, err := p.accessToken(ctx, settings)
-		if err != nil {
-			return nil, "", err
-		}
+	var (
+		records []libraryRecord
+		used    string
+	)
 
-		records, err := p.library(ctx, token)
-		if !errors.Is(err, errTokenRejected) {
-			return records, token, err
-		}
+	err := p.sessions.WithRetry(ctx, settings, func(token string) error {
+		var err error
+
+		records, err = p.library(ctx, token)
+		used = token
+
+		return err
+	})
+	if err != nil {
+		return nil, "", err
 	}
 
-	return nil, "", ErrSessionExpired
+	return records, used, nil
 }
 
 // Fetch implements sync.Provider.
@@ -336,57 +299,84 @@ type epicError struct {
 	ErrorMessage string `json:"errorMessage"`
 }
 
-func (p *Provider) oauth(ctx context.Context, form url.Values) (tokenResponse, error) {
-	tok, err := p.oauthRaw(ctx, form)
-	if err == nil && tok.RefreshToken == "" {
-		err = errors.New("epic sign-in: response without a refresh token")
+// exchange trades an authorization code for a session (oauthsession.Sessions.Exchange).
+func (p *Provider) exchange(ctx context.Context, code string) (oauthsession.Grant[session], error) {
+	return p.grant(ctx, url.Values{
+		"grant_type": {"authorization_code"},
+		"code":       {code},
+		"token_type": {"eg1"},
+	})
+}
+
+// refresh renews a session (oauthsession.Sessions.Refresh). Epic rotates the refresh token.
+func (p *Provider) refresh(ctx context.Context, s session) (oauthsession.Grant[session], error) {
+	if !s.RefreshExpiresAt.IsZero() && p.Now().After(s.RefreshExpiresAt) {
+		return oauthsession.Grant[session]{}, ErrSessionExpired
 	}
 
-	return tok, err
+	return p.grant(ctx, url.Values{
+		"grant_type":    {"refresh_token"},
+		"refresh_token": {s.RefreshToken},
+		"token_type":    {"eg1"},
+	})
+}
+
+// grant calls the token endpoint for a user's session.
+func (p *Provider) grant(ctx context.Context, form url.Values) (oauthsession.Grant[session], error) {
+	tok, err := p.oauthRaw(ctx, form)
+	if err != nil {
+		return oauthsession.Grant[session]{}, err
+	}
+
+	if tok.RefreshToken == "" {
+		return oauthsession.Grant[session]{}, errors.New("epic sign-in: response without a refresh token")
+	}
+
+	return oauthsession.Grant[session]{
+		Session: session{
+			RefreshToken:     tok.RefreshToken,
+			RefreshExpiresAt: tok.RefreshExpiresAt,
+			AccountID:        tok.AccountID,
+			DisplayName:      tok.DisplayName,
+		},
+		AccessToken: tok.AccessToken,
+		Expires:     tok.ExpiresAt,
+	}, nil
 }
 
 // oauthRaw calls the token endpoint. Client-credentials tokens carry no refresh token.
 func (p *Provider) oauthRaw(ctx context.Context, form url.Values) (tokenResponse, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.OAuthURL+"/account/api/oauth/token", strings.NewReader(form.Encode()))
-	if err != nil {
-		return tokenResponse{}, err
-	}
-
-	req.SetBasicAuth(clientID, clientSecret)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("User-Agent", userAgent)
-
-	res, err := p.Client.Do(req)
+	res, err := p.OAuth.Send(ctx, apiclient.Request{
+		Method: http.MethodPost,
+		Path:   "/account/api/oauth/token",
+		Form:   form,
+		Header: http.Header{"Authorization": {apiclient.BasicAuth(clientID, clientSecret)}},
+	})
 	if err != nil {
 		return tokenResponse{}, apiclient.ClassifyError(ctx, err)
 	}
-	defer res.Body.Close()
 
-	body, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
-	if res.StatusCode != http.StatusOK {
-		var e epicError
-
-		_ = json.Unmarshal(body, &e)
-
+	if !res.OK() {
 		// Epic refuses a used or unknown code and a stale refresh token with a 400 (an errorCode
 		// such as invalid_refresh_token); a 429 or an outage is a passing trouble, after which the
 		// same code or session still works.
 		switch {
-		case form.Get("grant_type") == "authorization_code" && apiclient.Rejected(res.StatusCode):
+		case form.Get("grant_type") == "authorization_code" && apiclient.Rejected(res.Status):
 			return tokenResponse{}, ErrBadCode
-		case form.Get("grant_type") == "refresh_token" && apiclient.Rejected(res.StatusCode):
+		case form.Get("grant_type") == "refresh_token" && apiclient.Rejected(res.Status):
 			return tokenResponse{}, ErrSessionExpired
 		}
 
-		if e.ErrorCode != "" {
-			return tokenResponse{}, fmt.Errorf("epic sign-in: %s: %w", e.ErrorCode, apiclient.ClassifyStatus(res.StatusCode))
+		var e epicError
+		if res.Decode(&e) == nil && e.ErrorCode != "" {
+			return tokenResponse{}, fmt.Errorf("epic sign-in: %s: %w", e.ErrorCode, apiclient.ClassifyStatus(res.Status))
 		}
 
-		return tokenResponse{}, fmt.Errorf("epic sign-in: %w", apiclient.ClassifyStatus(res.StatusCode))
+		return tokenResponse{}, fmt.Errorf("epic sign-in: %w", apiclient.ClassifyStatus(res.Status))
 	}
 
 	var tok tokenResponse
-	if err := json.Unmarshal(body, &tok); err != nil {
+	if err := res.Decode(&tok); err != nil {
 		return tokenResponse{}, fmt.Errorf("epic sign-in: %w", err)
 	}
 
@@ -395,69 +385,6 @@ func (p *Provider) oauthRaw(ctx context.Context, form url.Values) (tokenResponse
 	}
 
 	return tok, nil
-}
-
-// remember caches the access token and returns the session to store.
-func (p *Provider) remember(tok tokenResponse) session {
-	p.mu.Lock()
-	if p.tokens == nil {
-		p.tokens = map[string]accessToken{}
-	}
-
-	p.tokens[tok.AccountID] = accessToken{
-		token:   tok.AccessToken,
-		expires: tok.ExpiresAt,
-	}
-	p.mu.Unlock()
-
-	return session{
-		RefreshToken:     tok.RefreshToken,
-		RefreshExpiresAt: tok.RefreshExpiresAt,
-		AccountID:        tok.AccountID,
-		DisplayName:      tok.DisplayName,
-	}
-}
-
-// accessToken returns a valid access token, refreshing the session when needed. A refresh rotates
-// the refresh token, so the new session is written back into settings for the caller to persist.
-func (p *Provider) accessToken(ctx context.Context, settings source.Settings) (string, error) {
-	var s session
-	if raw := settings[settingSession]; raw == "" || json.Unmarshal([]byte(raw), &s) != nil || s.RefreshToken == "" {
-		return "", ErrNoSession
-	}
-
-	p.mu.Lock()
-	cached, ok := p.tokens[s.AccountID]
-	p.mu.Unlock()
-
-	if ok && p.Now().Add(time.Minute).Before(cached.expires) {
-		return cached.token, nil
-	}
-
-	if !s.RefreshExpiresAt.IsZero() && p.Now().After(s.RefreshExpiresAt) {
-		return "", ErrSessionExpired
-	}
-
-	tok, err := p.oauth(ctx, url.Values{"grant_type": {"refresh_token"}, "refresh_token": {s.RefreshToken}, "token_type": {"eg1"}})
-	if err != nil {
-		return "", err
-	}
-
-	raw, _ := json.Marshal(p.remember(tok))
-	settings[settingSession] = string(raw)
-
-	return tok.AccessToken, nil
-}
-
-func (p *Provider) forget(token string) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	for k, v := range p.tokens {
-		if v.token == token {
-			delete(p.tokens, k)
-		}
-	}
 }
 
 // ---- Library and catalog ----
@@ -516,7 +443,7 @@ func (p *Provider) library(ctx context.Context, token string) ([]libraryRecord, 
 				NextCursor string `json:"nextCursor"`
 			} `json:"responseMetadata"`
 		}
-		if err := p.get(ctx, token, p.LibraryURL+"/library/api/public/items?"+q.Encode(), &page); err != nil {
+		if err := p.get(ctx, p.Library, token, "/library/api/public/items", q, &page); err != nil {
 			return nil, err
 		}
 
@@ -607,10 +534,10 @@ func (p *Provider) catalogItem(ctx context.Context, token string, r libraryRecor
 		"id": {r.CatalogItemID}, "includeDLCDetails": {"true"}, "includeMainGameDetails": {"true"},
 		"country": {"US"}, "locale": {"en-US"},
 	}
-	u := fmt.Sprintf("%s/catalog/api/shared/namespace/%s/bulk/items?%s", p.CatalogURL, url.PathEscape(r.Namespace), q.Encode())
+	path := "/catalog/api/shared/namespace/" + url.PathEscape(r.Namespace) + "/bulk/items"
 
 	var items map[string]catalogItem
-	if err := p.get(ctx, token, u, &items); err != nil {
+	if err := p.get(ctx, p.Catalog, token, path, q, &items); err != nil {
 		return catalogItem{}, err
 	}
 
@@ -622,28 +549,21 @@ func (p *Provider) catalogItem(ctx context.Context, token string, r libraryRecor
 	return it, nil
 }
 
-func (p *Provider) get(ctx context.Context, token, u string, out any) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-	if err != nil {
-		return err
-	}
-
-	req.Header.Set("Authorization", "bearer "+token)
-	req.Header.Set("User-Agent", userAgent)
-
-	res, err := p.Client.Do(req)
-	if err != nil {
-		return apiclient.ClassifyError(ctx, err)
-	}
-	defer res.Body.Close()
+// get reads one of Epic's APIs with an access token. A 401 is errTokenRejected, which the sessions
+// renew once; a 429 or an outage is a passing trouble.
+func (p *Provider) get(ctx context.Context, api *apiclient.Client, token, path string, q url.Values, out any) error {
+	err := api.Do(ctx, apiclient.Request{
+		Path:   path,
+		Query:  q,
+		Header: http.Header{"Authorization": {"bearer " + token}},
+	}, out)
 
 	switch {
-	case res.StatusCode == http.StatusUnauthorized:
-		p.forget(token) // next call refreshes the session
+	case err == nil:
+		return nil
+	case apiclient.IsStatus(err, http.StatusUnauthorized):
 		return errTokenRejected
-	case res.StatusCode != http.StatusOK:
-		return fmt.Errorf("epic %s: %w", req.URL.Path, apiclient.ClassifyStatus(res.StatusCode))
 	}
 
-	return json.NewDecoder(io.LimitReader(res.Body, 32<<20)).Decode(out)
+	return fmt.Errorf("epic %s: %w", path, apiclient.ClassifyError(ctx, err))
 }

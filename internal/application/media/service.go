@@ -328,7 +328,8 @@ type Service struct {
 	// linker saves automatic links (the catalog); nil turns them off.
 	linker GameLinker
 
-	// rhythm varies and waits the background details scan's pauses (RunDetailsScanner).
+	// rhythm varies and waits the pauses of the background workers (RunDetailsScanner,
+	// RunAutoLinker).
 	rhythm unattended.Rhythm
 }
 

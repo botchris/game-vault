@@ -32,9 +32,8 @@ const (
 // from a Ubisoft library (by space id, on Ubisoft's CDN), else the Ubisoft Store's packshot, found
 // by title. No sign-in needed.
 type Covers struct {
-	// CDNURL serves the box art of a space id; CDN checks those images exist.
-	CDNURL string
-	CDN    *http.Client
+	// CDN serves the box art of a space id; the provider checks those images exist.
+	CDN *apiclient.Client
 
 	// Search calls the Ubisoft Store's search (Algolia), with the key every store visitor gets.
 	Search *apiclient.Client
@@ -52,9 +51,11 @@ func NewCovers() *Covers {
 	search.Header.Set("X-Algolia-Application-Id", storeSearchAppID)
 	search.Header.Set("X-Algolia-API-Key", storeSearchKey)
 
+	cdn := apiclient.New(defaultCDNURL)
+	cdn.HTTP.Timeout = 20 * time.Second
+
 	return &Covers{
-		CDNURL: defaultCDNURL,
-		CDN:    &http.Client{Timeout: 20 * time.Second},
+		CDN:    cdn,
 		Search: search,
 	}
 }
@@ -104,8 +105,8 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 	var out []media.CoverCandidate
 
 	if space := q.Links[LinkedStore.Key]; space != "" {
-		u := c.CDNURL + "/" + url.PathEscape(space) + "/spaceCardAsset/boxArt_mobile.jpg"
-		if c.exists(ctx, u) {
+		path := "/" + url.PathEscape(space) + "/spaceCardAsset/boxArt_mobile.jpg"
+		if u := c.CDN.BaseURL + path; c.exists(ctx, path) {
 			out = append(out, media.CoverCandidate{
 				URL:      u,
 				ThumbURL: u,
@@ -128,21 +129,20 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 	return append(out, store...), nil
 }
 
-// exists checks an image URL without downloading it (Ubisoft's CDN only has art for some games).
-func (c *Covers) exists(ctx context.Context, u string) bool {
-	req, err := http.NewRequestWithContext(ctx, http.MethodHead, u, nil)
+// exists checks an image on the CDN without downloading it (Ubisoft's CDN only has art for some
+// games).
+func (c *Covers) exists(ctx context.Context, path string) bool {
+	res, err := c.CDN.Send(ctx, apiclient.Request{
+		Method: http.MethodHead,
+		Path:   path,
+		// An image, not JSON: no Accept header, as before the shared client.
+		Header: http.Header{"Accept": nil},
+	})
 	if err != nil {
 		return false
 	}
 
-	res, err := c.CDN.Do(req)
-	if err != nil {
-		return false
-	}
-
-	res.Body.Close()
-
-	return res.StatusCode == http.StatusOK && strings.HasPrefix(res.Header.Get("Content-Type"), "image/")
+	return res.Status == http.StatusOK && strings.HasPrefix(res.Header.Get("Content-Type"), "image/")
 }
 
 type storeHit struct {

@@ -28,10 +28,7 @@ func TestLookup(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := &Provider{
-		BaseURL: srv.URL,
-		Client:  srv.Client(),
-	}
+	p := testProvider(srv)
 
 	m, err := p.Lookup(context.Background(), "3307215643006", schema.Settings{})
 	if err != nil || len(m) != 1 || m[0].Title != "Assassin's Creed III" || m[0].Platform != "PS3" || m[0].Edition != "Special Edition" {
@@ -62,6 +59,7 @@ func TestLookup_failures(t *testing.T) {
 		"the daily allowance is used up": {http.StatusTooManyRequests, `{"code":"EXCEED_LIMIT","message":"Exceed limit"}`, provider.ErrQuotaExhausted},
 		"the service is down":            {http.StatusBadGateway, ``, provider.ErrUnavailable},
 		"nothing answers":                {0, ``, provider.ErrUnavailable},
+		"a web page instead of JSON":     {http.StatusOK, `<html><body>Checking your browser…</body></html>`, provider.ErrUnavailable},
 	}
 	for name, c := range cases {
 		t.Run("GIVEN "+name, func(t *testing.T) {
@@ -71,10 +69,7 @@ func TestLookup_failures(t *testing.T) {
 			}))
 			defer srv.Close()
 
-			p := &Provider{
-				BaseURL: srv.URL,
-				Client:  srv.Client(),
-			}
+			p := testProvider(srv)
 
 			if c.status == 0 {
 				srv.Close()
@@ -116,10 +111,7 @@ func TestProviderTest(t *testing.T) {
 		}))
 		defer srv.Close()
 
-		p := &Provider{
-			BaseURL: srv.URL,
-			Client:  srv.Client(),
-		}
+		p := testProvider(srv)
 
 		t.Run("WHEN it is tested without a key and the EAN is unknown", func(t *testing.T) {
 			err := p.Test(ctx, schema.Settings{})
@@ -156,10 +148,7 @@ func TestProviderTest(t *testing.T) {
 		}))
 		defer srv.Close()
 
-		p := &Provider{
-			BaseURL: srv.URL,
-			Client:  srv.Client(),
-		}
+		p := testProvider(srv)
 
 		t.Run("WHEN it is tested", func(t *testing.T) {
 			err := p.Test(ctx, schema.Settings{})
@@ -170,4 +159,12 @@ func TestProviderTest(t *testing.T) {
 			})
 		})
 	})
+}
+
+// testProvider is the provider pointed at the fake server.
+func testProvider(srv *httptest.Server) *Provider {
+	p := New()
+	p.API.BaseURL, p.API.HTTP = srv.URL, srv.Client()
+
+	return p
 }

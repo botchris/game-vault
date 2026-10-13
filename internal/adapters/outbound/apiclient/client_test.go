@@ -165,3 +165,52 @@ func TestClient_transportErrorsHideTheQuery(t *testing.T) {
 		})
 	})
 }
+
+func TestClient_nilHeaderRemovesIt(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a service that reports which headers it received", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, accept := r.Header["Accept"]
+			_, key := r.Header["X-Key"]
+
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]bool{"accept": accept, "key": key})
+		}))
+		t.Cleanup(srv.Close)
+
+		c := New(srv.URL)
+		c.HTTP = srv.Client()
+		c.Header.Set("X-Key", "k")
+
+		t.Run("WHEN a request names Accept and a client header with a nil value", func(t *testing.T) {
+			var out map[string]bool
+
+			err := c.Do(ctx, Request{
+				Path:   "/",
+				Header: http.Header{"Accept": nil, "X-Key": nil},
+			}, &out)
+			require.NoError(t, err)
+
+			t.Run("THEN neither the default Accept nor the client's header is sent", func(t *testing.T) {
+				assert.False(t, out["accept"])
+				assert.False(t, out["key"])
+			})
+		})
+
+		t.Run("WHEN the client's own headers name Accept with a nil value", func(t *testing.T) {
+			c.Header["Accept"] = nil
+
+			var out map[string]bool
+
+			err := c.Do(ctx, Request{Path: "/"}, &out)
+			require.NoError(t, err)
+
+			t.Run("THEN no request sends it", func(t *testing.T) {
+				assert.False(t, out["accept"])
+				assert.True(t, out["key"])
+			})
+		})
+	})
+}

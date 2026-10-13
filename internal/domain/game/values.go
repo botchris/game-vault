@@ -38,6 +38,27 @@ func ParseDate(s string) (Date, error) {
 	return Date(s), nil
 }
 
+// storeDateLayouts are the ways stores write a date or a timestamp: ISO with or without a zone
+// and fractions of a second (Humble's orders, itch.io, Fanatical), with a space for a T (itch.io's
+// older endpoints), and in English words (Humble's release dates).
+var storeDateLayouts = []string{
+	"2006-01-02T15:04:05.999999", "2006-01-02T15:04:05", time.RFC3339, time.DateOnly, time.DateTime,
+	"January 2, 2006", "January 2 2006", "Jan 2, 2006", "Jan 2 2006",
+}
+
+// ParseStoreDate returns the day of a date or timestamp a store wrote, in the zone it was written
+// in, or "" when it is in none of the store formats Game Vault knows.
+func ParseStoreDate(s string) Date {
+	s = strings.TrimSpace(s)
+	for _, layout := range storeDateLayouts {
+		if t, err := time.Parse(layout, s); err == nil {
+			return DateOf(t)
+		}
+	}
+
+	return ""
+}
+
 // DateOf converts a time to a Date.
 func DateOf(t time.Time) Date { return Date(t.Format(time.DateOnly)) }
 
@@ -185,6 +206,16 @@ var (
 // titles that differ only in those are the same text to search for.
 func NormalizeTitle(title string) string {
 	return strings.Join(strings.Fields(reTrademarks.ReplaceAllString(title, "")), " ")
+}
+
+// reYearSuffix matches a year in parentheses at the end of a title, with the spaces around it.
+var reYearSuffix = regexp.MustCompile(`\s*\(\d{4}\)\s*$`)
+
+// StripYearSuffix drops a year in parentheses at the end of a title ("Example Quest Remastered
+// (2017)" → "Example Quest Remastered"), which stores add to tell a remake or a remaster from the
+// original while other stores name it without. Nothing else changes, spaces at the start included.
+func StripYearSuffix(title string) string {
+	return reYearSuffix.ReplaceAllString(title, "")
 }
 
 // SearchTitle returns the title to search a game database for: the title without the edition and

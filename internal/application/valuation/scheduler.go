@@ -22,7 +22,7 @@ const (
 // undated copies and estimates the due ones, one at a time.
 func (s *Service) RunScheduler(ctx context.Context) {
 	for {
-		if err := s.sleep(ctx, s.between(tickMin, tickMax)); err != nil {
+		if !s.rhythm.Wait(ctx, s.rhythm.Between(tickMin, tickMax)) {
 			return
 		}
 
@@ -58,7 +58,7 @@ func (s *Service) Tick(ctx context.Context) error {
 
 	for i, d := range list {
 		if i > 0 {
-			if err := s.sleep(ctx, s.between(pauseMin, pauseMax)); err != nil {
+			if !s.rhythm.Wait(ctx, s.rhythm.Between(pauseMin, pauseMax)) {
 				return nil // shutting down
 			}
 		}
@@ -106,7 +106,7 @@ func (s *Service) plan(ctx context.Context) ([]due, error) {
 
 				at := c.NextValuation
 				if at.IsZero() {
-					at = now.Add(time.Duration(s.random() * float64(days(firstDays))))
+					at = now.Add(s.rhythm.Between(0, days(firstDays)))
 					if err := g.PlanValuation(c.ID, at); err != nil {
 						return err
 					}

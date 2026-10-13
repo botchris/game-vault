@@ -19,3 +19,5 @@ As of 2026-10:
   API, much higher limits) stay unthrottled and fall back to the guessed CDN URLs on error:
   throttling them made a fresh library's covers fill in over minutes (controller decision).
   Title matches: exact (case/™-insensitive) first, MatchKey only when none.
+- 2026-10-13: the store host's throttle is `ratelimit` (same limits) and now rests 1 min (or the
+  `Retry-After`) after a 429, a 5xx or no answer; the requests' errors are classified inside it.

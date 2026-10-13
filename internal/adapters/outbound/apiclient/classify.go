@@ -34,6 +34,13 @@ func Rejected(status int) bool {
 	return status == http.StatusBadRequest || status == http.StatusUnauthorized || status == http.StatusForbidden
 }
 
+// Transient reports whether status is a passing trouble, a rate limit (429) or an outage (5xx):
+// it says nothing about the credentials or the game, and the same request may work later. Check
+// it before reading a status as a refusal or decoding the body as an answer.
+func Transient(status int) bool {
+	return status == http.StatusTooManyRequests || status >= http.StatusInternalServerError
+}
+
 // ClassifyError classifies the error of one request (from Client.Do or a plain http.Client) the way
 // ClassifyStatus does. A *StatusError with a 429 matches provider.ErrRateLimited; three failures
 // are outages and match provider.ErrUnavailable (itself a kind of ErrRateLimited): a *StatusError

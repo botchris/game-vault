@@ -75,6 +75,11 @@ type fakeIGDB struct {
 	// hangUp makes Twitch close the connection without answering.
 	hangUp bool
 
+	// apiHangUp makes IGDB close the connection without answering; apiStall makes it answer only
+	// once the caller gave up.
+	apiHangUp bool
+	apiStall  bool
+
 	// tokenDown makes Twitch answer HTTP 503; apiDown makes IGDB answer HTTP 502.
 	tokenDown bool
 	apiDown   bool
@@ -136,6 +141,30 @@ func (f *fakeIGDB) serve(w http.ResponseWriter, r *http.Request) {
 
 	if r.URL.Path == "/oauth2/token" {
 		f.serveToken(w, r)
+		return
+	}
+
+	f.mu.Lock()
+	hangUp, stall := f.apiHangUp, f.apiStall
+	f.mu.Unlock()
+
+	if stall {
+		// The server notices the caller hanging up only once the body is read.
+		_, _ = io.Copy(io.Discard, r.Body)
+
+		select {
+		case <-r.Context().Done():
+		case <-time.After(5 * time.Second):
+		}
+
+		return
+	}
+
+	if hangUp {
+		if conn, _, err := w.(http.Hijacker).Hijack(); err == nil {
+			conn.Close()
+		}
+
 		return
 	}
 
@@ -330,7 +359,7 @@ func (f *fakeIGDB) client(now func() time.Time) *Client {
 	c.API.HTTP = f.srv.Client()
 	c.Auth.BaseURL = f.srv.URL
 	c.Auth.HTTP = f.srv.Client()
-	c.limiter = newLimiter(0, 8, now)
+	c.throttle = newThrottle(0)
 	c.now = now
 
 	return c

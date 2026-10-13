@@ -3,15 +3,14 @@ package igdb
 import (
 	"context"
 	"fmt"
-	"slices"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gamevault/internal/adapters/outbound/ratelimit"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
 )
@@ -116,6 +115,19 @@ func TestClient_tokens(t *testing.T) {
 
 			t.Run("THEN it is a rate limit, which records nothing", func(t *testing.T) {
 				require.ErrorIs(t, err, provider.ErrRateLimited)
+			})
+		})
+
+		t.Run("WHEN another query follows at once", func(t *testing.T) {
+			sent := len(f.sent("games"))
+
+			var out []map[string]any
+
+			err := c.query(ctx, goodSettings, "games", "fields id; limit 1;", &out)
+
+			t.Run("THEN it is rate-limited without reaching IGDB, which is left alone for a while", func(t *testing.T) {
+				require.ErrorIs(t, err, provider.ErrRateLimited)
+				assert.Len(t, f.sent("games"), sent)
 			})
 		})
 	})
@@ -253,148 +265,54 @@ func TestClient_queryErrors(t *testing.T) {
 	})
 }
 
-func TestLimiter(t *testing.T) {
+func TestClient_backOff(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	t.Run("GIVEN IGDB's limits: 4 requests per second, 8 open at once", func(t *testing.T) {
-		var (
-			mu     sync.Mutex
-			starts []time.Time
-		)
+	t.Run("GIVEN IGDB drops the connection without answering", func(t *testing.T) {
+		f := newFakeIGDB(t)
+		f.set(func(f *fakeIGDB) { f.apiHangUp = true })
+		c := f.client(time.Now)
 
-		l := newLimiter(250*time.Millisecond, 8, time.Now)
+		var out []map[string]any
 
-		t.Run("WHEN five requests are sent at once", func(t *testing.T) {
-			var wg sync.WaitGroup
+		err := c.query(ctx, goodSettings, "games", `fields id;`, &out)
+		require.ErrorIs(t, err, provider.ErrUnavailable)
 
-			for range 5 {
-				wg.Go(func() {
-					_ = l.do(ctx, func() error {
-						mu.Lock()
+		t.Run("WHEN the next query comes", func(t *testing.T) {
+			f.set(func(f *fakeIGDB) { f.apiHangUp = false })
 
-						starts = append(starts, time.Now())
-						mu.Unlock()
+			err := c.query(ctx, goodSettings, "games", `fields id;`, &out)
 
-						return nil
-					})
-				})
-			}
-
-			wg.Wait()
-
-			t.Run("THEN they start a quarter of a second apart", func(t *testing.T) {
-				require.Len(t, starts, 5)
-
-				first, last := starts[0], starts[0]
-				for _, s := range starts {
-					first, last = minTime(first, s), maxTime(last, s)
-				}
-
-				assert.GreaterOrEqual(t, last.Sub(first), 900*time.Millisecond)
+			t.Run("THEN IGDB is left alone: the query is refused as resting", func(t *testing.T) {
+				require.ErrorIs(t, err, ratelimit.ErrResting)
+				assert.Empty(t, f.sent("games"))
 			})
 		})
 	})
 
-	t.Run("GIVEN a limiter allowing two open requests", func(t *testing.T) {
-		l := newLimiter(0, 2, time.Now)
+	t.Run("GIVEN a caller that gives up while IGDB has not answered yet", func(t *testing.T) {
+		f := newFakeIGDB(t)
+		f.set(func(f *fakeIGDB) { f.apiStall = true })
+		c := f.client(time.Now)
 
-		t.Run("WHEN slow requests pile up", func(t *testing.T) {
-			var open, most atomic.Int32
+		gone, stop := context.WithTimeout(ctx, 50*time.Millisecond)
+		defer stop()
 
-			var wg sync.WaitGroup
+		var out []map[string]any
 
-			for range 6 {
-				wg.Go(func() {
-					_ = l.do(ctx, func() error {
-						n := open.Add(1)
+		err := c.query(gone, goodSettings, "games", `fields id;`, &out)
+		require.Error(t, err)
 
-						for {
-							m := most.Load()
-							if n <= m || most.CompareAndSwap(m, n) {
-								break
-							}
-						}
+		t.Run("WHEN the next query comes", func(t *testing.T) {
+			f.set(func(f *fakeIGDB) { f.apiStall = false })
 
-						time.Sleep(20 * time.Millisecond)
-						open.Add(-1)
+			err := c.query(ctx, goodSettings, "games", `fields id;`, &out)
 
-						return nil
-					})
-				})
-			}
-
-			wg.Wait()
-
-			t.Run("THEN no more than two are ever open", func(t *testing.T) {
-				assert.Equal(t, int32(2), most.Load())
+			t.Run("THEN it is sent: the caller's deadline started no back-off", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.Len(t, f.sent("games"), 1)
 			})
 		})
 	})
-}
-
-func TestLimiter_slotBeforeTurn(t *testing.T) {
-	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
-	defer cancel()
-
-	t.Run("GIVEN one open request allowed, 60 ms apart, and a slow request holding it", func(t *testing.T) {
-		l := newLimiter(60*time.Millisecond, 1, time.Now)
-
-		var (
-			mu     sync.Mutex
-			starts []time.Time
-			wg     sync.WaitGroup
-		)
-
-		wg.Go(func() {
-			_ = l.do(ctx, func() error {
-				time.Sleep(250 * time.Millisecond)
-				return nil
-			})
-		})
-
-		time.Sleep(10 * time.Millisecond)
-
-		t.Run("WHEN three quick requests queue behind it", func(t *testing.T) {
-			for range 3 {
-				wg.Go(func() {
-					_ = l.do(ctx, func() error {
-						mu.Lock()
-
-						starts = append(starts, time.Now())
-						mu.Unlock()
-
-						return nil
-					})
-				})
-			}
-
-			wg.Wait()
-
-			t.Run("THEN they still start spaced once the slot frees, not in a burst", func(t *testing.T) {
-				require.Len(t, starts, 3)
-				slices.SortFunc(starts, func(a, b time.Time) int { return a.Compare(b) })
-
-				// Measured over the three, so the scheduler's jitter on one start does not matter: a
-				// burst would start them within a few milliseconds.
-				assert.GreaterOrEqual(t, starts[2].Sub(starts[0]), 90*time.Millisecond)
-			})
-		})
-	})
-}
-
-func minTime(a, b time.Time) time.Time {
-	if b.Before(a) {
-		return b
-	}
-
-	return a
-}
-
-func maxTime(a, b time.Time) time.Time {
-	if b.After(a) {
-		return b
-	}
-
-	return a
 }

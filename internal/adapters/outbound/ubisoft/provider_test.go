@@ -9,7 +9,12 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/source"
 )
 
@@ -95,7 +100,7 @@ func filler(n int) string {
 
 func newTest(t *testing.T, full bool) *Provider {
 	p := NewProvider()
-	p.APIURL = fakeUbisoft(t, full).URL
+	p.API.BaseURL = fakeUbisoft(t, full).URL
 
 	return p
 }
@@ -153,6 +158,62 @@ func TestErrors(t *testing.T) {
 	}
 }
 
+func TestFetch_passingTroubles(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN Ubisoft's gateway rate-limits the sign-in", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusTooManyRequests)
+		}))
+		t.Cleanup(srv.Close)
+
+		p := NewProvider()
+		p.API.BaseURL = srv.URL
+
+		t.Run("WHEN a scan opens a session", func(t *testing.T) {
+			_, _, err := p.Fetch(ctx, source.Settings{settingLoginData: `{"rememberMeTicket":"rm-1"}`})
+
+			t.Run("THEN it is a rate limit, not a signed-out session", func(t *testing.T) {
+				require.ErrorIs(t, err, provider.ErrRateLimited)
+				assert.NotErrorIs(t, err, ErrSignedOut)
+			})
+		})
+	})
+
+	t.Run("GIVEN the library GraphQL is down", func(t *testing.T) {
+		var queries int
+
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/v3/profiles/sessions" {
+				fmt.Fprint(w, `{"ticket":"tk","sessionId":"sid","rememberMeTicket":"rm-2"}`)
+				return
+			}
+
+			queries++
+
+			w.WriteHeader(http.StatusServiceUnavailable)
+		}))
+		t.Cleanup(srv.Close)
+
+		p := NewProvider()
+		p.API.BaseURL = srv.URL
+
+		t.Run("WHEN a scan reads the library", func(t *testing.T) {
+			_, _, err := p.Fetch(ctx, source.Settings{settingLoginData: `{"rememberMeTicket":"rm-1"}`})
+
+			t.Run("THEN it is an outage, not a signed-out session", func(t *testing.T) {
+				require.ErrorIs(t, err, provider.ErrUnavailable)
+				assert.NotErrorIs(t, err, ErrSignedOut)
+
+				t.Run("AND the minimal query is not tried on top", func(t *testing.T) {
+					assert.Equal(t, 1, queries)
+				})
+			})
+		})
+	})
+}
+
 func TestParseLoginData(t *testing.T) {
 	if d := parseLoginData(pasted); d.RememberMeTicket != "rm-1" || d.Ticket != "old-ticket" || d.SessionID != "old-session" {
 		t.Fatalf("json: %+v", d)
@@ -203,7 +264,7 @@ func TestPastedSessionIsUsedFirst(t *testing.T) {
 func TestTicketSurvivesTestSaveScanRestart(t *testing.T) {
 	srv := fakeUbisoft(t, true)
 	p := NewProvider()
-	p.APIURL = srv.URL
+	p.API.BaseURL = srv.URL
 	pasted := `{"rememberMeTicket":"rm-1"}`
 	ctx := context.Background()
 
@@ -222,7 +283,7 @@ func TestTicketSurvivesTestSaveScanRestart(t *testing.T) {
 
 	restarted := NewProvider()
 
-	restarted.APIURL = srv.URL
+	restarted.API.BaseURL = srv.URL
 	if _, _, err := restarted.Fetch(ctx, saved); err != nil {
 		t.Fatalf("after a restart the saved ticket should work: %v", err)
 	}

@@ -31,6 +31,9 @@ type fakeEpic struct {
 
 	// rejectAll makes the library reject every access token, as for a revoked session.
 	rejectAll bool
+
+	// revoked holds the access tokens Epic revoked before their time.
+	revoked map[string]bool
 }
 
 func (f *fakeEpic) handler(t *testing.T) http.Handler {
@@ -79,7 +82,11 @@ func (f *fakeEpic) handler(t *testing.T) http.Handler {
 		})
 	})
 	mux.HandleFunc("GET /library/api/public/items", func(w http.ResponseWriter, r *http.Request) {
-		if f.rejectAll || !strings.HasPrefix(r.Header.Get("Authorization"), "bearer access-") {
+		f.mu.Lock()
+		revoked := f.revoked[strings.TrimPrefix(r.Header.Get("Authorization"), "bearer ")]
+		f.mu.Unlock()
+
+		if f.rejectAll || revoked || !strings.HasPrefix(r.Header.Get("Authorization"), "bearer access-") {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -119,7 +126,7 @@ func newTestProvider(t *testing.T) (*Provider, *fakeEpic) {
 	t.Cleanup(srv.Close)
 
 	p := NewProvider()
-	p.OAuthURL, p.LibraryURL, p.CatalogURL = srv.URL, srv.URL, srv.URL
+	p.OAuth.BaseURL, p.Library.BaseURL, p.Catalog.BaseURL = srv.URL, srv.URL, srv.URL
 
 	return p, f
 }
@@ -185,7 +192,7 @@ func TestPrepareTestAndFetch(t *testing.T) {
 	// A fresh process has no access token cached: Fetch refreshes and rotates the stored session.
 	p2 := NewProvider()
 
-	p2.OAuthURL, p2.LibraryURL, p2.CatalogURL = p.OAuthURL, p.LibraryURL, p.CatalogURL
+	p2.OAuth.BaseURL, p2.Library.BaseURL, p2.Catalog.BaseURL = p.OAuth.BaseURL, p.Library.BaseURL, p.Catalog.BaseURL
 	if _, _, err := p2.Fetch(ctx, settings); err != nil {
 		t.Fatal(err)
 	}
@@ -260,20 +267,20 @@ func TestFetch_renewsARejectedAccessToken(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	stale := func(p *Provider) {
-		p.tokens = map[string]accessToken{"acc1": {
-			token:   "stale-access",
-			expires: time.Now().Add(time.Hour),
-		}}
+	// signedIn returns the settings of a code just pasted: its access token is cached.
+	signedIn := func(t *testing.T, p *Provider) source.Settings {
+		t.Helper()
+
+		settings, err := p.Prepare(ctx, source.Settings{settingAuthCode: "good-code"})
+		require.NoError(t, err)
+
+		return settings
 	}
 
-	t.Run("GIVEN a cached access token the library no longer accepts", func(t *testing.T) {
+	t.Run("GIVEN a cached access token Epic revoked before its time", func(t *testing.T) {
 		p, f := newTestProvider(t)
-		f.refresh = "refresh-0"
-
-		stale(p)
-
-		settings := source.Settings{settingSession: `{"refresh_token":"refresh-0","account_id":"acc1"}`}
+		settings := signedIn(t, p)
+		f.revoked = map[string]bool{"access-refresh-1": true}
 
 		t.Run("WHEN the library is scanned", func(t *testing.T) {
 			copies, _, err := p.Fetch(ctx, settings)
@@ -282,19 +289,18 @@ func TestFetch_renewsARejectedAccessToken(t *testing.T) {
 				require.NoError(t, err)
 				assert.Len(t, copies, 2)
 				assert.Equal(t, 1, f.refreshes)
-				assert.Contains(t, settings[settingSession], "refresh-1", "the rotated session is handed back")
+				assert.Contains(t, settings[settingSession], "refresh-2", "the rotated session is handed back")
 			})
 		})
 	})
 
 	t.Run("GIVEN a library that rejects even a renewed access token", func(t *testing.T) {
 		p, f := newTestProvider(t)
-		f.refresh, f.rejectAll = "refresh-0", true
-
-		stale(p)
+		settings := signedIn(t, p)
+		f.rejectAll = true
 
 		t.Run("WHEN the source is tested", func(t *testing.T) {
-			err := p.Test(ctx, source.Settings{settingSession: `{"refresh_token":"refresh-0","account_id":"acc1"}`})
+			err := p.Test(ctx, settings)
 
 			t.Run("THEN it is signed out after one renewal", func(t *testing.T) {
 				require.ErrorIs(t, err, source.ErrSignedOut)

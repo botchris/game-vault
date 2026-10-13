@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"gamevault/internal/adapters/outbound/apiclient"
+	"gamevault/internal/adapters/outbound/ratelimit"
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
@@ -70,9 +71,6 @@ var (
 	ErrBadKey = provider.BadSettings("SteamGridDB rejected the API key: check it in the provider settings")
 )
 
-// errTooManyRequests is SteamGridDB's HTTP 429.
-var errTooManyRequests = fmt.Errorf("HTTP %d: %w", http.StatusTooManyRequests, provider.ErrRateLimited)
-
 // errNotFound is SteamGridDB's HTTP 404: it does not know the game (or the search found nothing).
 var errNotFound = errors.New("not found")
 
@@ -83,7 +81,7 @@ type Covers struct {
 	API *apiclient.Client
 
 	// throttle keeps the requests one at a time and at least a second apart.
-	throttle *throttle
+	throttle *ratelimit.Throttle
 
 	// now is the clock (time.Now when nil).
 	now func() time.Time
@@ -106,7 +104,7 @@ func NewCovers() *Covers {
 
 	return &Covers{
 		API:      api,
-		throttle: newThrottle(minGap, time.Now, sleep),
+		throttle: newThrottle(minGap, nil, nil),
 		now:      time.Now,
 	}
 }
@@ -416,7 +414,7 @@ func (p *Covers) send(ctx context.Context, key, path string, query url.Values, o
 		return ErrBadKey
 	}
 
-	err := p.throttle.do(ctx, func() error {
+	err := p.throttle.Do(ctx, func() error {
 		var env envelope
 
 		err := p.API.Do(ctx, apiclient.Request{
@@ -511,7 +509,7 @@ func mapError(ctx context.Context, err error, env envelope) error {
 		// The answer could not be decoded: the API may have changed.
 		return fmt.Errorf("SteamGridDB: %w: try again later; if it persists, report this message: %w", err, provider.ErrUnavailable)
 	case se.Status == http.StatusTooManyRequests:
-		return errTooManyRequests
+		return apiclient.ClassifyError(ctx, err) // keeps the Retry-After the throttle rests for
 	case se.Status >= 500:
 		return fmt.Errorf("SteamGridDB is not answering (HTTP %d): try again later: %w", se.Status, provider.ErrUnavailable)
 	case !isAPIError(se.Body):

@@ -43,7 +43,7 @@ func TestCovers(t *testing.T) {
 	defer srv.Close()
 
 	c := NewCovers()
-	c.CDNURL, c.Search.BaseURL = srv.URL, srv.URL+"/search"
+	c.CDN.BaseURL, c.Search.BaseURL = srv.URL, srv.URL+"/search"
 
 	if !c.Applies(media.CoverQuery{
 		Title:     "x",
@@ -164,7 +164,7 @@ func TestCovers_passingTroubles(t *testing.T) {
 			defer srv.Close()
 
 			c := NewCovers()
-			c.CDNURL, c.Search.BaseURL = srv.URL, srv.URL
+			c.CDN.BaseURL, c.Search.BaseURL = srv.URL, srv.URL
 
 			if status == 0 {
 				srv.Close()

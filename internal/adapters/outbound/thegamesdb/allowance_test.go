@@ -413,7 +413,7 @@ func TestAllowance_concurrent(t *testing.T) {
 
 		p := testProvider(srv.Server)
 		p.platforms = map[string]int64{}
-		p.throttle = newThrottle(minGap, time.Now, sleep)
+		p.throttle = newThrottle(minGap, nil, nil)
 
 		t.Run("WHEN the check answers", func(t *testing.T) {
 			var (
@@ -428,12 +428,7 @@ func TestAllowance_concurrent(t *testing.T) {
 
 			wg.Go(func() { _, queued = p.Covers(ctx, q, settings) })
 
-			require.Eventually(t, func() bool {
-				p.throttle.mu.Lock()
-				defer p.throttle.mu.Unlock()
-
-				return p.throttle.queued == 2
-			}, 5*time.Second, time.Millisecond)
+			require.Eventually(t, func() bool { return p.throttle.Queued() == 2 }, 5*time.Second, time.Millisecond)
 
 			release()
 			wg.Wait()

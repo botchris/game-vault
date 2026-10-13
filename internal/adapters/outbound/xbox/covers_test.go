@@ -32,7 +32,7 @@ func TestCovers_Test(t *testing.T) {
 		defer srv.Close()
 
 		c := NewCovers()
-		c.CatalogURL = srv.URL
+		c.Catalog.BaseURL = srv.URL
 
 		t.Run("WHEN the provider is tested", func(t *testing.T) {
 			err := c.Test(ctx, nil)
@@ -51,7 +51,7 @@ func TestCovers_Test(t *testing.T) {
 		defer srv.Close()
 
 		c := NewCovers()
-		c.CatalogURL = srv.URL
+		c.Catalog.BaseURL = srv.URL
 
 		t.Run("WHEN the provider is tested", func(t *testing.T) {
 			err := c.Test(ctx, nil)
@@ -69,7 +69,7 @@ func TestCovers_Test(t *testing.T) {
 		defer srv.Close()
 
 		c := NewCovers()
-		c.CatalogURL = srv.URL
+		c.Catalog.BaseURL = srv.URL
 
 		t.Run("WHEN the provider is tested", func(t *testing.T) {
 			err := c.Test(ctx, nil)
@@ -105,7 +105,7 @@ func TestCovers_passingTroubles(t *testing.T) {
 			defer srv.Close()
 
 			c := NewCovers()
-			c.CatalogURL = srv.URL
+			c.Catalog.BaseURL = srv.URL
 
 			if status == 0 {
 				srv.Close()
