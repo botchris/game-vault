@@ -74,7 +74,7 @@ func cleanCookie(v string) string {
 
 // Test implements sync.Provider: one request that checks the session by listing the orders, instead of
 // downloading every order like Fetch does.
-func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
+func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
 	_, err := p.listGamekeys(ctx, cleanCookie(settings[settingSession]))
 	return err
 }
@@ -85,7 +85,7 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 		Type:           Type,
 		Name:           "Humble Bundle",
 		DescriptionKey: "sources.humble.description",
-		Fields: []source.Field{{
+		Fields: []schema.Field{{
 			Key:      settingSession,
 			LabelKey: "sources.humble.sessionCookie",
 			HelpKey:  "sources.humble.sessionCookieHelp",
@@ -103,14 +103,14 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 					},
 				},
 			},
-			Kind:     source.FieldSecret,
+			Kind:     schema.FieldSecret,
 			Required: true,
 		}},
 	}
 }
 
 // Fetch implements sync.Provider.
-func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.ImportedCopy, []string, error) {
+func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, []string, error) {
 	orders, err := p.fetchOrders(ctx, cleanCookie(settings[settingSession]))
 	if err != nil {
 		return nil, nil, err

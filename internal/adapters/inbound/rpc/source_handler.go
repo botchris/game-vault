@@ -6,6 +6,7 @@ import (
 	"connectrpc.com/connect"
 
 	"gamevault/internal/application/sync"
+	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
 	pb "gamevault/internal/gen/gamevault/v1"
 	"gamevault/internal/gen/gamevault/v1/gamevaultv1connect"
@@ -28,7 +29,7 @@ func (h *SourceHandler) toPB(v sync.SourceView) *pb.Source {
 
 // ListSourceTypes returns the kinds of source that can be created and their fields.
 func (h *SourceHandler) ListSourceTypes(context.Context, *connect.Request[pb.ListSourceTypesRequest]) (*connect.Response[pb.ListSourceTypesResponse], error) {
-	out := &pb.ListSourceTypesResponse{SecretPlaceholder: source.SecretPlaceholder}
+	out := &pb.ListSourceTypesResponse{SecretPlaceholder: schema.SecretPlaceholder}
 	for _, d := range h.sync.Types() {
 		out.Types = append(out.Types, descriptorToPB(d))
 	}

@@ -16,6 +16,7 @@ import (
 	"gamevault/internal/application/health"
 	"gamevault/internal/application/sync"
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
 )
 
@@ -32,15 +33,15 @@ func (f *flaky) Descriptor() source.TypeDescriptor {
 	}
 }
 
-func (f *flaky) Fetch(context.Context, source.Settings) ([]game.ImportedCopy, []string, error) {
+func (f *flaky) Fetch(context.Context, schema.Settings) ([]game.ImportedCopy, []string, error) {
 	return nil, nil, f.fetchErr
 }
 
-func (f *flaky) Test(context.Context, source.Settings) error { return nil }
+func (f *flaky) Test(context.Context, schema.Settings) error { return nil }
 
 func (f *flaky) KeepAliveInterval() time.Duration { return time.Hour }
 
-func (f *flaky) KeepAlive(context.Context, source.Settings) error { return f.aliveErr }
+func (f *flaky) KeepAlive(context.Context, schema.Settings) error { return f.aliveErr }
 
 func TestService_healthIssues(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)

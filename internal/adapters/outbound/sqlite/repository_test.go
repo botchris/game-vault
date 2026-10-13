@@ -100,9 +100,9 @@ func TestSourceRepositoryAndBackup(t *testing.T) {
 	d := source.TypeDescriptor{
 		Type: "steam",
 		Name: "Steam",
-		Fields: []source.Field{{
+		Fields: []schema.Field{{
 			Key:      "api_key",
-			Kind:     source.FieldSecret,
+			Kind:     schema.FieldSecret,
 			Required: true,
 		}},
 	}
@@ -110,7 +110,7 @@ func TestSourceRepositoryAndBackup(t *testing.T) {
 	s, err := source.New(d, source.Config{
 		Enabled:      true,
 		SyncInterval: 6 * time.Hour,
-		Settings:     source.Settings{"api_key": "secret"},
+		Settings:     schema.Settings{"api_key": "secret"},
 	}, time.Now())
 	if err != nil {
 		t.Fatal(err)

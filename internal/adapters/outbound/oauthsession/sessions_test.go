@@ -15,6 +15,7 @@ import (
 
 	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/adapters/outbound/oauthsession"
+	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
 )
 
@@ -166,7 +167,7 @@ func newSessions(st *store, c *clock) *oauthsession.Sessions[session] {
 	}
 }
 
-func stored(t *testing.T, settings source.Settings) session {
+func stored(t *testing.T, settings schema.Settings) session {
 	t.Helper()
 
 	var s session
@@ -185,10 +186,10 @@ func TestSessions_prepare(t *testing.T) {
 		sessions := newSessions(st, c)
 
 		t.Run("WHEN the code is prepared twice (Test, then Save)", func(t *testing.T) {
-			first, err := sessions.Prepare(ctx, source.Settings{"code": ` "good-code" `, "other": "kept"})
+			first, err := sessions.Prepare(ctx, schema.Settings{"code": ` "good-code" `, "other": "kept"})
 			require.NoError(t, err)
 
-			second, err := sessions.Prepare(ctx, source.Settings{"code": "good-code"})
+			second, err := sessions.Prepare(ctx, schema.Settings{"code": "good-code"})
 			require.NoError(t, err)
 
 			t.Run("THEN it is exchanged once and both store the same session instead of the code", func(t *testing.T) {
@@ -213,7 +214,7 @@ func TestSessions_prepare(t *testing.T) {
 		t.Run("WHEN the code is forgotten and prepared again within the cache's time", func(t *testing.T) {
 			sessions.ForgetCode(` "good-code" `)
 
-			_, err := sessions.Prepare(ctx, source.Settings{"code": "good-code"})
+			_, err := sessions.Prepare(ctx, schema.Settings{"code": "good-code"})
 
 			t.Run("THEN it is exchanged again, and the store refuses a used code", func(t *testing.T) {
 				require.ErrorIs(t, err, errBadCode)
@@ -223,7 +224,7 @@ func TestSessions_prepare(t *testing.T) {
 		t.Run("WHEN the same code is prepared after the cache's time", func(t *testing.T) {
 			c.advance(16 * time.Minute)
 
-			_, err := sessions.Prepare(ctx, source.Settings{"code": "good-code"})
+			_, err := sessions.Prepare(ctx, schema.Settings{"code": "good-code"})
 
 			t.Run("THEN it is exchanged again, and the store refuses a used code", func(t *testing.T) {
 				require.ErrorIs(t, err, errBadCode)
@@ -235,14 +236,14 @@ func TestSessions_prepare(t *testing.T) {
 		sessions := newSessions(newStore(), &clock{now: time.Now()})
 
 		t.Run("THEN a stored session is kept as it is", func(t *testing.T) {
-			out, err := sessions.Prepare(ctx, source.Settings{"session": `{"refresh_token":"x"}`, "code": source.SecretPlaceholder})
+			out, err := sessions.Prepare(ctx, schema.Settings{"session": `{"refresh_token":"x"}`, "code": schema.SecretPlaceholder})
 			require.NoError(t, err)
 			assert.JSONEq(t, `{"refresh_token":"x"}`, out["session"])
 			assert.NotContains(t, out, "code")
 		})
 
 		t.Run("OR without one it asks for a code", func(t *testing.T) {
-			_, err := sessions.Prepare(ctx, source.Settings{})
+			_, err := sessions.Prepare(ctx, schema.Settings{})
 			require.ErrorIs(t, err, errNoSession)
 		})
 	})
@@ -253,7 +254,7 @@ func TestSessions_prepare(t *testing.T) {
 		sessions.Clean = func(string) (string, error) { return "", errEmailed }
 
 		t.Run("THEN its error is returned", func(t *testing.T) {
-			_, err := sessions.Prepare(ctx, source.Settings{"code": "123456"})
+			_, err := sessions.Prepare(ctx, schema.Settings{"code": "123456"})
 			require.ErrorIs(t, err, errEmailed)
 		})
 	})
@@ -263,12 +264,12 @@ func TestSessions_prepare(t *testing.T) {
 		st.down = true
 		sessions := newSessions(st, &clock{now: time.Now()})
 
-		_, err := sessions.Prepare(ctx, source.Settings{"code": "good-code"})
+		_, err := sessions.Prepare(ctx, schema.Settings{"code": "good-code"})
 		require.ErrorIs(t, err, errDown)
 
 		t.Run("WHEN it is back", func(t *testing.T) {
 			st.down = false
-			out, err := sessions.Prepare(ctx, source.Settings{"code": "good-code"})
+			out, err := sessions.Prepare(ctx, schema.Settings{"code": "good-code"})
 
 			t.Run("THEN the code is exchanged then, nothing having been cached", func(t *testing.T) {
 				require.NoError(t, err)
@@ -288,7 +289,7 @@ func TestSessions_prepareGivesUpWhileARefreshRuns(t *testing.T) {
 		st.gate, st.entered = make(chan struct{}), make(chan struct{}, 1)
 		sessions := newSessions(st, &clock{now: time.Date(2026, 10, 12, 12, 0, 0, 0, time.UTC)})
 
-		go func() { _, _ = sessions.Token(ctx, source.Settings{"session": `{"refresh_token":"refresh-0"}`}) }()
+		go func() { _, _ = sessions.Token(ctx, schema.Settings{"session": `{"refresh_token":"refresh-0"}`}) }()
 
 		<-st.entered
 
@@ -304,7 +305,7 @@ func TestSessions_prepareGivesUpWhileARefreshRuns(t *testing.T) {
 			defer stop()
 
 			begin := time.Now()
-			_, err := sessions.Prepare(gone, source.Settings{"code": "good-code"})
+			_, err := sessions.Prepare(gone, schema.Settings{"code": "good-code"})
 			waited := time.Since(begin)
 
 			end()
@@ -320,7 +321,7 @@ func TestSessions_prepareGivesUpWhileARefreshRuns(t *testing.T) {
 					return exchanges == 1
 				}, 5*time.Second, time.Millisecond)
 
-				out, err := sessions.Prepare(ctx, source.Settings{"code": "good-code"})
+				out, err := sessions.Prepare(ctx, schema.Settings{"code": "good-code"})
 				require.NoError(t, err)
 				assert.NotEmpty(t, stored(t, out).RefreshToken)
 			})
@@ -339,7 +340,7 @@ func TestSessions_token(t *testing.T) {
 		st.live["refresh-0"] = true
 		c := &clock{now: start}
 		sessions := newSessions(st, c)
-		settings := source.Settings{"session": `{"refresh_token":"refresh-0","account":"acc1"}`}
+		settings := schema.Settings{"session": `{"refresh_token":"refresh-0","account":"acc1"}`}
 
 		t.Run("WHEN a token is asked for", func(t *testing.T) {
 			tok, err := sessions.Token(ctx, settings)
@@ -364,7 +365,7 @@ func TestSessions_token(t *testing.T) {
 		})
 
 		t.Run("WHEN a caller still holds the session from before the rotation", func(t *testing.T) {
-			old := source.Settings{"session": `{"refresh_token":"refresh-0","account":"acc1"}`}
+			old := schema.Settings{"session": `{"refresh_token":"refresh-0","account":"acc1"}`}
 			tok, err := sessions.Token(ctx, old)
 
 			t.Run("THEN it gets the newest session handed back, never reusing the old refresh token", func(t *testing.T) {
@@ -380,7 +381,7 @@ func TestSessions_token(t *testing.T) {
 		t.Run("WHEN the access token is about to expire", func(t *testing.T) {
 			c.advance(8*time.Hour - 30*time.Second)
 
-			old := source.Settings{"session": `{"refresh_token":"refresh-0","account":"acc1"}`}
+			old := schema.Settings{"session": `{"refresh_token":"refresh-0","account":"acc1"}`}
 			tok, err := sessions.Token(ctx, old)
 
 			t.Run("THEN the newest session is refreshed, even for a caller holding an old one", func(t *testing.T) {
@@ -398,9 +399,9 @@ func TestSessions_token(t *testing.T) {
 
 		var wg sync.WaitGroup
 
-		results := make([]source.Settings, 8)
+		results := make([]schema.Settings, 8)
 		for i := range results {
-			results[i] = source.Settings{"session": `{"refresh_token":"refresh-0"}`}
+			results[i] = schema.Settings{"session": `{"refresh_token":"refresh-0"}`}
 
 			wg.Go(func() {
 				_, err := sessions.Token(ctx, results[i])
@@ -427,7 +428,7 @@ func TestSessions_token(t *testing.T) {
 		sessions := newSessions(st, &clock{now: start})
 
 		done, stop := context.WithCancel(ctx)
-		settings := source.Settings{"session": `{"refresh_token":"refresh-0"}`}
+		settings := schema.Settings{"session": `{"refresh_token":"refresh-0"}`}
 
 		errs := make(chan error, 1)
 
@@ -442,7 +443,7 @@ func TestSessions_token(t *testing.T) {
 		close(st.gate)
 
 		t.Run("WHEN the next caller comes with the session it held", func(t *testing.T) {
-			next := source.Settings{"session": `{"refresh_token":"refresh-0"}`}
+			next := schema.Settings{"session": `{"refresh_token":"refresh-0"}`}
 
 			require.Eventually(t, func() bool {
 				_, refreshes := st.counts()
@@ -465,7 +466,7 @@ func TestSessions_token(t *testing.T) {
 		st.live["refresh-0"] = true
 		c := &clock{now: start}
 		sessions := newSessions(st, c)
-		settings := source.Settings{"session": `{"refresh_token":"refresh-0"}`}
+		settings := schema.Settings{"session": `{"refresh_token":"refresh-0"}`}
 
 		t.Run("THEN tokens are renewed with the same session", func(t *testing.T) {
 			_, err := sessions.Token(ctx, settings)
@@ -482,7 +483,7 @@ func TestSessions_token(t *testing.T) {
 
 	t.Run("GIVEN a refresh the store refuses", func(t *testing.T) {
 		sessions := newSessions(newStore(), &clock{now: start})
-		settings := source.Settings{"session": `{"refresh_token":"stale"}`}
+		settings := schema.Settings{"session": `{"refresh_token":"stale"}`}
 
 		t.Run("THEN its error is returned and the stored session left alone", func(t *testing.T) {
 			_, err := sessions.Token(ctx, settings)
@@ -495,7 +496,7 @@ func TestSessions_token(t *testing.T) {
 		sessions := newSessions(newStore(), &clock{now: start})
 
 		for _, raw := range []string{"", "not json", `{"refresh_token":""}`} {
-			_, err := sessions.Token(ctx, source.Settings{"session": raw})
+			_, err := sessions.Token(ctx, schema.Settings{"session": raw})
 			require.ErrorIs(t, err, errNoSession, raw)
 		}
 	})
@@ -511,17 +512,17 @@ func TestSessions_successorsOutliveAWeeklyScan(t *testing.T) {
 		c := &clock{now: time.Date(2026, 10, 12, 12, 0, 0, 0, time.UTC)}
 		sessions := newSessions(st, c)
 
-		_, err := sessions.Token(ctx, source.Settings{"session": `{"refresh_token":"a-0"}`})
+		_, err := sessions.Token(ctx, schema.Settings{"session": `{"refresh_token":"a-0"}`})
 		require.NoError(t, err)
 
 		t.Run("WHEN the second rotates a weekly scan later (168 h plus 10% jitter), pruning what expired", func(t *testing.T) {
 			c.advance(185 * time.Hour)
 
-			second := source.Settings{"session": `{"refresh_token":"b-0"}`}
+			second := schema.Settings{"session": `{"refresh_token":"b-0"}`}
 			_, err := sessions.Token(ctx, second)
 			require.NoError(t, err)
 
-			stale := source.Settings{"session": `{"refresh_token":"a-0"}`}
+			stale := schema.Settings{"session": `{"refresh_token":"a-0"}`}
 			_, err = sessions.Token(ctx, stale)
 
 			t.Run("THEN a caller still holding the first's spent token gets its successor, not a sign-out", func(t *testing.T) {
@@ -535,7 +536,7 @@ func TestSessions_successorsOutliveAWeeklyScan(t *testing.T) {
 				_, err := sessions.Token(ctx, second)
 				require.NoError(t, err)
 
-				_, err = sessions.Token(ctx, source.Settings{"session": `{"refresh_token":"b-0"}`})
+				_, err = sessions.Token(ctx, schema.Settings{"session": `{"refresh_token":"b-0"}`})
 				require.ErrorIs(t, err, source.ErrSignedOut, "the spent token is sent again once its successor is forgotten")
 			})
 		})
@@ -551,7 +552,7 @@ func TestSessions_withRetry(t *testing.T) {
 	t.Run("GIVEN a cached access token the store revoked early", func(t *testing.T) {
 		st := newStore()
 		sessions := newSessions(st, &clock{now: time.Now()})
-		settings, err := sessions.Prepare(ctx, source.Settings{"code": "good-code"})
+		settings, err := sessions.Prepare(ctx, schema.Settings{"code": "good-code"})
 		require.NoError(t, err)
 
 		t.Run("WHEN a call is made with it", func(t *testing.T) {
@@ -577,7 +578,7 @@ func TestSessions_withRetry(t *testing.T) {
 	t.Run("GIVEN a store that rejects even a renewed access token", func(t *testing.T) {
 		st := newStore()
 		sessions := newSessions(st, &clock{now: time.Now()})
-		settings, err := sessions.Prepare(ctx, source.Settings{"code": "good-code"})
+		settings, err := sessions.Prepare(ctx, schema.Settings{"code": "good-code"})
 		require.NoError(t, err)
 
 		t.Run("WHEN a call is made", func(t *testing.T) {
@@ -596,7 +597,7 @@ func TestSessions_withRetry(t *testing.T) {
 
 	t.Run("GIVEN a call that fails for another reason", func(t *testing.T) {
 		sessions := newSessions(newStore(), &clock{now: time.Now()})
-		settings, err := sessions.Prepare(ctx, source.Settings{"code": "good-code"})
+		settings, err := sessions.Prepare(ctx, schema.Settings{"code": "good-code"})
 		require.NoError(t, err)
 
 		t.Run("THEN it is not retried", func(t *testing.T) {

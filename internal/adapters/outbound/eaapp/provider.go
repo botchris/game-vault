@@ -120,7 +120,7 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 		Type:           Type,
 		Name:           "EA app",
 		DescriptionKey: "sources.eaapp.description",
-		Fields: []source.Field{
+		Fields: []schema.Field{
 			{
 				Key:      settingCookies,
 				LabelKey: "sources.eaapp.cookies",
@@ -142,12 +142,12 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 						},
 					},
 				},
-				Kind:     source.FieldSecret,
+				Kind:     schema.FieldSecret,
 				Required: true,
 			},
 			{
 				Key:  settingSession,
-				Kind: source.FieldState,
+				Kind: schema.FieldState,
 			},
 		},
 	}
@@ -155,7 +155,7 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 
 // accessToken signs in silently with the browser cookies. Cookies EA renews are written back into
 // settings for the caller to persist.
-func (p *Provider) accessToken(ctx context.Context, settings source.Settings) (string, error) {
+func (p *Provider) accessToken(ctx context.Context, settings schema.Settings) (string, error) {
 	c := browsersession.Current(settings[settingCookies], settings[settingSession])
 	if len(c) == 0 {
 		return "", ErrNoCredentials
@@ -201,7 +201,7 @@ func (p *Provider) accessToken(ctx context.Context, settings source.Settings) (s
 func (p *Provider) KeepAliveInterval() time.Duration { return time.Hour }
 
 // KeepAlive implements sync.KeepAliver: a silent sign-in keeps EA's cookies fresh.
-func (p *Provider) KeepAlive(ctx context.Context, settings source.Settings) error {
+func (p *Provider) KeepAlive(ctx context.Context, settings schema.Settings) error {
 	_, err := p.accessToken(ctx, settings)
 	return err
 }
@@ -352,13 +352,13 @@ func mapItems(items []item) []game.ImportedCopy {
 }
 
 // Test implements sync.Provider: signs in and lists the library.
-func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
+func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
 	_, _, err := p.Fetch(ctx, settings)
 	return err
 }
 
 // Fetch implements sync.Provider.
-func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.ImportedCopy, []string, error) {
+func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, []string, error) {
 	token, err := p.accessToken(ctx, settings)
 	if err != nil {
 		return nil, nil, err

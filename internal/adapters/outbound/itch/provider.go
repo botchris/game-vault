@@ -63,7 +63,7 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 		Type:           Type,
 		Name:           "itch.io",
 		DescriptionKey: "sources.itch.description",
-		Fields: []source.Field{{
+		Fields: []schema.Field{{
 			Key:      settingAPIKey,
 			LabelKey: "sources.itch.apiKey",
 			HelpKey:  "sources.itch.apiKeyHelp",
@@ -152,7 +152,7 @@ func (l *keyList) UnmarshalJSON(b []byte) error {
 }
 
 // ownedKeys reads one page (from 1) of the account's keys.
-func (p *Provider) ownedKeys(ctx context.Context, settings source.Settings, n, size int) ([]ownedKey, error) {
+func (p *Provider) ownedKeys(ctx context.Context, settings schema.Settings, n, size int) ([]ownedKey, error) {
 	key := strings.TrimSpace(settings[settingAPIKey])
 	if key == "" {
 		return nil, ErrNoCredentials
@@ -184,14 +184,14 @@ func (p *Provider) ownedKeys(ctx context.Context, settings source.Settings, n, s
 }
 
 // Test implements sync.Provider: it reads one key.
-func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
+func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
 	_, err := p.ownedKeys(ctx, settings, 1, 1)
 	return err
 }
 
 // Fetch implements sync.Provider. The API documents that a short page is not the last one, so pages
 // are read until one comes back empty.
-func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.ImportedCopy, []string, error) {
+func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, []string, error) {
 	var keys []ownedKey
 
 	for n := 1; ; n++ {

@@ -173,7 +173,7 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 		Type:           Type,
 		Name:           "PlayStation",
 		DescriptionKey: "sources.playstation.description",
-		Fields: []source.Field{
+		Fields: []schema.Field{
 			{
 				Key:      settingNPSSO,
 				LabelKey: "sources.playstation.npsso",
@@ -190,12 +190,12 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 						},
 					},
 				},
-				Kind:     source.FieldSecret,
+				Kind:     schema.FieldSecret,
 				Required: true,
 			},
 			{
 				Key:  settingSession,
-				Kind: source.FieldState,
+				Kind: schema.FieldState,
 			},
 		},
 	}
@@ -347,8 +347,8 @@ func (p *Provider) token(ctx context.Context, form url.Values) (tokenResponse, e
 
 // signIn signs in with the NPSSO and stores the session it gives in settings. The NPSSO is passed
 // alone, so the stored session (missing, or refused) is not kept instead.
-func (p *Provider) signIn(ctx context.Context, settings source.Settings) error {
-	out, err := p.sessions.Prepare(ctx, source.Settings{settingNPSSO: settings[settingNPSSO]})
+func (p *Provider) signIn(ctx context.Context, settings schema.Settings) error {
+	out, err := p.sessions.Prepare(ctx, schema.Settings{settingNPSSO: settings[settingNPSSO]})
 	if err != nil {
 		return err
 	}
@@ -362,7 +362,7 @@ func (p *Provider) signIn(ctx context.Context, settings source.Settings) error {
 // one when the library refuses the first (errTokenRejected): only a refused renewal means the user
 // must sign in again. Without a session, or when Sony refuses to renew it, it signs in with the
 // NPSSO first. The newest session is written back into settings for the caller to persist.
-func (p *Provider) withToken(ctx context.Context, settings source.Settings, call func(token string) error) error {
+func (p *Provider) withToken(ctx context.Context, settings schema.Settings, call func(token string) error) error {
 	if _, err := p.sessions.Current(settings); err != nil {
 		if err := p.signIn(ctx, settings); err != nil {
 			return err
@@ -624,7 +624,7 @@ func mapTitles(titles []title, nonGames *nonGameIndex) (out []game.ImportedCopy,
 }
 
 // Test implements sync.Provider: it signs in and reads the purchases, without the played titles.
-func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
+func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
 	return p.withToken(ctx, settings, func(token string) error {
 		_, err := p.purchased(ctx, token)
 
@@ -633,7 +633,7 @@ func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
 }
 
 // Fetch implements sync.Provider.
-func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.ImportedCopy, []string, error) {
+func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, []string, error) {
 	var (
 		titles []title
 		token  string

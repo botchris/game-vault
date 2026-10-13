@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/domain/provider"
+	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
 )
 
@@ -158,12 +159,12 @@ func TestPrepareTestAndFetch(t *testing.T) {
 	// Test, then Save: both prepare the same one-time code, which is exchanged only once.
 	pasted := `{"authorizationCode":"good-code"}`
 
-	settings, err := p.Prepare(ctx, source.Settings{settingAuthCode: pasted})
+	settings, err := p.Prepare(ctx, schema.Settings{settingAuthCode: pasted})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := p.Prepare(ctx, source.Settings{settingAuthCode: pasted}); err != nil {
+	if _, err := p.Prepare(ctx, schema.Settings{settingAuthCode: pasted}); err != nil {
 		t.Fatalf("second prepare of the same code: %v", err)
 	}
 
@@ -206,20 +207,20 @@ func TestPrepareErrors(t *testing.T) {
 	p, _ := newTestProvider(t)
 
 	ctx := context.Background()
-	if _, err := p.Prepare(ctx, source.Settings{}); !errors.Is(err, ErrNoCredentials) {
+	if _, err := p.Prepare(ctx, schema.Settings{}); !errors.Is(err, ErrNoCredentials) {
 		t.Errorf("no code and no session: %v", err)
 	}
 
-	if _, err := p.Prepare(ctx, source.Settings{settingAuthCode: "wrong"}); !errors.Is(err, ErrBadCode) {
+	if _, err := p.Prepare(ctx, schema.Settings{settingAuthCode: "wrong"}); !errors.Is(err, ErrBadCode) {
 		t.Errorf("wrong code: %v", err)
 	}
 	// A stored session without a new code is kept as is.
-	s, err := p.Prepare(ctx, source.Settings{settingSession: `{"refresh_token":"x"}`})
+	s, err := p.Prepare(ctx, schema.Settings{settingSession: `{"refresh_token":"x"}`})
 	if err != nil || s[settingSession] == "" {
 		t.Errorf("stored session: %v %v", s, err)
 	}
 	// An unknown refresh token means the session expired.
-	_, _, err = p.Fetch(ctx, source.Settings{settingSession: `{"refresh_token":"stale","account_id":"acc9"}`})
+	_, _, err = p.Fetch(ctx, schema.Settings{settingSession: `{"refresh_token":"stale","account_id":"acc9"}`})
 	if !errors.Is(err, ErrSignedOut) {
 		t.Errorf("stale session: %v", err)
 	}
@@ -241,7 +242,7 @@ func TestTokenEndpoint_passingTroubles(t *testing.T) {
 			f.tokenStatus = status
 
 			t.Run("WHEN an authorization code is pasted", func(t *testing.T) {
-				_, err := p.Prepare(ctx, source.Settings{settingAuthCode: "good-code"})
+				_, err := p.Prepare(ctx, schema.Settings{settingAuthCode: "good-code"})
 
 				t.Run("THEN it is a passing trouble, not a rejected code", func(t *testing.T) {
 					require.ErrorIs(t, err, want)
@@ -250,7 +251,7 @@ func TestTokenEndpoint_passingTroubles(t *testing.T) {
 			})
 
 			t.Run("WHEN the library is scanned with a stored session", func(t *testing.T) {
-				_, _, err := p.Fetch(ctx, source.Settings{settingSession: `{"refresh_token":"refresh-0","account_id":"acc1"}`})
+				_, _, err := p.Fetch(ctx, schema.Settings{settingSession: `{"refresh_token":"refresh-0","account_id":"acc1"}`})
 
 				t.Run("THEN it is a passing trouble, not a signed-out session", func(t *testing.T) {
 					require.ErrorIs(t, err, want)
@@ -268,10 +269,10 @@ func TestFetch_renewsARejectedAccessToken(t *testing.T) {
 	defer cancel()
 
 	// signedIn returns the settings of a code just pasted: its access token is cached.
-	signedIn := func(t *testing.T, p *Provider) source.Settings {
+	signedIn := func(t *testing.T, p *Provider) schema.Settings {
 		t.Helper()
 
-		settings, err := p.Prepare(ctx, source.Settings{settingAuthCode: "good-code"})
+		settings, err := p.Prepare(ctx, schema.Settings{settingAuthCode: "good-code"})
 		require.NoError(t, err)
 
 		return settings

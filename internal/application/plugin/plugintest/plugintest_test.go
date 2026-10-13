@@ -125,10 +125,10 @@ func (r recipeSource) Descriptor() source.TypeDescriptor {
 		}},
 	}
 }
-func (recipeSource) Fetch(context.Context, source.Settings) ([]game.ImportedCopy, []string, error) {
+func (recipeSource) Fetch(context.Context, schema.Settings) ([]game.ImportedCopy, []string, error) {
 	return nil, nil, nil
 }
-func (recipeSource) Test(context.Context, source.Settings) error { return nil }
+func (recipeSource) Test(context.Context, schema.Settings) error { return nil }
 
 func TestProblems_recipes(t *testing.T) {
 	tr := Translations{"en": {"sources.recipe.description": true, "sources.recipe.session": true}}

@@ -18,6 +18,7 @@ import (
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
+	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
 )
 
@@ -187,12 +188,12 @@ func TestPrepareAndFetch(t *testing.T) {
 	ctx := context.Background()
 	pasted := "https://login.live.com/oauth20_desktop.srf?code=M.C5_good&lc=1034"
 
-	settings, err := p.Prepare(ctx, source.Settings{settingCode: pasted})
+	settings, err := p.Prepare(ctx, schema.Settings{settingCode: pasted})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := p.Prepare(ctx, source.Settings{settingCode: pasted}); err != nil || f.exchanges != 1 {
+	if _, err := p.Prepare(ctx, schema.Settings{settingCode: pasted}); err != nil || f.exchanges != 1 {
 		t.Fatalf("test then save should share the code: %v (%d exchanges)", err, f.exchanges)
 	}
 
@@ -233,15 +234,15 @@ func TestErrors(t *testing.T) {
 	p, _ := newTest(t)
 
 	ctx := context.Background()
-	if _, err := p.Prepare(ctx, source.Settings{}); !errors.Is(err, ErrNoCredentials) {
+	if _, err := p.Prepare(ctx, schema.Settings{}); !errors.Is(err, ErrNoCredentials) {
 		t.Errorf("no code: %v", err)
 	}
 
-	if _, err := p.Prepare(ctx, source.Settings{settingCode: "M.C5_wrong"}); !errors.Is(err, ErrBadCode) {
+	if _, err := p.Prepare(ctx, schema.Settings{settingCode: "M.C5_wrong"}); !errors.Is(err, ErrBadCode) {
 		t.Errorf("wrong code: %v", err)
 	}
 
-	if _, _, err := p.Fetch(ctx, source.Settings{settingSession: `{"refresh_token":"stale"}`}); !errors.Is(err, ErrSignedOut) {
+	if _, _, err := p.Fetch(ctx, schema.Settings{settingSession: `{"refresh_token":"stale"}`}); !errors.Is(err, ErrSignedOut) {
 		t.Errorf("stale session: %v", err)
 	}
 }
@@ -262,7 +263,7 @@ func TestTokenEndpoint_passingTroubles(t *testing.T) {
 			f.tokenStatus = status
 
 			t.Run("WHEN a code is pasted", func(t *testing.T) {
-				_, err := p.Prepare(ctx, source.Settings{settingCode: "M.C5_good"})
+				_, err := p.Prepare(ctx, schema.Settings{settingCode: "M.C5_good"})
 
 				t.Run("THEN it is a passing trouble, not a rejected code", func(t *testing.T) {
 					require.ErrorIs(t, err, want)
@@ -271,7 +272,7 @@ func TestTokenEndpoint_passingTroubles(t *testing.T) {
 			})
 
 			t.Run("WHEN the library is scanned with a stored session", func(t *testing.T) {
-				_, _, err := p.Fetch(ctx, source.Settings{settingSession: `{"refresh_token":"good"}`})
+				_, _, err := p.Fetch(ctx, schema.Settings{settingSession: `{"refresh_token":"good"}`})
 
 				t.Run("THEN it is a passing trouble, not a signed-out session", func(t *testing.T) {
 					require.ErrorIs(t, err, want)
@@ -290,10 +291,10 @@ func TestFetch_renewsARejectedAccessToken(t *testing.T) {
 	defer cancel()
 
 	// signedIn returns the settings of a code just pasted: its access token is cached.
-	signedIn := func(t *testing.T, p *Provider) source.Settings {
+	signedIn := func(t *testing.T, p *Provider) schema.Settings {
 		t.Helper()
 
-		settings, err := p.Prepare(ctx, source.Settings{settingCode: "M.C5_good"})
+		settings, err := p.Prepare(ctx, schema.Settings{settingCode: "M.C5_good"})
 		require.NoError(t, err)
 
 		return settings

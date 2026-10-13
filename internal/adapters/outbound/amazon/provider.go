@@ -168,7 +168,7 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 		Type:           Type,
 		Name:           "Amazon Games",
 		DescriptionKey: "sources.amazon.description",
-		Fields: []source.Field{
+		Fields: []schema.Field{
 			{
 				Key:      settingCode,
 				LabelKey: "sources.amazon.code",
@@ -185,11 +185,11 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 						},
 					},
 				},
-				Kind: source.FieldSecret,
+				Kind: schema.FieldSecret,
 			},
 			{
 				Key:  settingSession,
-				Kind: source.FieldState,
+				Kind: schema.FieldState,
 			},
 		},
 	}
@@ -394,7 +394,7 @@ func (e *expiresIn) UnmarshalJSON(b []byte) error {
 
 // Prepare implements sync.Preparer: a pasted code is exchanged for a session, which is stored
 // instead of the code (codes work once).
-func (p *Provider) Prepare(ctx context.Context, settings source.Settings) (source.Settings, error) {
+func (p *Provider) Prepare(ctx context.Context, settings schema.Settings) (schema.Settings, error) {
 	return p.sessions.Prepare(ctx, settings)
 }
 
@@ -488,7 +488,7 @@ func (p *Provider) all(ctx context.Context, access, serial string) ([]entitlemen
 }
 
 // owned reads the account's games, renewing the access token once if it was rejected.
-func (p *Provider) owned(ctx context.Context, settings source.Settings) ([]entitlement, error) {
+func (p *Provider) owned(ctx context.Context, settings schema.Settings) ([]entitlement, error) {
 	s, err := p.sessions.Current(settings)
 	if err != nil {
 		return nil, err
@@ -555,13 +555,13 @@ func mapEntitlements(items []entitlement) ([]game.ImportedCopy, []string) {
 }
 
 // Test implements sync.Provider: it reads the library once.
-func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
+func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
 	_, err := p.owned(ctx, settings)
 	return err
 }
 
 // Fetch implements sync.Provider.
-func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.ImportedCopy, []string, error) {
+func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, []string, error) {
 	items, err := p.owned(ctx, settings)
 	if err != nil {
 		return nil, nil, err

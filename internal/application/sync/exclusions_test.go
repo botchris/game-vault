@@ -16,6 +16,7 @@ import (
 	"gamevault/internal/adapters/outbound/sqlite"
 	"gamevault/internal/application/sync"
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
 )
 
@@ -33,7 +34,7 @@ func (l *listing) Descriptor() source.TypeDescriptor {
 	}
 }
 
-func (l *listing) Fetch(context.Context, source.Settings) ([]game.ImportedCopy, []string, error) {
+func (l *listing) Fetch(context.Context, schema.Settings) ([]game.ImportedCopy, []string, error) {
 	if l.during != nil {
 		l.during()
 	}
@@ -41,7 +42,7 @@ func (l *listing) Fetch(context.Context, source.Settings) ([]game.ImportedCopy, 
 	return l.items, nil, nil
 }
 
-func (l *listing) Test(context.Context, source.Settings) error { return nil }
+func (l *listing) Test(context.Context, schema.Settings) error { return nil }
 
 func item(id, title string) game.ImportedCopy {
 	return game.ImportedCopy{
@@ -280,14 +281,14 @@ func (e *expired) Descriptor() source.TypeDescriptor {
 	return source.TypeDescriptor{
 		Type: "ex",
 		Name: "Expired",
-		Fields: []source.Field{{
+		Fields: []schema.Field{{
 			Key:  "session",
-			Kind: source.FieldState,
+			Kind: schema.FieldState,
 		}},
 	}
 }
 
-func (e *expired) Fetch(context.Context, source.Settings) ([]game.ImportedCopy, []string, error) {
+func (e *expired) Fetch(context.Context, schema.Settings) ([]game.ImportedCopy, []string, error) {
 	if e.during != nil {
 		e.during()
 	}
@@ -295,7 +296,7 @@ func (e *expired) Fetch(context.Context, source.Settings) ([]game.ImportedCopy, 
 	return nil, nil, errors.New("signed out")
 }
 
-func (e *expired) Test(context.Context, source.Settings) error { return nil }
+func (e *expired) Test(context.Context, schema.Settings) error { return nil }
 
 func TestSyncKeepsASessionTheUserRenewedMeanwhile(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
@@ -314,14 +315,14 @@ func TestSyncKeepsASessionTheUserRenewedMeanwhile(t *testing.T) {
 
 	src, err := sources.Get(ctx, v.ID())
 	require.NoError(t, err)
-	src.ReplaceSettings(p.Descriptor(), source.Settings{"session": "old"}, time.Now())
+	src.ReplaceSettings(p.Descriptor(), schema.Settings{"session": "old"}, time.Now())
 	require.NoError(t, sources.Save(ctx, src))
 
 	t.Run("GIVEN a scan of an expired session WHEN the user signs in again while it runs", func(t *testing.T) {
 		p.during = func() {
 			fresh, err := sources.Get(ctx, v.ID())
 			require.NoError(t, err)
-			fresh.ReplaceSettings(p.Descriptor(), source.Settings{"session": "new"}, time.Now())
+			fresh.ReplaceSettings(p.Descriptor(), schema.Settings{"session": "new"}, time.Now())
 			require.NoError(t, sources.Save(ctx, fresh))
 		}
 

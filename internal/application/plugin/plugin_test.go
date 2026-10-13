@@ -20,10 +20,10 @@ import (
 type fakeSource struct{ typ source.Type }
 
 func (f fakeSource) Descriptor() source.TypeDescriptor { return source.TypeDescriptor{Type: f.typ} }
-func (fakeSource) Fetch(context.Context, source.Settings) ([]game.ImportedCopy, []string, error) {
+func (fakeSource) Fetch(context.Context, schema.Settings) ([]game.ImportedCopy, []string, error) {
 	return nil, nil, nil
 }
-func (fakeSource) Test(context.Context, source.Settings) error { return nil }
+func (fakeSource) Test(context.Context, schema.Settings) error { return nil }
 
 type fakeCovers struct{ id provider.ID }
 

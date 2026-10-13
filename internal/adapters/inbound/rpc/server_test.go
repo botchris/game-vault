@@ -53,22 +53,22 @@ func (f *fakeProvider) Descriptor() source.TypeDescriptor {
 	return source.TypeDescriptor{
 		Type: "fake",
 		Name: "Fake store",
-		Fields: []source.Field{
+		Fields: []schema.Field{
 			{
 				Key:      "token",
-				Kind:     source.FieldSecret,
+				Kind:     schema.FieldSecret,
 				Required: true,
 			},
 		},
 	}
 }
 
-func (f *fakeProvider) Fetch(context.Context, source.Settings) ([]game.ImportedCopy, []string, error) {
+func (f *fakeProvider) Fetch(context.Context, schema.Settings) ([]game.ImportedCopy, []string, error) {
 	return f.copies, nil, nil
 }
 
 // Test checks the token the way a real source would check its credentials.
-func (f *fakeProvider) Test(_ context.Context, s source.Settings) error {
+func (f *fakeProvider) Test(_ context.Context, s schema.Settings) error {
 	if s["token"] == "" {
 		return errors.New("no token")
 	}
@@ -446,7 +446,7 @@ func TestEndToEnd(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if got := src.Msg.Source.Settings["token"]; got != source.SecretPlaceholder {
+	if got := src.Msg.Source.Settings["token"]; got != schema.SecretPlaceholder {
 		t.Fatalf("secret leaked to client: %q", got)
 	}
 
@@ -479,7 +479,7 @@ func TestEndToEnd(t *testing.T) {
 		Source: &pb.SourceInput{
 			Name:     "Renamed",
 			Enabled:  true,
-			Settings: map[string]string{"token": source.SecretPlaceholder},
+			Settings: map[string]string{"token": schema.SecretPlaceholder},
 		},
 	})); err != nil {
 		t.Fatal(err)

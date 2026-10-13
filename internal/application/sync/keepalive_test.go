@@ -12,6 +12,7 @@ import (
 	"gamevault/internal/application/sync"
 	"gamevault/internal/application/unattended"
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
 )
 
@@ -22,29 +23,29 @@ func (r *rotating) Descriptor() source.TypeDescriptor {
 	return source.TypeDescriptor{
 		Type: "rot",
 		Name: "Rotating",
-		Fields: []source.Field{
+		Fields: []schema.Field{
 			{
 				Key:      "token",
-				Kind:     source.FieldSecret,
+				Kind:     schema.FieldSecret,
 				Required: true,
 			},
 			{
 				Key:  "session",
-				Kind: source.FieldState,
+				Kind: schema.FieldState,
 			},
 		},
 	}
 }
 
-func (r *rotating) Fetch(context.Context, source.Settings) ([]game.ImportedCopy, []string, error) {
+func (r *rotating) Fetch(context.Context, schema.Settings) ([]game.ImportedCopy, []string, error) {
 	return nil, nil, nil
 }
 
-func (r *rotating) Test(context.Context, source.Settings) error { return nil }
+func (r *rotating) Test(context.Context, schema.Settings) error { return nil }
 
 func (r *rotating) KeepAliveInterval() time.Duration { return time.Hour }
 
-func (r *rotating) KeepAlive(_ context.Context, s source.Settings) error {
+func (r *rotating) KeepAlive(_ context.Context, s schema.Settings) error {
 	r.calls++
 	s["session"] = "renewed-" + string(rune('0'+r.calls))
 
@@ -66,7 +67,7 @@ func TestKeepAliveSavesRenewedSessions(t *testing.T) {
 
 	v, err := svc.Create(ctx, "rot", source.Config{
 		Enabled:  true,
-		Settings: source.Settings{"token": "t"},
+		Settings: schema.Settings{"token": "t"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -118,12 +119,12 @@ func (c *counting) Descriptor() source.TypeDescriptor {
 	}
 }
 
-func (c *counting) Fetch(context.Context, source.Settings) ([]game.ImportedCopy, []string, error) {
+func (c *counting) Fetch(context.Context, schema.Settings) ([]game.ImportedCopy, []string, error) {
 	c.scans++
 	return nil, nil, nil
 }
 
-func (c *counting) Test(context.Context, source.Settings) error { return nil }
+func (c *counting) Test(context.Context, schema.Settings) error { return nil }
 
 func TestSchedulerScansOnceAndWaitsForTheVariedInterval(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())

@@ -96,11 +96,11 @@ constant into its own declaration instead.
       Descriptor() source.TypeDescriptor
 
       // Fetch returns every copy the account currently holds. Warnings are non-fatal issues.
-      Fetch(ctx context.Context, settings source.Settings) (copies []game.ImportedCopy, warnings []string, err error)
+      Fetch(ctx context.Context, settings schema.Settings) (copies []game.ImportedCopy, warnings []string, err error)
 
       // Test checks the settings against the real service as cheaply as it can. A nil error means
       // they work; an error says why not.
-      Test(ctx context.Context, settings source.Settings) error
+      Test(ctx context.Context, settings schema.Settings) error
   }
   ```
 
@@ -138,7 +138,7 @@ constant into its own declaration instead.
 
   The same holds for struct types: one field per line, one name per field (`a string` and
   `b string`, never `a, b string`), including anonymous ones (`struct{ a, b string }` is wrong).
-  Not covered: map literals (`source.Settings{settingToken: "x", …}`), positional struct literals
+  Not covered: map literals (`schema.Settings{settingToken: "x", …}`), positional struct literals
   (test tables), literals with a single field, and function arguments.
 
   Checked by `tools/fieldlines` (a `go/analysis` analyzer, so it knows a struct from a map), which

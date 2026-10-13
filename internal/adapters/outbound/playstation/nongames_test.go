@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/domain/game"
-	"gamevault/internal/domain/source"
+	"gamevault/internal/domain/schema"
 )
 
 // playedFixture is one played title of the fake gamelist API.
@@ -165,7 +165,7 @@ func TestFetch_nonGames(t *testing.T) {
 		f.played = playedWithNonGames
 
 		t.Run("WHEN it is scanned", func(t *testing.T) {
-			copies, warnings, err := p.Fetch(ctx, source.Settings{settingNPSSO: "good-npsso"})
+			copies, warnings, err := p.Fetch(ctx, schema.Settings{settingNPSSO: "good-npsso"})
 			require.NoError(t, err)
 			assert.Empty(t, warnings)
 
@@ -214,7 +214,7 @@ func TestFetch_nonGames(t *testing.T) {
 		f.played = []playedFixture{playedWithNonGames[0], playedWithNonGames[4]}
 
 		t.Run("WHEN it is scanned", func(t *testing.T) {
-			copies, _, err := p.Fetch(ctx, source.Settings{settingNPSSO: "good-npsso"})
+			copies, _, err := p.Fetch(ctx, schema.Settings{settingNPSSO: "good-npsso"})
 			require.NoError(t, err)
 
 			t.Run("THEN only the titles whose names mark them are withdrawn", func(t *testing.T) {
@@ -239,7 +239,7 @@ func TestFetch_nonGames(t *testing.T) {
 			f.gameListStatus = status
 
 			t.Run("WHEN it is scanned", func(t *testing.T) {
-				copies, warnings, err := p.Fetch(ctx, source.Settings{settingNPSSO: "good-npsso"})
+				copies, warnings, err := p.Fetch(ctx, schema.Settings{settingNPSSO: "good-npsso"})
 
 				t.Run("THEN the scan succeeds and only the name markers exclude titles", func(t *testing.T) {
 					require.NoError(t, err)
@@ -261,7 +261,7 @@ func TestFetch_nonGames(t *testing.T) {
 		f.gameListRaw = "<html><body>Service unavailable</body></html>"
 
 		t.Run("WHEN it is scanned", func(t *testing.T) {
-			copies, _, err := p.Fetch(ctx, source.Settings{settingNPSSO: "good-npsso"})
+			copies, _, err := p.Fetch(ctx, schema.Settings{settingNPSSO: "good-npsso"})
 
 			t.Run("THEN the scan succeeds with no category exclusions", func(t *testing.T) {
 				require.NoError(t, err)

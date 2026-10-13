@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/domain/errkind"
+	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
 )
 
@@ -63,7 +64,7 @@ func TestTest_countsWithoutDownloading(t *testing.T) {
 	p.API.BaseURL, p.API.HTTP = srv.URL, srv.Client()
 
 	t.Run("GIVEN a valid key and a public profile URL", func(t *testing.T) {
-		settings := source.Settings{settingAPIKey: "good", settingProfile: "https://steamcommunity.com/id/gaben/"}
+		settings := schema.Settings{settingAPIKey: "good", settingProfile: "https://steamcommunity.com/id/gaben/"}
 
 		t.Run("WHEN the connection is tested", func(t *testing.T) {
 			err := p.Test(ctx, settings)
@@ -75,7 +76,7 @@ func TestTest_countsWithoutDownloading(t *testing.T) {
 	})
 
 	t.Run("GIVEN a profile whose game details are private", func(t *testing.T) {
-		settings := source.Settings{settingAPIKey: "good", settingProfile: "76561198000000000"}
+		settings := schema.Settings{settingAPIKey: "good", settingProfile: "76561198000000000"}
 
 		t.Run("WHEN the connection is tested", func(t *testing.T) {
 			err := p.Test(ctx, settings)
@@ -87,7 +88,7 @@ func TestTest_countsWithoutDownloading(t *testing.T) {
 	})
 
 	t.Run("GIVEN a key Steam rejects", func(t *testing.T) {
-		settings := source.Settings{settingAPIKey: "bad", settingProfile: "gaben"}
+		settings := schema.Settings{settingAPIKey: "bad", settingProfile: "gaben"}
 
 		t.Run("WHEN the connection is tested", func(t *testing.T) {
 			err := p.Test(ctx, settings)
@@ -102,7 +103,7 @@ func TestTest_countsWithoutDownloading(t *testing.T) {
 	})
 
 	t.Run("GIVEN a profile name Steam does not know", func(t *testing.T) {
-		settings := source.Settings{settingAPIKey: "good", settingProfile: "nobody-here"}
+		settings := schema.Settings{settingAPIKey: "good", settingProfile: "nobody-here"}
 
 		t.Run("WHEN the connection is tested", func(t *testing.T) {
 			err := p.Test(ctx, settings)
@@ -116,7 +117,7 @@ func TestTest_countsWithoutDownloading(t *testing.T) {
 	})
 
 	t.Run("GIVEN no API key", func(t *testing.T) {
-		settings := source.Settings{settingAPIKey: " ", settingProfile: "gaben"}
+		settings := schema.Settings{settingAPIKey: " ", settingProfile: "gaben"}
 
 		t.Run("WHEN the connection is tested", func(t *testing.T) {
 			err := p.Test(ctx, settings)

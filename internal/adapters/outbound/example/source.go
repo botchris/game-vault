@@ -52,7 +52,7 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 		Type:           Type,
 		Name:           "Example Store",
 		DescriptionKey: "sources.example.description",
-		Fields: []source.Field{{
+		Fields: []schema.Field{{
 			Key:      settingToken,
 			LabelKey: "sources.example.token",
 			HelpKey:  "sources.example.tokenHelp",
@@ -72,7 +72,7 @@ type item struct {
 }
 
 // library reads one page of the account's library; limit 0 reads it all.
-func (p *Provider) library(ctx context.Context, settings source.Settings, limit int) ([]item, error) {
+func (p *Provider) library(ctx context.Context, settings schema.Settings, limit int) ([]item, error) {
 	token := strings.TrimSpace(settings[settingToken])
 	if token == "" {
 		return nil, ErrNoCredentials
@@ -99,14 +99,14 @@ func (p *Provider) library(ctx context.Context, settings source.Settings, limit 
 }
 
 // Test implements sync.Provider with the cheapest request that proves the token works.
-func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
+func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
 	_, err := p.library(ctx, settings, 1)
 	return err
 }
 
 // Fetch implements sync.Provider: every game the account owns, linked to the store. What is not a
 // game, or no longer owned (a refund, an expired trial), is skipped and counted in a warning.
-func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.ImportedCopy, []string, error) {
+func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, []string, error) {
 	items, err := p.library(ctx, settings, 0)
 	if err != nil {
 		return nil, nil, err

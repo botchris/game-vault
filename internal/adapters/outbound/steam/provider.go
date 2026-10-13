@@ -14,6 +14,7 @@ import (
 	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
 )
 
@@ -76,20 +77,20 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 		Type:           Type,
 		Name:           "Steam",
 		DescriptionKey: "sources.steam.description",
-		Fields: []source.Field{
+		Fields: []schema.Field{
 			{
 				Key:      settingAPIKey,
 				LabelKey: "sources.steam.apiKey",
 				HelpKey:  "sources.steam.apiKeyHelp",
 				HelpURL:  "https://steamcommunity.com/dev/apikey",
-				Kind:     source.FieldSecret,
+				Kind:     schema.FieldSecret,
 				Required: true,
 			},
 			{
 				Key:      settingProfile,
 				LabelKey: "sources.steam.profile",
 				HelpKey:  "sources.steam.profileHelp",
-				Kind:     source.FieldText,
+				Kind:     schema.FieldText,
 				Required: true,
 			},
 		},
@@ -97,7 +98,7 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 }
 
 // Fetch implements sync.Provider.
-func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.ImportedCopy, []string, error) {
+func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, []string, error) {
 	key := strings.TrimSpace(settings[settingAPIKey])
 	if key == "" {
 		return nil, nil, ErrNoCredentials
@@ -154,7 +155,7 @@ func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.
 
 // Test implements sync.Provider with one light request: the number of owned games, without their
 // details. It checks the key, the profile and that "Game details" are public.
-func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
+func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
 	key := strings.TrimSpace(settings[settingAPIKey])
 	if key == "" {
 		return ErrNoCredentials

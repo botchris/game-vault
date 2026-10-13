@@ -15,6 +15,7 @@ import (
 	"gamevault/internal/adapters/outbound/sqlite"
 	"gamevault/internal/application/sync"
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
 )
 
@@ -28,7 +29,7 @@ func (w *withdrawing) Descriptor() source.TypeDescriptor {
 	}
 }
 
-func (w *withdrawing) Fetch(context.Context, source.Settings) ([]game.ImportedCopy, []string, error) {
+func (w *withdrawing) Fetch(context.Context, schema.Settings) ([]game.ImportedCopy, []string, error) {
 	return []game.ImportedCopy{{
 		ExternalID: "wd:1",
 		Withdrawn:  w.withdraw,
@@ -40,7 +41,7 @@ func (w *withdrawing) Fetch(context.Context, source.Settings) ([]game.ImportedCo
 	}}, nil, nil
 }
 
-func (w *withdrawing) Test(context.Context, source.Settings) error { return nil }
+func (w *withdrawing) Test(context.Context, schema.Settings) error { return nil }
 
 // covers records the games whose cached cover and details were dropped, and the editions whose
 // cached cover was dropped ("<game id>|<system>").
@@ -137,7 +138,7 @@ func (*consoleSource) Descriptor() source.TypeDescriptor {
 	}
 }
 
-func (s *consoleSource) Fetch(context.Context, source.Settings) ([]game.ImportedCopy, []string, error) {
+func (s *consoleSource) Fetch(context.Context, schema.Settings) ([]game.ImportedCopy, []string, error) {
 	copies := []game.ImportedCopy{{
 		ExternalID: "psn:1",
 		Title:      "Astro Bot",
@@ -163,7 +164,7 @@ func (s *consoleSource) Fetch(context.Context, source.Settings) ([]game.Imported
 	return copies, nil, nil
 }
 
-func (*consoleSource) Test(context.Context, source.Settings) error { return nil }
+func (*consoleSource) Test(context.Context, schema.Settings) error { return nil }
 
 func TestSync_editions(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
