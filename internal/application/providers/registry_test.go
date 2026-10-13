@@ -2,7 +2,9 @@ package providers_test
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -133,6 +135,108 @@ func TestRegistry_readsOnce(t *testing.T) {
 
 			t.Run("THEN the registry keeps its own configuration", func(t *testing.T) {
 				assert.True(t, again[0].Enabled())
+			})
+		})
+	})
+}
+
+// stateful is a barcode provider with a key the user enters and a state field it learns.
+type stateful struct{}
+
+func (stateful) Descriptor() provider.Descriptor {
+	return provider.Descriptor{
+		ID:               "stateful",
+		Kind:             provider.KindBarcode,
+		Name:             "Stateful",
+		EnabledByDefault: true,
+		Fields: schema.Fields{
+			{
+				Key:      "key",
+				LabelKey: "key",
+				Kind:     schema.FieldSecret,
+			},
+			{
+				Key:  "hits",
+				Kind: schema.FieldState,
+			},
+		},
+	}
+}
+
+func (stateful) Test(context.Context, schema.Settings) error { return nil }
+
+func TestRegistry_saveStateWhileConfiguring(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a provider that learns state during lookups", func(t *testing.T) {
+		repo := newRepo(t, ctx)
+		reg := providers.NewRegistry(repo, []providers.Impl{stateful{}})
+
+		views, err := reg.Enabled(ctx, provider.KindBarcode)
+		require.NoError(t, err)
+
+		// The lookup read its settings before the user saved a new key, like a slow lookup.
+		lookup := views[0].Settings()
+		lookup["hits"] = "es"
+
+		t.Run("WHEN the user saves a key while the lookup saves what it learned", func(t *testing.T) {
+			var wg sync.WaitGroup
+
+			wg.Go(func() {
+				_, err := reg.ConfigureProvider(ctx, "stateful", true, schema.Settings{"key": "new"})
+				assert.NoError(t, err)
+			})
+			wg.Go(func() { assert.NoError(t, reg.SaveState(ctx, "stateful", lookup)) })
+			wg.Wait()
+
+			t.Run("THEN the configuration keeps both, in memory and in storage", func(t *testing.T) {
+				views, err := reg.Providers(ctx, provider.KindBarcode)
+				require.NoError(t, err)
+				assert.Equal(t, schema.Settings{"key": "new", "hits": "es"}, views[0].Settings())
+
+				stored, err := repo.Repository.List(ctx, provider.KindBarcode)
+				require.NoError(t, err)
+				assert.Equal(t, schema.Settings{"key": "new", "hits": "es"}, stored[0].Settings())
+			})
+		})
+	})
+}
+
+func TestRegistry_concurrentReadsAndChanges(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a registry with a provider", func(t *testing.T) {
+		reg := providers.NewRegistry(newRepo(t, ctx), []providers.Impl{stateful{}})
+
+		t.Run("WHEN its chain is read while it is configured, many times at once", func(t *testing.T) {
+			var wg sync.WaitGroup
+
+			for i := range 40 {
+				wg.Go(func() {
+					if i%4 == 0 {
+						_, err := reg.ConfigureProvider(ctx, "stateful", i%8 == 0, schema.Settings{"key": fmt.Sprint(i)})
+						assert.NoError(t, err)
+
+						return
+					}
+
+					views, err := reg.Enabled(ctx, provider.KindBarcode)
+					assert.NoError(t, err)
+
+					for _, v := range views {
+						_ = v.Settings()["key"] // reads the view while others change the registry
+					}
+				})
+			}
+
+			wg.Wait()
+
+			t.Run("THEN the provider is still listed once", func(t *testing.T) {
+				views, err := reg.Providers(ctx, provider.KindBarcode)
+				require.NoError(t, err)
+				assert.Len(t, views, 1)
 			})
 		})
 	})
