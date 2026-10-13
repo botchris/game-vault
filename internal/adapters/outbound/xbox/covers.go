@@ -3,11 +3,11 @@ package xbox
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"slices"
 	"strings"
 	"time"
 
+	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
@@ -20,10 +20,14 @@ const CoverProviderID provider.ID = "xbox-covers"
 // Covers is a cover provider for games imported from a Microsoft account: the Store's official
 // poster (portrait), from the public Store catalog. No sign-in needed.
 type Covers struct {
-	CatalogURL string
-	Market     string
-	Language   string
-	Client     *http.Client
+	// Catalog calls the public Microsoft Store catalog; tests point it at a fake server.
+	Catalog *apiclient.Client
+
+	// Market is the Store market asked for (a country code).
+	Market string
+
+	// Language is the language of the titles asked for.
+	Language string
 }
 
 var (
@@ -34,10 +38,9 @@ var (
 // NewCovers returns the Xbox / Microsoft Store cover provider with its production endpoints.
 func NewCovers() *Covers {
 	return &Covers{
-		CatalogURL: defaultCatalogURL,
-		Market:     "US",
-		Language:   "en-US",
-		Client:     &http.Client{Timeout: 20 * time.Second},
+		Catalog:  newClient(defaultCatalogURL, 20*time.Second),
+		Market:   "US",
+		Language: "en-US",
 	}
 }
 
@@ -78,7 +81,7 @@ var imagePurposes = []string{"Poster", "BoxArt"}
 func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	ids := []string{q.Links[LinkedStore.Key]}
 
-	products, err := catalog(ctx, c.Client, c.CatalogURL, c.Market, c.Language, ids)
+	products, err := catalog(ctx, c.Catalog, c.Market, c.Language, ids)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +129,7 @@ const testProductID = "9NBLGGH4R315"
 // Test implements media.Provider: it asks the public Store catalog for one product. An empty
 // answer still means the catalog works; transport errors, HTTP errors and rate limits fail.
 func (c *Covers) Test(ctx context.Context, _ schema.Settings) error {
-	if _, err := catalog(ctx, c.Client, c.CatalogURL, c.Market, c.Language, []string{testProductID}); err != nil {
+	if _, err := catalog(ctx, c.Catalog, c.Market, c.Language, []string{testProductID}); err != nil {
 		return fmt.Errorf("the Microsoft Store catalog did not answer (%w): check your connection and try again later", err)
 	}
 
