@@ -37,7 +37,7 @@ message OwnedGame {
 // OwnershipResult answers one item.
 message OwnershipResult {
   // "owned" (one game matches), "possible" (several match, or one only once edition and store
-  // tags are ignored) or "not_owned".
+  // tags are ignored) or "not_owned"; the server sends no other value.
   string status = 1;
   // The matching game, when owned.
   OwnedGame game = 2;

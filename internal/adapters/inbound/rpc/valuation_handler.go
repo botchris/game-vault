@@ -47,6 +47,7 @@ func (h *ValuationHandler) GetCollectionValue(ctx context.Context, _ *connect.Re
 
 	out := &pb.GetCollectionValueResponse{Currency: v.Currency}
 	for _, t := range v.Totals {
+		// The *Minor fields are deprecated: older clients read them for one more release.
 		out.Totals = append(out.Totals, &pb.ProviderTotal{
 			Provider:       string(t.Provider),
 			Name:           t.Name,
@@ -55,8 +56,24 @@ func (h *ValuationHandler) GetCollectionValue(ctx context.Context, _ *connect.Re
 			BuyCreditMinor: t.BuyCredit,
 			Copies:         int32(t.Copies),
 			OtherCurrency:  int32(t.OtherCurrency),
+			Sell:           totalToPB(t.Sell, v.Currency),
+			BuyCash:        totalToPB(t.BuyCash, v.Currency),
+			BuyCredit:      totalToPB(t.BuyCredit, v.Currency),
 		})
 	}
 
 	return connect.NewResponse(out), nil
+}
+
+// totalToPB maps a total in minor units of the default currency. A zero total is still an amount
+// (nothing sells), unlike a copy's missing price; without a default currency nothing is added up.
+func totalToPB(minor int64, currency string) *pb.Money {
+	if currency == "" {
+		return nil
+	}
+
+	return &pb.Money{
+		AmountMinor: minor,
+		Currency:    currency,
+	}
 }

@@ -9,7 +9,8 @@ import "google/protobuf/timestamp.proto";
 // Principal is the authenticated caller.
 message Principal {
   // "trusted" (a trusted network, no sign-in) or "session" (signed in with the password). Never
-  // "token": access tokens cannot call AuthService, so they never see a Principal.
+  // "token": access tokens cannot call AuthService, so they never see a Principal. The server
+  // sends no other value.
   string method = 1;
   string name = 2;
 }
@@ -18,12 +19,14 @@ message Principal {
 message AuthSettings {
   reserved 1, 2, 3;
   reserved "local_bypass", "trust_tailscale", "tailscale_logins";
-  // "required" (everyone signs in) or "trusted_networks" (not required from trusted networks).
+  // "required" (everyone signs in) or "trusted_networks" (not required from trusted networks);
+  // empty saves "trusted_networks". The server refuses any other value (InvalidArgument).
   string authentication = 4;
   // CIDR prefixes or single addresses whose requests need no sign-in, e.g. "192.168.1.0/24".
   repeated string trusted_networks = 5;
   // HTTPS certificates of the services Game Vault connects to: "enabled", "local_disabled"
-  // (not checked for local addresses) or "disabled".
+  // (not checked for local addresses) or "disabled"; empty saves "enabled". The server refuses any
+  // other value (InvalidArgument).
   string certificate_validation = 6;
 }
 

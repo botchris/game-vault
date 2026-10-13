@@ -1,7 +1,9 @@
 // Command gamevault runs the Game Vault server: a ConnectRPC API over a SQLite catalog of your
 // games and every copy you own of them (keys, store libraries, physical discs).
 //
-// This file is the composition root: it is the only place that knows every concrete adapter.
+// The wiring itself is internal/app, shared with the API's end-to-end tests; this file loads the
+// configuration, opens the database and the log, picks the real plugins, starts the background
+// jobs and serves.
 package main
 
 import (
@@ -15,35 +17,15 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 	"time"
 
-	"gamevault/internal/adapters/inbound/rpc"
-	"gamevault/internal/adapters/outbound/backupdir"
-	"gamevault/internal/adapters/outbound/csvfile"
-	"gamevault/internal/adapters/outbound/diskspace"
 	"gamevault/internal/adapters/outbound/gamedata"
-	"gamevault/internal/adapters/outbound/imagefetch"
 	"gamevault/internal/adapters/outbound/logfile"
-	"gamevault/internal/adapters/outbound/passwordhash"
-	"gamevault/internal/adapters/outbound/photostore"
 	"gamevault/internal/adapters/outbound/sqlite"
 	"gamevault/internal/adapters/outbound/tlspolicy"
-	"gamevault/internal/application/auth"
-	"gamevault/internal/application/catalog"
-	"gamevault/internal/application/fields"
-	"gamevault/internal/application/health"
-	"gamevault/internal/application/logs"
-	"gamevault/internal/application/media"
-	"gamevault/internal/application/ownership"
-	"gamevault/internal/application/providers"
-	"gamevault/internal/application/sync"
-	"gamevault/internal/application/system"
-	"gamevault/internal/application/transfer"
-	"gamevault/internal/application/valuation"
+	"gamevault/internal/app"
 	"gamevault/internal/config"
-	domainauth "gamevault/internal/domain/auth"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/settings"
 )
@@ -95,142 +77,45 @@ func run() error {
 		}
 	}()
 
-	// Outbound adapters
-	games := sqlite.NewGameRepository(db)
-	sources := sqlite.NewSourceRepository(db)
-	settingsRepo := sqlite.NewSettingsRepository(db)
-
-	if len(cfg.TrustedNetworks) > 0 {
-		trusted, err := domainauth.Settings{TrustedNetworks: cfg.TrustedNetworks}.Normalize()
-		if err != nil {
-			return fmt.Errorf("-trusted-networks / GAMEVAULT_TRUSTED_NETWORKS: %w", err)
-		}
-
-		settingsRepo.DefaultTrustedNetworks = trusted.TrustedNetworks
-	}
-
-	assets, err := gamedata.Open(cfg.GameDataDir())
-	if err != nil {
-		return err
-	}
-
-	photos, err := photostore.Open(cfg.PhotosDir())
-	if err != nil {
-		return err
-	}
-
-	if err := migrateLegacyCovers(ctx, assets, games, cfg.LegacyCoverDir(), log); err != nil {
-		return fmt.Errorf("migrating covers: %w", err)
-	}
-
-	backupPhotos, err := photostore.Open(filepath.Join(cfg.BackupDir(), "photos"))
-	if err != nil {
-		return err
-	}
-
 	plugins, err := newPlugins(log)
 	if err != nil {
 		return err
 	}
 
-	// One clock for every service: a scan's report, the copies the catalog dates for it and the
-	// covers' and prices' dates must never disagree because two services read different clocks.
-	now := time.Now
-
-	// Application services
-	logsSvc := logs.NewService(settingsRepo, logFiles, logFiles)
-	if err := logsSvc.Init(ctx); err != nil {
-		return fmt.Errorf("applying log settings: %w", err)
-	}
-
-	// The providers' configuration is read once, on first use, and then kept in memory.
-	registry := providers.NewRegistry(sqlite.NewProviderRepository(db), plugins.Providers(),
-		providers.WithClock(now), providers.WithLogger(log))
-	mediaSvcs := media.New(games, registry, assets, imagefetch.New(),
-		media.WithPhotoStore(photos), media.WithDetailsStore(sqlite.NewDetailsStore(db)), media.WithClock(now), media.WithLogger(log))
-	valuationSvc := valuation.NewService(games, db, registry, settingsRepo, now, log, plugins.Valuations()...)
-	fieldsSvc := fields.NewService(settingsRepo, games, db, now)
-	catalogSvc := catalog.NewService(games, db, catalog.WithClock(now), catalog.WithCoverCache(mediaSvcs.Covers),
-		catalog.WithPhotoFiles(photos), catalog.WithFields(settingsRepo))
-	ownershipSvc := ownership.NewService(games)
-
-	mediaSvcs.AutoLinks.SetGameLinker(catalogSvc) // automatic links are saved by the catalog, in its transactions
-	syncSvc := sync.NewService(sources, games, db, catalogSvc, plugins.Sources(),
-		sync.WithClock(now), sync.WithLogger(log))
-	linkStores := media.NewStores(registry, syncSvc)
-	transferSvc := transfer.NewService(games, catalogSvc, settingsRepo, csvfile.Codec{}, transfer.WithClock(now))
-	systemSvc := system.NewService(games, db, backupdir.New(cfg.BackupDir()), settingsRepo,
-		system.WithPhotoArchive(photostore.NewArchive(photos, backupPhotos)), system.WithClock(now), system.WithLogger(log),
-		system.WithStatus(system.Status{
-			Version:      version,
-			ConfigDir:    cfg.ConfigDir,
-			DatabasePath: cfg.DatabasePath(),
-			StartedAt:    now(),
-		}), system.WithKeep(cfg.BackupKeep))
-
-	healthSvc := health.NewService(registry, syncSvc, systemSvc, health.DiskCheck{
-		Path:  cfg.ConfigDir,
-		Space: diskspace.Statfs{},
-	})
-
 	// Certificate validation applies to every outgoing HTTPS request (they all use the default
-	// transport). It must be installed, and the saved setting applied by authSvc.Init, before any
+	// transport). It must be installed, and the saved setting applied by Build, before any
 	// background job starts: Install writes to the shared transport, which would race with a job
-	// already using it, and until Init runs requests would ignore the user's certificate setting.
+	// already using it, and until the setting is applied requests would ignore it.
 	certs := tlspolicy.Install(http.DefaultTransport.(*http.Transport))
 
-	authSvc := auth.NewService(sqlite.NewAuthRepository(db), settingsRepo, passwordhash.New(), certs, now, log)
-	if cfg.ResetAuth {
-		if err := authSvc.ResetAuthentication(ctx); err != nil {
-			return fmt.Errorf("resetting authentication: %w", err)
-		}
+	vault, err := app.Build(ctx, cfg, db, logFiles, log,
+		app.WithPlugins(plugins), app.WithCertificatePolicy(certs), app.WithVersion(version))
+	if err != nil {
+		return err
 	}
 
-	if err := authSvc.Init(ctx); err != nil {
-		return fmt.Errorf("applying security settings: %w", err)
+	if err := migrateLegacyCovers(ctx, vault.Assets, vault.Games, cfg.LegacyCoverDir(), log); err != nil {
+		return fmt.Errorf("migrating covers: %w", err)
 	}
 
-	// Background jobs (only after the TLS policy and the security settings above are in place)
+	// Background jobs (only after Build applied the TLS policy and the security settings).
 	// Every job that makes requests nobody asked for at that moment is off with -no-unattended. The
 	// auto-linker stays on: without the details scanner it only searches games a person opened.
 	if cfg.NoUnattended {
 		log.Warn("scheduled scans, keep-alives, price estimates and the background details scan are off (-no-unattended)")
 	} else {
-		go syncSvc.RunScheduler(ctx, time.Minute, 30*time.Minute)
-		go syncSvc.RunKeepAlive(ctx, time.Minute, 10*time.Minute)
-		go valuationSvc.RunScheduler(ctx)
-		go mediaSvcs.Details.RunScanner(ctx, 2*time.Second) // 2-4 s apart: gentle enough for the strictest store API (Steam: ~200 requests / 5 min)
+		go vault.Sync.RunScheduler(ctx, time.Minute, 30*time.Minute)
+		go vault.Sync.RunKeepAlive(ctx, time.Minute, 10*time.Minute)
+		go vault.Valuation.RunScheduler(ctx)
+		go vault.Media.Details.RunScanner(ctx, 2*time.Second) // 2-4 s apart: gentle enough for the strictest store API (Steam: ~200 requests / 5 min)
 	}
 
-	go mediaSvcs.AutoLinks.Run(ctx, 2*time.Second) // one game at a time, jittered, after cover downloads
-	go mediaSvcs.Photos.RunCleanup(ctx, time.Hour, 24*time.Hour)
+	go vault.Media.AutoLinks.Run(ctx, 2*time.Second) // one game at a time, jittered, after cover downloads
+	go vault.Media.Photos.RunCleanup(ctx, time.Hour, 24*time.Hour)
 
 	if cfg.BackupInterval > 0 {
-		go systemSvc.RunScheduledBackups(ctx, cfg.BackupInterval)
+		go vault.System.RunScheduledBackups(ctx, cfg.BackupInterval)
 	}
-
-	// Inbound adapter
-	handler := rpc.NewHTTPHandler(rpc.Handlers{
-		Auth:        rpc.NewAuthHandler(authSvc),
-		AuthService: authSvc,
-		Games:       rpc.NewGameHandler(catalogSvc, mediaSvcs.Details, linkStores, syncSvc),
-		Sources:     rpc.NewSourceHandler(syncSvc),
-		System:      rpc.NewSystemHandler(systemSvc, transferSvc),
-		Logs:        rpc.NewLogHandler(logsSvc),
-		MediaRPC:    rpc.NewMediaHandler(registry, mediaSvcs.Covers, mediaSvcs.Details, mediaSvcs.Identifier),
-		Covers:      mediaSvcs.Covers,
-		Assets:      mediaSvcs.Assets,
-		Photos:      mediaSvcs.Photos,
-		Proxy:       mediaSvcs.Proxy,
-		Valuation:   rpc.NewValuationHandler(valuationSvc),
-		Fields:      rpc.NewFieldHandler(fieldsSvc),
-		Health:      rpc.NewHealthHandler(healthSvc),
-		Ownership:   rpc.NewOwnershipHandler(ownershipSvc),
-	}, rpc.Options{
-		UIDir:       cfg.UIDir,
-		CORSOrigins: cfg.CORSOrigins,
-		Log:         log,
-	})
 
 	ln, err := net.Listen("tcp", cfg.Addr)
 	if err != nil {
@@ -238,7 +123,7 @@ func run() error {
 	}
 
 	srv := &http.Server{
-		Handler:           handler,
+		Handler:           vault.Handler,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

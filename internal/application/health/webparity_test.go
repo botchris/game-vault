@@ -1,4 +1,4 @@
-package main
+package health_test
 
 import (
 	"encoding/json"
@@ -28,7 +28,7 @@ func TestHealthReasons_webAgrees(t *testing.T) {
 	slices.Sort(server)
 
 	t.Run("GIVEN the reasons of the web UI", func(t *testing.T) {
-		src, err := os.ReadFile(filepath.Join("..", "..", "web", "src", "lib", "health.ts"))
+		src, err := os.ReadFile(filepath.Join("..", "..", "..", "web", "src", "lib", "health.ts"))
 		require.NoError(t, err)
 
 		block := regexp.MustCompile(`(?s)export const Reason = \{(.*?)\} as const;`).FindSubmatch(src)
@@ -46,7 +46,7 @@ func TestHealthReasons_webAgrees(t *testing.T) {
 		})
 	})
 
-	locales, err := filepath.Glob(filepath.Join("..", "..", "web", "src", "i18n", "locales", "*.json"))
+	locales, err := filepath.Glob(filepath.Join("..", "..", "..", "web", "src", "i18n", "locales", "*.json"))
 	require.NoError(t, err)
 	require.NotEmpty(t, locales)
 

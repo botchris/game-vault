@@ -11,9 +11,9 @@ option go_package = "gamevault/internal/gen/gamevault/v1;gamevaultv1";
 message HealthIssue {
   // Identifies the issue ("provider:thegamesdb", "source:<id>:sync").
   string key = 1;
-  // "error" (stopped working until the user acts) or "warning".
+  // "error" (stopped working until the user acts) or "warning"; the server sends no other value.
   string level = 2;
-  // "provider", "source", "backups" or "disk".
+  // "provider", "source", "backups" or "disk"; the server sends no other value.
   string kind = 3;
   // What has the problem: the provider's or source's name; empty for the backups and the disk,
   // which clients name in their language by kind.

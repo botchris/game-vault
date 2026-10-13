@@ -174,18 +174,29 @@ func (*GetCollectionValueRequest) Descriptor() ([]byte, []int) {
 	return file_gamevault_v1_valuation_proto_rawDescGZIP(), []int{2}
 }
 
-// ProviderTotal is one source's view of the collection's value, in minor units of the currency.
+// ProviderTotal is one source's view of the collection's value, in the default currency.
 type ProviderTotal struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Provider       string                 `protobuf:"bytes,1,opt,name=provider,proto3" json:"provider,omitempty"`
-	Name           string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	SellMinor      int64                  `protobuf:"varint,3,opt,name=sell_minor,json=sellMinor,proto3" json:"sell_minor,omitempty"`
-	BuyCashMinor   int64                  `protobuf:"varint,4,opt,name=buy_cash_minor,json=buyCashMinor,proto3" json:"buy_cash_minor,omitempty"`
-	BuyCreditMinor int64                  `protobuf:"varint,5,opt,name=buy_credit_minor,json=buyCreditMinor,proto3" json:"buy_credit_minor,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Provider string                 `protobuf:"bytes,1,opt,name=provider,proto3" json:"provider,omitempty"`
+	Name     string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// Deprecated: the amounts of sell, buy_cash and buy_credit in minor units of the response's
+	// currency, kept for one release so older clients still read them.
+	//
+	// Deprecated: Marked as deprecated in gamevault/v1/valuation.proto.
+	SellMinor int64 `protobuf:"varint,3,opt,name=sell_minor,json=sellMinor,proto3" json:"sell_minor,omitempty"`
+	// Deprecated: Marked as deprecated in gamevault/v1/valuation.proto.
+	BuyCashMinor int64 `protobuf:"varint,4,opt,name=buy_cash_minor,json=buyCashMinor,proto3" json:"buy_cash_minor,omitempty"`
+	// Deprecated: Marked as deprecated in gamevault/v1/valuation.proto.
+	BuyCreditMinor int64 `protobuf:"varint,5,opt,name=buy_credit_minor,json=buyCreditMinor,proto3" json:"buy_credit_minor,omitempty"`
 	// How many copies the totals cover.
 	Copies int32 `protobuf:"varint,6,opt,name=copies,proto3" json:"copies,omitempty"`
 	// Estimates in another currency, left out.
 	OtherCurrency int32 `protobuf:"varint,7,opt,name=other_currency,json=otherCurrency,proto3" json:"other_currency,omitempty"`
+	// What the copies sell for, and what the shop pays for them in cash and in store credit. Set
+	// whenever the response has a currency, zero amounts included.
+	Sell          *Money `protobuf:"bytes,8,opt,name=sell,proto3" json:"sell,omitempty"`
+	BuyCash       *Money `protobuf:"bytes,9,opt,name=buy_cash,json=buyCash,proto3" json:"buy_cash,omitempty"`
+	BuyCredit     *Money `protobuf:"bytes,10,opt,name=buy_credit,json=buyCredit,proto3" json:"buy_credit,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -234,6 +245,7 @@ func (x *ProviderTotal) GetName() string {
 	return ""
 }
 
+// Deprecated: Marked as deprecated in gamevault/v1/valuation.proto.
 func (x *ProviderTotal) GetSellMinor() int64 {
 	if x != nil {
 		return x.SellMinor
@@ -241,6 +253,7 @@ func (x *ProviderTotal) GetSellMinor() int64 {
 	return 0
 }
 
+// Deprecated: Marked as deprecated in gamevault/v1/valuation.proto.
 func (x *ProviderTotal) GetBuyCashMinor() int64 {
 	if x != nil {
 		return x.BuyCashMinor
@@ -248,6 +261,7 @@ func (x *ProviderTotal) GetBuyCashMinor() int64 {
 	return 0
 }
 
+// Deprecated: Marked as deprecated in gamevault/v1/valuation.proto.
 func (x *ProviderTotal) GetBuyCreditMinor() int64 {
 	if x != nil {
 		return x.BuyCreditMinor
@@ -267,6 +281,27 @@ func (x *ProviderTotal) GetOtherCurrency() int32 {
 		return x.OtherCurrency
 	}
 	return 0
+}
+
+func (x *ProviderTotal) GetSell() *Money {
+	if x != nil {
+		return x.Sell
+	}
+	return nil
+}
+
+func (x *ProviderTotal) GetBuyCash() *Money {
+	if x != nil {
+		return x.BuyCash
+	}
+	return nil
+}
+
+func (x *ProviderTotal) GetBuyCredit() *Money {
+	if x != nil {
+		return x.BuyCredit
+	}
+	return nil
 }
 
 type GetCollectionValueResponse struct {
@@ -334,16 +369,21 @@ const file_gamevault_v1_valuation_proto_rawDesc = "" +
 	"\x04game\x18\x01 \x01(\v2\x12.gamevault.v1.GameR\x04game\x12\x1a\n" +
 	"\bwarnings\x18\x02 \x03(\tR\bwarnings\x123\n" +
 	"\x15providers_unavailable\x18\x03 \x01(\bR\x14providersUnavailable\"\x1b\n" +
-	"\x19GetCollectionValueRequest\"\xed\x01\n" +
+	"\x19GetCollectionValueRequest\"\x86\x03\n" +
 	"\rProviderTotal\x12\x1a\n" +
 	"\bprovider\x18\x01 \x01(\tR\bprovider\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1d\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12!\n" +
 	"\n" +
-	"sell_minor\x18\x03 \x01(\x03R\tsellMinor\x12$\n" +
-	"\x0ebuy_cash_minor\x18\x04 \x01(\x03R\fbuyCashMinor\x12(\n" +
-	"\x10buy_credit_minor\x18\x05 \x01(\x03R\x0ebuyCreditMinor\x12\x16\n" +
+	"sell_minor\x18\x03 \x01(\x03B\x02\x18\x01R\tsellMinor\x12(\n" +
+	"\x0ebuy_cash_minor\x18\x04 \x01(\x03B\x02\x18\x01R\fbuyCashMinor\x12,\n" +
+	"\x10buy_credit_minor\x18\x05 \x01(\x03B\x02\x18\x01R\x0ebuyCreditMinor\x12\x16\n" +
 	"\x06copies\x18\x06 \x01(\x05R\x06copies\x12%\n" +
-	"\x0eother_currency\x18\a \x01(\x05R\rotherCurrency\"m\n" +
+	"\x0eother_currency\x18\a \x01(\x05R\rotherCurrency\x12'\n" +
+	"\x04sell\x18\b \x01(\v2\x13.gamevault.v1.MoneyR\x04sell\x12.\n" +
+	"\bbuy_cash\x18\t \x01(\v2\x13.gamevault.v1.MoneyR\abuyCash\x122\n" +
+	"\n" +
+	"buy_credit\x18\n" +
+	" \x01(\v2\x13.gamevault.v1.MoneyR\tbuyCredit\"m\n" +
 	"\x1aGetCollectionValueResponse\x12\x1a\n" +
 	"\bcurrency\x18\x01 \x01(\tR\bcurrency\x123\n" +
 	"\x06totals\x18\x02 \x03(\v2\x1b.gamevault.v1.ProviderTotalR\x06totals2\xd2\x01\n" +
@@ -371,19 +411,23 @@ var file_gamevault_v1_valuation_proto_goTypes = []any{
 	(*ProviderTotal)(nil),              // 3: gamevault.v1.ProviderTotal
 	(*GetCollectionValueResponse)(nil), // 4: gamevault.v1.GetCollectionValueResponse
 	(*Game)(nil),                       // 5: gamevault.v1.Game
+	(*Money)(nil),                      // 6: gamevault.v1.Money
 }
 var file_gamevault_v1_valuation_proto_depIdxs = []int32{
 	5, // 0: gamevault.v1.EstimateCopyResponse.game:type_name -> gamevault.v1.Game
-	3, // 1: gamevault.v1.GetCollectionValueResponse.totals:type_name -> gamevault.v1.ProviderTotal
-	0, // 2: gamevault.v1.ValuationService.EstimateCopy:input_type -> gamevault.v1.EstimateCopyRequest
-	2, // 3: gamevault.v1.ValuationService.GetCollectionValue:input_type -> gamevault.v1.GetCollectionValueRequest
-	1, // 4: gamevault.v1.ValuationService.EstimateCopy:output_type -> gamevault.v1.EstimateCopyResponse
-	4, // 5: gamevault.v1.ValuationService.GetCollectionValue:output_type -> gamevault.v1.GetCollectionValueResponse
-	4, // [4:6] is the sub-list for method output_type
-	2, // [2:4] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	6, // 1: gamevault.v1.ProviderTotal.sell:type_name -> gamevault.v1.Money
+	6, // 2: gamevault.v1.ProviderTotal.buy_cash:type_name -> gamevault.v1.Money
+	6, // 3: gamevault.v1.ProviderTotal.buy_credit:type_name -> gamevault.v1.Money
+	3, // 4: gamevault.v1.GetCollectionValueResponse.totals:type_name -> gamevault.v1.ProviderTotal
+	0, // 5: gamevault.v1.ValuationService.EstimateCopy:input_type -> gamevault.v1.EstimateCopyRequest
+	2, // 6: gamevault.v1.ValuationService.GetCollectionValue:input_type -> gamevault.v1.GetCollectionValueRequest
+	1, // 7: gamevault.v1.ValuationService.EstimateCopy:output_type -> gamevault.v1.EstimateCopyResponse
+	4, // 8: gamevault.v1.ValuationService.GetCollectionValue:output_type -> gamevault.v1.GetCollectionValueResponse
+	7, // [7:9] is the sub-list for method output_type
+	5, // [5:7] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_gamevault_v1_valuation_proto_init() }

@@ -130,7 +130,7 @@ export const OwnedGameSchema: GenMessage<OwnedGame> = /*@__PURE__*/
 export type OwnershipResult = Message<"gamevault.v1.OwnershipResult"> & {
   /**
    * "owned" (one game matches), "possible" (several match, or one only once edition and store
-   * tags are ignored) or "not_owned".
+   * tags are ignored) or "not_owned"; the server sends no other value.
    *
    * @generated from field: string status = 1;
    */

@@ -53,6 +53,9 @@ type Rotator struct {
 	size     int64
 	maxBytes int64
 	maxFiles int
+
+	// rename renames the current file on rotation; os.Rename, replaced in tests.
+	rename func(oldpath, newpath string) error
 }
 
 var (
@@ -68,8 +71,9 @@ func Open(dir string, level *slog.LevelVar, s settings.Logging) (*Rotator, error
 	}
 
 	r := &Rotator{
-		dir:   dir,
-		level: level,
+		dir:    dir,
+		level:  level,
+		rename: os.Rename,
 	}
 	if err := r.Apply(s); err != nil {
 		return nil, err
@@ -124,26 +128,39 @@ func (r *Rotator) openCurrent() error {
 }
 
 // Write implements io.Writer. A single write is never split across files.
+//
+// A failed rotation does not stop the log: the line still goes to the current file (opened again
+// if the rotation left none open) and the rotation error is returned with it, so the next write
+// tries to rotate again.
 func (r *Rotator) Write(p []byte) (int, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	var rotateErr error
 	if r.size > 0 && r.size+int64(len(p)) > r.maxBytes {
-		if err := r.rotate(); err != nil {
-			return 0, err
+		rotateErr = r.rotate()
+	}
+
+	if r.file == nil {
+		if err := r.openCurrent(); err != nil {
+			return 0, errors.Join(rotateErr, err)
 		}
 	}
 
 	n, err := r.file.Write(p)
 	r.size += int64(n)
 
-	return n, err
+	return n, errors.Join(rotateErr, err)
 }
 
-// rotate must be called with mu held.
+// rotate must be called with mu held. If the current file cannot be renamed, writing carries on
+// in it (appending), so a full disk or a locked file never silences the log for good.
 func (r *Rotator) rotate() error {
-	if err := r.file.Close(); err != nil {
-		return err
+	err := r.file.Close()
+	r.file = nil
+
+	if err != nil {
+		return errors.Join(err, r.openCurrent())
 	}
 	// Millisecond timestamps keep names unique and in chronological (= lexical) order.
 	base := "gamevault-" + strings.Replace(time.Now().Format("20060102-150405.000"), ".", "-", 1)
@@ -157,8 +174,8 @@ func (r *Rotator) rotate() error {
 		name = fmt.Sprintf("%s-%d.log", base, i)
 	}
 
-	if err := os.Rename(filepath.Join(r.dir, currentName), filepath.Join(r.dir, name)); err != nil {
-		return err
+	if err := r.rename(filepath.Join(r.dir, currentName), filepath.Join(r.dir, name)); err != nil {
+		return errors.Join(err, r.openCurrent())
 	}
 
 	if err := r.openCurrent(); err != nil {
@@ -318,6 +335,10 @@ func (r *Rotator) ClearArchived() (int, error) {
 func (r *Rotator) Close() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
+	if r.file == nil { // a failed rotation could not open it again
+		return nil
+	}
 
 	return r.file.Close()
 }

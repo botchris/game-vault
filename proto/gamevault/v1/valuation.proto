@@ -23,17 +23,24 @@ message EstimateCopyResponse {
 
 message GetCollectionValueRequest {}
 
-// ProviderTotal is one source's view of the collection's value, in minor units of the currency.
+// ProviderTotal is one source's view of the collection's value, in the default currency.
 message ProviderTotal {
   string provider = 1;
   string name = 2;
-  int64 sell_minor = 3;
-  int64 buy_cash_minor = 4;
-  int64 buy_credit_minor = 5;
+  // Deprecated: the amounts of sell, buy_cash and buy_credit in minor units of the response's
+  // currency, kept for one release so older clients still read them.
+  int64 sell_minor = 3 [deprecated = true];
+  int64 buy_cash_minor = 4 [deprecated = true];
+  int64 buy_credit_minor = 5 [deprecated = true];
   // How many copies the totals cover.
   int32 copies = 6;
   // Estimates in another currency, left out.
   int32 other_currency = 7;
+  // What the copies sell for, and what the shop pays for them in cash and in store credit. Set
+  // whenever the response has a currency, zero amounts included.
+  Money sell = 8;
+  Money buy_cash = 9;
+  Money buy_credit = 10;
 }
 message GetCollectionValueResponse {
   // The default currency; empty when none is chosen (then nothing is added up).

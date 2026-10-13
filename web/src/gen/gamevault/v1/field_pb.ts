@@ -55,14 +55,15 @@ export type FieldDefinition = Message<"gamevault.v1.FieldDefinition"> & {
   name: string;
 
   /**
-   * text, longtext, bool, number, money, date, duration, list, multilist.
+   * text, longtext, bool, number, money, date, duration, list, multilist. The server refuses any
+   * other value (InvalidArgument).
    *
    * @generated from field: string type = 3;
    */
   type: string;
 
   /**
-   * game or copy.
+   * game or copy. The server refuses any other value (InvalidArgument).
    *
    * @generated from field: string scope = 4;
    */

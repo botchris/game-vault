@@ -22,7 +22,8 @@ export const file_gamevault_v1_auth: GenFile = /*@__PURE__*/
 export type Principal = Message<"gamevault.v1.Principal"> & {
   /**
    * "trusted" (a trusted network, no sign-in) or "session" (signed in with the password). Never
-   * "token": access tokens cannot call AuthService, so they never see a Principal.
+   * "token": access tokens cannot call AuthService, so they never see a Principal. The server
+   * sends no other value.
    *
    * @generated from field: string method = 1;
    */
@@ -48,7 +49,8 @@ export const PrincipalSchema: GenMessage<Principal> = /*@__PURE__*/
  */
 export type AuthSettings = Message<"gamevault.v1.AuthSettings"> & {
   /**
-   * "required" (everyone signs in) or "trusted_networks" (not required from trusted networks).
+   * "required" (everyone signs in) or "trusted_networks" (not required from trusted networks);
+   * empty saves "trusted_networks". The server refuses any other value (InvalidArgument).
    *
    * @generated from field: string authentication = 4;
    */
@@ -63,7 +65,8 @@ export type AuthSettings = Message<"gamevault.v1.AuthSettings"> & {
 
   /**
    * HTTPS certificates of the services Game Vault connects to: "enabled", "local_disabled"
-   * (not checked for local addresses) or "disabled".
+   * (not checked for local addresses) or "disabled"; empty saves "enabled". The server refuses any
+   * other value (InvalidArgument).
    *
    * @generated from field: string certificate_validation = 6;
    */

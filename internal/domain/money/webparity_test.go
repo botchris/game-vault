@@ -1,4 +1,7 @@
-package main
+package money_test
+
+// The web UI keeps its own table of currency decimals; this test reads it and holds it to the
+// server's, so changing either side here runs it.
 
 import (
 	"os"
@@ -18,7 +21,7 @@ import (
 // decimals on each side would be stored 10, 100 or 1000 times off.
 func TestCurrencyDigits_webAgrees(t *testing.T) {
 	t.Run("GIVEN the decimals table of the web UI", func(t *testing.T) {
-		src, err := os.ReadFile(filepath.Join("..", "..", "web", "src", "lib", "money.ts"))
+		src, err := os.ReadFile(filepath.Join("..", "..", "..", "web", "src", "lib", "money.ts"))
 		require.NoError(t, err)
 
 		table := regexp.MustCompile(`(?s)const CURRENCY_DIGITS[^{]*\{(.*?)\};`).FindSubmatch(src)

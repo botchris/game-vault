@@ -79,9 +79,10 @@ type FieldDefinition struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Name  string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// text, longtext, bool, number, money, date, duration, list, multilist.
+	// text, longtext, bool, number, money, date, duration, list, multilist. The server refuses any
+	// other value (InvalidArgument).
 	Type string `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`
-	// game or copy.
+	// game or copy. The server refuses any other value (InvalidArgument).
 	Scope string `protobuf:"bytes,4,opt,name=scope,proto3" json:"scope,omitempty"`
 	// Copy fields only: the copy kinds the field applies to; empty means all.
 	Kinds         []CopyKind     `protobuf:"varint,5,rep,packed,name=kinds,proto3,enum=gamevault.v1.CopyKind" json:"kinds,omitempty"`

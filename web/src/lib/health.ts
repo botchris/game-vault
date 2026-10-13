@@ -39,8 +39,8 @@ export function issueTitle(issue: Pick<IssueLike, 'kind' | 'source'>, t: Transla
 }
 
 /** The reason codes the server sends (health.Reason, internal/application/health/health.go), each
- *  translated under health.reasons. TestHealthReasons_webAgrees (cmd/gamevault) keeps the server's
- *  list, this one and the translations equal. */
+ *  translated under health.reasons. TestHealthReasons_webAgrees (internal/application/health)
+ *  keeps the server's list, this one and the translations equal. */
 export const Reason = {
   ProviderQuota: 'provider_quota',
   ProviderRateLimited: 'provider_rate_limited',

@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"gamevault/internal/adapters/outbound/fsatomic"
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
 )
@@ -84,32 +85,10 @@ func (s *Store) Put(id game.PhotoID, photo, thumb []byte) error {
 	return nil
 }
 
-// writeAtomic writes data to a temporary file next to path and renames it, so a reader never sees
-// a half-written photo.
+// writeAtomic writes a photo so a reader never sees half of it. Photos stay readable by their owner
+// only, as they always were.
 func writeAtomic(path string, data []byte) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".tmp-*")
-	if err != nil {
-		return err
-	}
-
-	if _, err := tmp.Write(data); err != nil {
-		_ = tmp.Close() // the write error is the one worth reporting
-		_ = os.Remove(tmp.Name())
-
-		return err
-	}
-
-	if err := tmp.Close(); err != nil {
-		_ = os.Remove(tmp.Name())
-
-		return err
-	}
-
-	return os.Rename(tmp.Name(), path)
+	return fsatomic.WriteFile(path, data, 0o600)
 }
 
 // Has implements media.PhotoStore.
