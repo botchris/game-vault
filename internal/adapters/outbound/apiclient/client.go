@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -124,11 +125,18 @@ type StatusError struct {
 	URL    string
 	Status int
 	Body   string
+
+	// retryAfter is the wait the answer's Retry-After header asked for (0 when none).
+	retryAfter time.Duration
 }
 
 func (e *StatusError) Error() string {
 	return fmt.Sprintf("%s %s: HTTP %d", e.Method, e.URL, e.Status)
 }
+
+// RetryAfter returns how long the service asked to wait before the next request (its Retry-After
+// header, in seconds or as a date), or 0 when it did not say. ratelimit.Throttle rests that long.
+func (e *StatusError) RetryAfter() time.Duration { return e.retryAfter }
 
 var (
 	// ErrNotJSON means the service answered a 2xx with an HTML page instead of JSON, usually a bot
@@ -255,11 +263,31 @@ func (r *Response) Err() error {
 	}
 
 	return &StatusError{
-		Method: r.method,
-		URL:    r.endpoint,
-		Status: r.Status,
-		Body:   snippet(r.Body),
+		Method:     r.method,
+		URL:        r.endpoint,
+		Status:     r.Status,
+		Body:       snippet(r.Body),
+		retryAfter: retryAfter(r.Header.Get("Retry-After"), time.Now()),
 	}
+}
+
+// retryAfter reads a Retry-After header: a number of seconds or an HTTP date. A missing, broken or
+// past value is 0.
+func retryAfter(v string, now time.Time) time.Duration {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return 0
+	}
+
+	if secs, err := strconv.Atoi(v); err == nil {
+		return max(time.Duration(secs)*time.Second, 0)
+	}
+
+	if at, err := http.ParseTime(v); err == nil {
+		return max(at.Sub(now), 0)
+	}
+
+	return 0
 }
 
 // Decode decodes the JSON body into out, whatever the status. A web page (a bot check, a

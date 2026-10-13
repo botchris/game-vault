@@ -93,7 +93,7 @@ func TestThrottle(t *testing.T) {
 
 		t.Run("WHEN three requests are sent in a row", func(t *testing.T) {
 			for range 3 {
-				require.NoError(t, th.do(ctx, request))
+				require.NoError(t, th.Do(ctx, request))
 			}
 
 			t.Run("THEN the first goes at once and each next one waits the gap after the previous ended", func(t *testing.T) {
@@ -105,7 +105,7 @@ func TestThrottle(t *testing.T) {
 			clock.sleeps = nil
 			clock.now = clock.now.Add(2 * time.Second)
 
-			require.NoError(t, th.do(ctx, request))
+			require.NoError(t, th.Do(ctx, request))
 
 			t.Run("THEN it does not wait", func(t *testing.T) {
 				assert.Empty(t, clock.sleeps)
@@ -133,7 +133,7 @@ func TestThrottle(t *testing.T) {
 		t.Cleanup(srv.Close)
 
 		p := testProvider(srv)
-		p.throttle = newThrottle(time.Millisecond, time.Now, sleep)
+		p.throttle = newThrottle(time.Millisecond, nil, nil)
 
 		t.Run("WHEN eight lookups run concurrently", func(t *testing.T) {
 			var wg sync.WaitGroup
@@ -154,7 +154,7 @@ func TestThrottle(t *testing.T) {
 	})
 }
 
-func TestThrottle_failsFast(t *testing.T) {
+func TestThrottle_backsOffAfterARateLimit(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
@@ -165,50 +165,16 @@ func TestThrottle_failsFast(t *testing.T) {
 		return nil
 	}
 
-	t.Run("GIVEN a throttle whose queue is full", func(t *testing.T) {
-		clock := &fakeClock{now: start}
-		th := newThrottle(minGap, clock.Now, clock.Sleep)
-		th.queued = maxQueue
-
-		t.Run("WHEN one more request comes", func(t *testing.T) {
-			sent = 0
-			err := th.do(ctx, request)
-
-			t.Run("THEN it is refused at once as rate-limited, without waiting or sending", func(t *testing.T) {
-				require.ErrorIs(t, err, provider.ErrRateLimited)
-				assert.Zero(t, sent)
-				assert.Empty(t, clock.sleeps)
-			})
-		})
-	})
-
-	t.Run("GIVEN a throttle whose next turn is further away than the longest wait", func(t *testing.T) {
-		clock := &fakeClock{now: start}
-		th := newThrottle(minGap, clock.Now, clock.Sleep)
-		th.next = start.Add(maxWait + time.Second)
-
-		t.Run("WHEN a request comes", func(t *testing.T) {
-			sent = 0
-			err := th.do(ctx, request)
-
-			t.Run("THEN it is refused at once as rate-limited", func(t *testing.T) {
-				require.ErrorIs(t, err, provider.ErrRateLimited)
-				assert.Zero(t, sent)
-				assert.Empty(t, clock.sleeps)
-			})
-		})
-	})
-
 	t.Run("GIVEN a request that TheGamesDB answers with HTTP 429", func(t *testing.T) {
 		clock := &fakeClock{now: start}
 		th := newThrottle(minGap, clock.Now, clock.Sleep)
-		err := th.do(ctx, func() error { return provider.ErrRateLimited })
+		err := th.Do(ctx, func() error { return provider.ErrRateLimited })
 		require.ErrorIs(t, err, provider.ErrRateLimited)
 
 		t.Run("WHEN the next request comes during the back-off", func(t *testing.T) {
 			sent = 0
 			clock.now = clock.now.Add(backoff / 2)
-			err := th.do(ctx, request)
+			err := th.Do(ctx, request)
 
 			t.Run("THEN it fails fast without reaching TheGamesDB", func(t *testing.T) {
 				require.ErrorIs(t, err, provider.ErrRateLimited)
@@ -219,7 +185,7 @@ func TestThrottle_failsFast(t *testing.T) {
 		t.Run("WHEN the next request comes after the back-off", func(t *testing.T) {
 			sent = 0
 			clock.now = start.Add(backoff + time.Second)
-			err := th.do(ctx, request)
+			err := th.Do(ctx, request)
 
 			t.Run("THEN it is sent", func(t *testing.T) {
 				require.NoError(t, err)
@@ -236,12 +202,12 @@ func TestThrottle_quotaDoesNotBackOff(t *testing.T) {
 	t.Run("GIVEN a request that fails because the key's allowance is used up", func(t *testing.T) {
 		clock := &fakeClock{now: time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC)}
 		th := newThrottle(minGap, clock.Now, clock.Sleep)
-		err := th.do(ctx, func() error { return &allowanceError{left: time.Hour} })
+		err := th.Do(ctx, func() error { return &allowanceError{left: time.Hour} })
 		require.ErrorIs(t, err, provider.ErrQuotaExhausted)
 
 		t.Run("WHEN the next request comes", func(t *testing.T) {
 			sent := 0
-			err := th.do(ctx, func() error {
+			err := th.Do(ctx, func() error {
 				sent++
 				return nil
 			})
@@ -262,8 +228,8 @@ func TestTest_skipsTheThrottle(t *testing.T) {
 	t.Run("GIVEN TheGamesDB backing off after a 429", func(t *testing.T) {
 		srv, _ := fakeServer(t)
 		p := testProvider(srv)
-		p.throttle = newThrottle(minGap, time.Now, sleep)
-		p.throttle.next = time.Now().Add(backoff)
+		p.throttle = newThrottle(minGap, nil, nil)
+		_ = p.throttle.Do(ctx, func() error { return provider.ErrRateLimited })
 
 		t.Run("WHEN the settings are tested", func(t *testing.T) {
 			err := p.Test(ctx, schema.Settings{settingAPIKey: "good"})

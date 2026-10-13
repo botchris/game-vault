@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"gamevault/internal/adapters/outbound/apiclient"
+	"gamevault/internal/adapters/outbound/ratelimit"
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
@@ -72,7 +73,7 @@ type Provider struct {
 	API *apiclient.Client
 
 	// throttle spaces the requests (see minGap); a Provider built without New sends them at once.
-	throttle *throttle
+	throttle *ratelimit.Throttle
 
 	// now is the clock; nil means time.Now.
 	now func() time.Time
@@ -95,7 +96,7 @@ func New() *Provider {
 
 	return &Provider{
 		API:      api,
-		throttle: newThrottle(minGap, time.Now, sleep),
+		throttle: newThrottle(minGap, nil, nil),
 		now:      time.Now,
 	}
 }
@@ -169,14 +170,15 @@ var errTooManyRequests = fmt.Errorf("HTTP %d: %w", http.StatusTooManyRequests, p
 // While the key's allowance is used up nothing is sent, not even queued: the lookup gets the
 // allowance error at once. An HTTP 429 checks, still holding the throttle's turn, whether that is
 // its cause, so lookups that queued meanwhile learn the answer when their turn comes; one refused
-// as "busy" while the allowance is used up gets the allowance error instead.
+// by the throttle (busy, or resting) while the allowance is used up gets the allowance error
+// instead.
 func (p *Provider) get(ctx context.Context, path string, q url.Values, out any) error {
 	key := q.Get("apikey")
 	if err := p.usedUp(key); err != nil {
 		return err
 	}
 
-	err := p.throttle.do(ctx, func() error {
+	err := p.throttle.Do(ctx, func() error {
 		// A lookup that queued while the allowance was being checked learns the result here.
 		if err := p.usedUp(key); err != nil {
 			return err
@@ -191,7 +193,7 @@ func (p *Provider) get(ctx context.Context, path string, q url.Values, out any) 
 
 		return err
 	})
-	if errors.Is(err, errQueueFull) {
+	if errors.Is(err, ratelimit.ErrBusy) || errors.Is(err, ratelimit.ErrResting) {
 		if used := p.usedUp(key); used != nil {
 			return used
 		}

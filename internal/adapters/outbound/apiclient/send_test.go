@@ -45,6 +45,10 @@ func fakeSignIn(t *testing.T) *httptest.Server {
 		w.Header().Set("Content-Type", "text/html")
 		w.Write([]byte("<html>Sign in</html>"))
 	})
+	mux.HandleFunc("GET /busy", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Retry-After", r.URL.Query().Get("after"))
+		w.WriteHeader(http.StatusTooManyRequests)
+	})
 	mux.HandleFunc("GET /huge", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"games":["` + strings.Repeat("x", 2048) + `"]}`))
@@ -167,6 +171,43 @@ func TestClient_tooLarge(t *testing.T) {
 				assert.Len(t, out.Games, 1)
 			})
 		})
+	})
+}
+
+func TestStatusError_retryAfter(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	srv := fakeSignIn(t)
+	c := New(srv.URL)
+	c.HTTP = srv.Client()
+
+	retryAfter := func(t *testing.T, after string) time.Duration {
+		t.Helper()
+
+		err := c.Get(ctx, "/busy", url.Values{"after": {after}}, nil)
+
+		var hinted interface{ RetryAfter() time.Duration }
+		require.ErrorAs(t, err, &hinted)
+
+		return hinted.RetryAfter()
+	}
+
+	t.Run("GIVEN a rate limit that says how long to wait", func(t *testing.T) {
+		t.Run("THEN the wait in seconds is read", func(t *testing.T) {
+			assert.Equal(t, 2*time.Minute, retryAfter(t, "120"))
+		})
+
+		t.Run("AND a date is read as the time left until it", func(t *testing.T) {
+			d := retryAfter(t, time.Now().Add(time.Hour).UTC().Format(http.TimeFormat))
+			assert.InDelta(t, float64(time.Hour), float64(d), float64(5*time.Second))
+		})
+	})
+
+	t.Run("GIVEN a rate limit without a usable hint", func(t *testing.T) {
+		for _, after := range []string{"", "soon", "-5"} {
+			assert.Zero(t, retryAfter(t, after), after)
+		}
 	})
 }
 
