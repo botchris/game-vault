@@ -1,10 +1,12 @@
 package eaapp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -19,7 +21,9 @@ import (
 	"gamevault/internal/domain/schema"
 )
 
-func fakeEA(t *testing.T) *httptest.Server {
+// fakeEA serves EA's silent sign-in and the library GraphQL; queries collects the library queries
+// it received.
+func fakeEA(t *testing.T, queries *[]string) *httptest.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /connect/auth", func(w http.ResponseWriter, r *http.Request) {
 		if c, err := r.Cookie("sid"); err != nil || c.Value != "good" {
@@ -59,6 +63,8 @@ func fakeEA(t *testing.T) *httptest.Server {
 		}
 		json.NewDecoder(r.Body).Decode(&body)
 
+		*queries = append(*queries, body.Query)
+
 		if !strings.Contains(body.Query, "ownedGameProducts") {
 			http.Error(w, "bad query", http.StatusBadRequest)
 			return
@@ -83,22 +89,39 @@ func fakeEA(t *testing.T) *httptest.Server {
 }
 
 func newTest(t *testing.T) *Provider {
-	srv := fakeEA(t)
+	p, _ := newTestQueries(t)
+
+	return p
+}
+
+// newTestQueries returns a provider on a fake EA, and the library queries it receives.
+func newTestQueries(t *testing.T) (*Provider, *[]string) {
+	var queries []string
+
+	srv := fakeEA(t, &queries)
 	p := NewProvider()
 	p.Accounts.BaseURL = srv.URL
 	p.Library.BaseURL = srv.URL + "/graphql"
 
-	return p
+	return p, &queries
 }
 
 func TestFetch(t *testing.T) {
 	p := newTest(t)
 	settings := schema.Settings{settingCookies: "Cookie: sid=good; remid=r"}
 
+	var logs bytes.Buffer
+
+	p.log = slog.New(slog.NewTextHandler(&logs, nil))
+
 	copies, warnings, err := p.Fetch(context.Background(), settings)
-	if err != nil || len(warnings) > 0 {
-		t.Fatalf("fetch: %v %v", err, warnings)
+	if err != nil {
+		t.Fatalf("fetch: %v", err)
 	}
+
+	// The EA Play game is left out and counted in the log, not in a warning on every scan.
+	assert.Empty(t, warnings)
+	assert.Contains(t, logs.String(), `reason="EA Play games" count=1`)
 
 	got := make([]string, 0, len(copies))
 	for _, c := range copies {
@@ -113,6 +136,27 @@ func TestFetch(t *testing.T) {
 	if c := browsersession.Current(settings[settingCookies], settings[settingSession]); c["_nx_mpcid"] != "renewed" || c["remid"] != "r" {
 		t.Fatalf("renewed cookies should be kept: %v", c)
 	}
+}
+
+// TestTest_readsOnePage checks that "Test connection" signs in and sends the request of a scan's
+// first library page, with the scan's page size, and stops there.
+func TestTest_readsOnePage(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN cookies that sign in and a library of two pages", func(t *testing.T) {
+		p, queries := newTestQueries(t)
+
+		t.Run("WHEN the source is tested", func(t *testing.T) {
+			err := p.Test(ctx, schema.Settings{settingCookies: "Cookie: sid=good; remid=r"})
+
+			t.Run("THEN it works after one library request, the first page of a scan", func(t *testing.T) {
+				require.NoError(t, err)
+				require.Len(t, *queries, 1)
+				assert.Contains(t, (*queries)[0], "limit: 100,")
+			})
+		})
+	})
 }
 
 func TestSignedOut(t *testing.T) {
@@ -134,7 +178,7 @@ func TestOwnedItems_passingTroubles(t *testing.T) {
 		p := newTest(t)
 
 		t.Run("WHEN the library is read", func(t *testing.T) {
-			_, err := p.ownedItems(ctx, "busy")
+			_, err := p.ownedItems(ctx, "busy", maxPages)
 
 			t.Run("THEN it is a rate limit, not a signed-out session", func(t *testing.T) {
 				require.ErrorIs(t, err, provider.ErrRateLimited)
@@ -171,7 +215,28 @@ func TestMapItems_idWithoutProductID(t *testing.T) {
 	it.Product.Name = "Example Racer™ Deluxe Edition"
 	it.Product.BaseItem.Title = "Example Racer™"
 
-	got := mapItems([]item{it})
+	got, warnings, _ := mapItems([]item{it})
 	require.Len(t, got, 1)
 	assert.Equal(t, "ea:example racer", got[0].ExternalID)
+	assert.Empty(t, warnings)
+}
+
+// TestMapItems_titlesWithoutAnID checks that games without a product id whose titles give no id
+// either (no Latin letters or digits) are skipped and counted, instead of all sharing one id.
+func TestMapItems_titlesWithoutAnID(t *testing.T) {
+	t.Run("GIVEN two games without a product id, titled in a script the id leaves out", func(t *testing.T) {
+		var first, second item
+
+		first.Product.BaseItem.Title = "ドラゴンの冒険"
+		second.Product.BaseItem.Title = "Приключение"
+
+		t.Run("WHEN they are mapped", func(t *testing.T) {
+			got, warnings, _ := mapItems([]item{first, second})
+
+			t.Run("THEN neither is imported, and both are counted in a warning: the user loses them", func(t *testing.T) {
+				assert.Empty(t, got)
+				assert.Equal(t, []string{"2 EA items were not imported: " + unkeyed}, warnings)
+			})
+		})
+	})
 }

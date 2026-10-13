@@ -14,12 +14,12 @@ import (
 	"gamevault/internal/domain/schema"
 )
 
-// externalSources maps the stores whose links IGDB knows to its external game source ids
-// (external_games.external_game_source; same values as the deprecated category enum). The uid is
-// the store's own id: the Steam AppID, the GOG product id, the Epic catalog item id.
 // steamSource is Steam's external game source id.
 const steamSource = 1
 
+// externalSources maps the stores whose links IGDB knows to its external game source ids
+// (external_games.external_game_source; same values as the deprecated category enum). The uid is
+// the store's own id: the Steam AppID, the GOG product id, the Epic catalog item id.
 var externalSources = []struct {
 	link   string
 	source int

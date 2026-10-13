@@ -487,8 +487,9 @@ func (p *Provider) all(ctx context.Context, access, serial string) ([]entitlemen
 	return items, nil
 }
 
-// owned reads the account's games, renewing the access token once if it was rejected.
-func (p *Provider) owned(ctx context.Context, settings schema.Settings) ([]entitlement, error) {
+// owned reads the account's games with read (every page, or a sample), renewing the access token
+// once if it was rejected.
+func (p *Provider) owned(ctx context.Context, settings schema.Settings, read func(ctx context.Context, access, serial string) ([]entitlement, error)) ([]entitlement, error) {
 	s, err := p.sessions.Current(settings)
 	if err != nil {
 		return nil, err
@@ -497,8 +498,8 @@ func (p *Provider) owned(ctx context.Context, settings schema.Settings) ([]entit
 	var items []entitlement
 
 	err = p.sessions.WithRetry(ctx, settings, func(access string) error {
-		read, err := p.all(ctx, access, s.Serial)
-		items = read
+		got, err := read(ctx, access, s.Serial)
+		items = got
 
 		return err
 	})
@@ -554,15 +555,22 @@ func mapEntitlements(items []entitlement) ([]game.ImportedCopy, []string) {
 	return copies, warnings
 }
 
-// Test implements sync.Provider: it reads the library once.
+// Test implements sync.Provider: it sends the request of a scan's first page and stops there, which
+// proves the session (renewing the access token on the way, so the newest session is handed back)
+// without reading the rest of the library.
 func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
-	_, err := p.owned(ctx, settings)
+	_, err := p.owned(ctx, settings, func(ctx context.Context, access, serial string) ([]entitlement, error) {
+		items, _, err := p.page(ctx, access, serial, "")
+
+		return items, err
+	})
+
 	return err
 }
 
 // Fetch implements sync.Provider.
 func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, []string, error) {
-	items, err := p.owned(ctx, settings)
+	items, err := p.owned(ctx, settings, p.all)
 	if err != nil {
 		return nil, nil, err
 	}

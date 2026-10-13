@@ -1,10 +1,13 @@
 package ubisoft
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -108,9 +111,9 @@ func newTest(t *testing.T, full bool) *Provider {
 func titles(t *testing.T, p *Provider, settings schema.Settings) string {
 	t.Helper()
 
-	copies, warnings, err := p.Fetch(context.Background(), settings)
-	if err != nil || len(warnings) > 0 {
-		t.Fatalf("fetch: %v %v", err, warnings)
+	copies, _, err := p.Fetch(context.Background(), settings)
+	if err != nil {
+		t.Fatalf("fetch: %v", err)
 	}
 
 	out := make([]string, 0, len(copies))
@@ -137,6 +140,16 @@ func TestFetchRotatesTheTicket(t *testing.T) {
 	if got := titles(t, p, settings); got != want {
 		t.Fatalf("second scan: %s", got)
 	}
+
+	// The console games linked to the account are left out and counted in the log.
+	var logs bytes.Buffer
+
+	p.log = slog.New(slog.NewTextHandler(&logs, nil))
+
+	_, warnings, err := p.Fetch(context.Background(), settings)
+	require.NoError(t, err)
+	assert.Empty(t, warnings)
+	assert.Contains(t, logs.String(), `reason="console games, which are not in the Ubisoft Connect library" count=48`)
 }
 
 func TestFallsBackToTheMinimalQuery(t *testing.T) {
@@ -291,4 +304,89 @@ func TestTicketSurvivesTestSaveScanRestart(t *testing.T) {
 	if err := restarted.KeepAlive(ctx, saved); err != nil {
 		t.Fatalf("keep-alive: %v", err)
 	}
+}
+
+// TestTest_readsOnePage checks that "Test connection" opens a session and sends the request of a
+// scan's first library page, with the scan's page size, and still hands back the rotated ticket.
+func TestTest_readsOnePage(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a remember-me ticket and a library of two pages", func(t *testing.T) {
+		var limits []float64
+
+		inner := fakeUbisoft(t, true).Config.Handler
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/v1/profiles/me/uplay/graphql" {
+				raw, _ := io.ReadAll(r.Body)
+
+				var body struct{ Variables map[string]float64 }
+				json.Unmarshal(raw, &body)
+
+				limits = append(limits, body.Variables["limit"])
+				r.Body = io.NopCloser(bytes.NewReader(raw))
+			}
+
+			inner.ServeHTTP(w, r)
+		}))
+		t.Cleanup(srv.Close)
+
+		p := NewProvider()
+		p.API.BaseURL = srv.URL
+		settings := schema.Settings{settingLoginData: `{"rememberMeTicket":"rm-1"}`}
+
+		t.Run("WHEN the source is tested", func(t *testing.T) {
+			err := p.Test(ctx, settings)
+
+			t.Run("THEN it works after one library request, the first page of a scan", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.Equal(t, []float64{pageSize}, limits)
+
+				t.Run("AND the rotated ticket is handed back", func(t *testing.T) {
+					assert.Contains(t, settings[settingSession], "rm-2")
+				})
+			})
+		})
+	})
+}
+
+// TestSession_triesEachAppOnce checks that a refused remember-me ticket is offered to each app once:
+// the remembered app goes first, and is not tried again in the usual order after it.
+func TestSession_triesEachAppOnce(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a saved ticket last renewed by the PC app, which Ubisoft no longer accepts", func(t *testing.T) {
+		var apps []string
+
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			apps = append(apps, r.Header.Get("Ubi-AppId"))
+
+			w.WriteHeader(http.StatusUnauthorized)
+		}))
+		t.Cleanup(srv.Close)
+
+		p := NewProvider()
+		p.API.BaseURL = srv.URL
+
+		pasted := `{"rememberMeTicket":"rm-1"}`
+		saved, err := json.Marshal(state{
+			From:             hash(pasted),
+			RememberMeTicket: "rm-2",
+			AppID:            pcAppID,
+		})
+		require.NoError(t, err)
+
+		t.Run("WHEN a session is opened", func(t *testing.T) {
+			_, err := p.session(ctx, schema.Settings{
+				settingLoginData: pasted,
+				settingSession:   string(saved),
+			}, true)
+
+			t.Run("THEN the user is signed out after one try per app, the remembered one first", func(t *testing.T) {
+				require.ErrorIs(t, err, ErrSignedOut)
+				assert.Equal(t, []string{pcAppID, webAppID}, apps)
+			})
+		})
+	})
 }

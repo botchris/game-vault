@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"slices"
-	"strings"
 	"time"
 
 	"gamevault/internal/adapters/outbound/apiclient"
@@ -89,19 +87,11 @@ func (p *Prices) Descriptor() provider.Descriptor {
 // user's order; Spain when none is set or valid. Unlike barcode lookups, prices never fall back to
 // every CeX store: a product unknown in the user's market is simply not priced.
 func priceCountries(s schema.Settings) []string {
-	var out []string
-
-	for c := range strings.SplitSeq(strings.ToLower(s[settingCountries]), ",") {
-		if c = strings.TrimSpace(c); slices.Contains(Countries, c) && !slices.Contains(out, c) {
-			out = append(out, c)
-		}
+	if out := parseCountries(s[settingCountries]); len(out) > 0 {
+		return out
 	}
 
-	if len(out) == 0 {
-		return []string{"es"}
-	}
-
-	return out
+	return []string{"es"}
 }
 
 // Estimate implements valuation.Provider: the first country whose catalog has the barcode answers.

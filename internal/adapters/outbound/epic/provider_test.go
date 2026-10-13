@@ -1,10 +1,12 @@
 package epic
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -35,6 +37,9 @@ type fakeEpic struct {
 
 	// revoked holds the access tokens Epic revoked before their time.
 	revoked map[string]bool
+
+	// libraryPages counts the library pages served.
+	libraryPages int
 }
 
 func (f *fakeEpic) handler(t *testing.T) http.Handler {
@@ -85,6 +90,7 @@ func (f *fakeEpic) handler(t *testing.T) http.Handler {
 	mux.HandleFunc("GET /library/api/public/items", func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		revoked := f.revoked[strings.TrimPrefix(r.Header.Get("Authorization"), "bearer ")]
+		f.libraryPages++
 		f.mu.Unlock()
 
 		if f.rejectAll || revoked || !strings.HasPrefix(r.Header.Get("Authorization"), "bearer access-") {
@@ -176,10 +182,18 @@ func TestPrepareTestAndFetch(t *testing.T) {
 		t.Fatalf("test: %v", err)
 	}
 
+	var logs bytes.Buffer
+
+	p.log = slog.New(slog.NewTextHandler(&logs, nil))
+
 	copies, warnings, err := p.Fetch(ctx, settings)
-	if err != nil || len(warnings) > 0 {
-		t.Fatalf("fetch: %v %v", err, warnings)
+	if err != nil {
+		t.Fatalf("fetch: %v", err)
 	}
+
+	// The library's DLC is left out and counted in the log, not in a warning on every scan.
+	assert.Empty(t, warnings)
+	assert.Contains(t, logs.String(), `reason="DLC, add-ons and applications" count=1`)
 
 	titles := make([]string, 0, len(copies))
 	for _, c := range copies {
@@ -224,6 +238,32 @@ func TestPrepareErrors(t *testing.T) {
 	if !errors.Is(err, ErrSignedOut) {
 		t.Errorf("stale session: %v", err)
 	}
+}
+
+// TestTest_readsOnePage checks that "Test connection" reads one library page, not the whole
+// library, and still hands back the rotated session.
+func TestTest_readsOnePage(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a stored session and a library of two pages", func(t *testing.T) {
+		p, f := newTestProvider(t)
+		f.refresh = "refresh-0"
+		settings := schema.Settings{settingSession: `{"refresh_token":"refresh-0","account_id":"acc1"}`}
+
+		t.Run("WHEN the source is tested", func(t *testing.T) {
+			err := p.Test(ctx, settings)
+
+			t.Run("THEN it works after reading one page", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.Equal(t, 1, f.libraryPages)
+
+				t.Run("AND the rotated session is handed back", func(t *testing.T) {
+					assert.Contains(t, settings[settingSession], "refresh-1")
+				})
+			})
+		})
+	})
 }
 
 // TestTokenEndpoint_passingTroubles checks that a rate limit or an outage of the token endpoint is

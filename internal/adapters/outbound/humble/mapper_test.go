@@ -1,8 +1,10 @@
 package humble
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -127,6 +129,20 @@ func TestMapOrders_nonGameKeys(t *testing.T) {
 				assert.Equal(t, []string{"Ashampoo Photo Optimizer 7", "45% off Street Fighter V PS Store Coupon", "Duelyst - 20 Spirit Orbs"}, skipped)
 				assert.True(t, copies[0].Withdrawn)
 				assert.Equal(t, "humble:CCC:ashampoo_photooptimizer7:0", copies[0].ExternalID)
+			})
+		})
+	})
+}
+
+func TestSkippedKeys(t *testing.T) {
+	t.Run("GIVEN a scan that skipped three keys that are not games", func(t *testing.T) {
+		t.Run("WHEN they are logged", func(t *testing.T) {
+			var logs bytes.Buffer
+
+			skippedKeys(3).Log(slog.New(slog.NewTextHandler(&logs, nil)))
+
+			t.Run("THEN one line counts them", func(t *testing.T) {
+				assert.Contains(t, logs.String(), `store="Humble Bundle" reason="software, courses, in-game items and store coupons" count=3`)
 			})
 		})
 	})

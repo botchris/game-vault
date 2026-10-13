@@ -15,6 +15,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -80,6 +81,9 @@ type session struct {
 
 // Provider implements sync.Provider and sync.Preparer for Xbox accounts.
 type Provider struct {
+	// log receives what a scan skips on purpose (WithLogger).
+	log *slog.Logger
+
 	// Live calls the Microsoft account service (codes and tokens); tests point it at a fake server.
 	Live *apiclient.Client
 
@@ -109,7 +113,7 @@ type Provider struct {
 }
 
 // NewProvider returns the Xbox / Microsoft Store source with its production endpoints.
-func NewProvider() *Provider {
+func NewProvider(opts ...Option) *Provider {
 	p := &Provider{
 		Live:        newClient(defaultLiveURL, 30*time.Second),
 		UserAuth:    newClient(defaultUserAuthURL, 30*time.Second),
@@ -130,6 +134,10 @@ func NewProvider() *Provider {
 		ErrNoCredentials: ErrNoCredentials,
 		ErrSignedOut:     ErrSignedOut,
 		Now:              func() time.Time { return p.Now() },
+	}
+
+	for _, opt := range opts {
+		opt(p)
 	}
 
 	return p
@@ -388,15 +396,19 @@ func (e entitlement) owned() bool {
 	return !strings.EqualFold(e.AcquisitionType, "Recurring")
 }
 
-func (p *Provider) entitlements(ctx context.Context, auth string) ([]entitlement, error) {
+// entitlementsPage is the largest page of the Store collections asked for.
+const entitlementsPage = 1000
+
+// entitlements reads up to pages pages of entitlements from the Store collections.
+func (p *Provider) entitlements(ctx context.Context, auth string, pages int) ([]entitlement, error) {
 	var all []entitlement
 
 	token := ""
 
-	for range maxPages {
+	for range pages {
 		// beneficiaries is required; empty means the signed-in user (the XBL3.0 token).
 		body := map[string]any{
-			"beneficiaries": []any{}, "maxPageSize": 1000, "market": p.Market, "languages": []string{p.Language},
+			"beneficiaries": []any{}, "maxPageSize": entitlementsPage, "market": p.Market, "languages": []string{p.Language},
 			"validityType": "Valid", "excludeDuplicates": true, "productSkuIds": []string{}, "entitlementFilters": []string{},
 		}
 		if token != "" {
@@ -471,9 +483,9 @@ func catalog(ctx context.Context, api *apiclient.Client, market, language string
 	return out, nil
 }
 
-// owned reads the games the account owns. A rejected access token is renewed once, and the Xbox
-// Live tokens made again from the new one.
-func (p *Provider) owned(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, error) {
+// collections reads up to pages pages of entitlements. A rejected access token is renewed once,
+// and the Xbox Live tokens made again from the new one.
+func (p *Provider) collections(ctx context.Context, settings schema.Settings, pages int) ([]entitlement, error) {
 	var ents []entitlement
 
 	err := p.sessions.WithRetry(ctx, settings, func(access string) error {
@@ -482,34 +494,64 @@ func (p *Provider) owned(ctx context.Context, settings schema.Settings) ([]game.
 			return err
 		}
 
-		ents, err = p.entitlements(ctx, auth)
+		ents, err = p.entitlements(ctx, auth, pages)
 
 		return err
 	})
+
+	return ents, err
+}
+
+// notOwned is the reason Game Pass games, trials, add-ons and lapsed entitlements are skipped.
+const notOwned = "Game Pass games, trials, add-ons and expired or revoked items"
+
+// owned reads the games the account owns: its entitlements, then their titles in the catalog. What
+// it leaves out is counted in the Skipped it returns.
+func (p *Provider) owned(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, source.Skipped, error) {
+	ents, err := p.collections(ctx, settings, maxPages)
 	if err != nil {
-		return nil, err
+		return nil, source.Skipped{}, err
 	}
 
 	var ids []string
 
 	seen := map[string]bool{}
+	lapsed := map[string]bool{}
+
 	for _, e := range ents {
-		if e.owned() && !seen[e.ProductID] {
+		switch {
+		case seen[e.ProductID]:
+		case e.owned():
 			seen[e.ProductID] = true
 			ids = append(ids, e.ProductID)
+		default:
+			lapsed[e.ProductID] = true
+		}
+	}
+
+	skipped := source.Skipped{Store: "Microsoft Store"}
+
+	for id := range lapsed {
+		if !seen[id] {
+			skipped.Add(notOwned)
 		}
 	}
 
 	products, err := catalog(ctx, p.Catalog, p.Market, p.Language, ids)
 	if err != nil {
-		return nil, err
+		return nil, source.Skipped{}, err
 	}
 
 	var out []game.ImportedCopy
 
 	for _, id := range ids {
 		pr, ok := products[id]
-		if !ok || len(pr.LocalizedProperties) == 0 || (pr.ProductKind != "" && !strings.EqualFold(pr.ProductKind, "Game")) {
+		switch {
+		case !ok || len(pr.LocalizedProperties) == 0:
+			skipped.Add("products the Store catalog does not describe")
+			continue
+		case pr.ProductKind != "" && !strings.EqualFold(pr.ProductKind, "Game"):
+			skipped.Add(notOwned)
 			continue
 		}
 
@@ -533,21 +575,26 @@ func (p *Provider) owned(ctx context.Context, settings schema.Settings) ([]game.
 
 	sort.Slice(out, func(i, j int) bool { return out[i].Title < out[j].Title })
 
-	return out, nil
+	return out, skipped, nil
 }
 
-// Test implements sync.Provider.
+// Test implements sync.Provider: it signs in to Xbox Live and sends the request of a scan's first
+// collections page, which proves the session (renewed on the way, so the rotated one is handed
+// back) without reading the rest of the collections or the catalog.
 func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
-	_, err := p.owned(ctx, settings)
+	_, err := p.collections(ctx, settings, 1)
+
 	return err
 }
 
 // Fetch implements sync.Provider.
 func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, []string, error) {
-	copies, err := p.owned(ctx, settings)
+	copies, skipped, err := p.owned(ctx, settings)
 	if err != nil {
 		return nil, nil, err
 	}
+
+	skipped.Log(p.log)
 
 	var warnings []string
 	if len(copies) == 0 {
@@ -555,4 +602,13 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 	}
 
 	return copies, warnings, nil
+}
+
+// Option configures a Provider.
+type Option func(*Provider)
+
+// WithLogger sends what a scan skips on purpose (DLC, subscription games, what is not a game) to
+// log, one line per reason with its count. Without it nothing is logged.
+func WithLogger(log *slog.Logger) Option {
+	return func(p *Provider) { p.log = log }
 }

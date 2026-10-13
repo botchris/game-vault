@@ -17,8 +17,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	gosync "sync"
@@ -145,6 +147,9 @@ func hash(s string) string {
 // oauthsession's: the ticket is not an OAuth refresh token (no code, no access token lifetime), and
 // the pasted ticket and session id are tried before spending it.
 type Provider struct {
+	// log receives what a scan skips on purpose (WithLogger).
+	log *slog.Logger
+
 	// API calls Ubisoft's public gateway (sign-in and library); tests point it at a fake server.
 	API *apiclient.Client
 
@@ -165,16 +170,21 @@ type cached struct {
 const sessionTTL = time.Hour
 
 // NewProvider returns the Ubisoft Connect source with its production endpoints.
-func NewProvider() *Provider {
+func NewProvider(opts ...Option) *Provider {
 	// The gateway serves the session of the user's browser, so requests look like that browser.
 	api := apiclient.New(defaultAPIURL)
 	api.HTTP.Timeout = 30 * time.Second
 	api.UserAgent = apiclient.BrowserUserAgent
 
-	return &Provider{
+	p := &Provider{
 		API: api,
 		Now: time.Now,
 	}
+	for _, opt := range opts {
+		opt(p)
+	}
+
+	return p
 }
 
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
@@ -231,15 +241,63 @@ type session struct {
 // session opens a session, spending the remember-me ticket as little as possible because Ubisoft
 // replaces it on every use: a session opened recently is reused, then the ticket and session id
 // pasted (still valid for a few hours after copying them), and only then the remember-me ticket is
-// renewed. The new remember-me ticket is kept in memory and written back into settings for the
-// caller to persist. fresh skips the reuse (the previous session was rejected).
+// renewed. The newest remember-me ticket is written back into settings for the caller to persist,
+// on every call. fresh skips the reuse (the previous session was rejected).
 func (p *Provider) session(ctx context.Context, settings schema.Settings, fresh bool) (session, error) {
-	pasted := settings[settingLoginData]
-	key := hash(pasted)
-	d := parseLoginData(pasted)
+	key := hash(settings[settingLoginData])
+	d := parseLoginData(settings[settingLoginData])
+	st := p.latestState(settings, key)
+
+	if !fresh {
+		if s, ok := p.reuse(key, d, st); ok {
+			return s, nil
+		}
+	}
+
+	rememberMe := st.RememberMeTicket
+	if rememberMe == "" {
+		rememberMe = d.RememberMeTicket
+	}
+
+	if rememberMe == "" {
+		return session{}, ErrNoCredentials
+	}
+
+	sess, next, err := p.renewAny(ctx, rememberMe, st.AppID)
+	if err != nil {
+		return session{}, err
+	}
+
+	next.From = key
 
 	p.mu.Lock()
-	c, open := p.sessions[key]
+	if p.rotated == nil {
+		p.rotated = map[string]state{}
+	}
+
+	if p.sessions == nil {
+		p.sessions = map[string]cached{}
+	}
+
+	p.rotated[key] = next
+	p.sessions[key] = cached{
+		s:       sess,
+		expires: p.Now().Add(sessionTTL),
+	}
+	p.mu.Unlock()
+
+	raw, _ := json.Marshal(next)
+	settings[settingSession] = string(raw)
+
+	return sess, nil
+}
+
+// latestState returns the newest remember-me ticket known for the pasted login data (key is its
+// hash): the one in memory, else the saved one. The ticket in memory may be newer than the saved
+// one (a test, a scan or a keep-alive rotated it), so it is always written back into settings for
+// the caller to persist, or a restart would lose it.
+func (p *Provider) latestState(settings schema.Settings, key string) state {
+	p.mu.Lock()
 	st := p.rotated[key]
 	p.mu.Unlock()
 
@@ -249,86 +307,66 @@ func (p *Provider) session(ctx context.Context, settings schema.Settings, fresh 
 	}
 
 	if st.RememberMeTicket == "" {
-		st = saved
+		return saved
 	}
-	// The ticket in memory may be newer than the saved one (a test, a scan or a keep-alive rotated
-	// it): always hand it back for the caller to persist, or a restart would lose it.
-	if st.RememberMeTicket != "" && st != saved {
+
+	if st != saved {
 		raw, _ := json.Marshal(st)
 		settings[settingSession] = string(raw)
 	}
 
-	if !fresh && open && p.Now().Before(c.expires) {
-		return c.s, nil
+	return st
+}
+
+// reuse returns a session that needs no renewal: one opened recently for the pasted login data d
+// (key is its hash), or, before any remember-me ticket was renewed (st is empty), the ticket and
+// session id pasted with it, which the first query checks.
+func (p *Provider) reuse(key string, d loginData, st state) (session, bool) {
+	p.mu.Lock()
+	c, open := p.sessions[key]
+	p.mu.Unlock()
+
+	switch {
+	case open && p.Now().Before(c.expires):
+		return c.s, true
+	case st.RememberMeTicket == "" && d.Ticket != "" && d.SessionID != "":
+		return session{d.Ticket, d.SessionID, webAppID}, true
 	}
 
-	if !fresh && st.RememberMeTicket == "" && d.Ticket != "" && d.SessionID != "" {
-		return session{d.Ticket, d.SessionID, webAppID}, nil // checked by the first query
-	}
+	return session{}, false
+}
 
-	if st.RememberMeTicket != "" {
-		d.RememberMeTicket = st.RememberMeTicket
-	}
-
-	if d.RememberMeTicket == "" {
-		return session{}, ErrNoCredentials
-	}
-
+// renewAny renews the remember-me ticket with the first app that accepts it, the remembered one
+// (last, possibly empty) first, then the others once each: a ticket may only be renewable by the app
+// that issued it. It returns the session and the state to keep (without From); ErrSignedOut when
+// every app refused the ticket.
+func (p *Provider) renewAny(ctx context.Context, rememberMe, last string) (session, state, error) {
 	order := appIDs
-	if st.AppID != "" {
-		order = append([]string{st.AppID}, appIDs...)
+	if last != "" {
+		order = append([]string{last}, slices.DeleteFunc(slices.Clone(appIDs), func(a string) bool { return a == last })...)
 	}
-
-	err := ErrSignedOut
 
 	for _, app := range order {
-		var (
-			sess session
-			rm   string
-		)
-
-		sess, rm, err = p.renew(ctx, d.RememberMeTicket, app)
+		sess, rm, err := p.renew(ctx, rememberMe, app)
 		if errors.Is(err, ErrSignedOut) {
-			continue // a ticket may only be renewable by the app that issued it
+			continue
 		}
 
 		if err != nil {
-			return session{}, err
+			return session{}, state{}, err
 		}
 
 		if rm == "" {
-			rm = d.RememberMeTicket
+			rm = rememberMe
 		}
 
-		next := state{
-			From:             key,
+		return sess, state{
 			RememberMeTicket: rm,
 			AppID:            app,
-		}
-
-		p.mu.Lock()
-		if p.rotated == nil {
-			p.rotated = map[string]state{}
-		}
-
-		if p.sessions == nil {
-			p.sessions = map[string]cached{}
-		}
-
-		p.rotated[key] = next
-		p.sessions[key] = cached{
-			s:       sess,
-			expires: p.Now().Add(sessionTTL),
-		}
-		p.mu.Unlock()
-
-		raw, _ := json.Marshal(next)
-		settings[settingSession] = string(raw)
-
-		return sess, nil
+		}, nil
 	}
 
-	return session{}, err
+	return session{}, state{}, ErrSignedOut
 }
 
 // renew exchanges a remember-me ticket for a session as the given app.
@@ -413,10 +451,10 @@ func (p *Provider) query(ctx context.Context, s session, q string, offset int) (
 	return g.Nodes, g.TotalCount, nil
 }
 
-// all reads every page of a query.
-func (p *Provider) all(ctx context.Context, s session, q string) ([]node, error) {
+// all reads up to pages pages of a query.
+func (p *Provider) all(ctx context.Context, s session, q string, pages int) ([]node, error) {
 	var nodes []node
-	for page := 0; page < maxPages; page++ {
+	for range pages {
 		batch, total, err := p.query(ctx, s, q, len(nodes))
 		if err != nil {
 			return nil, err
@@ -431,7 +469,9 @@ func (p *Provider) all(ctx context.Context, s session, q string) ([]node, error)
 	return nodes, nil
 }
 
-func (p *Provider) owned(ctx context.Context, settings schema.Settings) ([]node, error) {
+// owned reads up to pages pages of owned games, opening a new session once when the reused or
+// pasted one expired.
+func (p *Provider) owned(ctx context.Context, settings schema.Settings, pages int) ([]node, error) {
 	read := func(fresh bool) ([]node, error) {
 		s, err := p.session(ctx, settings, fresh)
 		if err != nil {
@@ -440,11 +480,11 @@ func (p *Provider) owned(ctx context.Context, settings schema.Settings) ([]node,
 
 		// Only a query Ubisoft rejects is retried as the minimal one: after a rate limit or an
 		// outage, a second query would meet the same trouble.
-		nodes, err := p.all(ctx, s, ownedGamesQuery)
+		nodes, err := p.all(ctx, s, ownedGamesQuery, pages)
 
 		var rejected *apiclient.GraphQLError
 		if errors.As(err, &rejected) {
-			nodes, err = p.all(ctx, s, minimalQuery)
+			nodes, err = p.all(ctx, s, minimalQuery, pages)
 		}
 
 		return nodes, err
@@ -486,9 +526,10 @@ func onPC(n node) bool {
 }
 
 // mapNodes turns owned games into copies, one per game; console games linked to the account are
-// left out (they are not in the Ubisoft Connect library).
-func mapNodes(nodes []node) []game.ImportedCopy {
+// left out (they are not in the Ubisoft Connect library) and counted in the Skipped it returns.
+func mapNodes(nodes []node) ([]game.ImportedCopy, source.Skipped) {
 	seen := map[string]bool{}
+	skipped := source.Skipped{Store: "Ubisoft"}
 
 	var out []game.ImportedCopy
 
@@ -500,11 +541,17 @@ func mapNodes(nodes []node) []game.ImportedCopy {
 			id = n.ID
 		}
 
-		if title == "" || id == "" || seen[id] || !onPC(n) {
+		if title == "" || id == "" || seen[id] {
 			continue
 		}
 
 		seen[id] = true
+
+		if !onPC(n) {
+			skipped.Add("console games, which are not in the Ubisoft Connect library")
+			continue
+		}
+
 		out = append(out, game.ImportedCopy{
 			ExternalID: "ubisoft:" + id,
 			Links:      game.Links{LinkedStore.Key: id},
@@ -520,23 +567,28 @@ func mapNodes(nodes []node) []game.ImportedCopy {
 
 	sort.Slice(out, func(i, j int) bool { return out[i].Title < out[j].Title })
 
-	return out
+	return out, skipped
 }
 
-// Test implements sync.Provider.
+// Test implements sync.Provider: it opens (or reuses) a session and sends the request of a scan's
+// first library page.
+// Opening a session renews the remember-me ticket, which is handed back as a scan's is; the open
+// session is then reused by a scan that follows, so a test does not cost a second renewal.
 func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
-	_, _, err := p.Fetch(ctx, settings)
+	_, err := p.owned(ctx, settings, 1)
+
 	return err
 }
 
 // Fetch implements sync.Provider.
 func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, []string, error) {
-	nodes, err := p.owned(ctx, settings)
+	nodes, err := p.owned(ctx, settings, maxPages)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	copies := mapNodes(nodes)
+	copies, skipped := mapNodes(nodes)
+	skipped.Log(p.log)
 
 	var warnings []string
 	if len(copies) == 0 {
@@ -544,4 +596,13 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 	}
 
 	return copies, warnings, nil
+}
+
+// Option configures a Provider.
+type Option func(*Provider)
+
+// WithLogger sends what a scan skips on purpose (DLC, subscription games, what is not a game) to
+// log, one line per reason with its count. Without it nothing is logged.
+func WithLogger(log *slog.Logger) Option {
+	return func(p *Provider) { p.log = log }
 }

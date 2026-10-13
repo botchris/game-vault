@@ -46,6 +46,7 @@ type fakeAmazon struct {
 	refreshes      int
 	accountStatus  int // when set, the account API (register, token) answers only this status
 	libraryStatus  int // when set, the entitlements service answers only this status
+	libraryBodies  []map[string]any
 }
 
 func (f *fakeAmazon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -84,6 +85,8 @@ func (f *fakeAmazon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		w.Write([]byte(refreshed))
 	case "/api/distribution/entitlements":
+		f.libraryBodies = append(f.libraryBodies, body)
+
 		if f.libraryStatus != 0 {
 			w.WriteHeader(f.libraryStatus)
 			return
@@ -246,6 +249,41 @@ func TestFetch_readsTheLibrary(t *testing.T) {
 
 			t.Run("THEN it fails with ErrSignedOut", func(t *testing.T) {
 				assert.ErrorIs(t, err, ErrSignedOut)
+			})
+		})
+	})
+}
+
+// TestTest_readsOnePage checks that "Test connection" sends the request of a scan's first page, with
+// the scan's page size, and stops there: the button answers at once without a request shape
+// Amazon has never seen.
+func TestTest_readsOnePage(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a stored session and a library of two pages", func(t *testing.T) {
+		fake := &fakeAmazon{}
+		p := newTestProvider(t, fake)
+
+		t.Run("WHEN the source is tested", func(t *testing.T) {
+			err := p.Test(ctx, schema.Settings{settingSession: `{"refresh_token":"Atnr|good","serial":"SERIAL"}`})
+
+			t.Run("THEN it works after one request, the first page of a scan", func(t *testing.T) {
+				require.NoError(t, err)
+				require.Len(t, fake.libraryBodies, 1)
+				assert.InDelta(t, pageSize, fake.libraryBodies[0]["maxResults"], 0)
+			})
+		})
+	})
+
+	t.Run("GIVEN a session Amazon revoked", func(t *testing.T) {
+		p := newTestProvider(t, &fakeAmazon{revoked: true})
+
+		t.Run("WHEN the source is tested", func(t *testing.T) {
+			err := p.Test(ctx, schema.Settings{settingSession: `{"refresh_token":"Atnr|good","serial":"SERIAL"}`})
+
+			t.Run("THEN it says to sign in again", func(t *testing.T) {
+				require.ErrorIs(t, err, ErrSignedOut)
 			})
 		})
 	})

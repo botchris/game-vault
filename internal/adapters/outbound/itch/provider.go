@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"slices"
@@ -47,12 +48,22 @@ var (
 
 // Provider implements sync.Provider for itch.io accounts.
 type Provider struct {
+	// log receives what a scan skips on purpose (WithLogger).
+	log *slog.Logger
+
 	// API calls api.itch.io; tests point it at a fake server.
 	API *apiclient.Client
 }
 
 // NewProvider returns the itch.io source with its production endpoints.
-func NewProvider() *Provider { return &Provider{API: apiclient.New(defaultBaseURL)} }
+func NewProvider(opts ...Option) *Provider {
+	p := &Provider{API: apiclient.New(defaultBaseURL)}
+	for _, opt := range opts {
+		opt(p)
+	}
+
+	return p
+}
 
 // LinkStore implements sync.StoreLinker.
 func (p *Provider) LinkStore() game.Store { return LinkedStore }
@@ -173,7 +184,8 @@ func (p *Provider) ownedKeys(ctx context.Context, settings schema.Settings, n, s
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("itch.io owned keys: %w", err)
+		// A 429, an outage, no answer or a web page is a passing trouble, not a refused key.
+		return nil, fmt.Errorf("itch.io owned keys: %w", apiclient.ClassifyError(ctx, err))
 	}
 
 	if len(out.Errors) > 0 {
@@ -211,20 +223,19 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 		keys = append(keys, got...)
 	}
 
-	copies, warnings := mapKeys(keys)
+	copies, skipped := mapKeys(keys)
+	skipped.Log(p.log)
 
-	return copies, warnings, nil
+	return copies, nil, nil
 }
 
 // mapKeys turns keys into one library copy per game: a game bought twice, or bought and then
 // claimed again in a bundle, is still one game in the library. The earliest key dates the copy.
-// What is not a game (tools, assets, soundtracks, books…) is skipped and counted in a warning.
-func mapKeys(keys []ownedKey) ([]game.ImportedCopy, []string) {
-	var (
-		copies  []game.ImportedCopy
-		skipped int
-	)
+// What is not a game (tools, assets, soundtracks, books…) is skipped and counted (see Fetch).
+func mapKeys(keys []ownedKey) ([]game.ImportedCopy, source.Skipped) {
+	var copies []game.ImportedCopy
 
+	skipped := source.Skipped{Store: Platform}
 	index := map[int64]int{}
 
 	for _, k := range keys {
@@ -235,7 +246,7 @@ func mapKeys(keys []ownedKey) ([]game.ImportedCopy, []string) {
 
 		title := strings.TrimSpace(k.Game.Title)
 		if id == 0 || title == "" || !isGame(k.Game.Classification) {
-			skipped++
+			skipped.Add("tools, assets, soundtracks, books and other things that are not games")
 			continue
 		}
 
@@ -266,12 +277,7 @@ func mapKeys(keys []ownedKey) ([]game.ImportedCopy, []string) {
 		})
 	}
 
-	var warnings []string
-	if skipped > 0 {
-		warnings = append(warnings, fmt.Sprintf("%d itch.io items were not imported: tools, assets, soundtracks, books and other things that are not games", skipped))
-	}
-
-	return copies, warnings
+	return copies, skipped
 }
 
 func isGame(classification string) bool {
@@ -286,4 +292,13 @@ func origin(k ownedKey) string {
 	}
 
 	return "itch.io bundle, claim or gift"
+}
+
+// Option configures a Provider.
+type Option func(*Provider)
+
+// WithLogger sends what a scan skips on purpose (DLC, subscription games, what is not a game) to
+// log, one line per reason with its count. Without it nothing is logged.
+func WithLogger(log *slog.Logger) Option {
+	return func(p *Provider) { p.log = log }
 }

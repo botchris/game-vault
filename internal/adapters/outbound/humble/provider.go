@@ -6,6 +6,7 @@ package humble
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -118,10 +119,21 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 
 	copies, skipped, warnings := MapOrders(orders, time.Now())
 	if len(skipped) > 0 {
-		p.logf("humble: skipped keys that are not games", "count", len(skipped), "titles", strings.Join(skipped, "; "))
+		skippedKeys(len(skipped)).Log(p.Log)
+		p.logf("humble: skipped keys that are not games", "titles", strings.Join(skipped, "; "))
 	}
 
 	return copies, warnings, nil
+}
+
+// skippedKeys counts the n keys that are not games.
+func skippedKeys(n int) *source.Skipped {
+	skipped := &source.Skipped{Store: "Humble Bundle"}
+	for range n {
+		skipped.Add("software, courses, in-game items and store coupons")
+	}
+
+	return skipped
 }
 
 // get reads one of Humble's endpoints with the session cookie. A refusal or a redirect to the
@@ -161,8 +173,14 @@ func (p *Provider) listGamekeys(ctx context.Context, cookie string) ([]string, e
 	var list []struct {
 		Gamekey string `json:"gamekey"`
 	}
-	if err := res.Decode(&list); err != nil {
+
+	err = res.Decode(&list)
+
+	switch {
+	case errors.Is(err, apiclient.ErrNotJSON):
 		return nil, ErrSignedOut // an HTML sign-in page served with a 200 instead of the list
+	case err != nil:
+		return nil, fmt.Errorf("humble bundle order list: %w", err)
 	}
 
 	keys := make([]string, len(list))

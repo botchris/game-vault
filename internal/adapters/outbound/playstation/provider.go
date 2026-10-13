@@ -495,7 +495,8 @@ var errQueryRetired = errors.New("playstation library: the library query is no l
 // before its time. The sessions renew it once (WithRetry); only a refused renewal is signed out.
 var errTokenRejected = fmt.Errorf("playstation rejected the access token: %w", apiclient.ErrTokenRejected)
 
-func (p *Provider) purchased(ctx context.Context, token string) ([]title, error) {
+// purchased reads up to pages pages of purchases, with the first library query Sony still runs.
+func (p *Provider) purchased(ctx context.Context, token string, pages int) ([]title, error) {
 	var lastErr error
 
 	for _, hash := range purchasedQueryHashes {
@@ -504,7 +505,7 @@ func (p *Provider) purchased(ctx context.Context, token string) ([]title, error)
 			err error
 		)
 
-		for page := 0; page < maxPages; page++ {
+		for range pages {
 			var (
 				batch []title
 				last  bool
@@ -556,10 +557,10 @@ func platformName(p string) string {
 }
 
 // mapTitles turns purchased titles into copies, one per game and platform; PS Plus games and
-// inactive entitlements are left out. Titles that are not games (named so, or found in nonGames)
-// are reported as withdrawn, so a copy imported before they were told apart is removed, and their
-// names are listed in skipped.
-func mapTitles(titles []title, nonGames *nonGameIndex) (out []game.ImportedCopy, skipped []string) {
+// inactive entitlements are left out, PS Plus games counted in skips. Titles that are not games
+// (named so, or found in nonGames) are reported as withdrawn, so a copy imported before they were
+// told apart is removed, counted in skips and their names listed in skipped.
+func mapTitles(titles []title, nonGames *nonGameIndex, skips *source.Skipped) (out []game.ImportedCopy, skipped []string) {
 	seen := map[string]bool{}
 
 	for _, t := range titles {
@@ -569,7 +570,8 @@ func mapTitles(titles []title, nonGames *nonGameIndex) (out []game.ImportedCopy,
 		}
 
 		if m := strings.ToUpper(t.Membership); m != "" && m != "NONE" {
-			continue // PS Plus (or another subscription)
+			skips.Add("PS Plus games") // or another subscription's
+			continue
 		}
 
 		id := t.EntitlementID
@@ -594,6 +596,8 @@ func mapTitles(titles []title, nonGames *nonGameIndex) (out []game.ImportedCopy,
 				Withdrawn:  true,
 			})
 			skipped = append(skipped, name)
+
+			skips.Add("apps and other titles that are not games")
 
 			continue
 		}
@@ -626,10 +630,11 @@ func mapTitles(titles []title, nonGames *nonGameIndex) (out []game.ImportedCopy,
 	return out, skipped
 }
 
-// Test implements sync.Provider: it signs in and reads the purchases, without the played titles.
+// Test implements sync.Provider: it signs in and reads the first page of purchases, without the rest
+// of the library or the played titles.
 func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
 	return p.withToken(ctx, settings, func(token string) error {
-		_, err := p.purchased(ctx, token)
+		_, err := p.purchased(ctx, token, 1)
 
 		return err
 	})
@@ -646,7 +651,7 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 		var err error
 
 		token = tok
-		titles, err = p.purchased(ctx, tok)
+		titles, err = p.purchased(ctx, tok, maxPages)
 
 		return err
 	})
@@ -654,9 +659,13 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 		return nil, nil, err
 	}
 
-	copies, skipped := mapTitles(titles, p.playedNonGames(ctx, token))
+	skips := source.Skipped{Store: "PlayStation"}
+
+	copies, skipped := mapTitles(titles, p.playedNonGames(ctx, token), &skips)
+	skips.Log(p.Log)
+
 	if len(skipped) > 0 && p.Log != nil {
-		p.Log.Info("playstation: skipped titles that are not games", "count", len(skipped), "titles", strings.Join(skipped, "; "))
+		p.Log.Info("playstation: skipped titles that are not games", "titles", strings.Join(skipped, "; "))
 	}
 
 	var warnings []string

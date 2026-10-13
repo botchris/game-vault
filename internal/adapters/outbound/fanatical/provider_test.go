@@ -1,7 +1,9 @@
 package fanatical
 
 import (
+	"bytes"
 	"context"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -62,7 +64,10 @@ func TestFetch_readsTheKeys(t *testing.T) {
 	defer cancel()
 
 	srv := fakeFanatical(t)
-	p := NewProvider()
+
+	var logs bytes.Buffer
+
+	p := NewProvider(WithLogger(slog.New(slog.NewTextHandler(&logs, nil))))
 	p.API.BaseURL, p.API.HTTP = srv.URL, srv.Client()
 
 	t.Run("GIVEN the whole bsauth value pasted from Local Storage", func(t *testing.T) {
@@ -104,9 +109,9 @@ func TestFetch_readsTheKeys(t *testing.T) {
 				assert.True(t, copies[3].Withdrawn)
 			})
 
-			t.Run("AND DLC, software and audio are left out with a warning", func(t *testing.T) {
-				require.Len(t, warnings, 1)
-				assert.Contains(t, warnings[0], "3 Fanatical items")
+			t.Run("AND DLC, software and audio are left out and counted in the log, not in a warning", func(t *testing.T) {
+				assert.Empty(t, warnings)
+				assert.Contains(t, logs.String(), `reason="DLC, software, books, audio or keys for an unknown store" count=3`)
 			})
 		})
 	})

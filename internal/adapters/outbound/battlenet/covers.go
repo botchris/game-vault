@@ -3,6 +3,7 @@ package battlenet
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"gamevault/internal/application/media"
@@ -15,22 +16,19 @@ import (
 const CoverProviderID provider.ID = "battlenet-covers"
 
 // Covers is a cover provider for games imported from a Battle.net account. Blizzard publishes no
-// box art outside its signed-in shop, so it looks the game up on the Steam store by its exact
-// title (many Blizzard and Activision games are sold there too) and uses Steam's library art.
-// Games only on Battle.net (World of Warcraft, StarCraft II…) are left to the next providers.
+// box art outside its signed-in shop, so it looks the game up on the Steam store by its title (many
+// Blizzard and Activision games are sold there too) and uses Steam's library art. Games only on
+// Battle.net (World of Warcraft, StarCraft II…) are left to the next providers.
 type Covers struct {
-	Search media.LinkSearcher  // the Steam store search
-	Steam  media.CoverProvider // Steam's library art, for games linked to Steam
+	// Steam finds the game on the Steam store and gives its library art.
+	Steam SteamStore
 }
 
 var _ media.CoverProvider = (*Covers)(nil)
 
-// NewCovers returns the Battle.net cover provider with its production endpoints.
-func NewCovers(search media.LinkSearcher, steam media.CoverProvider) *Covers {
-	return &Covers{
-		Search: search,
-		Steam:  steam,
-	}
+// NewCovers returns the Battle.net cover provider, which finds its art through the Steam store.
+func NewCovers(steam SteamStore) *Covers {
+	return &Covers{Steam: steam}
 }
 
 // Descriptor implements media.CoverProvider.
@@ -54,46 +52,39 @@ func (c *Covers) Applies(q media.GameQuery) bool {
 	return q.ForPC() && q.Links[LinkedStore.Key] != "" && !q.LinksOnly
 }
 
-// Covers implements media.CoverProvider.
+// Covers implements media.CoverProvider. The game is found by Steam's own title rules (an exact
+// title first, and only a single match), so Battle.net never shows another game's box that a
+// looser comparison would take.
 func (c *Covers) Covers(ctx context.Context, q media.GameQuery, settings schema.Settings) ([]media.CoverCandidate, error) {
 	// Battle.net adds a year to tell remasters apart ("… Remastered (2017)"); Steam does not.
 	title := strings.TrimSpace(game.StripYearSuffix(q.Title))
 
-	matches, err := c.Search.SearchLinks(ctx, title)
+	appID, err := c.Steam.AppIDByTitle(ctx, title)
+	if err != nil || appID == 0 {
+		return nil, err
+	}
+
+	cands, err := c.Steam.Covers(ctx, media.GameQuery{
+		Title: title,
+		Links: game.Links{game.LinkSteam: strconv.FormatInt(appID, 10)},
+	}, settings)
 	if err != nil {
 		return nil, err
 	}
 
-	store := c.Search.LinkStore().Key
-
-	for _, m := range matches {
-		if !game.SameMatchKey(m.Name, title) {
-			continue
-		}
-
-		cands, err := c.Steam.Covers(ctx, media.GameQuery{
-			Title: m.Name,
-			Links: game.Links{store: m.ID},
-		}, settings)
-		if err != nil {
-			return nil, err
-		}
-
-		for i := range cands {
-			cands[i].Label = "Battle.net (Steam): " + cands[i].Label
-			cands[i].Provider = CoverProviderID
-		}
-
-		return cands, nil
+	for i := range cands {
+		cands[i].Label = "Battle.net (Steam): " + cands[i].Label
+		cands[i].Provider = CoverProviderID
 	}
 
-	return nil, nil
+	return cands, nil
 }
 
-// Test implements providers.Impl: it searches the Steam store for one well-known title, since that
-// search is the only service this provider depends on, and fails if the search errors. No match is not a failure.
+// Test implements providers.Impl: it looks one well-known title up on the Steam store, since that
+// search is the only service this provider depends on, and fails if the search errors. No match
+// is not a failure.
 func (c *Covers) Test(ctx context.Context, _ schema.Settings) error {
-	if _, err := c.Search.SearchLinks(ctx, "Portal"); err != nil {
+	if _, err := c.Steam.AppIDByTitle(ctx, "Portal"); err != nil {
 		return fmt.Errorf("the Steam store search is not answering (%w); try again later", err)
 	}
 

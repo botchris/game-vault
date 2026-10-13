@@ -20,6 +20,8 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/sync/singleflight"
+
 	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/adapters/outbound/ratelimit"
 	"gamevault/internal/application/media"
@@ -81,8 +83,14 @@ type Provider struct {
 	// allowance remembers a used-up monthly allowance, so no request is sent until it renews.
 	allowance allowance
 
+	// platformsFlight shares one platform list request among the lookups that need it at once.
+	platformsFlight singleflight.Group
+
 	mu        sync.Mutex
 	platforms map[string]int64 // normalised name or alias → TheGamesDB platform id
+
+	// platformsFailed is when the platform list last failed; zero when it has not.
+	platformsFailed time.Time
 }
 
 var (
@@ -227,8 +235,9 @@ func (p *Provider) getNow(ctx context.Context, path string, q url.Values, out an
 	return fmt.Errorf("not answering, try again later (%w): %w", err, provider.ErrUnavailable)
 }
 
-// ErrUnknownKey means TheGamesDB does not know the API key.
-var ErrUnknownKey = errkind.New(errkind.Precondition, "the API key was not recognized: check it in the provider settings")
+// ErrUnknownKey means TheGamesDB does not know the API key. It matches provider.ErrBadSettings, so
+// Test sets the provider's "settings" status as a lookup refused for the key does.
+var ErrUnknownKey = provider.BadSettings("the API key was not recognized: check it in the provider settings")
 
 // Test implements providers.Impl by reading the remaining allowance; that endpoint does not consume
 // it. It answers 200 even for unknown keys, with no allowance and a zero refresh timer, which is how
@@ -244,46 +253,31 @@ func (p *Provider) Test(ctx context.Context, s schema.Settings) error {
 
 	// What the check found also holds for lookups: allowance bought after it ran out lets them
 	// through again at once.
-	p.note(key, out, p.clock())
+	now := p.clock()
+	p.note(key, out, now)
 
-	return out.verdict()
+	return out.verdict(now)
 }
 
-// ErrNoAllowance means the key works but this month's requests are used up.
+// ErrNoAllowance means the key works but this month's requests are used up. Test returns it as an
+// error that also matches provider.ErrQuotaExhausted and says when the allowance renews.
 var ErrNoAllowance = errkind.New(errkind.Unavailable, "the key has used this month's allowance: covers from it resume when the month renews")
 
+// platformsRetry is how long lookups search every platform after the platform list failed, before
+// asking for it again.
+const platformsRetry = 5 * time.Minute
+
 // platformIDs resolves Game Vault platform names to TheGamesDB ids, fetching the platform list
-// once per process.
+// once per process. Without the list (it failed, or the caller gave up waiting) it returns none,
+// and the lookup searches every platform rather than fail.
 func (p *Provider) platformIDs(ctx context.Context, apiKey string, names []string) []int64 {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	if p.platforms == nil {
-		var out struct {
-			Data struct {
-				Platforms map[string]struct {
-					ID    int64  `json:"id"`
-					Name  string `json:"name"`
-					Alias string `json:"alias"`
-				} `json:"platforms"`
-			} `json:"data"`
-		}
-		if err := p.get(ctx, "/v1/Platforms", url.Values{"apikey": {apiKey}}, &out); err != nil {
-			return nil // search without a platform filter rather than fail
-		}
-
-		p.platforms = map[string]int64{}
-		for _, pl := range out.Data.Platforms {
-			p.platforms[norm(pl.Name)] = pl.ID
-			p.platforms[norm(pl.Alias)] = pl.ID
-		}
-	}
+	table := p.platformTable(ctx, apiKey)
 
 	var ids []int64
 
 	for _, n := range names {
 		for _, candidate := range append(platformNames[n], n) {
-			if id, ok := p.platforms[norm(candidate)]; ok {
+			if id, ok := table[norm(candidate)]; ok {
 				ids = append(ids, id)
 				break
 			}
@@ -291,6 +285,75 @@ func (p *Provider) platformIDs(ctx context.Context, apiKey string, names []strin
 	}
 
 	return ids
+}
+
+// platformTable returns the platform list by normalised name and alias, or nil without it. No lock
+// is held while it is fetched: the request waits for its turn in the throttle, and lookups queued
+// behind a lock would escape the throttle's limits on waiting. Lookups that need it meanwhile share
+// the one request and stop waiting when their context ends. A failed list is not asked for again
+// for platformsRetry, so an outage does not cost a request before every search.
+func (p *Provider) platformTable(ctx context.Context, apiKey string) map[string]int64 {
+	p.mu.Lock()
+	table, failed := p.platforms, p.platformsFailed
+	p.mu.Unlock()
+
+	if table != nil || !failed.IsZero() && p.clock().Sub(failed) < platformsRetry {
+		return table
+	}
+
+	// The request runs to its end even when the lookup that started it gives up: others may wait
+	// for it, and the throttle and the client's timeout bound it.
+	fetchCtx := context.WithoutCancel(ctx)
+	ch := p.platformsFlight.DoChan("platforms", func() (any, error) {
+		return p.fetchPlatforms(fetchCtx, apiKey), nil
+	})
+
+	select {
+	case r := <-ch:
+		table, _ := r.Val.(map[string]int64)
+
+		return table
+	case <-ctx.Done():
+		return nil
+	}
+}
+
+// fetchPlatforms asks TheGamesDB for its platform list and remembers it, or remembers that it
+// failed. A request the throttle refused (busy, or resting after a 429) was never sent, so it is not
+// remembered as a failure: the next lookup may ask again.
+func (p *Provider) fetchPlatforms(ctx context.Context, apiKey string) map[string]int64 {
+	var out struct {
+		Data struct {
+			Platforms map[string]struct {
+				ID    int64  `json:"id"`
+				Name  string `json:"name"`
+				Alias string `json:"alias"`
+			} `json:"platforms"`
+		} `json:"data"`
+	}
+
+	err := p.get(ctx, "/v1/Platforms", url.Values{"apikey": {apiKey}}, &out)
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if err != nil {
+		if !errors.Is(err, ratelimit.ErrBusy) && !errors.Is(err, ratelimit.ErrResting) {
+			p.platformsFailed = p.clock()
+		}
+
+		return nil
+	}
+
+	table := map[string]int64{}
+	for _, pl := range out.Data.Platforms {
+		table[norm(pl.Name)] = pl.ID
+		table[norm(pl.Alias)] = pl.ID
+	}
+
+	p.platforms = table
+
+	return table
 }
 
 type searchResponse struct {
