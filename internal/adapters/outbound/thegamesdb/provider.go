@@ -228,7 +228,7 @@ func (p *Provider) getNow(ctx context.Context, path string, q url.Values, out an
 }
 
 // ErrUnknownKey means TheGamesDB does not know the API key.
-var ErrUnknownKey = errors.New("TheGamesDB did not recognize the API key")
+var ErrUnknownKey = errors.New("the API key was not recognized: check it in the provider settings")
 
 // Test implements media.Provider by reading the remaining allowance; that endpoint does not consume
 // it. It answers 200 even for unknown keys, with no allowance and a zero refresh timer, which is how
@@ -250,7 +250,7 @@ func (p *Provider) Test(ctx context.Context, s schema.Settings) error {
 }
 
 // ErrNoAllowance means the key works but this month's requests are used up.
-var ErrNoAllowance = errors.New("TheGamesDB key has used this month's allowance: covers from it resume when the month renews")
+var ErrNoAllowance = errors.New("the key has used this month's allowance: covers from it resume when the month renews")
 
 // platformIDs resolves Game Vault platform names to TheGamesDB ids, fetching the platform list
 // once per process.

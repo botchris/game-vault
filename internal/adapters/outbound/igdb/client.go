@@ -54,7 +54,8 @@ var (
 )
 
 // errTooManyRequests is IGDB's (or Twitch's) HTTP 429. Like the other errors here it does not name
-// IGDB: the warnings that show it already do.
+// IGDB: the warnings and statuses that show it already start with the provider's name. Twitch is
+// named where the trouble is Twitch's, since the user would not guess it.
 var errTooManyRequests = fmt.Errorf("HTTP %d: %w", http.StatusTooManyRequests, provider.ErrRateLimited)
 
 // Client calls IGDB with an app access token it asks Twitch for and keeps in memory until shortly
@@ -180,10 +181,10 @@ func (c *Client) fetchToken(id, secret string) oauthapp.Fetch {
 // "no cover" marker, no cached sheet), so an outage does not leave editions without covers for days.
 var (
 	// errTwitchUnreachable means the token request got no answer (no connection, a timeout).
-	errTwitchUnreachable = fmt.Errorf("could not reach Twitch to sign in to IGDB: check the connection and try again later: %w", provider.ErrUnavailable)
+	errTwitchUnreachable = fmt.Errorf("could not reach Twitch to sign in: check the connection and try again later: %w", provider.ErrUnavailable)
 
 	// errTwitchDown means Twitch answered the token request with a server error (5xx).
-	errTwitchDown = fmt.Errorf("signing in to IGDB failed: Twitch is not answering: try again later: %w", provider.ErrUnavailable)
+	errTwitchDown = fmt.Errorf("signing in failed: Twitch is not answering: try again later: %w", provider.ErrUnavailable)
 )
 
 // query sends an Apicalypse query to an IGDB endpoint ("games", "external_games") and decodes the
@@ -207,7 +208,7 @@ func (c *Client) query(ctx context.Context, s schema.Settings, endpoint, body st
 }
 
 // errTokenRefused is IGDB's HTTP 401 to an access token.
-var errTokenRefused = fmt.Errorf("IGDB refused the access token: %w", apiclient.ErrTokenRejected)
+var errTokenRefused = fmt.Errorf("the access token was refused: %w", apiclient.ErrTokenRejected)
 
 // send makes one attempt of query with the token.
 func (c *Client) send(ctx context.Context, id, tok, endpoint, body string, out any) error {
@@ -230,9 +231,9 @@ func (c *Client) send(ctx context.Context, id, tok, endpoint, body string, out a
 		return err
 	case !errors.As(err, &se):
 		// No answer (no connection, a timeout): it says nothing about the game.
-		return fmt.Errorf("IGDB is not answering, try again later (%w): %w", err, provider.ErrUnavailable)
+		return fmt.Errorf("not answering, try again later (%w): %w", err, provider.ErrUnavailable)
 	case se.Status >= 500:
-		return fmt.Errorf("IGDB is not answering (HTTP %d): try again later: %w", se.Status, provider.ErrUnavailable)
+		return fmt.Errorf("not answering (HTTP %d): try again later: %w", se.Status, provider.ErrUnavailable)
 	}
 
 	switch se.Status {
