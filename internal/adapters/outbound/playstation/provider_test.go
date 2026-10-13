@@ -49,6 +49,9 @@ type fakeSony struct {
 	// revoked are access tokens the library refuses before their time.
 	revoked map[string]bool
 
+	// refusedRefresh are refresh tokens Sony no longer renews (the session was revoked).
+	refusedRefresh map[string]bool
+
 	// rejectAll makes the library refuse every access token, as for a revoked session.
 	rejectAll bool
 
@@ -108,7 +111,7 @@ func (f *fakeSony) handler() http.Handler {
 				return
 			}
 		case "refresh_token":
-			if r.Form.Get("refresh_token") != "refresh-ok" {
+			if r.Form.Get("refresh_token") != "refresh-ok" || f.refusedRefresh[r.Form.Get("refresh_token")] {
 				http.Error(w, `{"error":"invalid_grant"}`, http.StatusBadRequest)
 				return
 			}
@@ -360,6 +363,34 @@ func TestFetch_renewsARejectedAccessToken(t *testing.T) {
 				assert.NotEmpty(t, copies)
 				assert.Equal(t, 1, f.authorizes)
 				assert.Contains(t, settings[settingSession], "refresh-ok")
+			})
+		})
+	})
+}
+
+// TestFetch_signsInAgainSoonAfterASignIn checks that a session Sony refuses minutes after the NPSSO
+// gave it is not handed back again from the cache of exchanged codes: the NPSSO is authorized anew.
+func TestFetch_signsInAgainSoonAfterASignIn(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a source that just signed in with its NPSSO", func(t *testing.T) {
+		p, f := newTest(t)
+		settings := source.Settings{settingNPSSO: "good-npsso"}
+
+		require.NoError(t, p.Test(ctx, settings))
+		require.Equal(t, 1, f.authorizes)
+
+		t.Run("WHEN Sony revokes that session within minutes and the library is scanned", func(t *testing.T) {
+			f.revoked = map[string]bool{"access-1": true}
+			f.refusedRefresh = map[string]bool{"refresh-ok": true}
+
+			copies, _, err := p.Fetch(ctx, settings)
+
+			t.Run("THEN it authorizes the NPSSO again and the scan works", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.NotEmpty(t, copies)
+				assert.Equal(t, 2, f.authorizes)
 			})
 		})
 	})

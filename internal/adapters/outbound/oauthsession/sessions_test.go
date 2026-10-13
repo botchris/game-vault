@@ -210,6 +210,16 @@ func TestSessions_prepare(t *testing.T) {
 			})
 		})
 
+		t.Run("WHEN the code is forgotten and prepared again within the cache's time", func(t *testing.T) {
+			sessions.ForgetCode(` "good-code" `)
+
+			_, err := sessions.Prepare(ctx, source.Settings{"code": "good-code"})
+
+			t.Run("THEN it is exchanged again, and the store refuses a used code", func(t *testing.T) {
+				require.ErrorIs(t, err, errBadCode)
+			})
+		})
+
 		t.Run("WHEN the same code is prepared after the cache's time", func(t *testing.T) {
 			c.advance(16 * time.Minute)
 

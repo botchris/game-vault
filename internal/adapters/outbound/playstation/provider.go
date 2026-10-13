@@ -373,6 +373,10 @@ func (p *Provider) withToken(ctx context.Context, settings source.Settings, call
 		return err
 	}
 
+	// The refused session may be the one this NPSSO gave minutes ago, still cached under it:
+	// forget it, so the NPSSO is authorized again rather than the refused session handed back.
+	p.sessions.ForgetCode(settings[settingNPSSO])
+
 	if err := p.signIn(ctx, settings); err != nil {
 		return err
 	}

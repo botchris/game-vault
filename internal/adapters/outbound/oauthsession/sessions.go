@@ -225,6 +225,21 @@ func (s *Sessions[S]) Current(settings source.Settings) (S, error) {
 	return session, nil
 }
 
+// ForgetCode drops the session cached for a code (as pasted: it is cleaned the same way), so the
+// next Prepare of that code exchanges it again. For a code that is not one-time (PlayStation's
+// NPSSO) after the store refused the session it gave: the cache would hand that session back.
+func (s *Sessions[S]) ForgetCode(pasted string) {
+	code, err := s.clean(pasted)
+	if err != nil || code == "" {
+		return
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	delete(s.codes, hash(code))
+}
+
 // Forget drops a cached access token the store refused, so the next Token refreshes the session.
 func (s *Sessions[S]) Forget(token string) {
 	s.mu.Lock()
