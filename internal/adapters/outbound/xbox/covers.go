@@ -72,43 +72,42 @@ var imagePurposes = []string{"Poster", "BoxArt"}
 
 // Covers implements media.CoverProvider.
 func (c *Covers) Covers(ctx context.Context, q media.GameQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
-	ids := []string{q.Links[LinkedStore.Key]}
+	id := q.Links[LinkedStore.Key]
 
-	products, err := catalog(ctx, c.Catalog, c.Market, c.Language, ids)
+	products, err := catalog(ctx, c.Catalog, c.Market, c.Language, []string{id})
 	if err != nil {
 		return nil, err
 	}
 
+	pr, ok := products[id]
+	if !ok || len(pr.LocalizedProperties) == 0 {
+		return nil, nil
+	}
+
+	lp := pr.LocalizedProperties[0]
+
 	var out []media.CoverCandidate
 
 	for _, purpose := range imagePurposes {
-		for _, id := range ids {
-			pr, ok := products[id]
-			if !ok || len(pr.LocalizedProperties) == 0 {
+		for _, img := range lp.Images {
+			if img.ImagePurpose != purpose || img.URI == "" {
 				continue
 			}
 
-			lp := pr.LocalizedProperties[0]
-			for _, img := range lp.Images {
-				if img.ImagePurpose != purpose || img.URI == "" {
-					continue
-				}
-
-				u := img.URI
-				if strings.HasPrefix(u, "//") {
-					u = "https:" + u
-				}
-
-				out = append(out, media.CoverCandidate{
-					URL:      u,
-					ThumbURL: u + "?w=300",
-					Label:    "Microsoft Store: " + strings.ToLower(purpose),
-					Title:    lp.ProductTitle,
-					Provider: CoverProviderID,
-				})
-
-				break
+			u := img.URI
+			if strings.HasPrefix(u, "//") {
+				u = "https:" + u
 			}
+
+			out = append(out, media.CoverCandidate{
+				URL:      u,
+				ThumbURL: u + "?w=300",
+				Label:    "Microsoft Store: " + strings.ToLower(purpose),
+				Title:    lp.ProductTitle,
+				Provider: CoverProviderID,
+			})
+
+			break
 		}
 	}
 

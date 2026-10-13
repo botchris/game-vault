@@ -75,8 +75,8 @@ var imageOrder = []string{"DieselGameBoxTall", "OfferImageTall", "CodeRedemption
 
 // Covers implements media.CoverProvider.
 func (c *Covers) Covers(ctx context.Context, q media.GameQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
-	ids := []string{q.Links[LinkedStore.Key]}
-	v := url.Values{"id": ids, "country": {"US"}, "locale": {"en-US"}}
+	id := q.Links[LinkedStore.Key]
+	v := url.Values{"id": {id}, "country": {"US"}, "locale": {"en-US"}}
 
 	var items map[string]struct {
 		Title     string `json:"title"`
@@ -94,33 +94,31 @@ func (c *Covers) Covers(ctx context.Context, q media.GameQuery, _ schema.Setting
 		return nil, err
 	}
 
+	it, ok := items[id]
+	if !ok {
+		return nil, nil
+	}
+
 	var out []media.CoverCandidate
 
 	for _, typ := range imageOrder {
-		for _, id := range ids {
-			it, ok := items[id]
-			if !ok {
+		for _, img := range it.KeyImages {
+			if img.Type != typ || !strings.HasPrefix(img.URL, "https://") {
 				continue
 			}
 
-			for _, img := range it.KeyImages {
-				if img.Type != typ || !strings.HasPrefix(img.URL, "https://") {
-					continue
-				}
-
-				label := "Epic: box art"
-				if !strings.Contains(typ, "Tall") && typ != "CodeRedemption_340x440" {
-					label = "Epic: wide image"
-				}
-
-				out = append(out, media.CoverCandidate{
-					URL:      img.URL,
-					ThumbURL: img.URL,
-					Label:    label,
-					Title:    it.Title,
-					Provider: CoverProviderID,
-				})
+			label := "Epic: box art"
+			if !strings.Contains(typ, "Tall") && typ != "CodeRedemption_340x440" {
+				label = "Epic: wide image"
 			}
+
+			out = append(out, media.CoverCandidate{
+				URL:      img.URL,
+				ThumbURL: img.URL,
+				Label:    label,
+				Title:    it.Title,
+				Provider: CoverProviderID,
+			})
 		}
 	}
 

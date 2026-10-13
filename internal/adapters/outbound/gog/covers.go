@@ -67,54 +67,42 @@ type link struct {
 
 // Covers implements media.CoverProvider.
 func (c *Covers) Covers(ctx context.Context, q media.GameQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
+	var g struct {
+		Links struct {
+			BoxArt     link `json:"boxArtImage"`
+			Background link `json:"backgroundImage"`
+		} `json:"_links"`
+		Embedded struct {
+			Product struct {
+				Title string `json:"title"`
+			} `json:"product"`
+		} `json:"_embedded"`
+	}
+	if err := c.get(ctx, "/v2/games/"+q.Links[LinkedStore.Key], &g); err != nil {
+		return nil, err
+	}
+
+	// Portrait box art first, the wide background after it.
 	var out []media.CoverCandidate
 
-	for _, id := range []string{q.Links[LinkedStore.Key]} {
-		var g struct {
-			Links struct {
-				BoxArt     link `json:"boxArtImage"`
-				Background link `json:"backgroundImage"`
-			} `json:"_links"`
-			Embedded struct {
-				Product struct {
-					Title string `json:"title"`
-				} `json:"product"`
-			} `json:"_embedded"`
-		}
-		if err := c.get(ctx, "/v2/games/"+id, &g); err != nil {
-			return out, err
-		}
-
-		title := g.Embedded.Product.Title
-		for _, l := range []struct {
-			href  string
-			label string
-		}{
-			{g.Links.BoxArt.Href, "GOG: box art"}, {g.Links.Background.Href, "GOG: wide image"},
-		} {
-			if strings.HasPrefix(l.href, "https://") {
-				out = append(out, media.CoverCandidate{
-					URL:      l.href,
-					ThumbURL: l.href,
-					Label:    l.label,
-					Title:    title,
-					Provider: CoverProviderID,
-				})
-			}
-		}
-	}
-	// Portrait art of every copy first.
-	var portrait, wide []media.CoverCandidate
-
-	for _, cand := range out {
-		if cand.Label == "GOG: box art" {
-			portrait = append(portrait, cand)
-		} else {
-			wide = append(wide, cand)
+	for _, l := range []struct {
+		href  string
+		label string
+	}{
+		{g.Links.BoxArt.Href, "GOG: box art"}, {g.Links.Background.Href, "GOG: wide image"},
+	} {
+		if strings.HasPrefix(l.href, "https://") {
+			out = append(out, media.CoverCandidate{
+				URL:      l.href,
+				ThumbURL: l.href,
+				Label:    l.label,
+				Title:    g.Embedded.Product.Title,
+				Provider: CoverProviderID,
+			})
 		}
 	}
 
-	return append(portrait, wide...), nil
+	return out, nil
 }
 
 func (c *Covers) get(ctx context.Context, path string, out any) error {
