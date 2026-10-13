@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	"connectrpc.com/connect"
 
@@ -60,11 +61,15 @@ func (h *AuthHandler) GetAuthStatus(ctx context.Context, _ *connect.Request[pb.G
 	}), nil
 }
 
-func (h *AuthHandler) sessionResponse(ctx context.Context, token string) *connect.Response[pb.LoginResponse] {
-	res := connect.NewResponse(&pb.LoginResponse{})
-	res.Header().Add("Set-Cookie", sessionCookieFor(token, requestFrom(ctx).HTTPS, appauth.SessionTTL()).String())
+// setSessionCookie adds the cookie that carries the session token to a response's headers. An
+// empty token clears the cookie (signing out).
+func setSessionCookie(ctx context.Context, h http.Header, token string) {
+	ttl := appauth.SessionTTL()
+	if token == "" {
+		ttl = 0
+	}
 
-	return res
+	h.Add("Set-Cookie", sessionCookieFor(token, requestFrom(ctx).HTTPS, ttl).String())
 }
 
 // Setup sets the first password and signs the caller in.
@@ -75,7 +80,7 @@ func (h *AuthHandler) Setup(ctx context.Context, req *connect.Request[pb.SetupRe
 	}
 
 	res := connect.NewResponse(&pb.SetupResponse{Principal: principalToPB(&p)})
-	res.Header().Add("Set-Cookie", sessionCookieFor(token, requestFrom(ctx).HTTPS, appauth.SessionTTL()).String())
+	setSessionCookie(ctx, res.Header(), token)
 
 	return res, nil
 }
@@ -87,8 +92,8 @@ func (h *AuthHandler) Login(ctx context.Context, req *connect.Request[pb.LoginRe
 		return nil, toConnectError(err)
 	}
 
-	res := h.sessionResponse(ctx, token)
-	res.Msg.Principal = principalToPB(&p)
+	res := connect.NewResponse(&pb.LoginResponse{Principal: principalToPB(&p)})
+	setSessionCookie(ctx, res.Header(), token)
 
 	return res, nil
 }
@@ -100,7 +105,7 @@ func (h *AuthHandler) Logout(ctx context.Context, _ *connect.Request[pb.LogoutRe
 	}
 
 	res := connect.NewResponse(&pb.LogoutResponse{})
-	res.Header().Add("Set-Cookie", sessionCookieFor("", requestFrom(ctx).HTTPS, 0).String())
+	setSessionCookie(ctx, res.Header(), "")
 
 	return res, nil
 }
@@ -182,7 +187,7 @@ func accessTokenToPB(t auth.AccessToken) *pb.AccessToken {
 		Id:         t.ID,
 		Name:       t.Name,
 		CreatedAt:  ts(t.CreatedAt),
-		LastUsedAt: optionalTS(t.LastUsedAt),
+		LastUsedAt: ts(t.LastUsedAt),
 	}
 }
 

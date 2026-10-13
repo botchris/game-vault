@@ -91,9 +91,6 @@ func photoHandler(m *media.Photos, thumb bool) http.Handler {
 			return
 		}
 
-		w.Header().Set("Content-Type", img.ContentType)
-		w.Header().Set("Cache-Control", "private, max-age=31536000, immutable")
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.Write(img.Data)
+		writeImage(w, img, "private, max-age=31536000, immutable")
 	})
 }
