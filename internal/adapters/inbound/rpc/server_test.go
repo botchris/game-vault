@@ -359,7 +359,7 @@ func newServer(t *testing.T, p sync.Provider) clients {
 		fakeSteamStore{}, boxart, &fakeBarcodes{}, fakeStoreDetails{}, boxDet, fakePrices{},
 	}, providers.WithLogger(log))
 	mediaSvcs := media.New(games, registry, covers, images,
-		media.WithPhotos(photos), media.WithDetailsStore(sqlite.NewDetailsStore(db)), media.WithLogger(log))
+		media.WithPhotoStore(photos), media.WithDetailsStore(sqlite.NewDetailsStore(db)), media.WithLogger(log))
 	valuationSvc := valuation.NewService(games, db, registry, sqlite.NewSettingsRepository(db), time.Now, log, fakePrices{})
 	logsSvc := logs.NewService(sqlite.NewSettingsRepository(db), logFiles, logFiles)
 	authSvc := appauth.NewService(sqlite.NewAuthRepository(db), sqlite.NewSettingsRepository(db), passwordhash.Bcrypt{Cost: 4}, noCerts{}, time.Now, log)

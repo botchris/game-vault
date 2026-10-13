@@ -7,87 +7,26 @@
 // providers configured in the providers registry (internal/application/providers): covers are
 // resolved through an ordered chain of cover providers (Plex-agent style) and cached in the config
 // directory, so the UI never hot-links third-party sites and quotas are spent once.
+//
+// Options. Each service takes its own option type, so an option that would do nothing for it does not
+// compile: NewCovers takes CoverOption values, NewDetails DetailsOption values, and so on. Each
+// option type is an interface with one unexported method, which applies the option to that service.
+//
+// An option that several services understand is one concrete type implementing the option
+// interface of each of them: ClockOption implements CoverOption, DetailsOption, PhotosOption and
+// AutoLinkerOption, so WithClock(now) can be passed to any of those constructors, and only to them.
+// Every option also implements Option, the option type of New, which hands each one to every
+// service whose option interface it implements.
 package media
 
 import (
-	"log/slog"
-	"slices"
-	"time"
-
-	"gamevault/internal/application/port"
 	"gamevault/internal/application/providers"
-	"gamevault/internal/application/unattended"
 	"gamevault/internal/domain/game"
 )
 
 // defaultLanguage is the language sheets are gathered in when the UI names none: English is the
 // fallback of every language-dependent feature.
 const defaultLanguage = "en"
-
-// Option configures a media service. The options are shared by every service of the package; each
-// service reads the ones it uses and ignores the others.
-type Option func(*options)
-
-// options are the optional dependencies and settings of the services.
-type options struct {
-	now       port.Clock
-	log       *slog.Logger
-	photos    PhotoStore
-	details   DetailsStore
-	downloads *Downloads
-	autoLinks linkQueue
-	rhythm    unattended.Rhythm
-	misses    *misses
-}
-
-// WithClock sets the clock (time.Now by default).
-func WithClock(now port.Clock) Option { return func(o *options) { o.now = now } }
-
-// WithLogger sets the logger (discarded by default).
-func WithLogger(log *slog.Logger) Option { return func(o *options) { o.log = log } }
-
-// WithPhotos sets the store of the users' copy photos, which a chosen cover may be (none by default).
-func WithPhotos(photos PhotoStore) Option { return func(o *options) { o.photos = photos } }
-
-// WithDetailsStore sets the cache of game sheets, dropped with a game's other media (none by
-// default: no sheet is cached).
-func WithDetailsStore(details DetailsStore) Option { return func(o *options) { o.details = details } }
-
-// WithDownloads sets the image downloads the auto-linker yields to (none by default).
-func WithDownloads(d *Downloads) Option { return func(o *options) { o.downloads = d } }
-
-// WithAutoLinks sets the auto-linker that viewed games are queued for (none by default: no links
-// are looked for).
-func WithAutoLinks(a *AutoLinker) Option { return func(o *options) { o.autoLinks = a } }
-
-// WithRhythm sets the random source and the sleep of the background work (the details scan, the
-// auto-linker), so tests control its timing (real randomness and sleeps by default).
-func WithRhythm(r unattended.Rhythm) Option { return func(o *options) { o.rhythm = r } }
-
-// withMisses shares the covers' "no cover" answers between the covers and the auto-linker, whose
-// links found make them stale.
-func withMisses(m *misses) Option { return func(o *options) { o.misses = m } }
-
-// newOptions applies opts over the defaults: no-op ports, the real clock, a silent logger.
-func newOptions(opts []Option) options {
-	o := options{
-		now:       time.Now,
-		log:       slog.New(slog.DiscardHandler),
-		photos:    noPhotos{},
-		details:   noDetails{},
-		autoLinks: noAutoLinks{},
-		misses:    &misses{},
-	}
-	for _, opt := range opts {
-		opt(&o)
-	}
-
-	if o.downloads == nil {
-		o.downloads = NewDownloads(nil)
-	}
-
-	return o
-}
 
 // Services are the media services, wired to each other.
 type Services struct {
@@ -116,31 +55,49 @@ type Services struct {
 	Proxy *ImageProxy
 }
 
-// New builds the media services over the providers in reg. games, store and fetch are required;
-// the options give the optional ports (photos, sheet cache) and the clock and logger, shared by
-// every service.
+// New builds the media services over the providers in reg and wires them to each other. games,
+// store and fetch are required; opts are any of the services' options (WithPhotoStore,
+// WithDetailsStore, WithRhythm, WithClock, WithLogger), each handed to every service it applies to.
 func New(games game.Repository, reg *providers.Registry, store AssetStore, fetch ImageFetcher, opts ...Option) *Services {
-	o := newOptions(opts)
+	var cfg config
+	for _, o := range opts {
+		o.applyNew(&cfg)
+	}
+
+	if cfg.photos == nil {
+		cfg.photos = noPhotos{}
+	}
+
+	if cfg.details == nil {
+		cfg.details = noDetails{}
+	}
+
 	downloads := NewDownloads(fetch)
 
 	// Links found for a game give it the stores' art: the auto-linker makes the covers forget what
-	// they missed for it.
+	// they missed for it, so both get the same misses.
 	missed := &misses{}
 
-	autoLinks := NewAutoLinker(games, reg, slices.Concat(opts, []Option{WithDownloads(downloads), withMisses(missed)})...)
-	assets := NewAssets(games, store, downloads, opts...)
-	shared := slices.Concat(opts, []Option{WithAutoLinks(autoLinks)})
-	covers := NewCovers(games, reg, store, downloads, slices.Concat(shared, []Option{withMisses(missed)})...)
+	autoLinks := NewAutoLinker(games, reg, append(optionsFor[AutoLinkerOption](opts), autoLinkerWiring(func(a *AutoLinker) {
+		a.downloads, a.misses = downloads, missed
+	}))...)
+	assets := NewAssets(games, store, downloads, optionsFor[AssetsOption](opts)...)
+	covers := NewCovers(games, reg, store, downloads, append(optionsFor[CoverOption](opts), coverWiring(func(c *Covers) {
+		c.autoLinks, c.misses = autoLinks, missed
+	}))...)
+	details := NewDetails(games, reg, cfg.details, assets, append(optionsFor[DetailsOption](opts), detailsWiring(func(d *Details) {
+		d.autoLinks = autoLinks
+	}))...)
 
 	reg.OnCoversChanged(covers.forgetMissing)
 
 	return &Services{
 		Registry:   reg,
 		Covers:     covers,
-		Details:    NewDetails(games, reg, o.details, assets, shared...),
+		Details:    details,
 		Assets:     assets,
-		Identifier: NewIdentifier(games, reg, opts...),
-		Photos:     NewPhotos(games, o.photos, opts...),
+		Identifier: NewIdentifier(games, reg, optionsFor[IdentifierOption](opts)...),
+		Photos:     NewPhotos(games, cfg.photos, optionsFor[PhotosOption](opts)...),
 		AutoLinks:  autoLinks,
 		Proxy:      NewImageProxy(reg, fetch),
 	}

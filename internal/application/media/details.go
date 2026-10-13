@@ -47,22 +47,25 @@ type Details struct {
 }
 
 // NewDetails builds the sheets service over the metadata providers in reg, caching the sheets in
-// store and their images in assets. Options: WithAutoLinks (viewed games are queued for it),
-// WithRhythm (the background scan's pauses), WithClock, WithLogger.
-func NewDetails(games game.Repository, reg *providers.Registry, store DetailsStore, assets *Assets, opts ...Option) *Details {
-	o := newOptions(opts)
-
-	return &Details{
+// store and their images in assets. Options: WithRhythm (the background scan's pauses),
+// WithClock, WithLogger. Built alone, it queues no game for automatic links: New wires the
+// auto-linker.
+func NewDetails(games game.Repository, reg *providers.Registry, store DetailsStore, assets *Assets, opts ...DetailsOption) *Details {
+	d := &Details{
 		games:     games,
 		reg:       reg,
 		metadata:  implsOf[MetadataProvider](reg, provider.KindMetadata),
 		store:     store,
 		assets:    assets,
-		autoLinks: o.autoLinks,
-		now:       o.now,
-		log:       o.log,
-		rhythm:    o.rhythm,
+		autoLinks: noAutoLinks{},
+		now:       defaultClock,
+		log:       defaultLogger,
 	}
+	for _, opt := range opts {
+		opt.applyDetails(d)
+	}
+
+	return d
 }
 
 // GameDetails returns the game's details in the given language: from the cache when fresh,

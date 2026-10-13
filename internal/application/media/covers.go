@@ -45,27 +45,31 @@ type Covers struct {
 	misses *misses
 }
 
-// NewCovers builds the covers service over the cover providers in reg. Options: WithPhotos (a
-// chosen photo cover), WithDetailsStore (dropped with a deleted game's media), WithAutoLinks (games
-// without a cover are queued for it), WithClock, WithLogger.
-func NewCovers(games game.Repository, reg *providers.Registry, store AssetStore, downloads *Downloads, opts ...Option) *Covers {
-	o := newOptions(opts)
+// NewCovers builds the covers service over the cover providers in reg. Options: WithPhotoStore (a
+// chosen photo cover), WithDetailsStore (dropped with a deleted game's media), WithClock,
+// WithLogger. Built alone, it queues no game for automatic links: New wires the auto-linker.
+func NewCovers(games game.Repository, reg *providers.Registry, store AssetStore, downloads *Downloads, opts ...CoverOption) *Covers {
 	_, searchers := linkStoresOf(reg)
 
-	return &Covers{
+	c := &Covers{
 		games:     games,
 		reg:       reg,
 		chain:     newCoverChain(reg),
 		store:     store,
-		photos:    o.photos,
-		details:   o.details,
+		photos:    noPhotos{},
+		details:   noDetails{},
 		downloads: downloads,
-		autoLinks: o.autoLinks,
+		autoLinks: noAutoLinks{},
 		searchers: searchers,
-		now:       o.now,
-		log:       o.log,
-		misses:    o.misses,
+		now:       defaultClock,
+		log:       defaultLogger,
+		misses:    &misses{},
 	}
+	for _, opt := range opts {
+		opt.applyCovers(c)
+	}
+
+	return c
 }
 
 // Cover returns the cover of the game's main edition (see game.Game.MainEdition).

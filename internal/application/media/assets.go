@@ -61,15 +61,18 @@ type Assets struct {
 }
 
 // NewAssets builds the sheet images service. Options: WithLogger.
-func NewAssets(games game.Repository, store AssetStore, downloads *Downloads, opts ...Option) *Assets {
-	o := newOptions(opts)
-
-	return &Assets{
+func NewAssets(games game.Repository, store AssetStore, downloads *Downloads, opts ...AssetsOption) *Assets {
+	a := &Assets{
 		games:     games,
 		store:     store,
 		downloads: downloads,
-		log:       o.log,
+		log:       defaultLogger,
 	}
+	for _, opt := range opts {
+		opt.applyAssets(a)
+	}
+
+	return a
 }
 
 // Asset returns one of the game's stored images. If the file is missing (never downloaded yet, or

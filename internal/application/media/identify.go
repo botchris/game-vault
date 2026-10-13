@@ -62,16 +62,19 @@ type Identifier struct {
 
 // NewIdentifier builds the identification over the barcode and cover providers in reg. Options:
 // WithLogger.
-func NewIdentifier(games game.Repository, reg *providers.Registry, opts ...Option) *Identifier {
-	o := newOptions(opts)
-
-	return &Identifier{
+func NewIdentifier(games game.Repository, reg *providers.Registry, opts ...IdentifierOption) *Identifier {
+	i := &Identifier{
 		games:    games,
 		reg:      reg,
 		barcodes: implsOf[BarcodeProvider](reg, provider.KindBarcode),
 		covers:   newCoverChain(reg),
-		log:      o.log,
+		log:      defaultLogger,
 	}
+	for _, opt := range opts {
+		opt.applyIdentifier(i)
+	}
+
+	return i
 }
 
 // IdentifyBarcode looks a scanned code up: first in the catalog, then through the barcode

@@ -144,7 +144,7 @@ func run() error {
 	registry := providers.NewRegistry(sqlite.NewProviderRepository(db), plugins.Providers(),
 		providers.WithClock(now), providers.WithLogger(log))
 	mediaSvcs := media.New(games, registry, assets, imagefetch.New(),
-		media.WithPhotos(photos), media.WithDetailsStore(sqlite.NewDetailsStore(db)), media.WithClock(now), media.WithLogger(log))
+		media.WithPhotoStore(photos), media.WithDetailsStore(sqlite.NewDetailsStore(db)), media.WithClock(now), media.WithLogger(log))
 	valuationSvc := valuation.NewService(games, db, registry, settingsRepo, now, log, plugins.Valuations()...)
 	fieldsSvc := fields.NewService(settingsRepo, games, db, now)
 	catalogSvc := catalog.NewService(games, db, now, mediaSvcs.Covers, photos, settingsRepo)

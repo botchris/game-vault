@@ -105,10 +105,9 @@ type AutoLinker struct {
 
 // NewAutoLinker builds the auto-linker over the link finders in reg. It looks for nothing until
 // SetGameLinker gives it the catalog to save links with. Options: WithDetailsStore (a game's sheet
-// is dropped when links are added), WithDownloads (the worker yields to them), WithRhythm, WithClock,
-// WithLogger.
-func NewAutoLinker(games game.Repository, reg *providers.Registry, opts ...Option) *AutoLinker {
-	o := newOptions(opts)
+// is dropped when links are added), WithRhythm, WithClock, WithLogger. New also makes the worker
+// yield to the covers' downloads and share the covers' misses.
+func NewAutoLinker(games game.Repository, reg *providers.Registry, opts ...AutoLinkerOption) *AutoLinker {
 	finders := map[provider.ID]LinkFinder{}
 
 	for _, p := range reg.All() {
@@ -117,18 +116,22 @@ func NewAutoLinker(games game.Repository, reg *providers.Registry, opts ...Optio
 		}
 	}
 
-	return &AutoLinker{
+	a := &AutoLinker{
 		games:     games,
 		reg:       reg,
-		details:   o.details,
-		downloads: o.downloads,
-		now:       o.now,
-		log:       o.log,
+		details:   noDetails{},
+		downloads: NewDownloads(nil),
+		now:       defaultClock,
+		log:       defaultLogger,
 		finders:   finders,
-		misses:    o.misses,
+		misses:    &misses{},
 		queue:     newAutoLinkQueue(),
-		rhythm:    o.rhythm,
 	}
+	for _, opt := range opts {
+		opt.applyAutoLinker(a)
+	}
+
+	return a
 }
 
 // SetGameLinker sets the port that saves automatic links (the catalog, built after the media

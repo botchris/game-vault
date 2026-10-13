@@ -186,8 +186,12 @@ Dependencies point inward; the compiler won't stop a violation, so watch it:
   order).
 - **Constructors take functional options**, not config/deps structs (maintainer's preference,
   2026-10-13): required dependencies are positional parameters, everything optional (ports,
-  clocks, random sources, tunables) is a documented `With…` option
-  (`NewCovers(store, opts ...CoverOption)`), and the constructor fills no-op defaults.
+  clocks, random sources, tunables) is a documented `With…` option, and the constructor fills
+  no-op defaults. Each service has its own option type, so an option it would ignore does not
+  compile: `NewCovers(games, reg, store, downloads, opts ...CoverOption)`. An option type is an
+  interface with one unexported method (`applyCovers(*Covers)`); an option several services take is
+  one concrete type implementing each of their interfaces (`media.WithClock` returns a `ClockOption`
+  that is a `CoverOption`, a `DetailsOption`…). See `internal/application/media/options.go`.
 - **Optional capabilities are separate small interfaces** checked with a type assertion
   (`sync.Preparer`, `sync.KeepAliver`, `media.ImageHoster`), never boolean flags. `Test(ctx,
   settings) error` is not optional: it is part of `sync.Provider` and `providers.Impl`.

@@ -68,15 +68,18 @@ type Photos struct {
 }
 
 // NewPhotos builds the photos service over store. Options: WithClock, WithLogger.
-func NewPhotos(games game.Repository, store PhotoStore, opts ...Option) *Photos {
-	o := newOptions(opts)
-
-	return &Photos{
+func NewPhotos(games game.Repository, store PhotoStore, opts ...PhotosOption) *Photos {
+	p := &Photos{
 		games: games,
 		store: store,
-		now:   o.now,
-		log:   o.log,
+		now:   defaultClock,
+		log:   defaultLogger,
 	}
+	for _, opt := range opts {
+		opt.applyPhotos(p)
+	}
+
+	return p
 }
 
 // Upload checks and stores a photo and its thumbnail, both JPEG, and reads when the photo was
