@@ -56,6 +56,15 @@ func fakeAccount(t *testing.T) *httptest.Server {
 		fmt.Fprint(w, `{"classicGames":[{"localizedGameName":"Diablo® II"}]}`)
 	})
 	mux.HandleFunc("GET "+renewPath, func(w http.ResponseWriter, r *http.Request) {
+		// The renewal is a browser's navigation: a request that asks for JSON is refused rather
+		// than redirected. This catches the shared client's default Accept leaking in.
+		if _, ok := r.Header["Accept"]; ok {
+			w.WriteHeader(http.StatusForbidden)
+			fmt.Fprint(w, `{"error":"forbidden"}`)
+
+			return
+		}
+
 		if c, err := r.Cookie("BA-tassadar"); err != nil || c.Value != "long-lived" {
 			http.Redirect(w, r, "/login/en/", http.StatusFound)
 			return

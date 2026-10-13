@@ -69,6 +69,15 @@ func (f *fakeSony) handler() http.Handler {
 			return
 		}
 
+		// The sign-in is a browser's navigation: a request that asks for JSON is not one, and
+		// gets no redirect with a code. This catches the shared client's default Accept leaking in.
+		if _, ok := r.Header["Accept"]; ok {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, `{"error":"invalid_request"}`)
+
+			return
+		}
+
 		if c, err := r.Cookie("npsso"); err != nil || c.Value != "good-npsso" {
 			http.Redirect(w, r, "https://my.account.sony.com/sonyacct/signin/", http.StatusFound)
 			return

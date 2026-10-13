@@ -52,7 +52,9 @@ type Client struct {
 	// UserAgent is sent with every request.
 	UserAgent string
 
-	// Header is sent with every request (an API key, an Accept-Language…).
+	// Header is sent with every request (an API key, an Accept-Language…). A key with a nil or
+	// empty value removes that header instead, the default Accept included. Removing User-Agent
+	// makes Go send its own; set UserAgent instead.
 	Header http.Header
 
 	// MaxBody bounds the answers read, in bytes. A longer answer is ErrTooLarge.
@@ -85,7 +87,9 @@ type Request struct {
 	// Query is encoded into the URL. Errors never show it, so it may hold a key or a code.
 	Query url.Values
 
-	// Header is sent with this request only, over the client's (a bearer token, a cookie…).
+	// Header is sent with this request only, over the client's (a bearer token, a cookie…). A key
+	// with a nil or empty value removes that header, the default Accept and the client's included:
+	// a browser's navigation (a sign-in redirect) sends {"Accept": nil}.
 	Header http.Header
 
 	// Body, when set, is sent as JSON.
@@ -345,6 +349,7 @@ func (c *Client) setHeaders(req *http.Request, r Request) {
 		req.Header.Set("User-Agent", c.UserAgent)
 	}
 
+	// Request headers come last so they override the client's; a key without values only removes.
 	for _, h := range []http.Header{c.Header, r.Header} {
 		for k, vs := range h {
 			req.Header.Del(k)
