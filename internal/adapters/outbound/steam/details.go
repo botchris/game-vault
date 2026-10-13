@@ -103,7 +103,7 @@ func (d *Details) fetch(ctx context.Context, appID int64, lang string) (app appD
 		return apiclient.ClassifyError(ctx, d.store.Site.Get(ctx, "/api/appdetails", params, &out))
 	})
 	if err != nil {
-		return appDetails{}, false, fmt.Errorf("steam store: %w", err)
+		return appDetails{}, false, fmt.Errorf("store: %w", err)
 	}
 
 	app, ok = out[id]
@@ -115,7 +115,7 @@ func (d *Details) fetch(ctx context.Context, appID int64, lang string) (app appD
 // errors, rate limits and HTTP errors fail it; a store with no data for the app still works.
 func (d *Details) Test(ctx context.Context, _ schema.Settings) error {
 	if _, _, err := d.fetch(ctx, 620, "english"); err != nil {
-		return fmt.Errorf("could not reach the Steam store, check the connection and try again: %w", err)
+		return fmt.Errorf("could not reach the store, check the connection and try again: %w", err)
 	}
 
 	return nil

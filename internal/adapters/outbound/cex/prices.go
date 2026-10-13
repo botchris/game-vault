@@ -28,7 +28,7 @@ var ErrPricesBlocked error = pricesBlocked{}
 type pricesBlocked struct{}
 
 func (pricesBlocked) Error() string {
-	return "CeX is asking for a browser check; prices from CeX are unavailable for now"
+	return "asking for a browser check; its prices are unavailable for now"
 }
 
 // Unwrap makes errors.Is(ErrPricesBlocked, provider.ErrUnavailable) true.

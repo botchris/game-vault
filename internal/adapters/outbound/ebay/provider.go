@@ -44,10 +44,10 @@ const (
 
 // ErrKeysRefused means eBay refused, twice, an access token it had just issued for the keys: they
 // are not allowed to use the Browse API.
-var ErrKeysRefused = provider.BadSettings("eBay refused the access token of these keys: check them in the settings")
+var ErrKeysRefused = provider.BadSettings("the access token of these keys was refused: check them in the settings")
 
 // errTokenRefused is the Browse API's HTTP 401 to an access token.
-var errTokenRefused = fmt.Errorf("eBay refused the access token: %w", apiclient.ErrTokenRejected)
+var errTokenRefused = fmt.Errorf("the access token was refused: %w", apiclient.ErrTokenRejected)
 
 // Provider implements media.BarcodeProvider. The barcode and price providers share one, so they
 // share its access tokens.
@@ -134,7 +134,7 @@ func (p *Provider) fetchToken(id, secret string) oauthapp.Fetch {
 			},
 		})
 		if err != nil {
-			return oauthapp.Token{}, fmt.Errorf("eBay sign-in: %w", apiclient.ClassifyError(ctx, err))
+			return oauthapp.Token{}, fmt.Errorf("sign-in: %w", apiclient.ClassifyError(ctx, err))
 		}
 
 		var out struct {
@@ -150,7 +150,7 @@ func (p *Provider) fetchToken(id, secret string) oauthapp.Fetch {
 		// work again.
 		switch {
 		case res.OK() && errors.Is(decodeErr, apiclient.ErrNotJSON):
-			return oauthapp.Token{}, fmt.Errorf("eBay sign-in: %w", apiclient.ClassifyError(ctx, decodeErr))
+			return oauthapp.Token{}, fmt.Errorf("sign-in: %w", apiclient.ClassifyError(ctx, decodeErr))
 		case res.OK() && out.AccessToken != "":
 			// A zero lifetime counts as oauthapp.DefaultLifetime, not as a token already expired.
 			return oauthapp.Token{
@@ -159,13 +159,13 @@ func (p *Provider) fetchToken(id, secret string) oauthapp.Fetch {
 			}, nil
 		case res.OK() || apiclient.Rejected(res.Status):
 			if out.Description != "" {
-				return oauthapp.Token{}, provider.BadSettings("eBay rejected the keys: " + out.Description)
+				return oauthapp.Token{}, provider.BadSettings("the keys were rejected: " + out.Description)
 			}
 
-			return oauthapp.Token{}, provider.BadSettings(fmt.Sprintf("eBay rejected the keys (HTTP %d): check them in the settings", res.Status))
+			return oauthapp.Token{}, provider.BadSettings(fmt.Sprintf("the keys were rejected (HTTP %d): check them in the settings", res.Status))
 		}
 
-		return oauthapp.Token{}, fmt.Errorf("eBay sign-in: %w", apiclient.ClassifyError(ctx, res.Err()))
+		return oauthapp.Token{}, fmt.Errorf("sign-in: %w", apiclient.ClassifyError(ctx, res.Err()))
 	}
 }
 
@@ -242,7 +242,7 @@ func (p *Provider) search(ctx context.Context, s schema.Settings, marketplace st
 		return nil, err
 	}
 
-	return nil, fmt.Errorf("eBay %s search: %w", marketplace, apiclient.ClassifyError(ctx, err))
+	return nil, fmt.Errorf("%s search: %w", marketplace, apiclient.ClassifyError(ctx, err))
 }
 
 // Lookup searches the marketplaces in order and stops at the first one with listings.

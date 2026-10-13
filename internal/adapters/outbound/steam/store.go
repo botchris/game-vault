@@ -252,7 +252,7 @@ func (s *Store) uniqueApp(ctx context.Context, term, title string, loose bool) (
 	case errors.As(err, &se) && se.Status != http.StatusTooManyRequests && se.Status < 500:
 		return 0, err
 	default:
-		return 0, fmt.Errorf("steam store search is not answering, asking again later (%w): %w", err, provider.ErrUnavailable)
+		return 0, fmt.Errorf("store search is not answering, asking again later (%w): %w", err, provider.ErrUnavailable)
 	}
 
 	matchers := []func(string) bool{
@@ -293,7 +293,7 @@ func (s *Store) uniqueApp(ctx context.Context, term, title string, loose bool) (
 // 620), so only transport errors and HTTP errors (including rate limits) fail it.
 func (s *Store) Test(ctx context.Context, _ schema.Settings) error {
 	if _, _, err := s.assetURLs(ctx, 620); err != nil {
-		return fmt.Errorf("could not reach Steam, check the connection and try again: %w", err)
+		return fmt.Errorf("could not reach the store, check the connection and try again: %w", err)
 	}
 
 	return nil
@@ -318,7 +318,7 @@ func (s *Store) assetURLs(ctx context.Context, appID int64) (library, header str
 	// The Web API (api.steampowered.com) has its own, much higher limits than the store host: not
 	// throttled, so a fresh library's Steam covers fill in at once.
 	if err := s.API.Get(ctx, "/IStoreBrowseService/GetItems/v1/", url.Values{"input_json": {input}}, &out); err != nil {
-		return "", "", fmt.Errorf("steam store items: %w", err)
+		return "", "", fmt.Errorf("store items: %w", err)
 	}
 
 	if len(out.Response.StoreItems) == 0 {
@@ -430,7 +430,7 @@ func (s *Store) search(ctx context.Context, query string) ([]media.LinkMatch, er
 		return apiclient.ClassifyError(ctx, s.Site.Get(ctx, "/api/storesearch/", q, &out))
 	})
 	if err != nil {
-		return nil, fmt.Errorf("steam store search: %w", err)
+		return nil, fmt.Errorf("store search: %w", err)
 	}
 
 	matches := make([]media.LinkMatch, 0, len(out.Items))

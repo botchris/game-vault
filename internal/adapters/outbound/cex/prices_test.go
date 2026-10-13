@@ -139,6 +139,7 @@ func TestPrices(t *testing.T) {
 
 		t.Run("AND it is a problem of the provider, shown as its status, not a price warning", func(t *testing.T) {
 			assert.True(t, media.ProviderLevel(err))
+			assert.NotContains(t, err.Error(), "CeX")
 			assert.Equal(t, errkind.Unavailable, errkind.Of(err))
 		})
 	})
