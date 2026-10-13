@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"gamevault/internal/domain/field"
@@ -15,8 +14,8 @@ import (
 )
 
 // Format versions of each document kind. Adding a field keeps a version; changing the meaning of
-// one bumps it, and the decoder converts older documents when it reads them (see
-// docs/superpowers/specs/2026-10-09-json-documents-design.md).
+// one bumps it (see docs/superpowers/specs/2026-10-09-json-documents-design.md). The decoders read
+// only the current version: an older document is refused rather than read with fields missing.
 const (
 	// gameDocVersion 2 replaced the copies' free-text condition with grade and contents; 3 moved the
 	// cover to editions (covers by system, mainSystem).
@@ -30,12 +29,27 @@ const (
 // would silently drop if it read and saved it again.
 var errNewerDocument = errors.New("written by a newer version of Game Vault: update Game Vault to open this database")
 
+// errOlderDocument means a document is in a version this Game Vault no longer reads: the versions
+// that converted it are no longer published, so reading it would silently lose what it holds.
+var errOlderDocument = errors.New("no longer supported: this database was written by a Game Vault too old to open")
+
 func checkVersion(v, current int) error {
 	if v > current {
 		return fmt.Errorf("document version %d: %w", v, errNewerDocument)
 	}
 
 	return nil
+}
+
+// checkGameVersion refuses game documents of any version but the current one: newer ones as
+// checkVersion does, older ones because their fields (condition, the single cover) are no longer
+// read.
+func checkGameVersion(v int) error {
+	if v < gameDocVersion {
+		return fmt.Errorf("game document version %d is %w", v, errOlderDocument)
+	}
+
+	return checkVersion(v, gameDocVersion)
 }
 
 // gameDoc is the stored form of a game.Game, copies included. Field names never change once
@@ -45,11 +59,6 @@ type gameDoc struct {
 	Title string     `json:"title"`
 	Links game.Links `json:"links,omitempty"`
 	Notes string     `json:"notes,omitempty"`
-
-	// CoverURL and CoverPhoto are the game's single cover of version-2 documents, converted to
-	// edition covers when read (game.LegacyCover); never written.
-	CoverURL   string `json:"coverUrl,omitempty"`
-	CoverPhoto string `json:"coverPhoto,omitempty"`
 
 	// Covers are the covers chosen per system; MainSystem the user's main edition.
 	Covers     map[string]coverDoc `json:"covers,omitempty"`
@@ -95,9 +104,6 @@ type copyDoc struct {
 	AcquiredOn string `json:"acquiredOn,omitempty"`
 	Edition    string `json:"edition,omitempty"`
 
-	// Condition is the free-text condition of version-1 documents, converted when read; never
-	// written.
-	Condition     string        `json:"condition,omitempty"`
 	Grade         string        `json:"grade,omitempty"`
 	Contents      []string      `json:"contents,omitempty"`
 	Location      string        `json:"location,omitempty"`
@@ -264,7 +270,7 @@ func decodeGame(id game.ID, raw string) (*game.Game, error) {
 		return nil, err
 	}
 
-	if err := checkVersion(doc.V, gameDocVersion); err != nil {
+	if err := checkGameVersion(doc.V); err != nil {
 		return nil, err
 	}
 
@@ -309,14 +315,6 @@ func decodeGame(id game.ID, raw string) (*game.Game, error) {
 			UpdatedAt:     parseTime(c.UpdatedAt),
 		}
 
-		if doc.V < 2 && strings.TrimSpace(c.Condition) != "" {
-			if grade, contents, ok := convertCondition(c.Condition); ok {
-				cp.Grade, cp.Contents = grade, contents
-			} else {
-				cp.Notes = strings.TrimSpace(cp.Notes + "\nCondition: " + strings.TrimSpace(c.Condition))
-			}
-		}
-
 		copies = append(copies, cp)
 	}
 
@@ -328,7 +326,7 @@ func decodeGame(id game.ID, raw string) (*game.Game, error) {
 		})
 	}
 
-	snap := game.Snapshot{
+	return game.Rehydrate(game.Snapshot{
 		ID: id,
 		Info: game.Info{
 			Title:      doc.Title,
@@ -346,15 +344,7 @@ func decodeGame(id game.ID, raw string) (*game.Game, error) {
 		AutoLinkTriedAt: parseTime(doc.AutoLinkTriedAt),
 		CreatedAt:       parseTime(doc.CreatedAt),
 		UpdatedAt:       parseTime(doc.UpdatedAt),
-	}
-	if doc.V < 3 { // the game had one cover, before editions
-		snap.LegacyCover = &game.LegacyCover{
-			URL:   doc.CoverURL,
-			Photo: game.PhotoID(doc.CoverPhoto),
-		}
-	}
-
-	return game.Rehydrate(snap), nil
+	}), nil
 }
 
 func coversToDoc(covers map[string]game.EditionCover) map[string]coverDoc {
@@ -505,36 +495,6 @@ func contentsOf(raw []string) (game.Contents, error) {
 	}
 
 	return game.ContentsOf(parts...)
-}
-
-// oldConditions maps the texts the copy form suggested before version 2 (in the UI language of the
-// time: English or Spanish) to a grade and contents.
-var oldConditions = map[string]struct {
-	grade    game.Grade
-	contents []game.Content
-}{
-	"sealed":                   {game.GradeSealed, []game.Content{game.ContentBox, game.ContentManual, game.ContentMedia}},
-	"precintado":               {game.GradeSealed, []game.Content{game.ContentBox, game.ContentManual, game.ContentMedia}},
-	"complete (case + manual)": {"", []game.Content{game.ContentBox, game.ContentManual, game.ContentMedia}},
-	"completo (caja + manual)": {"", []game.Content{game.ContentBox, game.ContentManual, game.ContentMedia}},
-	"case and disc":            {"", []game.Content{game.ContentBox, game.ContentMedia}},
-	"caja y disco":             {"", []game.Content{game.ContentBox, game.ContentMedia}},
-	"disc only":                {"", []game.Content{game.ContentMedia}},
-	"sólo disco":               {"", []game.Content{game.ContentMedia}},
-	"damaged":                  {game.GradeDamaged, nil},
-	"dañado":                   {game.GradeDamaged, nil},
-}
-
-// convertCondition reads a version-1 condition; ok is false for text that is not one of them.
-func convertCondition(text string) (game.Grade, game.Contents, bool) {
-	old, ok := oldConditions[strings.ToLower(strings.TrimSpace(text))]
-	if !ok {
-		return "", 0, false
-	}
-
-	contents, _ := game.ContentsOf(old.contents...) // the table only holds known contents
-
-	return old.grade, contents, true
 }
 
 func photoDocs(photos []game.Photo) []photoDoc {

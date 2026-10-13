@@ -103,8 +103,8 @@ func TestDocuments_game(t *testing.T) {
 		})
 	})
 
-	t.Run("GIVEN a document from an older version without some fields, and with unknown ones", func(t *testing.T) {
-		raw := `{"v":1,"title":"Celeste","createdAt":"2026-10-01T10:00:00Z","updatedAt":"2026-10-01T10:00:00Z",
+	t.Run("GIVEN a current document without some fields, and with unknown ones", func(t *testing.T) {
+		raw := `{"v":3,"title":"Celeste","createdAt":"2026-10-01T10:00:00Z","updatedAt":"2026-10-01T10:00:00Z",
 			"futureField":42,"copies":[{"id":"c1","kind":"library","platform":"Steam","status":"owned","extra":"x"}]}`
 
 		t.Run("WHEN it is decoded", func(t *testing.T) {
@@ -129,6 +129,25 @@ func TestDocuments_game(t *testing.T) {
 			assert.ErrorIs(t, err, errNewerDocument)
 		})
 	})
+
+	// Versions 1 (a free-text condition on copies) and 2 (one cover per game) are no longer read:
+	// their old fields would be dropped without a word, so the document is refused instead.
+	for _, v := range []int{1, 2} {
+		t.Run("GIVEN a version-"+strconv.Itoa(v)+" document", func(t *testing.T) {
+			raw := `{"v":` + strconv.Itoa(v) + `,"title":"Halo 3","coverUrl":"https://example.test/halo.jpg",` +
+				`"createdAt":"2026-10-01T10:00:00Z","updatedAt":"2026-10-01T10:00:00Z",` +
+				`"copies":[{"id":"c1","kind":"physical","status":"owned","condition":"Sealed"}]}`
+
+			t.Run("WHEN it is decoded", func(t *testing.T) {
+				_, err := decodeGame("g4", raw)
+
+				t.Run("THEN it is refused, saying its version is no longer supported", func(t *testing.T) {
+					require.ErrorIs(t, err, errOlderDocument)
+					assert.Contains(t, err.Error(), "game document version "+strconv.Itoa(v)+" is no longer supported")
+				})
+			})
+		})
+	}
 }
 
 func TestDocuments_sourceAndProvider(t *testing.T) {
@@ -254,50 +273,6 @@ func TestDocuments_physicalFields(t *testing.T) {
 			})
 		})
 	})
-}
-
-func TestDocuments_conditionConversion(t *testing.T) {
-	cases := []struct {
-		condition string
-		grade     game.Grade
-		contents  []game.Content
-		note      string
-	}{
-		{"Sealed", game.GradeSealed, []game.Content{game.ContentBox, game.ContentManual, game.ContentMedia}, ""},
-		{"precintado", game.GradeSealed, []game.Content{game.ContentBox, game.ContentManual, game.ContentMedia}, ""},
-		{"Complete (case + manual)", "", []game.Content{game.ContentBox, game.ContentManual, game.ContentMedia}, ""},
-		{"Completo (caja + manual)", "", []game.Content{game.ContentBox, game.ContentManual, game.ContentMedia}, ""},
-		{" Case and disc ", "", []game.Content{game.ContentBox, game.ContentMedia}, ""},
-		{"Caja y disco", "", []game.Content{game.ContentBox, game.ContentMedia}, ""},
-		{"Disc only", "", []game.Content{game.ContentMedia}, ""},
-		{"Sólo disco", "", []game.Content{game.ContentMedia}, ""},
-		{"Damaged", game.GradeDamaged, nil, ""},
-		{"Dañado", game.GradeDamaged, nil, ""},
-		{"Like new, no slip cover", "", nil, "signed\nCondition: Like new, no slip cover"},
-	}
-
-	for _, c := range cases {
-		t.Run("GIVEN a version-1 copy whose condition is "+c.condition, func(t *testing.T) {
-			raw := `{"v":1,"title":"Halo 3","createdAt":"2026-10-01T10:00:00Z","updatedAt":"2026-10-01T10:00:00Z",
-				"copies":[{"id":"c1","kind":"physical","status":"owned","notes":"signed","condition":` + strconv.Quote(c.condition) + `}]}`
-
-			got, err := decodeGame("g1", raw)
-			require.NoError(t, err)
-
-			t.Run("THEN it becomes a grade and contents, or a note", func(t *testing.T) {
-				cp := got.Copies()[0]
-				assert.Equal(t, c.grade, cp.Grade)
-				assert.Equal(t, c.contents, cp.Contents.List())
-
-				want := c.note
-				if want == "" {
-					want = "signed"
-				}
-
-				assert.Equal(t, want, cp.Notes)
-			})
-		})
-	}
 }
 
 func TestDocuments_photos(t *testing.T) {
@@ -620,43 +595,10 @@ func TestDocuments_editions(t *testing.T) {
 		assert.Equal(t, map[string]game.EditionCover{"": {URL: "https://example.test/halo.jpg"}}, got.Covers())
 	})
 
-	t.Run("GIVEN a version-2 document of a game without copies, with a cover URL, WHEN it is read THEN the game keeps it", func(t *testing.T) {
-		got, err := decodeGame("g4", `{"v":2,"title":"Halo 3","coverUrl":"https://example.test/halo.jpg","createdAt":"2026-10-09T18:30:00Z","updatedAt":"2026-10-09T18:30:00Z"}`)
-		require.NoError(t, err)
-		assert.Equal(t, game.EditionCover{URL: "https://example.test/halo.jpg"}, got.MainEdition().Cover)
-	})
-
 	t.Run("GIVEN a version-3 document without covers WHEN it is read THEN the game has none", func(t *testing.T) {
 		got, err := decodeGame("g5", `{"v":3,"title":"Halo 3","createdAt":"2026-10-09T18:30:00Z","updatedAt":"2026-10-09T18:30:00Z"}`)
 		require.NoError(t, err)
 		assert.Nil(t, got.Covers())
-	})
-
-	t.Run("GIVEN a version-2 document with a cover URL, and a cover photo on a copy of another edition than the default main one", func(t *testing.T) {
-		const at = `"createdAt":"2026-10-09T18:30:00Z","updatedAt":"2026-10-09T18:30:00Z"`
-
-		raw := `{"v":2,"title":"Halo 3","coverUrl":"https://example.test/halo.jpg","coverPhoto":"` + string(photo) + `",` + at + `,"copies":[` +
-			`{"id":"c1","kind":"physical","platform":"Xbox 360","status":"owned",` + at + `},` +
-			`{"id":"c2","kind":"physical","platform":"Xbox 360","status":"owned",` + at + `},` +
-			`{"id":"c3","kind":"physical","platform":"PS3","status":"owned","photos":[{"id":"` + string(photo) + `","addedAt":"2026-10-09T18:30:00Z"}],` + at + `}]}`
-
-		t.Run("WHEN it is read", func(t *testing.T) {
-			got, err := decodeGame("g1", raw)
-			require.NoError(t, err)
-
-			t.Run("THEN the photo keeps its edition as the main one, and the URL goes to the default main edition", func(t *testing.T) {
-				assert.Equal(t, map[string]game.EditionCover{"PS3": {Photo: photo}, "Xbox 360": {URL: "https://example.test/halo.jpg"}}, got.Covers())
-				assert.Equal(t, "PS3", got.MainSystem())
-			})
-
-			t.Run("AND saving it again writes version 3 without the old fields", func(t *testing.T) {
-				again, err := encodeGame(got)
-				require.NoError(t, err)
-				assert.Contains(t, again, `"v":3`)
-				assert.NotContains(t, again, `"coverUrl"`)
-				assert.NotContains(t, again, `"coverPhoto"`)
-			})
-		})
 	})
 }
 

@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -110,28 +111,48 @@ func TestMigration0009(t *testing.T) {
 			require.NoError(t, err)
 			t.Cleanup(func() { db.Close() })
 
-			games, err := NewGameRepository(db).List(ctx)
-			require.NoError(t, err)
-
+			// The migration writes version-1 game documents, which this version no longer reads (the
+			// releases that converted them are gone), so the stored documents are checked as JSON.
 			t.Run("THEN games keep their fields and their copies, in their order", func(t *testing.T) {
-				var raw string
-				require.NoError(t, db.sql.QueryRowContext(ctx, `SELECT doc FROM games WHERE id = 'g1'`).Scan(&raw))
-				assert.Contains(t, raw, `"v":1`)
+				docs := map[string]gameDoc{}
+				rows, err := db.sql.QueryContext(ctx, `SELECT id, doc FROM games`)
+				require.NoError(t, err)
 
-				require.Len(t, games, 2)
-				assert.Equal(t, "Empty", games[0].Title())
-				assert.Empty(t, games[0].Copies())
+				for rows.Next() {
+					var (
+						id  string
+						raw string
+						doc gameDoc
+					)
 
-				hades := games[1]
-				assert.Equal(t, game.Links{"steam": "1145360"}, hades.Links())
-				assert.Equal(t, "GOTY", hades.Notes())
-				require.Len(t, hades.Copies(), 2)
-				assert.Equal(t, game.ID("c1"), hades.Copies()[0].ID, "copies come in creation order")
-				assert.Equal(t, "s1", hades.Copies()[0].SourceID)
-				assert.Equal(t, "AAAA", hades.Copies()[0].Key)
-				assert.Empty(t, hades.Copies()[1].SourceID, "a manual copy has no source")
-				assert.Equal(t, game.Barcode("2001234567893"), hades.Copies()[1].Barcode)
-				assert.Equal(t, "Shelf", hades.Copies()[1].Location)
+					require.NoError(t, rows.Scan(&id, &raw))
+					require.NoError(t, json.Unmarshal([]byte(raw), &doc))
+					docs[id] = doc
+				}
+
+				require.NoError(t, rows.Err())
+				rows.Close()
+
+				require.Len(t, docs, 2)
+				assert.Equal(t, 1, docs["g1"].V)
+				assert.Equal(t, "Empty", docs["g2"].Title)
+				assert.Empty(t, docs["g2"].Copies)
+
+				hades := docs["g1"]
+				assert.Equal(t, game.Links{"steam": "1145360"}, hades.Links)
+				assert.Equal(t, "GOTY", hades.Notes)
+				require.Len(t, hades.Copies, 2)
+				assert.Equal(t, "c1", hades.Copies[0].ID, "copies come in creation order")
+				assert.Equal(t, "s1", hades.Copies[0].SourceID)
+				assert.Equal(t, "AAAA", hades.Copies[0].Key)
+				assert.Empty(t, hades.Copies[1].SourceID, "a manual copy has no source")
+				assert.Equal(t, "2001234567893", hades.Copies[1].Barcode)
+				assert.Equal(t, "Shelf", hades.Copies[1].Location)
+			})
+
+			t.Run("AND this version refuses to read those games, saying their version is no longer supported", func(t *testing.T) {
+				_, err := NewGameRepository(db).List(ctx)
+				assert.ErrorIs(t, err, errOlderDocument)
 			})
 
 			t.Run("AND sources keep their state, disabled ones disabled", func(t *testing.T) {
