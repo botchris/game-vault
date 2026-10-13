@@ -15,6 +15,7 @@ import (
 	"gamevault/internal/adapters/outbound/gamedata"
 	"gamevault/internal/adapters/outbound/sqlite"
 	"gamevault/internal/application/media"
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
@@ -393,6 +394,10 @@ func TestCovers_fallbackMisses(t *testing.T) {
 
 				_, marked := env.assets.CoverMissingSince(g.ID(), "PS4")
 				assert.False(t, marked)
+			})
+
+			t.Run("AND it is the provider being unavailable, not a missing cover", func(t *testing.T) {
+				assert.Equal(t, errkind.Unavailable, errkind.Of(err))
 			})
 		})
 	})

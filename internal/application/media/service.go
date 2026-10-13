@@ -823,7 +823,9 @@ func (s *Service) resolveEdition(ctx context.Context, g *game.Game, system strin
 		// ones until the edition can be marked missing.
 		s.misses.remember(g.ID(), system, look.none, s.now())
 
-		return Image{}, fmt.Errorf("%w: %w", ErrNoCover, look.limited)
+		// The provider's trouble comes first, so its kind (Unavailable) is the error's, not
+		// ErrNoCover's: errkind.Of reads the first match in depth-first order.
+		return Image{}, fmt.Errorf("%w: %w", look.limited, ErrNoCover)
 	}
 
 	// Add-ons (DLC, soundtracks…) rarely have art of their own: borrow the base game's.

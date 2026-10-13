@@ -85,9 +85,10 @@ type kinded interface {
 	Kind() Kind
 }
 
-// Of returns the kind of err: that of the outermost error in its chain that has one, so a wrapper
-// can give a more precise kind than the error it wraps. It returns Unknown for a nil error and for
-// an error without a kind.
+// Of returns the kind of err: that of the first error with a kind in the order errors.As visits
+// them (depth first: an error before the errors it wraps, and the errors an error joins or wraps
+// with several %w in order), so a wrapper can give a more precise kind than the error it wraps. It
+// returns Unknown for a nil error and for an error without a kind.
 func Of(err error) Kind {
 	var k kinded
 	if errors.As(err, &k) {
