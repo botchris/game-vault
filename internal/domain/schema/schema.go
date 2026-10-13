@@ -3,6 +3,7 @@
 package schema
 
 import (
+	"maps"
 	"strings"
 
 	"gamevault/internal/domain/errkind"
@@ -139,4 +140,27 @@ func (fs Fields) State(s Settings) Settings {
 	}
 
 	return out
+}
+
+// MergeState returns the stored settings with their state fields replaced by the ones in
+// reported (a rotated token, what a lookup learned), and whether the state changed. Settings the
+// user configured are taken from stored, never from reported: an integration only gets to write
+// its own state. When nothing changed it returns stored as it is.
+func (fs Fields) MergeState(stored, reported Settings) (Settings, bool) {
+	next, prev := fs.State(reported), fs.State(stored)
+	if maps.Equal(next, prev) {
+		return stored, false
+	}
+
+	merged := Settings{}
+
+	for k, v := range stored {
+		if _, isState := prev[k]; !isState {
+			merged[k] = v
+		}
+	}
+
+	maps.Copy(merged, next)
+
+	return merged, true
 }

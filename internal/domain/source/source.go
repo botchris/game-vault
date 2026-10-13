@@ -239,23 +239,12 @@ func (s *Source) Reconfigure(d TypeDescriptor, cfg Config, now time.Time) error 
 // UpdateState stores the state fields an integration changed itself (a rotated token). Other
 // settings are left alone. It reports whether anything changed.
 func (s *Source) UpdateState(d TypeDescriptor, settings schema.Settings, now time.Time) bool {
-	next, prev := d.Fields.State(settings), d.Fields.State(s.settings)
-	if maps.Equal(next, prev) {
-		return false
+	merged, changed := d.Fields.MergeState(s.settings, settings)
+	if changed {
+		s.settings, s.updatedAt = merged, now
 	}
 
-	merged := schema.Settings{}
-
-	for k, v := range s.settings {
-		if _, isState := prev[k]; !isState {
-			merged[k] = v
-		}
-	}
-
-	maps.Copy(merged, next)
-	s.settings, s.updatedAt = merged, now
-
-	return true
+	return changed
 }
 
 // ReplaceSettings stores settings an integration prepared from what the user typed (e.g. a
