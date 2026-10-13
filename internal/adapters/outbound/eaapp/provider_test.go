@@ -167,6 +167,7 @@ func TestOwnedItems_passingTroubles(t *testing.T) {
 // offer id: it is built from the title and must never change (game.TitleIDKey, not MatchKey).
 func TestMapItems_idWithoutProductID(t *testing.T) {
 	var it item
+
 	it.Product.Name = "Example Racer™ Deluxe Edition"
 	it.Product.BaseItem.Title = "Example Racer™"
 

@@ -204,7 +204,6 @@ func (c *Client) findByTitle(ctx context.Context, s schema.Settings, q media.Cov
 	}
 
 	for _, term := range terms {
-
 		g, err := c.searchTitle(ctx, s, q, term, fields)
 		if err != nil || g != nil {
 			return g, err
