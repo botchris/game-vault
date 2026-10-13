@@ -14,7 +14,8 @@ because Simple Icons removed them).
   infinite scroll), `FilterPanel` (popover / bottom sheet), `PosterGrid`, `GameDetail` (the game sheet:
   hero, edition chips, Overview / Copies / Edit tabs; ‹ › and ← → move through the library's current list, keeping the
   tab, with no animation; the image viewer catches the arrows first; the sheet is not remounted per
-  game, only its body is keyed), `GameSheet` (details from metadata providers),
+  game, only its body is keyed; its parts are `SheetHero`, `CopiesTab` with `CopyCard`, `EditTab`, and
+  `SheetDialogs` with `EditCopyDialog`, sharing the types in `sheet.ts`), `GameSheet` (details from metadata providers),
   `CopyPhotos` (a copy's thumbnail strip, uploads with progress, the viewer with its photo footer),
   `OwnershipDialog` ("Do I own it?": paste box, rows, full screen on phones); `LibraryPage` opens the
   sheet a `#/game/<id>` address names.

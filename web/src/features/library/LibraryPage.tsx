@@ -12,7 +12,8 @@ import {
   sortItems, type Filters, type Grouping, type LibraryItem,
 } from '../../lib/editions';
 import FilterPanel from './FilterPanel';
-import GameDetail, { type SheetNav } from './GameDetail';
+import GameDetail from './GameDetail';
+import type { SheetNav } from './sheet';
 import NewGameDialog from './NewGameDialog';
 import OwnershipDialog from './OwnershipDialog';
 import { gameHash, gameIdFromHash } from '../../lib/gameRoute';

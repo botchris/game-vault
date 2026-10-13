@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { httpsUrl, isAutoLink, rebaseRecord } from '../src/lib/links.ts';
+import { cleanLinks, httpsUrl, isAutoLink, rebaseInfo, rebaseRecord, sameLinks } from '../src/lib/links.ts';
 
 test('only https addresses from providers become links', () => {
   assert.equal(httpsUrl('https://en.wikipedia.org/wiki/Portal_2'), 'https://en.wikipedia.org/wiki/Portal_2');
@@ -30,4 +30,21 @@ test('a form keeps only what the user changed and takes everything else from the
   assert.deepEqual(rebaseRecord({ steam: '100' }, { steam: ' 100 ' }, {}, (a, b) => a.trim() === b.trim()), {},
     'unchanged except for spaces: the game as it is now (the link was removed meanwhile)');
   assert.deepEqual(rebaseRecord({}, { gog: 'G9' }, { gog: 'G1' }), { gog: 'G9' }, 'a link the user added wins');
+});
+
+test('the Edit tab keeps what the user changed in each part of the game and takes the rest as it is now', () => {
+  const same = (a, b) => a === b;
+  const base = { title: 'Portal', notes: '', links: { gog: 'G1' }, fields: { mood: 'calm' } };
+  const edited = { title: 'Portal 2', notes: '', links: { gog: 'G1 ' }, fields: { mood: 'calm' } };
+  const current = { title: 'Portal (2007)', notes: 'Found on a shelf', links: { gog: 'G1', steam: '400' }, fields: { mood: 'tense' } };
+  assert.deepEqual(rebaseInfo(base, edited, current, same), {
+    title: 'Portal 2', notes: 'Found on a shelf', links: { gog: 'G1', steam: '400' }, fields: { mood: 'tense' },
+  }, 'the edited title wins; notes, the new link and the field changed elsewhere stay; spaces alone are no edit');
+});
+
+test('links are saved trimmed, an empty one unlinks, and spaces alone are no change', () => {
+  assert.deepEqual(cleanLinks({ steam: ' 400 ', gog: '', psn: '  ' }), { steam: '400' });
+  assert.equal(sameLinks({ steam: '400 ', gog: '' }, { steam: '400' }), true);
+  assert.equal(sameLinks({ steam: '400' }, { steam: '401' }), false);
+  assert.equal(sameLinks({ steam: '400' }, { steam: '400', gog: 'G1' }), false);
 });

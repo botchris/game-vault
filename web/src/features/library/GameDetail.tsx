@@ -1,29 +1,17 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { errorMessage, gameClient } from '../../api/client';
-import { Cover } from '../../components/Cover';
-import { Icon } from '../../components/Icon';
-import { PlatformBadge, platformHoldings } from '../../components/PlatformBadge';
-import { Alert, KeyCell, useFormatters } from '../../components/ui';
+import { Alert } from '../../components/ui';
 import { useEscape } from '../../components/useEscape';
-import { groupCopies, openEdition, systemOf } from '../../lib/editions';
-import { formatAmount } from '../../lib/money';
-import {
-  CopyKind, CopyStatus, contentKey, daysUntil, gameInfo, gradeKey, kindKey, redeemUrl, statusKey, type Copy, type CopyDetailsInput, type Game,
-} from '../../lib/model';
-import type { LinkStore } from '../../gen/gamevault/v1/game_pb';
+import { openEdition } from '../../lib/editions';
+import { gameInfo, type Game } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
-import { FieldInputs, applyField, cleanFields, sameFields, useFieldValidity, type FieldValues } from '../fields/FieldInput';
-import { FieldList } from '../fields/FieldList';
-import CopyForm from './CopyForm';
-import CopyPhotos from './CopyPhotos';
-import CopyValue from './CopyValue';
-import CoverPicker from './CoverPicker';
-import GamePicker from './GamePicker';
-import { SheetFacts, SheetOverview, useGameDetails } from './GameSheet';
-import LinkSearchDialog from './LinkSearchDialog';
-import PlayControls from './PlayControls';
-import { isAutoLink, rebaseRecord } from '../../lib/links';
+import CopiesTab from './CopiesTab';
+import EditTab from './EditTab';
+import { SheetOverview, useGameDetails } from './GameSheet';
+import SheetDialogs from './SheetDialogs';
+import SheetHero from './SheetHero';
+import type { GamePatch, SheetActions, SheetDialog, SheetNav } from './sheet';
 
 interface Props {
   gameId: string;
@@ -42,59 +30,29 @@ interface Props {
   nav?: SheetNav;
 }
 
-/** Moves between the games of the list a sheet was opened from. */
-export interface SheetNav {
-  previous?: () => void;
-  next?: () => void;
-}
-
-type Dialog =
-  | { type: 'addCopy' }
-  | { type: 'editCopy'; copy: Copy }
-  | { type: 'moveCopy'; copy: Copy }
-  | { type: 'merge' }
-  | { type: 'coverPicker'; photosOnly?: boolean }
-  | null;
-
 type Tab = 'overview' | 'copies' | 'edit';
 
-/** The editable fields a change sends; the rest are sent back as they are. */
-type GamePatch = Partial<Pick<Game, 'title' | 'links' | 'notes' | 'playStatus' | 'rating' | 'fields'>>;
-
-/** A game's sheet (like CLZ): details from the metadata providers, the copies you own, and editing. */
-export default function GameDetail({ gameId, system, onClose, onOpenGame, onEdition, onPlatform, nav }: Props) {
+/** A game's sheet: details from the metadata providers, the copies you own, and editing. Renders
+ *  nothing when the game is not in the catalog (deleted, or not loaded yet). */
+export default function GameDetail({ gameId, ...props }: Props) {
   const { games } = useAppData();
   const game = games.find((g) => g.id === gameId);
   if (!game) return null;
-  return <GameDetailBody game={game} system={system} onClose={onClose} onOpenGame={onOpenGame} onEdition={onEdition} onPlatform={onPlatform} nav={nav} />;
+  return <GameDetailBody game={game} {...props} />;
 }
 
-function GameDetailBody({ game, system, onClose, onOpenGame, onEdition, onPlatform, nav }: {
-  game: Game;
-  system?: string;
-  onClose: () => void;
-  onOpenGame: (id: string) => void;
-  onEdition?: (system: string) => void;
-  onPlatform?: (platform: string) => void;
-  nav?: SheetNav;
-}) {
+function GameDetailBody({ game, system, onClose, onOpenGame, onEdition, onPlatform, nav }: Omit<Props, 'gameId'> & { game: Game }) {
   const { t } = useTranslation();
-  const { games, putGame, dropGame } = useAppData();
+  const { putGame, dropGame } = useAppData();
   const sheet = useGameDetails(game);
   const [tab, setTab] = useState<Tab>('overview');
-  const [dialog, setDialog] = useState<Dialog>(null);
+  const [dialog, setDialog] = useState<SheetDialog | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [chosen, setChosen] = useState(system ?? '');
   // The edition shown: the one chosen, while the game still has it (its copies may have moved), else
   // the main one.
   const current = openEdition(game, chosen);
-  const edition = game.editions.find((e) => e.system === current);
-  // The system whose box the hero shows (null: none), to say when it is borrowed.
-  const [shownBox, setShownBox] = useState<string | null>(current);
-  const borrowed = shownBox !== current;
-  const holdings = platformHoldings(game);
-  const editionPhotos = game.copies.filter((c) => c.effectiveSystem === current).flatMap((c) => c.photos);
   // Follow the edition the library opens: ‹ › in "By platform" can move to another edition of the
   // same game, so the game's id alone is not enough.
   useEffect(() => setChosen(system ?? ''), [game.id, system]);
@@ -114,16 +72,13 @@ function GameDetailBody({ game, system, onClose, onOpenGame, onEdition, onPlatfo
       setBusy(false);
     }
   };
+  const actions: SheetActions = { busy, run, openDialog: setDialog };
 
   const updateGame = (patch: GamePatch) => run(async () => {
     // Links are sent as set only by the Edit tab's save (a patch with links): any other save may come
     // from a page loaded before a link was added automatically, and must not remove it.
     putGame((await gameClient.updateGame({ ...gameInfo(game), ...patch, linksSet: 'links' in patch })).game!);
   });
-
-  const details = sheet.details;
-  const release = details?.releaseDate.match(/\b(19|20)\d\d\b/)?.[0] ?? (game.releaseYear || '');
-  const genres = details?.genres.length ? details.genres : game.genres;
 
   // Escape closes the sheet and ← → move to the previous / next game, only when no overlay is on top
   // of it: dialogs opened from the sheet or from inside a tab (the store-link search) register
@@ -166,63 +121,8 @@ function GameDetailBody({ game, system, onClose, onOpenGame, onEdition, onPlatfo
   return (
     <div ref={overlay} className="overlay sheet-overlay" onMouseDown={onClose}>
       <article ref={sheetEl} className="game-sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" onMouseDown={(e) => e.stopPropagation()}>
-        <header className="hero">
-          <div className="hero-backdrop" aria-hidden="true"><Cover game={game} system={current} /></div>
-          <div className="hero-actions">
-            {nav && (
-              <>
-                <button className="icon-button" onClick={nav.previous} disabled={!nav.previous} aria-label={t('game.previousGame')} title={t('game.previousGameKey')}><Icon name="prev" size={20} /></button>
-                <button className="icon-button" onClick={nav.next} disabled={!nav.next} aria-label={t('game.nextGame')} title={t('game.nextGameKey')}><Icon name="next" size={20} /></button>
-              </>
-            )}
-            <button className="icon-button" onClick={onClose} aria-label={t('common.close')}><Icon name="close" size={20} /></button>
-          </div>
-          <div className="hero-cover">
-            <Cover game={game} system={current} onShown={setShownBox} whole />
-            {current && borrowed && (
-              <p className="cover-note">{shownBox ? t('edition.borrowedHelp', { system: shownBox }) : t('edition.noBox')}</p>
-            )}
-            <button type="button" className="ghost small-button" onClick={() => setDialog({ type: 'coverPicker' })}>
-              <Icon name="image" size={16} />{t('coverPicker.open')}
-            </button>
-            {current && borrowed && editionPhotos.length > 0 && (
-              <button type="button" className="ghost small-button" onClick={() => setDialog({ type: 'coverPicker', photosOnly: true })}>
-                <Icon name="image" size={16} />{t('edition.usePhoto')}
-              </button>
-            )}
-          </div>
-          <div className="hero-body">
-            <h2 id="sheet-title" className="hero-title">{game.title}</h2>
-            {game.editions.length >= 2 && (
-              <div className="edition-chips" role="group" aria-label={t('edition.chips')}>
-                {game.editions.map((e) => (
-                  <button key={e.system} type="button" className={`edition-chip ${e.system === current ? 'active' : ''}`}
-                    aria-pressed={e.system === current} onClick={() => showEdition(e.system)}>{e.system}</button>
-                ))}
-              </div>
-            )}
-            <div className="hero-line">
-              {release && <span className="hero-year">{release}</span>}
-              {/* The edition's system first (a filter badge when a copy's platform names it, like a
-                  disc's), then the other store or console badges. */}
-              {current && !holdings.some((h) => h.platform === current) && <PlatformBadge platform={current} full />}
-              {[...holdings.filter((h) => h.platform === current), ...holdings.filter((h) => h.platform !== current)]
-                .map((h) => <PlatformBadge key={h.platform} {...h} full onSelect={onPlatform} />)}
-              {/* With one edition, saying it is the game's cover tells nothing. */}
-              {game.editions.length >= 2 && edition && (edition.main
-                ? <span className="badge edition-main">{t('edition.isMain')}</span>
-                : (
-                  <button type="button" className="link edition-main" disabled={busy}
-                    onClick={() => run(async () => putGame((await gameClient.setMainEdition({ gameId: game.id, system: current })).game!))}>
-                    {t('edition.useAsMain')}
-                  </button>
-                ))}
-            </div>
-            <PlayControls game={game} busy={busy} onChange={updateGame} />
-            {genres.length > 0 && <div className="genres">{genres.map((g) => <span key={g} className="genre">{g}</span>)}</div>}
-            <SheetFacts details={details} />
-          </div>
-        </header>
+        <SheetHero game={game} current={current} details={sheet.details} nav={nav} actions={actions} onClose={onClose}
+          onPlatform={onPlatform} onShowEdition={showEdition} onChange={updateGame} />
 
         <nav className="sheet-tabs" role="tablist">
           {(['overview', 'copies', 'edit'] as Tab[]).map((k) => (
@@ -236,383 +136,17 @@ function GameDetailBody({ game, system, onClose, onOpenGame, onEdition, onPlatfo
         <div className="sheet-body" key={game.id}>
           {error && <Alert tone="error">{error}</Alert>}
           {tab === 'overview' && (
-            <SheetOverview game={game} details={details} warnings={sheet.warnings} loading={sheet.loading} error={sheet.error} onRefresh={sheet.refresh} />
+            <SheetOverview game={game} details={sheet.details} warnings={sheet.warnings} loading={sheet.loading} error={sheet.error} onRefresh={sheet.refresh} />
           )}
           {tab === 'copies' && (
-            <CopiesTab game={game} current={current} busy={busy} run={run} setDialog={setDialog} onShowEdition={showEdition}
+            <CopiesTab game={game} current={current} actions={actions} onShowEdition={showEdition}
               onGameGone={() => { dropGame(game.id); onClose(); }} />
           )}
-          {tab === 'edit' && <EditTab game={game} busy={busy} onSave={updateGame} setDialog={setDialog} run={run} onDeleted={onClose} />}
+          {tab === 'edit' && <EditTab game={game} actions={actions} onSave={updateGame} onDeleted={onClose} />}
         </div>
       </article>
 
-      {dialog?.type === 'addCopy' && (
-        <CopyForm onClose={() => setDialog(null)} onSubmit={async (d) => {
-          putGame((await gameClient.addCopy({ gameId: game.id, details: d })).game!);
-          setDialog(null);
-        }} />
-      )}
-      {dialog?.type === 'editCopy' && <EditCopyDialog game={game} copy={dialog.copy} onClose={() => setDialog(null)} />}
-      {dialog?.type === 'moveCopy' && (
-        <GamePicker title={t('copy.moveTitle')} excludeId={game.id} allowNew onClose={() => setDialog(null)}
-          onPick={(target) => run(async () => {
-            const res = await gameClient.moveCopy({
-              gameId: game.id, copyId: dialog.copy.id,
-              targetGameId: 'id' in target ? target.id : '', newGameTitle: 'newTitle' in target ? target.newTitle : '',
-            });
-            putGame(res.targetGame!);
-            if (res.sourceGame) putGame(res.sourceGame);
-            else { dropGame(game.id); onOpenGame(res.targetGame!.id); }
-            setDialog(null);
-          })} />
-      )}
-      {/* The current edition's cover; a game without copies has its only edition on ''. A URL the
-          server refuses comes back as the sheet's error. */}
-      {dialog?.type === 'coverPicker' && (
-        <CoverPicker game={game} system={current} photosOnly={dialog.photosOnly} onClose={() => setDialog(null)}
-          onPick={(cover) => {
-            run(async () => putGame((await gameClient.setEditionCover({ gameId: game.id, system: current, cover })).game!));
-            setDialog(null);
-          }} />
-      )}
-      {dialog?.type === 'merge' && (
-        <GamePicker title={t('game.mergeTitle', { title: game.title })} excludeId={game.id} onClose={() => setDialog(null)}
-          onPick={(target) => {
-            if (!('id' in target)) return;
-            const other = games.find((g) => g.id === target.id);
-            if (!confirm(t('game.confirmMerge', { other: other?.title, title: game.title }))) return;
-            run(async () => {
-              const res = await gameClient.mergeGames({ targetId: game.id, sourceIds: [target.id] });
-              dropGame(target.id);
-              putGame(res.game!);
-              setDialog(null);
-            });
-          }} />
-      )}
+      <SheetDialogs game={game} current={current} dialog={dialog} run={run} onClose={() => setDialog(null)} onOpenGame={onOpenGame} />
     </div>
   );
-}
-
-function EditCopyDialog({ game, copy, onClose }: { game: Game; copy: Copy; onClose: () => void }) {
-  const { putGame, sourceName } = useAppData();
-  // The API exposes the effective system only: without an override, a system that differs from the
-  // platform's is the source's.
-  const d = copy.details!;
-  const sourceSystem = !d.system && copy.effectiveSystem !== systemOf(d.platform) ? copy.effectiveSystem : '';
-  return (
-    <CopyForm initial={{ ...d }} sourceSystem={sourceSystem} managedBy={copy.sourceId ? sourceName(copy.sourceId) : undefined} onClose={onClose}
-      onSubmit={async (d: CopyDetailsInput) => {
-        putGame((await gameClient.updateCopy({ gameId: game.id, copyId: copy.id, details: d })).game!);
-        onClose();
-      }} />
-  );
-}
-
-function CopiesTab({ game, current, busy, run, setDialog, onShowEdition, onGameGone }: {
-  game: Game;
-  /** The edition the sheet shows: its copies come first. */
-  current: string;
-  busy: boolean;
-  run: (fn: () => Promise<void>) => Promise<void>;
-  setDialog: (d: Dialog) => void;
-  /** Show this edition in the sheet (a photo just became its cover). */
-  onShowEdition: (system: string) => void;
-  /** The game was deleted (its last copy was removed for good). */
-  onGameGone: () => void;
-}) {
-  const { t } = useTranslation();
-  const { putGame, sourceName, reloadSources } = useAppData();
-  // Copy whose key was just opened in the store: offer to mark it as redeemed.
-  const [redeeming, setRedeeming] = useState<string | null>(null);
-
-  const markRedeemed = (c: Copy) => run(async () => {
-    const res = await gameClient.updateCopy({ gameId: game.id, copyId: c.id, details: { ...c.details!, status: CopyStatus.REDEEMED } });
-    putGame(res.game!);
-    setRedeeming(null);
-  });
-
-  const deleteCopy = (c: Copy) => {
-    if (!c.sourceId || !c.externalId) {
-      if (!confirm(t('copy.confirmDelete'))) return;
-      run(async () => putGame((await gameClient.deleteCopy({ gameId: game.id, copyId: c.id })).game!));
-      return;
-    }
-    // An imported copy would come back on the next sync: remove it for good instead.
-    const loses = c.photos.length > 0 || c.estimates.length > 0;
-    const question = t('copy.confirmExclude', { title: game.title, source: sourceName(c.sourceId) })
-      + (loses ? t('copy.confirmExcludeLoses') : '');
-    if (!confirm(question)) return;
-    run(async () => {
-      const res = await gameClient.excludeCopy({ gameId: game.id, copyId: c.id });
-      if (res.game) putGame(res.game);
-      else onGameGone();
-      // The source's removed list changed; the page does not wait for it.
-      void reloadSources();
-    });
-  };
-
-  return (
-    <>
-      <div className="section-head">
-        <span />
-        <button className="primary" onClick={() => setDialog({ type: 'addCopy' })}><Icon name="plus" size={18} />{t('copy.add')}</button>
-      </div>
-      {game.copies.length === 0 && <p className="muted">{t('game.noCopies')}</p>}
-      {groupCopies(game.copies, game.editions, current).map((group) => (
-        <section key={group.system} className="copies-group">
-          {game.editions.length >= 2 && <h3 className="copies-system"><PlatformBadge platform={group.system} full /></h3>}
-          <ul className="copy-cards">
-            {group.copies.map((c) => (
-              <CopyCard key={c.id} game={game} copy={c} busy={busy} setDialog={setDialog} redeeming={redeeming === c.id}
-                onRedeeming={() => setRedeeming(c.id)} onMarkRedeemed={() => markRedeemed(c)} onDelete={() => deleteCopy(c)}
-                onShowEdition={onShowEdition} />
-            ))}
-          </ul>
-        </section>
-      ))}
-    </>
-  );
-}
-
-/** One copy in the Copies tab: kind, platform, status, key, details, value, fields, photos. */
-function CopyCard({ game, copy, busy, setDialog, redeeming, onRedeeming, onMarkRedeemed, onDelete, onShowEdition }: {
-  game: Game;
-  copy: Copy;
-  busy: boolean;
-  setDialog: (d: Dialog) => void;
-  /** The copy's key was just opened in the store: offer to mark it as redeemed. */
-  redeeming: boolean;
-  onRedeeming: () => void;
-  onMarkRedeemed: () => void;
-  onDelete: () => void;
-  onShowEdition: (system: string) => void;
-}) {
-  const { t, i18n } = useTranslation();
-  const fmt = useFormatters();
-  const { sourceName, fields } = useAppData();
-  const copyDefs = fields.filter((f) => f.scope === 'copy');
-  const d = copy.details!;
-  const days = daysUntil(d.redeemBy);
-  const source = copy.sourceId ? sourceName(copy.sourceId) : '';
-  const physical = [
-    d.grade ? t(`grade.${gradeKey(d.grade)}`) : '',
-    d.contents.length ? d.contents.map((c) => t(`content.${contentKey(c)}`)).join(', ') : '',
-    d.price?.amountMinor ? formatAmount(d.price.amountMinor, d.price.currency, i18n.language) : '',
-    d.location,
-  ];
-  const extra = [d.origin, d.edition, ...physical, fmt.date(d.acquiredOn), d.barcode && `EAN ${d.barcode}`].filter(Boolean);
-  return (
-    <li className={`copy-card kind-edge-${kindKey(d.kind)}`}>
-      <div className="copy-top">
-        <span className={`kind kind-${kindKey(d.kind)}`}>{t(`kind.${kindKey(d.kind)}`)}</span>
-        {d.platform && <PlatformBadge platform={d.platform} full />}
-        <span className={`status status-${statusKey(d.status)}`}>{t(`status.${statusKey(d.status)}`)}</span>
-        {copy.redundant && <span className="badge warn" title={t('copy.redundantHelp')}>{t('copy.redundant')}</span>}
-        <span className="spacer" />
-        <span className="copy-actions">
-          <button className="icon-button" title={t('common.edit')} aria-label={t('common.edit')} onClick={() => setDialog({ type: 'editCopy', copy })}><Icon name="edit" size={18} /></button>
-          <button className="icon-button" title={t('copy.move')} aria-label={t('copy.move')} onClick={() => setDialog({ type: 'moveCopy', copy })}><Icon name="move" size={18} /></button>
-          <button className="icon-button" title={t('common.delete')} aria-label={t('common.delete')} onClick={() => onDelete()}><Icon name="trash" size={18} /></button>
-        </span>
-      </div>
-      {d.kind === CopyKind.KEY && (
-        <div className="copy-key">
-          <KeyCell value={d.key} />
-          {redeemUrl(copy) && (
-            <a className="button small-button" href={redeemUrl(copy)!} target="_blank" rel="noreferrer" onClick={() => onRedeeming()}>
-              {t('copy.redeemOn', { platform: d.platform })}<Icon name="external" size={14} />
-            </a>
-          )}
-          {redeeming && (
-            <button className="small-button primary" onClick={() => onMarkRedeemed()} disabled={busy}><Icon name="check" size={14} />{t('copy.markRedeemed')}</button>
-          )}
-        </div>
-      )}
-      {days !== null && (
-        <p className={`copy-deadline ${days <= 30 ? 'danger' : days <= 90 ? 'warn' : 'muted'}`}>
-          {t('copy.redeemBy')}: {fmt.date(d.redeemBy)} · {t('common.daysLeft', { count: days })}
-        </p>
-      )}
-      {extra.length > 0 && <p className="muted small">{extra.join(' · ')}</p>}
-      {d.kind === CopyKind.PHYSICAL && <CopyValue game={game} copy={copy} onAddBarcode={() => setDialog({ type: 'editCopy', copy })} />}
-      <FieldList className="copy-fields" values={d.fields}
-        defs={copyDefs.filter((f) => !f.kinds.length || f.kinds.includes(d.kind))} />
-      {d.notes && <p className="small">{d.notes}</p>}
-      <CopyPhotos game={game} copy={copy} onEditionCover={onShowEdition} />
-      {source && <p className="muted small">{t('copy.syncedFrom', { source })}</p>}
-    </li>
-  );
-}
-
-function EditTab({ game, busy, onSave, setDialog, run, onDeleted }: {
-  game: Game;
-  busy: boolean;
-  onSave: (patch: GamePatch) => Promise<void>;
-  setDialog: (d: Dialog) => void;
-  run: (fn: () => Promise<void>) => Promise<void>;
-  onDeleted: () => void;
-}) {
-  const { t } = useTranslation();
-  const { dropGame, putGame, fields } = useAppData();
-  const gameDefs = fields.filter((f) => f.scope === 'game');
-  const infoOf = (g: Game) => ({ title: g.title, links: { ...g.links }, notes: g.notes, fields: { ...g.fields } });
-  const [info, setInfo] = useState(() => infoOf(game));
-  // The game as the form last took it: telling its info apart from the form's says what the user
-  // changed.
-  const [baseGame, setBaseGame] = useState(game);
-  const base = infoOf(baseGame);
-  // Discard remounts the field inputs, so text they kept locally (an invalid number) goes too.
-  const [discarded, setDiscarded] = useState(0);
-  // A field holding invalid text (a number, a year) blocks Save until it is fixed or cleared.
-  const [fieldsInvalid, reportField] = useFieldValidity();
-  const [stores, setStores] = useState<LinkStore[]>([]);
-  const [searching, setSearching] = useState<LinkStore | null>(null);
-  const dirty = info.title !== game.title || !sameLinks(info.links, game.links) || info.notes !== game.notes
-    || !sameFields(info.fields, game.fields);
-
-  useEffect(() => {
-    gameClient.listLinkStores({}).then((res) => setStores(res.stores), () => setStores([]));
-  }, []);
-
-  // The game as it is now, so the links shown include any found automatically since the page loaded.
-  useEffect(() => {
-    // Only when the tab opens for a game (putGame never changes): later changes arrive through the
-    // game itself.
-    gameClient.getGame({ id: game.id }).then((res) => { if (res.game) putGame(res.game); }, () => {});
-  }, [game.id, putGame]);
-
-  // When the game changes while the tab is open (reloaded above, a link found automatically, this
-  // form's own save), the form takes the new values and keeps only what the user changed in it, so
-  // neither their typing nor the new links are lost. Adjusted during render, not in an effect, so
-  // the form never renders once with the old base.
-  if (game !== baseGame) {
-    setBaseGame(game);
-    setInfo((x) => rebaseInfo(base, x, infoOf(game)));
-  }
-
-  // One row per store the game is linked to, plus the searchable ones (to link it by title), in the
-  // server's order; a link to a store nobody describes any more keeps a row named by its key.
-  const shown = (key: string) => key in info.links || stores.some((s) => s.key === key && s.searchable);
-  const rows = [
-    ...stores.filter((s) => shown(s.key)),
-    ...Object.keys(info.links).sort()
-      .filter((key) => !stores.some((s) => s.key === key))
-      .map((key) => ({ key, name: key, pageUrl: '', searchable: false }) as LinkStore),
-  ];
-  const addable = stores.filter((s) => !shown(s.key));
-  const setLink = (key: string, id: string) => setInfo({ ...info, links: { ...info.links, [key]: id } });
-
-  const save = async (e: FormEvent) => {
-    e.preventDefault();
-    if (fieldsInvalid) return;
-    // Links found automatically since the game was last read are kept: only the user's edits apply.
-    let current = game;
-    try {
-      current = (await gameClient.getGame({ id: game.id })).game ?? game;
-    } catch {
-      // Saving on what the page has is still right for every link the user did not touch.
-    }
-    const edited = rebaseInfo(base, info, infoOf(current));
-    await onSave({ ...edited, links: cleanLinks(edited.links), fields: cleanFields(edited.fields) });
-  };
-
-  const deleteGame = () => {
-    if (!confirm(t('game.confirmDelete', { title: game.title, count: game.copies.length }))) return;
-    run(async () => {
-      await gameClient.deleteGame({ id: game.id });
-      dropGame(game.id);
-      onDeleted();
-    });
-  };
-
-  return (
-    <>
-      <form className="grid" onSubmit={save}>
-        <label className="span2">
-          {t('game.title')}
-          <input value={info.title} onChange={(e) => setInfo({ ...info, title: e.target.value })} required />
-        </label>
-        <div className="span2 store-links">
-          <span className="store-links-title">{t('game.links')}</span>
-          {rows.map((store) => {
-            const id = (info.links[store.key] ?? '').trim();
-            return (
-              <label key={store.key} className="store-link">
-                <span>
-                  {store.name}
-                  {isAutoLink(game, store.key, info.links[store.key]) && (
-                    <span className="badge auto-link" title={t('game.autoLinkHelp')}>{t('game.autoLink')}</span>
-                  )}
-                </span>
-                <span className="row tight">
-                  <input value={info.links[store.key] ?? ''} placeholder={t('game.linkPlaceholder')} spellCheck={false}
-                    onChange={(e) => setLink(store.key, e.target.value)} />
-                  {store.pageUrl && id && (
-                    <a className="button" href={store.pageUrl.replace('{id}', encodeURIComponent(id))} target="_blank" rel="noreferrer">
-                      {t('game.storePage')}
-                    </a>
-                  )}
-                  {store.searchable && (
-                    <button type="button" onClick={() => setSearching(store)}>{t('game.searchStore')}</button>
-                  )}
-                </span>
-              </label>
-            );
-          })}
-          {addable.length > 0 && (
-            <select className="store-link-add" value="" aria-label={t('game.addLink')}
-              onChange={(e) => e.target.value && setLink(e.target.value, '')}>
-              <option value="">{t('game.addLink')}</option>
-              {addable.map((s) => <option key={s.key} value={s.key}>{s.name}</option>)}
-            </select>
-          )}
-          <span className="help">{t('game.linksHelp')}</span>
-        </div>
-        <label className="span2">
-          {t('common.notes')}
-          <textarea rows={3} value={info.notes} onChange={(e) => setInfo({ ...info, notes: e.target.value })} />
-        </label>
-        <FieldInputs key={discarded} className="span2" defs={gameDefs} values={info.fields} onValidity={reportField}
-          onChange={(id, update) => setInfo((x) => ({ ...x, fields: applyField(x.fields, id, update) }))} />
-        <div className="span2 actions">
-          <span className="spacer" />
-          {dirty && <button type="button" onClick={() => { setInfo(infoOf(game)); setDiscarded((n) => n + 1); }}>{t('common.discard')}</button>}
-          <button type="submit" className="primary" disabled={busy || !dirty || fieldsInvalid}>{t('common.save')}</button>
-        </div>
-      </form>
-      <div className="actions danger-zone">
-        <button onClick={() => setDialog({ type: 'merge' })} disabled={busy} title={t('game.mergeHelp')}>{t('game.merge')}</button>
-        <span className="spacer" />
-        <button className="danger" onClick={deleteGame} disabled={busy}>{t('game.delete')}</button>
-      </div>
-      {searching && (
-        <LinkSearchDialog store={searching} initialQuery={info.title} onClose={() => setSearching(null)}
-          onPick={(match) => { setLink(searching.key, match.id); setSearching(null); }} />
-      )}
-    </>
-  );
-}
-
-/** Links without the cleared stores (an empty id unlinks). */
-type GameInfo = { title: string; links: Record<string, string>; notes: string; fields: FieldValues };
-
-/** The form's info rebased on the game as it is now (see rebaseRecord): what the user changed since
- *  `base` stays, the rest is `current`'s. */
-function rebaseInfo(base: GameInfo, edited: GameInfo, current: GameInfo): GameInfo {
-  return {
-    title: edited.title !== base.title ? edited.title : current.title,
-    notes: edited.notes !== base.notes ? edited.notes : current.notes,
-    links: rebaseRecord(base.links, edited.links, current.links, (a, b) => a.trim() === b.trim()),
-    fields: rebaseRecord(base.fields, edited.fields, current.fields, (a, b) => sameFields({ v: a }, { v: b })),
-  };
-}
-
-function cleanLinks(links: Record<string, string>): Record<string, string> {
-  return Object.fromEntries(Object.entries(links).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v !== ''));
-}
-
-function sameLinks(a: Record<string, string>, b: Record<string, string>): boolean {
-  const ca = cleanLinks(a), cb = cleanLinks(b);
-  const keys = Object.keys(ca);
-  return keys.length === Object.keys(cb).length && keys.every((k) => ca[k] === cb[k]);
 }

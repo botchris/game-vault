@@ -42,3 +42,35 @@ export function rebaseRecord<V>(
   }
   return out;
 }
+
+/** What the Edit tab edits of a game; `F` is a custom field's value. */
+export interface GameInfo<F> {
+  title: string;
+  links: Record<string, string>;
+  notes: string;
+  fields: Record<string, F>;
+}
+
+/** The form's info rebased on the game as it is now (see rebaseRecord): what the user changed since
+ *  `base` stays, the rest is `current`'s. Links differing only in spaces are the same link;
+ *  `sameField` compares two field values. */
+export function rebaseInfo<F>(base: GameInfo<F>, edited: GameInfo<F>, current: GameInfo<F>, sameField: (a: F, b: F) => boolean): GameInfo<F> {
+  return {
+    title: edited.title !== base.title ? edited.title : current.title,
+    notes: edited.notes !== base.notes ? edited.notes : current.notes,
+    links: rebaseRecord(base.links, edited.links, current.links, (a, b) => a.trim() === b.trim()),
+    fields: rebaseRecord(base.fields, edited.fields, current.fields, sameField),
+  };
+}
+
+/** Links without the cleared stores (an empty id unlinks), trimmed: what a save sends. */
+export function cleanLinks(links: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(Object.entries(links).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v !== ''));
+}
+
+/** Whether two link sets save the same (see cleanLinks). */
+export function sameLinks(a: Record<string, string>, b: Record<string, string>): boolean {
+  const ca = cleanLinks(a), cb = cleanLinks(b);
+  const keys = Object.keys(ca);
+  return keys.length === Object.keys(cb).length && keys.every((k) => ca[k] === cb[k]);
+}
