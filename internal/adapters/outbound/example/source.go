@@ -130,7 +130,7 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 			ExternalID: "example:" + id,
 			Title:      title,
 			Links:      game.Links{LinkedStore.Key: id},
-			System:     game.SystemPC,
+			// System stays empty: the platform, a PC store, already says the game is played on PC.
 			Details: game.CopyDetails{
 				Kind:     game.KindLibrary,
 				Platform: Platform,

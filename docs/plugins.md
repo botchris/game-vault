@@ -47,7 +47,7 @@ not registered, so it never shows up in Game Vault. It has the two pieces most s
 | File | What it shows |
 | --- | --- |
 | `plugin.go` | `Plugin()`, and the `LinkedStore` the source and the cover provider share |
-| `source.go` | A source: a token setting, `apiclient`, `Test`, `Fetch`, sentinel errors, skipping what is not an owned game, linking each game to the store, and `ImportedCopy.System = game.SystemPC` on a PC store's copies (a console source sets its own system, or leaves it empty for the platform to decide) |
+| `source.go` | A source: a token setting, `apiclient`, `Test`, `Fetch`, sentinel errors, skipping what is not an owned game, linking each game to the store, and counting what it skips (`source.Skipped`). `ImportedCopy.System` stays empty: a PC store's platform already says PC, and only a store that says more than its platform sets it (PlayStation, which names the console) |
 | `covers.go` | A cover provider: `DefaultOrder`, `Applies` from the game's link, candidates best first, "unknown game" as no candidates, image hosts |
 | `plugin_test.go` | A fake store with its failures, GIVEN / WHEN / THEN tests, and `plugintest` |
 
@@ -90,8 +90,12 @@ The Fanatical plugin is a real, small one: one source, `apiclient`, a fake-serve
 - **Link** every copy to the store it comes from (`Links`), and implement `sync.StoreLinker`.
   Sources that sell keys for other stores (Humble, Fanatical) link only what they know (Humble
   gives Steam AppIDs).
-- **`Test(ctx, settings) error`** makes one cheap request to the real service. Nil means the
-  settings work; the error says what is wrong and what to do.
+- **`Test(ctx, settings) error`** makes one cheap request to the real service, never a scan: give
+  the paging helper a page limit and read one page, of one item where the API takes a size
+  (`library(ctx, settings, 1)` in the example). It still signs in the way a scan does, so a
+  rotated credential is handed back into the settings. A service that answers everything in one
+  request (Fanatical) is read whole. Nil means the settings work; the error says what is wrong
+  and what to do.
 - **Errors the user sees** say what happened and how to fix it ("… paste a new token"), as
   sentinel errors so callers can match them with `errors.Is`. Every source uses the same names
   for the same meaning: `ErrNoCredentials` (the credential setting is empty), `ErrBadCode` (the
@@ -181,9 +185,13 @@ extension update: discuss it first.
 ## Tests
 
 Every plugin has a test against an `httptest` fake server that reproduces the real API's answers,
-including its failures (expired session, rate limit, an HTML page instead of JSON). Point the
-plugin at it through its `apiclient.Client` (`API.BaseURL`, `API.HTTP`). Write the tests as
-GIVEN / WHEN / THEN subtests with testify, as the existing `provider_test.go` files do.
+including its failures: a refused session or key, a rate limit, an outage, no answer and an HTML
+page or a truncated answer instead of JSON. `apiclienttest.Failures()` serves all but the first,
+with the sentinel each must match, and `apiclienttest.FailOn` makes one endpoint of your fake
+fail while sign-in keeps working (see any `failures_test.go`). Point the plugin at the fake through
+its `apiclient.Client` (`API.BaseURL`, `API.HTTP`). Write the tests as GIVEN / WHEN / THEN subtests
+with testify: the example, Amazon, itch.io and Fanatical are the ones to copy; some older tests are
+still flat functions.
 
 `task test` also runs `plugintest` on every plugin in `plugins.go`: ids and names set, every text
 translated in every language, media providers in the right chain with a `DefaultOrder`, stores
