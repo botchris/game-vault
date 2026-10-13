@@ -244,9 +244,10 @@ func TestPrepareAndFetch(t *testing.T) {
 	}
 }
 
-// TestTest_readsOneEntitlement checks that "Test connection" signs in to Xbox Live and asks the
-// Store for one entitlement, without the rest of the collections or the catalog.
-func TestTest_readsOneEntitlement(t *testing.T) {
+// TestTest_readsOnePage checks that "Test connection" signs in to Xbox Live and sends the request
+// of a scan's first collections page, with the scan's page size, without the rest of the
+// collections or the catalog.
+func TestTest_readsOnePage(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
@@ -258,9 +259,9 @@ func TestTest_readsOneEntitlement(t *testing.T) {
 		t.Run("WHEN the source is tested", func(t *testing.T) {
 			err := p.Test(ctx, settings)
 
-			t.Run("THEN it works after one request for one entitlement, and no catalog request", func(t *testing.T) {
+			t.Run("THEN it works after one request, the first page of a scan, and no catalog request", func(t *testing.T) {
 				require.NoError(t, err)
-				assert.Equal(t, []float64{1}, f.pageSizes)
+				assert.Equal(t, []float64{entitlementsPage}, f.pageSizes)
 				assert.Zero(t, f.catalogCalls)
 
 				t.Run("AND the rotated session is handed back", func(t *testing.T) {

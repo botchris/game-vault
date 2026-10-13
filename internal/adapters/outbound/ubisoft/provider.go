@@ -404,8 +404,8 @@ type node struct {
 	} `json:"viewer"`
 }
 
-// query reads one page of up to limit owned games and the total number of them.
-func (p *Provider) query(ctx context.Context, s session, q string, offset, limit int) ([]node, int, error) {
+// query reads one page of owned games and the total number of them.
+func (p *Provider) query(ctx context.Context, s session, q string, offset int) ([]node, int, error) {
 	var data struct {
 		Viewer struct {
 			Games struct {
@@ -419,7 +419,7 @@ func (p *Provider) query(ctx context.Context, s session, q string, offset, limit
 		OperationName: "OwnedGames",
 		Query:         q,
 		Variables: map[string]any{
-			"limit":  limit,
+			"limit":  pageSize,
 			"offset": offset,
 		},
 	}, http.Header{
@@ -442,17 +442,17 @@ func (p *Provider) query(ctx context.Context, s session, q string, offset, limit
 	return g.Nodes, g.TotalCount, nil
 }
 
-// all reads up to pages pages of size games of a query.
-func (p *Provider) all(ctx context.Context, s session, q string, pages, size int) ([]node, error) {
+// all reads up to pages pages of a query.
+func (p *Provider) all(ctx context.Context, s session, q string, pages int) ([]node, error) {
 	var nodes []node
 	for range pages {
-		batch, total, err := p.query(ctx, s, q, len(nodes), size)
+		batch, total, err := p.query(ctx, s, q, len(nodes))
 		if err != nil {
 			return nil, err
 		}
 
 		nodes = append(nodes, batch...)
-		if len(batch) < size || len(nodes) >= total {
+		if len(batch) < pageSize || len(nodes) >= total {
 			break
 		}
 	}
@@ -460,9 +460,9 @@ func (p *Provider) all(ctx context.Context, s session, q string, pages, size int
 	return nodes, nil
 }
 
-// owned reads up to pages pages of size owned games, opening a new session once when the reused
-// or pasted one expired.
-func (p *Provider) owned(ctx context.Context, settings schema.Settings, pages, size int) ([]node, error) {
+// owned reads up to pages pages of owned games, opening a new session once when the reused or
+// pasted one expired.
+func (p *Provider) owned(ctx context.Context, settings schema.Settings, pages int) ([]node, error) {
 	read := func(fresh bool) ([]node, error) {
 		s, err := p.session(ctx, settings, fresh)
 		if err != nil {
@@ -471,11 +471,11 @@ func (p *Provider) owned(ctx context.Context, settings schema.Settings, pages, s
 
 		// Only a query Ubisoft rejects is retried as the minimal one: after a rate limit or an
 		// outage, a second query would meet the same trouble.
-		nodes, err := p.all(ctx, s, ownedGamesQuery, pages, size)
+		nodes, err := p.all(ctx, s, ownedGamesQuery, pages)
 
 		var rejected *apiclient.GraphQLError
 		if errors.As(err, &rejected) {
-			nodes, err = p.all(ctx, s, minimalQuery, pages, size)
+			nodes, err = p.all(ctx, s, minimalQuery, pages)
 		}
 
 		return nodes, err
@@ -561,18 +561,19 @@ func mapNodes(nodes []node) ([]game.ImportedCopy, []string) {
 	return out, skipped.Warnings()
 }
 
-// Test implements sync.Provider: it opens (or reuses) a session and asks the library for one game.
+// Test implements sync.Provider: it opens (or reuses) a session and sends the request of a scan's
+// first library page.
 // Opening a session renews the remember-me ticket, which is handed back as a scan's is; the open
 // session is then reused by a scan that follows, so a test does not cost a second renewal.
 func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
-	_, err := p.owned(ctx, settings, 1, 1)
+	_, err := p.owned(ctx, settings, 1)
 
 	return err
 }
 
 // Fetch implements sync.Provider.
 func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, []string, error) {
-	nodes, err := p.owned(ctx, settings, maxPages, pageSize)
+	nodes, err := p.owned(ctx, settings, maxPages)
 	if err != nil {
 		return nil, nil, err
 	}

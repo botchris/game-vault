@@ -131,9 +131,9 @@ func TestFetch(t *testing.T) {
 	}
 }
 
-// TestTest_readsOneGame checks that "Test connection" signs in and asks the library for one game,
-// not the whole library.
-func TestTest_readsOneGame(t *testing.T) {
+// TestTest_readsOnePage checks that "Test connection" signs in and sends the request of a scan's
+// first library page, with the scan's page size, and stops there.
+func TestTest_readsOnePage(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
@@ -143,10 +143,10 @@ func TestTest_readsOneGame(t *testing.T) {
 		t.Run("WHEN the source is tested", func(t *testing.T) {
 			err := p.Test(ctx, schema.Settings{settingCookies: "Cookie: sid=good; remid=r"})
 
-			t.Run("THEN it works after one library request for one game", func(t *testing.T) {
+			t.Run("THEN it works after one library request, the first page of a scan", func(t *testing.T) {
 				require.NoError(t, err)
 				require.Len(t, *queries, 1)
-				assert.Contains(t, (*queries)[0], "limit: 1,")
+				assert.Contains(t, (*queries)[0], "limit: 100,")
 			})
 		})
 	})
@@ -171,7 +171,7 @@ func TestOwnedItems_passingTroubles(t *testing.T) {
 		p := newTest(t)
 
 		t.Run("WHEN the library is read", func(t *testing.T) {
-			_, err := p.ownedItems(ctx, "busy", maxPages, libraryPage)
+			_, err := p.ownedItems(ctx, "busy", maxPages)
 
 			t.Run("THEN it is a rate limit, not a signed-out session", func(t *testing.T) {
 				require.ErrorIs(t, err, provider.ErrRateLimited)

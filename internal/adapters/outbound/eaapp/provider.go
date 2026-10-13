@@ -60,18 +60,12 @@ var (
 	ErrSignedOut = source.SignedOut("EA did not accept the cookies: sign in again on ea.com and paste the cookies of accounts.ea.com again")
 )
 
-// ownedGamesQuery lists full games bought on EA's own store for PC, pageSize at a time. EA Play
-// (subscription) games are filtered out afterwards by ownership method. The page size is written
-// into the query, as EA's own client sends it, rather than passed as a variable.
-func ownedGamesQuery(pageSize int) string {
-	return fmt.Sprintf(ownedGamesQueryFormat, pageSize)
-}
-
-// ownedGamesQueryFormat is ownedGamesQuery with %d for the page size.
-const ownedGamesQueryFormat = `query OwnedGames($next: String) {
+// ownedGamesQuery lists full games bought on EA's own store for PC. EA Play (subscription) games
+// are filtered out afterwards by ownership method.
+const ownedGamesQuery = `query OwnedGames($next: String) {
   me {
     ownedGameProducts(locale: "DEFAULT", entitlementEnabled: true, storefronts: [EA],
-      type: [DIGITAL_FULL_GAME, PACKAGED_FULL_GAME], platforms: [PC], paging: {limit: %d, next: $next}) {
+      type: [DIGITAL_FULL_GAME, PACKAGED_FULL_GAME], platforms: [PC], paging: {limit: 100, next: $next}) {
       next
       items {
         originOfferId
@@ -85,9 +79,6 @@ const ownedGamesQueryFormat = `query OwnedGames($next: String) {
     }
   }
 }`
-
-// libraryPage is the number of games a scan asks for at a time.
-const libraryPage = 100
 
 // Provider implements sync.Provider for EA accounts.
 type Provider struct {
@@ -234,9 +225,9 @@ type item struct {
 	} `json:"product"`
 }
 
-// ownedItems lists the owned games, up to pages pages of size games. The token comes from a fresh
-// silent sign-in, so a refused one means the cookies no longer sign in.
-func (p *Provider) ownedItems(ctx context.Context, token string, pages, size int) ([]item, error) {
+// ownedItems lists the owned games, up to pages pages. The token comes from a fresh silent
+// sign-in, so a refused one means the cookies no longer sign in.
+func (p *Provider) ownedItems(ctx context.Context, token string, pages int) ([]item, error) {
 	header := http.Header{"Authorization": {"Bearer " + token}}
 
 	var all []item
@@ -254,7 +245,7 @@ func (p *Provider) ownedItems(ctx context.Context, token string, pages, size int
 		}
 
 		err := p.Library.GraphQL(ctx, "", apiclient.GraphQLBody{
-			Query:     ownedGamesQuery(size),
+			Query:     ownedGamesQuery,
 			Variables: map[string]any{"next": next},
 		}, header, &data)
 
@@ -377,15 +368,15 @@ func mapItems(items []item) ([]game.ImportedCopy, []string) {
 // skipped: game.TitleIDKey keeps Latin letters and digits only.
 const unkeyed = "items without a product id whose title has no Latin letters or digits to make one from"
 
-// Test implements sync.Provider: it signs in (keeping the cookies EA renews) and asks the library
-// for one game, without reading the rest.
+// Test implements sync.Provider: it signs in (keeping the cookies EA renews) and sends the request
+// of a scan's first library page, without reading the rest.
 func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
 	token, err := p.accessToken(ctx, settings)
 	if err != nil {
 		return err
 	}
 
-	_, err = p.ownedItems(ctx, token, 1, 1)
+	_, err = p.ownedItems(ctx, token, 1)
 
 	return err
 }
@@ -397,7 +388,7 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 		return nil, nil, err
 	}
 
-	items, err := p.ownedItems(ctx, token, maxPages, libraryPage)
+	items, err := p.ownedItems(ctx, token, maxPages)
 	if err != nil {
 		return nil, nil, err
 	}

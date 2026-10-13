@@ -420,7 +420,7 @@ type entitlement struct {
 var errTokenRejected = fmt.Errorf("amazon rejected the access token: %w", apiclient.ErrTokenRejected)
 
 // page reads one page of entitlements.
-func (p *Provider) page(ctx context.Context, access, serial, next string, size int) ([]entitlement, string, error) {
+func (p *Provider) page(ctx context.Context, access, serial, next string) ([]entitlement, string, error) {
 	hw := sha256.Sum256([]byte(serial))
 
 	var out struct {
@@ -438,7 +438,7 @@ func (p *Provider) page(ctx context.Context, access, serial, next string, size i
 		},
 		Body: map[string]any{
 			"Operation": "GetEntitlements", "clientId": "Sonic", "syncPoint": nil, "nextToken": nilIfEmpty(next),
-			"maxResults": size, "productIdFilter": nil, "keyId": keyID,
+			"maxResults": pageSize, "productIdFilter": nil, "keyId": keyID,
 			"hardwareHash": strings.ToUpper(hex.EncodeToString(hw[:])),
 		},
 	}, &out)
@@ -470,7 +470,7 @@ func (p *Provider) all(ctx context.Context, access, serial string) ([]entitlemen
 	)
 
 	for range maxPages {
-		batch, n, err := p.page(ctx, access, serial, next, pageSize)
+		batch, n, err := p.page(ctx, access, serial, next)
 		if err != nil {
 			return nil, err
 		}
@@ -555,11 +555,12 @@ func mapEntitlements(items []entitlement) ([]game.ImportedCopy, []string) {
 	return copies, warnings
 }
 
-// Test implements sync.Provider: it asks for one entitlement, which proves the session (renewing
-// the access token on the way, so the newest session is handed back) without reading the library.
+// Test implements sync.Provider: it sends the request of a scan's first page and stops there, which
+// proves the session (renewing the access token on the way, so the newest session is handed back)
+// without reading the rest of the library.
 func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
 	_, err := p.owned(ctx, settings, func(ctx context.Context, access, serial string) ([]entitlement, error) {
-		items, _, err := p.page(ctx, access, serial, "", 1)
+		items, _, err := p.page(ctx, access, serial, "")
 
 		return items, err
 	})

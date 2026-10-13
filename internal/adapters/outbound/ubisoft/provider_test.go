@@ -300,9 +300,9 @@ func TestTicketSurvivesTestSaveScanRestart(t *testing.T) {
 	}
 }
 
-// TestTest_readsOneGame checks that "Test connection" opens a session and asks the library for one
-// game, not the whole library, and still hands back the rotated ticket.
-func TestTest_readsOneGame(t *testing.T) {
+// TestTest_readsOnePage checks that "Test connection" opens a session and sends the request of a
+// scan's first library page, with the scan's page size, and still hands back the rotated ticket.
+func TestTest_readsOnePage(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
@@ -332,9 +332,9 @@ func TestTest_readsOneGame(t *testing.T) {
 		t.Run("WHEN the source is tested", func(t *testing.T) {
 			err := p.Test(ctx, settings)
 
-			t.Run("THEN it works after one library request for one game", func(t *testing.T) {
+			t.Run("THEN it works after one library request, the first page of a scan", func(t *testing.T) {
 				require.NoError(t, err)
-				assert.Equal(t, []float64{1}, limits)
+				assert.Equal(t, []float64{pageSize}, limits)
 
 				t.Run("AND the rotated ticket is handed back", func(t *testing.T) {
 					assert.Contains(t, settings[settingSession], "rm-2")

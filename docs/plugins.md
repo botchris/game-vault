@@ -91,8 +91,9 @@ The Fanatical plugin is a real, small one: one source, `apiclient`, a fake-serve
   Sources that sell keys for other stores (Humble, Fanatical) link only what they know (Humble
   gives Steam AppIDs).
 - **`Test(ctx, settings) error`** makes one cheap request to the real service, never a scan: give
-  the paging helper a page limit and read one page, of one item where the API takes a size
-  (`library(ctx, settings, 1)` in the example). It still signs in the way a scan does, so a
+  the paging helper a page limit and send exactly the request of a scan's first page, with the
+  scan's own page size, then stop. Never a request shape the scan does not send (a page of one
+  item): the service may refuse what its own client never asks. It still signs in the way a scan does, so a
   rotated credential is handed back into the settings. A service that answers everything in one
   request (Fanatical) is read whole. Nil means the settings work; the error says what is wrong
   and what to do.

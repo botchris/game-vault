@@ -265,8 +265,8 @@ uncommitted changes.
 ## Sources
 
 How each source reads your library. **Test connection** makes one cheap request instead of a
-scan: the first library page (one item where the store lets it choose the size: Amazon, EA,
-Ubisoft, Xbox), Battle.net's games overview without the classic games, Steam's game count. It
+scan: the request of a scan's first library page, with the scan's own page size, and no more
+pages; Battle.net's games overview without the classic games; Steam's game count. It
 still signs in and renews what a scan renews, so a rotated credential is saved as after a scan.
 Fanatical answers every key in one request, which the test reads whole. What a scan leaves out on
 purpose (DLC, subscription games such as Game Pass, PS Plus or EA Play, console games on Ubisoft,

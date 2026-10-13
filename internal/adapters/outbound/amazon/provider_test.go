@@ -254,9 +254,10 @@ func TestFetch_readsTheLibrary(t *testing.T) {
 	})
 }
 
-// TestTest_readsOneEntitlement checks that "Test connection" asks for one entitlement, not the whole
-// library: the button must answer at once, and spend as little of the store's patience as it can.
-func TestTest_readsOneEntitlement(t *testing.T) {
+// TestTest_readsOnePage checks that "Test connection" sends the request of a scan's first page, with
+// the scan's page size, and stops there: the button answers at once without a request shape
+// Amazon has never seen.
+func TestTest_readsOnePage(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
@@ -267,10 +268,10 @@ func TestTest_readsOneEntitlement(t *testing.T) {
 		t.Run("WHEN the source is tested", func(t *testing.T) {
 			err := p.Test(ctx, schema.Settings{settingSession: `{"refresh_token":"Atnr|good","serial":"SERIAL"}`})
 
-			t.Run("THEN it works after one request for one entitlement", func(t *testing.T) {
+			t.Run("THEN it works after one request, the first page of a scan", func(t *testing.T) {
 				require.NoError(t, err)
 				require.Len(t, fake.libraryBodies, 1)
-				assert.InDelta(t, 1, fake.libraryBodies[0]["maxResults"], 0)
+				assert.InDelta(t, pageSize, fake.libraryBodies[0]["maxResults"], 0)
 			})
 		})
 	})
