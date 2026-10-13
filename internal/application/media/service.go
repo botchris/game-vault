@@ -1217,6 +1217,10 @@ type BarcodeResult struct {
 	// Existing lists catalog games with the same title, to add the disc as one more copy.
 	Existing []GameRef
 	Warnings []string
+
+	// ProvidersUnavailable reports that a provider had a provider-level problem (see
+	// ProviderStatuses), so some suggestions may be missing.
+	ProvidersUnavailable bool
 }
 
 // IdentifyBarcode looks a scanned code up: first in the catalog, then through the barcode
@@ -1287,19 +1291,36 @@ func (s *Service) IdentifyBarcode(ctx context.Context, raw string) (BarcodeResul
 	}
 
 	// The lookup is automatic and keeps the first proposal, so providers are not asked to browse.
-	sugg, existing, warnings, err := s.suggest(ctx, games, res.Match.Title, res.Match.Platform, false)
-	res.Suggestions, res.Existing = sugg, existing
-	res.Warnings = append(res.Warnings, warnings...)
+	sugg, err := s.suggest(ctx, games, res.Match.Title, res.Match.Platform, false)
+	res.Suggestions, res.Existing = sugg.Suggestions, sugg.Existing
+	res.Warnings = append(res.Warnings, sugg.Warnings...)
+	res.ProvidersUnavailable = res.ProvidersUnavailable || sugg.ProvidersUnavailable
 
 	return res, err
 }
 
+// Suggestions is what SuggestGames proposes for a title.
+type Suggestions struct {
+	// Suggestions are canonical games (with covers) for the title on the platform.
+	Suggestions []Suggestion
+
+	// Existing lists catalog games with the same title.
+	Existing []GameRef
+
+	// Warnings name the providers that failed for this title.
+	Warnings []string
+
+	// ProvidersUnavailable reports that a provider had a provider-level problem (see
+	// ProviderStatuses), so some suggestions may be missing.
+	ProvidersUnavailable bool
+}
+
 // SuggestGames proposes canonical games for a title typed by the user (e.g. when the barcode is
 // unknown), on the given platform, plus catalog games with the same title.
-func (s *Service) SuggestGames(ctx context.Context, title, platform string) ([]Suggestion, []GameRef, []string, error) {
+func (s *Service) SuggestGames(ctx context.Context, title, platform string) (Suggestions, error) {
 	games, err := s.games.List(ctx)
 	if err != nil {
-		return nil, nil, nil, err
+		return Suggestions{}, err
 	}
 
 	// The user picks from the list, so providers may also propose near matches.
@@ -1308,10 +1329,10 @@ func (s *Service) SuggestGames(ctx context.Context, title, platform string) ([]S
 
 // suggest asks the cover providers for canonical games with the title on the platform. Browse
 // is set when the user picks from the proposals (CoverQuery.Browse).
-func (s *Service) suggest(ctx context.Context, games []*game.Game, title, platform string, browse bool) ([]Suggestion, []GameRef, []string, error) {
+func (s *Service) suggest(ctx context.Context, games []*game.Game, title, platform string, browse bool) (Suggestions, error) {
 	title, platform = strings.TrimSpace(title), game.CanonicalPlatform(platform)
 	if title == "" {
-		return nil, nil, nil, nil
+		return Suggestions{}, nil
 	}
 
 	q := CoverQuery{
@@ -1325,13 +1346,10 @@ func (s *Service) suggest(ctx context.Context, games []*game.Game, title, platfo
 
 	chain, err := s.chain(ctx)
 	if err != nil {
-		return nil, nil, nil, err
+		return Suggestions{}, err
 	}
 
-	var (
-		out      []Suggestion
-		warnings []string
-	)
+	var res Suggestions
 
 	for _, p := range chain {
 		impl := s.covers[p.ID()]
@@ -1340,8 +1358,9 @@ func (s *Service) suggest(ctx context.Context, games []*game.Game, title, platfo
 		}
 
 		// Asked like the cover picker asks, so a provider-level problem is the provider's status.
-		candidates, w, _ := s.pickerCandidates(ctx, p, impl, q)
-		warnings = append(warnings, w...)
+		candidates, w, limited := s.pickerCandidates(ctx, p, impl, q)
+		res.Warnings = append(res.Warnings, w...)
+		res.ProvidersUnavailable = res.ProvidersUnavailable || limited
 
 		for _, c := range candidates {
 			t := c.Title
@@ -1349,7 +1368,7 @@ func (s *Service) suggest(ctx context.Context, games []*game.Game, title, platfo
 				t = title
 			}
 
-			out = append(out, Suggestion{
+			res.Suggestions = append(res.Suggestions, Suggestion{
 				Title:    t,
 				Platform: platform,
 				CoverURL: c.URL,
@@ -1361,19 +1380,17 @@ func (s *Service) suggest(ctx context.Context, games []*game.Game, title, platfo
 	}
 
 	keys := map[string]bool{game.MatchKey(title): true}
-	if len(out) > 0 {
-		keys[game.MatchKey(out[0].Title)] = true
+	if len(res.Suggestions) > 0 {
+		keys[game.MatchKey(res.Suggestions[0].Title)] = true
 	}
-
-	var existing []GameRef
 
 	for _, g := range games {
 		if keys[g.MatchKey()] {
-			existing = append(existing, GameRef{g.ID(), g.Title()})
+			res.Existing = append(res.Existing, GameRef{g.ID(), g.Title()})
 		}
 	}
 
-	return out, existing, warnings, nil
+	return res, nil
 }
 
 // ProxyImage downloads an image for the browser. Only https URLs on hosts declared by a provider

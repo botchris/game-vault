@@ -63,7 +63,7 @@ func TestSuggest_browse(t *testing.T) {
 			})
 
 		t.Run("WHEN the user types a title on the scan page", func(t *testing.T) {
-			_, _, _, err := svc.SuggestGames(ctx, "Shelf Quest", "PS4")
+			_, err := svc.SuggestGames(ctx, "Shelf Quest", "PS4")
 			require.NoError(t, err)
 
 			t.Run("THEN the box art database is asked to browse, since the user picks from the list", func(t *testing.T) {
@@ -106,11 +106,12 @@ func TestSuggest_providerStatus(t *testing.T) {
 			})
 
 		t.Run("WHEN the user types a title on the scan page", func(t *testing.T) {
-			_, _, warnings, err := svc.SuggestGames(ctx, "Shelf Quest", "PS4")
+			res, err := svc.SuggestGames(ctx, "Shelf Quest", "PS4")
 			require.NoError(t, err)
 
 			t.Run("THEN the used-up allowance is the provider's status, not a warning", func(t *testing.T) {
-				assert.Empty(t, warnings)
+				assert.Empty(t, res.Warnings)
+				assert.True(t, res.ProvidersUnavailable, "the scan page says some providers are unavailable")
 
 				st := svc.ProviderStatuses()
 				require.Len(t, st, 1)
@@ -120,7 +121,7 @@ func TestSuggest_providerStatus(t *testing.T) {
 			t.Run("AND a later answer clears the status", func(t *testing.T) {
 				art.exhausted.Store(false)
 
-				_, _, _, err := svc.SuggestGames(ctx, "Shelf Quest", "PS4")
+				_, err := svc.SuggestGames(ctx, "Shelf Quest", "PS4")
 				require.NoError(t, err)
 				assert.Empty(t, svc.ProviderStatuses())
 			})

@@ -15,6 +15,8 @@ export interface Answer {
   suggestions: { title: string; platform: string; coverUrl: string; thumbUrl: string; label: string }[];
   existing: { id: string; title: string }[];
   warnings: string[];
+  /** A provider had a provider-level problem (see System → Health); absent in rows stored before. */
+  providersUnavailable?: boolean;
 }
 
 /** What a row adds: the game (gameId, or a new one with title and cover) and the copy's platform and edition. */
@@ -219,7 +221,8 @@ const isAnswer = (a: unknown): a is Answer => isObject(a) && typeof a.barcode ==
   && (a.match === null || strings(a.match, ['raw', 'title', 'platform', 'edition', 'providerId']))
   && listOf(a.suggestions, ['title', 'platform', 'coverUrl', 'thumbUrl', 'label'])
   && listOf(a.existing, ['id', 'title'])
-  && Array.isArray(a.warnings) && a.warnings.every((w) => typeof w === 'string');
+  && Array.isArray(a.warnings) && a.warnings.every((w) => typeof w === 'string')
+  && (a.providersUnavailable === undefined || typeof a.providersUnavailable === 'boolean');
 
 /** Whether a stored row is complete: a broken one would break the page, so it is dropped instead. */
 const isRow = (r: unknown): r is Row => {

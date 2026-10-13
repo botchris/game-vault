@@ -85,6 +85,7 @@ function toAnswer(res: IdentifyBarcodeResponse): Answer {
     suggestions: res.suggestions.map((s) => ({ title: s.title, platform: s.platform, coverUrl: s.coverUrl, thumbUrl: s.thumbUrl, label: s.label })),
     existing: res.existing.map((g) => ({ id: g.id, title: g.title })),
     warnings: res.warnings,
+    providersUnavailable: res.providersUnavailable,
   };
 }
 

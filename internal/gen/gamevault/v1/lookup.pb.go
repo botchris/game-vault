@@ -363,10 +363,14 @@ type IdentifyBarcodeResponse struct {
 	Match       *BarcodeMatch     `protobuf:"bytes,3,opt,name=match,proto3" json:"match,omitempty"`
 	Suggestions []*GameSuggestion `protobuf:"bytes,4,rep,name=suggestions,proto3" json:"suggestions,omitempty"`
 	// Catalog games with the same title: add the disc to one of them instead of creating a game.
-	Existing      []*GameRef `protobuf:"bytes,5,rep,name=existing,proto3" json:"existing,omitempty"`
-	Warnings      []string   `protobuf:"bytes,6,rep,name=warnings,proto3" json:"warnings,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Existing []*GameRef `protobuf:"bytes,5,rep,name=existing,proto3" json:"existing,omitempty"`
+	// Providers that failed for this game. Provider-level problems (quota used up, too many
+	// requests, not answering, settings rejected) are not listed: see GetProviderStatus.
+	Warnings []string `protobuf:"bytes,6,rep,name=warnings,proto3" json:"warnings,omitempty"`
+	// A provider had a provider-level problem, so the match or some suggestions may be missing.
+	ProvidersUnavailable bool `protobuf:"varint,7,opt,name=providers_unavailable,json=providersUnavailable,proto3" json:"providers_unavailable,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *IdentifyBarcodeResponse) Reset() {
@@ -441,6 +445,13 @@ func (x *IdentifyBarcodeResponse) GetWarnings() []string {
 	return nil
 }
 
+func (x *IdentifyBarcodeResponse) GetProvidersUnavailable() bool {
+	if x != nil {
+		return x.ProvidersUnavailable
+	}
+	return false
+}
+
 type SuggestGamesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Title string                 `protobuf:"bytes,1,opt,name=title,proto3" json:"title,omitempty"`
@@ -495,12 +506,15 @@ func (x *SuggestGamesRequest) GetPlatform() string {
 }
 
 type SuggestGamesResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Suggestions   []*GameSuggestion      `protobuf:"bytes,1,rep,name=suggestions,proto3" json:"suggestions,omitempty"`
-	Existing      []*GameRef             `protobuf:"bytes,2,rep,name=existing,proto3" json:"existing,omitempty"`
-	Warnings      []string               `protobuf:"bytes,3,rep,name=warnings,proto3" json:"warnings,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Suggestions []*GameSuggestion      `protobuf:"bytes,1,rep,name=suggestions,proto3" json:"suggestions,omitempty"`
+	Existing    []*GameRef             `protobuf:"bytes,2,rep,name=existing,proto3" json:"existing,omitempty"`
+	// Providers that failed for this title; provider-level problems are not listed (see above).
+	Warnings []string `protobuf:"bytes,3,rep,name=warnings,proto3" json:"warnings,omitempty"`
+	// A provider had a provider-level problem, so some suggestions may be missing.
+	ProvidersUnavailable bool `protobuf:"varint,4,opt,name=providers_unavailable,json=providersUnavailable,proto3" json:"providers_unavailable,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *SuggestGamesResponse) Reset() {
@@ -554,6 +568,13 @@ func (x *SuggestGamesResponse) GetWarnings() []string {
 	return nil
 }
 
+func (x *SuggestGamesResponse) GetProvidersUnavailable() bool {
+	if x != nil {
+		return x.ProvidersUnavailable
+	}
+	return false
+}
+
 var File_gamevault_v1_lookup_proto protoreflect.FileDescriptor
 
 const file_gamevault_v1_lookup_proto_rawDesc = "" +
@@ -583,21 +604,23 @@ const file_gamevault_v1_lookup_proto_rawDesc = "" +
 	"\acopy_id\x18\x02 \x01(\tR\x06copyId\x12\x1a\n" +
 	"\bplatform\x18\x03 \x01(\tR\bplatform\"2\n" +
 	"\x16IdentifyBarcodeRequest\x12\x18\n" +
-	"\abarcode\x18\x01 \x01(\tR\abarcode\"\xa3\x02\n" +
+	"\abarcode\x18\x01 \x01(\tR\abarcode\"\xd8\x02\n" +
 	"\x17IdentifyBarcodeResponse\x12\x18\n" +
 	"\abarcode\x18\x01 \x01(\tR\abarcode\x12-\n" +
 	"\x05owned\x18\x02 \x03(\v2\x17.gamevault.v1.OwnedCopyR\x05owned\x120\n" +
 	"\x05match\x18\x03 \x01(\v2\x1a.gamevault.v1.BarcodeMatchR\x05match\x12>\n" +
 	"\vsuggestions\x18\x04 \x03(\v2\x1c.gamevault.v1.GameSuggestionR\vsuggestions\x121\n" +
 	"\bexisting\x18\x05 \x03(\v2\x15.gamevault.v1.GameRefR\bexisting\x12\x1a\n" +
-	"\bwarnings\x18\x06 \x03(\tR\bwarnings\"G\n" +
+	"\bwarnings\x18\x06 \x03(\tR\bwarnings\x123\n" +
+	"\x15providers_unavailable\x18\a \x01(\bR\x14providersUnavailable\"G\n" +
 	"\x13SuggestGamesRequest\x12\x14\n" +
 	"\x05title\x18\x01 \x01(\tR\x05title\x12\x1a\n" +
-	"\bplatform\x18\x02 \x01(\tR\bplatform\"\xa5\x01\n" +
+	"\bplatform\x18\x02 \x01(\tR\bplatform\"\xda\x01\n" +
 	"\x14SuggestGamesResponse\x12>\n" +
 	"\vsuggestions\x18\x01 \x03(\v2\x1c.gamevault.v1.GameSuggestionR\vsuggestions\x121\n" +
 	"\bexisting\x18\x02 \x03(\v2\x15.gamevault.v1.GameRefR\bexisting\x12\x1a\n" +
-	"\bwarnings\x18\x03 \x03(\tR\bwarnings2\xc6\x01\n" +
+	"\bwarnings\x18\x03 \x03(\tR\bwarnings\x123\n" +
+	"\x15providers_unavailable\x18\x04 \x01(\bR\x14providersUnavailable2\xc6\x01\n" +
 	"\rLookupService\x12^\n" +
 	"\x0fIdentifyBarcode\x12$.gamevault.v1.IdentifyBarcodeRequest\x1a%.gamevault.v1.IdentifyBarcodeResponse\x12U\n" +
 	"\fSuggestGames\x12!.gamevault.v1.SuggestGamesRequest\x1a\".gamevault.v1.SuggestGamesResponseB1Z/gamevault/internal/gen/gamevault/v1;gamevaultv1b\x06proto3"

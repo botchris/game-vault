@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file gamevault/v1/lookup.proto.
  */
 export const file_gamevault_v1_lookup: GenFile = /*@__PURE__*/
-  fileDesc("ChlnYW1ldmF1bHQvdjEvbG9va3VwLnByb3RvEgxnYW1ldmF1bHQudjEidQoMQmFyY29kZU1hdGNoEgsKA3JhdxgBIAEoCRINCgV0aXRsZRgCIAEoCRIQCghwbGF0Zm9ybRgDIAEoCRIPCgdlZGl0aW9uGAQgASgJEhEKCWltYWdlX3VybBgFIAEoCRITCgtwcm92aWRlcl9pZBgGIAEoCSJ7Cg5HYW1lU3VnZ2VzdGlvbhINCgV0aXRsZRgBIAEoCRIQCghwbGF0Zm9ybRgCIAEoCRIRCgljb3Zlcl91cmwYAyABKAkSEQoJdGh1bWJfdXJsGAQgASgJEg0KBWxhYmVsGAUgASgJEhMKC3Byb3ZpZGVyX2lkGAYgASgJIiQKB0dhbWVSZWYSCgoCaWQYASABKAkSDQoFdGl0bGUYAiABKAkiUwoJT3duZWRDb3B5EiMKBGdhbWUYASABKAsyFS5nYW1ldmF1bHQudjEuR2FtZVJlZhIPCgdjb3B5X2lkGAIgASgJEhAKCHBsYXRmb3JtGAMgASgJIikKFklkZW50aWZ5QmFyY29kZVJlcXVlc3QSDwoHYmFyY29kZRgBIAEoCSLrAQoXSWRlbnRpZnlCYXJjb2RlUmVzcG9uc2USDwoHYmFyY29kZRgBIAEoCRImCgVvd25lZBgCIAMoCzIXLmdhbWV2YXVsdC52MS5Pd25lZENvcHkSKQoFbWF0Y2gYAyABKAsyGi5nYW1ldmF1bHQudjEuQmFyY29kZU1hdGNoEjEKC3N1Z2dlc3Rpb25zGAQgAygLMhwuZ2FtZXZhdWx0LnYxLkdhbWVTdWdnZXN0aW9uEicKCGV4aXN0aW5nGAUgAygLMhUuZ2FtZXZhdWx0LnYxLkdhbWVSZWYSEAoId2FybmluZ3MYBiADKAkiNgoTU3VnZ2VzdEdhbWVzUmVxdWVzdBINCgV0aXRsZRgBIAEoCRIQCghwbGF0Zm9ybRgCIAEoCSKEAQoUU3VnZ2VzdEdhbWVzUmVzcG9uc2USMQoLc3VnZ2VzdGlvbnMYASADKAsyHC5nYW1ldmF1bHQudjEuR2FtZVN1Z2dlc3Rpb24SJwoIZXhpc3RpbmcYAiADKAsyFS5nYW1ldmF1bHQudjEuR2FtZVJlZhIQCgh3YXJuaW5ncxgDIAMoCTLGAQoNTG9va3VwU2VydmljZRJeCg9JZGVudGlmeUJhcmNvZGUSJC5nYW1ldmF1bHQudjEuSWRlbnRpZnlCYXJjb2RlUmVxdWVzdBolLmdhbWV2YXVsdC52MS5JZGVudGlmeUJhcmNvZGVSZXNwb25zZRJVCgxTdWdnZXN0R2FtZXMSIS5nYW1ldmF1bHQudjEuU3VnZ2VzdEdhbWVzUmVxdWVzdBoiLmdhbWV2YXVsdC52MS5TdWdnZXN0R2FtZXNSZXNwb25zZUIxWi9nYW1ldmF1bHQvaW50ZXJuYWwvZ2VuL2dhbWV2YXVsdC92MTtnYW1ldmF1bHR2MWIGcHJvdG8z");
+  fileDesc("ChlnYW1ldmF1bHQvdjEvbG9va3VwLnByb3RvEgxnYW1ldmF1bHQudjEidQoMQmFyY29kZU1hdGNoEgsKA3JhdxgBIAEoCRINCgV0aXRsZRgCIAEoCRIQCghwbGF0Zm9ybRgDIAEoCRIPCgdlZGl0aW9uGAQgASgJEhEKCWltYWdlX3VybBgFIAEoCRITCgtwcm92aWRlcl9pZBgGIAEoCSJ7Cg5HYW1lU3VnZ2VzdGlvbhINCgV0aXRsZRgBIAEoCRIQCghwbGF0Zm9ybRgCIAEoCRIRCgljb3Zlcl91cmwYAyABKAkSEQoJdGh1bWJfdXJsGAQgASgJEg0KBWxhYmVsGAUgASgJEhMKC3Byb3ZpZGVyX2lkGAYgASgJIiQKB0dhbWVSZWYSCgoCaWQYASABKAkSDQoFdGl0bGUYAiABKAkiUwoJT3duZWRDb3B5EiMKBGdhbWUYASABKAsyFS5nYW1ldmF1bHQudjEuR2FtZVJlZhIPCgdjb3B5X2lkGAIgASgJEhAKCHBsYXRmb3JtGAMgASgJIikKFklkZW50aWZ5QmFyY29kZVJlcXVlc3QSDwoHYmFyY29kZRgBIAEoCSKKAgoXSWRlbnRpZnlCYXJjb2RlUmVzcG9uc2USDwoHYmFyY29kZRgBIAEoCRImCgVvd25lZBgCIAMoCzIXLmdhbWV2YXVsdC52MS5Pd25lZENvcHkSKQoFbWF0Y2gYAyABKAsyGi5nYW1ldmF1bHQudjEuQmFyY29kZU1hdGNoEjEKC3N1Z2dlc3Rpb25zGAQgAygLMhwuZ2FtZXZhdWx0LnYxLkdhbWVTdWdnZXN0aW9uEicKCGV4aXN0aW5nGAUgAygLMhUuZ2FtZXZhdWx0LnYxLkdhbWVSZWYSEAoId2FybmluZ3MYBiADKAkSHQoVcHJvdmlkZXJzX3VuYXZhaWxhYmxlGAcgASgIIjYKE1N1Z2dlc3RHYW1lc1JlcXVlc3QSDQoFdGl0bGUYASABKAkSEAoIcGxhdGZvcm0YAiABKAkiowEKFFN1Z2dlc3RHYW1lc1Jlc3BvbnNlEjEKC3N1Z2dlc3Rpb25zGAEgAygLMhwuZ2FtZXZhdWx0LnYxLkdhbWVTdWdnZXN0aW9uEicKCGV4aXN0aW5nGAIgAygLMhUuZ2FtZXZhdWx0LnYxLkdhbWVSZWYSEAoId2FybmluZ3MYAyADKAkSHQoVcHJvdmlkZXJzX3VuYXZhaWxhYmxlGAQgASgIMsYBCg1Mb29rdXBTZXJ2aWNlEl4KD0lkZW50aWZ5QmFyY29kZRIkLmdhbWV2YXVsdC52MS5JZGVudGlmeUJhcmNvZGVSZXF1ZXN0GiUuZ2FtZXZhdWx0LnYxLklkZW50aWZ5QmFyY29kZVJlc3BvbnNlElUKDFN1Z2dlc3RHYW1lcxIhLmdhbWV2YXVsdC52MS5TdWdnZXN0R2FtZXNSZXF1ZXN0GiIuZ2FtZXZhdWx0LnYxLlN1Z2dlc3RHYW1lc1Jlc3BvbnNlQjFaL2dhbWV2YXVsdC9pbnRlcm5hbC9nZW4vZ2FtZXZhdWx0L3YxO2dhbWV2YXVsdHYxYgZwcm90bzM");
 
 /**
  * BarcodeMatch is a barcode database's answer for a product.
@@ -216,9 +216,19 @@ export type IdentifyBarcodeResponse = Message<"gamevault.v1.IdentifyBarcodeRespo
   existing: GameRef[];
 
   /**
+   * Providers that failed for this game. Provider-level problems (quota used up, too many
+   * requests, not answering, settings rejected) are not listed: see GetProviderStatus.
+   *
    * @generated from field: repeated string warnings = 6;
    */
   warnings: string[];
+
+  /**
+   * A provider had a provider-level problem, so the match or some suggestions may be missing.
+   *
+   * @generated from field: bool providers_unavailable = 7;
+   */
+  providersUnavailable: boolean;
 };
 
 /**
@@ -267,9 +277,18 @@ export type SuggestGamesResponse = Message<"gamevault.v1.SuggestGamesResponse"> 
   existing: GameRef[];
 
   /**
+   * Providers that failed for this title; provider-level problems are not listed (see above).
+   *
    * @generated from field: repeated string warnings = 3;
    */
   warnings: string[];
+
+  /**
+   * A provider had a provider-level problem, so some suggestions may be missing.
+   *
+   * @generated from field: bool providers_unavailable = 4;
+   */
+  providersUnavailable: boolean;
 };
 
 /**

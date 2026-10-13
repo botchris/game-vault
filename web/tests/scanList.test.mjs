@@ -192,3 +192,12 @@ test('a box you have whose game was deleted can be sent as a new game instead', 
   assert.equal(status(rows[0], ''), 'ready');
   assert.deepEqual(sendItems(rows, '').map((i) => [i.gameId, i.title]), [['', 'Dead Space 3']]);
 });
+
+test('a stored answer keeps "providers unavailable", and rows stored before it existed still load', () => {
+  const flagged = settle(scanned(), 'r1', answer({ providersUnavailable: true }));
+  assert.equal(loadRows(saveRows(flagged))[0].answer.providersUnavailable, true);
+  const older = settle(scanned(), 'r1', answer());
+  assert.equal(loadRows(saveRows(older)).length, 1);
+  const broken = settle(scanned(), 'r1', answer({ providersUnavailable: 'yes' }));
+  assert.equal(loadRows(saveRows(broken)).length, 0);
+});

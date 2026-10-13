@@ -48,10 +48,11 @@ func (h *MediaHandler) IdentifyBarcode(ctx context.Context, req *connect.Request
 	}
 
 	out := &pb.IdentifyBarcodeResponse{
-		Barcode:     string(res.Code),
-		Suggestions: suggestionsToPB(res.Suggestions),
-		Existing:    gameRefsToPB(res.Existing),
-		Warnings:    res.Warnings,
+		Barcode:              string(res.Code),
+		Suggestions:          suggestionsToPB(res.Suggestions),
+		Existing:             gameRefsToPB(res.Existing),
+		Warnings:             res.Warnings,
+		ProvidersUnavailable: res.ProvidersUnavailable,
 	}
 	for _, o := range res.Owned {
 		out.Owned = append(out.Owned, &pb.OwnedCopy{
@@ -80,14 +81,15 @@ func (h *MediaHandler) IdentifyBarcode(ctx context.Context, req *connect.Request
 
 // SuggestGames proposes games matching a partial title, for quick registration.
 func (h *MediaHandler) SuggestGames(ctx context.Context, req *connect.Request[pb.SuggestGamesRequest]) (*connect.Response[pb.SuggestGamesResponse], error) {
-	sugg, existing, warnings, err := h.media.SuggestGames(ctx, req.Msg.Title, req.Msg.Platform)
+	res, err := h.media.SuggestGames(ctx, req.Msg.Title, req.Msg.Platform)
 	if err != nil {
 		return nil, toConnectError(err)
 	}
 
 	return connect.NewResponse(&pb.SuggestGamesResponse{
-		Suggestions: suggestionsToPB(sugg),
-		Existing:    gameRefsToPB(existing),
-		Warnings:    warnings,
+		Suggestions:          suggestionsToPB(res.Suggestions),
+		Existing:             gameRefsToPB(res.Existing),
+		Warnings:             res.Warnings,
+		ProvidersUnavailable: res.ProvidersUnavailable,
 	}), nil
 }
