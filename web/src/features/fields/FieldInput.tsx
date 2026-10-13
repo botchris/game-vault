@@ -6,7 +6,8 @@ import { Icon } from '../../components/Icon';
 import type { FieldDefinition } from '../../gen/gamevault/v1/field_pb';
 import { ChoiceListSchema, FieldValueSchema, MoneySchema, type FieldValue } from '../../gen/gamevault/v1/game_pb';
 import { numberInput, parseNumber } from '../../lib/fields';
-import { amountInput, currencyDigits, parseAmount } from '../../lib/money';
+import { amountInput, readAmount } from '../../lib/money';
+import { useAmountDraft } from '../../lib/useAmountDraft';
 import { usePreferredCurrency } from '../../lib/usePreferences';
 import { useAppData } from '../../state/AppData';
 import { useAction } from '../../lib/useAction';
@@ -260,16 +261,18 @@ function MoneyInput({ def, value, onChange, onInvalid }: InputProps<{ amountMino
   const { t, i18n } = useTranslation();
   const preferred = usePreferredCurrency(i18n.language);
   const currency = def.currency || value?.currency || preferred;
-  const digits = currencyDigits(currency);
   const formatted = value ? amountInput(value.amountMinor, currency, i18n.language) || '0' : '';
-  const keyOf = (s: string) => (s.trim() === '' ? '' : String(parseAmount(s, digits)));
+  const keyOf = (s: string) => {
+    const minor = readAmount(s, currency);
+    return minor === undefined ? '' : String(minor);
+  };
   const [text, setText] = useDraft(value ? String(value.amountMinor) : '', formatted, keyOf);
-  const invalid = text.trim() !== '' && parseAmount(text, digits) === null;
+  const { invalid, placeholder } = useAmountDraft(currency, text);
   useReportInvalid(invalid, onInvalid);
   const change = (s: string) => {
     setText(s);
-    const minor = parseAmount(s, digits);
-    if (s.trim() === '') onChange(() => EMPTY);
+    const minor = readAmount(s, currency);
+    if (minor === undefined) onChange(() => EMPTY);
     else if (minor !== null) onChange(() => make({ case: 'money', value: create(MoneySchema, { amountMinor: minor, currency }) }));
   };
   return (
@@ -278,7 +281,7 @@ function MoneyInput({ def, value, onChange, onInvalid }: InputProps<{ amountMino
         <span className="row tight">
           <input id={id} inputMode="decimal" value={text} aria-invalid={invalid} aria-describedby={describedBy}
             onChange={(e) => change(e.target.value)} onBlur={() => { if (!invalid) setText(formatted); }}
-            placeholder={amountInput(2995n, currency, i18n.language)} />
+            placeholder={placeholder} />
           <span className="field-unit">{currency}</span>
         </span>
       )}

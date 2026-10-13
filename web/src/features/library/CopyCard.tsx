@@ -3,7 +3,7 @@ import { Icon } from '../../components/Icon';
 import { PlatformBadge } from '../../components/PlatformBadge';
 import { KeyCell, useFormatters } from '../../components/ui';
 import { formatAmount } from '../../lib/money';
-import { CopyKind, contentKey, daysUntil, gradeKey, kindKey, redeemUrl, statusKey, type Copy, type Game } from '../../lib/model';
+import { CopyKind, daysUntil, describePhysical, kindKey, redeemUrl, statusKey, type Copy, type Game } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
 import { FieldList } from '../fields/FieldList';
 import CopyPhotos from './CopyPhotos';
@@ -30,9 +30,10 @@ export default function CopyCard({ game, copy, actions, redeeming, onRedeeming, 
   const d = copy.details!;
   const days = daysUntil(d.redeemBy);
   const source = copy.sourceId ? sourceName(copy.sourceId) : '';
+  const { grade, contents } = describePhysical(t, d);
   const physical = [
-    d.grade ? t(`grade.${gradeKey(d.grade)}`) : '',
-    d.contents.length ? d.contents.map((c) => t(`content.${contentKey(c)}`)).join(', ') : '',
+    grade,
+    contents,
     d.price?.amountMinor ? formatAmount(d.price.amountMinor, d.price.currency, i18n.language) : '',
     d.location,
   ];

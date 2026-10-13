@@ -6,10 +6,11 @@ import { Icon } from '../../components/Icon';
 import { Alert } from '../../components/ui';
 import type { IdentifyBarcodeResponse } from '../../gen/gamevault/v1/lookup_pb';
 import { CopyContent, CopyGrade } from '../../gen/gamevault/v1/game_pb';
-import { CONTENTS, CopyKind, CopyStatus, GRADES, PHYSICAL_PLATFORMS, contentKey, emptyDetails, gradeKey } from '../../lib/model';
+import { CopyKind, CopyStatus, PHYSICAL_PLATFORMS, describePhysical, emptyDetails } from '../../lib/model';
 import { normalizeBarcode } from '../../lib/barcode.ts';
 import { useAppData } from '../../state/AppData';
 import GameDetail from '../library/GameDetail';
+import { ContentsToggles, GradeSelect, LocationInput } from '../library/PhysicalInputs';
 import { signal, unlockAudio } from './feedback';
 import { createLookupQueue } from './lookupQueue';
 import { ScanRow } from './ScanRow';
@@ -354,13 +355,14 @@ function BatchBar({ defaults, onChange }: { defaults: Defaults; onChange: (d: De
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const value = (v: string, empty: string) => v || empty;
+  const physical = describePhysical(t, defaults);
   return (
     <div className="batch">
       <button type="button" className="batch-summary" onClick={() => setEditing(!editing)} aria-expanded={editing}>
         <span className="batch-label">{t('scan.batch.label')}</span>
         <span className="batch-chip">{t('scan.batch.platform')}: <strong>{value(defaults.platform, t('scan.batch.auto'))}</strong></span>
-        <span className="batch-chip">{t('copy.grade')}: <strong>{defaults.grade ? t(`grade.${gradeKey(defaults.grade)}`) : '—'}</strong></span>
-        <span className="batch-chip">{t('copy.contents')}: <strong>{defaults.contents.length ? defaults.contents.map((c) => t(`content.${contentKey(c)}`)).join(', ') : '—'}</strong></span>
+        <span className="batch-chip">{t('copy.grade')}: <strong>{value(physical.grade, '—')}</strong></span>
+        <span className="batch-chip">{t('copy.contents')}: <strong>{value(physical.contents, '—')}</strong></span>
         <span className="batch-chip">{t('copy.location')}: <strong>{value(defaults.location, '—')}</strong></span>
         <span className="batch-edit-label">{editing ? t('scan.batch.done') : t('scan.batch.change')}</span>
       </button>
@@ -371,31 +373,9 @@ function BatchBar({ defaults, onChange }: { defaults: Defaults; onChange: (d: De
             <input list="scan-platforms" value={defaults.platform} autoFocus
               onChange={(e) => onChange({ ...defaults, platform: e.target.value })} placeholder={t('scan.batch.platformAuto')} />
           </label>
-          <label>
-            {t('copy.grade')}
-            <select value={defaults.grade} onChange={(e) => onChange({ ...defaults, grade: Number(e.target.value) })}>
-              <option value={CopyGrade.UNSPECIFIED}>{t('grade.unspecified')}</option>
-              {GRADES.map((g) => <option key={g} value={g}>{t(`grade.${gradeKey(g)}`)}</option>)}
-            </select>
-          </label>
-          <div className="field">
-            <span className="field-label">{t('copy.contents')}</span>
-            <div className="toggles" role="group" aria-label={t('copy.contents')}>
-              {CONTENTS.map((c) => {
-                const on = defaults.contents.includes(c);
-                return (
-                  <button type="button" key={c} className={on ? 'toggle on' : 'toggle'} aria-pressed={on}
-                    onClick={() => onChange({ ...defaults, contents: on ? defaults.contents.filter((x) => x !== c) : [...defaults.contents, c] })}>
-                    {t(`content.${contentKey(c)}`)}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          <label>
-            {t('copy.location')}
-            <input value={defaults.location} onChange={(e) => onChange({ ...defaults, location: e.target.value })} placeholder={t('copy.locationPlaceholder')} />
-          </label>
+          <GradeSelect value={defaults.grade} onChange={(grade) => onChange({ ...defaults, grade })} />
+          <ContentsToggles value={defaults.contents} onChange={(contents) => onChange({ ...defaults, contents })} />
+          <LocationInput value={defaults.location} onChange={(location) => onChange({ ...defaults, location })} />
           <p className="muted small batch-hint">{t('scan.batch.hint')}</p>
         </div>
       )}

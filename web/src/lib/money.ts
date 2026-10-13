@@ -47,6 +47,12 @@ export function parseAmount(text: string, digits: number): bigint | null {
   return BigInt(plain + frac.padEnd(digits, '0'));
 }
 
+/** An amount typed for `currency`, in its minor units: undefined when the text is empty (no
+ *  amount), null when it is not an amount. */
+export function readAmount(text: string, currency: string): bigint | null | undefined {
+  return text.trim() === '' ? undefined : parseAmount(text, currencyDigits(currency));
+}
+
 /** Formats minor units as money in the UI language: 2995n EUR in Spanish is "29,95 €". */
 export function formatAmount(minor: bigint, currency: string, locale: string): string {
   const digits = currencyDigits(currency);
