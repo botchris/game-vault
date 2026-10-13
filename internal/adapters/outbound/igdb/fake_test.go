@@ -330,7 +330,7 @@ func (f *fakeIGDB) client(now func() time.Time) *Client {
 	c.API.HTTP = f.srv.Client()
 	c.Auth.BaseURL = f.srv.URL
 	c.Auth.HTTP = f.srv.Client()
-	c.limiter = newLimiter(0, 8, now)
+	c.throttle = newThrottle(0)
 	c.now = now
 
 	return c

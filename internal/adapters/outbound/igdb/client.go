@@ -3,8 +3,8 @@
 // Twitch Developer Service Agreement, with the Client ID and Secret of a Twitch application the user
 // creates; Game Vault exchanges them for an app access token (OAuth client credentials).
 //
-// IGDB allows 4 requests per second and 8 open requests at once: a small limiter keeps every
-// request of the process within both.
+// IGDB allows 4 requests per second and 8 open requests at once: one throttle keeps every request
+// of the process within both.
 package igdb
 
 import (
@@ -14,11 +14,11 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
 	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/adapters/outbound/oauthapp"
+	"gamevault/internal/adapters/outbound/ratelimit"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
 )
@@ -35,6 +35,14 @@ const (
 
 	// maxOpen is IGDB's limit of requests open at once.
 	maxOpen = 8
+
+	// maxWait is the longest a request waits for its turn (an open slot, then its start); longer
+	// queues fail as rate-limited so a library page opening many sheets does not hang.
+	maxWait = 10 * time.Second
+
+	// backoff is how long IGDB is left alone after it answered HTTP 429 or a server error: asking
+	// again at once only prolongs the refusal. Lookups meanwhile are answered rate-limited.
+	backoff = 30 * time.Second
 )
 
 var (
@@ -51,7 +59,7 @@ var errTooManyRequests = fmt.Errorf("HTTP %d: %w", http.StatusTooManyRequests, p
 
 // Client calls IGDB with an app access token it asks Twitch for and keeps in memory until shortly
 // before it expires. The covers and the details share one Client, so they share its token and its
-// limiter.
+// throttle.
 type Client struct {
 	// API calls IGDB (https://api.igdb.com/v4); tests point it at a fake server.
 	API *apiclient.Client
@@ -59,8 +67,8 @@ type Client struct {
 	// Auth calls Twitch's OAuth endpoint (https://id.twitch.tv); tests point it at a fake server.
 	Auth *apiclient.Client
 
-	// limiter keeps the requests within IGDB's limits.
-	limiter *limiter
+	// throttle keeps the requests within IGDB's limits; nil sends them at once.
+	throttle *ratelimit.Throttle
 
 	// now is the clock.
 	now func() time.Time
@@ -77,14 +85,35 @@ func NewClient() *Client {
 	auth.HTTP.Timeout = 20 * time.Second
 
 	c := &Client{
-		API:     api,
-		Auth:    auth,
-		limiter: newLimiter(requestGap, maxOpen, time.Now),
-		now:     time.Now,
+		API:      api,
+		Auth:     auth,
+		throttle: newThrottle(requestGap),
+		now:      time.Now,
 	}
 	c.tokens = &oauthapp.Tokens{Now: func() time.Time { return c.now() }}
 
 	return c
+}
+
+// newThrottle returns the throttle of IGDB's limits with the given gap.
+func newThrottle(gap time.Duration) *ratelimit.Throttle {
+	return ratelimit.New(ratelimit.Config{
+		Gap:       gap,
+		Open:      maxOpen,
+		MaxWait:   maxWait,
+		Backoff:   backoff,
+		BackoffOn: serviceTrouble,
+	})
+}
+
+// serviceTrouble reports whether a request's error is IGDB asking to slow down or failing (a 429
+// or a 5xx), which starts the throttle's back-off. It sees the request's own error, a
+// *apiclient.StatusError whose Retry-After the throttle honors; a request that got no answer does
+// not count, since it may only be the caller giving up.
+func serviceTrouble(err error) bool {
+	var se *apiclient.StatusError
+
+	return errors.As(err, &se) && apiclient.Transient(se.Status)
 }
 
 // credentials returns the Client ID, the Secret and the key of their cached token.
@@ -176,7 +205,7 @@ var errTokenRefused = fmt.Errorf("IGDB refused the access token: %w", apiclient.
 
 // send makes one attempt of query with the token.
 func (c *Client) send(ctx context.Context, id, tok, endpoint, body string, out any) error {
-	err := c.limiter.do(ctx, func() error {
+	err := c.throttle.Do(ctx, func() error {
 		return c.API.Do(ctx, apiclient.Request{
 			Method: http.MethodPost,
 			Path:   "/" + endpoint,
@@ -233,73 +262,4 @@ func (c *Client) Test(ctx context.Context, s schema.Settings) error {
 	}
 
 	return c.query(ctx, s, "games", "fields id; limit 1;", &out)
-}
-
-// errBusy means the limiter's queue is too long: IGDB would only be asked after a long wait.
-var errBusy = fmt.Errorf("too many lookups waiting: %w", provider.ErrRateLimited)
-
-// maxWait is the longest a request waits for its turn; longer queues fail as busy so a library page
-// opening many sheets does not hang.
-const maxWait = 10 * time.Second
-
-// limiter starts requests at least gap apart and keeps at most a number of them open at once.
-type limiter struct {
-	gap  time.Duration
-	open chan struct{}
-	now  func() time.Time
-
-	mu sync.Mutex
-
-	// next is when the next request may start.
-	next time.Time
-}
-
-func newLimiter(gap time.Duration, open int, now func() time.Time) *limiter {
-	return &limiter{
-		gap:  gap,
-		open: make(chan struct{}, open),
-		now:  now,
-	}
-}
-
-// do runs fn when its turn comes: first an open slot, then a start time at least gap after the
-// previous one. Reserving the time only once the slot is held keeps requests that waited for a slot
-// from starting in a burst when it frees.
-func (l *limiter) do(ctx context.Context, fn func() error) error {
-	select {
-	case l.open <- struct{}{}:
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-
-	defer func() { <-l.open }()
-
-	l.mu.Lock()
-	now := l.now()
-	start := l.next
-
-	if start.Before(now) {
-		start = now
-	}
-
-	wait := start.Sub(now)
-	if wait > maxWait {
-		l.mu.Unlock()
-		return errBusy
-	}
-
-	l.next = start.Add(l.gap)
-	l.mu.Unlock()
-
-	if wait > 0 {
-		timer := time.NewTimer(wait)
-		select {
-		case <-timer.C:
-		case <-ctx.Done():
-			timer.Stop()
-			return ctx.Err()
-		}
-	}
-
-	return fn()
 }
