@@ -208,9 +208,9 @@ func (p *Provider) get(ctx context.Context, country, path string, out any) error
 var reParens = regexp.MustCompile(`\s*\([^)]*\)`)
 
 func match(b box) media.BarcodeMatch {
-	title, platform, edition := media.CleanProductTitle(reParens.ReplaceAllString(b.BoxName, ""))
+	title, platform, edition := game.ParseProductName(reParens.ReplaceAllString(b.BoxName, ""))
 	// The platform comes from the category ("Xbox 360 Juegos", "Playstation4 Games").
-	if _, p, _ := media.CleanProductTitle(b.CategoryName); p != "" {
+	if _, p, _ := game.ParseProductName(b.CategoryName); p != "" {
 		platform = p
 	}
 

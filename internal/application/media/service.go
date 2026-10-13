@@ -236,7 +236,7 @@ type BarcodeMatch struct {
 	// Raw is the product name as the database has it, e.g. "Assassin's Creed Iii Ed. Special Ps3(sp)".
 	Raw string
 
-	// Title, Platform and Edition are extracted from Raw (see CleanProductTitle).
+	// Title, Platform and Edition are extracted from Raw (see game.ParseProductName).
 	Title    string
 	Platform string
 	Edition  string
@@ -810,7 +810,7 @@ func (s *Service) resolveEdition(ctx context.Context, g *game.Game, system strin
 		look.triedAddOn = true
 	}
 
-	if errors.Is(err, ErrNoCover) && look.limited == nil && !look.triedAddOn && IsAddOn(g.Title()) {
+	if errors.Is(err, ErrNoCover) && look.limited == nil && !look.triedAddOn && game.IsAddOnTitle(g.Title()) {
 		if img, ok := s.addOnCover(ctx, g, system); ok {
 			return img, nil
 		}

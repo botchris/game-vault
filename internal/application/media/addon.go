@@ -2,19 +2,11 @@ package media
 
 import (
 	"context"
-	"regexp"
 	"slices"
 	"strings"
 
 	"gamevault/internal/domain/game"
 )
-
-// reAddOn recognizes titles of extra content: "GRIP: Combat Racing Artifex DLC", "X - Soundtrack"….
-var reAddOn = regexp.MustCompile(`(?i)\b(dlcs?|season\s+pass(es)?|expansions?(\s+pass)?|soundtracks?|ost|add-?on|content\s+pack|bonus\s+content|costumes?|skins?\s+pack|art\s*book|upgrade\s+pack|character\s+pack|map\s+pack)\b`)
-
-// IsAddOn reports whether a title looks like extra content for another game. Stores often have no
-// art of their own for these (or the AppID Humble gives does not exist on Steam).
-func IsAddOn(title string) bool { return reAddOn.MatchString(title) }
 
 // isWordPrefix reports whether every word of short starts long, and long has more words.
 func isWordPrefix(short, long string) bool {
@@ -54,12 +46,7 @@ func baseQueries(title string) []string {
 		}
 	}
 
-	before := title
-	if loc := reAddOn.FindStringIndex(title); loc != nil {
-		before = title[:loc[0]]
-	}
-
-	words := strings.Fields(before)
+	words := strings.Fields(game.StripAddOnMarker(title))
 	for n := len(words); n >= 1; n-- {
 		add(strings.Join(words[:n], " "))
 	}
@@ -75,7 +62,7 @@ func baseQueries(title string) []string {
 // the same system, from the catalog when you own the base game on it, else from a store after
 // finding the base game in its catalog by title.
 func (s *Service) addOnCover(ctx context.Context, g *game.Game, system string) (Image, bool) {
-	if !IsAddOn(g.Title()) {
+	if !game.IsAddOnTitle(g.Title()) {
 		return Image{}, false
 	}
 

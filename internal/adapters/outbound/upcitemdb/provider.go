@@ -140,7 +140,7 @@ func (p *Provider) Lookup(ctx context.Context, code game.Barcode, s schema.Setti
 			continue
 		}
 
-		title, platform, edition := media.CleanProductTitle(it.Title)
+		title, platform, edition := game.ParseProductName(it.Title)
 
 		m := media.BarcodeMatch{
 			Raw:      it.Title,

@@ -140,7 +140,7 @@ func (*fakeBarcodes) Test(context.Context, schema.Settings) error { return nil }
 
 func (*fakeBarcodes) Lookup(_ context.Context, code game.Barcode, _ schema.Settings) ([]media.BarcodeMatch, error) {
 	if code == "3307215643006" {
-		title, platform, edition := media.CleanProductTitle("Assassin's Creed Iii Ed. Special Ps3(sp)")
+		title, platform, edition := game.ParseProductName("Assassin's Creed Iii Ed. Special Ps3(sp)")
 
 		return []media.BarcodeMatch{{
 			Raw:      "Assassin's Creed Iii Ed. Special Ps3(sp)",

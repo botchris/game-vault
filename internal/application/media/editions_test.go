@@ -64,7 +64,7 @@ func (*boxArt) Applies(q media.CoverQuery) bool { return q.System != "" && q.Sys
 
 func (b *boxArt) Covers(_ context.Context, q media.CoverQuery, _ schema.Settings) ([]media.CoverCandidate, error) {
 	b.asked = append(b.asked, q.System)
-	if q.System == "Wii" || media.IsAddOn(q.Title) {
+	if q.System == "Wii" || game.IsAddOnTitle(q.Title) {
 		return nil, nil
 	}
 
