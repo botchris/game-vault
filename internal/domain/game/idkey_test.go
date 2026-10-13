@@ -24,6 +24,10 @@ func TestTitleIDKey_neverChanges(t *testing.T) {
 		"Øresund Example":                        "resund example", // Ø is no ASCII letter: dropped
 		"Epic Mickey":                            "epic mickey",
 		"  ":                                     "",
+		// Known collision: a title with no ASCII letter or digit gives an empty key, so two such
+		// games without a store id share one id ("ea:", "battlenet:") and import as one copy. It
+		// stays: changing it would re-key the copies already imported.
+		"黑神话": "",
 	} {
 		assert.Equal(t, want, TitleIDKey(title), title)
 	}
