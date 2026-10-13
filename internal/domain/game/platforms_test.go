@@ -1,0 +1,110 @@
+package game
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+// TestVocabulary_valuesNeverChange pins every platform, system and link key. They are stored in game
+// documents, CSV files, cover and photo file names and links: renaming one orphans what was saved
+// under the old name and stops Humble keys from being flagged as owned in that store.
+func TestVocabulary_valuesNeverChange(t *testing.T) {
+	for _, tc := range []struct {
+		constant string
+		want     string
+	}{
+		{PlatformSteam, "Steam"},
+		{PlatformEpic, "Epic Games"},
+		{PlatformGOG, "GOG"},
+		{PlatformEA, "EA App"},
+		{PlatformBattlenet, "Battle.net"},
+		{PlatformUbisoft, "Ubisoft Connect"},
+		{PlatformMicrosoft, "Microsoft Store / Xbox"},
+		{PlatformRockstar, "Rockstar"},
+		{PlatformBattlestate, "Battlestate (Tarkov)"},
+		{PlatformRiot, "Riot"},
+		{PlatformItch, "itch.io"},
+		{PlatformAmazon, "Amazon Games"},
+		{PlatformPlayStation, "PlayStation Store"},
+		{PlatformNintendo, "Nintendo eShop"},
+
+		{SystemPC, "PC"},
+		{SystemPS5, "PS5"},
+		{SystemPS4, "PS4"},
+		{SystemPS3, "PS3"},
+		{SystemPS2, "PS2"},
+		{SystemPS1, "PS1"},
+		{SystemPSP, "PSP"},
+		{SystemPSVita, "PS Vita"},
+		{SystemXboxSeries, "Xbox Series"},
+		{SystemXboxOne, "Xbox One"},
+		{SystemXbox360, "Xbox 360"},
+		{SystemXbox, "Xbox"},
+		{SystemSwitch, "Switch"},
+		{SystemWiiU, "Wii U"},
+		{SystemWii, "Wii"},
+		{SystemGameCube, "GameCube"},
+		{SystemN64, "N64"},
+		{System3DS, "3DS"},
+		{SystemDS, "DS"},
+		{SystemGameBoy, "Game Boy"},
+		{SystemOther, "Other"},
+
+		{LinkSteam, "steam"},
+		{LinkEpic, "epic"},
+		{LinkGOG, "gog"},
+		{LinkEA, "ea"},
+		{LinkBattlenet, "battlenet"},
+		{LinkUbisoft, "ubisoft"},
+		{LinkXbox, "xbox"},
+		{LinkAmazon, "amazon"},
+		{LinkItch, "itch"},
+		{LinkPSN, "psn"},
+	} {
+		assert.Equal(t, tc.want, tc.constant)
+	}
+}
+
+func TestKnownPlatforms(t *testing.T) {
+	t.Run("GIVEN the platforms Game Vault knows", func(t *testing.T) {
+		t.Run("THEN they are listed in a fixed order, stores first", func(t *testing.T) {
+			assert.Equal(t, []string{
+				"Steam", "Epic Games", "GOG", "EA App", "Battle.net", "Ubisoft Connect", "Microsoft Store / Xbox",
+				"Rockstar", "Battlestate (Tarkov)", "Riot", "itch.io", "Amazon Games", "PlayStation Store", "Nintendo eShop",
+				"PC", "PS5", "PS4", "PS3", "PS2", "PS1", "PSP", "PS Vita", "Xbox Series", "Xbox One", "Xbox 360", "Xbox",
+				"Switch", "Wii U", "Wii", "GameCube", "N64", "3DS", "DS", "Game Boy",
+			}, KnownPlatforms())
+		})
+
+		t.Run("THEN the consoles are the systems that are not PC, each its own system", func(t *testing.T) {
+			assert.Equal(t, []string{
+				"PS5", "PS4", "PS3", "PS2", "PS1", "PSP", "PS Vita", "Xbox Series", "Xbox One", "Xbox 360", "Xbox",
+				"Switch", "Wii U", "Wii", "GameCube", "N64", "3DS", "DS", "Game Boy",
+			}, Consoles())
+
+			for _, c := range Consoles() {
+				assert.Equal(t, c, SystemOf(c))
+			}
+		})
+
+		t.Run("WHEN a caller changes the lists it was given THEN the domain's are unchanged", func(t *testing.T) {
+			KnownPlatforms()[0] = "Stean"
+			Consoles()[0] = "PS6"
+
+			assert.True(t, IsKnownPlatform(PlatformSteam))
+			assert.False(t, IsKnownPlatform("Stean"))
+			assert.Equal(t, SystemPS5, Consoles()[0])
+		})
+	})
+}
+
+func TestIsPCStoreLink(t *testing.T) {
+	for _, key := range []string{"steam", "gog", "epic", "ea", "battlenet", "ubisoft", "xbox", "amazon", "itch"} {
+		assert.True(t, IsPCStoreLink(key), key)
+	}
+
+	for _, key := range []string{"psn", "igdb", "", "Steam"} {
+		assert.False(t, IsPCStoreLink(key), key)
+	}
+}

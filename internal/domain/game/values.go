@@ -135,39 +135,6 @@ var (
 
 func invalid(format string, args ...any) error { return errkind.Invalidf(format, args...) }
 
-var knownPlatforms = []string{
-	// Stores and launchers
-	"Steam", "Epic Games", "GOG", "EA App", "Battle.net", "Ubisoft Connect", "Microsoft Store / Xbox",
-	"Rockstar", "Battlestate (Tarkov)", "Riot", "itch.io", "Amazon Games", "PlayStation Store", "Nintendo eShop",
-	// Consoles and physical formats
-	"PC", "PS5", "PS4", "PS3", "PS2", "PS1", "PSP", "PS Vita", "Xbox Series", "Xbox One", "Xbox 360", "Xbox",
-	"Switch", "Wii U", "Wii", "GameCube", "N64", "3DS", "DS", "Game Boy",
-}
-
-// IsKnownPlatform reports whether p is one of the stores, launchers or consoles Game Vault knows,
-// as opposed to whatever a source names a key type (a software vendor, a course site…).
-func IsKnownPlatform(p string) bool {
-	return slices.ContainsFunc(knownPlatforms, func(k string) bool { return strings.EqualFold(k, strings.TrimSpace(p)) })
-}
-
-// KnownPlatforms returns the stores, launchers and consoles Game Vault knows, PC and console names
-// included (a copy of the list: callers cannot change it). The web's platform tables are checked
-// against it.
-func KnownPlatforms() []string { return slices.Clone(knownPlatforms) }
-
-// CanonicalPlatform fixes the casing of known platforms ("steam" → "Steam") so they compare equal.
-// Unknown platforms are returned trimmed but otherwise untouched.
-func CanonicalPlatform(p string) string {
-	p = strings.TrimSpace(p)
-	for _, k := range knownPlatforms {
-		if strings.EqualFold(k, p) {
-			return k
-		}
-	}
-
-	return p
-}
-
 var (
 	reTrademarks = regexp.MustCompile(`[™®©]`)
 	reBrackets   = regexp.MustCompile(`\(.*?\)|\[.*?\]`)
