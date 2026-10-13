@@ -11,7 +11,7 @@ because Simple Icons removed them).
   `#/sources/<id>`, `#/system/backups`, `#/game/<id>`) are parsed only by `lib/route.ts` and followed
   only by `lib/useHashRoute.ts` (`replaceRoute` changes the address without a history entry); pages
   get the route's `target`. A new page scrolls to the top; an address within a page does not.
-  `lib/useGameAddress.ts` owns the library's open sheet and its `#/game/<id>` address, which follows
+  `lib/useGameAddress.ts` owns the library's open sheet and its `#/game/<id>` address (history rules in `lib/gameAddress.ts`, tested on happy-dom), which follows
   the game the sheet shows.
 - `state/AppData.tsx`: the catalog and sources shared by every page; mutations call `putGame`
   instead of refetching.
