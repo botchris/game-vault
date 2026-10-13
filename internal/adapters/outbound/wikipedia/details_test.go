@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gamevault/internal/adapters/outbound/ratelimit"
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
@@ -561,6 +562,34 @@ func TestDetails_outages(t *testing.T) {
 			})
 		})
 	}
+}
+
+func TestDetails_backsOffAfterADroppedConnection(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN Wikidata dropped the connection without answering", func(t *testing.T) {
+		f := newFakeWiki(t)
+		exampleWorld(f)
+		f.setFail("hangup")
+
+		d := f.details()
+
+		_, err := d.Details(ctx, media.CoverQuery{Title: "Example Quest"}, "en", nil)
+		require.ErrorIs(t, err, provider.ErrUnavailable)
+
+		t.Run("WHEN the next sheet is asked", func(t *testing.T) {
+			f.setFail("")
+
+			before := len(f.actions())
+			_, err := d.Details(ctx, media.CoverQuery{Title: "Example Quest"}, "en", nil)
+
+			t.Run("THEN the servers are left alone: it is refused as resting", func(t *testing.T) {
+				require.ErrorIs(t, err, ratelimit.ErrResting)
+				assert.Len(t, f.actions(), before)
+			})
+		})
+	})
 }
 
 func TestTest(t *testing.T) {

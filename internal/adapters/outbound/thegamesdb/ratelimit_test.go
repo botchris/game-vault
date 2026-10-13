@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -12,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gamevault/internal/adapters/outbound/ratelimit"
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
@@ -237,6 +239,74 @@ func TestTest_skipsTheThrottle(t *testing.T) {
 			t.Run("THEN the check is sent anyway and passes", func(t *testing.T) {
 				require.NoError(t, err)
 			})
+		})
+	})
+}
+
+func TestThrottle_noAnswer(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	var stall, hangUp atomic.Bool
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case stall.Load():
+			select {
+			case <-r.Context().Done():
+			case <-time.After(5 * time.Second):
+			}
+
+			return
+		case hangUp.Load():
+			if conn, _, err := w.(http.Hijacker).Hijack(); err == nil {
+				conn.Close()
+			}
+
+			return
+		}
+
+		w.Write([]byte(`{"data":{"games":[]}}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	lookup := func(ctx context.Context, p *Provider) error {
+		var out struct{}
+
+		return p.get(ctx, "/v1.1/Games/ByGameName", url.Values{"apikey": {"good"}, "name": {"Halo 3"}}, &out)
+	}
+
+	t.Run("GIVEN a caller whose deadline ends before TheGamesDB answers", func(t *testing.T) {
+		p := testProvider(srv)
+		p.throttle = newThrottle(time.Millisecond, nil, nil)
+		stall.Store(true)
+
+		gone, stop := context.WithTimeout(ctx, 50*time.Millisecond)
+		defer stop()
+
+		err := lookup(gone, p)
+
+		t.Run("THEN its error is its deadline, not an outage", func(t *testing.T) {
+			require.ErrorIs(t, err, context.DeadlineExceeded)
+			assert.NotErrorIs(t, err, provider.ErrUnavailable)
+		})
+
+		t.Run("AND the next lookup is sent: no back-off started", func(t *testing.T) {
+			stall.Store(false)
+			require.NoError(t, lookup(ctx, p))
+		})
+	})
+
+	t.Run("GIVEN TheGamesDB drops the connection without answering", func(t *testing.T) {
+		p := testProvider(srv)
+		p.throttle = newThrottle(time.Millisecond, nil, nil)
+		hangUp.Store(true)
+
+		require.ErrorIs(t, lookup(ctx, p), provider.ErrUnavailable)
+
+		t.Run("THEN the next lookup is refused as resting", func(t *testing.T) {
+			hangUp.Store(false)
+			require.ErrorIs(t, lookup(ctx, p), ratelimit.ErrResting)
 		})
 	})
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gamevault/internal/adapters/outbound/ratelimit"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
 )
@@ -259,6 +260,58 @@ func TestClient_queryErrors(t *testing.T) {
 				assert.Contains(t, err.Error(), "Syntax Error")
 				assert.Contains(t, err.Error(), "try again later; if it persists, report this message")
 				assert.NotErrorIs(t, err, provider.ErrRateLimited)
+			})
+		})
+	})
+}
+
+func TestClient_backOff(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN IGDB drops the connection without answering", func(t *testing.T) {
+		f := newFakeIGDB(t)
+		f.set(func(f *fakeIGDB) { f.apiHangUp = true })
+		c := f.client(time.Now)
+
+		var out []map[string]any
+
+		err := c.query(ctx, goodSettings, "games", `fields id;`, &out)
+		require.ErrorIs(t, err, provider.ErrUnavailable)
+
+		t.Run("WHEN the next query comes", func(t *testing.T) {
+			f.set(func(f *fakeIGDB) { f.apiHangUp = false })
+
+			err := c.query(ctx, goodSettings, "games", `fields id;`, &out)
+
+			t.Run("THEN IGDB is left alone: the query is refused as resting", func(t *testing.T) {
+				require.ErrorIs(t, err, ratelimit.ErrResting)
+				assert.Empty(t, f.sent("games"))
+			})
+		})
+	})
+
+	t.Run("GIVEN a caller that gives up while IGDB has not answered yet", func(t *testing.T) {
+		f := newFakeIGDB(t)
+		f.set(func(f *fakeIGDB) { f.apiStall = true })
+		c := f.client(time.Now)
+
+		gone, stop := context.WithTimeout(ctx, 50*time.Millisecond)
+		defer stop()
+
+		var out []map[string]any
+
+		err := c.query(gone, goodSettings, "games", `fields id;`, &out)
+		require.Error(t, err)
+
+		t.Run("WHEN the next query comes", func(t *testing.T) {
+			f.set(func(f *fakeIGDB) { f.apiStall = false })
+
+			err := c.query(ctx, goodSettings, "games", `fields id;`, &out)
+
+			t.Run("THEN it is sent: the caller's deadline started no back-off", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.Len(t, f.sent("games"), 1)
 			})
 		})
 	})

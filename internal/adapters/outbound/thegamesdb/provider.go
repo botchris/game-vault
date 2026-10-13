@@ -211,12 +211,20 @@ func (p *Provider) getNow(ctx context.Context, path string, q url.Values, out an
 	switch {
 	case errors.As(err, &se):
 		return apiError(se)
-	case err != nil && !errors.Is(err, apiclient.ErrNotJSON) && !errors.Is(err, context.Canceled):
-		// No answer (no connection, a timeout): it says nothing about the game.
-		return fmt.Errorf("not answering, try again later (%w): %w", err, provider.ErrUnavailable)
+	case err == nil, errors.Is(err, apiclient.ErrNotJSON):
+		return err
 	}
 
-	return err
+	// No answer (no connection, a timeout) is an outage that says nothing about the game, unless
+	// the caller gave up (canceled, or its deadline passed): then the error stays the caller's, and
+	// the throttle starts no back-off for it.
+	classified := apiclient.ClassifyError(ctx, err)
+	if ctx.Err() != nil || errors.Is(classified, provider.ErrUnavailable) {
+		return classified
+	}
+
+	// An answer that could not be read is taken for an outage too, as it always was.
+	return fmt.Errorf("not answering, try again later (%w): %w", err, provider.ErrUnavailable)
 }
 
 // ErrUnknownKey means TheGamesDB does not know the API key.

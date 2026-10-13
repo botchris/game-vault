@@ -106,14 +106,20 @@ func newThrottle(gap time.Duration) *ratelimit.Throttle {
 	})
 }
 
-// serviceTrouble reports whether a request's error is IGDB asking to slow down or failing (a 429
-// or a 5xx), which starts the throttle's back-off. It sees the request's own error, a
-// *apiclient.StatusError whose Retry-After the throttle honors; a request that got no answer does
-// not count, since it may only be the caller giving up.
+// serviceTrouble reports whether a request's error is IGDB asking to slow down or failing (a
+// 429, a 5xx, or no answer at all: a dropped connection, a timeout), which starts the throttle's
+// back-off. It sees the request's own error, a *apiclient.StatusError whose Retry-After the
+// throttle honors. A request whose caller gave up also gets no answer, but the throttle starts no
+// back-off for it.
 func serviceTrouble(err error) bool {
 	var se *apiclient.StatusError
+	if errors.As(err, &se) {
+		return apiclient.Transient(se.Status)
+	}
 
-	return errors.As(err, &se) && apiclient.Transient(se.Status)
+	var ue *url.Error
+
+	return errors.As(err, &ue)
 }
 
 // credentials returns the Client ID, the Secret and the key of their cached token.
