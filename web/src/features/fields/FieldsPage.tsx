@@ -1,12 +1,13 @@
 import { useRef, useState, type PointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { errorMessage, fieldClient } from '../../api/client';
+import { fieldClient } from '../../api/client';
 import { Icon } from '../../components/Icon';
 import { Alert } from '../../components/ui';
 import type { FieldDefinition } from '../../gen/gamevault/v1/field_pb';
 import { KINDS, kindKey } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
 import FieldDialog from './FieldDialog';
+import { useAction } from '../../lib/useAction';
 
 /** Custom fields: the user's own fields on games and copies, in the order the game sheet shows them. */
 export default function FieldsPage() {
@@ -14,8 +15,7 @@ export default function FieldsPage() {
   const { fields, reloadFields } = useAppData();
   // null: closed; 'new': adding; a definition: editing it.
   const [editing, setEditing] = useState<FieldDefinition | 'new' | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  const { busy, error, run } = useAction();
   const [drag, setDrag] = useState<Drag | null>(null);
   // The order a drop asked for, shown while MoveField runs so the row does not jump back meanwhile.
   const [pending, setPending] = useState<string[] | null>(null);
@@ -23,17 +23,11 @@ export default function FieldsPage() {
   const shown = pending ? pending.flatMap((id) => fields.filter((f) => f.id === id)) : fields;
 
   const move = async (f: FieldDefinition, index: number) => {
-    setBusy(true);
-    setError('');
-    try {
+    await run(async () => {
       await fieldClient.moveField({ id: f.id, index });
       await reloadFields();
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setPending(null);
-      setBusy(false);
-    }
+    });
+    setPending(null);
   };
 
   // Drag to reorder (mouse and pen on desktop; the arrows do it everywhere, keyboard included). The

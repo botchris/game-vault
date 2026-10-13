@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { errorMessage, fieldClient } from '../../api/client';
+import { fieldClient } from '../../api/client';
 import { Alert, Modal } from '../../components/ui';
 import type { FieldDefinition } from '../../gen/gamevault/v1/field_pb';
 import { KINDS, kindKey, type CopyKind } from '../../lib/model';
 import { usePreferredCurrency } from '../../lib/usePreferences';
 import { useAppData } from '../../state/AppData';
+import { useAction } from '../../lib/useAction';
 
 /** The field types, in the order the type select offers them. */
 const TYPES = ['text', 'longtext', 'bool', 'number', 'money', 'date', 'duration', 'list', 'multilist'] as const;
@@ -40,8 +41,7 @@ export default function FieldDialog({ field, onClose }: Props) {
   const [focusKey, setFocusKey] = useState<number | null>(null);
   // The saved value being removed, waiting for "merge into".
   const [removing, setRemoving] = useState<{ key: number; mergeInto: string } | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  const { busy, error, run } = useAction();
   // Whether games or copies hold a value of the number field being edited: its decimals are then
   // fixed, because the stored values would be read at another scale. 'loading' until the usage is
   // known, and the select stays disabled meanwhile. Other changes that do not fit the stored values
@@ -60,18 +60,6 @@ export default function FieldDialog({ field, onClose }: Props) {
       .catch(() => { if (live) setHasValues(false); }); // the server still refuses the change; the lock is only a convenience
     return () => { live = false; };
   }, [field]);
-
-  const run = async (fn: () => Promise<void>) => {
-    setBusy(true);
-    setError('');
-    try {
-      await fn();
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const save = (e: FormEvent) => {
     e.preventDefault();

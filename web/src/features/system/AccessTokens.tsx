@@ -5,6 +5,7 @@ import { Alert, useFormatters } from '../../components/ui';
 import type { AccessToken } from '../../gen/gamevault/v1/auth_pb';
 import { copyText } from '../../lib/clipboard';
 import { toDate } from '../../lib/model';
+import { useAction } from '../../lib/useAction';
 
 /** Access tokens for the browser extension: create one (its secret is shown once), list, revoke. */
 export default function AccessTokens() {
@@ -14,8 +15,7 @@ export default function AccessTokens() {
   const [name, setName] = useState('');
   const [secret, setSecret] = useState('');
   const [copied, setCopied] = useState(false);
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
+  const { busy, error, setError, run } = useAction();
   const [hint, setHint] = useState(false);
   const [announce, setAnnounce] = useState('');
   const secretInput = useRef<HTMLInputElement>(null);
@@ -27,7 +27,7 @@ export default function AccessTokens() {
     } catch (e) {
       setError(errorMessage(e));
     }
-  }, []);
+  }, [setError]);
 
   useEffect(() => {
     load();
@@ -51,34 +51,25 @@ export default function AccessTokens() {
     secretInput.current?.select();
   }, [secret]);
 
-  const create = async (e: FormEvent) => {
+  const create = (e: FormEvent) => {
     e.preventDefault();
-    setBusy(true);
-    setError('');
     dismiss();
-    try {
+    run(async () => {
       const res = await authClient.createAccessToken({ name });
       setSecret(res.secret);
       setAnnounce(t('security.tokens.created'));
       setName('');
       await load();
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
-  const revoke = async (tok: AccessToken) => {
+  const revoke = (tok: AccessToken) => {
     if (!confirm(t('security.tokens.confirmRevoke', { name: tok.name }))) return;
-    setError('');
     dismiss();
-    try {
+    run(async () => {
       await authClient.revokeAccessToken({ id: tok.id });
       await load();
-    } catch (err) {
-      setError(errorMessage(err));
-    }
+    });
   };
 
   const copy = async () => {

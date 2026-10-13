@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { errorMessage, gameClient } from '../../api/client';
+import { gameClient } from '../../api/client';
 import { Alert } from '../../components/ui';
 import { useEscape } from '../../components/useEscape';
 import { openEdition } from '../../lib/editions';
 import { gameInfo, type Game } from '../../lib/model';
+import { useAction } from '../../lib/useAction';
 import { useAppData } from '../../state/AppData';
 import CopiesTab from './CopiesTab';
 import EditTab from './EditTab';
@@ -47,8 +48,7 @@ function GameDetailBody({ game, system, onClose, onOpenGame, onEdition, onPlatfo
   const sheet = useGameDetails(game);
   const [tab, setTab] = useState<Tab>('overview');
   const [dialog, setDialog] = useState<SheetDialog | null>(null);
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
+  const { busy, error, setError, run } = useAction();
   const [chosen, setChosen] = useState(system ?? '');
   // The edition shown: the one chosen, while the game still has it (its copies may have moved), else
   // the main one.
@@ -61,17 +61,6 @@ function GameDetailBody({ game, system, onClose, onOpenGame, onEdition, onPlatfo
     onEdition?.(s);
   };
 
-  const run = async (fn: () => Promise<void>) => {
-    setBusy(true);
-    setError('');
-    try {
-      await fn();
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setBusy(false);
-    }
-  };
   const actions: SheetActions = { busy, run, openDialog: setDialog };
 
   const updateGame = (patch: GamePatch) => run(async () => {
@@ -111,7 +100,7 @@ function GameDetailBody({ game, system, onClose, onOpenGame, onEdition, onPlatfo
     setError('');
     overlay.current?.scrollTo({ top: 0 });
     sheetEl.current?.scrollTo({ top: 0 });
-  }, [game.id]);
+  }, [game.id, setError]);
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';

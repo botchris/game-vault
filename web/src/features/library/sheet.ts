@@ -1,4 +1,5 @@
 import type { Copy, Game } from '../../lib/model';
+import type { Action } from '../../lib/useAction';
 
 // Types shared by the game sheet (GameDetail) and its parts: the hero, the tabs and the dialogs.
 
@@ -24,6 +25,6 @@ export type GamePatch = Partial<Pick<Game, 'title' | 'links' | 'notes' | 'playSt
 export interface SheetActions {
   busy: boolean;
   /** Runs an action of the sheet: busy while it runs, its error shown on the sheet. */
-  run: (fn: () => Promise<void>) => Promise<void>;
+  run: Action['run'];
   openDialog: (d: SheetDialog) => void;
 }

@@ -1,7 +1,6 @@
 import { create } from '@bufbuild/protobuf';
 import { useMemo, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { errorMessage } from '../../api/client';
 import { Alert, Modal } from '../../components/ui';
 import { CopyGrade, MoneySchema } from '../../gen/gamevault/v1/game_pb';
 import { SYSTEMS, systemOf } from '../../lib/editions';
@@ -14,6 +13,7 @@ import {
 import { usePreferredCurrency } from '../../lib/usePreferences';
 import { useAppData } from '../../state/AppData';
 import { FieldInputs, applyField, cleanFields, useFieldValidity } from '../fields/FieldInput';
+import { useAction } from '../../lib/useAction';
 
 interface Props {
   initial?: CopyDetailsInput;
@@ -32,8 +32,8 @@ export default function CopyForm({ initial, managedBy, sourceSystem, onSubmit, o
   const locations = useMemo(() => usedLocations(games), [games]);
   const preferred = usePreferredCurrency(i18n.language);
   const [d, setD] = useState<CopyDetailsInput>(initial ?? emptyDetails());
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  // The dialog closes on success, so it stays busy until it goes.
+  const { busy, error, run } = useAction({ keepBusyOnSuccess: true });
   const [amount, setAmount] = useState(() => (d.price?.amountMinor ? amountInput(d.price.amountMinor, d.price.currency, i18n.language) : ''));
   const [chosenCurrency, setCurrency] = useState(d.price?.currency ?? '');
   // A new price uses the default currency until the user picks another one.
@@ -60,9 +60,7 @@ export default function CopyForm({ initial, managedBy, sourceSystem, onSubmit, o
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (amountInvalid || fieldsInvalid) return;
-    setBusy(true);
-    setError('');
-    try {
+    await run(async () => {
       // The server replaces the copy's values: drop only those of known fields that no longer apply
       // after a kind change; values of fields this page does not know are kept, never erased.
       const values = cleanFields(copyValuesFor(d.fields, fields, d.kind));
@@ -71,10 +69,7 @@ export default function CopyForm({ initial, managedBy, sourceSystem, onSubmit, o
       const typed = d.system.trim();
       const system = typed === '' || (systemEdited && automatic !== null && systemOf(typed) === automatic) ? '' : typed;
       await onSubmit({ ...d, system, price: minor ? create(MoneySchema, { amountMinor: minor, currency }) : undefined, fields: values });
-    } catch (err) {
-      setError(errorMessage(err));
-      setBusy(false);
-    }
+    });
   };
 
   const platforms = d.kind === CopyKind.PHYSICAL ? PHYSICAL_PLATFORMS : STORE_PLATFORMS;

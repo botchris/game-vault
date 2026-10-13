@@ -20,7 +20,7 @@ const sameField = (a: Game['fields'][string], b: Game['fields'][string]) => same
 export default function EditTab({ game, actions, onSave, onDeleted }: {
   game: Game;
   actions: SheetActions;
-  onSave: (patch: GamePatch) => Promise<void>;
+  onSave: (patch: GamePatch) => Promise<unknown>;
   onDeleted: () => void;
 }) {
   const { t } = useTranslation();

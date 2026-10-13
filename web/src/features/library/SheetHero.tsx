@@ -24,7 +24,7 @@ export default function SheetHero({ game, current, details, nav, actions, onClos
   onPlatform?: (platform: string) => void;
   onShowEdition: (system: string) => void;
   /** Saves a change to the game (play status, rating). */
-  onChange: (patch: GamePatch) => Promise<void>;
+  onChange: (patch: GamePatch) => Promise<unknown>;
 }) {
   const { t } = useTranslation();
   const { putGame } = useAppData();

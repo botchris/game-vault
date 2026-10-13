@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { errorMessage, gameClient } from '../../api/client';
+import { gameClient } from '../../api/client';
 import { Cover } from '../../components/Cover';
 import { Icon } from '../../components/Icon';
 import { Alert, useFormatters } from '../../components/ui';
@@ -19,6 +19,7 @@ import OwnershipDialog from './OwnershipDialog';
 import { gameHash, gameIdFromHash } from '../../lib/gameRoute';
 import { Stars } from './PlayControls';
 import PosterGrid, { ItemBadges, moreStoresId } from './PosterGrid';
+import { useAction } from '../../lib/useAction';
 
 type Quick = 'pending' | 'expiring' | 'redundant' | 'several' | null;
 export type SortBy = 'titleAsc' | 'titleDesc' | 'added' | 'year' | 'deadline' | 'copies' | 'rating';
@@ -80,6 +81,7 @@ export default function LibraryPage() {
   const [creating, setCreating] = useState(false);
   const [checking, setChecking] = useState(false);
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
+  const redeem = useAction({ onError: (text) => setNotice({ tone: 'error', text }) });
   const sentinel = useRef<HTMLDivElement>(null);
 
   // The library's items: one per edition ("By platform") or per game ("By game"); filters, counts and
@@ -214,15 +216,11 @@ export default function LibraryPage() {
   }));
   const nFilters = activeFilterCount(filters);
 
-  const markRedeemed = async () => {
-    try {
-      const res = await gameClient.markRedeemedKeys({});
-      await reloadGames();
-      setNotice({ tone: 'ok', text: t('library.markedRedeemed', { count: res.updated }) });
-    } catch (e) {
-      setNotice({ tone: 'error', text: errorMessage(e) });
-    }
-  };
+  const markRedeemed = () => redeem.run(async () => {
+    const res = await gameClient.markRedeemedKeys({});
+    await reloadGames();
+    setNotice({ tone: 'ok', text: t('library.markedRedeemed', { count: res.updated }) });
+  });
 
   const quickChips: { key: Exclude<Quick, null>; count: number; tone?: string }[] = [
     { key: 'pending', count: counts.pending },
@@ -295,7 +293,7 @@ export default function LibraryPage() {
       {quick === 'redundant' && counts.revealedRedundant > 0 && (
         <div className="hint-bar">
           <span>{t('library.markRedeemedHelp')}</span>
-          <button onClick={markRedeemed}>{t('library.markRedeemed', { count: counts.revealedRedundant })}</button>
+          <button onClick={markRedeemed} disabled={redeem.busy}>{t('library.markRedeemed', { count: counts.revealedRedundant })}</button>
         </div>
       )}
       {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}

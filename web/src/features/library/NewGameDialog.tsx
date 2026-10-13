@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { errorMessage, gameClient } from '../../api/client';
+import { gameClient } from '../../api/client';
 import { Alert, Modal } from '../../components/ui';
 import { CopyKind, KINDS, emptyDetails, kindKey, PHYSICAL_PLATFORMS, STORE_PLATFORMS } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
+import { useAction } from '../../lib/useAction';
 
 /** Registers a new game together with its first copy. More copies are added from the game detail. */
 export default function NewGameDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
@@ -12,20 +13,16 @@ export default function NewGameDialog({ onClose, onCreated }: { onClose: () => v
   const [title, setTitle] = useState('');
   const [kind, setKind] = useState<CopyKind>(CopyKind.PHYSICAL);
   const [platform, setPlatform] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  // The dialog closes on success, so it stays busy until it goes.
+  const { busy, error, run } = useAction({ keepBusyOnSuccess: true });
 
-  const submit = async (e: FormEvent) => {
+  const submit = (e: FormEvent) => {
     e.preventDefault();
-    setBusy(true);
-    try {
+    run(async () => {
       const res = await gameClient.createGame({ title, copies: [{ ...emptyDetails(kind), platform }] });
       putGame(res.game!);
       onCreated(res.game!.id);
-    } catch (err) {
-      setError(errorMessage(err));
-      setBusy(false);
-    }
+    });
   };
 
   return (

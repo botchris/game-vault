@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { errorMessage, lookupClient, proxiedImage } from '../../api/client';
+import { lookupClient, proxiedImage } from '../../api/client';
 import { Cover } from '../../components/Cover';
 import { Icon } from '../../components/Icon';
 import { PlatformBadge } from '../../components/PlatformBadge';
@@ -9,6 +9,7 @@ import { Alert } from '../../components/ui';
 import { useAppData } from '../../state/AppData';
 import { lookupLinks } from '../../lib/barcode.ts';
 import { resolved, status, type Answer, type Choice, type Row } from './scanList.ts';
+import { useAction } from '../../lib/useAction';
 
 /** Names of the barcode databases, for "found in …". */
 const PROVIDER_NAMES: Record<string, string> = { cex: 'CeX', ebay: 'eBay', upcitemdb: 'UPCitemdb', eansearch: 'EAN-Search' };
@@ -84,16 +85,13 @@ function RowDetail({ answer, choice, batchPlatform, onAmend, onDone }: {
   const [existing, setExisting] = useState(answer.existing);
   const [warnings, setWarnings] = useState(answer.warnings);
   const [unavailable, setUnavailable] = useState(answer.providersUnavailable ?? false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  const { busy, error, run } = useAction();
   const m = answer.match;
   const set = onAmend;
 
   const search = async () => {
     if (!choice.title.trim()) return;
-    setBusy(true);
-    setError('');
-    try {
+    await run(async () => {
       const res = await lookupClient.suggestGames({ title: choice.title, platform: choice.platform });
       const s = res.suggestions.map((x) => ({ title: x.title, platform: x.platform, coverUrl: x.coverUrl, thumbUrl: x.thumbUrl, label: x.label }));
       setSuggestions(s);
@@ -108,11 +106,7 @@ function RowDetail({ answer, choice, batchPlatform, onAmend, onDone }: {
         thumbUrl: first?.thumbUrl ?? '',
         gameId: res.existing.length === 1 ? res.existing[0]!.id : '',
       });
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
   return (

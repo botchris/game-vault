@@ -10,6 +10,7 @@ import ProviderDialog from './ProviderDialog';
 import type { DialogIntent } from '../../lib/providerForm';
 import { forgetPriceProviders } from '../../lib/usePriceProviders';
 import { useHealth } from '../../state/Health';
+import { useAction } from '../../lib/useAction';
 
 type Notice = { tone: 'ok' | 'error'; text: string } | null;
 
@@ -18,22 +19,17 @@ export default function ProvidersPage() {
   const { t } = useTranslation();
   const { reloadGames } = useAppData();
   const [notice, setNotice] = useState<Notice>(null);
-  const [busy, setBusy] = useState(false);
+  const { busy, run } = useAction({ onError: (text) => setNotice({ tone: 'error', text }) });
   const { issues } = useHealth();
   const healthKey = issues.filter((i) => i.kind === 'provider').map((i) => `${i.key}:${i.reason}`).join(',');
 
   const refresh = async (missingOnly: boolean) => {
     if (!missingOnly && !confirm(t('providers.confirmRedownload'))) return;
-    setBusy(true);
-    try {
+    await run(async () => {
       const res = await coverClient.refreshCovers({ missingOnly });
       await reloadGames();
       setNotice({ tone: 'ok', text: t(missingOnly ? 'providers.retried' : 'providers.redownloaded', { count: res.games }) });
-    } catch (e) {
-      setNotice({ tone: 'error', text: errorMessage(e) });
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
   return (
@@ -81,7 +77,9 @@ function ProviderChain(props: {
   const [placeholder, setPlaceholder] = useState('');
   const [editing, setEditing] = useState<Provider | null>(null);
   const [intent, setIntent] = useState<DialogIntent>('configure');
-  const [busy, setBusy] = useState(false);
+  // A failure shows in the page's notice, with the other chains'.
+  const action = useAction({ onError: (text) => onNotice({ tone: 'error', text }) });
+  const busy = action.busy;
 
   const load = useCallback(async () => {
     try {
@@ -99,18 +97,13 @@ function ProviderChain(props: {
     load();
   }, [load, props.healthKey]);
 
-  const run = async (fn: () => Promise<void>) => {
-    setBusy(true);
+  const run = (fn: () => Promise<void>) => {
     onNotice(null);
-    try {
+    return action.run(async () => {
       await fn();
       reloadHealth(); // new settings may fix a provider's problem
       await onChanged?.();
-    } catch (e) {
-      onNotice({ tone: 'error', text: errorMessage(e) });
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
   const move = (index: number, delta: number) => run(async () => {

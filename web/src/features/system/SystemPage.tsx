@@ -11,6 +11,7 @@ import { hashTarget, issueHref, issueTitle, reasonText, sinceText } from '../../
 import { useHealth } from '../../state/Health';
 import { useAppData } from '../../state/AppData';
 import SecurityCard from './SecurityCard';
+import { useAction } from '../../lib/useAction';
 
 const CSV_TEMPLATE =
   'title;platform;kind;status;edition;grade;contents;location;acquiredOn;price;currency;origin;notes\n' +
@@ -50,13 +51,15 @@ export default function SystemPage() {
   const [photoStore, setPhotoStore] = useState(0n);
   const [value, setValue] = useState<GetCollectionValueResponse | null>(null);
   const { issues, unavailable, reload: reloadHealth } = useHealth();
-  const [busy, setBusy] = useState('');
-  const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string; report?: SyncReport } | null>(null);
+  const { busy, error, setError, run } = useAction();
+  // Which action runs, for its button's "Working…".
+  const [doing, setDoing] = useState('');
+  const [notice, setNotice] = useState<{ text: string; report?: SyncReport } | null>(null);
 
   const load = useCallback(async () => {
     const [st, bk, prefs, val] = await Promise.all([systemClient.getStatus({}), systemClient.listBackups({}), systemClient.getPreferences({}),
       valuationClient.getCollectionValue({}).catch((e) => {
-        setNotice({ tone: 'error', text: errorMessage(e) }); // the rest of the page still works
+        setError(errorMessage(e)); // the rest of the page still works
         return null;
       })]);
     setValue(val);
@@ -65,11 +68,11 @@ export default function SystemPage() {
     setPhotoStore(bk.photoStoreBytes);
     if (prefs.preferences?.currency) setCurrency(prefs.preferences.currency);
     setCurrencySaved(!!prefs.preferences?.currency);
-  }, []);
+  }, [setError]);
 
   useEffect(() => {
-    load().catch((e) => setNotice({ tone: 'error', text: errorMessage(e) }));
-  }, [load]);
+    load().catch((e) => setError(errorMessage(e)));
+  }, [load, setError]);
 
   // "#/system/backups" (a health issue's link) scrolls to that card, now and on later clicks.
   useEffect(() => {
@@ -82,35 +85,30 @@ export default function SystemPage() {
     };
   }, []);
 
-  const run = async (name: string, fn: () => Promise<void>) => {
-    setBusy(name);
+  const act = (name: string, fn: () => Promise<void>) => {
+    setDoing(name);
     setNotice(null);
-    try {
-      await fn();
-    } catch (e) {
-      setNotice({ tone: 'error', text: errorMessage(e) });
-    } finally {
-      setBusy('');
-    }
+    return run(fn);
   };
 
-  const saveCurrency = (c: string) => run('currency', async () => {
+  const saveCurrency = (c: string) => act('currency', async () => {
     const res = await systemClient.updatePreferences({ preferences: { currency: c } });
     setCurrency(res.preferences?.currency || c);
     setCurrencySaved(true);
   });
 
-  const importCsv = (file: File) => run('import', async () => {
+  const importCsv = (file: File) => act('import', async () => {
     const res = await systemClient.importCsv({ content: new Uint8Array(await file.arrayBuffer()) });
     const r = res.report!;
-    setNotice({ tone: 'ok', report: r, text: t('system.importDone', { added: r.copiesAdded, updated: r.copiesUpdated, unchanged: r.copiesUnchanged, games: r.gamesCreated }) });
+    setNotice({ report: r, text: t('system.importDone', { added: r.copiesAdded, updated: r.copiesUpdated, unchanged: r.copiesUnchanged, games: r.gamesCreated }) });
     await Promise.all([reloadGames(), load()]);
   });
 
   return (
     <div className="page">
+      {error && <Alert tone="error">{error}</Alert>}
       {notice && (
-        <Alert tone={notice.tone}>
+        <Alert tone="ok">
           {notice.text}
           {notice.report && notice.report.warnings.length > 0 && (
             <details><summary>{t('sources.warnings', { count: notice.report.warnings.length })}</summary>
@@ -170,11 +168,11 @@ export default function SystemPage() {
         <label className="field">
           {t('system.currency')}
           <span className="row tight">
-            <select value={currency} disabled={!!busy} onChange={(e) => saveCurrency(e.target.value)}>
+            <select value={currency} disabled={busy} onChange={(e) => saveCurrency(e.target.value)}>
               {[region, ...currencyList().filter((c) => c !== region)].map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
             {!currencySaved && (
-              <button type="button" className="primary" disabled={!!busy} onClick={() => saveCurrency(currency)}>{t('common.save')}</button>
+              <button type="button" className="primary" disabled={busy} onClick={() => saveCurrency(currency)}>{t('common.save')}</button>
             )}
           </span>
           <span className="help">{currencySaved ? t('system.currencyHelp') : t('system.currencyNotSaved')}</span>
@@ -208,12 +206,12 @@ export default function SystemPage() {
       <section className="card" id="backups">
         <div className="section-head">
           <h2>{t('system.backups')}</h2>
-          <button className="primary" disabled={!!busy} onClick={() => run('backup', async () => {
+          <button className="primary" disabled={busy} onClick={() => act('backup', async () => {
             const res = await systemClient.createBackup({});
             reloadHealth(); // a backup may clear a failed one
-            setNotice({ tone: 'ok', text: t('system.backupCreated', { name: res.backup?.name }) });
+            setNotice({ text: t('system.backupCreated', { name: res.backup?.name }) });
             await load();
-          })}>{busy === 'backup' ? t('common.working') : t('system.backupNow')}</button>
+          })}>{busy && doing === 'backup' ? t('common.working') : t('system.backupNow')}</button>
         </div>
         {backups.length === 0 ? <p className="muted">{t('system.noBackups')}</p> : (
           <table>
@@ -234,12 +232,12 @@ export default function SystemPage() {
         <p className="muted">{t('system.csvIntro')}</p>
         <div className="row">
           <label className={`button primary file ${busy ? 'disabled' : ''}`}>
-            {busy === 'import' ? t('common.working') : t('system.importCsv')}
-            <input type="file" accept=".csv,text/csv" hidden disabled={!!busy}
+            {busy && doing === 'import' ? t('common.working') : t('system.importCsv')}
+            <input type="file" accept=".csv,text/csv" hidden disabled={busy}
               onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) importCsv(f); }} />
           </label>
           <button onClick={() => downloadBytes('gamevault-template.csv', new TextEncoder().encode(CSV_TEMPLATE), 'text/csv')}>{t('system.downloadTemplate')}</button>
-          <button disabled={!!busy} onClick={() => run('export', async () => {
+          <button disabled={busy} onClick={() => act('export', async () => {
             const res = await systemClient.exportCsv({});
             downloadBytes(res.filename, res.content, 'text/csv');
           })}>{t('system.exportCsv')}</button>

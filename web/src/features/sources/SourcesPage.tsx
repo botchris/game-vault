@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { errorMessage, sourceClient } from '../../api/client';
+import { sourceClient } from '../../api/client';
 import { Icon } from '../../components/Icon';
 import { SourceLogo } from '../../components/PlatformBadge';
 import { Alert } from '../../components/ui';
@@ -10,6 +10,7 @@ import { useAppData } from '../../state/AppData';
 import SourceDialog from './SourceDialog';
 import { hashTarget } from '../../lib/health';
 import { useHealth } from '../../state/Health';
+import { useAction } from '../../lib/useAction';
 
 /** Configured accounts (Humble Bundle, Steam...) that are scanned to keep the catalog up to date. */
 export default function SourcesPage() {
@@ -18,7 +19,7 @@ export default function SourcesPage() {
   const [editing, setEditing] = useState<{ type: SourceType; source?: Source } | null>(null);
   const [syncing, setSyncing] = useState<string | null>(null);
   const [showAllTypes, setShowAllTypes] = useState(false);
-  const [error, setError] = useState('');
+  const { error, run } = useAction();
 
   const typeOf = (s: Source) => sourceTypes.find((x) => x.id === s.type);
   const { reload: reloadHealth } = useHealth();
@@ -40,17 +41,13 @@ export default function SourcesPage() {
 
   const sync = async (id: string | 'all') => {
     setSyncing(id);
-    setError('');
-    try {
+    await run(async () => {
       if (id === 'all') await sourceClient.syncAllSources({});
       else await sourceClient.syncSource({ id });
       await Promise.all([reloadSources(), reloadGames()]);
       reloadHealth();
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setSyncing(null);
-    }
+    });
+    setSyncing(null);
   };
 
   // A second account of the same store is possible but rare: those types are behind "show all".

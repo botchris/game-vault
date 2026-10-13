@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { errorMessage, valuationClient } from '../../api/client';
+import { valuationClient } from '../../api/client';
 import ProvidersUnavailable from '../../components/ProvidersUnavailable';
 import { useFormatters } from '../../components/ui';
 import type { Estimate, Money } from '../../gen/gamevault/v1/game_pb';
@@ -8,6 +8,7 @@ import { formatAmount } from '../../lib/money';
 import { toDate, type Copy, type Game } from '../../lib/model';
 import { usePriceProviders } from '../../lib/usePriceProviders';
 import { useAppData } from '../../state/AppData';
+import { useAction } from '../../lib/useAction';
 
 /** A physical copy's second-hand prices: one line per source, the date, and "Update price". */
 export default function CopyValue({ game, copy, onAddBarcode }: { game: Game; copy: Copy; onAddBarcode: () => void }) {
@@ -15,8 +16,7 @@ export default function CopyValue({ game, copy, onAddBarcode }: { game: Game; co
   const fmt = useFormatters();
   const { putGame } = useAppData();
   const providers = usePriceProviders();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  const { busy, error, setError, run } = useAction();
   // A price source had a provider-level problem in the last update: its status is on System → Health.
   const [unavailable, setUnavailable] = useState(false);
   if (providers.size === 0) return null;
@@ -31,20 +31,14 @@ export default function CopyValue({ game, copy, onAddBarcode }: { game: Game; co
     const sells = t('value.sells', { name, price: money(e.sell) });
     return e.buyCash?.amountMinor || e.buyCredit?.amountMinor ? sells + t('value.pays', { cash: money(e.buyCash), credit: money(e.buyCredit) }) : sells;
   };
-  const update = async () => {
-    setBusy(true);
-    setError('');
+  const update = () => {
     setUnavailable(false);
-    try {
+    return run(async () => {
       const res = await valuationClient.estimateCopy({ gameId: game.id, copyId: copy.id });
       putGame(res.game!);
       if (res.warnings.length) setError(res.warnings.join(' · '));
       setUnavailable(res.providersUnavailable);
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setBusy(false);
-    }
+    });
   };
   // Estimates of a provider disabled since are left out, as they are of the totals.
   const estimates = copy.estimates.filter((e) => providers.has(e.provider));

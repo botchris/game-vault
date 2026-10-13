@@ -4,6 +4,7 @@ import { errorMessage, logClient } from '../../api/client';
 import { Alert, Modal, useFormatters } from '../../components/ui';
 import type { LogFile, LogSettings } from '../../gen/gamevault/v1/log_pb';
 import { downloadBytes, toDate } from '../../lib/model';
+import { useAction } from '../../lib/useAction';
 
 const LEVELS = ['debug', 'info', 'warn', 'error'] as const;
 
@@ -93,7 +94,8 @@ export default function LogsPage() {
 function LogSettingsCard({ onSaved, onError }: { onSaved: (msg: string) => void; onError: (msg: string) => void }) {
   const { t } = useTranslation();
   const [s, setS] = useState<Pick<LogSettings, 'level' | 'maxFileSizeMb' | 'maxFiles'> | null>(null);
-  const [busy, setBusy] = useState(false);
+  // A failure shows in the page's notice, with the other actions'.
+  const { busy, run } = useAction({ onError });
 
   // Load once; onError is a fresh callback on every parent render, so it must not be a dependency.
   const [loadError, setLoadError] = useState('');
@@ -105,18 +107,13 @@ function LogSettingsCard({ onSaved, onError }: { onSaved: (msg: string) => void;
 
   if (!s) return null;
 
-  const save = async (e: FormEvent) => {
+  const save = (e: FormEvent) => {
     e.preventDefault();
-    setBusy(true);
-    try {
+    run(async () => {
       const res = await logClient.updateLogSettings({ settings: s });
       setS(res.settings!);
       onSaved(t('logs.settingsSaved'));
-    } catch (err) {
-      onError(errorMessage(err));
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
   return (
