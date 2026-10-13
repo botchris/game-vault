@@ -82,7 +82,7 @@ non-2xx answers, which `StatusError` keeps only as a snippet.
 6. If the store's catalog can be searched by title, implement `media.LinkSearcher` (`LinkStore()`,
    `SearchLinks`): the game page then offers it under "Store links", and the add-on cover lookup
    searches it too. A source that knows a game's id in a store sets `ImportedCopy.Links`.
-7. Bump `coverLogicChanged` in `internal/application/media/service.go` to the current UTC time so
+7. Bump `coverLogicChanged` in `internal/application/media/covers.go` to the current UTC time so
    games previously marked "no cover" are retried.
 8. Translation `providers.<id>.description` (en/es), test against a fake server, and the covers
    section of `docs/technical.md`.

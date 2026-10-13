@@ -26,14 +26,14 @@ metadata:
   lookups on the Web API are not) with a 10-min search cache; 5xx/no answer from Steam's search, Twitch or IGDB count as rate limits. `coverLogicChanged` bumped to 2026-10-11 09:20 UTC for it (an earlier bump for
   IGDB alone was reverted: enabling a provider already forgets the markers).
 - Media providers can keep learned state in `schema.FieldState` settings: they write it into the
-  settings map they get, and the media service persists it with `provider.UpdateState` (wired for
+  settings map they get, and the providers registry persists it (`Registry.SaveState`, wired for
   barcode lookups only so far; CeX's `country_hits`, see [[cex]]).
 - TheGamesDB has a monthly quota (~1,000 requests): it only applies to physical copies, games no
   store knows (`GameQuery.HasStoreLink`, which is just `len(Links) > 0`: any store link counts,
   so a new store needs no change there), and on the fallback pass when no store had art. See
   [[thegamesdb]].
 - When cover resolution improves, bump `coverLogicChanged` in
-  `internal/application/media/service.go` to the current UTC time (never in the future) so old
+  `internal/application/media/covers.go` to the current UTC time (never in the future) so old
   "no cover" markers are retried.
 - Add-ons (DLC, soundtracks…) borrow the base game's cover for the same system (`media/addon.go`).
 - **Editions (2026-10-10):** covers are per (game, system) (`GameQuery.System`, `QueryFor(g, system)`).
@@ -61,7 +61,7 @@ metadata:
 - **Provider status (2026-10-11, maintainer's request):** provider-level errors (ErrRateLimited incl.
   quota/busy/ErrUnavailable, and ErrBadSettings) never reach game sheets, the cover picker, scan
   suggestions or price warnings (valuation reports through `ReportResult`, 2026-10-13); the
-  media service keeps the last one per settings group in memory (`media/status.go`, cleared by a
+  providers registry keeps the last one per settings group in memory (`providers/status.go`, cleared by a
   success, new settings or its Until) and `GetProviderStatus` feeds the System page section and the
   Providers page badges. TheGamesDB's allowance error implements `provider.Resumer`. Review
   fixes: providers without settings must return ErrBadSettings, never an empty success (it would
@@ -93,3 +93,10 @@ metadata:
   (`GameQuery.SearchSystems()`) of every title search; TheGamesDB, which searched the raw title only,
   now searches the game's name first too (second request only on no match). `coverLogicChanged`
   bumped to 2026-10-13 10:50 UTC for it.
+- 2026-10-13 (audit PR 5, APP-1): `media.Service` was split. Provider configuration and status live
+  in `internal/application/providers` (`Registry`: configs read once into memory on first use of each
+  kind, written through on change; `ReportResult`, `Statuses`, `Issues`); `media.New` wires `Covers`
+  (resolveEdition = chosen → fromProviders → limited → add-on → rememberMissing), `Details`,
+  `Assets`, `Identifier`, `Photos`, `AutoLinker`, `ImageProxy`; `media.NewStores` merges the link
+  stores of providers and sources. `CoverQuery` is now `GameQuery`; add-on titles and retail product
+  names are domain rules (`game.IsAddOnTitle`, `game.ParseProductName`).
