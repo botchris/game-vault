@@ -5,12 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"math/rand/v2"
 	"slices"
 	"time"
 
 	"gamevault/internal/application/media"
 	"gamevault/internal/application/port"
+	"gamevault/internal/application/unattended"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/settings"
@@ -60,9 +60,9 @@ type Service struct {
 	now     port.Clock
 	log     *slog.Logger
 
-	// random and sleep are replaced in tests (SetChance).
-	random func() float64
-	sleep  func(ctx context.Context, d time.Duration) error
+	// rhythm draws the estimates' dates and the scheduler's pauses, and waits them; tests replace
+	// it (SetChance).
+	rhythm unattended.Rhythm
 }
 
 // NewService builds the service with the price providers compiled in.
@@ -81,26 +81,7 @@ func NewService(games game.Repository, tx port.TxManager, configs Configs, prefs
 		impls:   impls,
 		now:     now,
 		log:     log,
-		random:  rand.Float64,
-		sleep:   sleepCtx,
 	}
-}
-
-func sleepCtx(ctx context.Context, d time.Duration) error {
-	t := time.NewTimer(d)
-	defer t.Stop()
-
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-t.C:
-		return nil
-	}
-}
-
-// between returns a random duration in [lo, hi).
-func (s *Service) between(lo, hi time.Duration) time.Duration {
-	return lo + time.Duration(s.random()*float64(hi-lo))
 }
 
 func days(n int) time.Duration { return time.Duration(n) * 24 * time.Hour }
@@ -182,7 +163,7 @@ func (s *Service) estimate(ctx context.Context, gameID, copyID game.ID, skip map
 			return ErrChanged
 		}
 
-		next := s.now().Add(days(minDays) + time.Duration(s.random()*float64(days(maxDays-minDays))))
+		next := s.now().Add(s.rhythm.Between(days(minDays), days(maxDays)))
 		if _, err := g.SetEstimates(copyID, merge(current.Estimates, answers), next, s.now()); err != nil {
 			return err
 		}

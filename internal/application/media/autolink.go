@@ -3,7 +3,6 @@ package media
 import (
 	"context"
 	"errors"
-	"math/rand/v2"
 	gosync "sync"
 	"time"
 
@@ -25,6 +24,9 @@ const (
 	// autoLinkLimitedPause is how long, ±20%, the worker rests after a finder asked to slow down
 	// or failed, before it searches the next game.
 	autoLinkLimitedPause = 15 * time.Minute
+
+	// autoLinkLimitedJitter is the ±fraction autoLinkLimitedPause varies by.
+	autoLinkLimitedJitter = 0.2
 )
 
 // autoLinkBackoff remembers, in memory, the games whose search a rate limit or a failure
@@ -273,17 +275,7 @@ func (s *Service) AutoLinkQueueLen() int { return s.autoLinkQueue.len() }
 // (unattended requests never follow a fixed rhythm) and rests autoLinkLimitedPause after a finder
 // asked to slow down or failed. It returns when ctx ends, so it stops with the server.
 func (s *Service) RunAutoLinker(ctx context.Context, pause time.Duration) {
-	wait := func(d time.Duration) bool {
-		t := time.NewTimer(d)
-		defer t.Stop()
-
-		select {
-		case <-ctx.Done():
-			return false
-		case <-t.C:
-			return true
-		}
-	}
+	wait := func(d time.Duration) bool { return s.rhythm.Wait(ctx, d) }
 
 	for {
 		id, ok := s.autoLinkQueue.pop()
@@ -303,9 +295,9 @@ func (s *Service) RunAutoLinker(ctx context.Context, pause time.Duration) {
 			}
 		}
 
-		delay := pause + time.Duration(rand.Int64N(int64(pause)+1))
+		delay := s.rhythm.Between(pause, 2*pause)
 		if s.autoLinkOne(ctx, id) {
-			delay = varyAutoLink(autoLinkLimitedPause)
+			delay = s.rhythm.Vary(autoLinkLimitedPause, autoLinkLimitedJitter)
 		}
 
 		if !wait(delay) {
@@ -326,11 +318,4 @@ func (s *Service) autoLinkOne(ctx context.Context, id game.ID) bool {
 	}
 
 	return limited
-}
-
-// varyAutoLink varies d by up to 20% either way: the worker's rests never follow a fixed rhythm.
-func varyAutoLink(d time.Duration) time.Duration {
-	spread := int64(d) / 5
-
-	return d - time.Duration(spread) + time.Duration(rand.Int64N(2*spread+1))
 }

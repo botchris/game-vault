@@ -9,12 +9,12 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
-	"math/rand/v2"
 	"sort"
 	gosync "sync"
 	"time"
 
 	"gamevault/internal/application/port"
+	"gamevault/internal/application/unattended"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/source"
 )
@@ -95,6 +95,9 @@ type Service struct {
 	// aliveFailures holds the sources whose last keep-alive failed, for the health check; a
 	// successful one removes the entry. In memory: a restart retries within minutes.
 	aliveFailures map[source.ID]keepAliveFailure
+
+	// rhythm draws the random moments of keep-alives and scheduled scans; tests replace it.
+	rhythm unattended.Rhythm
 }
 
 // keepAliveFailure is a keep-alive that failed.
@@ -636,12 +639,7 @@ func (s *Service) SyncAll(ctx context.Context) ([]SourceView, error) {
 const keepAliveJitter = 0.3
 
 // jittered returns d varied by up to ±keepAliveJitter at random.
-func jittered(d time.Duration) time.Duration { return vary(d, keepAliveJitter) }
-
-// vary returns d varied at random by up to ±fraction of it.
-func vary(d time.Duration, fraction float64) time.Duration {
-	return time.Duration(float64(d) * (1 + fraction*(2*rand.Float64()-1)))
-}
+func (s *Service) jittered(d time.Duration) time.Duration { return s.rhythm.Vary(d, keepAliveJitter) }
 
 // RunKeepAlive keeps browser sessions alive (see KeepAliver), checking every tick until ctx ends.
 // Each source's first keep-alive comes at a random moment within firstWithin (not all at start-up),
@@ -668,7 +666,7 @@ func (s *Service) RunKeepAlive(ctx context.Context, tick, firstWithin time.Durat
 
 			due, seen := next[src.ID()]
 			if !seen {
-				due = now.Add(time.Duration(rand.Int64N(int64(firstWithin) + 1)))
+				due = now.Add(s.rhythm.Between(0, firstWithin))
 				next[src.ID()] = due
 			}
 
@@ -676,7 +674,7 @@ func (s *Service) RunKeepAlive(ctx context.Context, tick, firstWithin time.Durat
 				continue
 			}
 
-			next[src.ID()] = now.Add(jittered(k.KeepAliveInterval()))
+			next[src.ID()] = now.Add(s.jittered(k.KeepAliveInterval()))
 			s.keepAlive(ctx, src.ID(), k)
 		}
 
@@ -772,11 +770,11 @@ func (s *Service) RunScheduler(ctx context.Context, tick, firstWithin time.Durat
 						interval: interval,
 					}
 
-					n.at = last.Add(vary(interval, scanJitter))
+					n.at = last.Add(s.rhythm.Vary(interval, scanJitter))
 					if last.IsZero() || n.at.Before(now) {
 						// Never scanned, or overdue (the server was off): at a random moment soon,
 						// so overdue sources are not all scanned in the same minute.
-						n.at = now.Add(time.Duration(rand.Int64N(int64(firstWithin) + 1)))
+						n.at = now.Add(s.rhythm.Between(0, firstWithin))
 					}
 
 					due[src.ID()] = n
