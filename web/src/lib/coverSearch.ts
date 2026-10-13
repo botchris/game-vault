@@ -2,7 +2,7 @@
 // dragging or pasting. The server never queries Google Images or SteamGridDB (their terms forbid
 // automated access): these are plain links the user opens in their own browser.
 
-// The store names a key can be for, as game.SearchTitle has them (internal/domain/game/values.go).
+// The store names a key can be for, as game.SearchTitle has them (internal/domain/game/title.go).
 // TestSearchTitle_webAgrees checks this port against the Go function on shared cases.
 const STORE_NAMES = 'steam|gog(\\.com)?|epic(\\s*games)?(\\s*store)?|ubisoft(\\s*connect)?|uplay|ea(\\s*app)?|origin|' +
   'battle\\.?\\s*net|rockstar(\\s*games)?|microsoft(\\s*store)?|xbox(\\s*(one|series\\s*[xs](\\s*\\|\\s*[xs])?|live))?|' +
