@@ -81,8 +81,8 @@ it once saved. How to write one: [`docs/plugins.md`](plugins.md).
 
 **Errors** carry their kind (`internal/domain/errkind`): invalid input, not found, already exists,
 conflict, unauthenticated, permission denied, precondition, exhausted or unavailable. Sentinel
-errors get theirs from `errkind.New`, rule violations are the one `errkind.ValidationError` (each
-domain package aliases it as its own `ValidationError`), and `errkind.Wrap` gives one to an error
+errors get theirs from `errkind.New`, rule violations are the one `errkind.ValidationError` (made
+by `errkind.Invalidf`, whichever domain package checks the rule), and `errkind.Wrap` gives one to an error
 that has none (the CSV codec's errors are the file's, so `Invalid`). The RPC layer maps kinds, not
 sentinels, to Connect codes in one table (`toConnectError`), so its handlers never map errors
 themselves; the media HTTP endpoints (covers, images, photos) answer their few errors with HTTP

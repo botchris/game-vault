@@ -55,9 +55,6 @@ var types = []Type{TypeText, TypeLongText, TypeBool, TypeNumber, TypeMoney, Type
 // ErrNotFound means there is no field (or list value) with that id.
 var ErrNotFound = errkind.New(errkind.NotFound, "custom field not found: reload the page")
 
-// ValidationError reports a field definition or value that breaks a rule.
-type ValidationError = errkind.ValidationError
-
 func invalid(format string, args ...any) error { return errkind.Invalidf(format, args...) }
 
 // Choice is one value of a list or multilist field.

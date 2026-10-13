@@ -7,6 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"gamevault/internal/domain/errkind"
 )
 
 func TestSystemOf(t *testing.T) {
@@ -105,7 +107,7 @@ func TestCopySystem(t *testing.T) {
 					System: typed,
 				}, t0)
 
-				var ve *ValidationError
+				var ve *errkind.ValidationError
 				assert.ErrorAs(t, err, &ve, "%q", typed)
 			}
 		})

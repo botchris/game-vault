@@ -8,6 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"gamevault/internal/domain/errkind"
 )
 
 func TestNewAccessToken(t *testing.T) {
@@ -55,7 +57,7 @@ func TestNewAccessToken(t *testing.T) {
 			for _, name := range []string{"", "   ", strings.Repeat("x", 61), "lap\x00top"} {
 				_, _, err := NewAccessToken(name, random, now)
 
-				var ve *ValidationError
+				var ve *errkind.ValidationError
 				assert.ErrorAs(t, err, &ve, "%q", name)
 			}
 		})

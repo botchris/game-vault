@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"gamevault/internal/domain/errkind"
 )
 
 func eur(minor int64) Money {
@@ -109,7 +111,7 @@ func TestEstimates(t *testing.T) {
 				for _, c := range cases {
 					_, err := g.SetEstimates(id, c, next, t0)
 
-					var ve *ValidationError
+					var ve *errkind.ValidationError
 					assert.ErrorAs(t, err, &ve)
 				}
 			})
@@ -133,7 +135,7 @@ func TestEstimates(t *testing.T) {
 					Sell:     eur(1),
 				}}, next, t0)
 
-				var ve *ValidationError
+				var ve *errkind.ValidationError
 				assert.ErrorAs(t, err, &ve)
 				assert.ErrorAs(t, g.PlanValuation(id, next), &ve)
 			}

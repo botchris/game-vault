@@ -31,9 +31,6 @@ var (
 	ErrLockout         = errkind.Invalidf("create a user before making authentication required, or you would lock yourself out")
 )
 
-// ValidationError reports input that breaks a rule.
-type ValidationError = errkind.ValidationError
-
 func invalid(format string, args ...any) error { return errkind.Invalidf(format, args...) }
 
 // Request is what is known about who sent an HTTP request. Adapters fill it in.

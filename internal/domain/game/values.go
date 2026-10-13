@@ -125,12 +125,9 @@ var (
 	// ErrPhotoNotFound means the copy has no photo with that id.
 	ErrPhotoNotFound = errkind.New(errkind.NotFound, "photo not found")
 
-	// ErrInvalidBarcode wraps barcode input errors that are not ValidationErrors.
+	// ErrInvalidBarcode wraps barcode input errors that are not an errkind.ValidationError.
 	ErrInvalidBarcode = errkind.New(errkind.Invalid, "invalid barcode")
 )
-
-// ValidationError reports input that breaks a domain rule.
-type ValidationError = errkind.ValidationError
 
 func invalid(format string, args ...any) error { return errkind.Invalidf(format, args...) }
 

@@ -158,8 +158,8 @@ func Wrap(kind Kind, err error) error {
 }
 
 // ValidationError reports input that breaks a rule. Its message says what to fix. Every domain
-// package returns this one type (the packages keep their own name for it as an alias), so a
-// caller matches any rule broken anywhere with one errors.As.
+// package returns this one type, so a caller matches any rule broken anywhere with one errors.As
+// (or errkind.Of, which also counts other Invalid errors).
 type ValidationError struct {
 	msg string
 }

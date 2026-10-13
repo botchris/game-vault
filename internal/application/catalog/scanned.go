@@ -92,8 +92,9 @@ func (s *Service) AddScannedCopies(ctx context.Context, items []ScannedCopy) ([]
 		for _, group := range groupScanned(items) {
 			g, err := s.scannedTarget(ctx, items, group, now)
 			if err != nil {
-				var v *game.ValidationError
-				if !errors.Is(err, game.ErrGameNotFound) && !errors.As(err, &v) {
+				// Invalid input (a rule broken, a bad barcode) fails its boxes alone; anything else
+				// (the database) fails the whole request.
+				if !errors.Is(err, game.ErrGameNotFound) && errkind.Of(err) != errkind.Invalid {
 					return err
 				}
 

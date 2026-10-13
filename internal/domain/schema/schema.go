@@ -52,9 +52,6 @@ type Field struct {
 // Fields is the settings schema of an integration.
 type Fields []Field
 
-// ValidationError reports missing or invalid settings.
-type ValidationError = errkind.ValidationError
-
 // Validate checks that every required setting is present. owner names the integration in errors.
 func (fs Fields) Validate(s Settings, owner string) error {
 	for _, f := range fs {

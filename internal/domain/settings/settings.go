@@ -32,9 +32,6 @@ func DefaultLogging() Logging {
 	}
 }
 
-// ValidationError reports settings outside the allowed ranges.
-type ValidationError = errkind.ValidationError
-
 // Validate normalises the level and checks the limits.
 func (l Logging) Validate() (Logging, error) {
 	l.Level = strings.ToLower(strings.TrimSpace(l.Level))

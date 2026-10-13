@@ -9,6 +9,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"gamevault/internal/domain/errkind"
 )
 
 // pid returns a valid photo id for tests.
@@ -44,7 +46,7 @@ func TestPhotoID(t *testing.T) {
 		t.Run("GIVEN the id "+bad+" THEN it is refused", func(t *testing.T) {
 			_, err := ParsePhotoID(bad)
 
-			var ve *ValidationError
+			var ve *errkind.ValidationError
 			assert.ErrorAs(t, err, &ve)
 		})
 	}
@@ -90,7 +92,7 @@ func TestPhotos_add(t *testing.T) {
 			_, err := g.AddPhotos(copyID, many, now)
 
 			t.Run("THEN they are refused and the copy keeps its photos", func(t *testing.T) {
-				var ve *ValidationError
+				var ve *errkind.ValidationError
 				require.ErrorAs(t, err, &ve)
 				assert.Len(t, g.Copies()[0].Photos, 2)
 			})
@@ -104,7 +106,7 @@ func TestPhotos_add(t *testing.T) {
 			_, errID := g.AddPhotos(copyID, []Photo{{ID: "nope"}}, now)
 
 			t.Run("THEN both are refused", func(t *testing.T) {
-				var ve *ValidationError
+				var ve *errkind.ValidationError
 				assert.ErrorAs(t, errCaption, &ve)
 				assert.ErrorAs(t, errID, &ve)
 			})
@@ -158,7 +160,7 @@ func TestPhotos_editReorderRemove(t *testing.T) {
 				} {
 					_, err := g.ReorderPhotos(copyID, ids, t0)
 
-					var ve *ValidationError
+					var ve *errkind.ValidationError
 					assert.ErrorAs(t, err, &ve)
 				}
 			})

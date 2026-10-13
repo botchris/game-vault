@@ -13,6 +13,7 @@ import (
 	"gamevault/internal/adapters/outbound/sqlite"
 	"gamevault/internal/application/catalog"
 	"gamevault/internal/application/fields"
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/field"
 	"gamevault/internal/domain/game"
 )
@@ -59,7 +60,7 @@ func TestCatalogValidatesFieldValues(t *testing.T) {
 		t.Run("WHEN a key gets the physical-only field THEN it is refused, naming the field", func(t *testing.T) {
 			_, err := svc.AddCopy(ctx, g.ID(), game.CopyDetails{Kind: game.KindKey}, game.FieldValues{sealed.ID: {Bool: &yes}})
 
-			var v *field.ValidationError
+			var v *errkind.ValidationError
 			require.True(t, errors.As(err, &v))
 			assert.Contains(t, err.Error(), "Sealed")
 		})
@@ -84,7 +85,7 @@ func TestCatalogValidatesFieldValues(t *testing.T) {
 				[]game.CopyDetails{{Kind: game.KindKey}}, game.FieldValues{sealed.ID: {Bool: &yes}})
 
 			t.Run("THEN it is refused, naming the field", func(t *testing.T) {
-				var v *field.ValidationError
+				var v *errkind.ValidationError
 				require.ErrorAs(t, err, &v)
 				assert.Contains(t, err.Error(), "Sealed")
 			})
@@ -198,7 +199,7 @@ func TestCatalogFieldValues_fieldDeletedBeforeTheWrite(t *testing.T) {
 				err := write(svc, g, gameField, copyField)
 
 				t.Run("THEN it is refused because the field no longer exists", func(t *testing.T) {
-					var v *field.ValidationError
+					var v *errkind.ValidationError
 					require.True(t, errors.As(err, &v), "got %v", err)
 				})
 			})

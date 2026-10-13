@@ -70,9 +70,6 @@ func (signedOut) Is(target error) bool { return target == ErrSignedOut }
 // Kind returns ErrSignedOut's kind.
 func (signedOut) Kind() errkind.Kind { return errkind.Precondition }
 
-// ValidationError reports input that breaks a domain rule.
-type ValidationError = errkind.ValidationError
-
 func invalid(format string, args ...any) error { return errkind.Invalidf(format, args...) }
 
 // TypeDescriptor describes a source type and the settings it needs.
