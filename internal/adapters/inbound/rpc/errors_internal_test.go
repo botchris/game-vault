@@ -92,16 +92,14 @@ var internalOnly = map[string]string{
 		"into \"no estimate\"",
 }
 
-// declaredSentinels parses the Go files under internal/domain and internal/application and returns
-// every exported package-level variable whose name starts with Err.
-func declaredSentinels(t *testing.T) []string {
+// eachFile parses the non-test Go files under the given directories of internal/ and calls fn with
+// each file and its package path under internal/ ("adapters/outbound/cex").
+func eachFile(t *testing.T, dirs []string, fn func(pkg string, f *ast.File)) {
 	t.Helper()
 
 	root := filepath.Join("..", "..", "..")
 
-	var names []string
-
-	for _, dir := range []string{"domain", "application"} {
+	for _, dir := range dirs {
 		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, d fs.DirEntry, err error) error {
 			if err != nil || d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
 				return err
@@ -117,27 +115,96 @@ func declaredSentinels(t *testing.T) []string {
 				return err
 			}
 
-			for _, decl := range f.Decls {
-				gd, ok := decl.(*ast.GenDecl)
-				if !ok || gd.Tok != token.VAR {
-					continue
-				}
-
-				for _, spec := range gd.Specs {
-					for _, n := range spec.(*ast.ValueSpec).Names {
-						if strings.HasPrefix(n.Name, "Err") && n.IsExported() {
-							names = append(names, filepath.ToSlash(rel)+"."+n.Name)
-						}
-					}
-				}
-			}
+			fn(filepath.ToSlash(rel), f)
 
 			return nil
 		})
 		require.NoError(t, err)
 	}
+}
+
+// eachSentinel calls fn with every exported package-level variable whose name starts with Err, by
+// "<package>.<name>", and the expression it is set to (nil when it has none).
+func eachSentinel(t *testing.T, dirs []string, fn func(name string, value ast.Expr)) {
+	t.Helper()
+
+	eachFile(t, dirs, func(pkg string, f *ast.File) {
+		for _, decl := range f.Decls {
+			gd, ok := decl.(*ast.GenDecl)
+			if !ok || gd.Tok != token.VAR {
+				continue
+			}
+
+			for _, spec := range gd.Specs {
+				vs := spec.(*ast.ValueSpec)
+				for i, n := range vs.Names {
+					if !strings.HasPrefix(n.Name, "Err") || !n.IsExported() {
+						continue
+					}
+
+					var value ast.Expr
+					if i < len(vs.Values) {
+						value = vs.Values[i]
+					}
+
+					fn(pkg+"."+n.Name, value)
+				}
+			}
+		}
+	})
+}
+
+// declaredSentinels returns every exported sentinel error of internal/domain and
+// internal/application.
+func declaredSentinels(t *testing.T) []string {
+	t.Helper()
+
+	var names []string
+
+	eachSentinel(t, []string{"domain", "application"}, func(name string, _ ast.Expr) {
+		names = append(names, name)
+	})
 
 	return names
+}
+
+// withoutKind reports whether a sentinel's value is made without a kind: errors.New, or
+// fmt.Errorf that wraps nothing.
+func withoutKind(value ast.Expr) bool {
+	call, ok := value.(*ast.CallExpr)
+	if !ok {
+		return false
+	}
+
+	sel, ok := call.Fun.(*ast.SelectorExpr)
+	if !ok {
+		return false
+	}
+
+	pkg, ok := sel.X.(*ast.Ident)
+	if !ok {
+		return false
+	}
+
+	switch {
+	case pkg.Name == "errors" && sel.Sel.Name == "New":
+		return true
+	case pkg.Name == "fmt" && sel.Sel.Name == "Errorf" && len(call.Args) > 0:
+		lit, ok := call.Args[0].(*ast.BasicLit)
+		return ok && !strings.Contains(lit.Value, "%w")
+	default:
+		return false
+	}
+}
+
+// adapterSentinelsWithoutKind lists the adapters' sentinels that may stay without a kind, and why.
+var adapterSentinelsWithoutKind = map[string]string{
+	"adapters/outbound/apiclient.ErrNotJSON": "plumbing: each adapter classifies it (a bot check page, " +
+		"a changed API) before it leaves the adapter",
+	"adapters/outbound/apiclient.ErrTokenRejected": "plumbing: WithRetry renews the token and turns a " +
+		"second refusal into a sign-out",
+	"adapters/outbound/apiclient.ErrTooLarge": "plumbing: an answer over the size limit is a failure " +
+		"of the integration, not of the request",
 }
 
 func TestSentinels_haveACode(t *testing.T) {
@@ -203,4 +270,62 @@ func TestKindCodes_coverEveryKind(t *testing.T) {
 		_, ok := kindCodes[k]
 		assert.True(t, ok, "kind %q has no Connect code", k)
 	}
+}
+
+func TestAdapterSentinels_haveAKind(t *testing.T) {
+	t.Run("GIVEN every exported sentinel error of the outbound adapters", func(t *testing.T) {
+		var seen int
+
+		eachSentinel(t, []string{"adapters/outbound"}, func(name string, value ast.Expr) {
+			seen++
+
+			t.Run("THEN "+name+" is made with a kind, or allowed without one for a reason", func(t *testing.T) {
+				_, allowed := adapterSentinelsWithoutKind[name]
+				assert.False(t, withoutKind(value) && !allowed,
+					"%s is a plain errors.New: make it with errkind.New (or wrap a sentinel that has a kind)", name)
+			})
+		})
+
+		require.NotZero(t, seen)
+	})
+}
+
+func TestErrorTypesWithIs_haveAKind(t *testing.T) {
+	t.Run("GIVEN every error type with its own Is method", func(t *testing.T) {
+		methods := map[string]map[string]bool{} // "<package>.<type>" → its method names
+
+		eachFile(t, []string{"domain", "application", "adapters/outbound"}, func(pkg string, f *ast.File) {
+			for _, decl := range f.Decls {
+				fd, ok := decl.(*ast.FuncDecl)
+				if !ok || fd.Recv == nil || len(fd.Recv.List) != 1 {
+					continue
+				}
+
+				recv := fd.Recv.List[0].Type
+				if star, ok := recv.(*ast.StarExpr); ok {
+					recv = star.X
+				}
+
+				id, ok := recv.(*ast.Ident)
+				if !ok {
+					continue
+				}
+
+				key := pkg + "." + id.Name
+				if methods[key] == nil {
+					methods[key] = map[string]bool{}
+				}
+
+				methods[key][fd.Name.Name] = true
+			}
+		})
+
+		t.Run("THEN each one also says its kind, since errors.Is matching does not carry it", func(t *testing.T) {
+			for typ, m := range methods {
+				if m["Is"] && m["Error"] {
+					assert.True(t, m["Kind"], "%s has Is but no Kind method", typ)
+				}
+			}
+		})
+	})
 }

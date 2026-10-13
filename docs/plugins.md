@@ -85,7 +85,8 @@ The Fanatical plugin is a real, small one: one source, `apiclient`, a fake-serve
   store rejected a one-time code) and `ErrSignedOut` (below); other sentinels name what happened
   (`ErrPrivateProfile`, `ErrProfileNotFound`). Give each one its kind with `errkind.New`
   (`errkind.Invalid` for input to fix): the API answers by kind, and an error without one is
-  reported as a failure of Game Vault. A source's texts name the store (they also show in the
+  reported as a failure of Game Vault. `task test` fails for an exported sentinel made with a
+  plain `errors.New`, and for an error type with its own `Is` method but no `Kind` method. A source's texts name the store (they also show in the
   store's own dialog). A store that no longer accepts the
   saved session or key returns `source.SignedOut("… sign in again …")`, which matches
   `source.ErrSignedOut`: System → Health then shows it as an error that says to sign in again.

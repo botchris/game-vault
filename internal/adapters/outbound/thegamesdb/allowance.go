@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/provider"
 )
 
@@ -184,6 +185,9 @@ func (unknownKeyLimited) Error() string {
 func (unknownKeyLimited) Is(target error) bool {
 	return target == ErrUnknownKey || target == provider.ErrRateLimited || target == provider.ErrBadSettings
 }
+
+// Kind returns ErrUnknownKey's kind: the key needs fixing, whatever the 429 said.
+func (unknownKeyLimited) Kind() errkind.Kind { return errkind.Precondition }
 
 // limit reads the key's remaining allowance. That endpoint does not consume it, and it bypasses
 // the throttle.

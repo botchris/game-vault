@@ -88,8 +88,10 @@ sentinels, to Connect codes in one table (`toConnectError`), so handlers never m
 themselves. An error without a kind is a failure of Game Vault itself: it is answered `Internal`
 and logged at error level. Only Game Vault's own sign-in is `Unauthenticated` (the web page signs
 the user out on it); a store or provider that rejects its credentials is `Precondition`. A test
-lists every exported sentinel of the domain and application packages with its code, so a new one
-cannot fall through to `Internal` unnoticed.
+lists every exported sentinel of the domain and application packages with its code, and fails for
+an adapter sentinel made with a plain `errors.New` (a short allowlist of `apiclient` plumbing aside)
+and for an error type with its own `Is` method but no `Kind`, so a new error cannot fall through
+to `Internal` unnoticed.
 
 ## Domain model
 
