@@ -9,17 +9,12 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"gamevault/internal/application/catalog"
-	"gamevault/internal/application/fields"
 	"gamevault/internal/application/media"
-	"gamevault/internal/application/ownership"
 	"gamevault/internal/application/sync"
-	"gamevault/internal/application/valuation"
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/field"
 	"gamevault/internal/domain/game"
-	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
-	"gamevault/internal/domain/settings"
 	"gamevault/internal/domain/source"
 	pb "gamevault/internal/gen/gamevault/v1"
 )
@@ -423,37 +418,38 @@ func configFromPB(in *pb.SourceInput) source.Config {
 	}
 }
 
-// toConnectError maps domain and application errors to Connect status codes.
+// kindCodes is the Connect code of each kind of error. Kinds are declared next to the errors
+// (errkind), so this one table answers every package's errors.
+var kindCodes = map[errkind.Kind]connect.Code{
+	errkind.Invalid:          connect.CodeInvalidArgument,
+	errkind.NotFound:         connect.CodeNotFound,
+	errkind.AlreadyExists:    connect.CodeAlreadyExists,
+	errkind.Conflict:         connect.CodeAborted,
+	errkind.Unauthenticated:  connect.CodeUnauthenticated,
+	errkind.PermissionDenied: connect.CodePermissionDenied,
+	errkind.Precondition:     connect.CodeFailedPrecondition,
+	errkind.Exhausted:        connect.CodeResourceExhausted,
+	errkind.Unavailable:      connect.CodeUnavailable,
+}
+
+// toConnectError maps domain and application errors to Connect status codes by their kind. An error
+// without a kind is a failure of Game Vault itself: it becomes Internal, which the logging
+// interceptor reports as an error.
 func toConnectError(err error) error {
 	if err == nil {
 		return nil
 	}
 
-	var (
-		ce   *connect.Error
-		gv   *game.ValidationError
-		sv   *source.ValidationError
-		setv *settings.ValidationError
-		schv *schema.ValidationError
-		fv   *field.ValidationError
-	)
-	switch {
-	case errors.As(err, &ce):
+	var ce *connect.Error
+	if errors.As(err, &ce) {
 		return err
-	case errors.Is(err, game.ErrGameNotFound), errors.Is(err, game.ErrCopyNotFound), errors.Is(err, game.ErrPhotoNotFound), errors.Is(err, source.ErrNotFound), errors.Is(err, field.ErrNotFound),
-		errors.Is(err, provider.ErrNotFound), errors.Is(err, media.ErrUnknownProvider), errors.Is(err, sync.ErrNotExcluded):
-		return connect.NewError(connect.CodeNotFound, err)
-	case errors.As(err, &gv), errors.As(err, &sv), errors.As(err, &setv), errors.As(err, &schv), errors.As(err, &fv), errors.Is(err, source.ErrUnknownType),
-		errors.Is(err, game.ErrInvalidBarcode), errors.Is(err, media.ErrNoEdition), errors.Is(err, ownership.ErrTooManyItems):
-		return connect.NewError(connect.CodeInvalidArgument, err)
-	case errors.Is(err, catalog.ErrPhotoNotUploaded), errors.Is(err, valuation.ErrNotValuable), errors.Is(err, valuation.ErrNoProviders),
-		errors.Is(err, sync.ErrNotImported), errors.Is(err, fields.ErrValuesConflict):
-		return connect.NewError(connect.CodeFailedPrecondition, err)
-	case errors.Is(err, valuation.ErrChanged):
-		return connect.NewError(connect.CodeAborted, err)
-	default:
-		return connect.NewError(connect.CodeInternal, err)
 	}
+
+	if code, ok := kindCodes[errkind.Of(err)]; ok {
+		return connect.NewError(code, err)
+	}
+
+	return connect.NewError(connect.CodeInternal, err)
 }
 
 // fieldValuesToPB maps custom field values onto the API.

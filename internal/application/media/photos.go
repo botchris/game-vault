@@ -9,11 +9,12 @@ import (
 	_ "image/jpeg" // registers the JPEG decoder for image.DecodeConfig
 	"time"
 
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 )
 
 // ErrNoPhoto means there is no stored photo with that id.
-var ErrNoPhoto = errors.New("no such photo")
+var ErrNoPhoto = errkind.New(errkind.NotFound, "no such photo")
 
 // PhotoStore is the port that keeps the photos users upload of their copies, named after their
 // content so each image is stored once.
@@ -34,7 +35,7 @@ type PhotoStore interface {
 }
 
 // ErrInvalidPhoto wraps the reasons an uploaded photo is refused; the message says what is wrong.
-var ErrInvalidPhoto = errors.New("invalid photo")
+var ErrInvalidPhoto = errkind.New(errkind.Invalid, "invalid photo")
 
 // Limits of an upload. The browser sends at most 2560 px and 400 px; the margins allow other clients.
 const (

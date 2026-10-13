@@ -82,12 +82,7 @@ func (h *LogHandler) ListLogFiles(ctx context.Context, _ *connect.Request[pb.Lis
 // GetLogFile returns the contents of one log file.
 func (h *LogHandler) GetLogFile(ctx context.Context, req *connect.Request[pb.GetLogFileRequest]) (*connect.Response[pb.GetLogFileResponse], error) {
 	content, truncated, err := h.logs.ReadFile(ctx, req.Msg.Name, int(req.Msg.TailLines))
-	switch {
-	case errors.Is(err, logs.ErrInvalidName):
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	case errors.Is(err, logs.ErrNotFound):
-		return nil, connect.NewError(connect.CodeNotFound, err)
-	case err != nil:
+	if err != nil {
 		return nil, toConnectError(err)
 	}
 

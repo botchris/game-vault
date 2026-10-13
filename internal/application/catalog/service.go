@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"gamevault/internal/application/port"
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/field"
 	"gamevault/internal/domain/game"
 )
@@ -34,7 +35,7 @@ type PhotoFiles interface {
 
 // ErrPhotoNotUploaded means a photo to attach is not stored: it was never uploaded, or it was
 // pruned before being attached.
-var ErrPhotoNotUploaded = errors.New("photo not uploaded: upload it again")
+var ErrPhotoNotUploaded = errkind.New(errkind.Precondition, "photo not uploaded: upload it again")
 
 // Service exposes the catalog use cases.
 type Service struct {

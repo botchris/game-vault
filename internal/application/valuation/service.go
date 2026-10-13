@@ -11,6 +11,7 @@ import (
 	"gamevault/internal/application/media"
 	"gamevault/internal/application/port"
 	"gamevault/internal/application/unattended"
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/settings"
@@ -19,10 +20,10 @@ import (
 // Errors returned by the service.
 var (
 	// ErrNotValuable means the copy is not a physical copy with a barcode.
-	ErrNotValuable = errors.New("only physical copies with a barcode can be priced: add the copy's barcode first")
+	ErrNotValuable = errkind.New(errkind.Precondition, "only physical copies with a barcode can be priced: add the copy's barcode first")
 
 	// ErrNoProviders means no price provider is enabled.
-	ErrNoProviders = errors.New("no price provider is enabled: enable one on the Providers page")
+	ErrNoProviders = errkind.New(errkind.Precondition, "no price provider is enabled: enable one on the Providers page")
 
 	// errNotDue means the scheduler found the copy no longer due when its turn came.
 	errNotDue = errors.New("no longer due")
@@ -31,7 +32,7 @@ var (
 	errSkipped = errors.New("skipped for this round after failing")
 
 	// ErrChanged means the copy's barcode changed while its price was being estimated.
-	ErrChanged = errors.New("the copy changed while its price was being estimated: try again")
+	ErrChanged = errkind.New(errkind.Conflict, "the copy changed while its price was being estimated: try again")
 )
 
 // Days between two estimates of a copy (uniform), and within which an undated copy is first planned.

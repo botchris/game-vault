@@ -3,8 +3,9 @@
 package schema
 
 import (
-	"fmt"
 	"strings"
+
+	"gamevault/internal/domain/errkind"
 )
 
 // Settings are configuration values keyed by Field.Key.
@@ -52,19 +53,17 @@ type Field struct {
 type Fields []Field
 
 // ValidationError reports missing or invalid settings.
-type ValidationError struct{ msg string }
-
-func (e *ValidationError) Error() string { return e.msg }
+type ValidationError = errkind.ValidationError
 
 // Validate checks that every required setting is present. owner names the integration in errors.
 func (fs Fields) Validate(s Settings, owner string) error {
 	for _, f := range fs {
 		if f.Kind == FieldConsent && f.Required && s[f.Key] != ConsentGiven {
-			return &ValidationError{fmt.Sprintf("%s needs you to accept the risk explained in its settings first", owner)}
+			return errkind.Invalidf("%s needs you to accept the risk explained in its settings first", owner)
 		}
 
 		if f.Kind != FieldState && f.Required && strings.TrimSpace(s[f.Key]) == "" {
-			return &ValidationError{fmt.Sprintf("setting %q is required for %s", f.Key, owner)}
+			return errkind.Invalidf("setting %q is required for %s", f.Key, owner)
 		}
 	}
 

@@ -20,6 +20,7 @@ import (
 
 	"gamevault/internal/application/port"
 	"gamevault/internal/application/unattended"
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
@@ -31,13 +32,13 @@ import (
 var coverLogicChanged = time.Date(2026, 10, 11, 9, 20, 0, 0, time.UTC) // fallback pass for every game, Steam title search, IGDB
 
 // ErrNoCover means no image could be found for the game.
-var ErrNoCover = errors.New("no cover available")
+var ErrNoCover = errkind.New(errkind.NotFound, "no cover available")
 
 // ErrNoEdition means the game has no copy on the system asked for.
-var ErrNoEdition = errors.New("the game has no copy on that system: reload the page")
+var ErrNoEdition = errkind.New(errkind.Invalid, "the game has no copy on that system: reload the page")
 
 // ErrUnknownProvider means no implementation is registered under that id.
-var ErrUnknownProvider = errors.New("unknown provider")
+var ErrUnknownProvider = errkind.New(errkind.NotFound, "unknown provider")
 
 // Image is an encoded image.
 type Image struct {
@@ -234,7 +235,7 @@ type ImageHoster interface {
 }
 
 // ErrImageNotAllowed means the proxy was asked for an image outside the providers' hosts.
-var ErrImageNotAllowed = errors.New("image host not allowed")
+var ErrImageNotAllowed = errkind.New(errkind.PermissionDenied, "image host not allowed")
 
 // Provider is what every media provider implements, whatever it provides (covers, barcodes,
 // details).
@@ -288,7 +289,7 @@ type LinkSearcher interface {
 }
 
 // ErrUnknownStore means a search named a store no provider can search.
-var ErrUnknownStore = errors.New("no provider can search that store")
+var ErrUnknownStore = errkind.New(errkind.NotFound, "no provider can search that store")
 
 // Service exposes the media use cases.
 type Service struct {
@@ -1164,7 +1165,13 @@ func (s *Service) SearchLinks(ctx context.Context, store, query string) ([]LinkM
 			return nil, nil
 		}
 
-		return ls.SearchLinks(ctx, query)
+		matches, err := ls.SearchLinks(ctx, query)
+		if err != nil && errkind.Of(err) == errkind.Unknown {
+			// A search that fails is the store's trouble (busy, not answering), not Game Vault's.
+			return nil, errkind.Wrap(errkind.Unavailable, err)
+		}
+
+		return matches, err
 	}
 
 	return nil, ErrUnknownStore

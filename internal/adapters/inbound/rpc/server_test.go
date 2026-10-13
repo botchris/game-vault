@@ -283,7 +283,11 @@ func (fakeSteamStore) LinkStore() game.Store {
 	}
 }
 
-func (fakeSteamStore) SearchLinks(context.Context, string) ([]media.LinkMatch, error) {
+func (fakeSteamStore) SearchLinks(_ context.Context, query string) ([]media.LinkMatch, error) {
+	if query == "store offline" {
+		return nil, errors.New("connection refused")
+	}
+
 	return []media.LinkMatch{{
 		ID:   "1064271",
 		Name: "Halo 3",
@@ -566,6 +570,13 @@ func TestCoversAndLogs(t *testing.T) {
 		Query: "halo 3",
 	})); connect.CodeOf(err) != connect.CodeNotFound {
 		t.Fatalf("a store nobody searches: want NotFound, got %v", err)
+	}
+
+	if _, err := c.games.SearchLinks(ctx, connect.NewRequest(&pb.SearchLinksRequest{
+		Store: game.LinkSteam,
+		Query: "store offline",
+	})); connect.CodeOf(err) != connect.CodeUnavailable {
+		t.Fatalf("a store that does not answer: want Unavailable, got %v", err)
 	}
 
 	links := map[string]string{game.LinkSteam: found.Msg.Matches[0].Id}

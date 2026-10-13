@@ -4,11 +4,11 @@ package fields
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 
 	"gamevault/internal/application/port"
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/field"
 	"gamevault/internal/domain/game"
 )
@@ -16,7 +16,7 @@ import (
 // ErrValuesConflict means a definition change would corrupt or invalidate the values games and
 // copies already hold (see Service.Update). The error that wraps it names the field and says how
 // many games are affected.
-var ErrValuesConflict = errors.New("the change does not fit the values games already hold")
+var ErrValuesConflict = errkind.New(errkind.Precondition, "the change does not fit the values games already hold")
 
 // valuesConflict is an ErrValuesConflict with the message the user sees.
 type valuesConflict struct{ msg string }

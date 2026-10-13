@@ -4,14 +4,14 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/hex"
-	"errors"
 	"fmt"
 
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 )
 
 // ErrNoAsset means the image is neither stored locally nor known to come from anywhere.
-var ErrNoAsset = errors.New("asset not found")
+var ErrNoAsset = errkind.New(errkind.NotFound, "asset not found")
 
 // assetName derives a stable local name from the remote URL, so the same image keeps its file
 // across refreshes and languages, and a changed image gets a new one.

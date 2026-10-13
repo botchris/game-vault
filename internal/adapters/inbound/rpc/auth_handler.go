@@ -34,26 +34,6 @@ func principalToPB(p *auth.Principal) *pb.Principal {
 	}
 }
 
-func authError(err error) error {
-	var v *auth.ValidationError
-	switch {
-	case errors.Is(err, auth.ErrBadCredentials), errors.Is(err, auth.ErrUnauthenticated):
-		return connect.NewError(connect.CodeUnauthenticated, err)
-	case errors.Is(err, auth.ErrTooManyAttempts):
-		return connect.NewError(connect.CodeResourceExhausted, err)
-	case errors.Is(err, auth.ErrSetupNotTrusted):
-		return connect.NewError(connect.CodePermissionDenied, err)
-	case errors.Is(err, auth.ErrSetupDone):
-		return connect.NewError(connect.CodeAlreadyExists, err)
-	case errors.Is(err, auth.ErrNotFound):
-		return connect.NewError(connect.CodeNotFound, err)
-	case errors.As(err, &v):
-		return connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
-	return toConnectError(err)
-}
-
 // requirePrincipal returns the caller, refusing access tokens: a token is never enough for the
 // AuthService (defense in depth; the middleware already refuses it).
 func requirePrincipal(ctx context.Context) (auth.Principal, error) {
@@ -69,7 +49,7 @@ func requirePrincipal(ctx context.Context) (auth.Principal, error) {
 func (h *AuthHandler) GetAuthStatus(ctx context.Context, _ *connect.Request[pb.GetAuthStatusRequest]) (*connect.Response[pb.GetAuthStatusResponse], error) {
 	st, err := h.auth.Status(ctx, requestFrom(ctx))
 	if err != nil {
-		return nil, authError(err)
+		return nil, toConnectError(err)
 	}
 
 	return connect.NewResponse(&pb.GetAuthStatusResponse{
@@ -91,7 +71,7 @@ func (h *AuthHandler) sessionResponse(ctx context.Context, token string) *connec
 func (h *AuthHandler) Setup(ctx context.Context, req *connect.Request[pb.SetupRequest]) (*connect.Response[pb.SetupResponse], error) {
 	token, p, err := h.auth.Setup(ctx, requestFrom(ctx), req.Msg.Username, req.Msg.Password)
 	if err != nil {
-		return nil, authError(err)
+		return nil, toConnectError(err)
 	}
 
 	res := connect.NewResponse(&pb.SetupResponse{Principal: principalToPB(&p)})
@@ -104,7 +84,7 @@ func (h *AuthHandler) Setup(ctx context.Context, req *connect.Request[pb.SetupRe
 func (h *AuthHandler) Login(ctx context.Context, req *connect.Request[pb.LoginRequest]) (*connect.Response[pb.LoginResponse], error) {
 	token, p, err := h.auth.Login(ctx, requestFrom(ctx), req.Msg.Username, req.Msg.Password)
 	if err != nil {
-		return nil, authError(err)
+		return nil, toConnectError(err)
 	}
 
 	res := h.sessionResponse(ctx, token)
@@ -116,7 +96,7 @@ func (h *AuthHandler) Login(ctx context.Context, req *connect.Request[pb.LoginRe
 // Logout ends the caller's session.
 func (h *AuthHandler) Logout(ctx context.Context, _ *connect.Request[pb.LogoutRequest]) (*connect.Response[pb.LogoutResponse], error) {
 	if err := h.auth.Logout(ctx, requestFrom(ctx).SessionToken); err != nil {
-		return nil, authError(err)
+		return nil, toConnectError(err)
 	}
 
 	res := connect.NewResponse(&pb.LogoutResponse{})
@@ -133,7 +113,7 @@ func (h *AuthHandler) ChangePassword(ctx context.Context, req *connect.Request[p
 	}
 
 	if err := h.auth.ChangePassword(ctx, p, req.Msg.Username, req.Msg.CurrentPassword, req.Msg.NewPassword); err != nil {
-		return nil, authError(err)
+		return nil, toConnectError(err)
 	}
 
 	return connect.NewResponse(&pb.ChangePasswordResponse{}), nil
@@ -155,7 +135,7 @@ func (h *AuthHandler) GetAuthSettings(ctx context.Context, _ *connect.Request[pb
 
 	s, err := h.auth.Settings(ctx)
 	if err != nil {
-		return nil, authError(err)
+		return nil, toConnectError(err)
 	}
 
 	r := requestFrom(ctx)
@@ -168,7 +148,7 @@ func (h *AuthHandler) GetAuthSettings(ctx context.Context, _ *connect.Request[pb
 	if u, err := h.auth.User(ctx); err == nil {
 		out.HasUser, out.Username = true, u.Username
 	} else if !errors.Is(err, auth.ErrNotFound) {
-		return nil, authError(err)
+		return nil, toConnectError(err)
 	}
 
 	return connect.NewResponse(out), nil
@@ -191,7 +171,7 @@ func (h *AuthHandler) UpdateAuthSettings(ctx context.Context, req *connect.Reque
 		CertificateValidation: auth.CertificateValidation(in.CertificateValidation),
 	})
 	if err != nil {
-		return nil, authError(err)
+		return nil, toConnectError(err)
 	}
 
 	return connect.NewResponse(&pb.UpdateAuthSettingsResponse{Settings: authSettingsToPB(s)}), nil
@@ -214,7 +194,7 @@ func (h *AuthHandler) ListAccessTokens(ctx context.Context, _ *connect.Request[p
 
 	tokens, err := h.auth.AccessTokens(ctx)
 	if err != nil {
-		return nil, authError(err)
+		return nil, toConnectError(err)
 	}
 
 	out := &pb.ListAccessTokensResponse{Tokens: make([]*pb.AccessToken, 0, len(tokens))}
@@ -234,7 +214,7 @@ func (h *AuthHandler) CreateAccessToken(ctx context.Context, req *connect.Reques
 
 	t, secret, err := h.auth.CreateAccessToken(ctx, req.Msg.Name)
 	if err != nil {
-		return nil, authError(err)
+		return nil, toConnectError(err)
 	}
 
 	return connect.NewResponse(&pb.CreateAccessTokenResponse{
@@ -250,7 +230,7 @@ func (h *AuthHandler) RevokeAccessToken(ctx context.Context, req *connect.Reques
 	}
 
 	if err := h.auth.RevokeAccessToken(ctx, req.Msg.Id); err != nil {
-		return nil, authError(err)
+		return nil, toConnectError(err)
 	}
 
 	return connect.NewResponse(&pb.RevokeAccessTokenResponse{}), nil
