@@ -19,6 +19,7 @@ import (
 	"golang.org/x/sync/singleflight"
 
 	"gamevault/internal/application/port"
+	"gamevault/internal/application/unattended"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
@@ -320,6 +321,9 @@ type Service struct {
 
 	// linker saves automatic links (the catalog); nil turns them off.
 	linker GameLinker
+
+	// rhythm varies and waits the background details scan's pauses (RunDetailsScanner).
+	rhythm unattended.Rhythm
 }
 
 // Providers groups the provider implementations available to the service. Their DefaultOrder (then

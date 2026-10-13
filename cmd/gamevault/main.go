@@ -179,16 +179,18 @@ func run() error {
 	}
 
 	// Background jobs (only after the TLS policy and the security settings above are in place)
+	// Every job that makes requests nobody asked for at that moment is off with -no-unattended. The
+	// auto-linker stays on: without the details scanner it only searches games a person opened.
 	if cfg.NoUnattended {
-		log.Warn("scheduled scans, keep-alives and price estimates are off (-no-unattended)")
+		log.Warn("scheduled scans, keep-alives, price estimates and the background details scan are off (-no-unattended)")
 	} else {
 		go syncSvc.RunScheduler(ctx, time.Minute, 30*time.Minute)
 		go syncSvc.RunKeepAlive(ctx, time.Minute, 10*time.Minute)
 		go valuationSvc.RunScheduler(ctx)
+		go mediaSvc.RunDetailsScanner(ctx, 2*time.Second) // 2-4 s apart: gentle enough for the strictest store API (Steam: ~200 requests / 5 min)
 	}
 
-	go mediaSvc.RunDetailsScanner(ctx, 2*time.Second) // gentle enough for the strictest store API (Steam: ~200 requests / 5 min)
-	go mediaSvc.RunAutoLinker(ctx, 2*time.Second)     // one game at a time, jittered, after cover downloads
+	go mediaSvc.RunAutoLinker(ctx, 2*time.Second) // one game at a time, jittered, after cover downloads
 	go mediaSvc.RunPhotoCleanup(ctx, time.Hour, 24*time.Hour)
 
 	if cfg.BackupInterval > 0 {

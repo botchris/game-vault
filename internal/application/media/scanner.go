@@ -69,17 +69,11 @@ func (s *Service) CatalogSummaries(ctx context.Context, language string) (map[ga
 // that have none yet, so the catalog can filter by genre and sort by year without opening each
 // game. Store providers answer linked games without a quota; games without links would reach
 // quota-limited providers, so they get their details when opened. Sheet images are not downloaded here (they come when a sheet is
-// opened). pause is the delay between two games.
+// opened). Its requests are unattended, so no wait follows a fixed rhythm: games are pause to twice
+// pause apart, rounds an hour ±10%, and a provider's complaint rests it a minute ±20%.
 func (s *Service) RunDetailsScanner(ctx context.Context, pause time.Duration) {
-	wait := func(d time.Duration) bool {
-		select {
-		case <-ctx.Done():
-			return false
-		case <-time.After(d):
-			return true
-		}
-	}
-	if !wait(30 * time.Second) { // let start-up settle
+	wait := func(d time.Duration) bool { return s.rhythm.Wait(ctx, d) }
+	if !wait(s.rhythm.Between(scanSettle, 2*scanSettle)) { // let start-up settle
 		return
 	}
 
@@ -101,11 +95,20 @@ func (s *Service) RunDetailsScanner(ctx context.Context, pause time.Duration) {
 			s.log.Info("background details scan finished", "fetched", fetched)
 		}
 
-		if !wait(time.Hour) {
+		if !wait(s.rhythm.Vary(scanRound, scanRoundJitter)) {
 			return
 		}
 	}
 }
+
+// Timing of the background details scan (see RunDetailsScanner).
+const (
+	scanSettle        = 30 * time.Second // shortest wait after start-up
+	scanRound         = time.Hour        // time between two rounds, before jitter
+	scanRoundJitter   = 0.1
+	scanBackOff       = time.Minute // rest after a provider complained, before jitter
+	scanBackOffJitter = 0.2
+)
 
 // autoLinkPass queues for the automatic-links worker the games without a Steam link that are due
 // (see AutoLink). It only queues, so the details scan that follows is never held back.
@@ -155,9 +158,9 @@ func (s *Service) scanOnce(ctx context.Context, lang string, pause time.Duration
 			fetched++
 		}
 		// Back off when a provider complains (e.g. Steam rate limiting), otherwise go gently.
-		delay := pause
+		delay := s.rhythm.Between(pause, 2*pause)
 		if err != nil || len(warnings) > 0 {
-			delay = time.Minute
+			delay = s.rhythm.Vary(scanBackOff, scanBackOffJitter)
 		}
 
 		if !wait(delay) {
