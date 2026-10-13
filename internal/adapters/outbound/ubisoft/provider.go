@@ -545,12 +545,14 @@ func mapNodes(nodes []node) ([]game.ImportedCopy, source.Skipped) {
 			continue
 		}
 
-		seen[id] = true
-
+		// A console-only node does not mark its id as seen: the same game can come again as a PC
+		// node, and that one is the copy to import.
 		if !onPC(n) {
 			skipped.Add("console games, which are not in the Ubisoft Connect library")
 			continue
 		}
+
+		seen[id] = true
 
 		out = append(out, game.ImportedCopy{
 			ExternalID: "ubisoft:" + id,

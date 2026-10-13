@@ -390,3 +390,24 @@ func TestSession_triesEachAppOnce(t *testing.T) {
 		})
 	})
 }
+
+func TestMapNodes_consoleCopyDoesNotHideThePCOne(t *testing.T) {
+	t.Run("GIVEN a console-only node and a PC node with the same id", func(t *testing.T) {
+		var nodes []node
+
+		require.NoError(t, json.Unmarshal([]byte(`[
+			{"id":"g1","spaceId":"s1","name":"Example Game","viewer":{"meta":{"ownedPlatformGroups":[{"name":"PlayStation 5","type":"PS5"}]}}},
+			{"id":"g1","spaceId":"s1","name":"Example Game","viewer":{"meta":{"ownedPlatformGroups":[{"name":"PC","type":"PC"}]}}}
+		]`), &nodes))
+
+		t.Run("WHEN they are mapped", func(t *testing.T) {
+			copies, skipped := mapNodes(nodes)
+
+			t.Run("THEN the PC copy is imported and the console one counted as skipped", func(t *testing.T) {
+				require.Len(t, copies, 1)
+				assert.Equal(t, "ubisoft:s1", copies[0].ExternalID)
+				assert.Len(t, skipped.Warnings(), 1)
+			})
+		})
+	})
+}
