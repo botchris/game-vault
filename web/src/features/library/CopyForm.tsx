@@ -152,7 +152,7 @@ export default function CopyForm({ initial, managedBy, sourceSystem, onSubmit, o
           </label>
           <label>
             {t('copy.edition')}
-            <input value={d.edition} onChange={(e) => set('edition', e.target.value)} placeholder="GOTY, Collector's…" />
+            <input value={d.edition} onChange={(e) => set('edition', e.target.value)} placeholder={t('copy.editionPlaceholder')} />
           </label>
           <label className="span2">
             {t('common.notes')}
