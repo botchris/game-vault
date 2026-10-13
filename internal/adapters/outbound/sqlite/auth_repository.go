@@ -25,13 +25,15 @@ func (r *AuthRepository) CountUsers(ctx context.Context) (int, error) {
 	return n, err
 }
 
-func (r *AuthRepository) user(ctx context.Context, where string, arg any) (auth.User, error) {
+// user reads the first user the clause selects. The clause follows "FROM users" (a WHERE, an
+// ORDER BY…), so each lookup writes only the part that differs.
+func (r *AuthRepository) user(ctx context.Context, clause string, args ...any) (auth.User, error) {
 	var (
 		u                auth.User
 		created, updated string
 	)
 
-	err := r.db.conn(ctx).QueryRowContext(ctx, `SELECT id, username, password_hash, created_at, updated_at FROM users WHERE `+where, arg).
+	err := r.db.conn(ctx).QueryRowContext(ctx, `SELECT id, username, password_hash, created_at, updated_at FROM users `+clause, args...).
 		Scan(&u.ID, &u.Username, &u.PasswordHash, &created, &updated)
 	if errors.Is(err, sql.ErrNoRows) {
 		return u, auth.ErrNotFound
@@ -44,17 +46,17 @@ func (r *AuthRepository) user(ctx context.Context, where string, arg any) (auth.
 
 // UserByUsername returns the user with the given user name.
 func (r *AuthRepository) UserByUsername(ctx context.Context, username string) (auth.User, error) {
-	return r.user(ctx, `username = ?`, username)
+	return r.user(ctx, `WHERE username = ?`, username)
 }
 
 // UserByID returns the user with the given id.
 func (r *AuthRepository) UserByID(ctx context.Context, id string) (auth.User, error) {
-	return r.user(ctx, `id = ?`, id)
+	return r.user(ctx, `WHERE id = ?`, id)
 }
 
 // FirstUser returns the oldest user: Game Vault has one user.
 func (r *AuthRepository) FirstUser(ctx context.Context) (auth.User, error) {
-	return r.user(ctx, `id = (SELECT id FROM users ORDER BY created_at LIMIT 1) AND ? = 1`, 1)
+	return r.user(ctx, `ORDER BY created_at LIMIT 1`)
 }
 
 // SaveUser inserts or updates a user.
