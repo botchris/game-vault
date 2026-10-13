@@ -121,6 +121,7 @@ func TestPlatforms_failedList(t *testing.T) {
 
 		t.Run("WHEN TheGamesDB recovers and a cover is searched after five minutes", func(t *testing.T) {
 			srv.set(false, nil)
+
 			clock.now = clock.now.Add(platformsRetry)
 
 			_, err := p.Covers(ctx, q, settings)
@@ -151,6 +152,7 @@ func TestPlatforms_waitingLookups(t *testing.T) {
 		srv := newPlatformsServer(t)
 		gate := make(chan struct{})
 		release := sync.OnceFunc(func() { close(gate) })
+
 		srv.set(false, gate)
 
 		// Released anyway after a while, so a lookup that blocks fails the test instead of hanging.
