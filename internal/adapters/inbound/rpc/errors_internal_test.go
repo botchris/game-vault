@@ -62,6 +62,8 @@ var sentinels = map[string]struct {
 	"domain/source.ErrSignedOut":                  {source.ErrSignedOut, connect.CodeFailedPrecondition},
 	"application/catalog.ErrPhotoNotUploaded":     {catalog.ErrPhotoNotUploaded, connect.CodeFailedPrecondition},
 	"application/catalog.ErrInvalidScannedCopies": {catalog.ErrInvalidScannedCopies, connect.CodeInvalidArgument},
+	"application/catalog.ErrMergeIntoItself":      {catalog.ErrMergeIntoItself, connect.CodeInvalidArgument},
+	"application/catalog.ErrCopyAlreadyThere":     {catalog.ErrCopyAlreadyThere, connect.CodeInvalidArgument},
 	"application/catalog.ErrScannedGameGone":      {catalog.ErrScannedGameGone, connect.CodeNotFound},
 	"application/fields.ErrValuesConflict":        {fields.ErrValuesConflict, connect.CodeFailedPrecondition},
 	"application/logs.ErrInvalidName":             {logs.ErrInvalidName, connect.CodeInvalidArgument},
