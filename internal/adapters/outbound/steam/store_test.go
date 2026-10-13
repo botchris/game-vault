@@ -63,7 +63,7 @@ func testStore(srv *httptest.Server) *Store {
 	s := NewStore()
 	s.Site.BaseURL, s.Site.HTTP = srv.URL, srv.Client()
 	s.API.BaseURL, s.API.HTTP = srv.URL, srv.Client()
-	s.throttle = nil // tests send at once; the throttle has its own test
+	s.throttle = nil // tests send at once; ratelimit tests the throttle
 
 	return s
 }
@@ -305,10 +305,32 @@ func TestCovers_titleSearch(t *testing.T) {
 		})
 	})
 
+	t.Run("GIVEN a store host that answers HTTP 429", func(t *testing.T) {
+		s, searched := titleSearchStore(t, nil, http.StatusTooManyRequests)
+		s.throttle = newThrottle(0, nil, nil)
+
+		t.Run("WHEN two titles are searched one after the other", func(t *testing.T) {
+			_, first := s.SearchLinks(ctx, "Example Quest")
+			_, second := s.SearchLinks(ctx, "Other Quest")
+
+			t.Run("THEN both are rate-limited", func(t *testing.T) {
+				require.ErrorIs(t, first, provider.ErrRateLimited)
+				require.ErrorIs(t, second, provider.ErrRateLimited)
+
+				t.Run("AND the second is not sent: the store host is left alone for a while", func(t *testing.T) {
+					assert.Equal(t, []string{"Example Quest"}, *searched)
+				})
+			})
+		})
+	})
+
 	t.Run("GIVEN the store host's requests are already queued past the longest wait", func(t *testing.T) {
 		s, searched := titleSearchStore(t, nil, 0)
-		s.throttle = newThrottle(time.Hour, 1, time.Second, time.Now, func(context.Context, time.Duration) error { return nil })
-		require.NoError(t, s.throttle.do(ctx, func() error { return nil }))
+		s.throttle = newThrottle(time.Hour, nil, nil)
+
+		for range storeBurst {
+			require.NoError(t, s.throttle.Do(ctx, func() error { return nil }))
+		}
 
 		t.Run("WHEN a linked game's covers are asked", func(t *testing.T) {
 			got, err := s.Covers(ctx, media.CoverQuery{
