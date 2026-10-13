@@ -67,10 +67,20 @@ export function syncStoreScripts(api) {
   return run;
 }
 
+/**
+ * The store-page option's settings while it is on, for an address still enabled in the extension:
+ * {origin, token} (the token trimmed, '' when none), else null. Both the content scripts'
+ * registration and the lookups follow it, so they never disagree about whether the option is on.
+ */
+export async function activeSettings(storage) {
+  const { ownership } = await storage.get('ownership');
+  const { origins = [] } = await storage.get('origins');
+  if (!ownership?.enabled || !ownership.origin || !origins.includes(ownership.origin)) return null;
+  return { origin: ownership.origin, token: typeof ownership.token === 'string' ? ownership.token.trim() : '' };
+}
+
 async function syncOnce(api) {
-  const { ownership } = await api.storage.local.get('ownership');
-  const { origins = [] } = await api.storage.local.get('origins');
-  const on = Boolean(ownership?.enabled) && Boolean(ownership.origin) && origins.includes(ownership.origin);
+  const on = (await activeSettings(api.storage.local)) !== null;
   const registered = new Map((await api.scripting.getRegisteredContentScripts({ ids: STORES.map(scriptId) })).map((s) => [s.id, s]));
   for (const store of STORES) {
     const id = scriptId(store);
@@ -175,11 +185,9 @@ export function createLookup({ storage, fetch, now }) {
 
     async check(raw) {
       const started = generation;
-      const { ownership } = await storage.get('ownership');
-      const { origins = [] } = await storage.get('origins');
-      if (!ownership?.enabled || !ownership.origin || !origins.includes(ownership.origin)) return unavailable('setup');
-      const origin = ownership.origin;
-      const token = typeof ownership.token === 'string' ? ownership.token.trim() : '';
+      const active = await activeSettings(storage);
+      if (!active) return unavailable('setup');
+      const { origin, token } = active;
       const items = (Array.isArray(raw) ? raw : []).slice(0, MAX_PAGE_ITEMS).map(cleanItem);
       const results = new Array(items.length);
       const missing = [];

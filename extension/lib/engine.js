@@ -2,17 +2,11 @@
 // value and closes the tab. The browser is behind `api` (see background.js), so Node tests drive
 // it with a fake one.
 
-import { validate } from './recipe.js';
+import { codedError, validate } from './recipe.js';
 import { cookieHeader, jsonField, prefixMatch, redirectValue } from './capture.js';
 
 // How often the engine checks for a capture between page loads.
 const POLL_MS = 3000;
-
-function failure(code, message) {
-  const e = new Error(message ?? code);
-  e.code = code;
-  return e;
-}
 
 /** Starts a recipe; result resolves with the captured value or rejects with a coded error. */
 export function startRun(recipe, api) {
@@ -77,21 +71,21 @@ export function startRun(recipe, api) {
         return;
       }
       unsubscribe = api.watchTab(tabId, (event) => {
-        if (event.kind === 'removed') finish(failure('cancelled', 'the sign-in tab was closed'), undefined, true);
+        if (event.kind === 'removed') finish(codedError('cancelled', 'the sign-in tab was closed'), undefined, true);
         else if (event.kind === 'committed' && kind === 'redirect') {
           const value = redirectValue(event.url, capture.prefix, capture.param);
           if (value) finish(null, value);
         } else if (event.kind === 'loaded') attempt(event.url);
       });
-      stopTimer = api.setTimer(timeoutMs, () => finish(failure('timeout', 'the sign-in took too long')));
+      stopTimer = api.setTimer(timeoutMs, () => finish(codedError('timeout', 'the sign-in took too long')));
       // Logins that finish without loading a page (a modal, a single-page app) are caught by
       // checking every few seconds too.
       stopPoll = api.setInterval(POLL_MS, async () => { if (!done) attempt(await api.tabURL(tabId)); });
       await attempt(await api.tabURL(tabId)); // a user already signed in (or redirected already) is captured at once
     } catch (e) {
-      finish(failure('failed', e?.message));
+      finish(codedError('failed', e?.message));
     }
   })();
 
-  return { result, cancel: () => finish(failure('cancelled', 'cancelled')) };
+  return { result, cancel: () => finish(codedError('cancelled', 'cancelled')) };
 }

@@ -36,31 +36,46 @@
       }
     };
 
+    /** The entries without a label for their item yet. A label whose element now shows another
+     *  item (a store that rewrites the title in place) is stale: it is removed first. */
+    function freshItems(entries) {
+      for (const e of entries) {
+        const host = ns.labelOf(e.element);
+        const key = host ? asked.get(host) : undefined;
+        if (key !== undefined && key !== keyOf(e.item)) host.remove();
+      }
+      return entries.filter((e) => !ns.labelOf(e.element));
+    }
+
+    /** Whether an answer for page `href` may still be drawn. The page changed while Game Vault
+     *  answered: the answer is dropped and the new page read. The page was left: nothing is drawn. */
+    function answerStillWanted(href) {
+      if (url() !== href) {
+        again = true;
+        return false;
+      }
+      return !stopped;
+    }
+
+    /** Draws one label per entry still without one, from the answer for the same position. */
+    function drawLabels(entries, outcome, model) {
+      entries.forEach((e, i) => {
+        if (ns.hasLabel(e.element)) return;
+        const { host } = ns.renderLabel(doc, e.element, model(answerAt(outcome, i), t));
+        asked.set(host, keyOf(e.item));
+      });
+    }
+
     // A bundle's summary counts every game on it, so all of them are asked about whenever new ones
     // appear (the background's cache answers the ones already asked). Every game gets a host
     // whatever the answer, so the page cannot tell which ones are owned.
     async function labelBundle(read, href) {
-      const fresh = read.items.filter((e) => {
-        const host = ns.labelOf(e.element);
-        if (!host) return true;
-        const key = asked.get(host);
-        if (key === undefined || key === keyOf(e.item)) return false;
-        host.remove(); // the card shows another game now: its mark is stale
-        return true;
-      });
+      const fresh = freshItems(read.items);
       if (!fresh.length && ns.hasLabel(read.summary)) return;
       const items = read.items.map((e) => e.item);
       const outcome = await ask(items);
-      if (url() !== href) {
-        again = true;
-        return;
-      }
-      if (stopped) return;
-      read.items.forEach((e, i) => {
-        if (ns.hasLabel(e.element)) return;
-        const { host } = ns.renderLabel(doc, e.element, ns.markModel(answerAt(outcome, i), t));
-        asked.set(host, keyOf(e.item));
-      });
+      if (!answerStillWanted(href)) return;
+      drawLabels(read.items, outcome, ns.markModel);
       for (const old of [...read.summary.children].filter((c) => ns.kindOf(c) === 'summary')) old.remove();
       ns.renderLabel(doc, read.summary, ns.summaryModel(outcome, items, t));
     }
@@ -85,27 +100,11 @@
           await labelBundle(read, href);
           return;
         }
-        const fresh = read.items.filter((e) => {
-          const host = ns.labelOf(e.element);
-          if (!host) return true;
-          const key = asked.get(host);
-          if (key === undefined || key === keyOf(e.item)) return false;
-          host.remove(); // the element shows another item now: its label is stale
-          return true;
-        });
+        const fresh = freshItems(read.items);
         if (!fresh.length) return;
         const outcome = await ask(fresh.map((e) => e.item));
-        if (url() !== href) {
-          // The page changed while Game Vault answered: drop the answer and read the new page.
-          again = true;
-          return;
-        }
-        if (stopped) return; // the page was left while Game Vault answered: draw nothing
-        fresh.forEach((e, i) => {
-          if (ns.hasLabel(e.element)) return;
-          const { host } = ns.renderLabel(doc, e.element, ns.labelModel(answerAt(outcome, i), t));
-          asked.set(host, keyOf(e.item));
-        });
+        if (!answerStillWanted(href)) return;
+        drawLabels(fresh, outcome, ns.labelModel);
       } finally {
         running = false;
         if (again) {
