@@ -93,12 +93,6 @@ func (r *Registry) All() []Provider {
 	return out
 }
 
-// Impl returns the provider compiled in under id.
-func (r *Registry) Impl(id provider.ID) (Provider, bool) {
-	p, ok := r.impls[id]
-	return p, ok
-}
-
 // ProviderName returns a registered provider's display name, or its id when it is not registered
 // (details cached by a provider that was removed since).
 func (r *Registry) ProviderName(id provider.ID) string {
