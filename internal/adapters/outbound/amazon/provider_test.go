@@ -44,6 +44,7 @@ type fakeAmazon struct {
 	revoked        bool // refresh token no longer valid
 	refreshes      int
 	accountStatus  int // when set, the account API (register, token) answers only this status
+	libraryStatus  int // when set, the entitlements service answers only this status
 }
 
 func (f *fakeAmazon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -81,7 +82,12 @@ func (f *fakeAmazon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.Write([]byte(refreshed))
-	case "/entitlements":
+	case "/api/distribution/entitlements":
+		if f.libraryStatus != 0 {
+			w.WriteHeader(f.libraryStatus)
+			return
+		}
+
 		token := r.Header.Get("x-amzn-token")
 		if r.Header.Get("X-Amz-Target") == "" || token == "" || (f.expireFirst && token == "Atna|first") {
 			w.WriteHeader(http.StatusUnauthorized)
@@ -107,13 +113,12 @@ func newTestProvider(t *testing.T, fake *fakeAmazon) *Provider {
 	srv := httptest.NewServer(fake)
 	t.Cleanup(srv.Close)
 
-	return &Provider{
-		SignInURL:       "https://amazon.test/ap/signin",
-		APIURL:          srv.URL,
-		EntitlementsURL: srv.URL + "/entitlements",
-		Client:          srv.Client(),
-		Now:             func() time.Time { return time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC) },
-	}
+	p := NewProvider()
+	p.SignInURL = "https://amazon.test/ap/signin"
+	p.API.BaseURL, p.Gaming.BaseURL = srv.URL, srv.URL
+	p.Now = func() time.Time { return time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC) }
+
+	return p
 }
 
 func TestSignIn_registersTheLinkDevice(t *testing.T) {
@@ -197,16 +202,16 @@ func TestFetch_readsTheLibrary(t *testing.T) {
 
 	stored := source.Settings{settingSession: `{"refresh_token":"Atnr|good","serial":"SERIAL"}`}
 
-	t.Run("GIVEN a stored session whose access token expired", func(t *testing.T) {
+	t.Run("GIVEN a session just signed in whose access token the library rejects before its time", func(t *testing.T) {
 		fake := &fakeAmazon{expireFirst: true}
 		p := newTestProvider(t, fake)
-		p.tokens = map[string]token{"Atnr|good": {
-			access:  "Atna|first",
-			expires: p.Now().Add(time.Hour),
-		}}
+
+		// The registration's access token ("Atna|first") is cached for an hour.
+		settings, err := p.Prepare(ctx, source.Settings{settingCode: "GOODCODE"})
+		require.NoError(t, err)
 
 		t.Run("WHEN the library is scanned", func(t *testing.T) {
-			copies, warnings, err := p.Fetch(ctx, stored)
+			copies, warnings, err := p.Fetch(ctx, settings)
 			require.NoError(t, err)
 
 			t.Run("THEN the token is renewed once and every page is read", func(t *testing.T) {
@@ -221,6 +226,7 @@ func TestFetch_readsTheLibrary(t *testing.T) {
 				assert.Equal(t, game.KindLibrary, copies[0].Details.Kind)
 				assert.Equal(t, Platform, copies[0].Details.Platform)
 				assert.Equal(t, game.StatusOwned, copies[0].Details.Status)
+				assert.Equal(t, "Amazon Games", copies[0].Details.Origin, "the store, like the other library sources")
 				assert.Equal(t, game.Links{"amazon": "amzn1.adg.product.3"}, copies[1].Links)
 			})
 
@@ -265,6 +271,31 @@ func TestAccountAPI_passingTroubles(t *testing.T) {
 					assert.NotErrorIs(t, err, ErrBadCode)
 				})
 			})
+
+			t.Run("WHEN the library is scanned with a stored session", func(t *testing.T) {
+				_, _, err := p.Fetch(ctx, source.Settings{settingSession: `{"refresh_token":"Atnr|good","serial":"SERIAL"}`})
+
+				t.Run("THEN it is a passing trouble, not a signed-out session", func(t *testing.T) {
+					require.ErrorIs(t, err, want)
+					assert.NotErrorIs(t, err, source.ErrSignedOut)
+				})
+			})
+		})
+	}
+}
+
+// TestLibrary_passingTroubles checks that a rate limit, an outage or no answer from the
+// entitlements service is reported as a passing trouble, not as a bare HTTP error.
+func TestLibrary_passingTroubles(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	for status, want := range map[int]error{
+		http.StatusTooManyRequests:    provider.ErrRateLimited,
+		http.StatusServiceUnavailable: provider.ErrUnavailable,
+	} {
+		t.Run(fmt.Sprintf("GIVEN the entitlements service answers HTTP %d", status), func(t *testing.T) {
+			p := newTestProvider(t, &fakeAmazon{libraryStatus: status})
 
 			t.Run("WHEN the library is scanned with a stored session", func(t *testing.T) {
 				_, _, err := p.Fetch(ctx, source.Settings{settingSession: `{"refresh_token":"Atnr|good","serial":"SERIAL"}`})

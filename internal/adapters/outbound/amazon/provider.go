@@ -13,17 +13,13 @@
 package amazon
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"maps"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -33,6 +29,7 @@ import (
 	"time"
 
 	"gamevault/internal/adapters/outbound/apiclient"
+	"gamevault/internal/adapters/outbound/oauthsession"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
@@ -52,18 +49,21 @@ const (
 	deviceType = "A2UMVHOX7UP4V7"
 	appName    = "AGSLauncher for Windows"
 	appVersion = "1.0.0"
-	userAgent  = "com.amazon.agslauncher.win/3.0.9202.1"
+
+	// accountUserAgent is what the launcher sends to the account API; userAgent to the
+	// entitlements service.
+	accountUserAgent = "AGSLauncher/1.0.0"
+	userAgent        = "com.amazon.agslauncher.win/3.0.9202.1"
 
 	// keyID is the launcher's fixed entitlements key (from nile).
 	keyID = "d5dc8b8b-86c8-4fc4-ae93-18c0def5314d"
 
-	defaultSignInURL       = "https://amazon.com/ap/signin"
-	defaultAPIURL          = "https://api.amazon.com"
-	defaultEntitlementsURL = "https://gaming.amazon.com/api/distribution/entitlements"
+	defaultSignInURL = "https://amazon.com/ap/signin"
+	defaultAPIURL    = "https://api.amazon.com"
+	defaultGamingURL = "https://gaming.amazon.com"
 
-	pendingTTL = 15 * time.Minute
-	pageSize   = 50
-	maxPages   = 100
+	pageSize = 50
+	maxPages = 100
 )
 
 var (
@@ -95,34 +95,59 @@ type login struct {
 	url      string
 }
 
-type token struct {
-	access  string
-	expires time.Time
-}
-
 // Provider implements sync.Provider and sync.Preparer for Amazon Games accounts.
 type Provider struct {
-	SignInURL       string
-	APIURL          string
-	EntitlementsURL string
-	Client          *http.Client
-	Now             func() time.Time
+	// SignInURL is the Amazon sign-in page the login link opens.
+	SignInURL string
 
-	mu      gosync.Mutex
-	login   login
-	pending map[string]session // sha256(code) → session from a recent registration
-	tokens  map[string]token   // refresh token → current access token
+	// API calls the Amazon account API (device registration, tokens); tests point it at a fake
+	// server.
+	API *apiclient.Client
+
+	// Gaming calls the launcher's entitlements service.
+	Gaming *apiclient.Client
+
+	// Now is the clock.
+	Now func() time.Time
+
+	// sessions exchanges the pasted codes and keeps the sessions' access tokens.
+	sessions *oauthsession.Sessions[session]
+
+	mu    gosync.Mutex
+	login login
 }
 
 // NewProvider returns the Amazon Games source with its production endpoints.
 func NewProvider() *Provider {
-	return &Provider{
-		SignInURL:       defaultSignInURL,
-		APIURL:          defaultAPIURL,
-		EntitlementsURL: defaultEntitlementsURL,
-		Client:          &http.Client{Timeout: 30 * time.Second},
-		Now:             time.Now,
+	p := &Provider{
+		SignInURL: defaultSignInURL,
+		API:       newClient(defaultAPIURL, accountUserAgent),
+		Gaming:    newClient(defaultGamingURL, userAgent),
+		Now:       time.Now,
 	}
+	p.sessions = &oauthsession.Sessions[session]{
+		CodeField:  settingCode,
+		StateField: settingSession,
+		Clean:      func(v string) (string, error) { return cleanCode(v), nil },
+		Exchange:   p.register,
+		Refresh:    p.refresh,
+		// The refresh token does not rotate: it identifies the session for as long as it lives.
+		RefreshToken: func(s session) string { return s.RefreshToken },
+		ErrNoSession: ErrNoSession,
+		ErrSignedOut: ErrSignedOut,
+		Now:          func() time.Time { return p.Now() },
+	}
+
+	return p
+}
+
+// newClient returns a client of one of Amazon's services, sent as the launcher.
+func newClient(baseURL, ua string) *apiclient.Client {
+	c := apiclient.New(baseURL)
+	c.HTTP.Timeout = 30 * time.Second
+	c.UserAgent = ua
+
+	return c
 }
 
 // LinkedStore is the store this package links games to: the source sets the link on every copy it
@@ -237,51 +262,38 @@ func cleanCode(v string) string {
 	return strings.Trim(v, `"' `)
 }
 
-func hash(s string) string {
-	h := sha256.Sum256([]byte(s))
-	return hex.EncodeToString(h[:])
-}
-
 // ---- Amazon account ----
 
 // post sends a JSON request to the account API and decodes the answer into out. Amazon answers
 // rejected values with HTTP 400 "InvalidValue", reported as rejected (so are a 401 and a 403). A
 // 429 or an outage is a passing trouble, never "sign in again".
 func (p *Provider) post(ctx context.Context, path string, body, out any) (rejected bool, err error) {
-	raw, _ := json.Marshal(body)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.APIURL+path, bytes.NewReader(raw))
-	if err != nil {
-		return false, err
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "AGSLauncher/1.0.0")
-
-	res, err := p.Client.Do(req)
+	res, err := p.API.Send(ctx, apiclient.Request{
+		Method: http.MethodPost,
+		Path:   path,
+		Body:   body,
+	})
 	if err != nil {
 		return false, apiclient.ClassifyError(ctx, err)
 	}
-	defer res.Body.Close()
 
-	data, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
-	if apiclient.Rejected(res.StatusCode) {
+	switch {
+	case apiclient.Rejected(res.Status):
 		return true, nil
+	case !res.OK():
+		return false, fmt.Errorf("amazon sign-in: %w", apiclient.ClassifyStatus(res.Status))
 	}
 
-	if res.StatusCode != http.StatusOK {
-		return false, fmt.Errorf("amazon sign-in: %w", apiclient.ClassifyStatus(res.StatusCode))
-	}
-
-	if err := json.Unmarshal(data, out); err != nil {
+	if err := res.Decode(out); err != nil {
 		return false, errors.New("amazon sign-in: unexpected answer")
 	}
 
 	return false, nil
 }
 
-// register exchanges a code for a session, registering the device of the current sign-in link.
-func (p *Provider) register(ctx context.Context, code string) (session, string, time.Duration, error) {
+// register exchanges a code for a session, registering the device of the current sign-in link
+// (oauthsession.Sessions.Exchange).
+func (p *Provider) register(ctx context.Context, code string) (oauthsession.Grant[session], error) {
 	l := p.currentLogin()
 	body := map[string]any{
 		"auth_data": map[string]any{
@@ -313,12 +325,12 @@ func (p *Provider) register(ctx context.Context, code string) (session, string, 
 
 	rejected, err := p.post(ctx, "/auth/register", body, &out)
 	if err != nil {
-		return session{}, "", 0, err
+		return oauthsession.Grant[session]{}, err
 	}
 
 	b := out.Response.Success.Tokens.Bearer
 	if rejected || b.RefreshToken == "" {
-		return session{}, "", 0, ErrBadCode
+		return oauthsession.Grant[session]{}, ErrBadCode
 	}
 
 	// A registered device is used up: the next sign-in link registers a new one.
@@ -326,10 +338,41 @@ func (p *Provider) register(ctx context.Context, code string) (session, string, 
 	p.login = login{}
 	p.mu.Unlock()
 
-	return session{
-		RefreshToken: b.RefreshToken,
-		Serial:       l.serial,
-	}, b.AccessToken, time.Duration(b.ExpiresIn), nil
+	return oauthsession.Grant[session]{
+		Session: session{
+			RefreshToken: b.RefreshToken,
+			Serial:       l.serial,
+		},
+		AccessToken: b.AccessToken,
+		Lifetime:    time.Duration(b.ExpiresIn),
+	}, nil
+}
+
+// refresh gets a new access token for the session (oauthsession.Sessions.Refresh). The refresh
+// token does not rotate, so the session stays the same.
+func (p *Provider) refresh(ctx context.Context, s session) (oauthsession.Grant[session], error) {
+	var out struct {
+		AccessToken string    `json:"access_token"`
+		ExpiresIn   expiresIn `json:"expires_in"`
+	}
+
+	rejected, err := p.post(ctx, "/auth/token", map[string]string{
+		"source_token": s.RefreshToken, "source_token_type": "refresh_token", "requested_token_type": "access_token",
+		"app_name": appName, "app_version": appVersion,
+	}, &out)
+	if err != nil {
+		return oauthsession.Grant[session]{}, err
+	}
+
+	if rejected || out.AccessToken == "" {
+		return oauthsession.Grant[session]{}, ErrSignedOut
+	}
+
+	return oauthsession.Grant[session]{
+		Session:     s,
+		AccessToken: out.AccessToken,
+		Lifetime:    time.Duration(out.ExpiresIn),
+	}, nil
 }
 
 // expiresIn is Amazon's expires_in: a number of seconds, sent as a string by /auth/register and
@@ -351,99 +394,7 @@ func (e *expiresIn) UnmarshalJSON(b []byte) error {
 // Prepare implements sync.Preparer: a pasted code is exchanged for a session, which is stored
 // instead of the code (codes work once).
 func (p *Provider) Prepare(ctx context.Context, settings source.Settings) (source.Settings, error) {
-	out := source.Settings{}
-	maps.Copy(out, settings)
-
-	code := cleanCode(settings[settingCode])
-	delete(out, settingCode)
-
-	if code == "" || code == source.SecretPlaceholder {
-		if out[settingSession] == "" {
-			return nil, ErrNoSession
-		}
-
-		return out, nil
-	}
-
-	key := hash(code)
-
-	p.mu.Lock()
-	s, ok := p.pending[key]
-	p.mu.Unlock()
-
-	if !ok {
-		var (
-			access string
-			ttl    time.Duration
-			err    error
-		)
-
-		s, access, ttl, err = p.register(ctx, code)
-		if err != nil {
-			return nil, err
-		}
-
-		p.mu.Lock()
-		if p.pending == nil {
-			p.pending = map[string]session{}
-		}
-
-		p.pending[key] = s
-		p.remember(s.RefreshToken, access, ttl)
-		p.mu.Unlock()
-	}
-
-	raw, _ := json.Marshal(s)
-	out[settingSession] = string(raw)
-
-	return out, nil
-}
-
-// remember keeps an access token until shortly before it expires. The caller holds p.mu.
-func (p *Provider) remember(refresh, access string, ttl time.Duration) {
-	if p.tokens == nil {
-		p.tokens = map[string]token{}
-	}
-
-	p.tokens[refresh] = token{
-		access:  access,
-		expires: p.Now().Add(ttl - time.Minute),
-	}
-}
-
-// accessToken returns a current access token for the session, refreshing it when needed. fresh
-// skips the cached one (the entitlements service rejected it).
-func (p *Provider) accessToken(ctx context.Context, s session, fresh bool) (string, error) {
-	p.mu.Lock()
-	t, ok := p.tokens[s.RefreshToken]
-	p.mu.Unlock()
-
-	if ok && !fresh && p.Now().Before(t.expires) {
-		return t.access, nil
-	}
-
-	var out struct {
-		AccessToken string    `json:"access_token"`
-		ExpiresIn   expiresIn `json:"expires_in"`
-	}
-
-	rejected, err := p.post(ctx, "/auth/token", map[string]string{
-		"source_token": s.RefreshToken, "source_token_type": "refresh_token", "requested_token_type": "access_token",
-		"app_name": appName, "app_version": appVersion,
-	}, &out)
-	if err != nil {
-		return "", err
-	}
-
-	if rejected || out.AccessToken == "" {
-		return "", ErrSignedOut
-	}
-
-	p.mu.Lock()
-	p.remember(s.RefreshToken, out.AccessToken, time.Duration(out.ExpiresIn))
-	p.mu.Unlock()
-
-	return out.AccessToken, nil
+	return p.sessions.Prepare(ctx, settings)
 }
 
 // ---- Library ----
@@ -462,53 +413,44 @@ type entitlement struct {
 	} `json:"product"`
 }
 
-// errExpired means the entitlements service rejected the access token.
-var errExpired = errors.New("access token rejected")
+// errTokenRejected means the entitlements service refused the access token (HTTP 401 or 403): it
+// may have expired before its time. The sessions renew it once; only a refused refresh is signed
+// out.
+var errTokenRejected = fmt.Errorf("amazon rejected the access token: %w", apiclient.ErrTokenRejected)
 
 // page reads one page of entitlements.
 func (p *Provider) page(ctx context.Context, access, serial, next string) ([]entitlement, string, error) {
 	hw := sha256.Sum256([]byte(serial))
-	body, _ := json.Marshal(map[string]any{
-		"Operation": "GetEntitlements", "clientId": "Sonic", "syncPoint": nil, "nextToken": nilIfEmpty(next),
-		"maxResults": pageSize, "productIdFilter": nil, "keyId": keyID,
-		"hardwareHash": strings.ToUpper(hex.EncodeToString(hw[:])),
-	})
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.EntitlementsURL, bytes.NewReader(body))
-	if err != nil {
-		return nil, "", err
-	}
-
-	req.Header.Set("X-Amz-Target", "com.amazon.animusdistributionservice.entitlement.AnimusEntitlementsService.GetEntitlements")
-	req.Header.Set("x-amzn-token", access)
-	req.Header.Set("User-Agent", userAgent)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Content-Encoding", "amz-1.0")
-
-	res, err := p.Client.Do(req)
-	if err != nil {
-		return nil, "", err
-	}
-	defer res.Body.Close()
-
-	data, _ := io.ReadAll(io.LimitReader(res.Body, 16<<20))
-	if res.StatusCode == http.StatusUnauthorized || res.StatusCode == http.StatusForbidden {
-		return nil, "", errExpired
-	}
-
-	if res.StatusCode != http.StatusOK {
-		return nil, "", fmt.Errorf("amazon library: HTTP %d", res.StatusCode)
-	}
 
 	var out struct {
 		Entitlements []entitlement `json:"entitlements"`
 		NextToken    string        `json:"nextToken"`
 	}
-	if err := json.Unmarshal(data, &out); err != nil {
-		return nil, "", errors.New("amazon library: unexpected answer")
+
+	err := p.Gaming.Do(ctx, apiclient.Request{
+		Method: http.MethodPost,
+		Path:   "/api/distribution/entitlements",
+		Header: http.Header{
+			"X-Amz-Target":     {"com.amazon.animusdistributionservice.entitlement.AnimusEntitlementsService.GetEntitlements"},
+			"x-amzn-token":     {access},
+			"Content-Encoding": {"amz-1.0"},
+		},
+		Body: map[string]any{
+			"Operation": "GetEntitlements", "clientId": "Sonic", "syncPoint": nil, "nextToken": nilIfEmpty(next),
+			"maxResults": pageSize, "productIdFilter": nil, "keyId": keyID,
+			"hardwareHash": strings.ToUpper(hex.EncodeToString(hw[:])),
+		},
+	}, &out)
+
+	switch {
+	case err == nil:
+		return out.Entitlements, out.NextToken, nil
+	case apiclient.IsStatus(err, http.StatusUnauthorized, http.StatusForbidden):
+		return nil, "", errTokenRejected
 	}
 
-	return out.Entitlements, out.NextToken, nil
+	// A 429 or an outage is a passing trouble, never "sign in again".
+	return nil, "", fmt.Errorf("amazon library: %w", apiclient.ClassifyError(ctx, err))
 }
 
 func nilIfEmpty(s string) any {
@@ -546,24 +488,24 @@ func (p *Provider) all(ctx context.Context, access, serial string) ([]entitlemen
 
 // owned reads the account's games, renewing the access token once if it was rejected.
 func (p *Provider) owned(ctx context.Context, settings source.Settings) ([]entitlement, error) {
-	var s session
-	if json.Unmarshal([]byte(settings[settingSession]), &s) != nil || s.RefreshToken == "" {
-		return nil, ErrNoSession
+	s, err := p.sessions.Current(settings)
+	if err != nil {
+		return nil, err
 	}
 
-	for _, fresh := range []bool{false, true} {
-		access, err := p.accessToken(ctx, s, fresh)
-		if err != nil {
-			return nil, err
-		}
+	var items []entitlement
 
-		items, err := p.all(ctx, access, s.Serial)
-		if !errors.Is(err, errExpired) {
-			return items, err
-		}
+	err = p.sessions.WithRetry(ctx, settings, func(access string) error {
+		read, err := p.all(ctx, access, s.Serial)
+		items = read
+
+		return err
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	return nil, ErrSignedOut
+	return items, nil
 }
 
 // mapEntitlements turns entitlements into copies, one per product, and warns about products
@@ -603,6 +545,7 @@ func mapEntitlements(items []entitlement) ([]game.ImportedCopy, []string) {
 				Kind:     game.KindLibrary,
 				Platform: Platform,
 				Status:   game.StatusOwned,
+				Origin:   "Amazon Games",
 			},
 		})
 	}
