@@ -135,7 +135,7 @@ func (s *Store) Covers(ctx context.Context, q media.GameQuery, _ schema.Settings
 	}
 
 	if appID == 0 {
-		id, err := s.appIDByTitle(ctx, q.Title)
+		id, err := s.AppIDByTitle(ctx, q.Title)
 		if err != nil || id == 0 {
 			return nil, err
 		}
@@ -217,12 +217,12 @@ func modernEnough(q media.GameQuery) bool {
 	return false
 }
 
-// appIDByTitle returns the AppID of the only store app with q's title, 0 when there is none or
-// several, for a cover. MatchKey alone would take "Mafia: Definitive Edition" for "Mafia", so an
+// AppIDByTitle returns the AppID of the only store app with the title, 0 when there is none or
+// several, for a cover (Battle.net's covers use it too). MatchKey alone would take "Mafia: Definitive Edition" for "Mafia", so an
 // exact title wins first. This AppID only finds a cover and is not written as the game's link;
 // FindLinks, whose AppID is saved, accepts exact titles only. An answer that says nothing about the game (429, 5xx, no connection) counts as
 // rate-limited, so the edition is not marked missing for days.
-func (s *Store) appIDByTitle(ctx context.Context, title string) (int64, error) {
+func (s *Store) AppIDByTitle(ctx context.Context, title string) (int64, error) {
 	// The store names the game, not the edition a key is ("… GOTY"): its name is searched first. When
 	// that finds no single match and stripping changed the title ("Gold Rush!" became "Rush!"), the
 	// raw title gets a second chance. Results are always compared with the full title.
