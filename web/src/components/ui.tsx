@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LANGUAGES } from '../i18n';
+import { copyText } from '../lib/clipboard';
 import { Icon } from './Icon';
 import { useEscape } from './useEscape';
 
@@ -42,21 +43,34 @@ export function KeyCell({ value }: { value: string }) {
   const { t } = useTranslation();
   const [shown, setShown] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [failed, setFailed] = useState(false);
   if (!value) return <span className="muted">—</span>;
   if (value.startsWith('http')) {
     return <a href={value} target="_blank" rel="noreferrer">{t('copy.giftLink')}</a>;
   }
+  // On plain http over the network the browser hides the Clipboard API and `copyText` falls back
+  // to the legacy command; when that fails too, the key is revealed so it can be copied by hand.
   const copy = async () => {
-    await navigator.clipboard.writeText(value);
+    const ok = await copyText(value);
+    setFailed(!ok);
+    if (!ok) {
+      setShown(true);
+      return;
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 1200);
   };
+  const toggleLabel = shown ? t('copy.hideKey') : t('copy.showKey');
+  const copyLabel = copied ? t('copy.keyCopied') : t('copy.copyKey');
   return (
-    <span className="keycell" onClick={(e) => e.stopPropagation()}>
-      <code>{shown ? value : value.replace(/[A-Za-z0-9]/g, '•')}</code>
-      <button className="icon" title={shown ? t('copy.hideKey') : t('copy.showKey')} onClick={() => setShown(!shown)}>{shown ? '🙈' : '👁'}</button>
-      <button className="icon" title={t('copy.copyKey')} onClick={copy}>{copied ? '✓' : '⧉'}</button>
-    </span>
+    <>
+      <span className="keycell" onClick={(e) => e.stopPropagation()}>
+        <code>{shown ? value : value.replace(/[A-Za-z0-9]/g, '•')}</code>
+        <button className="icon" title={toggleLabel} aria-label={toggleLabel} onClick={() => setShown(!shown)}>{shown ? '🙈' : '👁'}</button>
+        <button className="icon" title={copyLabel} aria-label={copyLabel} onClick={copy}>{copied ? '✓' : '⧉'}</button>
+      </span>
+      <span className="keycell-status small danger" role="status">{failed ? t('copy.copyFailed') : ''}</span>
+    </>
   );
 }
 

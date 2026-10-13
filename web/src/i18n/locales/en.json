@@ -196,6 +196,8 @@
     "showKey": "Show key",
     "hideKey": "Hide key",
     "copyKey": "Copy to clipboard",
+    "keyCopied": "Copied",
+    "copyFailed": "Couldn't copy the key here. Select it and copy it by hand.",
     "move": "Move to another game",
     "moveTitle": "Move copy to…",
     "confirmDelete": "Delete this copy?",
