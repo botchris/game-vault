@@ -52,7 +52,6 @@ var sentinels = map[string]struct {
 	"domain/game.ErrCopyNotFound":    {game.ErrCopyNotFound, connect.CodeNotFound},
 	"domain/game.ErrPhotoNotFound":   {game.ErrPhotoNotFound, connect.CodeNotFound},
 	"domain/game.ErrEditionNotFound": {game.ErrEditionNotFound, connect.CodeNotFound},
-	"domain/game.ErrInvalidBarcode":  {game.ErrInvalidBarcode, connect.CodeInvalidArgument},
 	"domain/provider.ErrNotFound":    {provider.ErrNotFound, connect.CodeNotFound},
 	"domain/provider.ErrRateLimited": {provider.ErrRateLimited, connect.CodeUnavailable},
 	"domain/provider.ErrQuotaExhausted": {
@@ -74,6 +73,7 @@ var sentinels = map[string]struct {
 	"application/media.ErrNoEdition":              {media.ErrNoEdition, connect.CodeNotFound},
 	"application/providers.ErrUnknownProvider":    {providers.ErrUnknownProvider, connect.CodeNotFound},
 	"application/media.ErrUnknownStore":           {media.ErrUnknownStore, connect.CodeNotFound},
+	"application/media.ErrInvalidBarcode":         {media.ErrInvalidBarcode, connect.CodeInvalidArgument},
 	"application/media.ErrInvalidPhoto":           {media.ErrInvalidPhoto, connect.CodeInvalidArgument},
 	"application/ownership.ErrTooManyItems":       {ownership.ErrTooManyItems, connect.CodeInvalidArgument},
 	"application/sync.ErrNotImported":             {sync.ErrNotImported, connect.CodeFailedPrecondition},

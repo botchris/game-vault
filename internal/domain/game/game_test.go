@@ -145,6 +145,34 @@ func TestParseBarcode(t *testing.T) {
 	}
 }
 
+func TestGame_CopyWithBarcode_cannotChangeTheGame(t *testing.T) {
+	t.Run("GIVEN a disc with a barcode and a photo", func(t *testing.T) {
+		g, err := New("Example West", t0)
+		require.NoError(t, err)
+
+		disc, err := g.AddCopy(CopyDetails{
+			Kind:     KindPhysical,
+			Platform: "Xbox 360",
+			Barcode:  "2001234567893",
+		}, t0)
+		require.NoError(t, err)
+
+		_, err = g.AddPhotos(disc.ID, []Photo{{ID: pid(1)}}, t0)
+		require.NoError(t, err)
+
+		t.Run("WHEN the copy found by its barcode is changed", func(t *testing.T) {
+			c, ok := g.CopyWithBarcode("2001234567893")
+			require.True(t, ok)
+
+			c.Photos[0].Caption = "changed behind the game's back"
+
+			t.Run("THEN the game's copy is unchanged", func(t *testing.T) {
+				assert.Empty(t, g.Copies()[0].Photos[0].Caption)
+			})
+		})
+	})
+}
+
 func TestGame_playStatusAndRating(t *testing.T) {
 	t.Run("GIVEN a game without play status or rating", func(t *testing.T) {
 		g, err := New("Hollow Knight", t0)

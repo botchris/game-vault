@@ -122,9 +122,6 @@ var (
 	// ErrEditionNotFound means the game has no copy on the system asked for: the page is stale.
 	// Like an unknown id, it is NotFound.
 	ErrEditionNotFound = errkind.New(errkind.NotFound, "this game has no copy on that system; reload the page")
-
-	// ErrInvalidBarcode wraps barcode input errors that are not an errkind.ValidationError.
-	ErrInvalidBarcode = errkind.New(errkind.Invalid, "invalid barcode")
 )
 
 func invalid(format string, args ...any) error { return errkind.Invalidf(format, args...) }
