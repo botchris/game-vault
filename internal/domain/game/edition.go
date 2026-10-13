@@ -305,7 +305,7 @@ func (g *Game) BorrowsPCBox() bool {
 	}
 
 	links := g.links
-	if slices.ContainsFunc(g.copies, func(c Copy) bool { return isXbox(c.System()) }) {
+	if slices.ContainsFunc(g.copies, func(c Copy) bool { return IsXboxSystem(c.System()) }) {
 		links = maps.Clone(g.links)
 		delete(links, LinkXbox)
 	}

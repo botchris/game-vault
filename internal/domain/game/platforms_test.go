@@ -1,6 +1,8 @@
 package game
 
 import (
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -111,4 +113,16 @@ func TestIsPCStoreLink(t *testing.T) {
 	for _, key := range []string{"psn", "igdb", "", "Steam"} {
 		assert.False(t, IsPCStoreLink(key), key)
 	}
+}
+
+// TestIsXboxSystem checks that the Xbox consoles agree, on every system Game Vault knows, with the
+// "Xbox" prefix BorrowsPCBox matched before (the Microsoft Store cover provider had this list).
+func TestIsXboxSystem(t *testing.T) {
+	for _, p := range KnownPlatforms() {
+		s := SystemOf(p)
+		assert.Equal(t, strings.HasPrefix(s, "Xbox"), IsXboxSystem(s), s)
+	}
+
+	assert.Equal(t, []string{"Xbox Series", "Xbox One", "Xbox 360", "Xbox"},
+		slices.DeleteFunc(Consoles(), func(c string) bool { return !IsXboxSystem(c) }))
 }

@@ -3,7 +3,6 @@ package xbox
 import (
 	"context"
 	"fmt"
-	"slices"
 	"strings"
 	"time"
 
@@ -62,16 +61,10 @@ func (c *Covers) ImageHosts() []string { return []string{"store-images.s-microso
 // LinkStore implements media.StoreLinker.
 func (c *Covers) LinkStore() game.Store { return LinkedStore }
 
-// xboxSystems are the consoles whose games the Microsoft Store catalog has art for.
-var xboxSystems = []string{game.SystemXboxSeries, game.SystemXboxOne, game.SystemXbox360, game.SystemXbox}
-
-// IsXboxSystem reports whether system is an Xbox console.
-func IsXboxSystem(system string) bool { return slices.Contains(xboxSystems, system) }
-
 // Applies reports whether the game is linked to the Microsoft Store and the query is for its PC
 // edition, an Xbox edition, or names no system.
 func (c *Covers) Applies(q media.CoverQuery) bool {
-	return (q.ForPC() || IsXboxSystem(q.System)) && q.Links[LinkedStore.Key] != ""
+	return (q.ForPC() || game.IsXboxSystem(q.System)) && q.Links[LinkedStore.Key] != ""
 }
 
 // imagePurposes ranks the Store's images: portrait poster first, square box art next.

@@ -148,7 +148,7 @@ extension update: discuss it first.
 - `Applies(q)` decides from the query alone, without network: `q.Links[LinkedStore.Key]`,
   `q.Platforms`, `q.PhysicalPlatforms`. `q.System` is the edition's system (`""` when the query
   names none): a store provider applies only when `q.ForPC()`; a console catalog checks the system
-  (see `xbox.IsXboxSystem`). A title search filters to `q.SearchSystems()` and searches the terms
+  (see `game.IsXboxSystem`). A title search filters to `q.SearchSystems()` and searches the terms
   of `game.SearchTerms(q.Title)` in order (the game's name, then the raw title); a table mapping
   systems to the service's own ids is keyed by the `game.System…` constants and checked against
   `game.Consoles()` in a test. A provider with a monthly quota also checks

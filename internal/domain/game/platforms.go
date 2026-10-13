@@ -93,7 +93,7 @@ const (
 	// SystemXbox360 is the Xbox 360.
 	SystemXbox360 = "Xbox 360"
 
-	// SystemXbox is the original Xbox. Every Xbox system's name starts with it (see isXbox).
+	// SystemXbox is the original Xbox (see IsXboxSystem for the whole family).
 	SystemXbox = "Xbox"
 
 	// SystemSwitch is the Nintendo Switch.
@@ -291,5 +291,9 @@ func IsPCStoreLink(key string) bool {
 	})
 }
 
-// isXbox reports whether system is one of the Xbox consoles.
-func isXbox(system string) bool { return strings.HasPrefix(system, SystemXbox) }
+// xboxSystems are the Xbox consoles. The Microsoft Store sells their games under the same ids as PC
+// ones (see Game.BorrowsPCBox) and has art for them.
+var xboxSystems = []string{SystemXboxSeries, SystemXboxOne, SystemXbox360, SystemXbox}
+
+// IsXboxSystem reports whether system is one of the Xbox consoles.
+func IsXboxSystem(system string) bool { return slices.Contains(xboxSystems, system) }
