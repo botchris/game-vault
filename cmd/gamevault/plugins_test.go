@@ -24,7 +24,6 @@ import (
 	"gamevault/internal/adapters/outbound/xbox"
 	"gamevault/internal/application/media"
 	"gamevault/internal/application/plugin/plugintest"
-	"gamevault/internal/application/sync"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 )
@@ -250,12 +249,13 @@ func TestPlugins_linkKeysAreTheDomains(t *testing.T) {
 		plugins, err := newPlugins(slog.New(slog.NewTextHandler(io.Discard, nil)))
 		require.NoError(t, err)
 
-		var linkers []any
+		m := plugins.Media()
+		linkers := make([]any, 0, len(plugins.Sources())+len(m.Covers)+len(m.Metadata)+len(m.Barcodes)+len(m.Valuations))
+
 		for _, s := range plugins.Sources() {
 			linkers = append(linkers, s)
 		}
 
-		m := plugins.Media()
 		for _, p := range m.Covers {
 			linkers = append(linkers, p)
 		}
@@ -276,20 +276,16 @@ func TestPlugins_linkKeysAreTheDomains(t *testing.T) {
 			seen := 0
 
 			for _, l := range linkers {
-				var store game.Store
-
-				switch l := l.(type) {
-				case sync.StoreLinker:
-					store = l.LinkStore()
-				case media.StoreLinker:
-					store = l.LinkStore()
-				default:
+				// sync.StoreLinker and media.StoreLinker are the same method set.
+				linker, ok := l.(interface{ LinkStore() game.Store })
+				if !ok {
 					continue
 				}
 
 				seen++
 
-				assert.Contains(t, game.StoreLinks(), store.Key, "%T links to %q", l, store.Key)
+				key := linker.LinkStore().Key
+				assert.Contains(t, game.StoreLinks(), key, "%T links to %q", l, key)
 			}
 
 			assert.NotZero(t, seen)
