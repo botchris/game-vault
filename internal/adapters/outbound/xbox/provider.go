@@ -24,6 +24,7 @@ import (
 
 	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/adapters/outbound/oauthsession"
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
@@ -60,14 +61,14 @@ var LoginURL = defaultLiveURL + "/oauth20_authorize.srf?" + url.Values{
 }.Encode()
 
 var (
-	// ErrNoSession means there is neither a stored session nor a code to start one.
-	ErrNoSession = errors.New("xbox: paste the address of the page Microsoft opens after signing in (see the help below the field)")
+	// ErrNoCredentials means there is neither a stored session nor a code to start one.
+	ErrNoCredentials = errkind.New(errkind.Invalid, "xbox: paste the address of the page Microsoft opens after signing in (see the help below the field)")
 
 	// ErrBadCode means Microsoft rejected the code.
-	ErrBadCode = errors.New("microsoft rejected the code: codes work once and expire within minutes, open the login link again and paste the new address")
+	ErrBadCode = errkind.New(errkind.Invalid, "microsoft rejected the code: codes work once and expire within minutes, open the login link again and paste the new address")
 
-	// ErrSessionExpired means the stored session can no longer be refreshed.
-	ErrSessionExpired = source.SignedOut("the Microsoft session expired: open the login link and paste a new address")
+	// ErrSignedOut means the stored session can no longer be refreshed.
+	ErrSignedOut = source.SignedOut("the Microsoft session expired: open the login link and paste a new address")
 
 	reCode = regexp.MustCompile(`[?&#]code=([^&#\s"]+)`)
 )
@@ -120,15 +121,15 @@ func NewProvider() *Provider {
 		Now:         time.Now,
 	}
 	p.sessions = &oauthsession.Sessions[session]{
-		CodeField:    settingCode,
-		StateField:   settingSession,
-		Clean:        func(v string) (string, error) { return cleanCode(v), nil },
-		Exchange:     p.exchange,
-		Refresh:      p.refresh,
-		RefreshToken: func(s session) string { return s.RefreshToken },
-		ErrNoSession: ErrNoSession,
-		ErrSignedOut: ErrSessionExpired,
-		Now:          func() time.Time { return p.Now() },
+		CodeField:        settingCode,
+		StateField:       settingSession,
+		Clean:            func(v string) (string, error) { return cleanCode(v), nil },
+		Exchange:         p.exchange,
+		Refresh:          p.refresh,
+		RefreshToken:     func(s session) string { return s.RefreshToken },
+		ErrNoCredentials: ErrNoCredentials,
+		ErrSignedOut:     ErrSignedOut,
+		Now:              func() time.Time { return p.Now() },
 	}
 
 	return p
@@ -267,7 +268,7 @@ func (p *Provider) live(ctx context.Context, form url.Values) (liveToken, error)
 		}
 
 		if apiclient.Rejected(res.Status) {
-			return liveToken{}, ErrSessionExpired
+			return liveToken{}, ErrSignedOut
 		}
 
 		return liveToken{}, fmt.Errorf("microsoft sign-in: %w", apiclient.ClassifyStatus(res.Status))

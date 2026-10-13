@@ -190,7 +190,7 @@ func TestSignIn_registersTheLinkDevice(t *testing.T) {
 			_, err := p.Prepare(ctx, source.Settings{})
 
 			t.Run("THEN it asks for the address", func(t *testing.T) {
-				assert.ErrorIs(t, err, ErrNoSession)
+				assert.ErrorIs(t, err, ErrNoCredentials)
 			})
 		})
 	})

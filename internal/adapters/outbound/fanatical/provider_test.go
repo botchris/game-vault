@@ -129,7 +129,7 @@ func TestFetch_readsTheKeys(t *testing.T) {
 			err := p.Test(ctx, source.Settings{settingConsent: schema.ConsentGiven, settingSession: "  "})
 
 			t.Run("THEN it says what to paste, without asking Fanatical", func(t *testing.T) {
-				assert.ErrorIs(t, err, ErrNoSession)
+				assert.ErrorIs(t, err, ErrNoCredentials)
 			})
 		})
 	})

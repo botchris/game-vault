@@ -206,7 +206,7 @@ func TestPrepareErrors(t *testing.T) {
 	p, _ := newTestProvider(t)
 
 	ctx := context.Background()
-	if _, err := p.Prepare(ctx, source.Settings{}); !errors.Is(err, ErrNoSession) {
+	if _, err := p.Prepare(ctx, source.Settings{}); !errors.Is(err, ErrNoCredentials) {
 		t.Errorf("no code and no session: %v", err)
 	}
 
@@ -220,7 +220,7 @@ func TestPrepareErrors(t *testing.T) {
 	}
 	// An unknown refresh token means the session expired.
 	_, _, err = p.Fetch(ctx, source.Settings{settingSession: `{"refresh_token":"stale","account_id":"acc9"}`})
-	if !errors.Is(err, ErrSessionExpired) {
+	if !errors.Is(err, ErrSignedOut) {
 		t.Errorf("stale session: %v", err)
 	}
 }

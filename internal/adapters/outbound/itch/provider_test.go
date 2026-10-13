@@ -165,14 +165,14 @@ func TestProvider_errors(t *testing.T) {
 		})
 
 		t.Run("WHEN no key is set THEN it asks for one without calling the API", func(t *testing.T) {
-			assert.ErrorIs(t, p.Test(ctx, source.Settings{settingAPIKey: "  "}), ErrNoKey)
+			assert.ErrorIs(t, p.Test(ctx, source.Settings{settingAPIKey: "  "}), ErrNoCredentials)
 		})
 
 		t.Run("WHEN itch.io rejects the key THEN it says to create a new one", func(t *testing.T) {
-			assert.ErrorIs(t, p.Test(ctx, source.Settings{settingAPIKey: "revoked-key"}), ErrBadKey)
+			assert.ErrorIs(t, p.Test(ctx, source.Settings{settingAPIKey: "revoked-key"}), ErrSignedOut)
 
 			_, _, err := p.Fetch(ctx, source.Settings{settingAPIKey: "revoked-key"})
-			assert.ErrorIs(t, err, ErrBadKey)
+			assert.ErrorIs(t, err, ErrSignedOut)
 		})
 
 		t.Run("WHEN itch.io answers 200 with an errors list THEN the scan fails with its message", func(t *testing.T) {

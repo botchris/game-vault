@@ -27,6 +27,7 @@ import (
 	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/adapters/outbound/browsersession"
 	"gamevault/internal/adapters/outbound/oauthsession"
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
@@ -63,8 +64,8 @@ var purchasedQueryHashes = []string{
 }
 
 var (
-	// ErrNoNPSSO means nothing usable was pasted.
-	ErrNoNPSSO = errors.New("playstation: paste the NPSSO token (sign in on playstation.com, then open the page in the help)")
+	// ErrNoCredentials means nothing usable was pasted.
+	ErrNoCredentials = errkind.New(errkind.Invalid, "playstation: paste the NPSSO token (sign in on playstation.com, then open the page in the help)")
 
 	// ErrSignedOut means Sony no longer accepts the NPSSO token.
 	ErrSignedOut = source.SignedOut("playstation did not accept the NPSSO token: sign in again on playstation.com and paste a new one")
@@ -132,15 +133,15 @@ func NewProvider(log *slog.Logger) *Provider {
 		Log:      log,
 	}
 	p.sessions = &oauthsession.Sessions[session]{
-		CodeField:    settingNPSSO,
-		StateField:   settingSession,
-		Clean:        func(v string) (string, error) { return cleanNPSSO(v), nil },
-		Exchange:     p.exchange,
-		Refresh:      p.refresh,
-		RefreshToken: func(s session) string { return s.RefreshToken },
-		ErrNoSession: ErrNoNPSSO,
-		ErrSignedOut: ErrSignedOut,
-		Now:          func() time.Time { return p.Now() },
+		CodeField:        settingNPSSO,
+		StateField:       settingSession,
+		Clean:            func(v string) (string, error) { return cleanNPSSO(v), nil },
+		Exchange:         p.exchange,
+		Refresh:          p.refresh,
+		RefreshToken:     func(s session) string { return s.RefreshToken },
+		ErrNoCredentials: ErrNoCredentials,
+		ErrSignedOut:     ErrSignedOut,
+		Now:              func() time.Time { return p.Now() },
 	}
 
 	return p

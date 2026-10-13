@@ -109,7 +109,7 @@ func TestSource(t *testing.T) {
 
 	t.Run("GIVEN no token", func(t *testing.T) {
 		t.Run("THEN nothing is asked to the store", func(t *testing.T) {
-			assert.ErrorIs(t, p.Test(ctx, source.Settings{}), ErrNoToken)
+			assert.ErrorIs(t, p.Test(ctx, source.Settings{}), ErrNoCredentials)
 		})
 	})
 }

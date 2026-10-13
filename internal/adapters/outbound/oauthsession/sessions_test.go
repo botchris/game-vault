@@ -154,15 +154,15 @@ func (c *clock) advance(d time.Duration) {
 
 func newSessions(st *store, c *clock) *oauthsession.Sessions[session] {
 	return &oauthsession.Sessions[session]{
-		CodeField:    "code",
-		StateField:   "session",
-		Clean:        func(v string) (string, error) { return strings.Trim(v, `"' `), nil },
-		Exchange:     st.exchange,
-		Refresh:      st.refresh,
-		RefreshToken: func(s session) string { return s.RefreshToken },
-		ErrNoSession: errNoSession,
-		ErrSignedOut: errExpired,
-		Now:          c.Now,
+		CodeField:        "code",
+		StateField:       "session",
+		Clean:            func(v string) (string, error) { return strings.Trim(v, `"' `), nil },
+		Exchange:         st.exchange,
+		Refresh:          st.refresh,
+		RefreshToken:     func(s session) string { return s.RefreshToken },
+		ErrNoCredentials: errNoSession,
+		ErrSignedOut:     errExpired,
+		Now:              c.Now,
 	}
 }
 

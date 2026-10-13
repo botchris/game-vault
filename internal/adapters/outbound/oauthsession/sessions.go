@@ -13,7 +13,7 @@
 //	sessions := &oauthsession.Sessions[session]{
 //		CodeField: settingCode, StateField: settingSession, Clean: cleanCode,
 //		Exchange: p.exchange, Refresh: p.refresh, RefreshToken: func(s session) string { return s.RefreshToken },
-//		ErrNoSession: ErrNoSession, ErrSignedOut: ErrSessionExpired,
+//		ErrNoCredentials: ErrNoCredentials, ErrSignedOut: ErrSignedOut,
 //	}
 //	func (p *Provider) Prepare(ctx, settings) (source.Settings, error) { return p.sessions.Prepare(ctx, settings) }
 //	err := p.sessions.WithRetry(ctx, settings, func(token string) error { … }) // 401 → apiclient.ErrTokenRejected
@@ -94,8 +94,8 @@ type Sessions[S any] struct {
 	// RefreshToken returns the session's refresh token, which identifies it.
 	RefreshToken func(session S) string
 
-	// ErrNoSession is returned when there is neither a code nor a stored session.
-	ErrNoSession error
+	// ErrNoCredentials is returned when there is neither a code nor a stored session.
+	ErrNoCredentials error
 
 	// ErrSignedOut is returned when the store refuses even a renewed access token.
 	ErrSignedOut error
@@ -139,7 +139,7 @@ type successor[S any] struct {
 
 // Prepare implements sync.Preparer for the source: a pasted code is exchanged for a session, which
 // is stored in StateField instead of the code (codes work once). Without a new code (none, or the
-// UI's placeholder) the stored session is kept, or ErrNoSession returned when there is none.
+// UI's placeholder) the stored session is kept, or ErrNoCredentials returned when there is none.
 // Preparing a code exchanged within CodeTTL reuses its session.
 func (s *Sessions[S]) Prepare(ctx context.Context, settings source.Settings) (source.Settings, error) {
 	out := maps.Clone(settings)
@@ -156,7 +156,7 @@ func (s *Sessions[S]) Prepare(ctx context.Context, settings source.Settings) (so
 
 	if code == "" || code == source.SecretPlaceholder {
 		if out[s.StateField] == "" {
-			return nil, s.ErrNoSession
+			return nil, s.ErrNoCredentials
 		}
 
 		return out, nil
@@ -215,14 +215,14 @@ func (s *Sessions[S]) Token(ctx context.Context, settings source.Settings) (stri
 	}
 }
 
-// Current returns the session stored in settings, or ErrNoSession when there is none (or it has
+// Current returns the session stored in settings, or ErrNoCredentials when there is none (or it has
 // no refresh token).
 func (s *Sessions[S]) Current(settings source.Settings) (S, error) {
 	var session S
 
 	raw := settings[s.StateField]
 	if raw == "" || json.Unmarshal([]byte(raw), &session) != nil || s.RefreshToken(session) == "" {
-		return session, s.ErrNoSession
+		return session, s.ErrNoCredentials
 	}
 
 	return session, nil

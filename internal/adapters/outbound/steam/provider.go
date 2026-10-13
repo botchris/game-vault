@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"gamevault/internal/adapters/outbound/apiclient"
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/source"
 )
@@ -30,7 +31,17 @@ var (
 	reSteamID64  = regexp.MustCompile(`^7656\d{13}$`)
 
 	// ErrPrivateProfile means Steam returned no games, almost always because of privacy settings.
-	ErrPrivateProfile = errors.New("steam returned no games: set 'Game details' to Public in your profile privacy settings")
+	ErrPrivateProfile = errkind.New(errkind.Precondition, "steam returned no games: set 'Game details' to Public in your profile privacy settings")
+
+	// ErrNoCredentials means the settings have no Web API key.
+	ErrNoCredentials = errkind.New(errkind.Invalid, "steam: paste a Web API key (create one at steamcommunity.com/dev/apikey)")
+
+	// ErrSignedOut means Steam rejected the Web API key (HTTP 401 or 403). The user must act (a new
+	// key): like a sign-out, it is an error in System → Health.
+	ErrSignedOut = source.SignedOut("steam rejected the API key: create a new one at steamcommunity.com/dev/apikey and paste it")
+
+	// ErrProfileNotFound means Steam knows no profile with that custom URL name.
+	ErrProfileNotFound = errkind.New(errkind.Invalid, "steam has no profile with that name: check the profile URL or SteamID64 in the settings")
 )
 
 // Provider implements sync.Provider for Steam libraries.
@@ -74,6 +85,9 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 // Fetch implements sync.Provider.
 func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.ImportedCopy, []string, error) {
 	key := strings.TrimSpace(settings[settingAPIKey])
+	if key == "" {
+		return nil, nil, ErrNoCredentials
+	}
 
 	id, err := p.resolveSteamID(ctx, key, settings[settingProfile])
 	if err != nil {
@@ -128,6 +142,9 @@ func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.
 // details. It checks the key, the profile and that "Game details" are public.
 func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
 	key := strings.TrimSpace(settings[settingAPIKey])
+	if key == "" {
+		return ErrNoCredentials
+	}
 
 	id, err := p.resolveSteamID(ctx, key, settings[settingProfile])
 	if err != nil {
@@ -172,7 +189,7 @@ func (p *Provider) resolveSteamID(ctx context.Context, key, profile string) (str
 	}
 
 	if out.Response.Success != 1 {
-		return "", fmt.Errorf("steam profile %q not found", profile)
+		return "", fmt.Errorf("%w (%q)", ErrProfileNotFound, profile)
 	}
 
 	return out.Response.SteamID, nil
@@ -187,8 +204,7 @@ func (p *Provider) get(ctx context.Context, path string, q url.Values, out any) 
 	}
 
 	if se.Status == http.StatusUnauthorized || se.Status == http.StatusForbidden {
-		// The user must act (a new key): like a sign-out, it is an error in System → Health.
-		return source.SignedOut(fmt.Sprintf("steam rejected the API key (HTTP %d): create a new one at steamcommunity.com/dev/apikey and paste it", se.Status))
+		return ErrSignedOut
 	}
 
 	return fmt.Errorf("steam %s: HTTP %d", path, se.Status)

@@ -129,7 +129,7 @@ func TestSignedOut(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 
-	if err := p.Test(context.Background(), source.Settings{settingCookies: " "}); !errors.Is(err, ErrNoCookies) {
+	if err := p.Test(context.Background(), source.Settings{settingCookies: " "}); !errors.Is(err, ErrNoCredentials) {
 		t.Fatalf("no cookies: %v", err)
 	}
 }

@@ -5,7 +5,6 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -14,6 +13,7 @@ import (
 	"strings"
 
 	"gamevault/internal/adapters/outbound/apiclient"
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
@@ -38,11 +38,11 @@ const (
 )
 
 var (
-	// ErrNoKey means the API key setting is empty.
-	ErrNoKey = errors.New("itch.io: paste an API key (see the help below the field)")
+	// ErrNoCredentials means the API key setting is empty.
+	ErrNoCredentials = errkind.New(errkind.Invalid, "itch.io: paste an API key (see the help below the field)")
 
-	// ErrBadKey means itch.io rejected the key.
-	ErrBadKey = source.SignedOut("itch.io did not accept the API key: create a new one in your itch.io settings (API keys) and paste it")
+	// ErrSignedOut means itch.io rejected the key.
+	ErrSignedOut = source.SignedOut("itch.io did not accept the API key: create a new one in your itch.io settings (API keys) and paste it")
 )
 
 // Provider implements sync.Provider for itch.io accounts.
@@ -155,7 +155,7 @@ func (l *keyList) UnmarshalJSON(b []byte) error {
 func (p *Provider) ownedKeys(ctx context.Context, settings source.Settings, n, size int) ([]ownedKey, error) {
 	key := strings.TrimSpace(settings[settingAPIKey])
 	if key == "" {
-		return nil, ErrNoKey
+		return nil, ErrNoCredentials
 	}
 
 	var out page
@@ -169,7 +169,7 @@ func (p *Provider) ownedKeys(ctx context.Context, settings source.Settings, n, s
 		Header: http.Header{"Authorization": {"Bearer " + key}},
 	}, &out)
 	if apiclient.IsStatus(err, http.StatusUnauthorized, http.StatusForbidden) {
-		return nil, ErrBadKey
+		return nil, ErrSignedOut
 	}
 
 	if err != nil {

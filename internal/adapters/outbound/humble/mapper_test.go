@@ -167,8 +167,8 @@ func TestFetchAgainstFakeServer(t *testing.T) {
 		t.Fatalf("fetch: %d copies, err %v", len(copies), err)
 	}
 
-	if _, _, err := p.Fetch(ctx, source.Settings{settingSession: "bad"}); err != ErrUnauthorized {
-		t.Fatalf("expected ErrUnauthorized, got %v", err)
+	if _, _, err := p.Fetch(ctx, source.Settings{settingSession: "bad"}); err != ErrSignedOut {
+		t.Fatalf("expected ErrSignedOut, got %v", err)
 	}
 
 	// An outage is a passing trouble, never "copy the cookie again".

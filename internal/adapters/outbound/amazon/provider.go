@@ -30,6 +30,7 @@ import (
 
 	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/adapters/outbound/oauthsession"
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
@@ -67,11 +68,11 @@ const (
 )
 
 var (
-	// ErrNoSession means there is neither a stored session nor a code to start one.
-	ErrNoSession = errors.New("amazon: open the sign-in link, sign in and paste the address of the amazon.com page you land on (see the help below the field)")
+	// ErrNoCredentials means there is neither a stored session nor a code to start one.
+	ErrNoCredentials = errkind.New(errkind.Invalid, "amazon: open the sign-in link, sign in and paste the address of the amazon.com page you land on (see the help below the field)")
 
 	// ErrBadCode means Amazon rejected the code.
-	ErrBadCode = errors.New("amazon rejected the code: it works once, expires within minutes and only with the sign-in link of this Game Vault since it last started. Reload the page, open the sign-in link again and paste the new address")
+	ErrBadCode = errkind.New(errkind.Invalid, "amazon rejected the code: it works once, expires within minutes and only with the sign-in link of this Game Vault since it last started. Reload the page, open the sign-in link again and paste the new address")
 
 	// ErrSignedOut means the stored session can no longer be used.
 	ErrSignedOut = source.SignedOut("the Amazon session is no longer valid (the Game Vault device may have been removed from your Amazon account): open the sign-in link and paste a new address")
@@ -132,10 +133,10 @@ func NewProvider() *Provider {
 		Exchange:   p.register,
 		Refresh:    p.refresh,
 		// The refresh token does not rotate: it identifies the session for as long as it lives.
-		RefreshToken: func(s session) string { return s.RefreshToken },
-		ErrNoSession: ErrNoSession,
-		ErrSignedOut: ErrSignedOut,
-		Now:          func() time.Time { return p.Now() },
+		RefreshToken:     func(s session) string { return s.RefreshToken },
+		ErrNoCredentials: ErrNoCredentials,
+		ErrSignedOut:     ErrSignedOut,
+		Now:              func() time.Time { return p.Now() },
 	}
 
 	return p

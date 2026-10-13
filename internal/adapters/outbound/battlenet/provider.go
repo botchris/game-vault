@@ -19,6 +19,7 @@ import (
 
 	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/adapters/outbound/browsersession"
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
@@ -41,8 +42,8 @@ const (
 )
 
 var (
-	// ErrNoCookies means nothing usable was pasted.
-	ErrNoCookies = errors.New("battle.net: paste the cookies of account.battle.net (see the help below the field)")
+	// ErrNoCredentials means nothing usable was pasted.
+	ErrNoCredentials = errkind.New(errkind.Invalid, "battle.net: paste the cookies of account.battle.net (see the help below the field)")
 
 	// ErrSignedOut means Battle.net no longer accepts the cookies.
 	ErrSignedOut = source.SignedOut("battle.net did not accept the cookies: sign in again on account.battle.net and paste them again")
@@ -115,7 +116,7 @@ func (p *Provider) Descriptor() source.TypeDescriptor {
 func (p *Provider) getJSON(ctx context.Context, settings source.Settings, path string, out any) error {
 	c := browsersession.Current(settings[settingCookies], settings[settingSession])
 	if len(c) == 0 {
-		return ErrNoCookies
+		return ErrNoCredentials
 	}
 
 	sess, err := browsersession.New(p.Account.BaseURL, "battle.net", c, p.Account.HTTP.Timeout)

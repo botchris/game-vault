@@ -2,7 +2,6 @@ package example
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -10,6 +9,7 @@ import (
 	"strings"
 
 	"gamevault/internal/adapters/outbound/apiclient"
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
@@ -27,8 +27,8 @@ const Platform = "Example Store"
 const settingToken = "token"
 
 var (
-	// ErrNoToken means the token setting is empty.
-	ErrNoToken = errors.New("example store: paste an API token (see the help below the field)")
+	// ErrNoCredentials means the token setting is empty.
+	ErrNoCredentials = errkind.New(errkind.Invalid, "example store: paste an API token (see the help below the field)")
 
 	// ErrSignedOut means the store rejected the token. User-facing errors say what to do.
 	ErrSignedOut = source.SignedOut("example store did not accept the token: create a new one in your account settings and paste it")
@@ -75,7 +75,7 @@ type item struct {
 func (p *Provider) library(ctx context.Context, settings source.Settings, limit int) ([]item, error) {
 	token := strings.TrimSpace(settings[settingToken])
 	if token == "" {
-		return nil, ErrNoToken
+		return nil, ErrNoCredentials
 	}
 
 	var out struct {

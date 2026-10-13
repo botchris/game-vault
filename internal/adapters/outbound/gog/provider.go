@@ -22,6 +22,7 @@ import (
 
 	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/adapters/outbound/oauthsession"
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
@@ -54,14 +55,14 @@ var LoginURL = defaultAuthURL + "/auth?" + url.Values{
 }.Encode()
 
 var (
-	// ErrNoSession means there is neither a stored session nor a code to start one.
-	ErrNoSession = errors.New("gog: paste the code (open the login link, sign in and copy the address of the page GOG opens)")
+	// ErrNoCredentials means there is neither a stored session nor a code to start one.
+	ErrNoCredentials = errkind.New(errkind.Invalid, "gog: paste the code (open the login link, sign in and copy the address of the page GOG opens)")
 
 	// ErrBadCode means GOG rejected the code.
-	ErrBadCode = errors.New("gog rejected the code: codes work once and expire quickly, open the login link again and paste the new address")
+	ErrBadCode = errkind.New(errkind.Invalid, "gog rejected the code: codes work once and expire quickly, open the login link again and paste the new address")
 
-	// ErrSessionExpired means the stored session can no longer be refreshed.
-	ErrSessionExpired = source.SignedOut("the GOG session expired: open the login link and paste a new code")
+	// ErrSignedOut means the stored session can no longer be refreshed.
+	ErrSignedOut = source.SignedOut("the GOG session expired: open the login link and paste a new code")
 
 	reCodeParam = regexp.MustCompile(`[?&]code=([^&#\s"]+)`)
 )
@@ -95,15 +96,15 @@ func NewProvider() *Provider {
 		Now:   time.Now,
 	}
 	p.sessions = &oauthsession.Sessions[session]{
-		CodeField:    settingAuthCode,
-		StateField:   settingSession,
-		Clean:        func(v string) (string, error) { return cleanCode(v), nil },
-		Exchange:     p.exchange,
-		Refresh:      p.refresh,
-		RefreshToken: func(s session) string { return s.RefreshToken },
-		ErrNoSession: ErrNoSession,
-		ErrSignedOut: ErrSessionExpired,
-		Now:          func() time.Time { return p.Now() },
+		CodeField:        settingAuthCode,
+		StateField:       settingSession,
+		Clean:            func(v string) (string, error) { return cleanCode(v), nil },
+		Exchange:         p.exchange,
+		Refresh:          p.refresh,
+		RefreshToken:     func(s session) string { return s.RefreshToken },
+		ErrNoCredentials: ErrNoCredentials,
+		ErrSignedOut:     ErrSignedOut,
+		Now:              func() time.Time { return p.Now() },
 	}
 
 	return p
@@ -303,7 +304,7 @@ func (p *Provider) token(ctx context.Context, q url.Values) (oauthsession.Grant[
 		case q.Get("grant_type") == "authorization_code" && apiclient.Rejected(res.Status):
 			return oauthsession.Grant[session]{}, ErrBadCode
 		case q.Get("grant_type") == "refresh_token" && apiclient.Rejected(res.Status):
-			return oauthsession.Grant[session]{}, ErrSessionExpired
+			return oauthsession.Grant[session]{}, ErrSignedOut
 		}
 
 		var e struct {
