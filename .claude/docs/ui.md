@@ -60,6 +60,14 @@ because Simple Icons removed them).
 - Covers carry the colour. No all-caps labels, no decorative eyebrows, no gradients for decoration.
 - Mobile: 3-column poster grid, filters as a bottom sheet, game sheet full screen, 16 px inputs
   (no iOS zoom), safe-area insets on fixed bars.
+- Tokens on `:root` in `styles.css`, used instead of literals: radii (`--radius-xs` 4 … `--radius-sheet`
+  20, `--radius-pill`), the always-dark surfaces (`--ink`, `--on-dark`, `--on-dark-soft`,
+  `--on-dark-muted`, `--glass`, `--glass-strong`, `--glass-border`, `--scrim`, `--label-on-cover`;
+  not redefined for dark mode), the fixed platform colours (`--platform-*`, which the hero uses and
+  the light theme's `--xbox`… point to) and the layers (`--z-sticky` < `--z-sidebar` < `--z-nav` <
+  `--z-popover` < `--z-bar` < `--z-modal` < `--z-viewer`; 1 and 2 only order a component's own parts).
+- Breakpoints (media queries cannot read tokens): phones `max-width: 860px`, desktops
+  `min-width: 861px`; narrower steps at 760, 640, 600 and 520 px.
 
 ## Motion (Emil Kowalski's rules)
 
