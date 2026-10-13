@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -77,13 +78,14 @@ func (f *fakeProvider) Test(_ context.Context, s schema.Settings) error {
 	return nil
 }
 
-// fakeImages serves a 1×1 PNG for any URL ending in ".png" and fails otherwise.
-type fakeImages struct{ fetched int }
+// fakeImages serves a 1×1 PNG for any URL ending in ".png" and fails otherwise. Its count is
+// atomic: the background prefetch of sheet images fetches while the test reads it.
+type fakeImages struct{ fetched atomic.Int32 }
 
 var png1x1 = []byte("\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\xff\xff?\x00\x05\xfe\x02\xfe\xa7\x35\x81\x84\x00\x00\x00\x00IEND\xaeB`\x82")
 
 func (f *fakeImages) Fetch(_ context.Context, url string) (media.Image, error) {
-	f.fetched++
+	f.fetched.Add(1)
 
 	if strings.HasSuffix(url, ".png") {
 		return media.Image{
@@ -597,9 +599,9 @@ func TestCoversAndLogs(t *testing.T) {
 		t.Fatalf("want cover, got %d", code)
 	}
 
-	before := c.images.fetched
-	if code := get(); code != http.StatusOK || c.images.fetched != before {
-		t.Fatalf("second request must come from the cache (fetched %d → %d)", before, c.images.fetched)
+	before := c.images.fetched.Load()
+	if code := get(); code != http.StatusOK || c.images.fetched.Load() != before {
+		t.Fatalf("second request must come from the cache (fetched %d → %d)", before, c.images.fetched.Load())
 	}
 
 	// Invalid cover URLs are rejected by the domain.
@@ -999,9 +1001,9 @@ func TestSheetImagesAreStoredPerGame(t *testing.T) {
 	// The image now lives in the game's folder, next to assets.json, and is served offline.
 	time.Sleep(200 * time.Millisecond) // background prefetch of the other images
 
-	before := c.images.fetched
-	if code := get(shot.FullUrl); code != http.StatusOK || c.images.fetched != before {
-		t.Fatalf("second request must come from disk (fetched %d → %d)", before, c.images.fetched)
+	before := c.images.fetched.Load()
+	if code := get(shot.FullUrl); code != http.StatusOK || c.images.fetched.Load() != before {
+		t.Fatalf("second request must come from disk (fetched %d → %d)", before, c.images.fetched.Load())
 	}
 	// (Glob would read the "[id]" in the folder name as a character class.)
 	files, err := os.ReadDir(filepath.Join(c.dataDir, "Portal 2 ["+id+"]"))
