@@ -33,22 +33,6 @@ func TestAuthSettings(t *testing.T) {
 	if got, err := r.Auth(ctx); err != nil || got.Authentication != want.Authentication || got.CertificateValidation != want.CertificateValidation || !slices.Equal(got.TrustedNetworks, want.TrustedNetworks) {
 		t.Fatalf("round trip: %+v %v", got, err)
 	}
-
-	// Settings saved by versions that trusted Tailscale identities keep their behavior: no local
-	// bypass means authentication required.
-	for raw, mode := range map[string]auth.Authentication{
-		`{"localBypass":false,"trustTailscale":true,"tailscaleLogins":["you@example.com"]}`: auth.AuthRequired,
-		`{"localBypass":true,"trustTailscale":true,"tailscaleLogins":[]}`:                   auth.AuthTrustedNetworks,
-	} {
-		if _, err := db.conn(ctx).ExecContext(ctx, `UPDATE settings SET value = ? WHERE key = ?`, raw, keyAuth); err != nil {
-			t.Fatal(err)
-		}
-
-		got, err := r.Auth(ctx)
-		if err != nil || got.Authentication != mode || !slices.Equal(got.TrustedNetworks, auth.DefaultTrustedNetworks()) {
-			t.Fatalf("legacy %s: %+v %v", raw, got, err)
-		}
-	}
 }
 
 func TestAuthSettings_defaultTrustedNetworks(t *testing.T) {

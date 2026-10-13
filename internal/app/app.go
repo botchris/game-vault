@@ -37,7 +37,6 @@ import (
 	"gamevault/internal/application/sync"
 	"gamevault/internal/application/system"
 	"gamevault/internal/application/transfer"
-	"gamevault/internal/application/upgrade"
 	"gamevault/internal/application/valuation"
 	"gamevault/internal/config"
 	domainauth "gamevault/internal/domain/auth"
@@ -56,17 +55,11 @@ type Plugins interface {
 	Valuations() []valuation.Provider
 }
 
-// App is Game Vault built: the HTTP handler, and the services and stores the server still needs to
-// start the background jobs and run the start-up chores.
+// App is Game Vault built: the HTTP handler, and the services the server still needs to start the
+// background jobs.
 type App struct {
 	// Handler serves the API, the media endpoints and the web UI.
 	Handler http.Handler
-
-	// Games is the catalog's repository.
-	Games *sqlite.GameRepository
-
-	// Assets is the folder of downloaded game images.
-	Assets *gamedata.Store
 
 	// Sync scans the sources and keeps their sessions alive.
 	Sync *sync.Service
@@ -181,9 +174,6 @@ func Build(ctx context.Context, cfg config.Config, db *sqlite.DB, logFiles *logf
 		providers.WithClock(now), providers.WithLogger(log))
 	mediaSvcs := media.New(games, registry, assets, o.images,
 		media.WithPhotoStore(photos), media.WithDetailsStore(sqlite.NewDetailsStore(db)), media.WithClock(now), media.WithLogger(log))
-	// What older versions stored in a shape only the readers convert is rewritten once, before any
-	// service reads it and before any background job starts.
-	upgrade.NewService(games, db, settingsRepo, mediaSvcs.Covers, upgrade.WithLogger(log)).Run(ctx)
 
 	valuationSvc := valuation.NewService(games, db, registry, settingsRepo, now, log, o.plugins.Valuations()...)
 	fieldsSvc := fields.NewService(settingsRepo, games, db, now)
@@ -248,8 +238,6 @@ func Build(ctx context.Context, cfg config.Config, db *sqlite.DB, logFiles *logf
 
 	return &App{
 		Handler:   handler,
-		Games:     games,
-		Assets:    assets,
 		Sync:      syncSvc,
 		Valuation: valuationSvc,
 		Media:     mediaSvcs,

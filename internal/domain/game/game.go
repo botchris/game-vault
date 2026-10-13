@@ -99,10 +99,6 @@ type Snapshot struct {
 	Covers     map[string]EditionCover
 	MainSystem string
 
-	// LegacyCover is the single cover a game had before editions, set only for games stored in
-	// that older form: it is converted to edition covers, and Covers and MainSystem are ignored.
-	LegacyCover *LegacyCover
-
 	// AutoLinks are the keys of the links found automatically, RejectedLinks the automatic links
 	// the user removed and AutoLinkTriedAt the last automatic search (see Game.AutoLinks).
 	AutoLinks       []string
@@ -111,13 +107,6 @@ type Snapshot struct {
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
-}
-
-// LegacyCover is the single cover of a game stored before editions: an image URL, a photo of one
-// of its copies, or both.
-type LegacyCover struct {
-	URL   string
-	Photo PhotoID
 }
 
 // Rehydrate rebuilds a stored game. What no longer fits the copies is dropped: covers of editions
@@ -143,12 +132,7 @@ func Rehydrate(s Snapshot) *Game {
 		updatedAt:  s.UpdatedAt,
 	}
 
-	if s.LegacyCover != nil {
-		g.adoptGameCover(*s.LegacyCover)
-	} else {
-		g.restoreEditions(s.Covers, s.MainSystem)
-	}
-
+	g.restoreEditions(s.Covers, s.MainSystem)
 	g.restoreLinkOrigins(s.AutoLinks, s.RejectedLinks, s.AutoLinkTriedAt)
 
 	return g

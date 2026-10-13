@@ -10,11 +10,6 @@ type ImportedCopy struct {
 	// ExternalID must be stable across scans of the same source, e.g. "steam:620".
 	ExternalID string
 
-	// PreviousExternalID is the id an older version of the source gave this copy, when the format
-	// changed. A copy saved under it is adopted (renamed) if it belongs to the same game, instead
-	// of a duplicate being created.
-	PreviousExternalID string
-
 	// Withdrawn means the source no longer counts this item as a copy (e.g. a key that turned out
 	// not to be a game): a copy it imported earlier under ExternalID is removed, and its game too
 	// if nothing else is left in it.
@@ -146,8 +141,6 @@ func (c *Consolidator) Apply(sourceID string, imported []ImportedCopy, now time.
 		if !ok {
 			continue
 		}
-
-		c.adoptPrevious(p.ImportedCopy)
 
 		g, ok := c.byExternalID[p.ExternalID]
 		if !ok {
@@ -299,64 +292,31 @@ func (c *Consolidator) collect(emptied []ID) (changed []*Game, deleted []ID) {
 	return changed, deleted
 }
 
-// withdraw removes the copy the source imported under in.ExternalID. The previous id only counts
-// when its copy is in the withdrawn item's own game: old ids could be shared by several items.
-// Copies added by hand or by another source are never removed.
+// withdraw removes the copy the source imported under in.ExternalID. Copies added by hand or by
+// another source are never removed.
 func (c *Consolidator) withdraw(sourceID string, in ImportedCopy, now time.Time, r *ConsolidationResult) {
-	for _, ext := range []string{in.ExternalID, in.PreviousExternalID} {
-		g, ok := c.byExternalID[ext]
-		if ext == "" || !ok {
-			continue
-		}
-
-		if ext == in.PreviousExternalID && c.findGame(in) != g {
-			continue
-		}
-
-		cp := g.copies[g.indexOfExternal(ext)]
-		if cp.SourceID != sourceID {
-			continue
-		}
-
-		if _, err := g.RemoveCopy(cp.ID, now); err != nil {
-			continue
-		}
-
-		delete(c.byExternalID, ext)
-		c.markChanged(g)
-
-		r.CopiesRemoved++
-
-		if len(g.copies) == 0 {
-			r.Emptied = append(r.Emptied, g.id)
-		}
-	}
-}
-
-// adoptPrevious renames the copy saved under in.PreviousExternalID to in.ExternalID when it is in
-// the game the import belongs to. Its source details (key, status, deadline) are cleared first:
-// under the old id several copies may have been written into it, so they can belong to another
-// game. What the user added (notes, location, condition) is kept.
-func (c *Consolidator) adoptPrevious(in ImportedCopy) {
-	if in.PreviousExternalID == "" || in.PreviousExternalID == in.ExternalID {
+	g, ok := c.byExternalID[in.ExternalID]
+	if in.ExternalID == "" || !ok {
 		return
 	}
 
-	if _, ok := c.byExternalID[in.ExternalID]; ok {
+	cp := g.copies[g.indexOfExternal(in.ExternalID)]
+	if cp.SourceID != sourceID {
 		return
 	}
 
-	g, ok := c.byExternalID[in.PreviousExternalID]
-	if !ok || c.findGame(in) != g {
+	if _, err := g.RemoveCopy(cp.ID, now); err != nil {
 		return
 	}
 
-	cp := &g.copies[g.indexOfExternal(in.PreviousExternalID)]
-	cp.ExternalID = in.ExternalID
-	cp.Key, cp.RedeemBy, cp.Status = "", "", ""
+	delete(c.byExternalID, in.ExternalID)
+	c.markChanged(g)
 
-	delete(c.byExternalID, in.PreviousExternalID)
-	c.byExternalID[in.ExternalID] = g
+	r.CopiesRemoved++
+
+	if len(g.copies) == 0 {
+		r.Emptied = append(r.Emptied, g.id)
+	}
 }
 
 // indexLinks indexes g under links, unless another game already holds one of them: the first game

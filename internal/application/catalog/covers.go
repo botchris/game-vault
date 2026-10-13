@@ -14,10 +14,6 @@ type CoverCache interface {
 
 	// InvalidateEdition drops the cached cover of the game's edition on system.
 	InvalidateEdition(ctx context.Context, id game.ID, system string) error
-
-	// DropLegacyCover drops the game's cover cached before editions, which the main edition would
-	// otherwise adopt.
-	DropLegacyCover(ctx context.Context, id game.ID) error
 }
 
 // NoCoverCache is a CoverCache for when no covers are cached: there is never anything to drop.
@@ -28,9 +24,6 @@ func (NoCoverCache) Invalidate(context.Context, game.ID) error { return nil }
 
 // InvalidateEdition implements CoverCache.
 func (NoCoverCache) InvalidateEdition(context.Context, game.ID, string) error { return nil }
-
-// DropLegacyCover implements CoverCache.
-func (NoCoverCache) DropLegacyCover(context.Context, game.ID) error { return nil }
 
 // StaleCovers collects the cached covers a change makes stale, to drop once the change is saved.
 // The zero value is ready to use.

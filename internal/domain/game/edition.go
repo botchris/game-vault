@@ -254,45 +254,6 @@ func (g *Game) restoreEditions(covers map[string]EditionCover, mainSystem string
 	g.reconcileEditions()
 }
 
-// adoptGameCover turns the single cover a game had before editions (LegacyCover)
-// into edition covers. A photo goes to the edition of a copy that has it, and that edition becomes
-// the main one, so the game looks as before. A URL goes to the main edition by the default rule,
-// unless the photo took that edition; that system is stored as the main one when no photo set it.
-// A game without copies keeps the URL as its cover (see SetEditionCover).
-func (g *Game) adoptGameCover(legacy LegacyCover) {
-	coverURL, photo := legacy.URL, legacy.Photo
-	defaultMain := g.mainOf()
-
-	if photo != "" {
-		if i := slices.IndexFunc(g.copies, func(c Copy) bool { return photoIndex(c.Photos, photo) >= 0 }); i >= 0 {
-			system := g.copies[i].System()
-			g.covers = map[string]EditionCover{system: {Photo: photo}}
-			g.mainSystem = system
-		}
-	}
-
-	if coverURL == "" {
-		return
-	}
-
-	if defaultMain == "" {
-		g.covers = map[string]EditionCover{"": {URL: coverURL}}
-		return
-	}
-
-	if _, taken := g.covers[defaultMain]; !taken {
-		if g.covers == nil {
-			g.covers = map[string]EditionCover{}
-		}
-
-		g.covers[defaultMain] = EditionCover{URL: coverURL}
-	}
-
-	if g.mainSystem == "" {
-		g.mainSystem = defaultMain
-	}
-}
-
 // BorrowsPCBox reports whether the game's console editions may borrow a PC box as a last resort: the
 // game has copies but none on PC, and it is linked to a PC store, whose art is then served as a
 // virtual PC edition (GET /media/covers/{id}/PC), labeled as a PC box, never as the console's.

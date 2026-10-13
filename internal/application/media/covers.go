@@ -105,7 +105,7 @@ func (c *Covers) EditionCover(ctx context.Context, id game.ID, system string) (I
 
 // resolve finds an edition's cover (see resolveEdition). Once the main edition has resolved (a
 // cover, or a miss remembered), the game's leftover "no cover found" markers go: those of systems
-// it no longer has and the one from before editions, which nothing reads any more.
+// it no longer has, which nothing reads any more.
 func (c *Covers) resolve(ctx context.Context, id game.ID, system string) (Image, error) {
 	g, err := c.games.Get(ctx, id)
 	if err != nil {
@@ -140,8 +140,7 @@ func editionSystems(g *game.Game) []string {
 }
 
 // resolveEdition finds the cover of g's edition on system, in this order:
-//  1. the image decided for the edition: the cover cached before editions (main edition only), the
-//     chosen photo, the chosen URL (chosen);
+//  1. the image decided for the edition: the chosen photo, the chosen URL (chosen);
 //  2. the provider chain, its fallback pass, and the base game's cover for an add-on in between
 //     (fromProviders);
 //  3. when a provider asked to slow down, nothing this time: the next request asks again;
@@ -209,19 +208,11 @@ func coverEdition(g *game.Game, system string) (edition game.Edition, virtual, o
 	return game.Edition{}, false, false
 }
 
-// chosen returns the image already decided for the edition, and whether there is one: the cover
-// cached before editions (main edition only), then a photo of the user's own copy, then a cover the
-// user picked or pasted. A chosen image that cannot be had any more falls back to the providers.
+// chosen returns the image already decided for the edition, and whether there is one: a photo of
+// the user's own copy, then a cover the user picked or pasted. A chosen image that cannot be had any
+// more falls back to the providers.
 func (c *Covers) chosen(ctx context.Context, g *game.Game, ref GameRef, edition game.Edition) (Image, bool, error) {
 	system := edition.System
-	if system == g.MainEdition().System {
-		img, ok, err := c.adoptLegacyCover(g, ref, edition)
-		if err != nil {
-			c.log.Warn("settling the cover cached before editions", "game", g.Title(), "error", err)
-		} else if ok {
-			return img, true, nil
-		}
-	}
 
 	// A photo of the user's own copy chosen as the cover wins over everything.
 	if id := edition.Cover.Photo; id != "" {
@@ -248,28 +239,6 @@ func (c *Covers) chosen(ctx context.Context, g *game.Game, ref GameRef, edition 
 	}
 
 	return Image{}, false, nil
-}
-
-// adoptLegacyCover makes the cover cached before editions the main edition's, and reports whether
-// there was one. That file was resolved for the whole game, so it may show another system's box:
-// it is only adopted when it can only be this edition's (the game has at most one system) or when
-// it came from the cover the user chose, which went to this edition. Otherwise it is deleted and
-// the edition resolves its own.
-func (c *Covers) adoptLegacyCover(g *game.Game, ref GameRef, main game.Edition) (Image, bool, error) {
-	if len(g.Systems()) > 1 && main.Cover.IsZero() {
-		if err := c.store.DeleteLegacyCover(g.ID()); err != nil {
-			return Image{}, false, fmt.Errorf("deleting: %w", err)
-		}
-
-		return Image{}, false, nil
-	}
-
-	img, ok, err := c.store.AdoptLegacyCover(ref, main.System)
-	if err != nil {
-		return Image{}, false, fmt.Errorf("adopting: %w", err)
-	}
-
-	return img, ok, nil
 }
 
 // rememberMissing marks the edition without cover when a provider was asked, and queues the game for

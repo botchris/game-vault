@@ -2,7 +2,6 @@
   "Copies": [
     {
       "ExternalID": "csv:physical|xbox 360|halo 3|",
-      "PreviousExternalID": "",
       "Withdrawn": false,
       "Title": "Halo 3",
       "Links": null,
@@ -31,7 +30,6 @@
     },
     {
       "ExternalID": "csv:physical|xbox 360|halo wars|",
-      "PreviousExternalID": "",
       "Withdrawn": false,
       "Title": "Halo Wars",
       "Links": null,

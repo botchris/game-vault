@@ -20,13 +20,11 @@ import (
 	"syscall"
 	"time"
 
-	"gamevault/internal/adapters/outbound/gamedata"
 	"gamevault/internal/adapters/outbound/logfile"
 	"gamevault/internal/adapters/outbound/sqlite"
 	"gamevault/internal/adapters/outbound/tlspolicy"
 	"gamevault/internal/app"
 	"gamevault/internal/config"
-	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/settings"
 )
 
@@ -94,10 +92,6 @@ func run() error {
 		return err
 	}
 
-	if err := migrateLegacyCovers(ctx, vault.Assets, vault.Games, cfg.LegacyCoverDir(), log); err != nil {
-		return fmt.Errorf("migrating covers: %w", err)
-	}
-
 	// Background jobs (only after Build applied the TLS policy and the security settings).
 	// Every job that makes requests nobody asked for at that moment is off with -no-unattended. The
 	// auto-linker stays on: without the details scanner it only searches games a person opened.
@@ -147,29 +141,4 @@ func run() error {
 	log.Info("game vault stopped")
 
 	return nil
-}
-
-// migrateLegacyCovers moves covers from config/covers (flat, by id) into config/game-data (one
-// folder per game). It is a no-op once the old directory is gone.
-func migrateLegacyCovers(ctx context.Context, assets *gamedata.Store, games *sqlite.GameRepository, legacyDir string, log *slog.Logger) error {
-	if _, err := os.Stat(legacyDir); os.IsNotExist(err) {
-		return nil
-	}
-
-	list, err := games.List(ctx)
-	if err != nil {
-		return err
-	}
-
-	titles := make(map[game.ID]string, len(list))
-	for _, g := range list {
-		titles[g.ID()] = g.Title()
-	}
-
-	n, err := assets.MigrateLegacyCovers(legacyDir, titles)
-	if n > 0 {
-		log.Info("covers moved to game-data", "count", n)
-	}
-
-	return err
 }

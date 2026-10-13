@@ -432,16 +432,9 @@ func (s *Service) SetEditionCover(ctx context.Context, id game.ID, system string
 // SetMainSystem makes a game's edition on system the one shown when the game is listed once; an
 // empty system goes back to the default rule.
 func (s *Service) SetMainSystem(ctx context.Context, id game.ID, system string) (*game.Game, error) {
-	g, err := s.mutate(ctx, id, func(_ context.Context, g *game.Game) error {
+	return s.mutate(ctx, id, func(_ context.Context, g *game.Game) error {
 		return g.SetMainSystem(system, s.now())
 	})
-	// The cover cached before editions belonged to the old main edition: the new one must not
-	// adopt it. Best effort, like invalidateCover.
-	if err == nil {
-		_ = s.covers.DropLegacyCover(ctx, id)
-	}
-
-	return g, err
 }
 
 // mutateEditions is mutate, dropping the cached covers of the editions the change touched.

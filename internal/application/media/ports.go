@@ -45,31 +45,16 @@ type AssetStore interface {
 	// stored covers stay.
 	ClearCoverMissing(id game.ID, system string) error
 
-	// PruneCoverMarkers removes the "no cover found" markers of the editions not on systems, and the
-	// one from before editions, and reports how many it removed. Stored covers stay.
+	// PruneCoverMarkers removes the "no cover found" markers of the editions not on systems, and
+	// reports how many it removed. Stored covers stay.
 	PruneCoverMarkers(id game.ID, systems []string) (int, error)
 
 	// DeleteCover removes an edition's stored cover and "no cover found" marker; other editions'
-	// covers and the cover stored before editions stay.
+	// covers stay.
 	DeleteCover(id game.ID, system string) error
-
-	// DeleteLegacyCover removes the cover stored before editions and its "no cover found" marker.
-	DeleteLegacyCover(id game.ID) error
-
-	// HasLegacyCover reports whether the cover stored before editions, or its "no cover found"
-	// marker, is still there.
-	HasLegacyCover(id game.ID) bool
-
-	// LegacyCoverIDs returns the games whose cover stored before editions, or its "no cover found"
-	// marker, is still there.
-	LegacyCoverIDs() []game.ID
 
 	// DeleteCovers removes the stored covers and markers of every edition of a game.
 	DeleteCovers(id game.ID) error
-
-	// AdoptLegacyCover makes the cover stored before editions the cover of the edition on system,
-	// and reports whether there was one.
-	AdoptLegacyCover(g GameRef, system string) (Image, bool, error)
 
 	// GetAsset returns a stored sheet image of a game, and whether there is one.
 	GetAsset(id game.ID, name string) (Image, bool, error)
