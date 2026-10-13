@@ -51,7 +51,20 @@ const (
 	// Unavailable means an external service Game Vault relies on is busy, rate-limited or not
 	// answering: trying again later may work.
 	Unavailable
+
+	// kindCount is the number of kinds, Unknown included: new kinds go above it.
+	kindCount
 )
+
+// All returns every kind but Unknown, so an adapter can check that it answers each one.
+func All() []Kind {
+	out := make([]Kind, 0, kindCount-1)
+	for k := Unknown + 1; k < kindCount; k++ {
+		out = append(out, k)
+	}
+
+	return out
+}
 
 // String returns the kind's name, for logs and test messages.
 func (k Kind) String() string {

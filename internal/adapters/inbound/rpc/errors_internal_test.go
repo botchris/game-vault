@@ -266,7 +266,7 @@ func TestToConnectError_byKind(t *testing.T) {
 }
 
 func TestKindCodes_coverEveryKind(t *testing.T) {
-	for k := errkind.Unknown + 1; k.String() != "unknown"; k++ {
+	for _, k := range errkind.All() {
 		_, ok := kindCodes[k]
 		assert.True(t, ok, "kind %q has no Connect code", k)
 	}

@@ -78,3 +78,15 @@ func TestValidationError_matchesWithErrorsAs(t *testing.T) {
 	assert.ErrorAs(t, fmt.Errorf("saving: %w", errkind.Invalidf("bad")), &v)
 	assert.Equal(t, "bad", v.Error())
 }
+
+func TestAll_namesEveryKind(t *testing.T) {
+	all := errkind.All()
+
+	assert.NotContains(t, all, errkind.Unknown)
+	assert.Contains(t, all, errkind.Invalid)
+	assert.Contains(t, all, errkind.Unavailable)
+
+	for _, k := range all {
+		assert.NotEqual(t, "unknown", k.String(), "kind %d has no name", k)
+	}
+}
