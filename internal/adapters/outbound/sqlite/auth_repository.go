@@ -195,14 +195,11 @@ func (r *AuthRepository) DeleteAccessToken(ctx context.Context, id string) error
 
 const keyAuth = "auth"
 
-// authSettingsJSON is how the security settings are stored. The legacy fields come from versions
-// that trusted Tailscale identities; they are read once to keep the same behavior and dropped.
+// authSettingsJSON is how the security settings are stored.
 type authSettingsJSON struct {
 	Authentication        string   `json:"authentication,omitempty"`
 	TrustedNetworks       []string `json:"trustedNetworks,omitempty"`
 	CertificateValidation string   `json:"certificateValidation,omitempty"`
-
-	LegacyLocalBypass *bool `json:"localBypass,omitempty"`
 }
 
 // Auth implements auth.SettingsRepository.
@@ -216,15 +213,6 @@ func (r *SettingsRepository) Auth(ctx context.Context) (auth.Settings, error) {
 
 	if !ok {
 		return r.defaultAuth(), nil
-	}
-
-	if v.Authentication == "" && v.LegacyLocalBypass != nil {
-		s := r.defaultAuth()
-		if !*v.LegacyLocalBypass {
-			s.Authentication = auth.AuthRequired
-		}
-
-		return s, nil
 	}
 
 	return auth.Settings{
