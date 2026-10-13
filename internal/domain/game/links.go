@@ -13,10 +13,6 @@ import (
 // name a source and a provider agree on.
 type Links map[string]string
 
-// LinkSteam is the key of Steam AppIDs. Unlike other stores' keys it is shared here because sources
-// other than Steam's (Humble Bundle, Amazon) report AppIDs too.
-const LinkSteam = "steam"
-
 // HasPCStore reports whether the links name a game in a store that sells PC games.
 func (l Links) HasPCStore() bool {
 	for k, v := range l {

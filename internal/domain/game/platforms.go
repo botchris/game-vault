@@ -122,8 +122,12 @@ const (
 )
 
 // Link keys of the stores that sources import libraries from (see Links). They are stored in every
-// game's links: never rename one. LinkSteam is declared with Links.
+// game's links: never rename one.
 const (
+	// LinkSteam is the key of Steam AppIDs. Sources other than Steam's (Humble Bundle, Amazon)
+	// report AppIDs too.
+	LinkSteam = "steam"
+
 	// LinkEpic is the key of Epic catalog item ids.
 	LinkEpic = "epic"
 
@@ -237,7 +241,9 @@ func KnownPlatforms() []string {
 	return out
 }
 
-// Consoles returns the consoles Game Vault knows, newest family first: every known system but PC.
+// Consoles returns the consoles Game Vault knows, every known system but PC, grouped by family
+// (PlayStation, Xbox, Nintendo) and newest first within each (Nintendo's home consoles, then its
+// handhelds).
 // Providers that map systems to a catalog's own ids check their tables against it.
 func Consoles() []string {
 	var out []string
