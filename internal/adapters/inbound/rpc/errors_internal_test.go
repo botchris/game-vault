@@ -68,13 +68,9 @@ var sentinels = map[string]struct {
 	"application/fields.ErrValuesConflict":        {fields.ErrValuesConflict, connect.CodeFailedPrecondition},
 	"application/logs.ErrInvalidName":             {logs.ErrInvalidName, connect.CodeInvalidArgument},
 	"application/logs.ErrNotFound":                {logs.ErrNotFound, connect.CodeNotFound},
-	"application/media.ErrNoCover":                {media.ErrNoCover, connect.CodeNotFound},
 	"application/media.ErrNoEdition":              {media.ErrNoEdition, connect.CodeInvalidArgument},
 	"application/media.ErrUnknownProvider":        {media.ErrUnknownProvider, connect.CodeNotFound},
-	"application/media.ErrImageNotAllowed":        {media.ErrImageNotAllowed, connect.CodePermissionDenied},
 	"application/media.ErrUnknownStore":           {media.ErrUnknownStore, connect.CodeNotFound},
-	"application/media.ErrNoAsset":                {media.ErrNoAsset, connect.CodeNotFound},
-	"application/media.ErrNoPhoto":                {media.ErrNoPhoto, connect.CodeNotFound},
 	"application/media.ErrInvalidPhoto":           {media.ErrInvalidPhoto, connect.CodeInvalidArgument},
 	"application/ownership.ErrTooManyItems":       {ownership.ErrTooManyItems, connect.CodeInvalidArgument},
 	"application/sync.ErrNotImported":             {sync.ErrNotImported, connect.CodeFailedPrecondition},
@@ -86,8 +82,12 @@ var sentinels = map[string]struct {
 
 // internalOnly lists the sentinels that never reach the API, and why: they need no code.
 var internalOnly = map[string]string{
-	"application/health.ErrUnsupported": "a disk check answers it as a health reason, never as an RPC error",
-	"application/plugin.ErrDuplicate":   "a programming error found when the server starts",
+	"application/health.ErrUnsupported":    "a disk check answers it as a health reason, never as an RPC error",
+	"application/plugin.ErrDuplicate":      "a programming error found when the server starts",
+	"application/media.ErrNoCover":         "HTTP only: the cover endpoint answers it with a 404",
+	"application/media.ErrImageNotAllowed": "HTTP only: the image proxy answers it with a 403",
+	"application/media.ErrNoAsset":         "HTTP only: the image endpoints answer it with a 404",
+	"application/media.ErrNoPhoto":         "HTTP only: the photo endpoint answers it with a 404",
 	"application/valuation.ErrNotListed": "a price provider's answer that the valuation service turns " +
 		"into \"no estimate\"",
 }

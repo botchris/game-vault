@@ -84,9 +84,10 @@ conflict, unauthenticated, permission denied, precondition, exhausted or unavail
 errors get theirs from `errkind.New`, rule violations are the one `errkind.ValidationError` (each
 domain package aliases it as its own `ValidationError`), and `errkind.Wrap` gives one to an error
 that has none (the CSV codec's errors are the file's, so `Invalid`). The RPC layer maps kinds, not
-sentinels, to Connect codes in one table (`toConnectError`), so handlers never map errors
-themselves. An error without a kind is a failure of Game Vault itself: it is answered `Internal`
-and logged at error level. Only Game Vault's own sign-in is `Unauthenticated` (the web page signs
+sentinels, to Connect codes in one table (`toConnectError`), so its handlers never map errors
+themselves; the media HTTP endpoints (covers, images, photos) answer their few errors with HTTP
+statuses of their own. In the RPC layer, an error without a kind is a failure of Game Vault
+itself: it is answered `Internal` and logged at error level. Only Game Vault's own sign-in is `Unauthenticated` (the web page signs
 the user out on it); a store or provider that rejects its credentials is `Precondition`. A test
 lists every exported sentinel of the domain and application packages with its code, and fails for
 an adapter sentinel made with a plain `errors.New` (a short allowlist of `apiclient` plumbing aside)
