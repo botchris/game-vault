@@ -190,7 +190,7 @@ Dependencies point inward; the compiler won't stop a violation, so watch it:
   (`NewCovers(store, opts ...CoverOption)`), and the constructor fills no-op defaults.
 - **Optional capabilities are separate small interfaces** checked with a type assertion
   (`sync.Preparer`, `sync.KeepAliver`, `media.ImageHoster`), never boolean flags. `Test(ctx,
-  settings) error` is not optional: it is part of `sync.Provider` and `media.Provider`.
+  settings) error` is not optional: it is part of `sync.Provider` and `providers.Provider`.
 - `internal/adapters/inbound/rpc` maps Connect requests onto application calls and back
   (`mapper.go`); it must not leak domain aggregates or adapter types into the API, nor generated
   `pb` types into the application.
