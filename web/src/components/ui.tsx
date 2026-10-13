@@ -1,16 +1,13 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LANGUAGES } from '../i18n';
 import { Icon } from './Icon';
+import { useEscape } from './useEscape';
 
-/** Centered dialog. Closes on Escape and on backdrop click. */
+/** Centered dialog. Closes on Escape (when it is the overlay on top) and on backdrop click. */
 export function Modal(props: { title: ReactNode; onClose: () => void; children: ReactNode; footer?: ReactNode; wide?: boolean; phoneFull?: boolean }) {
   const { onClose } = props;
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  useEscape(onClose);
   return (
     <div className="overlay" onMouseDown={onClose}>
       <div className={`modal ${props.wide ? 'wide' : ''} ${props.phoneFull ? 'phone-full' : ''}`} role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
