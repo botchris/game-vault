@@ -13,7 +13,7 @@ import { usePreferredCurrency } from '../../lib/usePreferences';
 import { useAppData } from '../../state/AppData';
 import { FieldInputs, applyField, cleanFields, useFieldValidity } from '../fields/FieldInput';
 import { ContentsToggles, GradeSelect, LocationInput } from './PhysicalInputs';
-import { useAmountDraft } from '../../lib/useAmountDraft';
+import { useAmountReading } from '../../lib/useAmountReading';
 import { useAction } from '../../lib/useAction';
 
 interface Props {
@@ -38,7 +38,7 @@ export default function CopyForm({ initial, managedBy, sourceSystem, onSubmit, o
   const [chosenCurrency, setCurrency] = useState(d.price?.currency ?? '');
   // A new price uses the default currency until the user picks another one.
   const currency = chosenCurrency || preferred;
-  const price = useAmountDraft(currency, amount);
+  const price = useAmountReading(currency, amount);
   const amountInvalid = price.invalid;
   // A custom field holding invalid text (a number, a year) blocks Save until it is fixed or cleared.
   const [fieldsInvalid, reportField] = useFieldValidity();

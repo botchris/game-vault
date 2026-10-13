@@ -11,7 +11,6 @@ interface AppData {
   /** Custom field definitions, in display order. */
   fields: FieldDefinition[];
   sourceTypes: SourceType[];
-  secretPlaceholder: string;
   loading: boolean;
   error: string;
   /** Games whose details (genres, year) are already downloaded in the UI language. */
@@ -45,7 +44,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [sources, setSources] = useState<Source[]>([]);
   const [fields, setFields] = useState<FieldDefinition[]>([]);
   const [sourceTypes, setSourceTypes] = useState<SourceType[]>([]);
-  const [secretPlaceholder, setSecretPlaceholder] = useState('');
   const [preferences, setPreferences] = useState<Preferences>({ currency: '' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -66,7 +64,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       const [list, types] = await Promise.all([sourceClient.listSources({}), sourceClient.listSourceTypes({})]);
       setSources(list.sources);
       setSourceTypes(types.types);
-      setSecretPlaceholder(types.secretPlaceholder);
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -110,11 +107,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AppData>(() => {
     const names = new Map(sources.map((s) => [s.id, s.name]));
     return {
-      games, sources, fields, sourceTypes, secretPlaceholder, loading, error, detailsCached, preferences,
+      games, sources, fields, sourceTypes, loading, error, detailsCached, preferences,
       reloadGames, reloadSources, reloadFields, reloadPreferences, putGame, dropGame,
       sourceName: (id) => names.get(id) ?? '',
     };
-  }, [games, sources, fields, sourceTypes, secretPlaceholder, loading, error, detailsCached, preferences, reloadGames, reloadSources, reloadFields,
+  }, [games, sources, fields, sourceTypes, loading, error, detailsCached, preferences, reloadGames, reloadSources, reloadFields,
     reloadPreferences, putGame, dropGame]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

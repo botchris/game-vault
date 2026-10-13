@@ -7,7 +7,7 @@ import type { FieldDefinition } from '../../gen/gamevault/v1/field_pb';
 import { ChoiceListSchema, FieldValueSchema, MoneySchema, type FieldValue } from '../../gen/gamevault/v1/game_pb';
 import { numberInput, parseNumber } from '../../lib/fields';
 import { amountInput, readAmount } from '../../lib/money';
-import { useAmountDraft } from '../../lib/useAmountDraft';
+import { useAmountReading } from '../../lib/useAmountReading';
 import { usePreferredCurrency } from '../../lib/usePreferences';
 import { useAppData } from '../../state/AppData';
 import { useAction } from '../../lib/useAction';
@@ -267,7 +267,7 @@ function MoneyInput({ def, value, onChange, onInvalid }: InputProps<{ amountMino
     return minor === undefined ? '' : String(minor);
   };
   const [text, setText] = useDraft(value ? String(value.amountMinor) : '', formatted, keyOf);
-  const { invalid, placeholder } = useAmountDraft(currency, text);
+  const { invalid, placeholder } = useAmountReading(currency, text);
   useReportInvalid(invalid, onInvalid);
   const change = (s: string) => {
     setText(s);

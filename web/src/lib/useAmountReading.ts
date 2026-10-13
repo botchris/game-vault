@@ -6,7 +6,7 @@ import { amountInput, readAmount } from './money';
  * caller keeps the text, since one form owns it and a field resyncs it with its saved value.
  * `minor` is undefined while the text is empty and null while it is not an amount.
  */
-export function useAmountDraft(currency: string, text: string) {
+export function useAmountReading(currency: string, text: string) {
   const { i18n } = useTranslation();
   const minor = readAmount(text, currency);
   return {

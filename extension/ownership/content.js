@@ -48,7 +48,8 @@
     }
 
     /** Whether an answer for page `href` may still be drawn. The page changed while Game Vault
-     *  answered: the answer is dropped and the new page read. The page was left: nothing is drawn. */
+     *  answered: the answer is dropped, and this also schedules a re-read of the new page (it sets
+     *  `again`, which the running scan acts on when it ends). The page was left: nothing is drawn. */
     function answerStillWanted(href) {
       if (url() !== href) {
         again = true;

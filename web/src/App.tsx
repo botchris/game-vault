@@ -17,10 +17,8 @@ import { useHashRoute } from './lib/useHashRoute';
 import { HealthProvider, useHealth } from './state/Health';
 import { AppDataProvider, useAppData } from './state/AppData';
 
-type Route = Page;
-
 /** Settings pages, grouped in the sidebar and behind "Settings" on phones. */
-const SETTINGS: { route: Route; icon: IconName }[] = [
+const SETTINGS: { route: Page; icon: IconName }[] = [
   { route: 'sources', icon: 'sources' },
   { route: 'providers', icon: 'providers' },
   { route: 'fields', icon: 'fields' },
@@ -119,7 +117,7 @@ function HealthDot({ level, page }: { level: 'error' | 'warning' | null | undefi
   return <span className={`health-dot ${level}`} role="img" aria-label={label} title={label} />;
 }
 
-function NavLink({ route, icon, active, count, dot }: { route: Route; icon: IconName; active: boolean; count?: number; dot?: 'error' | 'warning' | null }) {
+function NavLink({ route, icon, active, count, dot }: { route: Page; icon: IconName; active: boolean; count?: number; dot?: 'error' | 'warning' | null }) {
   const { t, i18n } = useTranslation();
   return (
     <a href={`#/${route}`} className={`side-link ${active ? 'active' : ''}`} aria-current={active ? 'page' : undefined}>
@@ -131,7 +129,7 @@ function NavLink({ route, icon, active, count, dot }: { route: Route; icon: Icon
   );
 }
 
-function BottomLink({ route, icon, active, label, dot }: { route: Route; icon: IconName; active: boolean; label?: string; dot?: 'error' | 'warning' | null }) {
+function BottomLink({ route, icon, active, label, dot }: { route: Page; icon: IconName; active: boolean; label?: string; dot?: 'error' | 'warning' | null }) {
   const { t } = useTranslation();
   return (
     <a href={`#/${route}`} className={active ? 'active' : ''} aria-current={active ? 'page' : undefined}>
