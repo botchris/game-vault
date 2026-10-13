@@ -265,6 +265,7 @@ func TestFetch_renewsARejectedAccessToken(t *testing.T) {
 	t.Run("GIVEN a library that refuses even a renewed access token", func(t *testing.T) {
 		p, f := newTest(t)
 		f.rejectAll = true
+
 		stale(p)
 
 		t.Run("WHEN the source is tested", func(t *testing.T) {

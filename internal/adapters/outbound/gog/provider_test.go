@@ -275,6 +275,7 @@ func TestTest_renewsARejectedAccessToken(t *testing.T) {
 	t.Run("GIVEN a cached access token GOG no longer accepts", func(t *testing.T) {
 		p, f := newTestProvider(t)
 		f.refresh = "refresh-0"
+
 		stale(p)
 
 		settings := source.Settings{settingSession: `{"refresh_token":"refresh-0","user_id":"u1"}`}
@@ -294,6 +295,7 @@ func TestTest_renewsARejectedAccessToken(t *testing.T) {
 	t.Run("GIVEN GOG rejects even a renewed access token", func(t *testing.T) {
 		p, f := newTestProvider(t)
 		f.refresh, f.rejectAll = "refresh-0", true
+
 		stale(p)
 
 		t.Run("WHEN the source is tested", func(t *testing.T) {
