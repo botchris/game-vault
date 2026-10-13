@@ -79,6 +79,10 @@ The Fanatical plugin is a real, small one: one source, `apiclient`, a fake-serve
   sentinel errors so callers can match them with `errors.Is`. A store that no longer accepts the
   saved session or key returns `source.SignedOut("… sign in again …")`, which matches
   `source.ErrSignedOut`: System → Health then shows it as an error that says to sign in again.
+  Only a real refusal is one: a token endpoint's 400 (`invalid_grant`), 401 or 403
+  (`apiclient.Rejected`), and an access token refused even after one renewal (renew a rejected
+  access token once before giving up). A 429, a 5xx or no answer is a passing trouble
+  (`apiclient.ClassifyStatus` / `ClassifyError`), never "sign in again".
 - **Read only.** Never reveal, redeem, buy or change anything on the user's account.
 - **Settings**: secrets are `schema.FieldSecret`; credentials the plugin renews itself (refresh
   tokens, rotating cookies) are `schema.FieldState`, written back into the settings map so the

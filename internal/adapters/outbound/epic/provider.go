@@ -243,24 +243,36 @@ func (p *Provider) Prepare(ctx context.Context, settings source.Settings) (sourc
 
 // Test implements sync.Provider: it lists the library without reading the catalog.
 func (p *Provider) Test(ctx context.Context, settings source.Settings) error {
-	token, err := p.accessToken(ctx, settings)
-	if err != nil {
-		return err
-	}
-
-	_, err = p.library(ctx, token)
+	_, _, err := p.libraryWithToken(ctx, settings)
 
 	return err
 }
 
-// Fetch implements sync.Provider.
-func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.ImportedCopy, []string, error) {
-	token, err := p.accessToken(ctx, settings)
-	if err != nil {
-		return nil, nil, err
+// errTokenRejected means Epic refused an access token (HTTP 401): it may have expired or been
+// revoked before its time. The caller renews it once; only a refused refresh is signed out.
+var errTokenRejected = errors.New("epic rejected the access token")
+
+// libraryWithToken lists the library with an access token, and once more with a renewed one when
+// Epic rejects the first. It returns the token that worked, for the catalog reads that follow.
+func (p *Provider) libraryWithToken(ctx context.Context, settings source.Settings) ([]libraryRecord, string, error) {
+	for range 2 {
+		token, err := p.accessToken(ctx, settings)
+		if err != nil {
+			return nil, "", err
+		}
+
+		records, err := p.library(ctx, token)
+		if !errors.Is(err, errTokenRejected) {
+			return records, token, err
+		}
 	}
 
-	records, err := p.library(ctx, token)
+	return nil, "", ErrSessionExpired
+}
+
+// Fetch implements sync.Provider.
+func (p *Provider) Fetch(ctx context.Context, settings source.Settings) ([]game.ImportedCopy, []string, error) {
+	records, token, err := p.libraryWithToken(ctx, settings)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -356,10 +368,13 @@ func (p *Provider) oauthRaw(ctx context.Context, form url.Values) (tokenResponse
 
 		_ = json.Unmarshal(body, &e)
 
+		// Epic refuses a used or unknown code and a stale refresh token with a 400 (an errorCode
+		// such as invalid_refresh_token); a 429 or an outage is a passing trouble, after which the
+		// same code or session still works.
 		switch {
-		case form.Get("grant_type") == "authorization_code" && res.StatusCode < 500:
+		case form.Get("grant_type") == "authorization_code" && apiclient.Rejected(res.StatusCode):
 			return tokenResponse{}, ErrBadCode
-		case form.Get("grant_type") == "refresh_token" && res.StatusCode < 500:
+		case form.Get("grant_type") == "refresh_token" && apiclient.Rejected(res.StatusCode):
 			return tokenResponse{}, ErrSessionExpired
 		}
 
@@ -625,7 +640,7 @@ func (p *Provider) get(ctx context.Context, token, u string, out any) error {
 	switch {
 	case res.StatusCode == http.StatusUnauthorized:
 		p.forget(token) // next call refreshes the session
-		return ErrSessionExpired
+		return errTokenRejected
 	case res.StatusCode != http.StatusOK:
 		return fmt.Errorf("epic %s: %w", req.URL.Path, apiclient.ClassifyStatus(res.StatusCode))
 	}

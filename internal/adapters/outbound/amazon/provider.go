@@ -32,6 +32,7 @@ import (
 	gosync "sync"
 	"time"
 
+	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
@@ -244,7 +245,8 @@ func hash(s string) string {
 // ---- Amazon account ----
 
 // post sends a JSON request to the account API and decodes the answer into out. Amazon answers
-// rejected values with HTTP 400 "InvalidValue", reported as rejected.
+// rejected values with HTTP 400 "InvalidValue", reported as rejected (so are a 401 and a 403). A
+// 429 or an outage is a passing trouble, never "sign in again".
 func (p *Provider) post(ctx context.Context, path string, body, out any) (rejected bool, err error) {
 	raw, _ := json.Marshal(body)
 
@@ -258,17 +260,17 @@ func (p *Provider) post(ctx context.Context, path string, body, out any) (reject
 
 	res, err := p.Client.Do(req)
 	if err != nil {
-		return false, err
+		return false, apiclient.ClassifyError(ctx, err)
 	}
 	defer res.Body.Close()
 
 	data, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
-	if res.StatusCode >= 400 && res.StatusCode < 500 {
+	if apiclient.Rejected(res.StatusCode) {
 		return true, nil
 	}
 
 	if res.StatusCode != http.StatusOK {
-		return false, fmt.Errorf("amazon sign-in: HTTP %d", res.StatusCode)
+		return false, fmt.Errorf("amazon sign-in: %w", apiclient.ClassifyStatus(res.StatusCode))
 	}
 
 	if err := json.Unmarshal(data, out); err != nil {

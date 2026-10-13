@@ -203,21 +203,23 @@ func (p *Provider) live(ctx context.Context, form url.Values) (liveToken, error)
 
 	res, err := p.Client.Do(req)
 	if err != nil {
-		return liveToken{}, err
+		return liveToken{}, apiclient.ClassifyError(ctx, err)
 	}
 	defer res.Body.Close()
 
+	// login.live.com refuses a used code or a stale refresh token with a 400 invalid_grant; a 429
+	// or an outage is a passing trouble, after which the same code or session still works.
 	body, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
 	if res.StatusCode != http.StatusOK {
-		if res.StatusCode < 500 && form.Get("grant_type") == "authorization_code" {
+		if apiclient.Rejected(res.StatusCode) && form.Get("grant_type") == "authorization_code" {
 			return liveToken{}, ErrBadCode
 		}
 
-		if res.StatusCode < 500 {
+		if apiclient.Rejected(res.StatusCode) {
 			return liveToken{}, ErrSessionExpired
 		}
 
-		return liveToken{}, fmt.Errorf("microsoft sign-in: HTTP %d", res.StatusCode)
+		return liveToken{}, fmt.Errorf("microsoft sign-in: %w", apiclient.ClassifyStatus(res.StatusCode))
 	}
 
 	var tok liveToken

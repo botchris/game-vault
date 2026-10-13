@@ -12,6 +12,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/source"
 )
 
@@ -21,11 +25,22 @@ type fakeEpic struct {
 	exchanges int
 	refreshes int
 	refresh   string // current valid refresh token
+
+	// tokenStatus, when set, is the only answer of the token endpoint (a rate limit, an outage).
+	tokenStatus int
+
+	// rejectAll makes the library reject every access token, as for a revoked session.
+	rejectAll bool
 }
 
 func (f *fakeEpic) handler(t *testing.T) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /account/api/oauth/token", func(w http.ResponseWriter, r *http.Request) {
+		if f.tokenStatus != 0 {
+			w.WriteHeader(f.tokenStatus)
+			return
+		}
+
 		if u, p, _ := r.BasicAuth(); u != clientID || p != clientSecret {
 			http.Error(w, "bad client", http.StatusUnauthorized)
 			return
@@ -64,7 +79,7 @@ func (f *fakeEpic) handler(t *testing.T) http.Handler {
 		})
 	})
 	mux.HandleFunc("GET /library/api/public/items", func(w http.ResponseWriter, r *http.Request) {
-		if !strings.HasPrefix(r.Header.Get("Authorization"), "bearer access-") {
+		if f.rejectAll || !strings.HasPrefix(r.Header.Get("Authorization"), "bearer access-") {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -201,4 +216,88 @@ func TestPrepareErrors(t *testing.T) {
 	if !errors.Is(err, ErrSessionExpired) {
 		t.Errorf("stale session: %v", err)
 	}
+}
+
+// TestTokenEndpoint_passingTroubles checks that a rate limit or an outage of the token endpoint is
+// not taken for a rejected code or session: signing in again would not help, and on Epic it would
+// rotate the credentials for nothing.
+func TestTokenEndpoint_passingTroubles(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	for status, want := range map[int]error{
+		http.StatusTooManyRequests:    provider.ErrRateLimited,
+		http.StatusServiceUnavailable: provider.ErrUnavailable,
+	} {
+		t.Run(fmt.Sprintf("GIVEN the token endpoint answers HTTP %d", status), func(t *testing.T) {
+			p, f := newTestProvider(t)
+			f.tokenStatus = status
+
+			t.Run("WHEN an authorization code is pasted", func(t *testing.T) {
+				_, err := p.Prepare(ctx, source.Settings{settingAuthCode: "good-code"})
+
+				t.Run("THEN it is a passing trouble, not a rejected code", func(t *testing.T) {
+					require.ErrorIs(t, err, want)
+					assert.NotErrorIs(t, err, ErrBadCode)
+				})
+			})
+
+			t.Run("WHEN the library is scanned with a stored session", func(t *testing.T) {
+				_, _, err := p.Fetch(ctx, source.Settings{settingSession: `{"refresh_token":"refresh-0","account_id":"acc1"}`})
+
+				t.Run("THEN it is a passing trouble, not a signed-out session", func(t *testing.T) {
+					require.ErrorIs(t, err, want)
+					assert.NotErrorIs(t, err, source.ErrSignedOut)
+				})
+			})
+		})
+	}
+}
+
+// TestFetch_renewsARejectedAccessToken checks that an access token the library rejects (it expired
+// or was revoked before its time) is renewed once, instead of asking the user to sign in again.
+func TestFetch_renewsARejectedAccessToken(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	stale := func(p *Provider) {
+		p.tokens = map[string]accessToken{"acc1": {
+			token:   "stale-access",
+			expires: time.Now().Add(time.Hour),
+		}}
+	}
+
+	t.Run("GIVEN a cached access token the library no longer accepts", func(t *testing.T) {
+		p, f := newTestProvider(t)
+		f.refresh = "refresh-0"
+		stale(p)
+
+		settings := source.Settings{settingSession: `{"refresh_token":"refresh-0","account_id":"acc1"}`}
+
+		t.Run("WHEN the library is scanned", func(t *testing.T) {
+			copies, _, err := p.Fetch(ctx, settings)
+
+			t.Run("THEN the session is refreshed once and the scan works", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.Len(t, copies, 2)
+				assert.Equal(t, 1, f.refreshes)
+				assert.Contains(t, settings[settingSession], "refresh-1", "the rotated session is handed back")
+			})
+		})
+	})
+
+	t.Run("GIVEN a library that rejects even a renewed access token", func(t *testing.T) {
+		p, f := newTestProvider(t)
+		f.refresh, f.rejectAll = "refresh-0", true
+		stale(p)
+
+		t.Run("WHEN the source is tested", func(t *testing.T) {
+			err := p.Test(ctx, source.Settings{settingSession: `{"refresh_token":"refresh-0","account_id":"acc1"}`})
+
+			t.Run("THEN it is signed out after one renewal", func(t *testing.T) {
+				require.ErrorIs(t, err, source.ErrSignedOut)
+				assert.Equal(t, 1, f.refreshes)
+			})
+		})
+	})
 }
