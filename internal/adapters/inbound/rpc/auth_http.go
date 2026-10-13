@@ -67,14 +67,28 @@ func authRequest(r *http.Request) auth.Request {
 	return req
 }
 
-// isProtected reports whether a path needs an authenticated caller: every API service except
-// AuthService, and media. The static UI is public so the login page can load.
+// publicProcedures are the only API procedures a caller may reach without being identified: what
+// the login page needs to load, create the first user, sign in and sign out. Every other procedure,
+// AuthService's included, is refused by the middleware itself, so a new RPC is protected even if
+// its handler forgets requirePrincipal (which stays as a second check and to refuse tokens).
+var publicProcedures = []string{
+	gamevaultv1connect.AuthServiceGetAuthStatusProcedure,
+	gamevaultv1connect.AuthServiceSetupProcedure,
+	gamevaultv1connect.AuthServiceLoginProcedure,
+	gamevaultv1connect.AuthServiceLogoutProcedure,
+}
+
+// isAPI reports whether a path is a Connect procedure of the Game Vault API.
+func isAPI(path string) bool { return strings.HasPrefix(path, "/gamevault.v1.") }
+
+// isProtected reports whether a path needs an authenticated caller: every API procedure except
+// publicProcedures, and media. The static UI is public so the login page can load.
 func isProtected(path string) bool {
-	if strings.HasPrefix(path, "/gamevault.v1.AuthService/") {
-		return false
+	if isAPI(path) {
+		return !slices.Contains(publicProcedures, path)
 	}
 
-	return strings.HasPrefix(path, "/gamevault.v1.") || strings.HasPrefix(path, "/media/")
+	return strings.HasPrefix(path, "/media/")
 }
 
 // tokenProcedures are the only paths an access token may call: it looks up what the user owns
@@ -135,9 +149,11 @@ func authMiddleware(svc *appauth.Service, next http.Handler) http.Handler {
 			return
 		}
 
+		// Three cases: the static UI (nothing to identify), a public procedure (the caller is
+		// identified when possible and served either way) and everything else (refused without one).
 		path := r.URL.Path
-		if !isProtected(path) && !strings.HasPrefix(path, "/gamevault.v1.") {
-			next.ServeHTTP(w, r) // static UI: nothing to identify
+		if !isAPI(path) && !isProtected(path) {
+			next.ServeHTTP(w, r)
 			return
 		}
 
@@ -164,7 +180,7 @@ func authMiddleware(svc *appauth.Service, next http.Handler) http.Handler {
 }
 
 func denyUnauthenticated(w http.ResponseWriter, path string) {
-	if strings.HasPrefix(path, "/gamevault.v1.") {
+	if isAPI(path) {
 		// Connect protocol error, so clients see code "unauthenticated".
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
