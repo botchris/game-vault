@@ -6,6 +6,7 @@ import { Icon } from '../../components/Icon';
 import { Alert, useFormatters } from '../../components/ui';
 import { deadlineTone, expiresSoon } from '../../lib/deadlines';
 import { searchableText } from '../../lib/fields';
+import { useStoredChoice } from '../../lib/useStoredChoice';
 import { CopyStatus, PlayStatus, daysUntil, isPendingKey, nextDeadline, playKey, toDate, type Game } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
 import {
@@ -30,27 +31,6 @@ const SORTS: SortBy[] = ['titleAsc', 'titleDesc', 'added', 'year', 'deadline', '
 const CHUNK = 120;
 const LETTERS = ['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'];
 
-/** Remembered per device: purely a viewing preference. */
-function usePref<T extends string>(key: string, fallback: T, allowed: readonly T[]): [T, (v: T) => void] {
-  const [value, setValue] = useState<T>(() => {
-    try {
-      const v = localStorage.getItem(key) as T | null;
-      return v && allowed.includes(v) ? v : fallback;
-    } catch {
-      return fallback;
-    }
-  });
-  const set = (v: T) => {
-    setValue(v);
-    try {
-      localStorage.setItem(key, v);
-    } catch {
-      /* private mode: not remembered */
-    }
-  };
-  return [value, set];
-}
-
 /** First letter for the A–Z bar: accents folded, digits and symbols under "#". */
 export function initialOf(title: string): string {
   const c = title.normalize('NFD').replace(/[̀-ͯ]/g, '').match(/[A-Za-z0-9]/)?.[0]?.toUpperCase() ?? '#';
@@ -69,9 +49,9 @@ export default function LibraryPage() {
   // Values of fields deleted or choices removed since they were picked no longer filter or count.
   const filters = useMemo(() => pruneFilters(chosenFilters, fields), [chosenFilters, fields]);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [sortBy, setSortBy] = usePref<SortBy>('gamevault.librarySort', 'titleAsc', SORTS);
-  const [view, setView] = usePref<View>('gamevault.libraryView', 'posters', ['list', 'posters']);
-  const [grouping, setGrouping] = usePref<Grouping>('gamevault.libraryGrouping', 'platform', ['platform', 'game']);
+  const [sortBy, setSortBy] = useStoredChoice<SortBy>('gamevault.librarySort', 'titleAsc', SORTS);
+  const [view, setView] = useStoredChoice<View>('gamevault.libraryView', 'posters', ['list', 'posters']);
+  const [grouping, setGrouping] = useStoredChoice<Grouping>('gamevault.libraryGrouping', 'platform', ['platform', 'game']);
   const [shown, setShown] = useState(CHUNK);
   // The open sheet: a game and the edition it was opened on ('' for the main one).
   const [open, setOpen] = useState<{ id: string; system: string } | null>(null);

@@ -8,6 +8,7 @@ import type { IdentifyBarcodeResponse } from '../../gen/gamevault/v1/lookup_pb';
 import { CopyContent, CopyGrade } from '../../gen/gamevault/v1/game_pb';
 import { CopyKind, CopyStatus, PHYSICAL_PLATFORMS, describePhysical, emptyDetails } from '../../lib/model';
 import { normalizeBarcode } from '../../lib/barcode.ts';
+import { recall, remember } from '../../lib/storage';
 import { useAppData } from '../../state/AppData';
 import GameDetail from '../library/GameDetail';
 import { ContentsToggles, GradeSelect, LocationInput } from '../library/PhysicalInputs';
@@ -35,44 +36,23 @@ const NO_DEFAULTS: Defaults = { platform: '', grade: CopyGrade.UNSPECIFIED, cont
 function loadDefaults(): Defaults {
   try {
     // Older versions stored a free-text condition: it is dropped.
-    const { condition: _old, ...saved } = JSON.parse(localStorage.getItem(DEFAULTS_KEY) ?? '{}');
+    const { condition: _old, ...saved } = JSON.parse(recall(DEFAULTS_KEY) ?? '{}');
     return { ...NO_DEFAULTS, ...saved };
   } catch {
-    return NO_DEFAULTS;
+    return NO_DEFAULTS; // saved by hand or damaged: not JSON
   }
 }
 
 /** The camera starts open on phones (where it is the scanner) unless it was closed last time. */
 function initialCamera(): boolean {
-  try {
-    const saved = localStorage.getItem(CAMERA_KEY);
-    if (saved !== null) return saved === '1';
-  } catch {
-    /* fall through to the device default */
-  }
+  const saved = recall(CAMERA_KEY);
+  if (saved !== null) return saved === '1';
   return window.isSecureContext && window.matchMedia('(pointer: coarse)').matches;
 }
 
 const LIST_KEY = 'gamevault.scanList';
 const MUTED_KEY = 'gamevault.scanMuted';
 const SEND_CHUNK = 200;
-
-function remember(key: string, value: string): boolean {
-  try {
-    localStorage.setItem(key, value);
-    return true;
-  } catch {
-    return false; // private mode: not remembered
-  }
-}
-
-function recall(key: string): string | null {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
 
 /** A row id: unique on this device (crypto.randomUUID needs HTTPS, which a LAN address may lack). */
 const newId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
