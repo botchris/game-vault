@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"html"
-	"net/http"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -104,12 +103,9 @@ func (d *Details) fetch(ctx context.Context, appID int64, lang string) (app appD
 		return appDetails{}, false, err
 	}
 
-	if apiclient.IsStatus(err, http.StatusTooManyRequests) {
-		return appDetails{}, false, fmt.Errorf("steam store: too many requests, try again in a few minutes")
-	}
-
+	// A 429 or an outage is the provider's status, not a warning on the game's sheet.
 	if err != nil {
-		return appDetails{}, false, fmt.Errorf("steam store: %w", err)
+		return appDetails{}, false, fmt.Errorf("steam store: %w", apiclient.ClassifyError(ctx, err))
 	}
 
 	app, ok = out[id]

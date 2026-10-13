@@ -28,6 +28,7 @@ import (
 	gosync "sync"
 	"time"
 
+	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
@@ -484,7 +485,7 @@ func catalog(ctx context.Context, client *http.Client, base, market, language st
 
 		res, err := client.Do(req)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("microsoft store catalog: %w", apiclient.ClassifyError(ctx, err))
 		}
 
 		var page struct {
@@ -494,8 +495,13 @@ func catalog(ctx context.Context, client *http.Client, base, market, language st
 		err = json.NewDecoder(io.LimitReader(res.Body, 16<<20)).Decode(&page)
 		res.Body.Close()
 
-		if res.StatusCode != http.StatusOK || err != nil {
-			return nil, fmt.Errorf("microsoft store catalog: HTTP %d", res.StatusCode)
+		// A 429 or an outage says nothing about the products: callers ask again later.
+		if res.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("microsoft store catalog: %w", apiclient.ClassifyStatus(res.StatusCode))
+		}
+
+		if err != nil {
+			return nil, fmt.Errorf("microsoft store catalog: unexpected answer: %w", err)
 		}
 
 		for _, pr := range page.Products {

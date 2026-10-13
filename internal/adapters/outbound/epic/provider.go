@@ -24,6 +24,7 @@ import (
 	gosync "sync"
 	"time"
 
+	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
@@ -345,7 +346,7 @@ func (p *Provider) oauthRaw(ctx context.Context, form url.Values) (tokenResponse
 
 	res, err := p.Client.Do(req)
 	if err != nil {
-		return tokenResponse{}, err
+		return tokenResponse{}, apiclient.ClassifyError(ctx, err)
 	}
 	defer res.Body.Close()
 
@@ -362,7 +363,11 @@ func (p *Provider) oauthRaw(ctx context.Context, form url.Values) (tokenResponse
 			return tokenResponse{}, ErrSessionExpired
 		}
 
-		return tokenResponse{}, fmt.Errorf("epic sign-in: HTTP %d %s", res.StatusCode, e.ErrorCode)
+		if e.ErrorCode != "" {
+			return tokenResponse{}, fmt.Errorf("epic sign-in: %s: %w", e.ErrorCode, apiclient.ClassifyStatus(res.StatusCode))
+		}
+
+		return tokenResponse{}, fmt.Errorf("epic sign-in: %w", apiclient.ClassifyStatus(res.StatusCode))
 	}
 
 	var tok tokenResponse
@@ -613,7 +618,7 @@ func (p *Provider) get(ctx context.Context, token, u string, out any) error {
 
 	res, err := p.Client.Do(req)
 	if err != nil {
-		return err
+		return apiclient.ClassifyError(ctx, err)
 	}
 	defer res.Body.Close()
 
@@ -622,7 +627,7 @@ func (p *Provider) get(ctx context.Context, token, u string, out any) error {
 		p.forget(token) // next call refreshes the session
 		return ErrSessionExpired
 	case res.StatusCode != http.StatusOK:
-		return fmt.Errorf("epic %s: HTTP %d", req.URL.Path, res.StatusCode)
+		return fmt.Errorf("epic %s: %w", req.URL.Path, apiclient.ClassifyStatus(res.StatusCode))
 	}
 
 	return json.NewDecoder(io.LimitReader(res.Body, 32<<20)).Decode(out)

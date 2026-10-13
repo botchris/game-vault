@@ -2,10 +2,16 @@ package ebay
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
 )
 
@@ -67,7 +73,48 @@ func TestLookupConsensusAndMarketplaceFallback(t *testing.T) {
 		t.Fatalf("token must be cached, fetched %d times", tokens)
 	}
 
-	if err := p.Test(context.Background(), schema.Settings{settingClientID: "id", settingClientSecret: "wrong"}); err == nil {
-		t.Fatal("bad keys must fail the test")
+	err = p.Test(context.Background(), schema.Settings{settingClientID: "id", settingClientSecret: "wrong"})
+	require.ErrorIs(t, err, provider.ErrBadSettings, "bad keys are a settings problem")
+	assert.Contains(t, err.Error(), "client authentication failed")
+}
+
+// TestLookup_passingTroubles checks that a rate limit and an outage, of the token endpoint or of
+// the search, say so: the provider's status shows them, instead of "eBay rejected the keys".
+func TestLookup_passingTroubles(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	for _, endpoint := range []string{"token", "search"} {
+		for status, want := range map[int]error{
+			http.StatusTooManyRequests: provider.ErrRateLimited,
+			http.StatusBadGateway:      provider.ErrUnavailable,
+		} {
+			t.Run(fmt.Sprintf("GIVEN eBay's %s endpoint answers HTTP %d", endpoint, status), func(t *testing.T) {
+				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if endpoint == "token" || r.URL.Path != "/identity/v1/oauth2/token" {
+						w.WriteHeader(status)
+						return
+					}
+
+					w.Write([]byte(`{"access_token":"tok","expires_in":7200}`))
+				}))
+				defer srv.Close()
+
+				p := &Provider{
+					BaseURL: srv.URL,
+					Client:  srv.Client(),
+					tokens:  map[string]token{},
+				}
+
+				t.Run("WHEN a code is looked up", func(t *testing.T) {
+					_, err := p.Lookup(ctx, "5030934110075", schema.Settings{settingClientID: "id", settingClientSecret: "secret"})
+
+					t.Run("THEN the error says it is a passing trouble", func(t *testing.T) {
+						require.ErrorIs(t, err, want)
+						assert.NotErrorIs(t, err, provider.ErrBadSettings)
+					})
+				})
+			})
+		}
 	}
 }

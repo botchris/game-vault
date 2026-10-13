@@ -13,6 +13,7 @@ import (
 
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
+	"gamevault/internal/domain/provider"
 )
 
 func TestCovers(t *testing.T) {
@@ -114,11 +115,51 @@ func TestCovers_Test(t *testing.T) {
 		t.Run("WHEN the provider is tested", func(t *testing.T) {
 			err := c.Test(ctx, nil)
 
-			t.Run("THEN it fails and says what to do", func(t *testing.T) {
-				require.Error(t, err)
+			t.Run("THEN it fails with a rate limit and says what to do", func(t *testing.T) {
+				require.ErrorIs(t, err, provider.ErrRateLimited)
 				assert.Contains(t, err.Error(), "HTTP 429")
 				assert.Contains(t, err.Error(), "try again later")
 			})
 		})
 	})
+}
+
+// TestCovers_passingTroubles checks that a rate limit and an outage are told apart from "no cover":
+// the chain asks again later instead of marking the edition's cover missing.
+func TestCovers_passingTroubles(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	q := media.CoverQuery{
+		Title:     "Assassin's Creed Origins",
+		Platforms: []string{"Ubisoft Connect"},
+	}
+
+	for status, want := range map[int]error{
+		http.StatusTooManyRequests: provider.ErrRateLimited,
+		http.StatusBadGateway:      provider.ErrUnavailable,
+		0:                          provider.ErrUnavailable, // no answer at all
+	} {
+		t.Run(fmt.Sprintf("GIVEN the store search answers HTTP %d", status), func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(status)
+			}))
+			defer srv.Close()
+
+			c := NewCovers()
+			c.CDNURL, c.Search.BaseURL = srv.URL, srv.URL
+
+			if status == 0 {
+				srv.Close()
+			}
+
+			t.Run("WHEN covers are asked", func(t *testing.T) {
+				_, err := c.Covers(ctx, q, nil)
+
+				t.Run("THEN the error says it is a passing trouble", func(t *testing.T) {
+					require.ErrorIs(t, err, want)
+				})
+			})
+		})
+	}
 }

@@ -19,6 +19,7 @@ import (
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
 
+	"gamevault/internal/adapters/outbound/apiclient"
 	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
@@ -151,9 +152,15 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 
 	res, err := c.Client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ea catalog: %w", apiclient.ClassifyError(ctx, err))
 	}
 	defer res.Body.Close()
+
+	// A 429 or an outage says nothing about the game: the chain asks again later instead of
+	// marking the cover missing. Other statuses may carry GraphQL errors, read below.
+	if passingTrouble(res.StatusCode) {
+		return nil, fmt.Errorf("ea catalog: %w", apiclient.ClassifyStatus(res.StatusCode))
+	}
 
 	var out struct {
 		Data   map[string]*eaGame `json:"data"`
@@ -226,6 +233,11 @@ func (c *Covers) Covers(ctx context.Context, q media.CoverQuery, _ schema.Settin
 	return cands, nil
 }
 
+// passingTrouble reports whether status is a rate limit or an outage.
+func passingTrouble(status int) bool {
+	return status == http.StatusTooManyRequests || status >= http.StatusInternalServerError
+}
+
 // Test implements media.Provider: it asks EA's public catalog for one well-known game by slug and
 // fails on a transport error, an HTTP error or a GraphQL rejection. An unknown slug is not a failure.
 func (c *Covers) Test(ctx context.Context, _ schema.Settings) error {
@@ -241,12 +253,12 @@ func (c *Covers) Test(ctx context.Context, _ schema.Settings) error {
 
 	res, err := c.Client.Do(req)
 	if err != nil {
-		return fmt.Errorf("EA's catalog is not reachable (%w); check the connection and try again", err)
+		return fmt.Errorf("EA's catalog is not reachable (%w); check the connection and try again", apiclient.ClassifyError(ctx, err))
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("EA's catalog answered HTTP %d; try again later", res.StatusCode)
+		return fmt.Errorf("EA's catalog answered (%w); try again later", apiclient.ClassifyStatus(res.StatusCode))
 	}
 
 	var out struct {

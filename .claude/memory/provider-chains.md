@@ -66,6 +66,10 @@ metadata:
   fixes: providers without settings must return ErrBadSettings, never an empty success (it would
   clear a sibling's status); TheGamesDB 401/403/5xx/no answer and Wikimedia 403/5xx/no answer are
   provider-level; TestProvider sets/clears too; the picker gets `providers_unavailable`.
+  Since 2026-10-13 (audit PRV-2) every other provider classifies through `apiclient.ClassifyError`
+  (a whole request's error) or `ClassifyStatus` (a bare status): 429 → ErrRateLimited, 5xx / no
+  answer / HTML page → ErrUnavailable; 401/403 stay each adapter's call (keyless APIs answer bot
+  checks with 403). Use them in new providers rather than `fmt.Errorf("HTTP %d")`.
 - **PC box as last resort (2026-10-11, maintainer's request):** a console-only game with a PC-store
   link (`game.IsPCStoreLink`) has a virtual PC edition at `/media/covers/{id}/PC`: first pass only
   (store links only, `CoverQuery.LinksOnly`: no TheGamesDB, IGDB, Battle.net/Ubisoft/Steam title searches, no fallback pass, no add-on borrowing; an xbox link alone does not count with an Xbox edition), cached/marked under PC, fingerprinted by links; the web appends

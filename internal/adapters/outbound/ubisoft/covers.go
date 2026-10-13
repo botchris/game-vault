@@ -165,7 +165,8 @@ func (c *Covers) storeCovers(ctx context.Context, title string) ([]media.CoverCa
 		Hits []storeHit `json:"hits"`
 	}
 	if err := c.Search.Post(ctx, "", map[string]any{"query": title, "hitsPerPage": 20}, &out); err != nil {
-		return nil, fmt.Errorf("ubisoft store search: %w", err)
+		// A 429 or an outage says nothing about the game: the chain asks again later.
+		return nil, fmt.Errorf("ubisoft store search: %w", apiclient.ClassifyError(ctx, err))
 	}
 
 	return pickStoreCovers(title, out.Hits), nil
