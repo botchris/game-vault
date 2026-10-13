@@ -60,6 +60,10 @@ type AssetStore interface {
 	// marker, is still there.
 	HasLegacyCover(id game.ID) bool
 
+	// LegacyCoverIDs returns the games whose cover stored before editions, or its "no cover found"
+	// marker, is still there.
+	LegacyCoverIDs() []game.ID
+
 	// DeleteCovers removes the stored covers and markers of every edition of a game.
 	DeleteCovers(id game.ID) error
 

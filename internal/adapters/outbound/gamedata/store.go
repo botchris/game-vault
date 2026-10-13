@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -383,6 +384,18 @@ func (s *Store) HasLegacyCover(id game.ID) bool {
 	}
 
 	return false
+}
+
+// LegacyCoverIDs returns the games whose folder still holds the cover from before editions or its
+// missing marker, in id order, for the one-time start-up upgrade.
+func (s *Store) LegacyCoverIDs() []game.ID {
+	s.mu.Lock()
+	ids := slices.Collect(maps.Keys(s.dirs))
+	s.mu.Unlock()
+
+	slices.Sort(ids)
+
+	return slices.DeleteFunc(ids, func(id game.ID) bool { return !s.HasLegacyCover(id) })
 }
 
 // DeleteCovers removes the covers and missing markers of every edition of a game.

@@ -783,6 +783,14 @@ Logs never contain keys or credentials.
   replace `config/gamevault.db` with the pre-migration copy, delete `config/gamevault.db-wal` and
   `config/gamevault.db-shm` (a stale WAL next to a restored file corrupts it), then start the older
   version or image.
+- A one-time start-up upgrade (`internal/application/upgrade`, run by `app.Build` before any
+  background job) rewrites what older versions stored in a shape the readers only convert: game
+  documents before version 3 (read through the repository and saved back unchanged, in batches),
+  security settings saved with `localBypass` (saved as the reader converts them), and covers cached
+  before editions (`cover.<ext>` / `cover.missing` in a game's folder: adopted by the main edition
+  or removed, as its next resolution would). It logs one line per part that did something, a
+  warning naming any game it could not rewrite, and nothing once there is nothing left. It is
+  removed in the next release, together with the readers of those old shapes.
 - `task go -- test ./internal/…/ -run TestName -v` runs one package's tests in the toolchain.
 - `task test` runs the Go tests, the TypeScript type check, the Node tests of the web's pure helpers (`web/tests/`) and the translation check, in the toolchain container. The Go tests cover the domain, SQLite, the providers (against fake servers), CSV, and an end-to-end Connect test.
 - GitHub Actions (`.github/workflows/ci.yml`) runs `task lint`, checks that `task generate` changes nothing, and runs `task test` on every push to `main` and every pull request, inside the same toolchain image (its layers cached in GitHub Actions, rebuilt only when `build/toolchain.Dockerfile` changes).

@@ -1552,11 +1552,10 @@ const file_gamevault_v1_source_proto_rawDesc = "" +
 	"\x14DeleteSourceResponse\"V\n" +
 	"\x11TestSourceRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x121\n" +
-	"\x06source\x18\x02 \x01(\v2\x19.gamevault.v1.SourceInputR\x06source\"i\n" +
+	"\x06source\x18\x02 \x01(\v2\x19.gamevault.v1.SourceInputR\x06source\"H\n" +
 	"\x12TestSourceResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessageJ\x04\b\x03\x10\x04J\x04\b\x04\x10\x05R\afetchedR\n" +
-	"count_unit\"#\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"#\n" +
 	"\x11SyncSourceRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"B\n" +
 	"\x12SyncSourceResponse\x12,\n" +

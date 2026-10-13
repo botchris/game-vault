@@ -139,8 +139,6 @@ message TestSourceResponse {
   bool success = 1;
   // Why not, when success is false.
   string message = 2;
-  reserved 3, 4;
-  reserved "fetched", "count_unit";
 }
 
 message SyncSourceRequest {

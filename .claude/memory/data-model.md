@@ -73,3 +73,9 @@ metadata:
   (`autoLinks`, `rejectedLinks`, `autoLinkTriedAt`): an older binary reads the game but drops them
   on its next save (automatic links become plain links or vanish with it), so a downgrade loses the
   marks and the rejections. CSV column `autoLinks`; `UpdateGameRequest.links_set` guards links.
+- 2026-10-13: removing the backward compatibility in two steps. PR A (branch
+  `feature/upgrade-stored-data`) adds a one-time start-up upgrade (`internal/application/upgrade`)
+  that rewrites game docs v<3, the old `localBypass` auth row and the pre-edition `cover.<ext>` /
+  `cover.missing` files into today's format. PR B deletes the legacy readers (`LegacyCover`,
+  `condition`, `localBypass`, `AdoptLegacyCover`…) together with the upgrade, once the maintainer's
+  database has been through it.

@@ -36,9 +36,7 @@ const NO_DEFAULTS: Defaults = { platform: '', grade: CopyGrade.UNSPECIFIED, cont
 
 function loadDefaults(): Defaults {
   try {
-    // Older versions stored a free-text condition: it is dropped.
-    const { condition: _old, ...saved } = JSON.parse(recall(DEFAULTS_KEY) ?? '{}');
-    return { ...NO_DEFAULTS, ...saved };
+    return { ...NO_DEFAULTS, ...JSON.parse(recall(DEFAULTS_KEY) ?? '{}') };
   } catch {
     return NO_DEFAULTS; // saved by hand or damaged: not JSON
   }

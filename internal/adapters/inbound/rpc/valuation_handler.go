@@ -47,18 +47,14 @@ func (h *ValuationHandler) GetCollectionValue(ctx context.Context, _ *connect.Re
 
 	out := &pb.GetCollectionValueResponse{Currency: v.Currency}
 	for _, t := range v.Totals {
-		// The *Minor fields are deprecated: older clients read them for one more release.
 		out.Totals = append(out.Totals, &pb.ProviderTotal{
-			Provider:       string(t.Provider),
-			Name:           t.Name,
-			SellMinor:      t.Sell,
-			BuyCashMinor:   t.BuyCash,
-			BuyCreditMinor: t.BuyCredit,
-			Copies:         int32(t.Copies),
-			OtherCurrency:  int32(t.OtherCurrency),
-			Sell:           totalToPB(t.Sell, v.Currency),
-			BuyCash:        totalToPB(t.BuyCash, v.Currency),
-			BuyCredit:      totalToPB(t.BuyCredit, v.Currency),
+			Provider:      string(t.Provider),
+			Name:          t.Name,
+			Copies:        int32(t.Copies),
+			OtherCurrency: int32(t.OtherCurrency),
+			Sell:          totalToPB(t.Sell, v.Currency),
+			BuyCash:       totalToPB(t.BuyCash, v.Currency),
+			BuyCredit:     totalToPB(t.BuyCredit, v.Currency),
 		})
 	}
 
