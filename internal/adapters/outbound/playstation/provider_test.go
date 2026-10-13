@@ -45,6 +45,14 @@ type fakeSony struct {
 
 	// rejectAll makes the library refuse every access token, as for a revoked session.
 	rejectAll bool
+
+	// rejectHTML makes the library refuse an access token with a plain HTTP 401 and a web page,
+	// instead of its GraphQL error.
+	rejectHTML bool
+
+	// libraryStatus, when set, makes the library answer every request with this HTTP status and a
+	// web page: a rate limit, an outage.
+	libraryStatus int
 }
 
 func (f *fakeSony) handler() http.Handler {
@@ -106,8 +114,23 @@ func (f *fakeSony) handler() http.Handler {
 			return
 		}
 
+		if f.libraryStatus != 0 {
+			w.WriteHeader(f.libraryStatus)
+			fmt.Fprint(w, `<html><body>Service Unavailable</body></html>`)
+
+			return
+		}
+
 		if f.rejectAll || r.Header.Get("Authorization") != "Bearer access" || r.Header.Get("Content-Type") != "application/json" {
+			if f.rejectHTML {
+				w.WriteHeader(http.StatusUnauthorized)
+				fmt.Fprint(w, `<html><body>401 Authorization Required</body></html>`)
+
+				return
+			}
+
 			fmt.Fprint(w, `{"errors":[{"message":"Access denied! You need to be authorized to perform this action!"}],"data":{"purchasedTitlesRetrieve":null}}`)
+
 			return
 		}
 
@@ -262,6 +285,23 @@ func TestFetch_renewsARejectedAccessToken(t *testing.T) {
 		})
 	})
 
+	t.Run("GIVEN a cached access token the library refuses with a plain 401 and a web page", func(t *testing.T) {
+		p, f := newTest(t)
+		f.rejectHTML = true
+
+		stale(p)
+
+		t.Run("WHEN the library is scanned", func(t *testing.T) {
+			copies, _, err := p.Fetch(ctx, source.Settings{settingSession: `{"refresh_token":"refresh-ok"}`})
+
+			t.Run("THEN the token is renewed once and the scan works", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.NotEmpty(t, copies)
+				assert.Equal(t, 1, f.refreshes)
+			})
+		})
+	})
+
 	t.Run("GIVEN a library that refuses even a renewed access token", func(t *testing.T) {
 		p, f := newTest(t)
 		f.rejectAll = true
@@ -274,6 +314,46 @@ func TestFetch_renewsARejectedAccessToken(t *testing.T) {
 			t.Run("THEN it is signed out after one renewal", func(t *testing.T) {
 				require.ErrorIs(t, err, source.ErrSignedOut)
 				assert.Equal(t, 1, f.refreshes)
+			})
+		})
+	})
+}
+
+// TestFetch_libraryPassingTroubles checks that a rate limit or an outage of the library is told as
+// such, not as an unexpected answer or a signed-out session.
+func TestFetch_libraryPassingTroubles(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	for status, want := range map[int]error{
+		http.StatusTooManyRequests:    provider.ErrRateLimited,
+		http.StatusServiceUnavailable: provider.ErrUnavailable,
+	} {
+		t.Run(fmt.Sprintf("GIVEN the library answers HTTP %d with a web page", status), func(t *testing.T) {
+			p, f := newTest(t)
+			f.libraryStatus = status
+
+			t.Run("WHEN the library is scanned", func(t *testing.T) {
+				_, _, err := p.Fetch(ctx, source.Settings{settingSession: `{"refresh_token":"refresh-ok"}`})
+
+				t.Run("THEN it is a passing trouble, not a signed-out session", func(t *testing.T) {
+					require.ErrorIs(t, err, want)
+					assert.NotErrorIs(t, err, source.ErrSignedOut)
+					assert.NotContains(t, err.Error(), "unexpected answer")
+				})
+			})
+		})
+	}
+
+	t.Run("GIVEN a library that does not answer at all", func(t *testing.T) {
+		p, _ := newTest(t)
+		p.LibraryURL = "http://127.0.0.1:1/graphql"
+
+		t.Run("WHEN the library is scanned", func(t *testing.T) {
+			_, _, err := p.Fetch(ctx, source.Settings{settingSession: `{"refresh_token":"refresh-ok"}`})
+
+			t.Run("THEN it is an outage", func(t *testing.T) {
+				require.ErrorIs(t, err, provider.ErrUnavailable)
 			})
 		})
 	})

@@ -360,9 +360,19 @@ func (p *Provider) page(ctx context.Context, token, hash string, start int) ([]t
 
 	res, err := p.Client.Do(req)
 	if err != nil {
-		return nil, false, err
+		return nil, false, fmt.Errorf("playstation library: %w", apiclient.ClassifyError(ctx, err))
 	}
 	defer res.Body.Close()
+
+	// A 401 refuses the token whatever the body says (a web page as well as a GraphQL error), and
+	// a rate limit or an outage is a passing trouble: neither is worth decoding.
+	switch {
+	case res.StatusCode == http.StatusUnauthorized:
+		p.forget(token) // the next accessToken renews it
+		return nil, false, errTokenRejected
+	case res.StatusCode == http.StatusTooManyRequests || res.StatusCode >= http.StatusInternalServerError:
+		return nil, false, fmt.Errorf("playstation library: %w", apiclient.ClassifyStatus(res.StatusCode))
+	}
 
 	raw, _ := io.ReadAll(io.LimitReader(res.Body, 16<<20))
 
@@ -390,7 +400,7 @@ func (p *Provider) page(ctx context.Context, token, hash string, start int) ([]t
 	}
 
 	if len(out.Errors) > 0 {
-		if strings.Contains(out.Errors[0].Message, "authorized") || res.StatusCode == http.StatusUnauthorized {
+		if strings.Contains(out.Errors[0].Message, "authorized") {
 			p.forget(token) // the next accessToken renews it
 			return nil, false, errTokenRejected
 		}
