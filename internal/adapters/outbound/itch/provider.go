@@ -220,11 +220,9 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 // claimed again in a bundle, is still one game in the library. The earliest key dates the copy.
 // What is not a game (tools, assets, soundtracks, books…) is skipped and counted in a warning.
 func mapKeys(keys []ownedKey) ([]game.ImportedCopy, []string) {
-	var (
-		copies  []game.ImportedCopy
-		skipped int
-	)
+	var copies []game.ImportedCopy
 
+	skipped := source.Skipped{Store: Platform}
 	index := map[int64]int{}
 
 	for _, k := range keys {
@@ -235,7 +233,7 @@ func mapKeys(keys []ownedKey) ([]game.ImportedCopy, []string) {
 
 		title := strings.TrimSpace(k.Game.Title)
 		if id == 0 || title == "" || !isGame(k.Game.Classification) {
-			skipped++
+			skipped.Add("tools, assets, soundtracks, books and other things that are not games")
 			continue
 		}
 
@@ -266,12 +264,7 @@ func mapKeys(keys []ownedKey) ([]game.ImportedCopy, []string) {
 		})
 	}
 
-	var warnings []string
-	if skipped > 0 {
-		warnings = append(warnings, fmt.Sprintf("%d itch.io items were not imported: tools, assets, soundtracks, books and other things that are not games", skipped))
-	}
-
-	return copies, warnings
+	return copies, skipped.Warnings()
 }
 
 func isGame(classification string) bool {

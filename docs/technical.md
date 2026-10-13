@@ -267,7 +267,11 @@ How each source reads your library. **Test connection** makes one cheap request 
 scan: the first library page (one item where the store lets it choose the size: Amazon, EA,
 Ubisoft, Xbox), Battle.net's games overview without the classic games, Steam's game count. It
 still signs in and renews what a scan renews, so a rotated credential is saved as after a scan.
-Fanatical answers every key in one request, which the test reads whole.
+Fanatical answers every key in one request, which the test reads whole. What a scan leaves out on
+purpose (DLC, subscription games such as Game Pass, PS Plus or EA Play, console games on Ubisoft,
+software in bundles) is counted in the scan's warnings, one line per reason. Battle.net and EA
+items without a store id get one from their title (`game.TitleIDKey`); one whose title has no
+Latin letters or digits gives no id, so it is skipped and counted instead.
 
 - **Humble Bundle:** session cookie `_simpleauth_sess` from your browser. It uses the site's own JSON API, which is undocumented and read-only. Hidden keys are reported as unrevealed and never revealed. Every game key of every order becomes one copy, Humble Choice months included (a chosen game is a key of that month's order). Only keys for a store or console Game Vault knows count as games: software, courses, in-game items and store coupons ("45% off … Coupon") are skipped and listed in the log, and copies of them imported by earlier versions are removed, with their game if nothing else is left in it. Copies are identified by order, game (`machine_name`) and copy number; copies saved by older versions, which identified keys by order and copy number only and so kept one copy per order, are adopted by the right game on the next scan.
 - **Steam:** a Web API key plus your profile, given as SteamID64, vanity name or URL. "Game details" must be public.

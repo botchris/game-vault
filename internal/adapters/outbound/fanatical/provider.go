@@ -224,10 +224,9 @@ func statusOf(s string) game.Status {
 // left out), on the store the key is for. Skipped items are counted in a warning. Bundle purchases
 // are not keys: they are returned withdrawn, so a copy imported for one before is removed.
 func mapItems(items []item) ([]game.ImportedCopy, []string) {
-	var (
-		copies  []game.ImportedCopy
-		skipped int
-	)
+	var copies []game.ImportedCopy
+
+	skipped := source.Skipped{Store: "Fanatical"}
 
 	for _, it := range items {
 		if it.isBundle() {
@@ -244,7 +243,7 @@ func mapItems(items []item) ([]game.ImportedCopy, []string) {
 
 		platform := platformOf(it.DRM)
 		if it.ID == "" || strings.TrimSpace(it.Name) == "" || !strings.EqualFold(it.Type, "game") || platform == "" {
-			skipped++
+			skipped.Add("DLC, software, books, audio or keys for an unknown store")
 			continue
 		}
 
@@ -263,12 +262,7 @@ func mapItems(items []item) ([]game.ImportedCopy, []string) {
 		})
 	}
 
-	var warnings []string
-	if skipped > 0 {
-		warnings = append(warnings, fmt.Sprintf("%d Fanatical items were not imported: DLC, software, books, audio or keys for an unknown store", skipped))
-	}
-
-	return copies, warnings
+	return copies, skipped.Warnings()
 }
 
 // Test implements sync.Provider: it reads the key list once.

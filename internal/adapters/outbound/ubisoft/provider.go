@@ -517,9 +517,10 @@ func onPC(n node) bool {
 }
 
 // mapNodes turns owned games into copies, one per game; console games linked to the account are
-// left out (they are not in the Ubisoft Connect library).
-func mapNodes(nodes []node) []game.ImportedCopy {
+// left out (they are not in the Ubisoft Connect library) and counted in the warnings it returns.
+func mapNodes(nodes []node) ([]game.ImportedCopy, []string) {
 	seen := map[string]bool{}
+	skipped := source.Skipped{Store: "Ubisoft"}
 
 	var out []game.ImportedCopy
 
@@ -531,11 +532,17 @@ func mapNodes(nodes []node) []game.ImportedCopy {
 			id = n.ID
 		}
 
-		if title == "" || id == "" || seen[id] || !onPC(n) {
+		if title == "" || id == "" || seen[id] {
 			continue
 		}
 
 		seen[id] = true
+
+		if !onPC(n) {
+			skipped.Add("console games, which are not in the Ubisoft Connect library")
+			continue
+		}
+
 		out = append(out, game.ImportedCopy{
 			ExternalID: "ubisoft:" + id,
 			Links:      game.Links{LinkedStore.Key: id},
@@ -551,7 +558,7 @@ func mapNodes(nodes []node) []game.ImportedCopy {
 
 	sort.Slice(out, func(i, j int) bool { return out[i].Title < out[j].Title })
 
-	return out
+	return out, skipped.Warnings()
 }
 
 // Test implements sync.Provider: it opens (or reuses) a session and asks the library for one game.
@@ -570,9 +577,7 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 		return nil, nil, err
 	}
 
-	copies := mapNodes(nodes)
-
-	var warnings []string
+	copies, warnings := mapNodes(nodes)
 	if len(copies) == 0 {
 		warnings = append(warnings, "Ubisoft returned no PC games for this account")
 	}

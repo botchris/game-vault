@@ -213,9 +213,12 @@ func TestFetch(t *testing.T) {
 	settings := schema.Settings{settingNPSSO: `{"npsso":"good-npsso"}`}
 
 	copies, warnings, err := p.Fetch(context.Background(), settings)
-	if err != nil || len(warnings) > 0 {
-		t.Fatalf("fetch: %v %v", err, warnings)
+	if err != nil {
+		t.Fatalf("fetch: %v", err)
 	}
+
+	// The PS Plus game is left out and counted.
+	assert.Equal(t, []string{"1 PlayStation item was not imported: PS Plus games"}, warnings)
 
 	byTitle := map[string]string{}
 	for _, c := range copies {
@@ -480,7 +483,7 @@ func TestMapTitles_systems(t *testing.T) {
 				EntitlementID: "e3",
 				Platform:      "PSX",
 			},
-		}, nil)
+		}, nil, &source.Skipped{})
 
 		t.Run("THEN the copies say their console, and the unknown one leaves it to the platform", func(t *testing.T) {
 			require.Len(t, got, 3)

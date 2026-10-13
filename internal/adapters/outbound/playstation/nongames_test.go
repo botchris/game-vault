@@ -167,7 +167,7 @@ func TestFetch_nonGames(t *testing.T) {
 		t.Run("WHEN it is scanned", func(t *testing.T) {
 			copies, warnings, err := p.Fetch(ctx, schema.Settings{settingNPSSO: "good-npsso"})
 			require.NoError(t, err)
-			assert.Empty(t, warnings)
+			assert.Equal(t, []string{"5 PlayStation items were not imported: apps and other titles that are not games"}, warnings)
 
 			got := byExternalID(copies)
 			require.Len(t, got, len(libraryWithNonGames))
@@ -243,7 +243,7 @@ func TestFetch_nonGames(t *testing.T) {
 
 				t.Run("THEN the scan succeeds and only the name markers exclude titles", func(t *testing.T) {
 					require.NoError(t, err)
-					assert.Empty(t, warnings)
+					assert.Equal(t, []string{"2 PlayStation items were not imported: apps and other titles that are not games"}, warnings)
 
 					got := byExternalID(copies)
 					assert.False(t, got["psn:EP0002-CUSA20002_00-STREAMBOX"].Withdrawn)

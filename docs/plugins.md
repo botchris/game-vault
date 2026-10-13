@@ -72,7 +72,11 @@ The Fanatical plugin is a real, small one: one source, `apiclient`, a fake-serve
   `game.MatchKey`, which changes as matching improves (Battle.net, EA and CSV rows without
   `externalId` do this).
 - **Only import what the account owns**: skip subscriptions (Game Pass, PS Plus…), trials, and
-  what is not a game (DLC, software, vouchers), counting the skipped items in a warning.
+  what is not a game (DLC, software, vouchers), counting the skipped items in the scan's warnings
+  with a `source.Skipped` (one warning per reason: "3 Epic Games Store items were not imported:
+  DLC, add-ons and applications"), so a user can tell why a game they own is missing. An item
+  without a store id whose title gives no `game.TitleIDKey` either (a title with no Latin letters
+  or digits) is skipped and counted too: every such item would share one id.
 - **Withdraw** what you imported by mistake: return the item with `Withdrawn: true` and the copy
   is removed on the next scan.
 - **Use the domain's names**: platforms, systems and link keys are constants in

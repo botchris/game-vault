@@ -110,9 +110,9 @@ func newTest(t *testing.T, full bool) *Provider {
 func titles(t *testing.T, p *Provider, settings schema.Settings) string {
 	t.Helper()
 
-	copies, warnings, err := p.Fetch(context.Background(), settings)
-	if err != nil || len(warnings) > 0 {
-		t.Fatalf("fetch: %v %v", err, warnings)
+	copies, _, err := p.Fetch(context.Background(), settings)
+	if err != nil {
+		t.Fatalf("fetch: %v", err)
 	}
 
 	out := make([]string, 0, len(copies))
@@ -139,6 +139,11 @@ func TestFetchRotatesTheTicket(t *testing.T) {
 	if got := titles(t, p, settings); got != want {
 		t.Fatalf("second scan: %s", got)
 	}
+
+	// The console games linked to the account are left out and counted.
+	_, warnings, err := p.Fetch(context.Background(), settings)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"48 Ubisoft items were not imported: console games, which are not in the Ubisoft Connect library"}, warnings)
 }
 
 func TestFallsBackToTheMinimalQuery(t *testing.T) {

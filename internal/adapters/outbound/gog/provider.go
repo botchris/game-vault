@@ -231,22 +231,32 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 		return nil, nil, err
 	}
 
-	return mapProducts(products), nil, nil
+	copies, warnings := mapProducts(products)
+
+	return copies, warnings, nil
 }
 
-// mapProducts turns owned products into copies: games only (mediaType 1 already excludes movies).
-func mapProducts(products []product) []game.ImportedCopy {
+// mapProducts turns owned products into copies: games only (mediaType 1 already excludes movies;
+// one that slips through is counted in the warnings it returns).
+func mapProducts(products []product) ([]game.ImportedCopy, []string) {
 	seen := map[int64]bool{}
+	skipped := source.Skipped{Store: Platform}
 
 	var out []game.ImportedCopy
 
 	for _, pr := range products {
 		title := strings.TrimSpace(pr.Title)
-		if pr.IsMovie || title == "" || seen[pr.ID] {
+		if title == "" || seen[pr.ID] {
 			continue
 		}
 
 		seen[pr.ID] = true
+
+		if pr.IsMovie {
+			skipped.Add("movies")
+			continue
+		}
+
 		out = append(out, game.ImportedCopy{
 			ExternalID: fmt.Sprintf("gog:%d", pr.ID),
 			Links:      game.Links{LinkedStore.Key: strconv.FormatInt(pr.ID, 10)},
@@ -260,7 +270,7 @@ func mapProducts(products []product) []game.ImportedCopy {
 		})
 	}
 
-	return out
+	return out, skipped.Warnings()
 }
 
 // ---- OAuth ----

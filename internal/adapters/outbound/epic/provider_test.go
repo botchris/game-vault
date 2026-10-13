@@ -181,9 +181,12 @@ func TestPrepareTestAndFetch(t *testing.T) {
 	}
 
 	copies, warnings, err := p.Fetch(ctx, settings)
-	if err != nil || len(warnings) > 0 {
-		t.Fatalf("fetch: %v %v", err, warnings)
+	if err != nil {
+		t.Fatalf("fetch: %v", err)
 	}
+
+	// The library's DLC is left out and counted.
+	assert.Equal(t, []string{"1 Epic Games Store item was not imported: DLC, add-ons and applications"}, warnings)
 
 	titles := make([]string, 0, len(copies))
 	for _, c := range copies {

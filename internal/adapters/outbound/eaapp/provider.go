@@ -296,12 +296,15 @@ func subscriptionOnly(methods []string) bool {
 }
 
 // mapItems turns owned products into copies: one per base game, with the product name as the
-// edition when it differs ("Battlefield 1 Revolution" of "Battlefield 1").
-func mapItems(items []item) []game.ImportedCopy {
+// edition when it differs ("Battlefield 1 Revolution" of "Battlefield 1"). What it leaves out is
+// counted in the warnings it returns.
+func mapItems(items []item) ([]game.ImportedCopy, []string) {
 	byGame := map[string]game.ImportedCopy{}
+	skipped := source.Skipped{Store: "EA"}
 
 	for _, it := range items {
 		if subscriptionOnly(it.Product.GameProductUser.OwnershipMethods) {
+			skipped.Add("EA Play games")
 			continue
 		}
 
@@ -323,6 +326,12 @@ func mapItems(items []item) []game.ImportedCopy {
 
 		if id == "" {
 			id = game.TitleIDKey(title) // frozen: the id must never change
+		}
+
+		if id == "" {
+			// A title with no Latin letter or digit gives no id: every such item would share one.
+			skipped.Add(unkeyed)
+			continue
 		}
 
 		edition := ""
@@ -361,8 +370,12 @@ func mapItems(items []item) []game.ImportedCopy {
 
 	sort.Slice(out, func(i, j int) bool { return out[i].Title < out[j].Title })
 
-	return out
+	return out, skipped.Warnings()
 }
+
+// unkeyed is the reason an item without a product or offer id whose title gives no id either is
+// skipped: game.TitleIDKey keeps Latin letters and digits only.
+const unkeyed = "items without a product id whose title has no Latin letters or digits to make one from"
 
 // Test implements sync.Provider: it signs in (keeping the cookies EA renews) and asks the library
 // for one game, without reading the rest.
@@ -389,9 +402,7 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 		return nil, nil, err
 	}
 
-	copies := mapItems(items)
-
-	var warnings []string
+	copies, warnings := mapItems(items)
 	if len(copies) == 0 {
 		warnings = append(warnings, "EA returned no games for this account (EA Play games are not imported)")
 	}

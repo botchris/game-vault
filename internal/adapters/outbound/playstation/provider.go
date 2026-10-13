@@ -557,10 +557,10 @@ func platformName(p string) string {
 }
 
 // mapTitles turns purchased titles into copies, one per game and platform; PS Plus games and
-// inactive entitlements are left out. Titles that are not games (named so, or found in nonGames)
-// are reported as withdrawn, so a copy imported before they were told apart is removed, and their
-// names are listed in skipped.
-func mapTitles(titles []title, nonGames *nonGameIndex) (out []game.ImportedCopy, skipped []string) {
+// inactive entitlements are left out, PS Plus games counted in skips. Titles that are not games
+// (named so, or found in nonGames) are reported as withdrawn, so a copy imported before they were
+// told apart is removed, counted in skips and their names listed in skipped.
+func mapTitles(titles []title, nonGames *nonGameIndex, skips *source.Skipped) (out []game.ImportedCopy, skipped []string) {
 	seen := map[string]bool{}
 
 	for _, t := range titles {
@@ -570,7 +570,8 @@ func mapTitles(titles []title, nonGames *nonGameIndex) (out []game.ImportedCopy,
 		}
 
 		if m := strings.ToUpper(t.Membership); m != "" && m != "NONE" {
-			continue // PS Plus (or another subscription)
+			skips.Add("PS Plus games") // or another subscription's
+			continue
 		}
 
 		id := t.EntitlementID
@@ -595,6 +596,8 @@ func mapTitles(titles []title, nonGames *nonGameIndex) (out []game.ImportedCopy,
 				Withdrawn:  true,
 			})
 			skipped = append(skipped, name)
+
+			skips.Add("apps and other titles that are not games")
 
 			continue
 		}
@@ -656,12 +659,15 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 		return nil, nil, err
 	}
 
-	copies, skipped := mapTitles(titles, p.playedNonGames(ctx, token))
+	skips := source.Skipped{Store: "PlayStation"}
+
+	copies, skipped := mapTitles(titles, p.playedNonGames(ctx, token), &skips)
 	if len(skipped) > 0 && p.Log != nil {
+		// The count is a warning, like every source's; the titles only go to the log.
 		p.Log.Info("playstation: skipped titles that are not games", "count", len(skipped), "titles", strings.Join(skipped, "; "))
 	}
 
-	var warnings []string
+	warnings := skips.Warnings()
 	if len(copies) == len(skipped) {
 		warnings = append(warnings, "PlayStation returned no games bought with this account (PS Plus games are not imported)")
 	}

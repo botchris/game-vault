@@ -112,15 +112,15 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 		return nil, nil, err
 	}
 
-	var (
-		copies  = make([]game.ImportedCopy, 0, len(items))
-		skipped int
-	)
+	copies := make([]game.ImportedCopy, 0, len(items))
+
+	// One warning per reason, with its count: the user can tell why a game they own is missing.
+	skipped := source.Skipped{Store: "Example Store"}
 
 	for _, it := range items {
 		title := strings.TrimSpace(it.Title)
 		if it.ID == 0 || title == "" || it.Type != "game" || !it.Owned {
-			skipped++
+			skipped.Add("DLC, soundtracks or no longer owned")
 			continue
 		}
 
@@ -140,10 +140,5 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 		})
 	}
 
-	var warnings []string
-	if skipped > 0 {
-		warnings = append(warnings, fmt.Sprintf("%d Example Store items were not imported: DLC, soundtracks or no longer owned", skipped))
-	}
-
-	return copies, warnings, nil
+	return copies, skipped.Warnings(), nil
 }

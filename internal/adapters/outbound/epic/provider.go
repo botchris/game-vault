@@ -254,23 +254,32 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 		warnings = append(warnings, fmt.Sprintf("%d library items could not be read from the Epic catalog; they are retried on the next scan", failed))
 	}
 
-	return mapLibrary(records, items), warnings, nil
+	copies, skipped := mapLibrary(records, items)
+
+	return copies, append(warnings, skipped...), nil
 }
 
 // mapLibrary turns library records into copies: games only (no DLC, add-ons or Unreal assets),
-// one copy per catalog item.
-func mapLibrary(records []libraryRecord, items map[string]catalogItem) []game.ImportedCopy {
+// one copy per catalog item. What is not a game is counted in the warnings it returns.
+func mapLibrary(records []libraryRecord, items map[string]catalogItem) ([]game.ImportedCopy, []string) {
 	seen := map[string]bool{}
+	skipped := source.Skipped{Store: "Epic Games Store"}
 
 	var out []game.ImportedCopy
 
 	for _, r := range records {
 		it, ok := items[r.key()]
-		if !ok || !it.isGame() || seen[r.CatalogItemID] {
+		if !ok || seen[r.CatalogItemID] {
 			continue
 		}
 
 		seen[r.CatalogItemID] = true
+
+		if !it.isGame() {
+			skipped.Add("DLC, add-ons and applications")
+			continue
+		}
+
 		out = append(out, game.ImportedCopy{
 			ExternalID: "epic:" + r.CatalogItemID,
 			Links:      game.Links{LinkedStore.Key: r.CatalogItemID},
@@ -284,7 +293,7 @@ func mapLibrary(records []libraryRecord, items map[string]catalogItem) []game.Im
 		})
 	}
 
-	return out
+	return out, skipped.Warnings()
 }
 
 // ---- OAuth ----

@@ -494,33 +494,56 @@ func (p *Provider) collections(ctx context.Context, settings schema.Settings, pa
 	return ents, err
 }
 
-// owned reads the games the account owns: its entitlements, then their titles in the catalog.
-func (p *Provider) owned(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, error) {
+// notOwned is the reason Game Pass games, trials, add-ons and lapsed entitlements are skipped.
+const notOwned = "Game Pass games, trials, add-ons and expired or revoked items"
+
+// owned reads the games the account owns: its entitlements, then their titles in the catalog. What
+// it leaves out is counted in the warnings it returns.
+func (p *Provider) owned(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, []string, error) {
 	ents, err := p.collections(ctx, settings, maxPages, entitlementsPage)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var ids []string
 
 	seen := map[string]bool{}
+	lapsed := map[string]bool{}
+
 	for _, e := range ents {
-		if e.owned() && !seen[e.ProductID] {
+		switch {
+		case seen[e.ProductID]:
+		case e.owned():
 			seen[e.ProductID] = true
 			ids = append(ids, e.ProductID)
+		default:
+			lapsed[e.ProductID] = true
+		}
+	}
+
+	skipped := source.Skipped{Store: "Microsoft Store"}
+
+	for id := range lapsed {
+		if !seen[id] {
+			skipped.Add(notOwned)
 		}
 	}
 
 	products, err := catalog(ctx, p.Catalog, p.Market, p.Language, ids)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var out []game.ImportedCopy
 
 	for _, id := range ids {
 		pr, ok := products[id]
-		if !ok || len(pr.LocalizedProperties) == 0 || (pr.ProductKind != "" && !strings.EqualFold(pr.ProductKind, "Game")) {
+		switch {
+		case !ok || len(pr.LocalizedProperties) == 0:
+			skipped.Add("products the Store catalog does not describe")
+			continue
+		case pr.ProductKind != "" && !strings.EqualFold(pr.ProductKind, "Game"):
+			skipped.Add(notOwned)
 			continue
 		}
 
@@ -544,7 +567,7 @@ func (p *Provider) owned(ctx context.Context, settings schema.Settings) ([]game.
 
 	sort.Slice(out, func(i, j int) bool { return out[i].Title < out[j].Title })
 
-	return out, nil
+	return out, skipped.Warnings(), nil
 }
 
 // Test implements sync.Provider: it signs in to Xbox Live and asks the Store for one entitlement,
@@ -558,12 +581,11 @@ func (p *Provider) Test(ctx context.Context, settings schema.Settings) error {
 
 // Fetch implements sync.Provider.
 func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.ImportedCopy, []string, error) {
-	copies, err := p.owned(ctx, settings)
+	copies, warnings, err := p.owned(ctx, settings)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	var warnings []string
 	if len(copies) == 0 {
 		warnings = append(warnings, "the Microsoft Store returned no games bought with this account (Game Pass games are not imported)")
 	}

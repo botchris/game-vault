@@ -209,9 +209,12 @@ func TestPrepareAndFetch(t *testing.T) {
 	}
 
 	copies, warnings, err := p.Fetch(ctx, settings)
-	if err != nil || len(warnings) > 0 {
-		t.Fatalf("fetch: %v %v", err, warnings)
+	if err != nil {
+		t.Fatalf("fetch: %v", err)
 	}
+
+	// Game Pass, the trial, the DLC and the revoked game are left out and counted.
+	assert.Equal(t, []string{"4 Microsoft Store items were not imported: Game Pass games, trials, add-ons and expired or revoked items"}, warnings)
 
 	got := make([]string, 0, len(copies))
 	for _, c := range copies {

@@ -132,6 +132,20 @@ func TestMapOrders_nonGameKeys(t *testing.T) {
 	})
 }
 
+func TestSkippedWarnings(t *testing.T) {
+	t.Run("GIVEN a scan that skipped three keys that are not games", func(t *testing.T) {
+		t.Run("THEN they are counted in one warning", func(t *testing.T) {
+			assert.Equal(t, []string{"3 Humble Bundle items were not imported: software, courses, in-game items and store coupons"}, skippedWarnings(3))
+		})
+	})
+
+	t.Run("GIVEN a scan that skipped nothing", func(t *testing.T) {
+		t.Run("THEN there is no warning", func(t *testing.T) {
+			assert.Empty(t, skippedWarnings(0))
+		})
+	})
+}
+
 func TestFetchAgainstFakeServer(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()

@@ -109,9 +109,12 @@ func TestFetch(t *testing.T) {
 	settings := schema.Settings{settingCookies: "Cookie: sid=good; remid=r"}
 
 	copies, warnings, err := p.Fetch(context.Background(), settings)
-	if err != nil || len(warnings) > 0 {
-		t.Fatalf("fetch: %v %v", err, warnings)
+	if err != nil {
+		t.Fatalf("fetch: %v", err)
 	}
+
+	// The EA Play game is left out and counted.
+	assert.Equal(t, []string{"1 EA item was not imported: EA Play games"}, warnings)
 
 	got := make([]string, 0, len(copies))
 	for _, c := range copies {
@@ -205,7 +208,28 @@ func TestMapItems_idWithoutProductID(t *testing.T) {
 	it.Product.Name = "Example Racer™ Deluxe Edition"
 	it.Product.BaseItem.Title = "Example Racer™"
 
-	got := mapItems([]item{it})
+	got, warnings := mapItems([]item{it})
 	require.Len(t, got, 1)
 	assert.Equal(t, "ea:example racer", got[0].ExternalID)
+	assert.Empty(t, warnings)
+}
+
+// TestMapItems_titlesWithoutAnID checks that games without a product id whose titles give no id
+// either (no Latin letters or digits) are skipped and counted, instead of all sharing one id.
+func TestMapItems_titlesWithoutAnID(t *testing.T) {
+	t.Run("GIVEN two games without a product id, titled in a script the id leaves out", func(t *testing.T) {
+		var first, second item
+
+		first.Product.BaseItem.Title = "ドラゴンの冒険"
+		second.Product.BaseItem.Title = "Приключение"
+
+		t.Run("WHEN they are mapped", func(t *testing.T) {
+			got, warnings := mapItems([]item{first, second})
+
+			t.Run("THEN neither is imported, and both are counted in a warning", func(t *testing.T) {
+				assert.Empty(t, got)
+				assert.Equal(t, []string{"2 EA items were not imported: " + unkeyed}, warnings)
+			})
+		})
+	})
 }
