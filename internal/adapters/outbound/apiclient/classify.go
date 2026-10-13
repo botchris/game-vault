@@ -11,10 +11,11 @@ import (
 )
 
 // ClassifyStatus turns an unexpected HTTP status into an error that says what kind of failure it
-// is: a 429 matches provider.ErrRateLimited and a 5xx provider.ErrUnavailable, so callers (the
-// cover and metadata chains, the provider status, a source's health) treat them as passing troubles
-// that say nothing about a game or a session. Any other status is a plain "HTTP n" error: only the
-// caller knows what a 401, 403 or 404 means for its API.
+// is: a 429 matches provider.ErrRateLimited and a 5xx provider.ErrUnavailable. The media side (the
+// cover and metadata chains, the provider status) treats them as passing troubles that say nothing
+// about a game; for a source, nothing reads the classification, which only gives the scan error a
+// clearer message than a bare status. Any other status is a plain "HTTP n" error: only the caller
+// knows what a 401, 403 or 404 means for its API.
 func ClassifyStatus(status int) error {
 	switch {
 	case status == http.StatusTooManyRequests:
@@ -34,11 +35,12 @@ func Rejected(status int) bool {
 }
 
 // ClassifyError classifies the error of one request (from Client.Do or a plain http.Client) the way
-// ClassifyStatus does: a *StatusError with a 429 or a 5xx, no answer at all (a transport error) and
-// a web page instead of JSON (ErrNotJSON, a bot check or a maintenance notice) match
-// provider.ErrRateLimited, the last two as provider.ErrUnavailable. A transport error never names
-// the query of its URL, which may hold an API key. Errors already classified, other statuses, and
-// errors after the caller gave up (ctx done) are returned as they are.
+// ClassifyStatus does. A *StatusError with a 429 matches provider.ErrRateLimited; three failures
+// are outages and match provider.ErrUnavailable (itself a kind of ErrRateLimited): a *StatusError
+// with a 5xx, no answer at all (a transport error), and a web page instead of JSON (ErrNotJSON, a
+// bot check or a maintenance notice). The result never names the query of a transport error's
+// URL, which may hold an API key, whatever path it takes. Errors already classified, other
+// statuses, and errors after the caller gave up (ctx done) are otherwise returned as they are.
 func ClassifyError(ctx context.Context, err error) error {
 	if err == nil {
 		return nil
