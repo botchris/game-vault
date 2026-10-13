@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/sync/singleflight"
@@ -73,9 +74,13 @@ type GameLinker interface {
 // as automatic links: one game at a time, in the background (Run), from a queue fed by the covers,
 // the sheets and the details scan.
 type AutoLinker struct {
-	games     game.Repository
-	reg       *providers.Registry
-	linker    GameLinker
+	games game.Repository
+	reg   *providers.Registry
+
+	// linker saves the links found; it is set once the catalog is built (SetGameLinker), while the
+	// worker may already run, hence atomic.
+	linker atomic.Pointer[GameLinker]
+
 	details   DetailsStore
 	downloads *Downloads
 	now       port.Clock
@@ -128,7 +133,23 @@ func NewAutoLinker(games game.Repository, reg *providers.Registry, opts ...Optio
 
 // SetGameLinker sets the port that saves automatic links (the catalog, built after the media
 // services). Without one, no links are looked for.
-func (s *AutoLinker) SetGameLinker(l GameLinker) { s.linker = l }
+func (s *AutoLinker) SetGameLinker(l GameLinker) {
+	if l == nil {
+		s.linker.Store(nil)
+		return
+	}
+
+	s.linker.Store(&l)
+}
+
+// gameLinker returns the port that saves automatic links, nil when there is none.
+func (s *AutoLinker) gameLinker() GameLinker {
+	if l := s.linker.Load(); l != nil {
+		return *l
+	}
+
+	return nil
+}
 
 // needsAutoLink reports whether automatic links are worth looking for: the game has no Steam link,
 // the store with the richest sheets and art.
@@ -137,7 +158,7 @@ func needsAutoLink(g *game.Game) bool { return g.Links()[game.LinkSteam] == "" }
 // hasLinkFinders reports whether links can be looked for and saved: a provider can find them and a
 // GameLinker saves them.
 func (s *AutoLinker) hasLinkFinders() bool {
-	return s.linker != nil && s.finders
+	return s.gameLinker() != nil && s.finders
 }
 
 // AutoLink looks for the store links of a game that has no Steam link and adds those found without
@@ -165,7 +186,8 @@ func (s *AutoLinker) autoLinkReporting(ctx context.Context, id game.ID) (limited
 }
 
 func (s *AutoLinker) autoLink(ctx context.Context, id game.ID) (bool, error) {
-	if !s.hasLinkFinders() {
+	linker := s.gameLinker()
+	if linker == nil || !s.finders {
 		return false, nil
 	}
 
@@ -187,7 +209,7 @@ func (s *AutoLinker) autoLink(ctx context.Context, id game.ID) (bool, error) {
 
 	// The provider calls above stay outside the transaction; the catalog re-reads, adds and saves
 	// the game in one, and drops the covers the links change.
-	added, err := s.linker.AddAutoLinks(ctx, id, found, now)
+	added, err := linker.AddAutoLinks(ctx, id, found, now)
 	if err != nil || len(added) == 0 {
 		return false, err
 	}

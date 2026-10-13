@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -505,6 +506,48 @@ func TestAutoLink(t *testing.T) {
 			case <-time.After(5 * time.Second):
 				t.Fatal("the worker did not stop")
 			}
+		})
+	})
+}
+
+func TestSetGameLinker_whileSearching(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN games a finder knows", func(t *testing.T) {
+		env := newAutoLinkEnv(t, ctx)
+		env.trusted.set(game.Links{game.LinkSteam: "100"}, nil)
+
+		ids := make([]game.ID, 0, 10)
+		for i := range 10 {
+			ids = append(ids, saveGame(t, ctx, env.games, fmt.Sprintf("Console Quest %d", i), nil, game.CopyDetails{
+				Kind:     game.KindPhysical,
+				Platform: "PS4",
+			}).ID())
+		}
+
+		t.Run("WHEN the catalog is set as the linker again while they are searched", func(t *testing.T) {
+			var wg sync.WaitGroup
+
+			wg.Go(func() {
+				for range 50 {
+					env.svc.AutoLinks.SetGameLinker(env.catalog)
+				}
+			})
+
+			for _, id := range ids {
+				wg.Go(func() { assert.NoError(t, env.svc.AutoLinks.AutoLink(ctx, id)) })
+			}
+
+			wg.Wait()
+
+			t.Run("THEN every game gets its link", func(t *testing.T) {
+				for _, id := range ids {
+					got, err := env.games.Get(ctx, id)
+					require.NoError(t, err)
+					assert.Equal(t, "100", got.Links()[game.LinkSteam])
+				}
+			})
 		})
 	})
 }
