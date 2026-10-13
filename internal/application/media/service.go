@@ -1273,8 +1273,15 @@ func (s *Service) IdentifyBarcode(ctx context.Context, raw string) (BarcodeResul
 			}
 		}
 
-		if err != nil {
+		switch {
+		case ProviderLevel(err):
+			// The provider's status, like the suggestions' in the same answer: not a warning.
+			res.ProvidersUnavailable = true
+
+			continue
+		case err != nil:
 			res.Warnings = append(res.Warnings, fmt.Sprintf("%s: %v", p.Descriptor.Name, err))
+
 			continue
 		}
 
