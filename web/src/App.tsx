@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { PageHeader } from './components/PageHeader';
 import { Icon, type IconName } from './components/Icon';
 import { Alert, LanguageSwitcher } from './components/ui';
 import AuthGate, { useAuth } from './features/auth/AuthGate';
@@ -147,7 +148,7 @@ function SettingsIndex({ health }: { health: 'error' | 'warning' | null }) {
   const { principal, logout } = useAuth();
   return (
     <div className="page">
-      <h1 className="page-title">{t('nav.settings')}</h1>
+      <PageHeader title={t('nav.settings')} />
       <ul className="settings-list">
         {SETTINGS.map((s) => (
           <li key={s.route}>

@@ -1,5 +1,6 @@
 import { useRef, useState, type PointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { PageHeader } from '../../components/PageHeader';
 import { fieldClient } from '../../api/client';
 import { Icon } from '../../components/Icon';
 import { Alert } from '../../components/ui';
@@ -63,10 +64,8 @@ export default function FieldsPage() {
 
   return (
     <div className="page fields">
-      <header className="page-head">
-        <h1 className="page-title">{t('fields.title')}</h1>
-        <button className="primary" onClick={() => setEditing('new')}><Icon name="plus" size={18} /> {t('fields.add')}</button>
-      </header>
+      <PageHeader title={t('fields.title')}
+        actions={<button className="primary" onClick={() => setEditing('new')}><Icon name="plus" size={18} /> {t('fields.add')}</button>} />
       <p className="muted fields-intro">{t('fields.intro')}</p>
       {error && <Alert tone="error">{error}</Alert>}
 

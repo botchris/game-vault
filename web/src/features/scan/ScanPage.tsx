@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { PageHeader } from '../../components/PageHeader';
 import { errorMessage, gameClient, lookupClient } from '../../api/client';
 import { Cover } from '../../components/Cover';
 import { Icon } from '../../components/Icon';
@@ -239,9 +240,7 @@ export default function ScanPage() {
 
   return (
     <div className="page scan">
-      <header className="page-head">
-        <h1 className="page-title">{t('scan.title')}</h1>
-      </header>
+      <PageHeader title={t('scan.title')} />
       <p className="muted scan-intro">{t('scan.intro')}</p>
 
       <section className="card scanner">

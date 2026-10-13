@@ -164,7 +164,6 @@ img { max-width: 100%; }
 .page-title { font-size: 30px; font-weight: 800; font-stretch: 118%; letter-spacing: -.015em; margin: 0; }
 .page-count { color: var(--muted); font-variant-numeric: tabular-nums; }
 .page-head .primary { align-self: center; }
-.page > .page-title { margin-bottom: 4px; }
 
 /* ---------- Controls ---------- */
 button, .button {
@@ -564,6 +563,9 @@ td.title { font-weight: 500; min-width: 220px; }
 .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
 .page { display: grid; gap: 16px; }
+/* The grid's gap spaces the header from what follows; a page may tighten it (Sources, Scan). */
+.page > .page-head { margin-bottom: 0; }
+.page-intro { margin: 0; max-width: 64ch; }
 .section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 16px 0 10px; flex-wrap: wrap; }
 .section-head h2, .section-head h3 { margin: 0; }
 .page > .section-head { margin-top: 0; }
@@ -573,7 +575,7 @@ td.title { font-weight: 500; min-width: 220px; }
 
 /* ---------- Sources ---------- */
 .sources { max-width: 920px; }
-.sources .page-head { margin-bottom: 4px; justify-content: space-between; }
+.sources .page-head { margin-bottom: 4px; }
 .sources-intro { margin: 0 0 20px; max-width: 64ch; }
 .sources-hint { margin: -8px 0 14px; }
 .source-logo {
@@ -954,7 +956,6 @@ button.link.edition-main:hover:not(:disabled) { color: #fff; }
 .picker-grid { margin-top: 10px; }
 
 /* ---------- Custom fields ---------- */
-.fields .page-head { margin-bottom: 0; justify-content: space-between; }
 .fields-intro { margin: 0; max-width: 64ch; }
 .fields .chain { margin-top: 0; }
 .fields .chain-body strong { overflow-wrap: anywhere; }

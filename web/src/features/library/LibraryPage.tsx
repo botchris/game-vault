@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { PageHeader } from '../../components/PageHeader';
 import { gameClient } from '../../api/client';
 import { Cover } from '../../components/Cover';
 import { Icon } from '../../components/Icon';
@@ -156,20 +157,19 @@ export default function LibraryPage() {
 
   return (
     <div className="library">
-      <header className="page-head">
-        <h1 className="page-title">{t('nav.library')}</h1>
-        <span className="page-count">{grouping === 'platform'
+      <PageHeader title={t('nav.library')}
+        count={grouping === 'platform'
           ? t('library.showingEditions', {
             editions: t('library.editionCount', { count: filtered.length, n: filtered.length.toLocaleString(i18n.language) }),
             games: t('library.gameCount', { count: itemCounts(filtered).games, n: itemCounts(filtered).games.toLocaleString(i18n.language) }),
           })
-          : t('library.showing', { shown: filtered.length.toLocaleString(i18n.language), total: games.length.toLocaleString(i18n.language) })}</span>
-        <span className="spacer" />
-        <button onClick={() => setChecking(true)} title={t('library.checkOwnership')} aria-label={t('library.checkOwnership')}>
-          <Icon name="check" size={18} /><span className="hide-narrow">{t('library.checkOwnership')}</span>
-        </button>
-        <button className="primary" onClick={() => setCreating(true)}><Icon name="plus" size={18} /><span className="hide-narrow">{t('library.addGame')}</span></button>
-      </header>
+          : t('library.showing', { shown: filtered.length.toLocaleString(i18n.language), total: games.length.toLocaleString(i18n.language) })}
+        actions={<>
+          <button onClick={() => setChecking(true)} title={t('library.checkOwnership')} aria-label={t('library.checkOwnership')}>
+            <Icon name="check" size={18} /><span className="hide-narrow">{t('library.checkOwnership')}</span>
+          </button>
+          <button className="primary" onClick={() => setCreating(true)}><Icon name="plus" size={18} /><span className="hide-narrow">{t('library.addGame')}</span></button>
+        </>} />
 
       <div className="toolbar library-toolbar">
         <label className="search-field">

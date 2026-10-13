@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { PageHeader } from '../../components/PageHeader';
 import { errorMessage, systemClient, valuationClient } from '../../api/client';
 import { Alert, useFormatters } from '../../components/ui';
 import type { Backup, GetStatusResponse } from '../../gen/gamevault/v1/system_pb';
@@ -105,6 +106,7 @@ export default function SystemPage({ target }: {
 
   return (
     <div className="page">
+      <PageHeader title={t('nav.system')} />
       {error && <Alert tone="error">{error}</Alert>}
       {notice && (
         <Alert tone="ok">

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { PageHeader } from '../../components/PageHeader';
 import { sourceClient } from '../../api/client';
 import { Icon } from '../../components/Icon';
 import { SourceLogo } from '../../components/PlatformBadge';
@@ -55,14 +56,11 @@ export default function SourcesPage({ target }: {
 
   return (
     <div className="page sources">
-      <header className="page-head">
-        <h1 className="page-title">{t('sources.title')}</h1>
-        {sources.length > 0 && (
-          <button className="primary" onClick={() => sync('all')} disabled={!!syncing}>
-            {syncing === 'all' ? t('sources.syncing') : t('sources.syncAll')}
-          </button>
-        )}
-      </header>
+      <PageHeader title={t('sources.title')} actions={sources.length > 0 && (
+        <button className="primary" onClick={() => sync('all')} disabled={!!syncing}>
+          {syncing === 'all' ? t('sources.syncing') : t('sources.syncAll')}
+        </button>
+      )} />
       <p className="muted sources-intro">{t('sources.intro')}</p>
 
       {error && <Alert tone="error">{error}</Alert>}

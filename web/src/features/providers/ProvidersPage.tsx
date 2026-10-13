@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { PageHeader } from '../../components/PageHeader';
 import { coverClient, errorMessage, providerClient } from '../../api/client';
 import { Alert } from '../../components/ui';
 import type { Provider } from '../../gen/gamevault/v1/provider_pb';
@@ -34,10 +35,8 @@ export default function ProvidersPage() {
 
   return (
     <div className="page">
-      <div>
-        <h2>{t('providers.title')}</h2>
-        <p className="muted">{t('providers.intro')}</p>
-      </div>
+      <PageHeader title={t('providers.title')} />
+      <p className="muted page-intro">{t('providers.intro')}</p>
       {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
 
       <ProviderChain kind="cover" healthKey={healthKey} title={t('providers.covers')} intro={t('providers.coversIntro')} onNotice={setNotice}

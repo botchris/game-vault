@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { PageHeader } from '../../components/PageHeader';
 import { errorMessage, logClient } from '../../api/client';
 import { Alert, Modal, useFormatters } from '../../components/ui';
 import type { LogFile, LogSettings } from '../../gen/gamevault/v1/log_pb';
@@ -52,6 +53,7 @@ export default function LogsPage() {
 
   return (
     <div className="page">
+      <PageHeader title={t('nav.logs')} />
       {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
 
       <LogSettingsCard onSaved={(text) => { setNotice({ tone: 'ok', text }); loadFiles(); }} onError={(text) => setNotice({ tone: 'error', text })} />
