@@ -4,11 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"log/slog"
-	"os"
-	"path/filepath"
-	"strings"
+	"io/fs"
+	"slices"
 	"testing"
 	"time"
 
@@ -19,37 +16,94 @@ import (
 	"gamevault/internal/domain/game"
 )
 
-// fileBackup writes an empty file where the database copy would go.
-type fileBackup struct{}
-
-func (fileBackup) BackupTo(_ context.Context, path string) error {
-	return os.WriteFile(path, []byte("db"), 0o600)
+// memBackups is an in-memory system.BackupStore. A backup exists once its database copy is written
+// to the path Create returned (see copier), as on disk.
+type memBackups struct {
+	backups map[string]system.Backup
+	lists   map[string][]game.PhotoID
 }
 
-// writeBackup creates a backup file with the given modification time.
-func writeBackup(t *testing.T, dir, name string, at time.Time) {
-	t.Helper()
+func newBackups() *memBackups {
+	return &memBackups{
+		backups: map[string]system.Backup{},
+		lists:   map[string][]game.PhotoID{},
+	}
+}
 
-	path := filepath.Join(dir, name)
-	require.NoError(t, os.WriteFile(path, []byte("db"), 0o600))
-	require.NoError(t, os.Chtimes(path, at, at))
+// put adds the backup called name, made at at.
+func (m *memBackups) put(name string, at time.Time) {
+	m.backups[name] = system.Backup{
+		Name:      name,
+		SizeBytes: 2,
+		CreatedAt: at,
+	}
+}
+
+func (m *memBackups) Create(name string) (string, error) { return name, nil }
+
+func (m *memBackups) Stat(name string) (system.Backup, error) {
+	b, ok := m.backups[name]
+	if !ok {
+		return system.Backup{}, fs.ErrNotExist
+	}
+
+	b.Photos = len(m.lists[name])
+
+	return b, nil
+}
+
+func (m *memBackups) List() ([]system.Backup, error) {
+	out := make([]system.Backup, 0, len(m.backups))
+
+	for name := range m.backups {
+		b, _ := m.Stat(name)
+		out = append(out, b)
+	}
+
+	return out, nil
+}
+
+func (m *memBackups) Remove(name string) error {
+	if _, ok := m.backups[name]; !ok {
+		return fs.ErrNotExist
+	}
+
+	delete(m.backups, name)
+	delete(m.lists, name)
+
+	return nil
+}
+
+func (m *memBackups) WritePhotoList(name string, ids []game.PhotoID) error {
+	m.lists[name] = slices.Clone(ids)
+	return nil
+}
+
+func (m *memBackups) PhotoList(name string) ([]game.PhotoID, error) { return m.lists[name], nil }
+
+// copier is the database: it writes its copy into the store, dated by the real clock.
+type copier struct{ store *memBackups }
+
+func (c copier) BackupTo(_ context.Context, path string) error {
+	c.store.put(path, time.Now())
+	return nil
 }
 
 func TestBackups_rotation(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	// The files' dates come from the real clock, like the backups the service writes.
+	// The backups' dates come from the real clock, like the backups the service writes.
 	now := time.Now()
 
 	t.Run("GIVEN a pre-migration copy from an upgrade, older than the scheduled backups after it", func(t *testing.T) {
-		dir := t.TempDir()
-		writeBackup(t, dir, "pre-migration-0009.db", now.Add(-72*time.Hour))
-		writeBackup(t, dir, "gamevault-20261018-120000.db", now.Add(-48*time.Hour))
-		writeBackup(t, dir, "gamevault-20261019-120000.db", now.Add(-24*time.Hour))
+		store := newBackups()
+		store.put("pre-migration-0009.db", now.Add(-72*time.Hour))
+		store.put("gamevault-20261018-120000.db", now.Add(-48*time.Hour))
+		store.put("gamevault-20261019-120000.db", now.Add(-24*time.Hour))
 
-		svc := system.NewService(nil, fileBackup{}, nil, nil, func() time.Time { return now },
-			slog.New(slog.NewTextHandler(io.Discard, nil)), system.Status{}, dir, 3)
+		svc := system.NewService(nil, copier{store}, store, nil,
+			system.WithClock(func() time.Time { return now }), system.WithKeep(3))
 
 		t.Run("WHEN the backups are listed", func(t *testing.T) {
 			list, err := svc.ListBackups(ctx)
@@ -67,8 +121,8 @@ func TestBackups_rotation(t *testing.T) {
 			require.NoError(t, err)
 
 			t.Run("THEN the oldest one goes, the pre-migration copy included, and the new one stays", func(t *testing.T) {
-				assert.FileExists(t, filepath.Join(dir, b.Name))
-				assert.NoFileExists(t, filepath.Join(dir, "pre-migration-0009.db"))
+				assert.Contains(t, store.backups, b.Name)
+				assert.NotContains(t, store.backups, "pre-migration-0009.db")
 			})
 		})
 	})
@@ -138,21 +192,19 @@ func TestBackups_photos(t *testing.T) {
 	defer cancel()
 
 	t.Run("GIVEN a catalog with two photos and room for two backups", func(t *testing.T) {
-		dir := t.TempDir()
+		store := newBackups()
 		games := &photoGames{ids: []game.PhotoID{photoID(1), photoID(2)}}
 		archive := &fakeArchive{stored: map[game.PhotoID]bool{}}
 		clock := time.Now()
-		svc := system.NewService(games, fileBackup{}, nil, archive, func() time.Time { clock = clock.Add(time.Second); return clock },
-			slog.New(slog.NewTextHandler(io.Discard, nil)), system.Status{}, dir, 2)
+		svc := system.NewService(games, copier{store}, store, nil, system.WithPhotoArchive(archive),
+			system.WithClock(func() time.Time { clock = clock.Add(time.Second); return clock }), system.WithKeep(2))
 
 		t.Run("WHEN a backup is made", func(t *testing.T) {
 			b, err := svc.CreateBackup(ctx)
 			require.NoError(t, err)
 
-			t.Run("THEN its photo list sits next to it and the photos are in the shared store", func(t *testing.T) {
-				list, err := os.ReadFile(filepath.Join(dir, strings.TrimSuffix(b.Name, ".db")+".photos"))
-				require.NoError(t, err)
-				assert.Equal(t, string(photoID(1))+"\n"+string(photoID(2))+"\n", string(list))
+			t.Run("THEN its photo list is recorded and the photos are in the shared store", func(t *testing.T) {
+				assert.Equal(t, []game.PhotoID{photoID(1), photoID(2)}, store.lists[b.Name])
 				assert.Len(t, archive.stored, 2)
 				assert.Equal(t, 2, b.Photos)
 			})
@@ -176,9 +228,7 @@ func TestBackups_photos(t *testing.T) {
 			}
 
 			t.Run("THEN the old lists went with their backups, and the photo no backup lists is removed", func(t *testing.T) {
-				lists, err := filepath.Glob(filepath.Join(dir, "*.photos"))
-				require.NoError(t, err)
-				assert.Len(t, lists, 2)
+				assert.Len(t, store.lists, 2)
 				assert.Equal(t, map[game.PhotoID]bool{photoID(2): true}, archive.stored)
 			})
 
@@ -199,14 +249,16 @@ func TestBackups_photos(t *testing.T) {
 // racingBackup changes the catalog's photos while the database is being copied, like a user
 // editing during a backup.
 type racingBackup struct {
+	copier
+
 	games *photoGames
 	next  []game.PhotoID
 }
 
-func (b racingBackup) BackupTo(_ context.Context, path string) error {
+func (b racingBackup) BackupTo(ctx context.Context, path string) error {
 	b.games.ids = b.next
 
-	return os.WriteFile(path, []byte("db"), 0o600)
+	return b.copier.BackupTo(ctx, path)
 }
 
 // failingArchive cannot store photos.
@@ -214,21 +266,27 @@ type failingArchive struct{ fakeArchive }
 
 func (failingArchive) Add([]game.PhotoID) error { return errors.New("disk full") }
 
+// unreadableLists is a store whose photo lists cannot be read.
+type unreadableLists struct{ *memBackups }
+
+func (unreadableLists) PhotoList(string) ([]game.PhotoID, error) {
+	return nil, errors.New("permission denied")
+}
+
 func TestBackups_photosEdgeCases(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-
 	t.Run("GIVEN photos that change while the database is being copied", func(t *testing.T) {
-		dir := t.TempDir()
+		store := newBackups()
 		games := &photoGames{ids: []game.PhotoID{photoID(1), photoID(2)}}
 		archive := &fakeArchive{stored: map[game.PhotoID]bool{}}
 		db := racingBackup{
-			games: games,
-			next:  []game.PhotoID{photoID(2), photoID(3)},
+			copier: copier{store},
+			games:  games,
+			next:   []game.PhotoID{photoID(2), photoID(3)},
 		}
-		svc := system.NewService(games, db, nil, archive, time.Now, logger, system.Status{}, dir, 3)
+		svc := system.NewService(games, db, store, nil, system.WithPhotoArchive(archive), system.WithKeep(3))
 
 		t.Run("WHEN a backup is made", func(t *testing.T) {
 			b, err := svc.CreateBackup(ctx)
@@ -242,13 +300,14 @@ func TestBackups_photosEdgeCases(t *testing.T) {
 	})
 
 	t.Run("GIVEN more backups than are kept and a photo store that fails", func(t *testing.T) {
-		dir := t.TempDir()
+		store := newBackups()
 		old := time.Now().Add(-48 * time.Hour)
-		writeBackup(t, dir, "gamevault-20261001-120000.db", old)
-		writeBackup(t, dir, "gamevault-20261002-120000.db", old.Add(time.Hour))
+		store.put("gamevault-20261001-120000.db", old)
+		store.put("gamevault-20261002-120000.db", old.Add(time.Hour))
 
 		games := &photoGames{ids: []game.PhotoID{photoID(1)}}
-		svc := system.NewService(games, fileBackup{}, nil, &failingArchive{}, time.Now, logger, system.Status{}, dir, 2)
+		svc := system.NewService(games, copier{store}, store, nil, system.WithPhotoArchive(&failingArchive{}),
+			system.WithKeep(2))
 
 		t.Run("WHEN a backup is made", func(t *testing.T) {
 			_, err := svc.CreateBackup(ctx)
@@ -259,7 +318,25 @@ func TestBackups_photosEdgeCases(t *testing.T) {
 				list, err := svc.ListBackups(ctx)
 				require.NoError(t, err)
 				assert.Len(t, list, 2)
-				assert.NoFileExists(t, filepath.Join(dir, "gamevault-20261001-120000.db"))
+				assert.NotContains(t, store.backups, "gamevault-20261001-120000.db")
+			})
+		})
+	})
+
+	t.Run("GIVEN more backups than are kept, whose photo lists cannot be read", func(t *testing.T) {
+		store := newBackups()
+		store.put("gamevault-20261001-120000.db", time.Now().Add(-48*time.Hour))
+
+		archive := &fakeArchive{stored: map[game.PhotoID]bool{photoID(1): true}}
+		svc := system.NewService(&photoGames{}, copier{store}, unreadableLists{store}, nil,
+			system.WithPhotoArchive(archive), system.WithKeep(1))
+
+		t.Run("WHEN a backup rotates the old one out", func(t *testing.T) {
+			_, err := svc.CreateBackup(ctx)
+			require.NoError(t, err)
+
+			t.Run("THEN the shared photos stay: the kept backup may need them", func(t *testing.T) {
+				assert.Equal(t, map[game.PhotoID]bool{photoID(1): true}, archive.stored)
 			})
 		})
 	})

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"gamevault/internal/adapters/inbound/rpc"
+	"gamevault/internal/adapters/outbound/backupdir"
 	"gamevault/internal/adapters/outbound/csvfile"
 	"gamevault/internal/adapters/outbound/diskspace"
 	"gamevault/internal/adapters/outbound/gamedata"
@@ -158,12 +159,14 @@ func run() error {
 		sync.WithClock(now), sync.WithLogger(log))
 	linkStores := media.NewStores(registry, syncSvc)
 	transferSvc := transfer.NewService(games, catalogSvc, settingsRepo, csvfile.Codec{}, transfer.WithClock(now))
-	systemSvc := system.NewService(games, db, settingsRepo, photostore.NewArchive(photos, backupPhotos), now, log, system.Status{
-		Version:      version,
-		ConfigDir:    cfg.ConfigDir,
-		DatabasePath: cfg.DatabasePath(),
-		StartedAt:    now(),
-	}, cfg.BackupDir(), cfg.BackupKeep)
+	systemSvc := system.NewService(games, db, backupdir.New(cfg.BackupDir()), settingsRepo,
+		system.WithPhotoArchive(photostore.NewArchive(photos, backupPhotos)), system.WithClock(now), system.WithLogger(log),
+		system.WithStatus(system.Status{
+			Version:      version,
+			ConfigDir:    cfg.ConfigDir,
+			DatabasePath: cfg.DatabasePath(),
+			StartedAt:    now(),
+		}), system.WithKeep(cfg.BackupKeep))
 
 	healthSvc := health.NewService(registry, syncSvc, systemSvc, health.DiskCheck{
 		Path:  cfg.ConfigDir,

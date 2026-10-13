@@ -5,11 +5,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
-	"path/filepath"
 	"slices"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -37,6 +34,33 @@ type PhotoArchive interface {
 	Size() (int64, error)
 }
 
+// BackupStore is the port that keeps the backups: each one a database copy under the name the
+// service gives it, with the list of the photos it needs. How they are stored (files, their
+// layout, their dates) is the adapter's business; what to back up and what to keep is the
+// service's.
+type BackupStore interface {
+	// Create prepares a new backup called name and returns the path the database copy is to be
+	// written to (see DatabaseBackup).
+	Create(name string) (path string, err error)
+
+	// Stat returns the backup called name, as List describes it.
+	Stat(name string) (Backup, error)
+
+	// List returns every backup, in no particular order, each with how many photos its list
+	// names; none when there are no backups yet.
+	List() ([]Backup, error)
+
+	// Remove deletes a backup and its photo list.
+	Remove(name string) error
+
+	// WritePhotoList records the photos a backup needs.
+	WritePhotoList(name string, ids []game.PhotoID) error
+
+	// PhotoList returns the photos a backup needs; none when it has no list (backups made before
+	// backups kept photos, and pre-migration copies).
+	PhotoList(name string) ([]game.PhotoID, error)
+}
+
 // Status describes the running instance.
 type Status struct {
 	Version      string
@@ -47,7 +71,7 @@ type Status struct {
 	CopyCount    int
 }
 
-// Backup is a backup file in the backups directory.
+// Backup is a backup of the database.
 type Backup struct {
 	Name      string
 	SizeBytes int64
@@ -58,17 +82,21 @@ type Backup struct {
 	Photos int
 }
 
+// DefaultKeep is how many backups are kept when NewService is not told (WithKeep): two weeks of
+// daily backups, the command line's default too.
+const DefaultKeep = 14
+
 // Service exposes the system use cases.
 type Service struct {
-	games     game.Repository
-	db        DatabaseBackup
-	prefs     settings.Repository
-	photos    PhotoArchive
-	now       port.Clock
-	log       *slog.Logger
-	status    Status
-	backupDir string
-	keep      int
+	games   game.Repository
+	db      DatabaseBackup
+	backups BackupStore
+	prefs   settings.Repository
+	photos  PhotoArchive
+	now     port.Clock
+	log     *slog.Logger
+	status  Status
+	keep    int
 
 	// mu guards the automatic backups' state below, read by the health check.
 	mu sync.Mutex
@@ -83,21 +111,41 @@ type Service struct {
 	lastBackupErrAt time.Time
 }
 
-// NewService builds the service. Backups are written to backupDir and only the newest keep are kept.
-// photos may be nil: backups then hold only the database.
-func NewService(games game.Repository, db DatabaseBackup, prefs settings.Repository, photos PhotoArchive, now port.Clock, log *slog.Logger,
-	status Status, backupDir string, keep int) *Service {
-	return &Service{
-		games:     games,
-		db:        db,
-		prefs:     prefs,
-		photos:    photos,
-		now:       now,
-		log:       log,
-		status:    status,
-		backupDir: backupDir,
-		keep:      keep,
+// Option configures NewService.
+type Option func(*Service)
+
+// WithPhotoArchive sets the shared store the backups' photos go to. Without one, backups hold only
+// the database.
+func WithPhotoArchive(photos PhotoArchive) Option { return func(s *Service) { s.photos = photos } }
+
+// WithClock sets the clock that names the backups and dates their failures (time.Now by default).
+func WithClock(now port.Clock) Option { return func(s *Service) { s.now = now } }
+
+// WithLogger sets the logger of the scheduled backups (none by default).
+func WithLogger(log *slog.Logger) Option { return func(s *Service) { s.log = log } }
+
+// WithStatus sets what Status reports about the running instance besides the catalog's size.
+func WithStatus(status Status) Option { return func(s *Service) { s.status = status } }
+
+// WithKeep sets how many backups are kept, the newest ones (DefaultKeep by default).
+func WithKeep(keep int) Option { return func(s *Service) { s.keep = keep } }
+
+// NewService builds the service: db copies the database into the backups that backups keeps.
+func NewService(games game.Repository, db DatabaseBackup, backups BackupStore, prefs settings.Repository, opts ...Option) *Service {
+	s := &Service{
+		games:   games,
+		db:      db,
+		backups: backups,
+		prefs:   prefs,
+		now:     time.Now,
+		log:     slog.New(slog.DiscardHandler),
+		keep:    DefaultKeep,
 	}
+	for _, opt := range opts {
+		opt(s)
+	}
+
+	return s
 }
 
 // Status reports the running version and the size of the catalog.
@@ -117,16 +165,17 @@ func (s *Service) Status(ctx context.Context) (Status, error) {
 	return st, nil
 }
 
-// CreateBackup snapshots the database into the backups directory and prunes old backups. Its result
-// is remembered for the health check.
+// CreateBackup snapshots the database into a new backup and prunes old backups. Its result is
+// remembered for the health check.
 func (s *Service) CreateBackup(ctx context.Context) (b Backup, err error) {
 	defer func() { s.noteBackup(err) }()
 
-	if err := os.MkdirAll(s.backupDir, 0o755); err != nil {
+	name := fmt.Sprintf("gamevault-%s.db", s.now().UTC().Format("20060102-150405"))
+
+	path, err := s.backups.Create(name)
+	if err != nil {
 		return Backup{}, err
 	}
-
-	name := fmt.Sprintf("gamevault-%s.db", s.now().UTC().Format("20060102-150405"))
 
 	// The photos are read before and after the copy: the copied database references photos from
 	// some moment in between, and the union holds all of them (a few extra are harmless).
@@ -135,12 +184,11 @@ func (s *Service) CreateBackup(ctx context.Context) (b Backup, err error) {
 		return Backup{}, err
 	}
 
-	path := filepath.Join(s.backupDir, name)
 	if err := s.db.BackupTo(ctx, path); err != nil {
 		return Backup{}, err
 	}
 
-	photos, photoErr := s.backupPhotos(ctx, path, before)
+	photos, photoErr := s.backupPhotos(ctx, name, before)
 
 	// The database copy is a backup even when its photos failed, so rotation still runs.
 	if err := s.prune(); err != nil {
@@ -151,48 +199,24 @@ func (s *Service) CreateBackup(ctx context.Context) (b Backup, err error) {
 		return Backup{}, fmt.Errorf("backing up photos: %w", photoErr)
 	}
 
-	info, err := os.Stat(path)
+	b, err = s.backups.Stat(name)
 	if err != nil {
 		return Backup{}, err
 	}
 
-	return Backup{
-		Name:      name,
-		SizeBytes: info.Size(),
-		CreatedAt: info.ModTime(),
-		Photos:    photos,
-	}, nil
+	b.Photos = photos
+
+	return b, nil
 }
 
 // ListBackups returns the backups, newest first.
-func (s *Service) ListBackups(context.Context) ([]Backup, error) {
-	entries, err := os.ReadDir(s.backupDir)
-	if os.IsNotExist(err) {
-		return nil, nil
-	}
+func (s *Service) ListBackups(context.Context) ([]Backup, error) { return s.list() }
 
+// list returns the backups, newest first: the order rotation keeps them in.
+func (s *Service) list() ([]Backup, error) {
+	out, err := s.backups.List()
 	if err != nil {
 		return nil, err
-	}
-
-	var out []Backup
-
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".db") {
-			continue
-		}
-
-		info, err := e.Info()
-		if err != nil {
-			continue
-		}
-
-		out = append(out, Backup{
-			Name:      e.Name(),
-			SizeBytes: info.Size(),
-			CreatedAt: info.ModTime(),
-			Photos:    len(readPhotoList(filepath.Join(s.backupDir, e.Name()))),
-		})
 	}
 
 	// By date, not by name: a pre-migration copy (pre-migration-0009.db) would otherwise always sort
@@ -208,19 +232,16 @@ func (s *Service) ListBackups(context.Context) ([]Backup, error) {
 	return out, nil
 }
 
+// prune removes the backups beyond the newest keep, then the shared photos none of the kept ones
+// lists.
 func (s *Service) prune() error {
-	backups, err := s.ListBackups(context.Background())
+	backups, err := s.list()
 	if err != nil || len(backups) <= s.keep {
 		return err
 	}
 
 	for _, b := range backups[s.keep:] {
-		path := filepath.Join(s.backupDir, b.Name)
-		if err := os.Remove(path); err != nil {
-			return err
-		}
-
-		if err := os.Remove(photoList(path)); err != nil && !os.IsNotExist(err) {
+		if err := s.backups.Remove(b.Name); err != nil {
 			return err
 		}
 	}
@@ -232,7 +253,14 @@ func (s *Service) prune() error {
 	keep := map[game.PhotoID]bool{}
 
 	for _, b := range backups[:s.keep] {
-		for _, id := range readPhotoList(filepath.Join(s.backupDir, b.Name)) {
+		// A list that cannot be read stops the pruning of photos: going on would delete the
+		// photos that backup needs.
+		ids, err := s.backups.PhotoList(b.Name)
+		if err != nil {
+			return err
+		}
+
+		for _, id := range ids {
 			keep[id] = true
 		}
 	}
@@ -249,12 +277,9 @@ func (s *Service) PhotoStoreSize(context.Context) (int64, error) {
 	return s.photos.Size()
 }
 
-// photoList is the file next to a backup that names the photos it needs.
-func photoList(dbPath string) string { return strings.TrimSuffix(dbPath, ".db") + ".photos" }
-
-// backupPhotos writes the backup's photo list (the photos referenced before the copy, plus those
+// backupPhotos records the backup's photo list (the photos referenced before the copy, plus those
 // referenced now) and puts them in the shared store.
-func (s *Service) backupPhotos(ctx context.Context, dbPath string, before map[game.PhotoID]bool) (int, error) {
+func (s *Service) backupPhotos(ctx context.Context, name string, before map[game.PhotoID]bool) (int, error) {
 	if s.photos == nil {
 		return 0, nil
 	}
@@ -277,12 +302,7 @@ func (s *Service) backupPhotos(ctx context.Context, dbPath string, before map[ga
 
 	slices.Sort(ids)
 
-	var list strings.Builder
-	for _, id := range ids {
-		list.WriteString(string(id) + "\n")
-	}
-
-	if err := os.WriteFile(photoList(dbPath), []byte(list.String()), 0o600); err != nil {
+	if err := s.backups.WritePhotoList(name, ids); err != nil {
 		return 0, err
 	}
 
@@ -308,24 +328,6 @@ func (s *Service) referencedPhotos(ctx context.Context) (map[game.PhotoID]bool, 
 	}
 
 	return ids, nil
-}
-
-// readPhotoList returns the photos a backup's list names; none when it has no list.
-func readPhotoList(dbPath string) []game.PhotoID {
-	data, err := os.ReadFile(photoList(dbPath))
-	if err != nil {
-		return nil
-	}
-
-	var ids []game.PhotoID
-
-	for line := range strings.SplitSeq(string(data), "\n") {
-		if line = strings.TrimSpace(line); line != "" {
-			ids = append(ids, game.PhotoID(line))
-		}
-	}
-
-	return ids
 }
 
 // RunScheduledBackups creates a backup every interval until ctx ends.
