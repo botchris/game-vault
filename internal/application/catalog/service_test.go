@@ -55,7 +55,7 @@ func TestEditionCoverCache(t *testing.T) {
 		t.Cleanup(func() { db.Close() })
 
 		cache := &covers{}
-		svc := catalog.NewService(sqlite.NewGameRepository(db), db, time.Now, cache, nil, nil)
+		svc := catalog.NewService(sqlite.NewGameRepository(db), db, catalog.WithCoverCache(cache))
 
 		g, err := svc.CreateGame(ctx, game.Info{Title: "Halo 3"}, []game.CopyDetails{
 			{
@@ -204,7 +204,7 @@ func TestEditionCoverCache(t *testing.T) {
 		t.Cleanup(func() { db.Close() })
 
 		cache := &covers{}
-		svc := catalog.NewService(sqlite.NewGameRepository(db), db, time.Now, cache, nil, nil)
+		svc := catalog.NewService(sqlite.NewGameRepository(db), db, catalog.WithCoverCache(cache))
 
 		g, err := svc.CreateGame(ctx, game.Info{Title: "Halo 3"}, nil)
 		require.NoError(t, err)
@@ -247,7 +247,7 @@ func TestEditionCoverCache(t *testing.T) {
 		t.Cleanup(func() { db.Close() })
 
 		cache := &covers{}
-		svc := catalog.NewService(sqlite.NewGameRepository(db), db, time.Now, cache, nil, nil)
+		svc := catalog.NewService(sqlite.NewGameRepository(db), db, catalog.WithCoverCache(cache))
 
 		g, err := svc.CreateGame(ctx, game.Info{Title: "Halo 3"}, []game.CopyDetails{{
 			Kind:     game.KindPhysical,

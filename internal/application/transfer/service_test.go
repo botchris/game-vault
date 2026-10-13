@@ -11,6 +11,7 @@ import (
 
 	"gamevault/internal/adapters/outbound/csvfile"
 	"gamevault/internal/adapters/outbound/sqlite"
+	"gamevault/internal/application/catalog"
 	"gamevault/internal/application/transfer"
 	"gamevault/internal/domain/game"
 )
@@ -21,6 +22,8 @@ type covers struct {
 }
 
 func (c *covers) Invalidate(context.Context, game.ID) error { return nil }
+
+func (c *covers) DropLegacyCover(context.Context, game.ID) error { return nil }
 
 func (c *covers) InvalidateEdition(_ context.Context, id game.ID, system string) error {
 	c.editions = append(c.editions, string(id)+"|"+system)
@@ -38,7 +41,8 @@ func TestImport_coverCache(t *testing.T) {
 		t.Cleanup(func() { db.Close() })
 
 		cache := &covers{}
-		svc := transfer.NewService(sqlite.NewGameRepository(db), db, sqlite.NewSettingsRepository(db), time.Now, csvfile.Codec{}, cache)
+		svc := transfer.NewService(sqlite.NewGameRepository(db), catalog.NewService(sqlite.NewGameRepository(db), db, catalog.WithCoverCache(cache)),
+			sqlite.NewSettingsRepository(db), csvfile.Codec{})
 
 		_, err = svc.Import(ctx, []byte("title,platform,kind\nHalo 3,Steam,library\nHalo 3,PS3,physical\n"))
 		require.NoError(t, err)

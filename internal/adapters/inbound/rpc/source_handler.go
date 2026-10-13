@@ -79,7 +79,12 @@ func (h *SourceHandler) UpdateSource(ctx context.Context, req *connect.Request[p
 
 // DeleteSource removes a source.
 func (h *SourceHandler) DeleteSource(ctx context.Context, req *connect.Request[pb.DeleteSourceRequest]) (*connect.Response[pb.DeleteSourceResponse], error) {
-	if err := h.sync.Delete(ctx, source.ID(req.Msg.Id), req.Msg.DeleteCopies); err != nil {
+	remove := h.sync.Delete
+	if req.Msg.DeleteCopies {
+		remove = h.sync.DeleteWithCopies
+	}
+
+	if err := remove(ctx, source.ID(req.Msg.Id)); err != nil {
 		return nil, toConnectError(err)
 	}
 

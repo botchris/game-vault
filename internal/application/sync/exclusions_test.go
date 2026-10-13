@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/adapters/outbound/sqlite"
+	"gamevault/internal/application/catalog"
 	"gamevault/internal/application/sync"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
@@ -68,7 +69,8 @@ func TestExclusions(t *testing.T) {
 
 		games := sqlite.NewGameRepository(db)
 		p := &listing{items: []game.ImportedCopy{item("ls:netflix", "Netflix"), item("ls:journey", "Journey")}}
-		svc := sync.NewService(sqlite.NewSourceRepository(db), games, db, nil, time.Now, slog.New(slog.NewTextHandler(io.Discard, nil)), p)
+		svc := sync.NewService(sqlite.NewSourceRepository(db), games, db, catalog.NewService(games, db),
+			[]sync.Provider{p}, sync.WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil))))
 
 		v, err := svc.Create(ctx, "ls", source.Config{Enabled: true})
 		require.NoError(t, err)
@@ -308,7 +310,8 @@ func TestSyncKeepsASessionTheUserRenewedMeanwhile(t *testing.T) {
 
 	sources := sqlite.NewSourceRepository(db)
 	p := &expired{}
-	svc := sync.NewService(sources, sqlite.NewGameRepository(db), db, nil, time.Now, slog.New(slog.NewTextHandler(io.Discard, nil)), p)
+	svc := sync.NewService(sources, sqlite.NewGameRepository(db), db, catalog.NewService(sqlite.NewGameRepository(db), db),
+		[]sync.Provider{p}, sync.WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil))))
 
 	v, err := svc.Create(ctx, "ex", source.Config{Enabled: true})
 	require.NoError(t, err)
@@ -348,8 +351,8 @@ func TestSyncLogsAFailedSave(t *testing.T) {
 	var logged strings.Builder
 
 	p := &listing{items: []game.ImportedCopy{item("ls:journey", "Journey")}}
-	svc := sync.NewService(sqlite.NewSourceRepository(db), sqlite.NewGameRepository(db), db, nil, time.Now,
-		slog.New(slog.NewTextHandler(&logged, nil)), p)
+	svc := sync.NewService(sqlite.NewSourceRepository(db), sqlite.NewGameRepository(db), db, catalog.NewService(sqlite.NewGameRepository(db), db),
+		[]sync.Provider{p}, sync.WithLogger(slog.New(slog.NewTextHandler(&logged, nil))))
 
 	v, err := svc.Create(ctx, "ls", source.Config{
 		Name:    "My listing",
@@ -359,7 +362,7 @@ func TestSyncLogsAFailedSave(t *testing.T) {
 
 	t.Run("GIVEN the source is deleted while the store answers", func(t *testing.T) {
 		p.during = func() {
-			require.NoError(t, svc.Delete(ctx, v.ID(), false))
+			require.NoError(t, svc.Delete(ctx, v.ID()))
 
 			p.during = nil
 		}

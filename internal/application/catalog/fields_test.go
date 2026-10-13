@@ -41,7 +41,7 @@ func TestCatalogValidatesFieldValues(t *testing.T) {
 	})
 	require.NoError(t, defs.SaveFields(ctx, set))
 
-	svc := catalog.NewService(sqlite.NewGameRepository(db), db, time.Now, nil, nil, defs)
+	svc := catalog.NewService(sqlite.NewGameRepository(db), db, catalog.WithFields(defs))
 	yes := true
 
 	t.Run("GIVEN a game with a valid game value and a copy with a valid copy value", func(t *testing.T) {
@@ -150,7 +150,7 @@ func TestCatalogFieldValues_fieldDeletedBeforeTheWrite(t *testing.T) {
 		require.NoError(t, err)
 
 		tx := &racingTx{db: db}
-		svc := catalog.NewService(games, tx, time.Now, nil, nil, defs)
+		svc := catalog.NewService(games, tx, catalog.WithFields(defs))
 
 		g, err := svc.CreateGame(ctx, game.Info{Title: "Halo 3"}, []game.CopyDetails{{Kind: game.KindPhysical}})
 		require.NoError(t, err)

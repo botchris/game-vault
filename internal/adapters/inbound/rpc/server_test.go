@@ -365,7 +365,7 @@ func newServer(t *testing.T, p sync.Provider) clients {
 	valuationSvc := valuation.NewService(games, db, registry, sqlite.NewSettingsRepository(db), time.Now, log, fakePrices{})
 	logsSvc := logs.NewService(sqlite.NewSettingsRepository(db), logFiles, logFiles)
 	authSvc := appauth.NewService(sqlite.NewAuthRepository(db), sqlite.NewSettingsRepository(db), passwordhash.Bcrypt{Cost: 4}, noCerts{}, time.Now, log)
-	syncSvc := sync.NewService(sources, games, db, nil, time.Now, log, p)
+	syncSvc := sync.NewService(sources, games, db, catalog.NewService(games, db), []sync.Provider{p}, sync.WithLogger(log))
 	systemSvc := system.NewService(games, db, sqlite.NewSettingsRepository(db), nil, time.Now, log, system.Status{Version: "test"},
 		filepath.Join(dir, "backups"), 3)
 	h := rpc.NewHTTPHandler(rpc.Handlers{
@@ -379,11 +379,11 @@ func newServer(t *testing.T, p sync.Provider) clients {
 		MediaRPC:    rpc.NewMediaHandler(registry, mediaSvcs.Covers, mediaSvcs.Details, mediaSvcs.Identifier),
 		Valuation:   rpc.NewValuationHandler(valuationSvc),
 		Fields:      rpc.NewFieldHandler(fields.NewService(sqlite.NewSettingsRepository(db), games, db, time.Now)),
-		Games: rpc.NewGameHandler(catalog.NewService(games, db, time.Now, mediaSvcs.Covers, photos, sqlite.NewSettingsRepository(db)),
+		Games: rpc.NewGameHandler(catalog.NewService(games, db, catalog.WithCoverCache(mediaSvcs.Covers), catalog.WithPhotoFiles(photos), catalog.WithFields(sqlite.NewSettingsRepository(db))),
 			mediaSvcs.Details, media.NewStores(registry, syncSvc), syncSvc),
 		Sources: rpc.NewSourceHandler(syncSvc),
 		System: rpc.NewSystemHandler(systemSvc,
-			transfer.NewService(games, db, sqlite.NewSettingsRepository(db), time.Now, csvfile.Codec{}, nil)),
+			transfer.NewService(games, catalog.NewService(games, db), sqlite.NewSettingsRepository(db), csvfile.Codec{})),
 		Health:    rpc.NewHealthHandler(health.NewService(registry, syncSvc, systemSvc)),
 		Ownership: rpc.NewOwnershipHandler(ownership.NewService(games)),
 	}, rpc.Options{Log: log})
@@ -1301,8 +1301,8 @@ func TestImportCsv_codes(t *testing.T) {
 			t.Cleanup(func() { db.Close() })
 		}
 
-		return rpc.NewSystemHandler(nil, transfer.NewService(sqlite.NewGameRepository(db), db, sqlite.NewSettingsRepository(db),
-			time.Now, csvfile.Codec{}, nil))
+		return rpc.NewSystemHandler(nil, transfer.NewService(sqlite.NewGameRepository(db), catalog.NewService(sqlite.NewGameRepository(db), db),
+			sqlite.NewSettingsRepository(db), csvfile.Codec{}))
 	}
 
 	t.Run("GIVEN a working catalog", func(t *testing.T) {

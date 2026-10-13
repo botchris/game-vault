@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/adapters/outbound/sqlite"
+	"gamevault/internal/application/catalog"
 	"gamevault/internal/application/sync"
 	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/source"
@@ -47,7 +48,8 @@ func TestSync_aFailedSaveIsInternal(t *testing.T) {
 
 		sources := &lockingSources{Repository: sqlite.NewSourceRepository(db)}
 		p := &flaky{fetchErr: source.SignedOut("sign in again")}
-		svc := sync.NewService(sources, sqlite.NewGameRepository(db), db, nil, time.Now, slog.New(slog.NewTextHandler(io.Discard, nil)), p)
+		svc := sync.NewService(sources, sqlite.NewGameRepository(db), db, catalog.NewService(sqlite.NewGameRepository(db), db),
+			[]sync.Provider{p}, sync.WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil))))
 
 		v, err := svc.Create(ctx, "flaky", source.Config{Name: "Flaky"})
 		require.NoError(t, err)

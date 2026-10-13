@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/adapters/outbound/sqlite"
+	"gamevault/internal/application/catalog"
 	"gamevault/internal/application/health"
 	"gamevault/internal/application/sync"
 	"gamevault/internal/domain/game"
@@ -55,8 +56,8 @@ func TestService_healthIssues(t *testing.T) {
 		t.Cleanup(func() { db.Close() })
 
 		p := &flaky{}
-		svc := sync.NewService(sqlite.NewSourceRepository(db), sqlite.NewGameRepository(db), db, nil, time.Now,
-			slog.New(slog.NewTextHandler(io.Discard, nil)), p)
+		svc := sync.NewService(sqlite.NewSourceRepository(db), sqlite.NewGameRepository(db), db, catalog.NewService(sqlite.NewGameRepository(db), db),
+			[]sync.Provider{p}, sync.WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil))))
 
 		v, err := svc.Create(ctx, "flaky", source.Config{
 			Name:    "My store",
@@ -199,8 +200,8 @@ func TestService_healthIssuesClearedByTheUser(t *testing.T) {
 		t.Cleanup(func() { db.Close() })
 
 		p := &flaky{aliveErr: errors.New("the store did not answer")}
-		svc := sync.NewService(sqlite.NewSourceRepository(db), sqlite.NewGameRepository(db), db, nil, time.Now,
-			slog.New(slog.NewTextHandler(io.Discard, nil)), p)
+		svc := sync.NewService(sqlite.NewSourceRepository(db), sqlite.NewGameRepository(db), db, catalog.NewService(sqlite.NewGameRepository(db), db),
+			[]sync.Provider{p}, sync.WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil))))
 
 		v, err := svc.Create(ctx, "flaky", source.Config{
 			Name:    "My store",
@@ -239,7 +240,7 @@ func TestService_healthIssuesClearedByTheUser(t *testing.T) {
 
 	t.Run("GIVEN a failed keep-alive, WHEN the source is deleted", func(t *testing.T) {
 		svc, id := setup(t)
-		require.NoError(t, svc.Delete(ctx, id, false))
+		require.NoError(t, svc.Delete(ctx, id))
 
 		t.Run("THEN nothing is reported about it", func(t *testing.T) {
 			assert.Empty(t, svc.Issues(ctx))
@@ -262,8 +263,8 @@ func TestService_healthIssuesWhenTheSourcesCannotBeRead(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { db.Close() })
 
-	svc := sync.NewService(failingSources{sqlite.NewSourceRepository(db)}, sqlite.NewGameRepository(db), db, nil, time.Now,
-		slog.New(slog.NewTextHandler(io.Discard, nil)), &flaky{})
+	svc := sync.NewService(failingSources{sqlite.NewSourceRepository(db)}, sqlite.NewGameRepository(db), db, catalog.NewService(sqlite.NewGameRepository(db), db),
+		[]sync.Provider{&flaky{}}, sync.WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil))))
 
 	t.Run("GIVEN sources that cannot be read, WHEN the health is asked", func(t *testing.T) {
 		issues := svc.Issues(ctx)

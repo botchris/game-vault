@@ -6,7 +6,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
 
+	"gamevault/internal/application/catalog"
 	"gamevault/internal/application/port"
 	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/game"
@@ -27,39 +29,38 @@ type Codec interface {
 	Extension() string
 }
 
-// CoverCache is the port used to drop the cached covers of games the import changed.
-type CoverCache interface {
-	// Invalidate drops the game's cached covers and details, so the next request resolves them again.
-	Invalidate(ctx context.Context, id game.ID) error
-
-	// InvalidateEdition drops the cached cover of the game's edition on system.
-	InvalidateEdition(ctx context.Context, id game.ID, system string) error
-}
-
 // Service exposes the import/export use cases.
 type Service struct {
-	games game.Repository
-	tx    port.TxManager
-	prefs settings.Repository
-	now   port.Clock
-	codec Codec
-
-	covers CoverCache
+	games   game.Repository
+	catalog *catalog.Service
+	prefs   settings.Repository
+	codec   Codec
+	now     port.Clock
 }
 
-// NewService builds the service around the file codec. The preferences give the currency of rows
-// that have a price but no currency. covers may be nil when no cover cache is wired.
-func NewService(games game.Repository, tx port.TxManager, prefs settings.Repository, now port.Clock, codec Codec, covers CoverCache) *Service {
-	return &Service{
-		games: games,
-		tx:    tx,
-		prefs: prefs,
-		now:   now,
-		codec: codec,
-
-		covers: covers,
+// NewService builds the service around the file codec. Imports are merged into the catalog through
+// cat; the preferences give the currency of rows that have a price but no currency. Options:
+// WithClock.
+func NewService(games game.Repository, cat *catalog.Service, prefs settings.Repository, codec Codec, opts ...Option) *Service {
+	s := &Service{
+		games:   games,
+		catalog: cat,
+		prefs:   prefs,
+		codec:   codec,
+		now:     time.Now,
 	}
+	for _, opt := range opts {
+		opt(s)
+	}
+
+	return s
 }
+
+// Option configures NewService.
+type Option func(*Service)
+
+// WithClock sets the clock that dates imports and names exports (time.Now by default).
+func WithClock(now port.Clock) Option { return func(s *Service) { s.now = now } }
 
 // Import consolidates the rows of a file into the catalog. Rows carry stable external ids, so
 // importing the same file twice updates instead of duplicating.
@@ -79,68 +80,18 @@ func (s *Service) Import(ctx context.Context, content []byte) (source.SyncReport
 
 	report.Fetched, report.Warnings = len(copies), warnings
 
-	var (
-		prints = map[game.ID]map[string]string{}
-		stale  = map[game.ID][]string{}
-	)
-
-	err = s.tx.WithinTx(ctx, func(ctx context.Context) error {
-		games, err := s.games.List(ctx)
-		if err != nil {
-			return err
-		}
-
-		// Start over on every attempt, so a retried transaction reports only what it saved.
-		clear(prints)
-		clear(stale)
-
-		for _, g := range games {
-			prints[g.ID()] = g.CoverFingerprints()
-		}
-
-		res := game.NewConsolidator(games).Apply("", copies, s.now())
-		for _, g := range res.Changed {
-			if err := s.games.Save(ctx, g); err != nil {
-				return err
-			}
-
-			// A new game has no fingerprints before, so all its editions count.
-			if changed := game.ChangedSystems(prints[g.ID()], g.CoverFingerprints()); len(changed) > 0 {
-				stale[g.ID()] = changed
-			}
-		}
-
-		report.CopiesAdded, report.CopiesUpdated = res.CopiesAdded, res.CopiesUpdated
-		report.CopiesUnchanged, report.GamesCreated = res.CopiesUnchanged, res.GamesCreated
-		report.Warnings = append(report.Warnings, res.Warnings...)
+	res, err := s.catalog.Consolidate(ctx, "", func(context.Context) ([]game.ImportedCopy, error) { return copies, nil })
+	if err == nil {
+		res.AddTo(&report)
 
 		for _, inv := range res.InvalidSystems { // a file is imported once: every one is worth saying
 			report.Warnings = append(report.Warnings, inv.Warning)
 		}
-
-		return nil
-	})
-	if err == nil {
-		s.invalidateEditions(ctx, stale)
 	}
 
 	report.FinishedAt = s.now()
 
 	return report, err
-}
-
-// invalidateEditions drops the cached covers of the editions the import changed. Best effort: a
-// stale cached image is not worth failing the import.
-func (s *Service) invalidateEditions(ctx context.Context, stale map[game.ID][]string) {
-	if s.covers == nil {
-		return
-	}
-
-	for id, systems := range stale {
-		for _, system := range systems {
-			_ = s.covers.InvalidateEdition(ctx, id, system)
-		}
-	}
 }
 
 // Export writes the whole catalog, one row per copy. Returns the suggested file name and content.

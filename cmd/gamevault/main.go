@@ -147,13 +147,15 @@ func run() error {
 		media.WithPhotoStore(photos), media.WithDetailsStore(sqlite.NewDetailsStore(db)), media.WithClock(now), media.WithLogger(log))
 	valuationSvc := valuation.NewService(games, db, registry, settingsRepo, now, log, plugins.Valuations()...)
 	fieldsSvc := fields.NewService(settingsRepo, games, db, now)
-	catalogSvc := catalog.NewService(games, db, now, mediaSvcs.Covers, photos, settingsRepo)
+	catalogSvc := catalog.NewService(games, db, catalog.WithClock(now), catalog.WithCoverCache(mediaSvcs.Covers),
+		catalog.WithPhotoFiles(photos), catalog.WithFields(settingsRepo))
 	ownershipSvc := ownership.NewService(games)
 
 	mediaSvcs.AutoLinks.SetGameLinker(catalogSvc) // automatic links are saved by the catalog, in its transactions
-	syncSvc := sync.NewService(sources, games, db, mediaSvcs.Covers, now, log, plugins.Sources()...)
+	syncSvc := sync.NewService(sources, games, db, catalogSvc, plugins.Sources(),
+		sync.WithClock(now), sync.WithLogger(log), sync.WithCoverCache(mediaSvcs.Covers))
 	linkStores := media.NewStores(registry, syncSvc)
-	transferSvc := transfer.NewService(games, db, settingsRepo, now, csvfile.Codec{}, mediaSvcs.Covers)
+	transferSvc := transfer.NewService(games, catalogSvc, settingsRepo, csvfile.Codec{}, transfer.WithClock(now))
 	systemSvc := system.NewService(games, db, settingsRepo, photostore.NewArchive(photos, backupPhotos), now, log, system.Status{
 		Version:      version,
 		ConfigDir:    cfg.ConfigDir,

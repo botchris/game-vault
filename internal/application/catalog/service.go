@@ -13,19 +13,6 @@ import (
 	"gamevault/internal/domain/game"
 )
 
-// CoverCache is the port used to drop cached covers when they may have changed.
-type CoverCache interface {
-	// Invalidate drops the game's cached covers and details, so the next request resolves them again.
-	Invalidate(ctx context.Context, id game.ID) error
-
-	// InvalidateEdition drops the cached cover of the game's edition on system.
-	InvalidateEdition(ctx context.Context, id game.ID, system string) error
-
-	// DropLegacyCover drops the game's cover cached before editions, which the main edition would
-	// otherwise adopt.
-	DropLegacyCover(ctx context.Context, id game.ID) error
-}
-
 // PhotoFiles is the port that tells whether an uploaded photo's files are stored.
 type PhotoFiles interface {
 	// Has reports whether the photo and its thumbnail are stored.
@@ -52,45 +39,39 @@ type Service struct {
 	fields field.Repository
 }
 
-// NewService builds the service. covers may be nil when no cover cache is wired; photos may be nil,
-// and attached photos are then not checked; fields may be nil: no custom fields are defined.
-func NewService(games game.Repository, tx port.TxManager, now port.Clock, covers CoverCache, photos PhotoFiles, fields field.Repository) *Service {
-	return &Service{
+// NewService builds the service. Options: WithClock, WithCoverCache, WithPhotoFiles, WithFields.
+func NewService(games game.Repository, tx port.TxManager, opts ...Option) *Service {
+	s := &Service{
 		games:  games,
 		tx:     tx,
-		now:    now,
-		covers: covers,
-		photos: photos,
-		fields: fields,
+		now:    time.Now,
+		covers: NoCoverCache{},
+		photos: anyPhoto{},
+		fields: noFields{},
 	}
-}
-
-// fieldSet returns the custom field definitions (an empty set when none are wired).
-func (s *Service) fieldSet(ctx context.Context) (*field.Set, error) {
-	if s.fields == nil {
-		return field.NewSet(nil), nil
+	for _, opt := range opts {
+		opt(s)
 	}
 
-	return s.fields.Fields(ctx)
+	return s
 }
 
-// invalidateCover is best effort: a stale cached image is not worth failing the use case.
+// fieldSet returns the custom field definitions.
+func (s *Service) fieldSet(ctx context.Context) (*field.Set, error) { return s.fields.Fields(ctx) }
+
+// invalidateCover drops the game's cached covers and details. Best effort: a stale cached image is
+// not worth failing the use case.
 func (s *Service) invalidateCover(ctx context.Context, id game.ID) {
-	if s.covers != nil {
-		_ = s.covers.Invalidate(ctx, id)
-	}
+	_ = s.covers.Invalidate(ctx, id)
 }
 
-// invalidateEditions drops the cached covers of the editions whose fingerprints differ (see
+// invalidateEditions drops the cached covers of the game's editions whose fingerprints differ (see
 // game.Game.CoverFingerprints). Best effort, like invalidateCover.
 func (s *Service) invalidateEditions(ctx context.Context, id game.ID, before, after map[string]string) {
-	if s.covers == nil {
-		return
-	}
+	var stale StaleCovers
 
-	for _, system := range game.ChangedSystems(before, after) {
-		_ = s.covers.InvalidateEdition(ctx, id, system)
-	}
+	stale.AddEditions(id, before, after)
+	stale.Drop(ctx, s.covers)
 }
 
 // ListGames returns every game in the catalog.
@@ -159,21 +140,29 @@ func (s *Service) CreateGame(ctx context.Context, info game.Info, copies []game.
 	return g, nil
 }
 
-// UpdateGame changes a game's own attributes and drops its cached cover when its links changed.
+// UpdateGame changes a game's own attributes, its links included, and drops its cached covers
+// when its links changed.
 func (s *Service) UpdateGame(ctx context.Context, id game.ID, info game.Info) (*game.Game, error) {
-	return s.UpdateGameInfo(ctx, id, info, true)
+	return s.updateGame(ctx, id, info, func(_ *game.Game, info game.Info) game.Info { return info })
 }
 
-// UpdateGameInfo changes the game's own attributes. The links are applied only when linksSet: a
+// UpdateGameKeepLinks changes the game's own attributes but its links, which stay as they are: a
 // save that is not about them (a rating, a play status) may come from a page loaded before an
 // automatic link was added, and would otherwise read as its removal and reject it.
-func (s *Service) UpdateGameInfo(ctx context.Context, id game.ID, info game.Info, linksSet bool) (*game.Game, error) {
+func (s *Service) UpdateGameKeepLinks(ctx context.Context, id game.ID, info game.Info) (*game.Game, error) {
+	return s.updateGame(ctx, id, info, func(g *game.Game, info game.Info) game.Info {
+		info.Links = g.Links() // as they are now, whatever the page held
+		return info
+	})
+}
+
+// updateGame changes the game's own attributes to info as adjust leaves it, given the stored game.
+func (s *Service) updateGame(ctx context.Context, id game.ID, info game.Info,
+	adjust func(*game.Game, game.Info) game.Info) (*game.Game, error) {
 	var linksChanged bool
 
 	g, err := s.mutate(ctx, id, func(ctx context.Context, g *game.Game) error {
-		if !linksSet {
-			info.Links = g.Links() // as they are now, whatever the page held
-		}
+		info := adjust(g, info)
 
 		set, err := s.fieldSet(ctx)
 		if err != nil {
@@ -396,7 +385,7 @@ func (s *Service) MoveCopy(ctx context.Context, from, copyID, target game.ID, ne
 // AddCopyPhotos attaches uploaded photos to a copy and returns the updated game.
 func (s *Service) AddCopyPhotos(ctx context.Context, id, copyID game.ID, photos []game.Photo) (*game.Game, error) {
 	for _, p := range photos {
-		if s.photos != nil && !s.photos.Has(p.ID) {
+		if !s.photos.Has(p.ID) {
 			return nil, fmt.Errorf("%w (%s)", ErrPhotoNotUploaded, p.ID)
 		}
 	}
@@ -448,7 +437,7 @@ func (s *Service) SetMainSystem(ctx context.Context, id game.ID, system string) 
 	})
 	// The cover cached before editions belonged to the old main edition: the new one must not
 	// adopt it. Best effort, like invalidateCover.
-	if err == nil && s.covers != nil {
+	if err == nil {
 		_ = s.covers.DropLegacyCover(ctx, id)
 	}
 
