@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Icon } from '../../components/Icon';
 import { PlatformBadge } from '../../components/PlatformBadge';
 import { KeyCell, useFormatters } from '../../components/ui';
+import { deadlineTone } from '../../lib/deadlines';
 import { formatAmount } from '../../lib/money';
 import { CopyKind, daysUntil, describePhysical, kindKey, redeemUrl, statusKey, type Copy, type Game } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
@@ -66,7 +67,7 @@ export default function CopyCard({ game, copy, actions, redeeming, onRedeeming, 
         </div>
       )}
       {days !== null && (
-        <p className={`copy-deadline ${days <= 30 ? 'danger' : days <= 90 ? 'warn' : 'muted'}`}>
+        <p className={`copy-deadline ${deadlineTone(days) ?? 'muted'}`}>
           {t('copy.redeemBy')}: {fmt.date(d.redeemBy)} · {t('common.daysLeft', { count: days })}
         </p>
       )}

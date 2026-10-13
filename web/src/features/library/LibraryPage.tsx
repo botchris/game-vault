@@ -4,6 +4,7 @@ import { gameClient } from '../../api/client';
 import { Cover } from '../../components/Cover';
 import { Icon } from '../../components/Icon';
 import { Alert, useFormatters } from '../../components/ui';
+import { deadlineTone, expiresSoon } from '../../lib/deadlines';
 import { searchableText } from '../../lib/fields';
 import { CopyStatus, PlayStatus, daysUntil, isPendingKey, nextDeadline, playKey, toDate, type Game } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
@@ -27,7 +28,6 @@ type View = 'list' | 'posters';
 
 const SORTS: SortBy[] = ['titleAsc', 'titleDesc', 'added', 'year', 'deadline', 'copies', 'rating'];
 const CHUNK = 120;
-const EXPIRING_DAYS = 30;
 const LETTERS = ['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'];
 
 /** Remembered per device: purely a viewing preference. */
@@ -57,10 +57,7 @@ export function initialOf(title: string): string {
   return /[A-Z]/.test(c) ? c : '#';
 }
 
-const isExpiring = (g: Game) => {
-  const d = daysUntil(nextDeadline(g));
-  return d !== null && d <= EXPIRING_DAYS;
-};
+const isExpiring = (g: Game) => expiresSoon(daysUntil(nextDeadline(g)));
 
 export default function LibraryPage() {
   const { t, i18n } = useTranslation();
@@ -369,7 +366,7 @@ function GameRow({ item, grouping, onOpen, onSystem, activeSystems }: {
           {redundant > 0 && <span className="badge warn">{t('library.redundantBadge', { count: redundant })}</span>}
           {pending > 0 && redundant === 0 && <span className="badge">{t('library.pendingBadge', { count: pending })}</span>}
           {days !== null && (
-            <span className={`row-deadline ${days <= EXPIRING_DAYS ? 'danger' : days <= 90 ? 'warn' : ''}`}>
+            <span className={`row-deadline ${deadlineTone(days) ?? ''}`}>
               {fmt.date(deadline)} · {t('common.daysLeft', { count: days })}
             </span>
           )}
