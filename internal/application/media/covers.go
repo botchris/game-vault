@@ -105,7 +105,7 @@ func (c *Covers) EditionCover(ctx context.Context, id game.ID, system string) (I
 
 // resolve finds an edition's cover (see resolveEdition). Once the main edition has resolved (a
 // cover, or a miss remembered), the game's leftover "no cover found" markers go: those of systems
-// it no longer has and the one from before editions, which nothing reads any more.
+// it no longer has, which nothing reads any more.
 func (c *Covers) resolve(ctx context.Context, id game.ID, system string) (Image, error) {
 	g, err := c.games.Get(ctx, id)
 	if err != nil {
@@ -140,8 +140,7 @@ func editionSystems(g *game.Game) []string {
 }
 
 // resolveEdition finds the cover of g's edition on system, in this order:
-//  1. the image decided for the edition: the cover cached before editions (main edition only), the
-//     chosen photo, the chosen URL (chosen);
+//  1. the image decided for the edition: the chosen photo, the chosen URL (chosen);
 //  2. the provider chain, its fallback pass, and the base game's cover for an add-on in between
 //     (fromProviders);
 //  3. when a provider asked to slow down, nothing this time: the next request asks again;

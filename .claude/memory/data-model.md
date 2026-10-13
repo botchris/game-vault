@@ -11,10 +11,10 @@ metadata:
   link on 2026-10-09 (migration 0007, CSV column `links`, no backwards compatibility: the old export's column
   names are reported as unknown). `MatchKey` drops "<store> key" for every store, never a bare
   store name ("Epic Mickey", "Steam Prison").
-- **Changing an ExternalID format duplicates copies on the next scan**: don't, or set
-  `ImportedCopy.PreviousExternalID` so the consolidator adopts the old copy (only when it is in the
-  same game; source details are cleared, user notes kept). A source drops a copy it imported
-  earlier by returning it `Withdrawn`; games left empty are deleted by the sync.
+- **Changing an ExternalID format duplicates copies on the next scan** (and brings back excluded
+  items): don't. `ImportedCopy.PreviousExternalID` (adopting the old copy) existed for Humble's
+  2026-10-08 change and was removed on 2026-10-13. A source drops a copy it imported earlier by
+  returning it `Withdrawn`; games left empty are deleted by the sync.
 - Prefixes: `steam:<appId>`, `humble:<gamekey>:<machine_name>:<keyindex>` (was `humble:<gamekey>:<keyindex>`, see [[humble]]), `epic:<catalogItemId>`,
   `gog:<productId>`, `battlenet:<titleId>`, `ea:<productId>`, `ubisoft:<spaceId>`,
   `xbox:<productId>`, `psn:<entitlementId>`, `amazon:<productId>`, `fanatical:<keyId>`. Each library source also links the
@@ -38,12 +38,12 @@ metadata:
   names never change once released (like ExternalID prefixes). Since 2026-10-13 (audit PR 6) the
   details cache has its stored form too (`detailsDoc`, Go field names as tags), `testdata/` holds a
   fixture per format that must round-trip byte for byte, and aggregates are rebuilt from one
-  `game.Snapshot` / `source.Snapshot` (the v2 cover is its `LegacyCover`). A new field needs no migration;
-  changing a field's meaning bumps `"v"`. Opening an older database writes
+  `game.Snapshot` / `source.Snapshot`. A new field needs no migration;
+  changing a field's meaning bumps `"v"`, and the decoder reads only the current version. Opening an older database writes
   `backups/pre-migration-NNNN.db` first.
 - **Copies (2026-10-09, part 1 of the physical-copy work):** `Grade`, `Contents` (a bit set, so
   `CopyDetails` stays comparable), `Price Money` (minor units of the currency, `CurrencyDigits` for
-  JPY/BHD…). Game docs are v2 (old `condition` converted on read). Default currency in
+  JPY/BHD…). Game docs became v2 (old `condition` replaced). Default currency in
   `settings.Preferences`. CSV is English only by the user's decision. Next: part 2 photos, part 3
   second-hand valuation (CeX), each with its own spec.
 - **Photos (2026-10-09, part 2):** `Copy.Photos` (`PhotoID` = SHA-256 of the stored JPEG, never
@@ -60,8 +60,7 @@ metadata:
   `game.SystemPC`, PlayStation PS4/PS5), else `SystemOf(platform)`. Editions are derived, one per
   system; the game stores `covers` by system and `mainSystem`. A game without copies keeps its
   chosen cover under the system `""`. Game docs are v3 (`covers`, `mainSystem`, copies' `system`
-  and `sourceSystem`); v2 is converted on read (photo to its edition, which becomes the main one;
-  URL to the default main edition). Migration 0010 only triggers the pre-migration backup. System
+  and `sourceSystem`). Migration 0010 only triggers the pre-migration backup. System
   names (`PC`, console names, `Other`) are stored in documents and cover file names: never rename
   them. The CSV `system` column is an override only when it differs from the copy's effective
   system; an import never clears one. See [[provider-chains]].
@@ -73,9 +72,12 @@ metadata:
   (`autoLinks`, `rejectedLinks`, `autoLinkTriedAt`): an older binary reads the game but drops them
   on its next save (automatic links become plain links or vanish with it), so a downgrade loses the
   marks and the rejections. CSV column `autoLinks`; `UpdateGameRequest.links_set` guards links.
-- 2026-10-13: removing the backward compatibility in two steps. PR A (branch
-  `feature/upgrade-stored-data`) adds a one-time start-up upgrade (`internal/application/upgrade`)
-  that rewrites game docs v<3, the old `localBypass` auth row and the pre-edition `cover.<ext>` /
-  `cover.missing` files into today's format. PR B deletes the legacy readers (`LegacyCover`,
-  `condition`, `localBypass`, `AdoptLegacyCover`…) together with the upgrade, once the maintainer's
-  database has been through it.
+- 2026-10-13: backward compatibility removed, in two steps (done). PR A
+  (`feature/upgrade-stored-data`) added a one-time start-up upgrade that rewrote game docs v<3, the
+  old `localBypass` auth row and the pre-edition `cover.<ext>` / `cover.missing` files; once the
+  maintainer's installation had run it, PR B (`feature/drop-legacy`) deleted the upgrade and the
+  legacy readers (`LegacyCover`, `condition`, `localBypass`, `AdoptLegacyCover`,
+  `PreviousExternalID`, the `config/covers` move). **Game docs are v3 only**: an older one is
+  refused when read ("game document version N is no longer supported", `errOlderDocument`), never
+  converted. Migration 0009 still writes v1 docs, so a database from before it opens but its games
+  are refused.
