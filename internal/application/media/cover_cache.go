@@ -103,6 +103,9 @@ func (c *Covers) DropLegacyCover(_ context.Context, id game.ID) error {
 
 // Invalidate drops the game's cover, details and downloaded images (implements catalog.CoverCache):
 // they depend on the custom cover URL and the game's links, and must go when the game is deleted.
+// It deletes all of the game's media, not only its covers (the sheet and its images too), and lives
+// here because the catalog's one CoverCache port is the only call it gets for that: the game's
+// folder holds covers and sheet images together.
 func (c *Covers) Invalidate(ctx context.Context, id game.ID) error {
 	c.misses.forgetGame(id)
 
