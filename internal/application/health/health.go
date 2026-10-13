@@ -43,7 +43,7 @@ const (
 
 // Reason is a code clients translate. It is part of the API: the web UI lists the same codes
 // (web/src/lib/health.ts) and translates each under health.reasons, and
-// TestHealthReasons_webAgrees (cmd/gamevault) keeps the three equal.
+// TestHealthReasons_webAgrees (internal/application/health/webparity_test.go) keeps the three equal.
 type Reason string
 
 // Values of Reason.
