@@ -142,6 +142,8 @@ async function turnOptionOn() {
     await waitFor('the popup', () => enabled.isEnabled());
     await popup.locator('#own-token').fill(TOKEN);
     await popup.locator('#own-token').dispatchEvent('change');
+    // The token is saved before the box is ticked, as a user's typing would be.
+    await waitFor('the token to be saved', () => inWorker(async (token) => (await chrome.storage.local.get('ownership')).ownership?.token === token, TOKEN));
     await enabled.check();
     await waitFor('the option to be on', async () => /Steam/.test(await popup.locator('#own-status').textContent()));
   } finally {
@@ -247,7 +249,7 @@ before(async () => {
   await launch();
   // Game Vault's address enabled in the extension (what "Enable on" in the popup leaves).
   await inWorker((origin) => chrome.storage.local.set({ origins: [origin] }), gamevaultOrigin);
-});
+}, { timeout: 120_000 }); // the browser's first start, the certificate and the servers
 
 after(async () => {
   await context?.close();

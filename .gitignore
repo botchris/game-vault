@@ -26,7 +26,6 @@
 /bin/
 /web/dist/
 /web/node_modules/
-/extension/tests/e2e/node_modules/
 /web/tsconfig.tsbuildinfo
 
 # Personal Claude Code settings (the shared ones are .claude/settings.json)
