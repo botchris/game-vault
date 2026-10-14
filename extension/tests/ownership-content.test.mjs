@@ -235,3 +235,25 @@ test('clear() stops following the page and takes every label away (the option tu
   assert.equal(sent.length, 1);
   assert.equal(window.document.querySelectorAll('[data-gamevault]').length, 0);
 });
+
+test('an answer that arrives after the extension was reloaded draws nothing (no translations to draw with)', async (tt) => {
+  const url = { current: 'https://store.steampowered.com/app/4410/Lantern_Keep/' };
+  const window = pageWindow(sample('steam-app.html'), url.current);
+  const answer = deferred();
+  let alive = true;
+  const t = makeT('en');
+  const { sent, ctl } = follow(window, url, () => answer.promise, {
+    alive: () => alive,
+    t: (...args) => {
+      if (!alive) throw new TypeError("Cannot read properties of undefined (reading 'getMessage')");
+      return t(...args);
+    },
+  });
+  done(tt, window, ctl);
+  await settle();
+  assert.equal(sent.length, 1);
+  alive = false;
+  answer.resolve({ status: 'ok', results: [owned('Lantern Keep')] });
+  await settle();
+  assert.equal(window.document.querySelectorAll('[data-gamevault]').length, 0);
+});

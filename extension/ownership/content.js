@@ -52,13 +52,14 @@
 
     /** Whether an answer for page `href` may still be drawn. The page changed while Game Vault
      *  answered: the answer is dropped, and this also schedules a re-read of the new page (it sets
-     *  `again`, which the running scan acts on when it ends). The page was left: nothing is drawn. */
+     *  `again`, which the running scan acts on when it ends). The page was left, or the extension
+     *  that started these scripts was reloaded or updated: nothing is drawn. */
     function answerStillWanted(href) {
       if (url() !== href) {
         again = true;
         return false;
       }
-      return !stopped;
+      return !stopped && current();
     }
 
     /** Draws one label per entry still without one, from the answer for the same position. */
@@ -163,7 +164,7 @@
   // In a store page (not in Node tests): start once per page.
   if (typeof document !== 'undefined' && globalThis.chrome?.runtime?.id && !globalThis.__gvOwnershipStarted) {
     globalThis.__gvOwnershipStarted = true;
-    const ctl = ns.start({
+    globalThis.__gvOwnershipCtl = ns.start({
       doc: document,
       url: () => location.href,
       send: (items) => chrome.runtime.sendMessage({ op: 'ownership', items }),
@@ -175,11 +176,16 @@
     });
     // The option turned off, or the store site taken back: only this extension's background can
     // send it (the page cannot reach this listener). Turned on again, the background puts the
-    // scripts back, and they start afresh.
-    chrome.runtime.onMessage.addListener((msg, sender) => {
-      if (sender.id !== chrome.runtime.id || msg?.op !== 'ownership-off') return;
-      ctl.clear();
-      globalThis.__gvOwnershipStarted = false;
-    });
+    // scripts back and they start afresh, so the listener is added once per world and always
+    // stops the scripts running now.
+    if (!globalThis.__gvOwnershipListening) {
+      globalThis.__gvOwnershipListening = true;
+      chrome.runtime.onMessage.addListener((msg, sender) => {
+        if (sender.id !== chrome.runtime.id || msg?.op !== 'ownership-off') return;
+        globalThis.__gvOwnershipCtl?.clear();
+        globalThis.__gvOwnershipCtl = null;
+        globalThis.__gvOwnershipStarted = false;
+      });
+    }
   }
 })();
