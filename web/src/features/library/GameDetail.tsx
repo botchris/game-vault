@@ -4,6 +4,7 @@ import { gameClient } from '../../api/client';
 import { Alert, Modal } from '../../components/ui';
 import { useEscape } from '../../components/useEscape';
 import { closeRequest, draftFor, keepDraft, type EditDrafts } from '../../lib/editDrafts';
+import { onBackdropPress } from '../../lib/backdrop';
 import { openEdition } from '../../lib/editions';
 import { gameInfo, type Game } from '../../lib/model';
 import { useAction } from '../../lib/useAction';
@@ -129,7 +130,7 @@ function GameDetailBody({ game, system, onClose, onOpenGame, onEdition, onPlatfo
   }, []);
 
   return (
-    <div ref={overlay} className="overlay sheet-overlay" onMouseDown={requestClose}>
+    <div ref={overlay} className="overlay sheet-overlay" onMouseDown={onBackdropPress(requestClose)}>
       <article ref={sheetEl} className="game-sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" onMouseDown={(e) => e.stopPropagation()}>
         <SheetHero game={game} current={current} details={sheet.details} nav={nav} actions={actions} onClose={requestClose}
           onPlatform={requestPlatform} onShowEdition={showEdition} onChange={updateGame} />
@@ -158,19 +159,15 @@ function GameDetailBody({ game, system, onClose, onOpenGame, onEdition, onPlatfo
 
       <SheetDialogs game={game} current={current} dialog={dialog} run={run} onClose={() => setDialog(null)} onOpenGame={onOpenGame} />
 
-      {/* Its backdrop is inside the sheet's: a press on it cancels here and must not reach the
-          sheet's, which would ask again. */}
       {leaving && (
-        <div onMouseDown={(e) => e.stopPropagation()}>
-          <Modal title={t('game.unsavedTitle')} onClose={() => setLeaving(null)}
-            footer={<>
-              <span className="spacer" />
-              <button type="button" autoFocus onClick={() => setLeaving(null)}>{t('game.keepEditing')}</button>
-              <button type="button" className="danger" onClick={() => { drafts.current = new Map(); setLeaving(null); leaving.then(); }}>{t('game.discardAndClose')}</button>
-            </>}>
-            <p>{t('game.unsavedClose', { count: leaving.count })}</p>
-          </Modal>
-        </div>
+        <Modal title={t('game.unsavedTitle')} onClose={() => setLeaving(null)}
+          footer={<>
+            <span className="spacer" />
+            <button type="button" autoFocus onClick={() => setLeaving(null)}>{t('game.keepEditing')}</button>
+            <button type="button" className="danger" onClick={() => { drafts.current = new Map(); setLeaving(null); leaving.then(); }}>{t('game.discardAndClose')}</button>
+          </>}>
+          <p>{t('game.unsavedClose', { count: leaving.count })}</p>
+        </Modal>
       )}
     </div>
   );

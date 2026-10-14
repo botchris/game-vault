@@ -27,7 +27,8 @@ because Simple Icons removed them).
   sheet a `#/game/<id>` address names (`useGameAddress`).
 - `features/system/AccessTokens`: create (shown once), list, revoke.
 - `lib/ownership.ts`: paste cleaning, request chunks, rows (pure, Node-tested); `lib/gameRoute.ts`:
-  `#/game/<id>`. `components/ui.tsx`: `Modal` has `phoneFull`.
+  `#/game/<id>`. `components/ui.tsx`: `Modal` has `phoneFull`; a press on its backdrop closes only that dialog and never
+  reaches an overlay it was opened over, such as the game sheet (`lib/backdrop.ts`).
 - `components/Cover.tsx`: edition cover with the borrowed-box fallback. `whole` (posters, the sheet's
   hero, the cover picker) shows the box uncropped through `WholeCover`: the same 2:3 cell everywhere,
   the box contained and centred. When it does not fill the cell (`lib/coverFit.ts`, ~2% tolerance), a
