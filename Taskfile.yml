@@ -211,6 +211,29 @@ tasks:
     cmds:
       - '{{.IN_TOOLCHAIN}} sh -c "mkdir -p dist && v=\$(node -p require\(process.argv[1]\).version \$PWD/extension/manifest.json) && go run ./tools/zipdir extension dist/game-vault-connector-\$v.zip tests package.json && echo dist/game-vault-connector-\$v.zip"'
 
+  extension:e2e:
+    desc: Test the extension's store labels end to end in a real Chromium (Playwright image, fake stores and a fake Game Vault)
+    vars:
+      # The browsers come from the image, the driver from extension/tests/e2e/package.json: keep
+      # both on the same Playwright version. The digest is the tag's multi-platform index, so a
+      # re-pushed tag cannot change what runs.
+      PLAYWRIGHT_IMAGE: mcr.microsoft.com/playwright:v1.55.0-noble@sha256:b27e719ecbfef153e13fd24e8341736733bf2658b229677eb21ff57ff5d7fb29
+    cmds:
+      # Only extension/ is mounted, read-only. The driver is installed in a volume (Linux files,
+      # kept out of the host), again only when package-lock.json changes, and found through
+      # /node_modules. --ipc=host: Chromium runs out of shared memory without it.
+      - >-
+        docker run --rm --init --ipc=host
+        -v "{{.ROOT_DIR}}/extension:/src/extension:ro"
+        -v gamevault-e2e-node-modules:/opt/e2e/node_modules -w /opt/e2e
+        {{.PLAYWRIGHT_IMAGE}} sh -c '
+        cp /src/extension/tests/e2e/package.json /src/extension/tests/e2e/package-lock.json . &&
+        hash=$(sha256sum package-lock.json | cut -c1-64) &&
+        if [ "$(cat node_modules/.lock-hash 2>/dev/null)" != "$hash" ]; then
+        npm ci --no-audit --no-fund && echo "$hash" > node_modules/.lock-hash; fi &&
+        ln -s /opt/e2e/node_modules /node_modules &&
+        node --test --test-timeout=120000 /src/extension/tests/e2e/labels.e2e.mjs'
+
   i18n:
     desc: Check that every UI language has the same translation keys as English
     deps: [toolchain]

@@ -3,6 +3,7 @@
 // the token: only this module talks to Game Vault.
 import '../ownership/stores.js';
 import { isPrivateTransport } from './origin.js';
+import { isStoreSite } from './storesites.js';
 
 const { STORES } = globalThis.gvOwnership;
 
@@ -57,12 +58,13 @@ let syncing = Promise.resolve();
 
 /**
  * Registers the content script of each store the browser allows while the option is on for an
- * address that is still enabled, and unregisters the rest. Each sync starts after the previous
+ * address that is still enabled, puts it in that store's open tabs that do not run it yet, and
+ * unregisters the rest. Each sync starts after the previous
  * one has finished, and a store the browser refuses does not stop the others: its failure is
  * logged (the store only, never a setting).
  */
-export function syncStoreScripts(api) {
-  const run = syncing.then(() => syncOnce(api));
+export function syncStoreScripts(api, { tabTimeoutMs = TAB_TIMEOUT_MS } = {}) {
+  const run = syncing.then(() => syncOnce(api, tabTimeoutMs));
   syncing = run.catch(() => {});
   return run;
 }
@@ -76,10 +78,71 @@ export async function activeSettings(storage) {
   const { ownership } = await storage.get('ownership');
   const { origins = [] } = await storage.get('origins');
   if (!ownership?.enabled || !ownership.origin || !origins.includes(ownership.origin)) return null;
+  // A store's site is never a Game Vault: the token never goes there.
+  if (isStoreSite(ownership.origin)) return null;
   return { origin: ownership.origin, token: typeof ownership.token === 'string' ? ownership.token.trim() : '' };
 }
 
-async function syncOnce(api) {
+/**
+ * Puts the store scripts in the open tabs of a store where they do not run yet. The browser only
+ * gives a registered content script to pages loaded after the registration: without this, the
+ * store page the user turns the option on from, every store tab already open, and the tabs whose
+ * scripts belong to a version of the extension that was since reloaded or updated (those can no
+ * longer reach it) would show nothing until they are reloaded. A short probe in the extension's
+ * own world of the tab (it reads nothing from the page) skips the tabs where the scripts already
+ * run; a tab the browser does not let the extension into (an error page) is skipped too.
+ */
+async function reachOpenTabs(api, store, timeoutMs) {
+  await eachTab(api, store, timeoutMs, async (tab) => {
+    // injectImmediately: a tab still loading (or never finishing) does not hold the probe up.
+    const [probe] = await api.scripting.executeScript({
+      target: { tabId: tab.id },
+      injectImmediately: true,
+      func: () => Boolean(globalThis.__gvOwnershipStarted),
+    });
+    if (probe?.result) return;
+    // Into the document the probe looked at: if the tab moved on meanwhile, the new page gets the
+    // registered scripts as it loads, and this injection is refused instead of doubling them.
+    const target = probe?.documentId ? { tabId: tab.id, documentIds: [probe.documentId] } : { tabId: tab.id };
+    await api.scripting.executeScript({ target, files: SCRIPTS });
+  });
+}
+
+/** The message that tells the store scripts in a tab to stop and take their labels away. */
+export const STOP_MESSAGE = { op: 'ownership-off' };
+
+/**
+ * Tells the scripts already running in a store's open tabs to stop and take their labels away:
+ * the option was turned off, or the browser took the store site back. Unregistering a script
+ * only keeps it out of pages loaded later. A tab without the scripts has no one to answer.
+ */
+async function stopOpenTabs(api, store, timeoutMs) {
+  await eachTab(api, store, timeoutMs, (tab) => api.tabs.sendMessage(tab.id, STOP_MESSAGE));
+}
+
+/** The longest the work on one tab may take during a sync, in milliseconds. */
+export const TAB_TIMEOUT_MS = 4000;
+
+/**
+ * Runs work(tab) on every open tab of a store, all at once, each given at most timeoutMs: the
+ * syncs run one after the other, so one frozen tab must not hold up every later sync. A tab that
+ * fails or takes too long is left as it is (an error page, a tab the extension may not script).
+ */
+async function eachTab(api, store, timeoutMs, work) {
+  let tabs;
+  try {
+    tabs = await api.tabs.query({ url: storeOrigin(store) });
+  } catch {
+    return;
+  }
+  await Promise.allSettled(tabs.map((tab) => {
+    let timer;
+    const late = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('the tab did not answer')), timeoutMs); });
+    return Promise.race([Promise.resolve().then(() => work(tab)), late]).finally(() => clearTimeout(timer));
+  }));
+}
+
+async function syncOnce(api, tabTimeoutMs) {
   const on = (await activeSettings(api.storage.local)) !== null;
   const registered = new Map((await api.scripting.getRegisteredContentScripts({ ids: STORES.map(scriptId) })).map((s) => [s.id, s]));
   for (const store of STORES) {
@@ -92,11 +155,48 @@ async function syncOnce(api) {
       // files) is replaced.
       const stale = old && (String(old.matches) !== String(want.matches) || String(old.js) !== String(want.js));
       if (old && (!wanted || stale)) await api.scripting.unregisterContentScripts({ ids: [id] });
+      if (old && !wanted) await stopOpenTabs(api, store, tabTimeoutMs);
       if (wanted && (!old || stale)) await api.scripting.registerContentScripts([want]);
+      if (wanted) await reachOpenTabs(api, store, tabTimeoutMs);
     } catch (err) {
       console.warn(`ownership: syncing the ${store.store} store script failed:`, String(err?.message ?? err));
     }
   }
+}
+
+/**
+ * What the popup offers for the address of the tab it is opened on: {kind: 'store', store} on a
+ * store page (its labels follow the option; the Game Vault bridge is never offered there: it would
+ * let the store's page ask for sign-ins); {kind: 'signin'} on another store site (sign-in,
+ * account, community: lib/storesites.js) or a host confirmed for a sign-in (`grants`), never a
+ * Game Vault either; {kind: 'enabled'} on an enabled Game Vault address; {kind: 'offer'} on any
+ * other web address; {kind: 'none'} off the web. Stores are checked first: a store site enabled by
+ * an older version is still a store. Every kind but 'none' carries the address's origin.
+ */
+export function popupPlace(url, origins, grants) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { kind: 'none' };
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol)) return { kind: 'none' };
+  const { origin, hostname } = parsed;
+  const store = storeForUrl(url);
+  if (store) return { kind: 'store', origin, store: store.name };
+  if (isStoreSite(url) || Object.values(grants ?? {}).flat().includes(hostname)) return { kind: 'signin', origin };
+  if ((origins ?? []).includes(origin)) return { kind: 'enabled', origin };
+  return { kind: 'offer', origin };
+}
+
+/**
+ * What the popup says on a store page, as a message key and its substitutions: the option is off
+ * (or has no enabled address to ask); it is on but the browser has not allowed the extension on
+ * that store's site; or the page shows what the user owns.
+ */
+export function storePageMessage(store, { on, granted }) {
+  const key = !on ? 'popupStoreOff' : granted ? 'popupStorePage' : 'popupStoreNotAllowed';
+  return { key, subs: [store] };
 }
 
 /**

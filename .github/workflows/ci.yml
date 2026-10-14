@@ -55,3 +55,20 @@ jobs:
       # translation check.
       - name: task test
         run: task test
+
+  extension-e2e:
+    name: Extension end to end
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ github.token }}
+
+      # The store labels in a real Chromium with the unpacked extension, against fake store sites
+      # and a fake Game Vault (the Playwright image from Microsoft's registry; about a minute).
+      - name: task extension:e2e
+        run: task extension:e2e

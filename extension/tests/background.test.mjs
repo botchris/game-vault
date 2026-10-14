@@ -68,6 +68,7 @@ function fakeChrome({ origins = [GV], grants = {}, granted = true, incognito = f
         try { return [{ result: func(...args) }]; } finally { set('location', saved[0]); set('localStorage', saved[1]); }
       },
       registerContentScripts: async (list) => { c.registered.push(...list.map((s) => s.id)); },
+      unregisterContentScripts: async ({ ids }) => { c.registered = c.registered.filter((id) => !ids.includes(id)); },
       getRegisteredContentScripts: async ({ ids }) => c.registered.filter((id) => ids.includes(id)).map((id) => ({ id })),
     },
     cookies: {
@@ -256,4 +257,47 @@ test('hello says whether private windows are allowed, so the page can warn when 
     await flush();
     assert.equal(port.sent[0]?.privateAllowed, incognito);
   }
+});
+
+test('a store site is never enabled as a Game Vault address, nor may it ask for a sign-in', async () => {
+  const store = 'https://es.humblebundle.com';
+  const chrome = await load({ origins: [], extra: { pendingEnable: { origin: store, tabId: 3 } } });
+  chrome.permissions.onAdded.fire({ origins: ['https://es.humblebundle.com/*'] });
+  await flush();
+  assert.deepEqual(chrome.data.origins, []);
+  assert.deepEqual(chrome.registered, []);
+  assert.deepEqual(chrome.executed, []);
+
+  const enabled = await load({ origins: [store] });
+  const port = connectPort(enabled, store);
+  port.onMessage.fire({ op: 'hello', id: 'h' });
+  await flush();
+  assert.equal(port.sent[0]?.op, 'error');
+  assert.equal(port.sent[0]?.code, 'denied');
+});
+
+for (const event of ['onInstalled', 'onStartup']) {
+  test(`${event}: store sites enabled before they were refused are forgotten, with their bridges and the token`, async () => {
+    const store = 'https://es.humblebundle.com';
+    const chrome = await load({
+      origins: [GV, store],
+      grants: { [GV]: ['www.humblebundle.com'], [store]: ['account.battle.net'] },
+      extra: { ownership: { enabled: true, origin: store, token: 'gvt_secret' } },
+    });
+    chrome.registered.push('bridge-https___es_humblebundle_com');
+    chrome.runtime[event].fire({ reason: 'update' });
+    await flush();
+    assert.deepEqual(chrome.data.origins, [GV]);
+    assert.deepEqual(chrome.data.grants, { [GV]: ['www.humblebundle.com'] });
+    assert.deepEqual(chrome.registered, ['bridge-http___127_0_0_1_8093']);
+    assert.deepEqual(chrome.data.ownership, { enabled: false, origin: store, token: '' });
+  });
+}
+
+test('the migration leaves a Game Vault address, and the option on it, alone', async () => {
+  const chrome = await load({ extra: { ownership: { enabled: true, origin: GV, token: 'gvt_secret' } } });
+  chrome.runtime.onStartup.fire();
+  await flush();
+  assert.deepEqual(chrome.data.origins, [GV]);
+  assert.deepEqual(chrome.data.ownership, { enabled: true, origin: GV, token: 'gvt_secret' });
 });

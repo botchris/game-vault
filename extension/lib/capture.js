@@ -1,5 +1,6 @@
 // Small pure helpers the engine and the background use.
 import { isPrivateTransport } from './origin.js';
+import { isStoreSite } from './storesites.js';
 
 /**
  * Whether url starts with prefix at a boundary: the prefix ends with '/', or url continues with
@@ -35,9 +36,12 @@ export function jsonField(text, field) {
   }
 }
 
-/** Whether a page's origin is one of the Game Vault addresses the user enabled (exact match, port included). */
+/**
+ * Whether a page's origin is one of the Game Vault addresses the user enabled (exact match, port
+ * included). A store's site never is, even when an older version let it be enabled.
+ */
 export function originAllowed(origin, enabled) {
-  return Array.isArray(enabled) && enabled.includes(origin);
+  return Array.isArray(enabled) && enabled.includes(origin) && !isStoreSite(origin);
 }
 
 /** Whether every host was confirmed before. */

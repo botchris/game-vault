@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "type": "module",
+  "description": "The extension's end-to-end test in a real Chromium (task extension:e2e); not part of the packed extension.",
+  "dependencies": {
+    "playwright-core": "1.55.0"
+  }
+}

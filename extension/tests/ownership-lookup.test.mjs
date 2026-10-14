@@ -205,3 +205,9 @@ test('the option is on only when enabled, with an address, for an address still 
     assert.equal(await activeSettings(storage(data)), null, JSON.stringify(data));
   }
 });
+
+test('a store site chosen as the address before stores were refused leaves the option off', async () => {
+  const store = 'https://es.humblebundle.com';
+  const data = { origins: [GV, store], ownership: { enabled: true, origin: store, token: 'gvt_test' } };
+  assert.equal(await activeSettings({ get: async (k) => ({ [k]: data[k] }) }), null);
+});
