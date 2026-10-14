@@ -2,24 +2,24 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { gameClient } from '../../api/client';
 import type { LinkStore } from '../../gen/gamevault/v1/game_pb';
-import { cleanLinks, isAutoLink, rebaseInfo, sameLinks, type GameInfo } from '../../lib/links';
+import { cleanLinks, isAutoLink, rebaseInfo, sameLinks } from '../../lib/links';
 import type { Game } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
 import { FieldInputs, applyField, cleanFields, sameFields, useFieldValidity } from '../fields/FieldInput';
 import LinkSearchDialog from './LinkSearchDialog';
-import type { GamePatch, SheetActions } from './sheet';
-
-type Info = GameInfo<Game['fields'][string]>;
+import type { GameEditInfo as Info, GamePatch, SheetActions, SheetDrafts } from './sheet';
 
 const infoOf = (g: Game): Info => ({ title: g.title, links: { ...g.links }, notes: g.notes, fields: { ...g.fields } });
 
 /** Two field values are the same when they save the same. */
 const sameField = (a: Game['fields'][string], b: Game['fields'][string]) => sameFields({ v: a }, { v: b });
 
-/** The sheet's "Edit" tab: title, store links, notes and the game's custom fields; merge and delete. */
-export default function EditTab({ game, actions, onSave, onDeleted }: {
+/** The sheet's "Edit" tab: title, store links, notes and the game's custom fields; merge and delete.
+ *  The tab unmounts when another one is shown, so its unsaved form lives in the sheet's `drafts`. */
+export default function EditTab({ game, actions, drafts, onSave, onDeleted }: {
   game: Game;
   actions: SheetActions;
+  drafts: SheetDrafts;
   onSave: (patch: GamePatch) => Promise<unknown>;
   onDeleted: () => void;
 }) {
@@ -27,10 +27,12 @@ export default function EditTab({ game, actions, onSave, onDeleted }: {
   const { dropGame, putGame, fields } = useAppData();
   const { busy, run, openDialog } = actions;
   const gameDefs = fields.filter((f) => f.scope === 'game');
-  const [info, setInfo] = useState(() => infoOf(game));
+  // The form starts where the user left it, when they changed it and switched tabs or games.
+  const [info, setInfo] = useState(() => drafts.get(game.id)?.info ?? infoOf(game));
   // The game as the form last took it: telling its info apart from the form's says what the user
-  // changed.
-  const [baseGame, setBaseGame] = useState(game);
+  // changed. A draft's is the game as it was when the tab was left; if the game changed since, the
+  // rebase below brings the form up to date like any other change.
+  const [baseGame, setBaseGame] = useState(() => drafts.get(game.id)?.base ?? game);
   const base = infoOf(baseGame);
   // Discard remounts the field inputs, so text they kept locally (an invalid number) goes too.
   const [discarded, setDiscarded] = useState(0);
@@ -40,6 +42,11 @@ export default function EditTab({ game, actions, onSave, onDeleted }: {
   const [searching, setSearching] = useState<LinkStore | null>(null);
   const dirty = info.title !== game.title || !sameLinks(info.links, game.links) || info.notes !== game.notes
     || !sameFields(info.fields, game.fields);
+
+  // The sheet keeps the form while it has unsaved changes; saving or discarding drops it.
+  useEffect(() => {
+    drafts.set(game.id, dirty ? { info, base: baseGame } : undefined);
+  }, [drafts, game.id, dirty, info, baseGame]);
 
   useEffect(() => {
     gameClient.listLinkStores({}).then((res) => setStores(res.stores), () => setStores([]));

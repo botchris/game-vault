@@ -18,7 +18,8 @@ because Simple Icons removed them).
 - `features/library/`: `LibraryPage` (search, sort, A–Z rail, filters, by platform or by game, posters/list,
   infinite scroll), `FilterPanel` (popover / bottom sheet), `PosterGrid`, `GameDetail` (the game sheet:
   hero, edition chips, Overview / Copies / Edit tabs; ‹ › and ← → move through the library's current list, keeping the
-  tab, with no animation; the image viewer catches the arrows first; the sheet is not remounted per
+  tab, with no animation; the Edit tab's unsaved forms are kept per game in the sheet while it stays
+  open (`lib/editDrafts.ts`), and leaving with one asks first; the image viewer catches the arrows first; the sheet is not remounted per
   game, only its body is keyed; its parts are `SheetHero`, `CopiesTab` with `CopyCard`, `EditTab`, and
   `SheetDialogs` with `EditCopyDialog`, sharing the types in `sheet.ts`), `GameSheet` (details from metadata providers),
   `CopyPhotos` (a copy's thumbnail strip, uploads with progress, the viewer with its photo footer),

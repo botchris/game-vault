@@ -134,6 +134,11 @@
     "noResults": "No games match these filters."
   },
   "game": {
+    "unsavedTitle": "Unsaved changes",
+    "unsavedClose_one": "Your changes in the Edit tab have not been saved. Close the game and discard them?",
+    "unsavedClose_other": "Your changes to {{count}} games in the Edit tab have not been saved. Close and discard them?",
+    "keepEditing": "Keep editing",
+    "discardAndClose": "Discard and close",
     "title": "Title",
     "delete": "Delete game",
     "confirmDelete_one": "Delete \"{{title}}\" and its copy? This cannot be undone.",

@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { gameClient } from '../../api/client';
-import { Alert } from '../../components/ui';
+import { Alert, Modal } from '../../components/ui';
 import { useEscape } from '../../components/useEscape';
+import { closeRequest, draftFor, keepDraft, type EditDrafts } from '../../lib/editDrafts';
 import { openEdition } from '../../lib/editions';
 import { gameInfo, type Game } from '../../lib/model';
 import { useAction } from '../../lib/useAction';
@@ -12,7 +13,7 @@ import EditTab from './EditTab';
 import { SheetOverview, useGameDetails } from './GameSheet';
 import SheetDialogs from './SheetDialogs';
 import SheetHero from './SheetHero';
-import type { GamePatch, SheetActions, SheetDialog, SheetNav } from './sheet';
+import type { GameDraft, GamePatch, SheetActions, SheetDialog, SheetDrafts, SheetNav } from './sheet';
 
 interface Props {
   gameId: string;
@@ -44,7 +45,7 @@ export default function GameDetail({ gameId, ...props }: Props) {
 
 function GameDetailBody({ game, system, onClose, onOpenGame, onEdition, onPlatform, nav }: Omit<Props, 'gameId'> & { game: Game }) {
   const { t } = useTranslation();
-  const { putGame, dropGame } = useAppData();
+  const { games, putGame, dropGame } = useAppData();
   const sheet = useGameDetails(game);
   const [tab, setTab] = useState<Tab>('overview');
   const [dialog, setDialog] = useState<SheetDialog | null>(null);
@@ -63,6 +64,26 @@ function GameDetailBody({ game, system, onClose, onOpenGame, onEdition, onPlatfo
 
   const actions: SheetActions = { busy, run, openDialog: setDialog };
 
+  // The Edit tab's unsaved forms, by game, for as long as the sheet stays open: switching tabs or
+  // moving with ← → keeps them, closing the sheet drops them. Only the tab reads them (when it
+  // mounts) and closing checks them, so a ref: keeping one never re-renders the sheet.
+  const drafts = useRef<EditDrafts<GameDraft>>(new Map());
+  const sheetDrafts = useMemo<SheetDrafts>(() => ({
+    get: (id) => draftFor(drafts.current, id),
+    set: (id, draft) => { drafts.current = keepDraft(drafts.current, id, draft); },
+  }), []);
+  // Leaving the sheet (Escape, the close button, a click outside, a platform badge) with unsaved
+  // changes asks first; `then` is how it was leaving. Closing because the game is gone (deleted,
+  // its last copy moved) does not ask: there is nothing left to save.
+  const [leaving, setLeaving] = useState<{ count: number; then: () => void } | null>(null);
+  const leave = (then: () => void) => {
+    const request = closeRequest(drafts.current, (id) => games.some((g) => g.id === id));
+    if (request.confirm) setLeaving({ count: request.count, then });
+    else then();
+  };
+  const requestClose = () => leave(onClose);
+  const requestPlatform = onPlatform && ((p: string) => leave(() => onPlatform(p)));
+
   const updateGame = (patch: GamePatch) => run(async () => {
     // Links are sent as set only by the Edit tab's save (a patch with links): any other save may come
     // from a page loaded before a link was added automatically, and must not remove it.
@@ -74,7 +95,7 @@ function GameDetailBody({ game, system, onClose, onOpenGame, onEdition, onPlatfo
   // above it on the Escape stack. The image viewer catches the arrows first (capture phase) and
   // keeps them; arrows typed in a field, or with a modifier (Alt+← is the browser's Back), are left
   // alone.
-  const onTop = useEscape(onClose);
+  const onTop = useEscape(requestClose);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!onTop()) return;
@@ -108,10 +129,10 @@ function GameDetailBody({ game, system, onClose, onOpenGame, onEdition, onPlatfo
   }, []);
 
   return (
-    <div ref={overlay} className="overlay sheet-overlay" onMouseDown={onClose}>
+    <div ref={overlay} className="overlay sheet-overlay" onMouseDown={requestClose}>
       <article ref={sheetEl} className="game-sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" onMouseDown={(e) => e.stopPropagation()}>
-        <SheetHero game={game} current={current} details={sheet.details} nav={nav} actions={actions} onClose={onClose}
-          onPlatform={onPlatform} onShowEdition={showEdition} onChange={updateGame} />
+        <SheetHero game={game} current={current} details={sheet.details} nav={nav} actions={actions} onClose={requestClose}
+          onPlatform={requestPlatform} onShowEdition={showEdition} onChange={updateGame} />
 
         <nav className="sheet-tabs" role="tablist">
           {(['overview', 'copies', 'edit'] as Tab[]).map((k) => (
@@ -131,11 +152,26 @@ function GameDetailBody({ game, system, onClose, onOpenGame, onEdition, onPlatfo
             <CopiesTab game={game} current={current} actions={actions} onShowEdition={showEdition}
               onGameGone={() => { dropGame(game.id); onClose(); }} />
           )}
-          {tab === 'edit' && <EditTab game={game} actions={actions} onSave={updateGame} onDeleted={onClose} />}
+          {tab === 'edit' && <EditTab game={game} actions={actions} drafts={sheetDrafts} onSave={updateGame} onDeleted={onClose} />}
         </div>
       </article>
 
       <SheetDialogs game={game} current={current} dialog={dialog} run={run} onClose={() => setDialog(null)} onOpenGame={onOpenGame} />
+
+      {/* Its backdrop is inside the sheet's: a press on it cancels here and must not reach the
+          sheet's, which would ask again. */}
+      {leaving && (
+        <div onMouseDown={(e) => e.stopPropagation()}>
+          <Modal title={t('game.unsavedTitle')} onClose={() => setLeaving(null)}
+            footer={<>
+              <span className="spacer" />
+              <button type="button" autoFocus onClick={() => setLeaving(null)}>{t('game.keepEditing')}</button>
+              <button type="button" className="danger" onClick={() => { drafts.current = new Map(); setLeaving(null); leaving.then(); }}>{t('game.discardAndClose')}</button>
+            </>}>
+            <p>{t('game.unsavedClose', { count: leaving.count })}</p>
+          </Modal>
+        </div>
+      )}
     </div>
   );
 }

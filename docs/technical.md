@@ -476,6 +476,15 @@ the platform says" instead of naming one.
 The hero of the sheet holds the **play status** chips and the **rating** stars. Both save on click;
 clicking the current one again clears it. The list view shows them next to each game.
 
+Unsaved changes in the **Edit** tab are kept while the sheet stays open (`lib/editDrafts.ts`), one
+draft per game: switching to Overview or Copies and back shows them, and moving to another game with
+‹ › or ← → keeps each game's own, without asking. Saving or discarding drops a game's draft, and the
+form rebases a kept draft on the game as it is when the tab is shown again (a link found meanwhile
+is kept, the typing too). Leaving the sheet with a draft (Escape, the close button, a click outside,
+a platform badge) asks first in a small dialog ("Keep editing" / "Discard and close"); closing
+because the game was deleted does not, and the draft of a game merged into another no longer
+counts. The browser's Back button closes the sheet without asking.
+
 Each game page shows a sheet: summary, genres, developer and publisher, release date, age rating, players, Metacritic, trailers and screenshots.
 It comes from the **game details** provider chain. The first provider gives the main sheet and the next ones fill the gaps; trailers from all providers are kept.
 

@@ -1,3 +1,5 @@
+import type { EditDraft } from '../../lib/editDrafts';
+import type { GameInfo } from '../../lib/links';
 import type { Copy, Game } from '../../lib/model';
 import type { Action } from '../../lib/useAction';
 
@@ -27,4 +29,18 @@ export interface SheetActions {
   /** Runs an action of the sheet: busy while it runs, its error shown on the sheet. */
   run: Action['run'];
   openDialog: (d: SheetDialog) => void;
+}
+
+/** What the Edit tab edits of a game. */
+export type GameEditInfo = GameInfo<Game['fields'][string]>;
+
+/** The Edit tab's unsaved form of a game (see lib/editDrafts). */
+export type GameDraft = EditDraft<GameEditInfo, Game>;
+
+/** The unsaved Edit-tab forms the sheet keeps while it stays open, by game id. */
+export interface SheetDrafts {
+  /** The game's draft, if its form had unsaved changes when the tab was last shown. */
+  get: (gameId: string) => GameDraft | undefined;
+  /** Keeps the game's form: a draft while it has unsaved changes, undefined once it has none. */
+  set: (gameId: string, draft: GameDraft | undefined) => void;
 }
