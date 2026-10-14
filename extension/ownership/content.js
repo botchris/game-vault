@@ -16,10 +16,12 @@
    * Starts following a page. deps: doc; url() (the current address); send(items), resolving to
    * {status: 'ok', results} or {status: 'unavailable', reason}; t (chrome.i18n.getMessage);
    * MutationObserver; setTimer(fn, ms) and clearTimer(handle); debounceMs; maxWaitMs (the longest
-   * a scan waits while the page keeps changing); now() (a clock in ms). Returns {scan, stop}.
+   * a scan waits while the page keeps changing); now() (a clock in ms); alive() (whether the
+   * extension that started this is still the one running: after a reload or an update of the
+   * extension, its scripts stay in the page but can no longer reach it). Returns {scan, stop}.
    */
   ns.start = (deps) => {
-    const { doc, url, t, debounceMs = 400, maxWaitMs = 2000, now = Date.now } = deps;
+    const { doc, url, t, debounceMs = 400, maxWaitMs = 2000, now = Date.now, alive = () => true } = deps;
     const asked = new WeakMap(); // label host → keyOf the item it answers for
     let timer = null;
     let waitingSince = 0;
@@ -81,7 +83,16 @@
       ns.renderLabel(doc, read.summary, ns.summaryModel(outcome, items, t));
     }
 
+    /** Whether this is still the running extension's copy; one left behind stops and touches
+     *  nothing: the new extension puts its own scripts in the page, which own the labels now. */
+    function current() {
+      if (alive()) return true;
+      stop();
+      return false;
+    }
+
     async function scan() {
+      if (!current()) return;
       if (running) {
         again = true;
         return;
@@ -117,7 +128,7 @@
 
     /** Debounces scans, but a scan never waits more than maxWaitMs after the first change. */
     function schedule() {
-      if (stopped) return; // a scan that was waiting for Game Vault when the page was left
+      if (stopped || !current()) return; // a scan that was waiting for Game Vault when the page was left
       const at = now();
       if (timer === null) waitingSince = at;
       else deps.clearTimer(timer);
@@ -129,16 +140,15 @@
     }
 
     const observer = new deps.MutationObserver(schedule);
+    function stop() {
+      stopped = true;
+      observer.disconnect();
+      if (timer !== null) deps.clearTimer(timer);
+      timer = null;
+    }
     observer.observe(doc.documentElement, { childList: true, subtree: true, characterData: true });
     schedule();
-    return {
-      scan,
-      stop() {
-        stopped = true;
-        observer.disconnect();
-        if (timer !== null) deps.clearTimer(timer);
-      },
-    };
+    return { scan, stop };
   };
 
   // In a store page (not in Node tests): start once per page.
@@ -152,6 +162,7 @@
       MutationObserver,
       setTimer: (fn, ms) => setTimeout(fn, ms),
       clearTimer: (h) => clearTimeout(h),
+      alive: () => Boolean(globalThis.chrome?.runtime?.id),
     });
   }
 })();

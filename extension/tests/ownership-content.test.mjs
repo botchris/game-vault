@@ -201,3 +201,22 @@ test('a lookup answered after stop(), at the same address, draws nothing', async
   await settle();
   assert.equal(window.document.querySelectorAll('[data-gamevault]').length, 0, 'no label drawn after stop()');
 });
+
+test('scripts left in a page by a reloaded or updated extension stop, and leave the labels to the new ones', async (tt) => {
+  const url = { current: 'https://store.steampowered.com/app/4410/Lantern_Keep/' };
+  const window = pageWindow(sample('steam-app.html'), url.current);
+  let alive = true;
+  const { sent, ctl } = follow(window, url, async () => ({ status: 'ok', results: [owned('Lantern Keep')] }), { alive: () => alive });
+  done(tt, window, ctl);
+  await settle();
+  assert.equal(countKind(window.document, 'owned'), 1);
+
+  // The extension was reloaded: these scripts can no longer reach it (nor its translations). A
+  // move to another page must not wipe the labels the new scripts draw, nor try to draw any.
+  alive = false;
+  url.current = 'https://store.steampowered.com/app/4410/Lantern_Keep/?snr=1';
+  window.document.body.append(window.document.createElement('div'));
+  await settle();
+  assert.equal(sent.length, 1);
+  assert.equal(window.document.querySelectorAll('[data-gamevault]').length, 1);
+});
