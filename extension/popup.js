@@ -1,6 +1,6 @@
 // The extension's menu: the Game Vault addresses enabled for sign-ins, and the store-page option.
 import { bridgeId, enableOrigin } from './lib/bridges.js';
-import { STORE_ORIGINS, grantedStores, nextOwnership, removableOrigins, tokenInClear } from './lib/ownership.js';
+import { STORE_ORIGINS, grantedStores, nextOwnership, popupPlace, removableOrigins, tokenInClear } from './lib/ownership.js';
 
 const $ = (id) => document.getElementById(id);
 const load = async (k, d) => (await chrome.storage.local.get(k))[k] ?? d;
@@ -20,10 +20,11 @@ async function render() {
   const grants = await load('grants', {});
   const current = $('current');
   current.textContent = '';
-  let here = '';
-  try { here = new URL(tab?.url ?? '').origin; } catch { /* not a web page */ }
-  if (/^https?:/.test(here) && !origins.includes(here)) {
+  const place = popupPlace(tab?.url ?? '', origins, grants);
+  if (place.kind === 'offer') {
+    const here = place.origin;
     const b = document.createElement('button');
+    b.id = 'enable-here';
     b.textContent = t('popupEnableOn', [here]);
     b.onclick = async () => {
       const { protocol, hostname } = new URL(here);
@@ -41,8 +42,11 @@ async function render() {
     p.className = 'muted';
     p.textContent = t('popupEnableHelp');
     current.append(b, p);
-  } else if (origins.includes(here)) {
+  } else if (place.kind === 'enabled') {
     current.textContent = t('popupEnabledHere');
+  } else if (place.kind === 'store') {
+    // A store page is never a Game Vault: what it gets is the labels, set below.
+    current.textContent = t('popupStorePage', [place.store]);
   }
 
   const list = $('origins');

@@ -129,6 +129,30 @@ async function syncOnce(api) {
 }
 
 /**
+ * What the popup offers for the address of the tab it is opened on: {kind: 'enabled'} on an
+ * enabled Game Vault address; {kind: 'store', store} on a store page (its labels follow the
+ * option; the Game Vault bridge is never offered there: it would let the store's page ask for
+ * sign-ins); {kind: 'signin'} on a host confirmed for a sign-in (`grants`), never a Game Vault
+ * either; {kind: 'offer'} on any other web address; {kind: 'none'} off the web. Every kind but
+ * 'none' carries the address's origin.
+ */
+export function popupPlace(url, origins, grants) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { kind: 'none' };
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol)) return { kind: 'none' };
+  const { origin, hostname } = parsed;
+  if ((origins ?? []).includes(origin)) return { kind: 'enabled', origin };
+  const store = storeForUrl(url);
+  if (store) return { kind: 'store', origin, store: store.name };
+  if (Object.values(grants ?? {}).flat().includes(hostname)) return { kind: 'signin', origin };
+  return { kind: 'offer', origin };
+}
+
+/**
  * Whether a token sent to this Game Vault address would travel unencrypted over a network: plain
  * http to anything but this computer (see isLoopback). The popup warns about it.
  */

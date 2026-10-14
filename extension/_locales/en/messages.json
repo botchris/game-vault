@@ -21,6 +21,7 @@
   "popupEnableOn": { "message": "Enable on $ORIGIN$", "placeholders": { "origin": { "content": "$1", "example": "http://127.0.0.1:8080" } } },
   "popupEnableHelp": { "message": "Only on your own Game Vault: this lets that address ask the extension to connect stores." },
   "popupEnabledHere": { "message": "Enabled on this address. Use Connect in a source's settings." },
+  "popupStorePage": { "message": "This is a $STORE$ page: what you own shows here while the option below is on.", "placeholders": { "store": { "content": "$1", "example": "Humble Bundle" } } },
   "popupAddresses": { "message": "Enabled Game Vault addresses" },
   "popupRemove": { "message": "Remove" },
   "popupForget": { "message": "Forget $HOST$", "placeholders": { "host": { "content": "$1", "example": "www.humblebundle.com" } } },
