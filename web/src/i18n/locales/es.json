@@ -134,6 +134,11 @@
     "noResults": "Ningún juego coincide con estos filtros."
   },
   "game": {
+    "unsavedTitle": "Cambios sin guardar",
+    "unsavedClose_one": "Los cambios de la pestaña Editar no se han guardado. ¿Cerrar el juego y descartarlos?",
+    "unsavedClose_other": "Los cambios de {{count}} juegos en la pestaña Editar no se han guardado. ¿Cerrar y descartarlos?",
+    "keepEditing": "Seguir editando",
+    "discardAndClose": "Descartar y cerrar",
     "title": "Título",
     "delete": "Borrar juego",
     "confirmDelete_one": "¿Borrar \"{{title}}\" y su copia? No se puede deshacer.",

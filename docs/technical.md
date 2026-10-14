@@ -476,6 +476,15 @@ the platform says" instead of naming one.
 The hero of the sheet holds the **play status** chips and the **rating** stars. Both save on click;
 clicking the current one again clears it. The list view shows them next to each game.
 
+Unsaved changes in the **Edit** tab are kept while the sheet stays open (`lib/editDrafts.ts`), one
+draft per game: switching to Overview or Copies and back shows them, and moving to another game with
+‹ › or ← → keeps each game's own, without asking. Saving or discarding drops a game's draft, and the
+form rebases a kept draft on the game as it is when the tab is shown again (a link found meanwhile
+is kept, the typing too). Leaving the sheet with a draft (Escape, the close button, a click outside,
+a platform badge) asks first in a small dialog ("Keep editing" / "Discard and close"); closing
+because the game was deleted does not, and the draft of a game merged into another no longer
+counts. The browser's Back button closes the sheet without asking.
+
 Each game page shows a sheet: summary, genres, developer and publisher, release date, age rating, players, Metacritic, trailers and screenshots.
 It comes from the **game details** provider chain. The first provider gives the main sheet and the next ones fill the gaps; trailers from all providers are kept.
 
@@ -801,6 +810,7 @@ Logs never contain keys or credentials.
   version or image.
 - `task go -- test ./internal/…/ -run TestName -v` runs one package's tests in the toolchain.
 - `task test` runs the Go tests, the TypeScript type check, the Node tests of the web's pure helpers (`web/tests/`) and the translation check, in the toolchain container. The Go tests cover the domain, SQLite, the providers (against fake servers), CSV, and an end-to-end Connect test.
+- `task test:race` runs the Go tests again with the race detector (`go test -race ./...`, Go only). The detector needs cgo, which the pure-Go binaries turn off (`CGO_ENABLED=0` in the toolchain), so the task turns it on for the tests; the toolchain's Debian base has the C compiler. It takes under a minute with a cold build cache on a developer's machine.
 - `task extension:e2e` tests the extension's store labels end to end in a real Chromium, in Microsoft's Playwright image (`mcr.microsoft.com/playwright`, pinned in `Taskfile.yml` by tag and digest, matching `playwright-core` in `extension/tests/e2e/package.json`). Only `extension/` is mounted, read-only; the driver is installed in a Docker volume. `extension/tests/e2e/labels.e2e.mjs` serves the saved samples of `extension/tests/samples/` (invented titles) from a local HTTPS server that Chromium reaches for the real store host names (`--host-resolver-rules`, `--ignore-certificate-errors`), and fakes Game Vault's `OwnershipService/CheckOwnership`. It loads a copy of `extension/` (without the tests) in Chromium's new headless mode; the copy declares the store sites and `http://127.0.0.1/*` as granted host permissions, because an automated run cannot answer the browser's permission prompt (the real optional-permission flow was checked by hand under Xvfb, with the same results). It enables the fake Game Vault's address, turns the option on in the extension's own popup and reads the labels in the extension's world of each page through the DevTools protocol (they are in closed shadow roots). It covers a store tab open before the option is turned on (a Humble Choice page on `es.humblebundle.com`), a Steam product (owned), a Humble product on a language site (not owned), a Humble bundle (marks and summary), the page not reaching the labels or the extension, only lookups reaching Game Vault (with the token, without cookies), a tab open while the extension is reloaded from `chrome://extensions`, a browser restart, the option turned off and on again in the popup with a store tab open (labels gone, then back), and Game Vault unreachable (unavailable). It takes about ten seconds once the image is pulled.
-- GitHub Actions (`.github/workflows/ci.yml`) runs `task lint`, checks that `task generate` changes nothing, and runs `task test` on every push to `main` and every pull request, inside the same toolchain image (its layers cached in GitHub Actions, rebuilt only when `build/toolchain.Dockerfile` changes), and `task extension:e2e` in a job of its own.
+- GitHub Actions (`.github/workflows/ci.yml`) runs `task lint`, checks that `task generate` changes nothing, and runs `task test` on every push to `main` and every pull request, inside the same toolchain image (its layers cached in GitHub Actions, rebuilt only when `build/toolchain.Dockerfile` changes), and `task test:race` and `task extension:e2e` in jobs of their own, in parallel.
 - Pushing a version tag (`v1.2.3`) runs `.github/workflows/release.yml`: the same checks, then `task docker:publish` for linux/amd64 and linux/arm64 with the Docker Hub credentials in the repository secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`.

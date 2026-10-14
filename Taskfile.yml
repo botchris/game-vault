@@ -170,6 +170,14 @@ tasks:
     cmds:
       - '{{.IN_TOOLCHAIN}} sh -c "go vet ./... && go test ./... && cd web && npm run typecheck && node --test --test-timeout=10000 tests/*.test.mjs ../extension/tests/*.test.mjs && for f in ../extension/*.js ../extension/ownership/*.js; do [ -e \$f ] || continue; node --check \$f || exit 1; done && node ../.claude/scripts/check-i18n.mjs"'
 
+  test:race:
+    desc: Go tests with the race detector (Go only)
+    deps: [toolchain]
+    cmds:
+      # The race detector needs cgo, which the toolchain turns off for the pure-Go binaries; the
+      # image's Debian base has the C compiler it needs.
+      - '{{.IN_TOOLCHAIN}} sh -c "CGO_ENABLED=1 go test -race ./..."'
+
   go:
     desc: 'Run one go command in the toolchain, e.g. task go -- test ./internal/adapters/outbound/sqlite/ -run TestDocuments -v'
     deps: [toolchain]

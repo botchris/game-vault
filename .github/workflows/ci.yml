@@ -56,6 +56,21 @@ jobs:
       - name: task test
         run: task test
 
+  race:
+    name: Go race detector
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ./.github/actions/toolchain
+
+      # The Go tests again with -race (cgo on, which the binaries do not use). Under a minute on
+      # a developer's machine with a cold build cache, so it runs on every push and pull request,
+      # next to the other jobs.
+      - name: task test:race
+        run: task test:race
+
   extension-e2e:
     name: Extension end to end
     runs-on: ubuntu-latest
