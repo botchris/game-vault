@@ -74,3 +74,8 @@ test('an address matches a prefix only up to a path, query or fragment boundary'
   assert.equal(prefixMatch(undefined, 'https://x.com'), false);
   assert.equal(redirectValue('https://embed.gog.com/on_login_successX?code=x', 'https://embed.gog.com/on_login_success', 'code'), '');
 });
+
+test('a store site is never an allowed Game Vault address, even when it was enabled', () => {
+  assert.equal(originAllowed('https://es.humblebundle.com', ['https://es.humblebundle.com']), false);
+  assert.equal(originAllowed('https://login.steampowered.com', ['https://login.steampowered.com']), false);
+});

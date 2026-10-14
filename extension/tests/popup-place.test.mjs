@@ -21,12 +21,22 @@ test('a store page is never offered the bridge: the popup speaks about its label
   ]) assert.deepEqual(popupPlace(url, [GV], grants), { kind: 'store', origin: new URL(url).origin, store: name }, url);
 });
 
-test("a store's sign-in site, confirmed for a sign-in, is not offered either", () => {
+test("a store's sign-in or community site is not offered either, nor a host confirmed for a sign-in", () => {
   assert.deepEqual(popupPlace('https://account.battle.net/overview', [GV], grants), { kind: 'signin', origin: 'https://account.battle.net' });
+  for (const url of ['https://login.steampowered.com/', 'https://steamcommunity.com/id/me', 'https://login.gog.com/', 'https://auth.gog.com/auth']) {
+    assert.equal(popupPlace(url, [GV], {}).kind, 'signin', url);
+  }
+  assert.equal(popupPlace('https://sso.example.org/', [GV], { [GV]: ['sso.example.org'] }).kind, 'signin');
 });
 
 test('pages that are not on the web offer nothing', () => {
   for (const url of ['chrome://extensions/', 'about:blank', '', 'not an address']) {
     assert.deepEqual(popupPlace(url, [GV], grants), { kind: 'none' }, url);
   }
+});
+
+test('a store site enabled before stores were refused is still a store page, not an enabled address', () => {
+  const store = 'https://es.humblebundle.com';
+  assert.equal(popupPlace(`${store}/store/harbor-lights`, [GV, store], grants).kind, 'store');
+  assert.equal(popupPlace('https://login.steampowered.com/', ['https://login.steampowered.com'], {}).kind, 'signin');
 });

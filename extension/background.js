@@ -5,7 +5,7 @@
 import { startRun } from './lib/engine.js';
 import { RECIPE_VERSION, codedError, validate } from './lib/recipe.js';
 import { hostsGranted, originAllowed, rememberAllowed } from './lib/capture.js';
-import { enableOrigin, registerBridge } from './lib/bridges.js';
+import { enableOrigin, forgetStoreSites, registerBridge } from './lib/bridges.js';
 import { createLookup, storeForUrl, syncStoreScripts } from './lib/ownership.js';
 
 const running = new Map(); // request id → { cancel, tab, port }
@@ -174,6 +174,8 @@ chrome.runtime.onConnect.addListener((port) => {
 // Registered bridges survive restarts; re-register them in case the browser dropped them (it
 // does on an update or a reload of the extension).
 const reregister = async () => {
+  // Store sites an older version let the user enable are forgotten first.
+  await forgetStoreSites().catch(() => {});
   for (const origin of await enabledOrigins()) await registerBridge(origin).catch(() => {});
   await syncStores();
 };

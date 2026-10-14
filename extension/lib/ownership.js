@@ -3,6 +3,7 @@
 // the token: only this module talks to Game Vault.
 import '../ownership/stores.js';
 import { isPrivateTransport } from './origin.js';
+import { isStoreSite } from './storesites.js';
 
 const { STORES } = globalThis.gvOwnership;
 
@@ -77,6 +78,8 @@ export async function activeSettings(storage) {
   const { ownership } = await storage.get('ownership');
   const { origins = [] } = await storage.get('origins');
   if (!ownership?.enabled || !ownership.origin || !origins.includes(ownership.origin)) return null;
+  // A store's site is never a Game Vault: the token never goes there.
+  if (isStoreSite(ownership.origin)) return null;
   return { origin: ownership.origin, token: typeof ownership.token === 'string' ? ownership.token.trim() : '' };
 }
 
@@ -148,12 +151,13 @@ async function syncOnce(api) {
 }
 
 /**
- * What the popup offers for the address of the tab it is opened on: {kind: 'enabled'} on an
- * enabled Game Vault address; {kind: 'store', store} on a store page (its labels follow the
- * option; the Game Vault bridge is never offered there: it would let the store's page ask for
- * sign-ins); {kind: 'signin'} on a host confirmed for a sign-in (`grants`), never a Game Vault
- * either; {kind: 'offer'} on any other web address; {kind: 'none'} off the web. Every kind but
- * 'none' carries the address's origin.
+ * What the popup offers for the address of the tab it is opened on: {kind: 'store', store} on a
+ * store page (its labels follow the option; the Game Vault bridge is never offered there: it would
+ * let the store's page ask for sign-ins); {kind: 'signin'} on another store site (sign-in,
+ * account, community: lib/storesites.js) or a host confirmed for a sign-in (`grants`), never a
+ * Game Vault either; {kind: 'enabled'} on an enabled Game Vault address; {kind: 'offer'} on any
+ * other web address; {kind: 'none'} off the web. Stores are checked first: a store site enabled by
+ * an older version is still a store. Every kind but 'none' carries the address's origin.
  */
 export function popupPlace(url, origins, grants) {
   let parsed;
@@ -164,10 +168,10 @@ export function popupPlace(url, origins, grants) {
   }
   if (!['http:', 'https:'].includes(parsed.protocol)) return { kind: 'none' };
   const { origin, hostname } = parsed;
-  if ((origins ?? []).includes(origin)) return { kind: 'enabled', origin };
   const store = storeForUrl(url);
   if (store) return { kind: 'store', origin, store: store.name };
-  if (Object.values(grants ?? {}).flat().includes(hostname)) return { kind: 'signin', origin };
+  if (isStoreSite(url) || Object.values(grants ?? {}).flat().includes(hostname)) return { kind: 'signin', origin };
+  if ((origins ?? []).includes(origin)) return { kind: 'enabled', origin };
   return { kind: 'offer', origin };
 }
 
