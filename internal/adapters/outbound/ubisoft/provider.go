@@ -405,12 +405,42 @@ type node struct {
 	Name    string `json:"name"`
 	Viewer  struct {
 		Meta struct {
-			OwnedPlatformGroups []struct {
-				Name string `json:"name"`
-				Type string `json:"type"`
-			} `json:"ownedPlatformGroups"`
+			OwnedPlatformGroups platformGroups `json:"ownedPlatformGroups"`
 		} `json:"meta"`
 	} `json:"viewer"`
+}
+
+// platformGroup is one platform a game is owned on.
+type platformGroup struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
+
+// platformGroups is the platforms a game is owned on, read leniently. The library answer has
+// been seen with a list of groups and, in production in 2026-10, with a list of lists of groups;
+// a shape nobody has seen reads as no information (the game is kept) instead of failing the
+// whole scan.
+type platformGroups []platformGroup
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (g *platformGroups) UnmarshalJSON(raw []byte) error {
+	*g = nil
+
+	var flat []platformGroup
+	if json.Unmarshal(raw, &flat) == nil {
+		*g = flat
+
+		return nil
+	}
+
+	var nested [][]platformGroup
+	if json.Unmarshal(raw, &nested) == nil {
+		for _, groups := range nested {
+			*g = append(*g, groups...)
+		}
+	}
+
+	return nil
 }
 
 // query reads one page of owned games and the total number of them.
@@ -478,12 +508,16 @@ func (p *Provider) owned(ctx context.Context, settings schema.Settings, pages in
 			return nil, err
 		}
 
-		// Only a query Ubisoft rejects is retried as the minimal one: after a rate limit or an
-		// outage, a second query would meet the same trouble.
+		// A query Ubisoft rejects, or an answer whose fields changed shape, is retried as the
+		// minimal one: it only asks for what every version had. After a rate limit or an outage
+		// a second query would meet the same trouble, so those are not retried.
 		nodes, err := p.all(ctx, s, ownedGamesQuery, pages)
 
-		var rejected *apiclient.GraphQLError
-		if errors.As(err, &rejected) {
+		var (
+			rejected   *apiclient.GraphQLError
+			unreadable *json.UnmarshalTypeError
+		)
+		if errors.As(err, &rejected) || errors.As(err, &unreadable) {
 			nodes, err = p.all(ctx, s, minimalQuery, pages)
 		}
 
