@@ -335,6 +335,25 @@ test('after a browser restart, store pages still get their labels', async () => 
   await page.close();
 });
 
+test('turning the option off takes the labels off the open store tabs; on again, they come back', async () => {
+  const page = await open(HUMBLE_BUNDLE);
+  await labelsShown(page, 6);
+  const popup = await open(`chrome-extension://${extensionId}/popup.html`);
+  await waitFor('the popup', () => popup.locator('#own-enabled').isChecked());
+  await popup.locator('#own-enabled').uncheck();
+  await popup.close();
+  const labels = await labelsOn(page);
+  try {
+    await waitFor('the labels to go', async () => (await labels.read()).labels?.length === 0);
+  } finally {
+    await labels.detach();
+  }
+  assert.equal(await page.locator('[data-gamevault]').count(), 0);
+  await turnOptionOn();
+  assert.equal((await labelsShown(page, 6)).length, 6);
+  await page.close();
+});
+
 test('when Game Vault is unreachable, the label says unavailable, never "not owned"', async () => {
   // Another address on which nothing listens; changing it drops the cached answers.
   const closed = createHttpServer();

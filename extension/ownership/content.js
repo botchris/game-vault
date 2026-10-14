@@ -18,7 +18,8 @@
    * MutationObserver; setTimer(fn, ms) and clearTimer(handle); debounceMs; maxWaitMs (the longest
    * a scan waits while the page keeps changing); now() (a clock in ms); alive() (whether the
    * extension that started this is still the one running: after a reload or an update of the
-   * extension, its scripts stay in the page but can no longer reach it). Returns {scan, stop}.
+   * extension, its scripts stay in the page but can no longer reach it). Returns {scan, stop,
+   * clear}.
    */
   ns.start = (deps) => {
     const { doc, url, t, debounceMs = 400, maxWaitMs = 2000, now = Date.now, alive = () => true } = deps;
@@ -148,13 +149,21 @@
     }
     observer.observe(doc.documentElement, { childList: true, subtree: true, characterData: true });
     schedule();
-    return { scan, stop };
+    return {
+      scan,
+      stop,
+      /** Stops and takes every label away (the option was turned off). */
+      clear() {
+        stop();
+        for (const old of doc.querySelectorAll('[data-gamevault]')) old.remove();
+      },
+    };
   };
 
   // In a store page (not in Node tests): start once per page.
   if (typeof document !== 'undefined' && globalThis.chrome?.runtime?.id && !globalThis.__gvOwnershipStarted) {
     globalThis.__gvOwnershipStarted = true;
-    ns.start({
+    const ctl = ns.start({
       doc: document,
       url: () => location.href,
       send: (items) => chrome.runtime.sendMessage({ op: 'ownership', items }),
@@ -163,6 +172,14 @@
       setTimer: (fn, ms) => setTimeout(fn, ms),
       clearTimer: (h) => clearTimeout(h),
       alive: () => Boolean(globalThis.chrome?.runtime?.id),
+    });
+    // The option turned off, or the store site taken back: only this extension's background can
+    // send it (the page cannot reach this listener). Turned on again, the background puts the
+    // scripts back, and they start afresh.
+    chrome.runtime.onMessage.addListener((msg, sender) => {
+      if (sender.id !== chrome.runtime.id || msg?.op !== 'ownership-off') return;
+      ctl.clear();
+      globalThis.__gvOwnershipStarted = false;
     });
   }
 })();

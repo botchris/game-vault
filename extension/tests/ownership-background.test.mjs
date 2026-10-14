@@ -245,6 +245,9 @@ function openTabs(chrome, tabs) {
   const injected = [];
   const pattern = (p) => new RegExp(`^${p.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')}$`);
   chrome.tabs.query = async ({ url }) => tabs.filter((tab) => pattern(url).test(tab.url));
+  chrome.tabs.sendMessage = async (tabId, msg) => {
+    injected.push({ tabId, msg });
+  };
   chrome.scripting.executeScript = async ({ target, func, files }) => {
     const tab = tabs.find((x) => x.id === target.tabId);
     if (tab.refused) throw new Error('Cannot access contents of the page');
@@ -295,4 +298,32 @@ test('with the option off, no tab gets the scripts', async () => {
   chrome.runtime.onInstalled.fire({ reason: 'update' });
   await flush();
   assert.deepEqual(injected, []);
+});
+
+test('turning the option off, or taking a store site back, tells the scripts in its open tabs to stop', async () => {
+  const chrome = await load({ data: { origins: [GV], ownership: { enabled: true, origin: GV } }, granted: [STEAM, GOG] });
+  const sent = openTabs(chrome, [
+    { id: 1, url: 'https://store.steampowered.com/app/4410/' },
+    { id: 2, url: 'https://www.gog.com/en/game/echo_valley' },
+  ]);
+  changed(chrome);
+  await flush();
+  sent.splice(0);
+
+  chrome.granted.delete(GOG);
+  chrome.permissions.onRemoved.fire({ origins: [GOG] });
+  await flush();
+  assert.deepEqual(sent, [{ tabId: 2, msg: { op: 'ownership-off' } }]);
+
+  sent.splice(0);
+  chrome.data.ownership = { ...chrome.data.ownership, enabled: false };
+  changed(chrome);
+  await flush();
+  assert.deepEqual(sent, [{ tabId: 1, msg: { op: 'ownership-off' } }]);
+
+  // Nothing registered, nothing to stop: a later sync sends nothing.
+  sent.splice(0);
+  changed(chrome);
+  await flush();
+  assert.deepEqual(sent, []);
 });

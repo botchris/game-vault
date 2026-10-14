@@ -220,3 +220,18 @@ test('scripts left in a page by a reloaded or updated extension stop, and leave 
   assert.equal(sent.length, 1);
   assert.equal(window.document.querySelectorAll('[data-gamevault]').length, 1);
 });
+
+test('clear() stops following the page and takes every label away (the option turned off)', async (tt) => {
+  const url = { current: 'https://www.humblebundle.com/games/invented-games-bundle' };
+  const window = pageWindow(sample('humble-bundle.html'), url.current);
+  const { sent, ctl } = follow(window, url, async (items) => ({ status: 'ok', results: items.map(() => notOwned()) }));
+  done(tt, window, ctl);
+  await settle();
+  assert.ok(window.document.querySelectorAll('[data-gamevault]').length > 0);
+  ctl.clear();
+  assert.equal(window.document.querySelectorAll('[data-gamevault]').length, 0);
+  window.document.body.append(window.document.createElement('div'));
+  await settle();
+  assert.equal(sent.length, 1);
+  assert.equal(window.document.querySelectorAll('[data-gamevault]').length, 0);
+});

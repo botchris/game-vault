@@ -107,6 +107,24 @@ async function reachOpenTabs(api, store) {
   }
 }
 
+/** The message that tells the store scripts in a tab to stop and take their labels away. */
+export const STOP_MESSAGE = { op: 'ownership-off' };
+
+/**
+ * Tells the scripts already running in a store's open tabs to stop and take their labels away:
+ * the option was turned off, or the browser took the store site back. Unregistering a script
+ * only keeps it out of pages loaded later. A tab without the scripts has no one to answer.
+ */
+async function stopOpenTabs(api, store) {
+  let tabs;
+  try {
+    tabs = await api.tabs.query({ url: storeOrigin(store) });
+  } catch {
+    return;
+  }
+  for (const tab of tabs) await api.tabs.sendMessage(tab.id, STOP_MESSAGE).catch(() => {});
+}
+
 async function syncOnce(api) {
   const on = (await activeSettings(api.storage.local)) !== null;
   const registered = new Map((await api.scripting.getRegisteredContentScripts({ ids: STORES.map(scriptId) })).map((s) => [s.id, s]));
@@ -120,6 +138,7 @@ async function syncOnce(api) {
       // files) is replaced.
       const stale = old && (String(old.matches) !== String(want.matches) || String(old.js) !== String(want.js));
       if (old && (!wanted || stale)) await api.scripting.unregisterContentScripts({ ids: [id] });
+      if (old && !wanted) await stopOpenTabs(api, store);
       if (wanted && (!old || stale)) await api.scripting.registerContentScripts([want]);
       if (wanted) await reachOpenTabs(api, store);
     } catch (err) {
