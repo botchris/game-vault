@@ -1,6 +1,8 @@
 // The extension's menu: the Game Vault addresses enabled for sign-ins, and the store-page option.
 import { bridgeId, enableOrigin } from './lib/bridges.js';
-import { STORE_ORIGINS, grantedStores, nextOwnership, popupPlace, removableOrigins, tokenInClear } from './lib/ownership.js';
+import {
+  STORE_ORIGINS, activeSettings, grantedStores, nextOwnership, popupPlace, removableOrigins, storeForUrl, storeOrigin, storePageMessage, tokenInClear,
+} from './lib/ownership.js';
 
 const $ = (id) => document.getElementById(id);
 const load = async (k, d) => (await chrome.storage.local.get(k))[k] ?? d;
@@ -46,7 +48,10 @@ async function render() {
     current.textContent = t('popupEnabledHere');
   } else if (place.kind === 'store') {
     // A store page is never a Game Vault: what it gets is the labels, set below.
-    current.textContent = t('popupStorePage', [place.store]);
+    const on = (await activeSettings(chrome.storage.local)) !== null;
+    const granted = await chrome.permissions.contains({ origins: [storeOrigin(storeForUrl(tab.url))] });
+    const { key, subs } = storePageMessage(place.store, { on, granted });
+    current.textContent = t(key, subs);
   }
 
   const list = $('origins');

@@ -190,6 +190,16 @@ export function popupPlace(url, origins, grants) {
 }
 
 /**
+ * What the popup says on a store page, as a message key and its substitutions: the option is off
+ * (or has no enabled address to ask); it is on but the browser has not allowed the extension on
+ * that store's site; or the page shows what the user owns.
+ */
+export function storePageMessage(store, { on, granted }) {
+  const key = !on ? 'popupStoreOff' : granted ? 'popupStorePage' : 'popupStoreNotAllowed';
+  return { key, subs: [store] };
+}
+
+/**
  * Whether a token sent to this Game Vault address would travel unencrypted over a network: plain
  * http to anything but this computer (see isLoopback). The popup warns about it.
  */

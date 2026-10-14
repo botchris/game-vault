@@ -2,7 +2,7 @@
 // could be the user's Game Vault, never on a store page or a store's sign-in site.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { popupPlace } from '../lib/ownership.js';
+import { popupPlace, storePageMessage } from '../lib/ownership.js';
 
 const GV = 'http://127.0.0.1:8093';
 const grants = { [GV]: ['account.battle.net', 'www.humblebundle.com'] };
@@ -39,4 +39,11 @@ test('a store site enabled before stores were refused is still a store page, not
   const store = 'https://es.humblebundle.com';
   assert.equal(popupPlace(`${store}/store/harbor-lights`, [GV, store], grants).kind, 'store');
   assert.equal(popupPlace('https://login.steampowered.com/', ['https://login.steampowered.com'], {}).kind, 'signin');
+});
+
+test('on a store page the popup says what is true there', () => {
+  assert.deepEqual(storePageMessage('Humble Bundle', { on: false, granted: true }), { key: 'popupStoreOff', subs: ['Humble Bundle'] });
+  assert.deepEqual(storePageMessage('Humble Bundle', { on: false, granted: false }), { key: 'popupStoreOff', subs: ['Humble Bundle'] });
+  assert.deepEqual(storePageMessage('Humble Bundle', { on: true, granted: false }), { key: 'popupStoreNotAllowed', subs: ['Humble Bundle'] });
+  assert.deepEqual(storePageMessage('Humble Bundle', { on: true, granted: true }), { key: 'popupStorePage', subs: ['Humble Bundle'] });
 });
