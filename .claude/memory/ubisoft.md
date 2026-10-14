@@ -12,3 +12,7 @@ As of 2026-10:
 - GraphQL `limit` is at most 50.
 - Box art on `ubiservices.cdn.ubi.com/<spaceId>/spaceCardAsset/boxArt_mobile.jpg` for most
   games; the store's public Algolia search for the rest.
+- 2026-10-14: in production `viewer.meta.ownedPlatformGroups` came back as a list of lists of
+  `{name, type}` (the test fakes had a flat list), which failed the whole scan. It is now decoded
+  leniently (flat, nested, or unknown = no information), and an answer whose fields changed shape
+  is asked again with the minimal query, as a rejected query is.
