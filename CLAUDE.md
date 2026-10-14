@@ -25,6 +25,7 @@ dependencies: the host only needs Docker and Task.
 | Build everything (web, then server binary for this machine) | `task build` |
 | Run (real data, port 8080) | `task run` — the user's own server; do not start or stop it |
 | Go vet + tests, TS type check, i18n check | `task test` |
+| Go tests with the race detector (Go only, cgo on) | `task test:race` |
 | Format / lint Go (golangci-lint) + buf lint + React hook rules (oxlint) | `task fmt` / `task lint` |
 | Apply the safe automatic lint fixes (incl. one struct field per line) | `task lint:fix` |
 | Regenerate API code after editing `proto/` | `task generate` |
@@ -101,8 +102,8 @@ Rules of the architecture:
 
 ## How to verify a change
 
-CI (`.github/workflows/ci.yml`) runs `task lint`, a `task generate` freshness check and `task test`
-on every push to main and pull request; it does not replace the steps below.
+CI (`.github/workflows/ci.yml`) runs `task lint`, a `task generate` freshness check, `task test` and
+`task test:race` on every push to main and pull request; it does not replace the steps below.
 
 1. `task lint` and `task test` pass (golangci-lint, buf lint, vet, Go tests, TS types, translations).
 2. `task test-server` (builds web + server first) and look at the result in the browser pane on
