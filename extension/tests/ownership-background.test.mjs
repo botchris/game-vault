@@ -248,10 +248,13 @@ function openTabs(chrome, tabs) {
   chrome.tabs.sendMessage = async (tabId, msg) => {
     injected.push({ tabId, msg });
   };
-  chrome.scripting.executeScript = async ({ target, func, files }) => {
+  chrome.calls = [];
+  chrome.scripting.executeScript = async ({ target, func, files, injectImmediately }) => {
+    chrome.calls.push({ target, probe: Boolean(func), injectImmediately: Boolean(injectImmediately) });
     const tab = tabs.find((x) => x.id === target.tabId);
+    if (tab.frozen) return new Promise(() => {}); // a tab whose renderer never answers
     if (tab.refused) throw new Error('Cannot access contents of the page');
-    if (func) return [{ result: Boolean(tab.running) }];
+    if (func) return [{ result: Boolean(tab.running), documentId: `doc-${tab.id}` }];
     injected.push({ tabId: target.tabId, files });
     tab.running = true;
     return [{}];
@@ -326,4 +329,30 @@ test('turning the option off, or taking a store site back, tells the scripts in 
   changed(chrome);
   await flush();
   assert.deepEqual(sent, []);
+});
+
+test('the scripts go into the very document the probe looked at, and the probe does not wait for the page to load', async () => {
+  const chrome = await load({ data: { origins: [GV], ownership: { enabled: true, origin: GV } }, granted: [STEAM] });
+  openTabs(chrome, [{ id: 1, url: 'https://store.steampowered.com/app/4410/' }]);
+  changed(chrome);
+  await flush();
+  assert.deepEqual(chrome.calls, [
+    { target: { tabId: 1 }, probe: true, injectImmediately: true },
+    { target: { tabId: 1, documentIds: ['doc-1'] }, probe: false, injectImmediately: false },
+  ]);
+});
+
+test('a frozen tab does not hold up the other tabs, nor the syncs after it', async () => {
+  const { syncStoreScripts } = await import('../lib/ownership.js');
+  const chrome = await load({ data: { origins: [GV], ownership: { enabled: true, origin: GV } }, granted: [STEAM, GOG] });
+  const injected = openTabs(chrome, [
+    { id: 1, url: 'https://store.steampowered.com/app/10/', frozen: true },
+    { id: 2, url: 'https://store.steampowered.com/app/4410/' },
+    { id: 3, url: 'https://www.gog.com/en/game/echo_valley' },
+  ]);
+  const started = Date.now();
+  await syncStoreScripts(chrome, { tabTimeoutMs: 50 });
+  await syncStoreScripts(chrome, { tabTimeoutMs: 50 });
+  assert.ok(Date.now() - started < 2000);
+  assert.deepEqual(injected.map((i) => i.tabId).sort(), [2, 3]);
 });

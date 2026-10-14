@@ -63,8 +63,8 @@ let syncing = Promise.resolve();
  * one has finished, and a store the browser refuses does not stop the others: its failure is
  * logged (the store only, never a setting).
  */
-export function syncStoreScripts(api) {
-  const run = syncing.then(() => syncOnce(api));
+export function syncStoreScripts(api, { tabTimeoutMs = TAB_TIMEOUT_MS } = {}) {
+  const run = syncing.then(() => syncOnce(api, tabTimeoutMs));
   syncing = run.catch(() => {});
   return run;
 }
@@ -92,22 +92,20 @@ export async function activeSettings(storage) {
  * own world of the tab (it reads nothing from the page) skips the tabs where the scripts already
  * run; a tab the browser does not let the extension into (an error page) is skipped too.
  */
-async function reachOpenTabs(api, store) {
-  let tabs;
-  try {
-    tabs = await api.tabs.query({ url: storeOrigin(store) });
-  } catch {
-    return;
-  }
-  for (const tab of tabs) {
-    try {
-      const target = { tabId: tab.id };
-      const [probe] = await api.scripting.executeScript({ target, func: () => Boolean(globalThis.__gvOwnershipStarted) });
-      if (!probe?.result) await api.scripting.executeScript({ target, files: SCRIPTS });
-    } catch {
-      // Not a page the extension may script; it gets the scripts when it loads a store page.
-    }
-  }
+async function reachOpenTabs(api, store, timeoutMs) {
+  await eachTab(api, store, timeoutMs, async (tab) => {
+    // injectImmediately: a tab still loading (or never finishing) does not hold the probe up.
+    const [probe] = await api.scripting.executeScript({
+      target: { tabId: tab.id },
+      injectImmediately: true,
+      func: () => Boolean(globalThis.__gvOwnershipStarted),
+    });
+    if (probe?.result) return;
+    // Into the document the probe looked at: if the tab moved on meanwhile, the new page gets the
+    // registered scripts as it loads, and this injection is refused instead of doubling them.
+    const target = probe?.documentId ? { tabId: tab.id, documentIds: [probe.documentId] } : { tabId: tab.id };
+    await api.scripting.executeScript({ target, files: SCRIPTS });
+  });
 }
 
 /** The message that tells the store scripts in a tab to stop and take their labels away. */
@@ -118,17 +116,33 @@ export const STOP_MESSAGE = { op: 'ownership-off' };
  * the option was turned off, or the browser took the store site back. Unregistering a script
  * only keeps it out of pages loaded later. A tab without the scripts has no one to answer.
  */
-async function stopOpenTabs(api, store) {
+async function stopOpenTabs(api, store, timeoutMs) {
+  await eachTab(api, store, timeoutMs, (tab) => api.tabs.sendMessage(tab.id, STOP_MESSAGE));
+}
+
+/** The longest the work on one tab may take during a sync, in milliseconds. */
+export const TAB_TIMEOUT_MS = 4000;
+
+/**
+ * Runs work(tab) on every open tab of a store, all at once, each given at most timeoutMs: the
+ * syncs run one after the other, so one frozen tab must not hold up every later sync. A tab that
+ * fails or takes too long is left as it is (an error page, a tab the extension may not script).
+ */
+async function eachTab(api, store, timeoutMs, work) {
   let tabs;
   try {
     tabs = await api.tabs.query({ url: storeOrigin(store) });
   } catch {
     return;
   }
-  for (const tab of tabs) await api.tabs.sendMessage(tab.id, STOP_MESSAGE).catch(() => {});
+  await Promise.allSettled(tabs.map((tab) => {
+    let timer;
+    const late = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('the tab did not answer')), timeoutMs); });
+    return Promise.race([Promise.resolve().then(() => work(tab)), late]).finally(() => clearTimeout(timer));
+  }));
 }
 
-async function syncOnce(api) {
+async function syncOnce(api, tabTimeoutMs) {
   const on = (await activeSettings(api.storage.local)) !== null;
   const registered = new Map((await api.scripting.getRegisteredContentScripts({ ids: STORES.map(scriptId) })).map((s) => [s.id, s]));
   for (const store of STORES) {
@@ -141,9 +155,9 @@ async function syncOnce(api) {
       // files) is replaced.
       const stale = old && (String(old.matches) !== String(want.matches) || String(old.js) !== String(want.js));
       if (old && (!wanted || stale)) await api.scripting.unregisterContentScripts({ ids: [id] });
-      if (old && !wanted) await stopOpenTabs(api, store);
+      if (old && !wanted) await stopOpenTabs(api, store, tabTimeoutMs);
       if (wanted && (!old || stale)) await api.scripting.registerContentScripts([want]);
-      if (wanted) await reachOpenTabs(api, store);
+      if (wanted) await reachOpenTabs(api, store, tabTimeoutMs);
     } catch (err) {
       console.warn(`ownership: syncing the ${store.store} store script failed:`, String(err?.message ?? err));
     }
