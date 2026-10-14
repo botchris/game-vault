@@ -239,3 +239,60 @@ test('a store whose script the browser refuses does not stop the others, and the
   assert.match(warned[0], /steam/);
   assert.doesNotMatch(warned[0], /gvt_secret|127\.0\.0\.1/);
 });
+
+/** Store tabs open in the fake browser: which already run the store scripts, and what was put in them. */
+function openTabs(chrome, tabs) {
+  const injected = [];
+  const pattern = (p) => new RegExp(`^${p.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')}$`);
+  chrome.tabs.query = async ({ url }) => tabs.filter((tab) => pattern(url).test(tab.url));
+  chrome.scripting.executeScript = async ({ target, func, files }) => {
+    const tab = tabs.find((x) => x.id === target.tabId);
+    if (tab.refused) throw new Error('Cannot access contents of the page');
+    if (func) return [{ result: Boolean(tab.running) }];
+    injected.push({ tabId: target.tabId, files });
+    tab.running = true;
+    return [{}];
+  };
+  return injected;
+}
+
+test('the store tabs already open when the option is turned on get the scripts, once, without waiting for a reload', async () => {
+  const HUMBLE = 'https://*.humblebundle.com/*';
+  const chrome = await load({ data: { origins: [GV], ownership: { enabled: true, origin: GV } }, granted: [STEAM, HUMBLE] });
+  const injected = openTabs(chrome, [
+    { id: 1, url: 'https://es.humblebundle.com/membership/home#choice' },
+    { id: 2, url: 'https://store.steampowered.com/app/4410/' },
+    { id: 3, url: 'https://www.gog.com/en/game/echo_valley' }, // a store the browser did not allow
+    { id: 4, url: 'https://store.steampowered.com/app/10/', running: true }, // loaded after the registration
+    { id: 5, url: 'https://store.steampowered.com/app/20/', refused: true }, // an error page
+  ]);
+  changed(chrome);
+  await flush();
+  const files = ['ownership/stores.js', 'ownership/read.js', 'ownership/label.js', 'ownership/content.js'];
+  assert.deepEqual(injected.sort((a, b) => a.tabId - b.tabId), [{ tabId: 1, files }, { tabId: 2, files }]);
+
+  // Another sync (the token edited, the extension updated…) leaves the tabs that run them alone.
+  changed(chrome);
+  await flush();
+  assert.equal(injected.length, 2);
+});
+
+test('after an update or a reload of the extension, the open store tabs get the new scripts', async () => {
+  const chrome = await load({ data: { origins: [GV], ownership: { enabled: true, origin: GV } }, granted: [STEAM] });
+  chrome.registered.set('ownership-steam', { id: 'ownership-steam', matches: [STEAM], js: ['ownership/stores.js', 'ownership/read.js', 'ownership/label.js', 'ownership/content.js'] });
+  // The scripts of the previous version still sit in the tab, but they no longer reach the
+  // extension; the new version's world in that tab has nothing yet.
+  const injected = openTabs(chrome, [{ id: 7, url: 'https://store.steampowered.com/app/4410/' }]);
+  chrome.runtime.onInstalled.fire({ reason: 'update' });
+  await flush();
+  assert.deepEqual(injected.map((i) => i.tabId), [7]);
+});
+
+test('with the option off, no tab gets the scripts', async () => {
+  const chrome = await load({ data: { origins: [GV], ownership: { enabled: false, origin: GV } }, granted: [STEAM] });
+  const injected = openTabs(chrome, [{ id: 1, url: 'https://store.steampowered.com/app/4410/' }]);
+  changed(chrome);
+  chrome.runtime.onInstalled.fire({ reason: 'update' });
+  await flush();
+  assert.deepEqual(injected, []);
+});

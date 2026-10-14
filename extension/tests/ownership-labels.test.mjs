@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { labelText, makeT, ns, pageWindow } from './helpers.mjs';
+import { labelText, makeT, notOwned, ns, pageWindow } from './helpers.mjs';
 
 const t = makeT('en');
 const GV = 'http://127.0.0.1:8093';
@@ -262,4 +262,14 @@ test('every bundle mark and the summary look and act the same from outside, what
   assert.equal(labelText(window.document.querySelector('[data-gamevault]')), 'Owned on PC');
   assert.equal(window.document.querySelectorAll('[data-gamevault]')[2].shadowRoot, null);
   assert.equal(labelText(window.document.querySelectorAll('[data-gamevault]')[2]), '', 'the "none" mark is empty inside');
+});
+
+test('loading the label code a second time in a page keeps what the labels already drawn are', async (tt) => {
+  const window = pageWindow('<!doctype html><html><body><h1>Lantern Keep</h1></body></html>', 'https://store.steampowered.com/app/4410/');
+  tt.after(() => window.happyDOM.close());
+  const { host } = ns.renderLabel(window.document, window.document.querySelector('h1'), ns.labelModel({ status: 'ok', result: notOwned() }, makeT('en')));
+  // The background puts the scripts in a tab while the browser gives them to it too.
+  await import('../ownership/label.js?again');
+  assert.equal(ns.kindOf(host), 'not-owned');
+  assert.ok(ns.rootOf(host));
 });

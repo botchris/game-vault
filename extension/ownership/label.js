@@ -13,6 +13,9 @@
 // are !important, and inline !important beats any stylesheet.
 (() => {
   const ns = (globalThis.gvOwnership ??= {});
+  // The background may put the scripts in a tab while the browser gives them to it too: a second
+  // run would start new maps and lose what the labels already drawn are.
+  if (ns.renderLabel) return;
   const MAX_COPIES = 3;
   const roots = new WeakMap(); // host → its closed shadow root, for the extension's own tests
   const kinds = new WeakMap(); // host → its label's kind (owned, possible, not-owned, unavailable, none)

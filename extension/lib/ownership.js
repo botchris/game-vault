@@ -57,7 +57,8 @@ let syncing = Promise.resolve();
 
 /**
  * Registers the content script of each store the browser allows while the option is on for an
- * address that is still enabled, and unregisters the rest. Each sync starts after the previous
+ * address that is still enabled, puts it in that store's open tabs that do not run it yet, and
+ * unregisters the rest. Each sync starts after the previous
  * one has finished, and a store the browser refuses does not stop the others: its failure is
  * logged (the store only, never a setting).
  */
@@ -79,6 +80,33 @@ export async function activeSettings(storage) {
   return { origin: ownership.origin, token: typeof ownership.token === 'string' ? ownership.token.trim() : '' };
 }
 
+/**
+ * Puts the store scripts in the open tabs of a store where they do not run yet. The browser only
+ * gives a registered content script to pages loaded after the registration: without this, the
+ * store page the user turns the option on from, every store tab already open, and the tabs whose
+ * scripts belong to a version of the extension that was since reloaded or updated (those can no
+ * longer reach it) would show nothing until they are reloaded. A short probe in the extension's
+ * own world of the tab (it reads nothing from the page) skips the tabs where the scripts already
+ * run; a tab the browser does not let the extension into (an error page) is skipped too.
+ */
+async function reachOpenTabs(api, store) {
+  let tabs;
+  try {
+    tabs = await api.tabs.query({ url: storeOrigin(store) });
+  } catch {
+    return;
+  }
+  for (const tab of tabs) {
+    try {
+      const target = { tabId: tab.id };
+      const [probe] = await api.scripting.executeScript({ target, func: () => Boolean(globalThis.__gvOwnershipStarted) });
+      if (!probe?.result) await api.scripting.executeScript({ target, files: SCRIPTS });
+    } catch {
+      // Not a page the extension may script; it gets the scripts when it loads a store page.
+    }
+  }
+}
+
 async function syncOnce(api) {
   const on = (await activeSettings(api.storage.local)) !== null;
   const registered = new Map((await api.scripting.getRegisteredContentScripts({ ids: STORES.map(scriptId) })).map((s) => [s.id, s]));
@@ -93,6 +121,7 @@ async function syncOnce(api) {
       const stale = old && (String(old.matches) !== String(want.matches) || String(old.js) !== String(want.js));
       if (old && (!wanted || stale)) await api.scripting.unregisterContentScripts({ ids: [id] });
       if (wanted && (!old || stale)) await api.scripting.registerContentScripts([want]);
+      if (wanted) await reachOpenTabs(api, store);
     } catch (err) {
       console.warn(`ownership: syncing the ${store.store} store script failed:`, String(err?.message ?? err));
     }
