@@ -74,7 +74,7 @@ web/                  React client
   src/api/            Connect clients
   src/features/       library/, scan/, sources/, providers/, system/, logs/ pages
   src/i18n/           i18next setup and locales (en.json, es.json)
-extension/            Browser extension (Game Vault Connector): sign-in recipes (lib/), store labels (ownership/), tests with a fake chrome
+extension/            Browser extension (Game Vault Connector): sign-in recipes (lib/), store labels (ownership/), tests with a fake chrome, an end-to-end test in Chromium (tests/e2e/)
 ```
 
 Dependencies only point inwards. `domain` imports nothing from the project, `application` imports `domain`, and adapters import both.
@@ -363,7 +363,13 @@ One lookup answers "do I already have it?" for store pages, bundles and pasted l
   (`*.humblebundle.com`, so language sites such as `es.humblebundle.com` work) and
   `www.fanatical.com`, and registers one content script per allowed site (`extension/ownership/`);
   turning it off unregisters them and gives back the sites no sign-in uses. Store scripts
-  registered by an older version are replaced on update. The syncs of the scripts (option or
+  registered by an older version are replaced on update. The browser gives a registered script
+  only to pages loaded after the registration, so each sync also puts the scripts in the store's
+  open tabs that do not run them yet (the page the option is turned on from, tabs open before,
+  tabs whose scripts belong to a version of the extension that was reloaded or updated), after a
+  probe in the extension's own world of the tab that reads nothing from the page. Scripts left in
+  a page by a reloaded or updated extension can no longer reach it: they stop and leave the page
+  to the new ones. The syncs of the scripts (option or
   permission changes, start-up, update) run one at a time, and a store the browser refuses does
   not stop the others (the failure is logged without any setting). What each page shows
   is data in `extension/ownership/stores.js`: Steam product pages give the AppID from
@@ -783,5 +789,6 @@ Logs never contain keys or credentials.
   version or image.
 - `task go -- test ./internal/…/ -run TestName -v` runs one package's tests in the toolchain.
 - `task test` runs the Go tests, the TypeScript type check, the Node tests of the web's pure helpers (`web/tests/`) and the translation check, in the toolchain container. The Go tests cover the domain, SQLite, the providers (against fake servers), CSV, and an end-to-end Connect test.
-- GitHub Actions (`.github/workflows/ci.yml`) runs `task lint`, checks that `task generate` changes nothing, and runs `task test` on every push to `main` and every pull request, inside the same toolchain image (its layers cached in GitHub Actions, rebuilt only when `build/toolchain.Dockerfile` changes).
+- `task extension:e2e` tests the extension's store labels end to end in a real Chromium, in Microsoft's Playwright image (`mcr.microsoft.com/playwright`, the version pinned in `Taskfile.yml`, matching `playwright-core` in `extension/tests/e2e/package.json`; its `node_modules` is a Docker volume). `extension/tests/e2e/labels.e2e.mjs` serves the saved samples of `extension/tests/samples/` (invented titles) from a local HTTPS server that Chromium reaches for the real store host names (`--host-resolver-rules`, `--ignore-certificate-errors`), and fakes Game Vault's `OwnershipService/CheckOwnership`. It loads a copy of `extension/` (without the tests) in Chromium's new headless mode; the copy declares the store sites and `http://127.0.0.1/*` as granted host permissions, because an automated run cannot answer the browser's permission prompt (the real optional-permission flow was checked by hand under Xvfb, with the same results). It enables the fake Game Vault's address, turns the option on in the extension's own popup and reads the labels in the extension's world of each page through the DevTools protocol (they are in closed shadow roots). It covers a store tab open before the option is turned on (a Humble Choice page on `es.humblebundle.com`), a Steam product (owned), a Humble product on a language site (not owned), a Humble bundle (marks and summary), the page not reaching the labels or the extension, only lookups reaching Game Vault (with the token, without cookies), a tab open while the extension is reloaded from `chrome://extensions`, a browser restart, and Game Vault unreachable (unavailable). It takes about ten seconds once the image is pulled.
+- GitHub Actions (`.github/workflows/ci.yml`) runs `task lint`, checks that `task generate` changes nothing, and runs `task test` on every push to `main` and every pull request, inside the same toolchain image (its layers cached in GitHub Actions, rebuilt only when `build/toolchain.Dockerfile` changes), and `task extension:e2e` in a job of its own.
 - Pushing a version tag (`v1.2.3`) runs `.github/workflows/release.yml`: the same checks, then `task docker:publish` for linux/amd64 and linux/arm64 with the Docker Hub credentials in the repository secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`.
