@@ -145,9 +145,7 @@ type HomeDeal struct {
 	// The game's art on the service, loaded through the image proxy; empty when there is none.
 	ImageUrl string `protobuf:"bytes,9,opt,name=image_url,json=imageUrl,proto3" json:"image_url,omitempty"`
 	// The systems the user owns the game on, when only consoles ("PS4").
-	OwnedOn []string `protobuf:"bytes,10,rep,name=owned_on,json=ownedOn,proto3" json:"owned_on,omitempty"`
-	// The game's Steam app; empty when the service knows none.
-	SteamAppId    string `protobuf:"bytes,11,opt,name=steam_app_id,json=steamAppId,proto3" json:"steam_app_id,omitempty"`
+	OwnedOn       []string `protobuf:"bytes,10,rep,name=owned_on,json=ownedOn,proto3" json:"owned_on,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -250,13 +248,6 @@ func (x *HomeDeal) GetOwnedOn() []string {
 		return x.OwnedOn
 	}
 	return nil
-}
-
-func (x *HomeDeal) GetSteamAppId() string {
-	if x != nil {
-		return x.SteamAppId
-	}
-	return ""
 }
 
 // HomeRelease is a game that comes out soon.
@@ -584,7 +575,7 @@ const file_gamevault_v1_home_proto_rawDesc = "" +
 	"\n" +
 	"error_kind\x18\x05 \x01(\tR\terrorKind\x12\x14\n" +
 	"\x05error\x18\x06 \x01(\tR\x05error\x12A\n" +
-	"\x0erefreshable_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\rrefreshableAt\"\xee\x02\n" +
+	"\x0erefreshable_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\rrefreshableAt\"\xe0\x02\n" +
 	"\bHomeDeal\x12\x14\n" +
 	"\x05title\x18\x01 \x01(\tR\x05title\x12\x12\n" +
 	"\x04shop\x18\x02 \x01(\tR\x04shop\x12)\n" +
@@ -597,9 +588,7 @@ const file_gamevault_v1_home_proto_rawDesc = "" +
 	"\x03url\x18\b \x01(\tR\x03url\x12\x1b\n" +
 	"\timage_url\x18\t \x01(\tR\bimageUrl\x12\x19\n" +
 	"\bowned_on\x18\n" +
-	" \x03(\tR\aownedOn\x12 \n" +
-	"\fsteam_app_id\x18\v \x01(\tR\n" +
-	"steamAppId\"\xe0\x01\n" +
+	" \x03(\tR\aownedOnJ\x04\b\v\x10\fR\fsteam_app_id\"\xe0\x01\n" +
 	"\vHomeRelease\x12\x14\n" +
 	"\x05title\x18\x01 \x01(\tR\x05title\x12!\n" +
 	"\frelease_date\x18\x02 \x01(\tR\vreleaseDate\x12\x1c\n" +

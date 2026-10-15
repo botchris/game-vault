@@ -80,3 +80,10 @@ func TestHome(t *testing.T) {
 		})
 	})
 }
+
+// TestHomeDeal_noSteamAppID checks that a deal reaches the web without its Steam app: the page has
+// no use for it, and the home service matches ownership on the server.
+func TestHomeDeal_noSteamAppID(t *testing.T) {
+	fields := (&pb.HomeDeal{}).ProtoReflect().Descriptor().Fields()
+	assert.Nil(t, fields.ByName("steam_app_id"))
+}

@@ -76,7 +76,6 @@ func dealsToPB(in []game.Deal) []*pb.HomeDeal {
 			Url:           d.URL,
 			ImageUrl:      d.ImageURL,
 			OwnedOn:       d.OwnedOn,
-			SteamAppId:    d.SteamAppID,
 		})
 	}
 

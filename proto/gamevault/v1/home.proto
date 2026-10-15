@@ -48,8 +48,9 @@ message HomeDeal {
   string image_url = 9;
   // The systems the user owns the game on, when only consoles ("PS4").
   repeated string owned_on = 10;
-  // The game's Steam app; empty when the service knows none.
-  string steam_app_id = 11;
+  // 11 was the game's Steam app, which the page never used: ownership is matched on the server.
+  reserved 11;
+  reserved "steam_app_id";
 }
 
 // HomeRelease is a game that comes out soon.
