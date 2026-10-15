@@ -29,9 +29,10 @@ const ExpiringDays = 30
 var KeyThresholds = []int{30, 7, 1}
 
 const (
-	// dailyFrom and dailyTo bound the local hour the daily job runs at, a random moment each day.
-	dailyFrom = 9 * time.Hour
-	dailyTo   = 10 * time.Hour
+	// dailyFromHour is the local hour the daily job's window opens at, and dailyWindow how long it
+	// stays open: the job runs at a random moment of it each day.
+	dailyFromHour = 9
+	dailyWindow   = time.Hour
 
 	// dateLayout is the layout of game.Date.
 	dateLayout = "2006-01-02"
@@ -105,22 +106,41 @@ func NewDaily(catalog Catalog, keys KeyMemory, releases ReleaseSource, pub event
 // ends. A server started after that day's moment first runs the next day: keys stay in their
 // threshold for days, so none is missed.
 func (d *Daily) Run(ctx context.Context) {
+	var lastRun time.Time // the local midnight of the day the job last ran; zero before the first run
+
 	for {
 		now := d.now().In(d.loc)
 
-		next := midnight(now).Add(d.rhythm.Between(dailyFrom, dailyTo))
+		// Once the job ran today, the next run is tomorrow's, whatever moment a new draw lands on.
+		day := midnight(now)
+		if day.Equal(lastRun) {
+			day = day.AddDate(0, 0, 1)
+		}
+
+		next := d.moment(day)
 		if !next.After(now) {
-			next = midnight(now).AddDate(0, 0, 1).Add(d.rhythm.Between(dailyFrom, dailyTo))
+			day = day.AddDate(0, 0, 1)
+			next = d.moment(day)
 		}
 
 		if !d.rhythm.Wait(ctx, next.Sub(now)) {
 			return
 		}
 
+		lastRun = day
+
 		if err := d.RunOnce(ctx); err != nil {
 			d.log.Warn("daily notifications", "error", err)
 		}
 	}
+}
+
+// moment draws the moment of day's run: 09:00 local on the clock, built from the date rather than
+// added to midnight so a day of 23 or 25 hours keeps it at 09:00, plus a random part of the hour.
+func (d *Daily) moment(day time.Time) time.Time {
+	y, m, dd := day.Date()
+
+	return time.Date(y, m, dd, dailyFromHour, 0, 0, 0, d.loc).Add(d.rhythm.Between(0, dailyWindow))
 }
 
 // RunOnce tells, now, the keys that reached a threshold and the releases out today.

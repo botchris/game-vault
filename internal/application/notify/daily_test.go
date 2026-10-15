@@ -7,6 +7,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	_ "time/tzdata" // the daylight-saving test needs a real zone, whatever the machine has
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -368,5 +369,73 @@ func TestDaily_Run(t *testing.T) {
 		_, waits := run(t, time.Date(2026, 10, 15, 8, 0, 0, 0, zone))
 		require.NotEmpty(t, waits)
 		assert.Equal(t, 90*time.Minute, waits[0])
+	})
+}
+
+func TestDaily_Run_oncePerDay(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	// runAt starts the job at start with a rhythm drawing draws in turn, stops at the stop-th wait
+	// and returns the local moments it ran at.
+	runAt := func(t *testing.T, loc *time.Location, start time.Time, stop int, draws ...float64) []time.Time {
+		t.Helper()
+
+		var (
+			w     *dailyWorld
+			ran   []time.Time
+			waits int
+			drawn int
+		)
+
+		w = newDailyWorld(notify.WithDailyLocation(loc), notify.WithDailyRhythm(unattended.Rhythm{
+			Random: func() float64 {
+				r := draws[drawn%len(draws)]
+				drawn++
+
+				return r
+			},
+			Sleep: func(_ context.Context, d time.Duration) bool {
+				waits++
+				if waits == stop {
+					return false
+				}
+
+				w.clock.Add(d)
+				ran = append(ran, w.clock.Now().In(loc))
+
+				return true
+			},
+		}))
+		w.clock.now = start
+
+		w.daily.Run(ctx)
+
+		return ran
+	}
+
+	t.Run("GIVEN draws that grow (an early moment, then a later one)", func(t *testing.T) {
+		ran := runAt(t, zone, time.Date(2026, 10, 15, 8, 0, 0, 0, zone), 4, 0.2, 0.8)
+
+		t.Run("WHEN it runs for three days THEN it runs once a day, inside the window", func(t *testing.T) {
+			require.Len(t, ran, 3)
+
+			for i, at := range ran {
+				assert.Equal(t, 15+i, at.Day(), "run %d at %s", i, at)
+				assert.Equal(t, 9, at.Hour(), "run %d at %s", i, at)
+			}
+		})
+	})
+
+	t.Run("GIVEN the day the clocks go back (a 25-hour day)", func(t *testing.T) {
+		madrid, err := time.LoadLocation("Europe/Madrid")
+		require.NoError(t, err)
+
+		ran := runAt(t, madrid, time.Date(2026, 10, 25, 1, 0, 0, 0, madrid), 2, 0.5)
+
+		t.Run("WHEN it runs THEN it is still at 09:30 local", func(t *testing.T) {
+			require.Len(t, ran, 1)
+			assert.Equal(t, time.Date(2026, 10, 25, 9, 30, 0, 0, madrid), ran[0])
+		})
 	})
 }
