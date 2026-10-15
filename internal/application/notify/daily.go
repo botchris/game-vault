@@ -196,7 +196,7 @@ func (d *Daily) tellKeys(ctx context.Context, today time.Time) error {
 				copyID:    c.ID,
 				threshold: threshold,
 				key: event.ExpiringKey{
-					Game:     refOf(g),
+					Game:     event.RefOf(g),
 					Store:    c.Platform,
 					RedeemBy: c.RedeemBy,
 					DaysLeft: days,
@@ -257,15 +257,7 @@ func (d *Daily) tellReleases(ctx context.Context, today time.Time) error {
 		}
 
 		d.toldReleases[key] = true
-		d.pub.Publish(ctx, event.New(event.KindReleaseOut, d.now(), event.Release{
-			Title:        r.Title,
-			Date:         r.Date,
-			Platforms:    r.Platforms,
-			CoverURL:     r.CoverURL,
-			URL:          r.URL,
-			Because:      r.Because,
-			BecauseTitle: r.BecauseTitle,
-		}))
+		d.pub.Publish(ctx, event.New(event.KindReleaseOut, d.now(), event.ReleaseOf(r)))
 	}
 
 	return nil
@@ -306,23 +298,4 @@ func midnight(t time.Time) time.Time {
 	y, m, day := t.Date()
 
 	return time.Date(y, m, day, 0, 0, 0, 0, t.Location())
-}
-
-// refOf names game g in an event, with the systems of its copies, sorted.
-func refOf(g *game.Game) event.GameRef {
-	var systems []string
-
-	for _, c := range g.Copies() {
-		if s := c.System(); !slices.Contains(systems, s) {
-			systems = append(systems, s)
-		}
-	}
-
-	slices.Sort(systems)
-
-	return event.GameRef{
-		ID:      g.ID(),
-		Title:   g.Title(),
-		Systems: systems,
-	}
 }
