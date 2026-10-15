@@ -161,9 +161,11 @@ extension update: discuss it first.
   `q.Platforms`, `q.PhysicalPlatforms`. `q.System` is the edition's system (`""` when the query
   names none): a store provider applies only when `q.ForPC()`; a console catalog checks the system
   (see `game.IsXboxSystem`). A title search filters to `q.SearchSystems()` and searches the terms
-  of `game.SearchTerms(q.Title)` in order (the game's name, then the raw title); a table mapping
-  systems to the service's own ids is keyed by the `game.System…` constants and checked against
-  `game.Consoles()` in a test. A provider with a monthly quota also checks
+  of `game.SearchTerms(q.Title)` in order (the game's name, then the raw title); a provider that
+  maps systems to the service's own ids keeps a table keyed by the catalog's names (`game.Systems()`,
+  the `game.System…` constants for the ones the code names), lists the systems the service has no
+  entry for in `unmappedSystems`, and calls `game.CheckProviderCoverage(table, unmappedSystems)` in
+  a test: adding a system to the catalog then fails every provider until it maps or excludes it. A provider with a monthly quota also checks
   `q.HasStoreLink()` and `q.Fallback` so it is not spent on games stores already cover.
 - Return `nil, nil` when the service does not know the game; an error only for real failures.
 - **Error texts do not name the provider**: the media service puts the provider's name before
