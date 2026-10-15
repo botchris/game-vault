@@ -40,6 +40,9 @@ type ConsolidationResult struct {
 	GamesCreated    int
 	CopiesRemoved   int
 
+	// Created are the games the consolidation created, in the order they were created.
+	Created []ID
+
 	// Emptied are games whose only copies were withdrawn: the caller deletes them.
 	Emptied  []ID
 	Warnings []string
@@ -236,7 +239,9 @@ func (c *Consolidator) updateExisting(g *Game, p preparedCopy, sourceID string, 
 // addToGame adds an imported copy to the game it matches, or to a new game.
 func (c *Consolidator) addToGame(p preparedCopy, sourceID string, now time.Time, r *ConsolidationResult) {
 	g := c.findGame(p.ImportedCopy)
-	if g == nil {
+
+	created := g == nil
+	if created {
 		ng, err := New(p.Title, now)
 		if err != nil {
 			r.Warnings = append(r.Warnings, err.Error())
@@ -263,6 +268,10 @@ func (c *Consolidator) addToGame(p preparedCopy, sourceID string, now time.Time,
 	c.markChanged(g)
 
 	r.CopiesAdded++
+
+	if created { // only now: a game whose first copy was refused is never saved
+		r.Created = append(r.Created, g.id)
+	}
 }
 
 // applyLinks adds an import's links to g in the same order for every copy: the source's own links

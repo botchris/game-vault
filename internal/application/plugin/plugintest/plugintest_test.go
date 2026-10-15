@@ -10,9 +10,11 @@ import (
 
 	"gamevault/internal/application/home"
 	"gamevault/internal/application/media"
+	"gamevault/internal/application/notify"
 	"gamevault/internal/application/plugin"
 	"gamevault/internal/application/sync"
 	"gamevault/internal/application/valuation"
+	"gamevault/internal/domain/connection"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
@@ -72,7 +74,7 @@ func TestProblems(t *testing.T) {
 
 	t.Run("GIVEN a plugin that adds nothing", func(t *testing.T) {
 		t.Run("THEN it is reported", func(t *testing.T) {
-			assert.Equal(t, []string{`plugin "empty": adds nothing (no source and no provider)`}, Problems(plugin.Plugin{
+			assert.Equal(t, []string{`plugin "empty": adds nothing (no source, no provider and no connector)`}, Problems(plugin.Plugin{
 				ID:   "empty",
 				Name: "Empty",
 			}, tr))
@@ -234,5 +236,62 @@ func TestProblems_recipes(t *testing.T) {
 			}},
 		}
 		assert.Empty(t, check(r))
+	})
+}
+
+// connector is a notification connector with a settable descriptor.
+type connector struct{ d connection.TypeDescriptor }
+
+func (c connector) Descriptor() connection.TypeDescriptor                     { return c.d }
+func (connector) Send(context.Context, schema.Settings, notify.Message) error { return nil }
+func (connector) Test(context.Context, schema.Settings, notify.Message) error { return nil }
+
+func TestProblems_connectors(t *testing.T) {
+	tr := Translations{
+		"en": {"connectors.chat.description": true, "connectors.chat.token": true},
+		"es": {"connectors.chat.description": true, "connectors.chat.token": true},
+	}
+	complete := connection.TypeDescriptor{
+		Type:           "chat",
+		Name:           "Chat",
+		DescriptionKey: "connectors.chat.description",
+		Fields: schema.Fields{{
+			Key:      "token",
+			LabelKey: "connectors.chat.token",
+			Kind:     schema.FieldSecret,
+			Required: true,
+		}},
+	}
+
+	t.Run("GIVEN a plugin that only adds a complete connector", func(t *testing.T) {
+		problems := Problems(plugin.Plugin{
+			ID:         "chat",
+			Name:       "Chat",
+			Connectors: []notify.Connector{connector{complete}},
+		}, tr)
+
+		t.Run("THEN it is ready: a connector is something to add", func(t *testing.T) {
+			assert.Empty(t, problems)
+		})
+	})
+
+	t.Run("GIVEN a connector without a type and with an untranslated field", func(t *testing.T) {
+		d := complete
+		d.Type = ""
+		d.Fields = schema.Fields{{
+			Key:      "chat_id",
+			LabelKey: "connectors.chat.chatId",
+		}}
+
+		problems := Problems(plugin.Plugin{
+			ID:         "chat",
+			Name:       "Chat",
+			Connectors: []notify.Connector{connector{d}},
+		}, tr)
+
+		t.Run("THEN both gaps are reported with where they are", func(t *testing.T) {
+			assert.Contains(t, problems, `plugin "chat", connector "": needs a Type and a Name`)
+			assert.Contains(t, problems, `plugin "chat", connector "", field chat_id: "connectors.chat.chatId" is missing in en.json`)
+		})
 	})
 }

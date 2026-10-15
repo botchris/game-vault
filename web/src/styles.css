@@ -673,6 +673,44 @@ td.title { font-weight: 500; min-width: 220px; }
   .source-tile:hover .source-tile-plus { color: var(--text); }
 }
 
+/* ---------- Notifications ---------- */
+/* The page reuses the sources' rows and tiles; these are its own pieces. */
+.notify-icon {
+  display: inline-grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: var(--radius);
+  background: var(--surface-2); color: var(--text);
+}
+.notify-address { max-width: 520px; margin: 0 0 26px; }
+.notify-address label { font-size: 13px; color: var(--muted); font-weight: 550; }
+.notify-address-error { margin: 0; }
+.notify-address p { margin: 0; }
+.notify-heading { font-size: 15px; font-weight: 650; margin: 0 0 12px; }
+/* The switch sits over the row's stretched button, and stays readable on a switched-off row. */
+.notify-switch { position: relative; z-index: 1; padding: 8px; margin: -8px -4px -8px 0; }
+.notify-switch input { width: 18px; height: 18px; }
+.source-row.disabled > .notify-switch { opacity: 1; }
+.notify-types { grid-template-columns: minmax(0, 1fr); }
+
+.notify-events { margin: 18px 0 8px; display: grid; gap: 14px; }
+.notify-events h3 { font-size: 15px; margin: 0; }
+.notify-group { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius); }
+.notify-group-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.notify-group-head h4 { margin: 0; font-size: 14px; font-weight: 650; }
+.notify-event { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+.notify-event input { margin-top: 3px; flex: none; }
+.notify-event-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+
+.notify-deliveries { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--border); }
+.notify-deliveries h3 { font-size: 15px; margin: 0 0 10px; }
+.notify-deliveries ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.notify-delivery-head { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.notify-delivery-summary { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.notify-delivery-head time { flex: none; }
+.notify-delivery-error { margin: 2px 0 0; overflow-wrap: anywhere; }
+.badge.notify-state { flex: none; }
+.badge.notify-state.sent { background: var(--ok-bg); color: var(--ok); }
+.badge.notify-state.failed { background: var(--danger-bg); color: var(--danger); }
+.badge.notify-state.queued { background: var(--warn-bg); color: var(--warn); }
+
 /* A store whose terms do not allow the integration: the risk comes first, and must be accepted. */
 .risk-notice {
   background: var(--warn-bg); border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);

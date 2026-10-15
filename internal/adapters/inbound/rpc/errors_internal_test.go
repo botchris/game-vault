@@ -21,11 +21,13 @@ import (
 	"gamevault/internal/application/home"
 	"gamevault/internal/application/logs"
 	"gamevault/internal/application/media"
+	"gamevault/internal/application/notify"
 	"gamevault/internal/application/ownership"
 	"gamevault/internal/application/providers"
 	"gamevault/internal/application/sync"
 	"gamevault/internal/application/valuation"
 	"gamevault/internal/domain/auth"
+	"gamevault/internal/domain/connection"
 	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/field"
 	"gamevault/internal/domain/game"
@@ -41,20 +43,25 @@ var sentinels = map[string]struct {
 	err  error
 	code connect.Code
 }{
-	"domain/auth.ErrUnauthenticated": {auth.ErrUnauthenticated, connect.CodeUnauthenticated},
-	"domain/auth.ErrBadCredentials":  {auth.ErrBadCredentials, connect.CodeUnauthenticated},
-	"domain/auth.ErrNotFound":        {auth.ErrNotFound, connect.CodeNotFound},
-	"domain/auth.ErrSetupDone":       {auth.ErrSetupDone, connect.CodeAlreadyExists},
-	"domain/auth.ErrSetupNotTrusted": {auth.ErrSetupNotTrusted, connect.CodePermissionDenied},
-	"domain/auth.ErrTooManyAttempts": {auth.ErrTooManyAttempts, connect.CodeResourceExhausted},
-	"domain/auth.ErrLockout":         {auth.ErrLockout, connect.CodeFailedPrecondition},
-	"domain/field.ErrNotFound":       {field.ErrNotFound, connect.CodeNotFound},
-	"domain/game.ErrGameNotFound":    {game.ErrGameNotFound, connect.CodeNotFound},
-	"domain/game.ErrCopyNotFound":    {game.ErrCopyNotFound, connect.CodeNotFound},
-	"domain/game.ErrPhotoNotFound":   {game.ErrPhotoNotFound, connect.CodeNotFound},
-	"domain/game.ErrEditionNotFound": {game.ErrEditionNotFound, connect.CodeNotFound},
-	"domain/provider.ErrNotFound":    {provider.ErrNotFound, connect.CodeNotFound},
-	"domain/provider.ErrRateLimited": {provider.ErrRateLimited, connect.CodeUnavailable},
+	"domain/auth.ErrUnauthenticated":    {auth.ErrUnauthenticated, connect.CodeUnauthenticated},
+	"domain/auth.ErrBadCredentials":     {auth.ErrBadCredentials, connect.CodeUnauthenticated},
+	"domain/auth.ErrNotFound":           {auth.ErrNotFound, connect.CodeNotFound},
+	"domain/auth.ErrSetupDone":          {auth.ErrSetupDone, connect.CodeAlreadyExists},
+	"domain/auth.ErrSetupNotTrusted":    {auth.ErrSetupNotTrusted, connect.CodePermissionDenied},
+	"domain/auth.ErrTooManyAttempts":    {auth.ErrTooManyAttempts, connect.CodeResourceExhausted},
+	"domain/auth.ErrLockout":            {auth.ErrLockout, connect.CodeFailedPrecondition},
+	"domain/connection.ErrNotFound":     {connection.ErrNotFound, connect.CodeNotFound},
+	"domain/connection.ErrUnknownType":  {connection.ErrUnknownType, connect.CodeNotFound},
+	"domain/connection.ErrNoEvents":     {connection.ErrNoEvents, connect.CodeInvalidArgument},
+	"domain/connection.ErrUnknownEvent": {connection.ErrUnknownEvent, connect.CodeInvalidArgument},
+	"domain/connection.ErrBadLanguage":  {connection.ErrBadLanguage, connect.CodeInvalidArgument},
+	"domain/field.ErrNotFound":          {field.ErrNotFound, connect.CodeNotFound},
+	"domain/game.ErrGameNotFound":       {game.ErrGameNotFound, connect.CodeNotFound},
+	"domain/game.ErrCopyNotFound":       {game.ErrCopyNotFound, connect.CodeNotFound},
+	"domain/game.ErrPhotoNotFound":      {game.ErrPhotoNotFound, connect.CodeNotFound},
+	"domain/game.ErrEditionNotFound":    {game.ErrEditionNotFound, connect.CodeNotFound},
+	"domain/provider.ErrNotFound":       {provider.ErrNotFound, connect.CodeNotFound},
+	"domain/provider.ErrRateLimited":    {provider.ErrRateLimited, connect.CodeUnavailable},
 	"domain/provider.ErrQuotaExhausted": {
 		provider.ErrQuotaExhausted, connect.CodeUnavailable,
 	},
@@ -75,6 +82,7 @@ var sentinels = map[string]struct {
 	"application/logs.ErrInvalidName":             {logs.ErrInvalidName, connect.CodeInvalidArgument},
 	"application/logs.ErrNotFound":                {logs.ErrNotFound, connect.CodeNotFound},
 	"application/media.ErrNoEdition":              {media.ErrNoEdition, connect.CodeNotFound},
+	"application/notify.ErrBadAddress":            {notify.ErrBadAddress, connect.CodeInvalidArgument},
 	"application/providers.ErrUnknownProvider":    {providers.ErrUnknownProvider, connect.CodeNotFound},
 	"application/media.ErrUnknownStore":           {media.ErrUnknownStore, connect.CodeNotFound},
 	"application/media.ErrInvalidBarcode":         {media.ErrInvalidBarcode, connect.CodeInvalidArgument},
@@ -95,6 +103,8 @@ var internalOnly = map[string]string{
 	"application/media.ErrImageNotAllowed": "HTTP only: the image proxy answers it with a 403",
 	"application/media.ErrNoAsset":         "HTTP only: the image endpoints answer it with a 404",
 	"application/media.ErrNoPhoto":         "HTTP only: the photo endpoint answers it with a 404",
+	"application/notify.ErrPermanent": "a mark connectors wrap around their own errors, which carry " +
+		"the kind; the dispatcher reads it to pause a connection",
 	"application/valuation.ErrNotListed": "a price provider's answer that the valuation service turns " +
 		"into \"no estimate\"",
 }

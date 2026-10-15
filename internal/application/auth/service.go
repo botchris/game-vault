@@ -7,13 +7,17 @@ import (
 	"encoding/base64"
 	"errors"
 	"log/slog"
+	"maps"
+	"net/netip"
 	"slices"
 	"strings"
 	gosync "sync"
 	"time"
 
+	"gamevault/internal/application/events"
 	"gamevault/internal/application/port"
 	"gamevault/internal/domain/auth"
+	"gamevault/internal/domain/event"
 )
 
 // Hasher is the port that hashes and verifies passwords.
@@ -38,6 +42,10 @@ const (
 	tokenTouchEvery = time.Minute // how often an access token's last use is written
 	maxFailures     = 10          // failed logins allowed per window
 	failureWindow   = 15 * time.Minute
+
+	// failuresToTell failed sign-ins from one address within alertWindow are published, once.
+	failuresToTell = 3
+	alertWindow    = time.Hour
 )
 
 // Status describes the caller's situation, for the UI to decide what to show.
@@ -72,6 +80,11 @@ type Service struct {
 	// stop a valid token (nor do junk tokens: a valid one is always served).
 	logins failureLog
 	tokens failureLog
+
+	// alerts counts failed sign-ins per client address, to publish repeated ones.
+	alerts addressFailures
+
+	events events.Publisher
 }
 
 // failureLog throttles one kind of credential: after maxFailures failures within failureWindow
@@ -99,12 +112,53 @@ func (l *failureLog) record(now time.Time) {
 	l.failures = append(l.failures, now)
 }
 
+// addressFailures counts failed sign-ins per client address in windows of alertWindow, each
+// starting at its first failure. Only addresses with a window still open are kept, so a stream of
+// attempts from many addresses cannot grow it past an hour's worth.
+type addressFailures struct {
+	mu      gosync.Mutex
+	windows map[netip.Addr]event.FailedLogins
+}
+
+// record counts a failure from addr at now and returns its window as it stands.
+func (a *addressFailures) record(addr netip.Addr, now time.Time) event.FailedLogins {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if a.windows == nil {
+		a.windows = map[netip.Addr]event.FailedLogins{}
+	}
+
+	maps.DeleteFunc(a.windows, func(_ netip.Addr, w event.FailedLogins) bool { return !now.Before(w.First.Add(alertWindow)) })
+
+	w, ok := a.windows[addr]
+	if !ok {
+		w = event.FailedLogins{
+			Address: addr.String(),
+			First:   now,
+		}
+	}
+
+	w.Count++
+	w.Last = now
+	a.windows[addr] = w
+
+	return w
+}
+
+// Option configures NewService.
+type Option func(*Service)
+
+// WithEvents sets the publisher told about repeated failed sign-ins (none by default: events.Nop).
+func WithEvents(p events.Publisher) Option { return func(s *Service) { s.events = p } }
+
 // NewService builds the service. It takes the clock and the hasher as parameters so tests control time
-// and avoid slow password hashing.
-func NewService(repo auth.Repository, settings auth.SettingsRepository, hash Hasher, certs CertificatePolicy, now port.Clock, log *slog.Logger) *Service {
+// and avoid slow password hashing. Options: WithEvents.
+func NewService(repo auth.Repository, settings auth.SettingsRepository, hash Hasher, certs CertificatePolicy, now port.Clock,
+	log *slog.Logger, opts ...Option) *Service {
 	dummy, _ := hash.Hash("timing-equalizer-not-a-password")
 
-	return &Service{
+	s := &Service{
 		repo:      repo,
 		settings:  settings,
 		hash:      hash,
@@ -112,7 +166,13 @@ func NewService(repo auth.Repository, settings auth.SettingsRepository, hash Has
 		now:       now,
 		log:       log,
 		dummyHash: dummy,
+		events:    events.Nop{},
 	}
+	for _, opt := range opts {
+		opt(s)
+	}
+
+	return s
 }
 
 // Init applies the saved settings that act outside requests (certificate validation). Call it on
@@ -287,8 +347,14 @@ func (s *Service) Login(ctx context.Context, r auth.Request, username, password 
 	}
 
 	if !ok {
-		s.logins.record(s.now())
+		now := s.now()
+		s.logins.record(now)
 		s.log.Warn("failed login", "username", username, "client", r.ClientIP.String())
+
+		// Told once per window, at the failure that reaches the count.
+		if w := s.alerts.record(r.ClientIP, now); w.Count == failuresToTell {
+			s.events.Publish(ctx, event.New(event.KindFailedLogins, now, w))
+		}
 
 		return "", auth.Principal{}, auth.ErrBadCredentials
 	}

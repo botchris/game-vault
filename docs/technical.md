@@ -786,9 +786,81 @@ System → Health (at the top of the System page) lists what needs the user's at
 | Providers (`providers.Registry`) | settings rejected (an unknown key, wrong credentials) | allowance used up, rate limited, not answering (see Provider status) |
 | Sources (`sync.Service`) | the store signed the source out (`source.ErrSignedOut`, recorded in the scan report as `SignedOut`, or a keep-alive that failed with it): "sign in again in Sources" | the last scan failed (since the first of consecutive failures, `SyncReport.FailingSince`); the last keep-alive failed (in memory, cleared by the next successful keep-alive or scan, by saving the source's settings, or by deleting it); the sources could not be read. Disabled sources are skipped; a report saved before `SignedOut` existed stays a warning until the next scan |
 | Backups (`system.Service`) | the last backup failed, automatic or made by hand (cleared by the next one that works) | automatic backups are on but the newest backup is older than twice their interval, three days at least (the server's start counts only while there is no backup yet) |
+| Connectors (`notify.Service`) | a connection was paused by a permanent failure (reason `connector_paused`; fixed in Settings → Notifications) | |
 | Disk (`health.DiskCheck`) | under 200 MB free on the config directory's filesystem | under 1 GB free, or under 5% of the filesystem with a cap of 10 GB (so a large disk does not warn with 199 GB free) |
 
 Sources report a sign-out through `source.SignedOut(msg)`, which matches `source.ErrSignedOut`: Amazon, EA, Battle.net, Epic, Fanatical, GOG, itch.io, Humble Bundle, PlayStation, Steam (a rejected API key), Ubisoft and Xbox do. Disk space comes from `syscall.Statfs` on Linux, macOS and FreeBSD (`internal/adapters/outbound/diskspace`); elsewhere the check reports nothing.
+
+## Notifications
+
+Settings → Notifications (`#/notifications`) sends what happens in Game Vault to the outside: a *connection* is one configured connector (Telegram, ntfy or a webhook) subscribed to the events its owner picks, in the language chosen for it. The use cases publish events (`events.Publisher`, `internal/application/events`; `notify.Service` implements it), the service queues one delivery per subscribed connection in a durable outbox and a dispatcher sends them. `NotificationService` (`proto/gamevault/v1/notify.proto`) serves the page: connector types with the event catalog, connections (secrets come back masked), a test with unsaved settings, the last deliveries of a connection and the Game Vault address. Signed-in users only; extension access tokens are refused.
+
+### Connectors
+
+Every connector is a plugin piece (`notify.Connector`, see `docs/plugins.md`) over the shared `apiclient`, with a 20 second timeout.
+
+| Connector | Settings | What is sent |
+|---|---|---|
+| Telegram | bot token (secret, from @BotFather), chat id | `sendMessage` (HTML: title in bold, escaped text, the link) with no image; `sendPhoto` with one; `sendMediaGroup` with two, the text as the first one's caption (cut to Telegram's 1024 characters, a message to 4096). Covers go as uploaded bytes, a deal's or a release's art as its public URL, which Telegram fetches itself. An image Telegram cannot fetch or read (a 400 about the image: a dead URL, bad dimensions, an unsupported type, a file too big; or a 413 for an upload over the size limit) sends the news as text instead of failing, so it never pauses the connection. |
+| ntfy | server (default `https://ntfy.sh`), topic, access token (secret, optional) | One `PUT` to `<server>/<topic>`: the text as the body, or the first cover as the body with `Filename` and the text in the `Message` header; a public art URL goes in `Attach`. `Title`, `Click` (the link) and `Priority` (`high` for attention and security events) are headers; non-ASCII text is RFC 2047 encoded and the `Message` header is cut below 3900 bytes. The token travels only in `Authorization`. |
+| Webhook | URL, header name and value (secret, both optional) | One `POST` of the JSON document below. Images are not sent, only the public URLs. Redirects are refused (a redirect could carry the secret header elsewhere); any 2xx is success. |
+
+A connector that can check its settings beyond the required fields implements `notify.Validator`, which Save and Test call first: the webhook's address (and the ntfy server, when given) must be an `http://` or `https://` URL with a host, and the webhook header a plain name with a one-line value, so a bad address is refused on Save (InvalidArgument) instead of pausing the connection on its first delivery.
+
+The webhook's document is stable and versioned:
+
+```json
+{"version":1,"event":"collection.added","at":"2026-10-15T09:30:00Z","data":{…},"message":{"title":"…","text":"…","link":"…"},"images":["https://…"]}
+```
+
+`event` is the kind of the catalog below, `data` the event's payload exactly as the queue stores it (titles, ids, systems, dates, money), `message` the rendered text in the connection's language (`link` is empty without a Game Vault address) and `images` the public image URLs (empty list when none). A test sends `event: "test"` with empty `data`.
+
+Errors say what to do. Rejections that retrying cannot fix (Telegram 401/403/404 and "chat not found", ntfy 401/403/404, a webhook 4xx other than 408 and 429, an invalid address or header) wrap `notify.ErrPermanent`; no answer, 5xx and 429 (with `Retry-After`) are transient. Telegram puts the bot token in the URL path, so every error and log line it produces has the token replaced by `…`. **Test** sends a sample message built from a fixed example event with the unsaved settings (the only send that ignores `-no-unattended`, since the user pressed it). Telegram can find the chat: with the chat field empty, Test reads `getUpdates` for the last chat that wrote to the bot and fills it in (the bot must have received a message, and no webhook may be set on it).
+
+### Events
+
+Event kinds are stored in subscriptions and in the queue, so their names never change. A new connection starts with every event selected.
+
+| Kind | Group | When |
+|---|---|---|
+| `collection.added` | activity | A source scan or a CSV import created games: one message per scan or import (origin, the new games' titles and systems, copies added to games already owned, up to two covers). Games added by hand (Scan, the new game form) are one batch: it is told when 10 minutes pass without another hand-added game. The batch lives in memory, so a restart in those minutes loses it. The first gathering of a source is a scan like any other. |
+| `release.announced` | activity | A release from the user's series appears that was not in the previous releases snapshot of the home page. The first gathering after a provider is set up seeds the snapshot silently. |
+| `release.out` | activity | A release from the user's series is dated today (daily job), once per release. |
+| `deal.historical_low` | activity | A game the user does not own, on PC, enters the historical lows (not in the previous deals snapshot, and only deals left after the ownership filter). The first gathering seeds silently. |
+| `issue.opened` | attention | A System → Health issue appears and is seen in two consecutive checks (checked every minute). A provider asking to slow down (`provider_rate_limited`) is never told: it ends by itself. |
+| `issue.resolved` | attention | An issue that was notified has been missing for 30 minutes without a break (a reappearance starts the wait again), and never in the first 30 minutes after the server starts: Health keeps provider statuses and keep-alive failures in memory, so they vanish on a restart or when they expire without being fixed. |
+| `keys.expiring` | attention | Daily: pending keys (`Copy.IsPendingKey()`) whose redeem-by date is within 30 days (`notify.ExpiringDays`, the library's `EXPIRING_DAYS`: a test keeps them equal), told on entering the window and again at 7 and 1 day left; the thresholds told per copy are stored, but only when an enabled, unpaused connection subscribes to it (`notify.Interest`), so a connection added later still hears of them. Nearest first. |
+| `auth.failed_logins` | security | Failed sign-ins are counted per client address in one-hour windows (in memory); the 3rd failure of a window publishes, once per window. |
+
+Health events come from a watcher that runs every minute (`notify.Watcher`) over `health.Service.Issues`, keyed by `Issue.Key`. The two-check margin applies both ways, so a source that fails once and recovers tells nothing. The issues told as open are stored (`notified_issues`), so a restart neither repeats nor loses one; on its very first run (a fresh install or the upgrade that brought notifications) the current issues are recorded as told without sending. A connector paused by a permanent failure is a Health issue itself (kind `connector`, reason `connector_paused`, the Notifications page as target) and is never delivered to the connection it is about.
+
+The daily job (`notify.Daily`) runs at a random moment between 09:00 and 10:00 local time, jittered like other unattended work, and tells `keys.expiring` and `release.out`.
+
+Publishing happens after the change it reports is saved, and nothing is queued for a disabled or paused connection or one not subscribed to the kind.
+
+### Delivery
+
+- Queued deliveries are stored in `notification_outbox` (migration 0013), so they survive a restart. The dispatcher sends them in queue order, one connection at a time, at the connector's pace: Telegram one message every 3 seconds per connection (`notify.Pacer`), the others one a second.
+- A transient failure is retried after 1 minute, 5 minutes, 30 minutes, 2 hours and 6 hours, then given up (`failed`). A `Retry-After` longer than the next wait is honoured, up to 6 hours.
+- A permanent failure gives the delivery up and pauses the connection with the reason, shown in its row and in Health. Saving unpauses it; so does a passing Test of the saved settings. Turning it off and on again also clears the pause (the switch saves the connection).
+- A delivery older than 24 hours when its turn comes is dropped, not sent: nobody wants yesterday's news after the server was off for a weekend.
+- Sent deliveries are kept 7 days. A connection's dialog lists its latest 20 by state (queued, sent, failed, dropped, with the reason). Retrying is not a state of its own: a delivery waiting for another try stays queued with its attempts counted, and the dialog shows it as *Queued* with the number of attempts and the last error. A row says *working* when the last delivery was sent or is queued, *Last message failed* when it failed or was dropped, and *Nothing sent yet* before any.
+- Deleting a connection deletes its queued deliveries; turning one off drops what was queued for it. A paused connection's deliveries wait for it to work again, unless they get older than 24 hours.
+
+### The Game Vault address
+
+Messages link to a game or to the Health page only when the optional **Game Vault address** at the top of the page is set (for example `http://192.168.1.20:8080`); without it messages carry no Game Vault link. Deal and release messages link to the public page the provider gave.
+
+### `-no-unattended`
+
+A test server on a copy of the config holds the user's real tokens, so with `-no-unattended` nothing is queued or delivered and the watcher and the daily job do not run. Only **Test** sends, to the connection being tested.
+
+### Known limits
+
+- A restart on the day a release is out may tell "out today" again, and a server started after 10:00 first runs the daily job the next day.
+- A key may be told again if remembering that it was told fails.
+- Hand-added games waiting in their 10-minute batch are lost by a restart.
+- Turning a connection off drops what was queued for it; turning it on again does not resend it.
 
 ## Backups
 

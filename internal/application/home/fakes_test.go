@@ -184,3 +184,21 @@ type unsaved struct{ snapshots }
 func (u unsaved) SaveSnapshot(context.Context, home.Snapshot) error {
 	return errors.New("database is locked")
 }
+
+// unreadable is a home.Snapshots whose next read fails once failNext is set, as a locked database
+// does; the reads after it work again.
+type unreadable struct {
+	snapshots
+
+	failNext *bool
+}
+
+func (u unreadable) Snapshot(ctx context.Context, b home.Block) (home.Snapshot, bool, error) {
+	if *u.failNext {
+		*u.failNext = false
+
+		return home.Snapshot{}, false, errors.New("database is locked")
+	}
+
+	return u.snapshots.Snapshot(ctx, b)
+}

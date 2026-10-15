@@ -23,6 +23,8 @@ test('an issue links to where it can be fixed: the source itself, the backups ca
   assert.equal(issueHref({ target: 'providers', targetId: '' }), '#/providers');
   assert.equal(issueHref({ target: 'sources', targetId: 's 1' }), '#/sources/s%201');
   assert.equal(issueHref({ target: 'system/backups', targetId: '' }), '#/system/backups');
+  assert.equal(issueHref({ target: 'notifications', targetId: 'c 1' }), '#/notifications/c%201');
+  assert.equal(issueHref({ target: 'notifications', targetId: '' }), '#/notifications');
   assert.equal(issueHref({ target: '', targetId: '' }), null);
   assert.equal(issueHref({ target: 'somewhere-new', targetId: '' }), null);
   assert.equal(parseHash(issueHref({ target: 'sources', targetId: 's 1' })).target, 's 1', 'the page opens what the link names');
@@ -33,6 +35,7 @@ test('the backups and the disk are named in the UI language, providers and sourc
   assert.equal(issueTitle({ kind: 'backups', source: '' }, t), 'health.kinds.backups');
   assert.equal(issueTitle({ kind: 'disk', source: '' }, t), 'health.kinds.disk');
   assert.equal(issueTitle({ kind: 'source', source: 'My store' }, t), 'My store');
+  assert.equal(issueTitle({ kind: 'connector', source: 'My phone' }, t), 'My phone');
 });
 
 test('the reason is translated with its values; an unknown one shows the server message', () => {
@@ -52,7 +55,7 @@ test('"since" is said in the UI language, in the largest unit that fits', () => 
 
 test('the health texts exist in English and Spanish', () => {
   const reasons = ['provider_quota', 'provider_rate_limited', 'provider_unavailable', 'provider_settings', 'source_signed_out',
-    'source_sync_failed', 'source_keepalive_failed', 'source_list_failed', 'backup_failed', 'backup_stale', 'disk_low', 'disk_critical'];
+    'source_sync_failed', 'source_keepalive_failed', 'source_list_failed', 'backup_failed', 'backup_stale', 'disk_low', 'disk_critical', 'connector_paused'];
   for (const lang of ['en', 'es']) {
     const s = JSON.parse(readFileSync(new URL(`../src/i18n/locales/${lang}.json`, import.meta.url))).health;
     for (const key of ['title', 'intro', 'none', 'unavailable', 'error', 'warning', 'open', 'dot']) {

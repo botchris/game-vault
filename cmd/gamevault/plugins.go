@@ -16,12 +16,15 @@ import (
 	"gamevault/internal/adapters/outbound/igdb"
 	"gamevault/internal/adapters/outbound/itad"
 	"gamevault/internal/adapters/outbound/itch"
+	"gamevault/internal/adapters/outbound/ntfy"
 	"gamevault/internal/adapters/outbound/playstation"
 	"gamevault/internal/adapters/outbound/steam"
 	"gamevault/internal/adapters/outbound/steamgriddb"
+	"gamevault/internal/adapters/outbound/telegram"
 	"gamevault/internal/adapters/outbound/thegamesdb"
 	"gamevault/internal/adapters/outbound/ubisoft"
 	"gamevault/internal/adapters/outbound/upcitemdb"
+	"gamevault/internal/adapters/outbound/webhook"
 	"gamevault/internal/adapters/outbound/wikipedia"
 	"gamevault/internal/adapters/outbound/xbox"
 	"gamevault/internal/application/plugin"
@@ -60,5 +63,9 @@ func newPlugins(log *slog.Logger) (*plugin.Registry, error) {
 		ebay.Plugin(),
 		upcitemdb.Plugin(),
 		eansearch.Plugin(),
+		// Notifications
+		telegram.Plugin(),
+		ntfy.Plugin(),
+		webhook.Plugin(),
 	)
 }
