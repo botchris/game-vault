@@ -838,9 +838,9 @@ Publishing happens after the change it reports is saved, and nothing is queued f
 
 - Queued deliveries are stored in `notification_outbox` (migration 0013), so they survive a restart. The dispatcher sends them in queue order, one connection at a time, at the connector's pace: Telegram one message every 3 seconds per connection (`notify.Pacer`), the others one a second.
 - A transient failure is retried after 1 minute, 5 minutes, 30 minutes, 2 hours and 6 hours, then given up (`failed`). A `Retry-After` longer than the next wait is honoured, up to 6 hours.
-- A permanent failure gives the delivery up and pauses the connection with the reason, shown in its row and in Health. Saving or testing the connection unpauses it.
+- A permanent failure gives the delivery up and pauses the connection with the reason, shown in its row and in Health. Saving unpauses it; so does a passing Test of the saved settings. Turning it off and on again also clears the pause (the switch saves the connection).
 - A delivery older than 24 hours when its turn comes is dropped, not sent: nobody wants yesterday's news after the server was off for a weekend.
-- Sent deliveries are kept 7 days. A connection's dialog lists its latest 20 (sent, retrying, failed, dropped, with the reason). A row says *working* when the last delivery was sent or is queued, *Last message failed* when it failed or was dropped, and *Nothing sent yet* before any.
+- Sent deliveries are kept 7 days. A connection's dialog lists its latest 20 by state (queued, sent, failed, dropped, with the reason). Retrying is not a state of its own: a delivery waiting for another try stays queued with its attempts counted, and the dialog shows it as *Queued* with the number of attempts and the last error. A row says *working* when the last delivery was sent or is queued, *Last message failed* when it failed or was dropped, and *Nothing sent yet* before any.
 - Deleting a connection deletes its queued deliveries; turning one off drops what was queued for it. A paused connection's deliveries wait for it to work again, unless they get older than 24 hours.
 
 ### The Game Vault address
