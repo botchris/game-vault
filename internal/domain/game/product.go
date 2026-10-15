@@ -18,6 +18,10 @@ type systemToken struct {
 	// system is the catalog name the alias belongs to.
 	system string
 
+	// length is the length of the alias's key (SystemKey), the order tokens are tried in: the
+	// pattern's own length would count the separators between parts.
+	length int
+
 	// weak is set for an alias that is one word of letters ("Genesis", "Switch", "Wii", "DS"): an
 	// ordinary word in a title, so it only counts in brackets, at the end of the name, or written in
 	// capitals when it has at most four letters ("DS", "SNES").
@@ -40,13 +44,14 @@ var systemTokens = func() []systemToken {
 			out = append(out, systemToken{
 				re:      regexp.MustCompile(`(?i)(?:^|[^\p{L}\p{N}])(` + p + `)(?:$|[^\p{L}\p{N}])`),
 				pattern: p,
+				length:  len(SystemKey(w)),
 				system:  s.Name,
 				weak:    isWeakAlias(w),
 			})
 		}
 	}
 
-	slices.SortStableFunc(out, func(a, b systemToken) int { return len(b.pattern) - len(a.pattern) })
+	slices.SortStableFunc(out, func(a, b systemToken) int { return b.length - a.length })
 
 	return out
 }()
@@ -71,7 +76,8 @@ func isWeakAlias(alias string) bool {
 }
 
 // SystemPattern is a regexp source matching any catalog name or alias (case-insensitive by the
-// caller's flags), longest first, for adapters that strip system words from titles.
+// caller's flags), longest first, for adapters that strip system words from titles. It is a bare
+// alternation: callers wrap it in (?:...) before adding anything around it.
 func SystemPattern() string {
 	parts := make([]string, 0, len(systemTokens))
 	for _, t := range systemTokens {
@@ -89,13 +95,17 @@ func (t systemToken) matchIn(s string) []int {
 		start, end := m[2], m[3]
 		word := s[start:end]
 
-		if !t.weak || inBrackets(s, start, end) || strings.TrimFunc(s[end:], isNotAlnum) == "" ||
-			len(word) <= 4 && word == strings.ToUpper(word) {
+		if !t.weak || inBrackets(s, start, end) || strings.TrimFunc(s[end:], isNotAlnum) == "" || isShortCaps(word) {
 			return []int{start, end}
 		}
 	}
 
 	return nil
+}
+
+// isShortCaps reports whether word is written in capitals and has at most four letters ("DS").
+func isShortCaps(word string) bool {
+	return len(word) <= 4 && word == strings.ToUpper(word)
 }
 
 // inBrackets reports whether s[start:end] is the only thing inside a pair of round or square brackets.

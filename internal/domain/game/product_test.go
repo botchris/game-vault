@@ -1,6 +1,7 @@
 package game
 
 import (
+	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -41,9 +42,22 @@ func TestParseProductName(t *testing.T) {
 		{"Halo Combat Evolved Xbox", "Halo Combat Evolved", "Xbox", ""},
 		{"The Sims PC CD-ROM", "The Sims", "PC", ""},
 		{"Playstation4 Games", "Games", "PS4", ""},
+		{"Saturn Bomberman PS1", "Saturn Bomberman", "PS1", ""},
+		{"Halo Xbox Series X|S", "Halo", "Xbox Series", ""},
+		{"Impossible Mission C=64", "Impossible Mission", "Commodore 64", ""},
+		{"Donkey Kong Game & Watch", "Donkey Kong", "Game & Watch", ""},
+		{"Pokémon Pinball Pokémon Mini", "Pokémon Pinball", "Pokémon Mini", ""},
+		{"Chuckie Egg Dragon 32/64", "Chuckie Egg", "Dragon 32/64", ""},
 	}
 	for _, c := range cases {
 		title, platform, edition := ParseProductName(c.raw)
 		assert.Equal(t, []string{c.title, c.platform, c.edition}, []string{title, platform, edition}, c.raw)
 	}
+}
+
+func TestSystemPattern_matchesNamesAndSpellings(t *testing.T) {
+	re := regexp.MustCompile(`(?i)(?:` + SystemPattern() + `)`)
+
+	assert.True(t, re.MatchString("SNES"))
+	assert.True(t, re.MatchString("Mega-Drive"))
 }
