@@ -1,6 +1,7 @@
 /** Small stroke icon set (24px grid, currentColor), so the app needs no icon dependency. */
 const paths: Record<string, string> = {
   library: 'M4 4h6v7H4zM14 4h6v4h-6zM14 12h6v8h-6zM4 15h6v5H4z',
+  home: 'M4 11l8-7 8 7M6 9.5V20h12V9.5M10 20v-5h4v5',
   scan: 'M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M8 8v8M11 8v8M14 8v8M17 8v8',
   sources: 'M7 7a5 5 0 0 1 9.6-2M17 17a5 5 0 0 1-9.6 2M16.6 5H20V1.4M7.4 19H4v3.6',
   providers: 'M12 3 3 8l9 5 9-5-9-5zM3 13l9 5 9-5M3 18l9 5 9-5',

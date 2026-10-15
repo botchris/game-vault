@@ -3,6 +3,7 @@
     "backendError": "No puedo conectar con el servidor de Game Vault: {{error}}"
   },
   "nav": {
+    "home": "Inicio",
     "library": "Biblioteca",
     "sources": "Fuentes",
     "system": "Sistema",
@@ -13,6 +14,40 @@
     "scan": "Escanear",
     "main": "Principal",
     "settings": "Ajustes"
+  },
+  "home": {
+    "title": "Inicio",
+    "pending": {
+      "label": "Requiere tu atención",
+      "none": "Todo al día",
+      "expiring_one": "1 clave caduca pronto · {{title}}, {{when}}",
+      "expiring_other": "{{count}} claves caducan pronto · la primera {{title}}, {{when}}",
+      "today": "hoy",
+      "inDays_one": "en {{count}} día",
+      "inDays_other": "en {{count}} días",
+      "expired": "plazo vencido",
+      "pending_one": "1 clave por canjear",
+      "pending_other": "{{count}} claves por canjear",
+      "redundant_one": "1 clave que no necesitas",
+      "redundant_other": "{{count}} claves que no necesitas",
+      "health_one": "1 problema que revisar",
+      "health_other": "{{count}} problemas que revisar"
+    },
+    "collection": {
+      "title": "Tu colección",
+      "games_one": "juego",
+      "games_other": "juegos",
+      "copies_one": "{{n}} copia",
+      "copies_other": "{{n}} copias",
+      "added": "añadidos este mes",
+      "backlog": "pendientes de jugar",
+      "value": "valen tus juegos físicos",
+      "recent": "Añadidos recientemente",
+      "systems": "Por sistema",
+      "otherSystems": "Otros sistemas",
+      "empty": "Tu colección está vacía.",
+      "start": "Conecta una tienda o añade tu primer juego"
+    }
   },
   "common": {
     "loading": "Cargando…",

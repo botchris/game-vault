@@ -3,6 +3,7 @@
     "backendError": "Cannot reach the Game Vault server: {{error}}"
   },
   "nav": {
+    "home": "Home",
     "library": "Library",
     "sources": "Sources",
     "system": "System",
@@ -13,6 +14,40 @@
     "scan": "Scan",
     "main": "Main",
     "settings": "Settings"
+  },
+  "home": {
+    "title": "Home",
+    "pending": {
+      "label": "Needs your attention",
+      "none": "All caught up",
+      "expiring_one": "1 key expires soon · {{title}}, {{when}}",
+      "expiring_other": "{{count}} keys expire soon · first {{title}}, {{when}}",
+      "today": "today",
+      "inDays_one": "in {{count}} day",
+      "inDays_other": "in {{count}} days",
+      "expired": "deadline passed",
+      "pending_one": "1 key to redeem",
+      "pending_other": "{{count}} keys to redeem",
+      "redundant_one": "1 key you don't need",
+      "redundant_other": "{{count}} keys you don't need",
+      "health_one": "1 problem to look at",
+      "health_other": "{{count}} problems to look at"
+    },
+    "collection": {
+      "title": "Your collection",
+      "games_one": "game",
+      "games_other": "games",
+      "copies_one": "{{n}} copy",
+      "copies_other": "{{n}} copies",
+      "added": "added this month",
+      "backlog": "in your backlog",
+      "value": "your physical games are worth",
+      "recent": "Recently added",
+      "systems": "By system",
+      "otherSystems": "Other systems",
+      "empty": "Your collection is empty.",
+      "start": "Connect a store or add your first game"
+    }
   },
   "common": {
     "loading": "Loading…",
