@@ -16,6 +16,7 @@ import (
 	"gamevault/internal/adapters/outbound/igdb"
 	"gamevault/internal/adapters/outbound/itad"
 	"gamevault/internal/adapters/outbound/itch"
+	"gamevault/internal/adapters/outbound/ntfy"
 	"gamevault/internal/adapters/outbound/playstation"
 	"gamevault/internal/adapters/outbound/steam"
 	"gamevault/internal/adapters/outbound/steamgriddb"
@@ -63,5 +64,6 @@ func newPlugins(log *slog.Logger) (*plugin.Registry, error) {
 		eansearch.Plugin(),
 		// Notifications
 		telegram.Plugin(),
+		ntfy.Plugin(),
 	)
 }

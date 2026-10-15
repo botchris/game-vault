@@ -1093,6 +1093,15 @@
       "tokenHelp": "1. Open Telegram and talk to @BotFather (the page above).\n2. Send `/newbot` and follow the steps to name your bot.\n3. Copy the token it gives you here.\nNever share it: anyone with it controls the bot.",
       "chat": "Chat",
       "chatHelp": "1. Open your bot in Telegram and send it any message (or add it to a group and write there).\n2. Press Test with this field empty: Game Vault finds the chat and fills it in."
+    },
+    "ntfy": {
+      "description": "Push notifications to your phone through ntfy (ntfy.sh or a server of your own): new games, releases, deals and problems, with the cover when there is one.",
+      "server": "Server",
+      "serverHelp": "Leave it empty to use https://ntfy.sh. If you run your own ntfy, paste its address (starting with http:// or https://).",
+      "topic": "Topic",
+      "topicHelp": "1. Install the ntfy app on your phone.\n2. Pick a topic name nobody else would guess, for example a long random phrase: on ntfy.sh anyone who knows the name can read it.\n3. Subscribe to that topic in the app and type the same name here.",
+      "token": "Access token",
+      "tokenHelp": "Only for a protected topic or server: create an access token in ntfy (Account, Access tokens) and paste it here. Leave it empty for an open topic."
     }
   }
 }
