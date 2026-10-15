@@ -455,9 +455,9 @@ Store covers: every library source links the games it imports to its store (Stea
 Game Vault opens on **Home** (`#/home`; the empty address and unknown ones go there too), a page
 that runs edge to edge. Top to bottom:
 
-- **The hero:** a showcase of the page, one slide of each kind, in an order that never puts two of a
-  kind side by side: a featured deal, a release from your series, the newest game, a most
-  anticipated release, a backlog game and a historical low. A kind with nothing to show is left
+- **The hero:** a showcase of the page, one slide of each kind, the two deals first: a featured deal,
+  a historical low, a release from your series, the newest game, a most anticipated release and a
+  backlog game. A kind with nothing to show is left
   out: deals and releases need art and an https link (`heroSlides` in `web/src/lib/home.ts`), the
   low is another game than the featured deal, and the backlog's game changes once a day (the same
   all day) and is never the newest game. Each slide says what it is above its title and has its

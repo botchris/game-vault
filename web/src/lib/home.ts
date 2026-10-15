@@ -178,8 +178,8 @@ export interface HeroSource<D, R> {
   backlog: string[];
 }
 
-/** The hero's slides: one of each kind, in an order that never puts two of a kind side by side.
- *  A kind with nothing to show is left out: deals and releases need art and an https link, the low
+/** The hero's slides: one of each kind, the two deals first (the featured one, then a historical
+ *  low), so the hero opens on what is for sale, then releases and games in turn. A kind with nothing to show is left out: deals and releases need art and an https link, the low
  *  is another game than the featured deal, and the backlog's game (one a day, the same all day) is
  *  never the newest game, which has a slide of its own. */
 export function heroSlides<D extends { title: string; imageUrl: string; url: string }, R extends { title: string; coverUrl: string; url: string }>(
@@ -196,11 +196,11 @@ export function heroSlides<D extends { title: string; imageUrl: string; url: str
 
   const out: HeroSlide<D, R>[] = [];
   if (deal) out.push({ kind: 'deal', deal });
+  if (low) out.push({ kind: 'low', deal: low });
   if (series) out.push({ kind: 'series', release: series });
   if (newest) out.push({ kind: 'recent', gameId: newest });
   if (anticipated) out.push({ kind: 'anticipated', release: anticipated });
   if (backlog.length) out.push({ kind: 'backlog', gameId: backlog[day % backlog.length] });
-  if (low) out.push({ kind: 'low', deal: low });
   return out;
 }
 

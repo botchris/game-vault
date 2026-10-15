@@ -14,8 +14,8 @@ import { dealPrice, dealRegular } from './DealsBlock';
 export type Slide = HeroSlide<HomeDeal, HomeRelease>;
 
 /** The top of the home page, edge to edge: a showcase of the page, one slide of each kind (a deal,
- *  a release from the user's series, the newest game, an anticipated release, a backlog game, a
- *  historical low; see heroSlides). Each slide shows its art over a blurred copy of itself that
+ *  a historical low, a release from the user's series, the newest game, an anticipated release, a
+ *  backlog game; see heroSlides). Each slide shows its art over a blurred copy of itself that
  *  fills the band: a deal's banner (at most 600 pixels wide) at its size, a poster for the rest.
  *
  *  The slides take turns: each dot's bar fills in seven seconds and its end shows the next slide, so
