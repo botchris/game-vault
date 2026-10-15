@@ -6096,7 +6096,7 @@ Providers), *never fetched* (a card with Refresh; the skeleton shows only while 
 
 **IsThereAnyDeal** (`internal/adapters/outbound/itad`, provider `itad`): ITAD's API v2 with your own
 free API key (Providers → Deals; an app registered on isthereanydeal.com) and an optional country
-(two letters; empty: the country of your default currency, euro → Germany, else the United States).
+(two letters; empty: the country of your default currency, euro → Spain, else the United States).
 A refresh sends four requests: the deals list in ITAD's own order (`GET /deals/v2`, 40 games), the
 deepest cuts (`sort=-cut`, 200) kept when at their historical low, and one Steam lookup per list
 (`POST /lookup/shop/61/id/v1`). Only games are kept (no DLC or soundtracks), never mature ones. The
@@ -6337,4 +6337,4 @@ Say plainly:
 - **Series for games without a Steam link** (discs, GOG, Epic): IGDB's GOG and Epic id formats are still unverified (`igdb.md`), so only Steam apps find series. Worth adding once one real GOG or Epic match is seen, or an IGDB id could be cached with the game sheet later.
 - **"Expires soon" uses the library's 30 days**, not the spec's 7, so the chip and the list it opens agree; the chip names the nearest deadline. Say if 7 days matters more than the match (it would need a separate "within a week" library filter).
 - **IGDB releases is off until turned on**, even with the Twitch application entered, because it runs on a schedule and sends the owned games' Steam ids to IGDB. Confirm that, or say it should follow IGDB's covers like the details provider does.
-- **Country from the currency:** the euro asks for Germany's prices. Users elsewhere in the euro zone can set the country in ITAD's settings; say if another default fits better.
+- **Country from the currency:** the euro asks for Spain's prices (maintainer's choice). Users elsewhere in the euro zone set the country in ITAD's settings.
