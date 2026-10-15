@@ -700,3 +700,51 @@ func TestHome_expiredDeals(t *testing.T) {
 		})
 	})
 }
+
+func TestRefresh_futureAttempt(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a snapshot stored while the clock was three days ahead", func(t *testing.T) {
+		deals := &fakeDeals{featured: []game.Deal{deal("Echo Valley", "")}}
+		cfg := &configs{}
+		cfg.enable(deals)
+
+		ahead := start.Add(72 * time.Hour)
+		stored := snapshots{home.BlockDeals: {
+			Block:       home.BlockDeals,
+			FetchedAt:   ahead,
+			FailedAt:    ahead,
+			AttemptedAt: ahead,
+			Error:       "not answering",
+		}}
+		clk := &clock{start}
+		svc := home.NewService(cfg, catalog{}, ownerOf(catalog{}), stored, prefs{}, home.WithDeals(deals), home.WithClock(clk.now))
+
+		t.Run("WHEN the page is read", func(t *testing.T) {
+			h, err := svc.Home(ctx)
+			require.NoError(t, err)
+
+			t.Run("THEN the block can be refreshed now", func(t *testing.T) {
+				assert.True(t, h.Deals.RefreshableAt.IsZero())
+			})
+		})
+
+		t.Run("WHEN the user refreshes it", func(t *testing.T) {
+			h, err := svc.Refresh(ctx, home.BlockDeals)
+
+			t.Run("THEN the refresh is not refused: a wrong clock never locks a block", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.Len(t, deals.calls, 2)
+				assert.Equal(t, home.StateFresh, h.Deals.State)
+			})
+
+			t.Run("AND the guard holds again from this refresh", func(t *testing.T) {
+				clk.advance(time.Minute)
+
+				_, err := svc.Refresh(ctx, home.BlockDeals)
+				assert.ErrorIs(t, err, home.ErrTooSoon)
+			})
+		})
+	})
+}

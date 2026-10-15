@@ -491,7 +491,8 @@ minutes later, and a block without an enabled provider is looked at again about 
 nothing. `-no-unattended` turns the job off: the page shows what is stored, and only **Refresh**
 asks a service. **Refresh** (`RefreshHome`) gathers one block now, at most once every 15 minutes
 counted from the last attempt (`AttemptedAt`: failed attempts and interrupted ones count too, and it
-survives restarts). A refresh the user makes in the second half of the interval takes the job's
+survives restarts). A stored time later than the clock (written while the clock was ahead) is
+ignored by the guard and the job, so a wrong clock never locks a block. A refresh the user makes in the second half of the interval takes the job's
 turn: the job's next one is a whole interval after it. A refresh is all or nothing: if a list
 fails, the previous snapshot stays whole, the failure is recorded next to it and reaches the
 provider's status (System → Health). When the page itself cannot be read, the two blocks are

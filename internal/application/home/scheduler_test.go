@@ -197,3 +197,64 @@ func TestRun(t *testing.T) {
 		})
 	})
 }
+
+func TestRun_futureAttempt(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN deals stored while the clock was three days ahead", func(t *testing.T) {
+		deals := &fakeDeals{}
+		cfg := &configs{}
+		cfg.enable(deals)
+
+		store := snapshots{home.BlockDeals: {
+			Block:     home.BlockDeals,
+			FetchedAt: start.Add(72 * time.Hour),
+		}}
+		clk := &clock{start}
+		st := &steps{
+			clk:  clk,
+			left: 1,
+		}
+		svc := home.NewService(cfg, catalog{}, ownerOf(catalog{}), store, prefs{},
+			home.WithDeals(deals), home.WithClock(clk.now), home.WithRhythm(st.rhythm()))
+
+		t.Run("WHEN the server starts", func(t *testing.T) {
+			svc.Run(ctx)
+
+			t.Run("THEN deals are gathered 1–5 minutes later, not after the wrong time", func(t *testing.T) {
+				assert.Equal(t, []time.Duration{3 * time.Minute}, st.waits)
+				assert.Len(t, deals.calls, 2)
+			})
+		})
+	})
+
+	t.Run("GIVEN deals due, and an attempt stored with a clock a month ahead just before the job's turn", func(t *testing.T) {
+		deals := &fakeDeals{}
+		cfg := &configs{}
+		cfg.enable(deals)
+
+		store := snapshots{}
+		clk := &clock{start}
+		st := &steps{
+			clk:  clk,
+			left: 1,
+		}
+		st.during = func() {
+			store[home.BlockDeals] = home.Snapshot{
+				Block:       home.BlockDeals,
+				AttemptedAt: clk.now().Add(30 * 24 * time.Hour),
+			}
+		}
+		svc := home.NewService(cfg, catalog{}, ownerOf(catalog{}), store, prefs{},
+			home.WithDeals(deals), home.WithClock(clk.now), home.WithRhythm(st.rhythm()))
+
+		t.Run("WHEN the job's turn comes", func(t *testing.T) {
+			svc.Run(ctx)
+
+			t.Run("THEN it gathers deals: the future attempt does not count as a recent refresh", func(t *testing.T) {
+				assert.Len(t, deals.calls, 2)
+			})
+		})
+	})
+}

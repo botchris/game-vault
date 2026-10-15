@@ -191,11 +191,14 @@ func every(b Block) time.Duration {
 }
 
 // lastAttempt returns when the block was last refreshed or tried, interrupted tries included; zero
-// when never.
-func lastAttempt(s Snapshot) time.Time {
-	last := s.FetchedAt
-	for _, t := range []time.Time{s.FailedAt, s.AttemptedAt} {
-		if t.After(last) {
+// when never. A time after now was written while the clock was ahead and is ignored: kept, or
+// clamped to now, it would hold the 15-minute guard and the job's turn until the clock caught up,
+// so a wrong clock would lock the block. The next attempt stores a time the guard can count from.
+func lastAttempt(s Snapshot, now time.Time) time.Time {
+	var last time.Time
+
+	for _, t := range []time.Time{s.FetchedAt, s.FailedAt, s.AttemptedAt} {
+		if t.After(last) && !t.After(now) {
 			last = t
 		}
 	}
@@ -289,7 +292,7 @@ func (s *Service) block(ctx context.Context, b Block) (BlockView, Snapshot, erro
 		ErrorKind: snap.ErrorKind,
 	}
 
-	if last := lastAttempt(snap); !last.IsZero() {
+	if last := lastAttempt(snap, s.now()); !last.IsZero() {
 		v.RefreshableAt = last.Add(manualGap)
 	}
 
@@ -351,7 +354,8 @@ func (s *Service) refreshGuarded(ctx context.Context, b Block) error {
 		return err
 	}
 
-	if last := lastAttempt(snap); !last.IsZero() && s.now().Before(last.Add(manualGap)) {
+	now := s.now()
+	if last := lastAttempt(snap, now); !last.IsZero() && now.Before(last.Add(manualGap)) {
 		return ErrTooSoon
 	}
 
