@@ -1,0 +1,102 @@
+syntax = "proto3";
+
+package gamevault.v1;
+
+import "gamevault/v1/game.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "gamevault/internal/gen/gamevault/v1;gamevaultv1";
+
+// HomeBlock is the state of one of the home page's external blocks (deals, releases).
+message HomeBlock {
+  // "fresh", "stale" (the last attempt failed, or the data is old), "not_configured" (no provider
+  // enabled: nothing is shown) or "never_fetched"; the server sends no other value.
+  string state = 1;
+  // The first enabled provider's name ("IsThereAnyDeal"), for messages and the credit line.
+  string provider = 2;
+  // When the data shown was gathered; unset when never.
+  google.protobuf.Timestamp fetched_at = 3;
+  // When the last attempt failed, when it came after the data; unset otherwise.
+  google.protobuf.Timestamp failed_at = 4;
+  // That failure's kind, which clients translate: "rate_limited", "quota", "settings",
+  // "unavailable" or "failed".
+  string error_kind = 5;
+  // That failure's message, in English (often the service's own words).
+  string error = 6;
+  // When the user may refresh the block again; unset: now.
+  google.protobuf.Timestamp refreshable_at = 7;
+}
+
+// HomeDeal is a shop's current price for a game the user does not own on PC, as the deals service
+// gave it (its terms forbid altering prices and links).
+message HomeDeal {
+  string title = 1;
+  // The shop that sells it ("Steam", "GOG"…).
+  string shop = 2;
+  // The price now and the regular price; unset for a free game.
+  Money price = 3;
+  Money regular = 4;
+  // The discount, in percent.
+  int32 cut = 5;
+  // Whether the price is the lowest the service has seen.
+  bool historical_low = 6;
+  // When the deal ends; unset when the shop does not say.
+  google.protobuf.Timestamp expires_at = 7;
+  // Opens the deal through the service's link (https only); empty when there is none.
+  string url = 8;
+  // The game's art on the service, loaded through the image proxy; empty when there is none.
+  string image_url = 9;
+  // The systems the user owns the game on, when only consoles ("PS4").
+  repeated string owned_on = 10;
+  // The game's Steam app; empty when the service knows none.
+  string steam_app_id = 11;
+}
+
+// HomeRelease is a game that comes out soon.
+message HomeRelease {
+  string title = 1;
+  // The first release date, YYYY-MM-DD; empty when unknown.
+  string release_date = 2;
+  // The Game Vault systems it is announced for ("PC", "PS5").
+  repeated string platforms = 3;
+  // Its box art on the database, loaded through the image proxy; empty when there is none.
+  string cover_url = 4;
+  // Its page on the database; empty when there is none.
+  string url = 5;
+  // The owned game whose series it continues, and its title; empty for an anticipated release.
+  string because_game_id = 6;
+  string because_title = 7;
+}
+
+message GetHomeRequest {}
+
+message GetHomeResponse {
+  HomeBlock deals = 1;
+  // At most 12 each, in the service's order.
+  repeated HomeDeal featured = 2;
+  repeated HomeDeal historical_lows = 3;
+  HomeBlock releases = 4;
+  // Upcoming entries of the user's series, soonest first.
+  repeated HomeRelease from_series = 5;
+  // The most anticipated releases of the next 60 days.
+  repeated HomeRelease anticipated = 6;
+}
+
+message RefreshHomeRequest {
+  // "deals" or "releases".
+  string block = 1;
+}
+
+message RefreshHomeResponse {
+  // The whole home after the refresh: a failure of the service shows on its block.
+  GetHomeResponse home = 1;
+}
+
+// HomeService serves the home page's external blocks: current deals and upcoming releases, gathered
+// in the background and stored, so reading never calls a service.
+service HomeService {
+  rpc GetHome(GetHomeRequest) returns (GetHomeResponse);
+  // Gathers one block now. Refused within 15 minutes of the last attempt (resource exhausted), and
+  // when no provider is enabled for it (failed precondition).
+  rpc RefreshHome(RefreshHomeRequest) returns (RefreshHomeResponse);
+}

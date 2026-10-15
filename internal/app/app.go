@@ -29,6 +29,7 @@ import (
 	"gamevault/internal/application/catalog"
 	"gamevault/internal/application/fields"
 	"gamevault/internal/application/health"
+	"gamevault/internal/application/home"
 	"gamevault/internal/application/logs"
 	"gamevault/internal/application/media"
 	"gamevault/internal/application/ownership"
@@ -53,6 +54,12 @@ type Plugins interface {
 
 	// Valuations are the price providers the valuation service asks.
 	Valuations() []valuation.Provider
+
+	// Deals are the home page's deals providers.
+	Deals() []home.DealsProvider
+
+	// Releases are the home page's upcoming releases providers.
+	Releases() []home.ReleasesProvider
 }
 
 // App is Game Vault built: the HTTP handler, and the services the server still needs to start the
@@ -72,6 +79,9 @@ type App struct {
 
 	// System makes the backups.
 	System *system.Service
+
+	// Home gathers the home page's deals and releases.
+	Home *home.Service
 }
 
 // Option configures Build.
@@ -180,6 +190,9 @@ func Build(ctx context.Context, cfg config.Config, db *sqlite.DB, logFiles *logf
 	catalogSvc := catalog.NewService(games, db, catalog.WithClock(now), catalog.WithCoverCache(mediaSvcs.Covers),
 		catalog.WithPhotoFiles(photos), catalog.WithFields(settingsRepo))
 	ownershipSvc := ownership.NewService(games)
+	homeSvc := home.NewService(registry, games, ownershipSvc, sqlite.NewHomeSnapshots(db), settingsRepo,
+		home.WithDeals(o.plugins.Deals()...), home.WithReleases(o.plugins.Releases()...),
+		home.WithClock(now), home.WithLogger(log))
 
 	mediaSvcs.AutoLinks.SetGameLinker(catalogSvc) // automatic links are saved by the catalog, in its transactions
 	syncSvc := sync.NewService(sources, games, db, catalogSvc, o.plugins.Sources(),
@@ -230,6 +243,7 @@ func Build(ctx context.Context, cfg config.Config, db *sqlite.DB, logFiles *logf
 		Fields:      rpc.NewFieldHandler(fieldsSvc),
 		Health:      rpc.NewHealthHandler(healthSvc),
 		Ownership:   rpc.NewOwnershipHandler(ownershipSvc),
+		Home:        rpc.NewHomeHandler(homeSvc),
 	}, rpc.Options{
 		UIDir:       cfg.UIDir,
 		CORSOrigins: cfg.CORSOrigins,
@@ -242,6 +256,7 @@ func Build(ctx context.Context, cfg config.Config, db *sqlite.DB, logFiles *logf
 		Valuation: valuationSvc,
 		Media:     mediaSvcs,
 		System:    systemSvc,
+		Home:      homeSvc,
 	}, nil
 }
 
@@ -253,6 +268,10 @@ func (noPlugins) Sources() []sync.Provider { return nil }
 func (noPlugins) Providers() []providers.Impl { return nil }
 
 func (noPlugins) Valuations() []valuation.Provider { return nil }
+
+func (noPlugins) Deals() []home.DealsProvider { return nil }
+
+func (noPlugins) Releases() []home.ReleasesProvider { return nil }
 
 // keepValidating is the default certificate policy: it applies nothing, so Go's default (every
 // certificate checked) stays.

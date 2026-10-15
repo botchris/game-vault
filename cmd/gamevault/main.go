@@ -96,12 +96,13 @@ func run() error {
 	// Every job that makes requests nobody asked for at that moment is off with -no-unattended. The
 	// auto-linker stays on: without the details scanner it only searches games a person opened.
 	if cfg.NoUnattended {
-		log.Warn("scheduled scans, keep-alives, price estimates and the background details scan are off (-no-unattended)")
+		log.Warn("scheduled scans, keep-alives, price estimates, the background details scan and the home page's deals and releases are off (-no-unattended)")
 	} else {
 		go vault.Sync.RunScheduler(ctx, time.Minute, 30*time.Minute)
 		go vault.Sync.RunKeepAlive(ctx, time.Minute, 10*time.Minute)
 		go vault.Valuation.RunScheduler(ctx)
 		go vault.Media.Details.RunScanner(ctx, 2*time.Second) // 2-4 s apart: gentle enough for the strictest store API (Steam: ~200 requests / 5 min)
+		go vault.Home.Run(ctx)                                // deals every 6 h, releases every 24 h, ±10 %
 	}
 
 	go vault.Media.AutoLinks.Run(ctx, 2*time.Second) // one game at a time, jittered, after cover downloads
