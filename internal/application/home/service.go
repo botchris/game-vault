@@ -49,6 +49,11 @@ const (
 	fetchedDeals = 40
 	shownDeals   = 12
 
+	// shownSeries is how many upcoming entries of the user's series the page gets: a large
+	// collection belongs to many series, and a row of more than a few dozen is not read. The
+	// snapshot keeps them all; the cap is applied when the page is read.
+	shownSeries = 20
+
 	// anticipationWindow is how far ahead the most anticipated releases are looked for. It must
 	// match the window of the releases providers' Test request (60 days, limit 40), so a Test checks
 	// the request a refresh makes.
@@ -293,7 +298,7 @@ func (s *Service) Home(ctx context.Context) (Home, error) {
 			ids[g.ID()] = true
 		}
 
-		out.FromSeries = upcoming(snap.FromSeries, today, ids)
+		out.FromSeries = soonest(upcoming(snap.FromSeries, today, ids), shownSeries)
 		out.Anticipated = upcoming(snap.Anticipated, today, nil)
 	}
 
@@ -359,6 +364,26 @@ func upcoming(in []game.Release, today game.Date, owned map[game.ID]bool) []game
 	}
 
 	return out
+}
+
+// soonest returns the n releases that come out first, soonest first; releases without a date go
+// last, in their order. in is not changed.
+func soonest(in []game.Release, n int) []game.Release {
+	out := slices.Clone(in)
+	slices.SortStableFunc(out, func(a, b game.Release) int {
+		switch {
+		case a.Date == b.Date:
+			return 0
+		case a.Date == "":
+			return 1
+		case b.Date == "":
+			return -1
+		}
+
+		return strings.Compare(string(a.Date), string(b.Date))
+	})
+
+	return out[:min(len(out), n)]
 }
 
 // Refresh gathers a block now, for the user, at most once every 15 minutes (failed attempts

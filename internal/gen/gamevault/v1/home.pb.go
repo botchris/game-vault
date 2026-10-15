@@ -400,7 +400,7 @@ type GetHomeResponse struct {
 	Featured       []*HomeDeal `protobuf:"bytes,2,rep,name=featured,proto3" json:"featured,omitempty"`
 	HistoricalLows []*HomeDeal `protobuf:"bytes,3,rep,name=historical_lows,json=historicalLows,proto3" json:"historical_lows,omitempty"`
 	Releases       *HomeBlock  `protobuf:"bytes,4,opt,name=releases,proto3" json:"releases,omitempty"`
-	// Upcoming entries of the user's series, soonest first.
+	// Upcoming entries of the user's series, soonest first: at most the 20 soonest.
 	FromSeries []*HomeRelease `protobuf:"bytes,5,rep,name=from_series,json=fromSeries,proto3" json:"from_series,omitempty"`
 	// The most anticipated releases of the next 60 days.
 	Anticipated   []*HomeRelease `protobuf:"bytes,6,rep,name=anticipated,proto3" json:"anticipated,omitempty"`

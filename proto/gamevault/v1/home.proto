@@ -76,7 +76,7 @@ message GetHomeResponse {
   repeated HomeDeal featured = 2;
   repeated HomeDeal historical_lows = 3;
   HomeBlock releases = 4;
-  // Upcoming entries of the user's series, soonest first.
+  // Upcoming entries of the user's series, soonest first: at most the 20 soonest.
   repeated HomeRelease from_series = 5;
   // The most anticipated releases of the next 60 days.
   repeated HomeRelease anticipated = 6;

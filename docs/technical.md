@@ -475,7 +475,7 @@ bottom:
   the collections and franchises of games you own, each with "Because you have X", which opens X's
   sheet) and "Most anticipated" (main games of the next 60 days with the most follows before
   release). Releases already out, or explained by a game no longer in the catalog, are left out
-  when the page is read.
+  when the page is read, and "From your series" shows the 20 soonest (the snapshot keeps them all).
 - **Your collection:** games and copies, games added this month (local time), games in the backlog,
   the value of physical copies (the first price source with estimates; hidden without any), the 8
   newest covers, and the share of each system (editions per system, the five largest and the rest,

@@ -799,3 +799,48 @@ func TestRefresh_unsavedAttempt(t *testing.T) {
 		})
 	})
 }
+
+func TestHome_seriesCap(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a large collection whose series have thirty upcoming entries", func(t *testing.T) {
+		keep := newGame(t, "Lantern Keep", game.Links{game.LinkSteam: "4410"}, steamLibrary)
+		games := catalog{keep}
+		releases := &fakeReleases{}
+
+		releases.series = append(releases.series, game.Release{
+			Title:   "Lantern Keep: Someday",
+			Because: keep.ID(),
+		}) // no date yet
+
+		for i := 30; i > 0; i-- {
+			releases.series = append(releases.series, game.Release{
+				Title:   fmt.Sprintf("Lantern Keep %d", i),
+				Date:    game.DateOf(start.AddDate(0, 0, i)),
+				Because: keep.ID(),
+			})
+		}
+
+		cfg := &configs{}
+		cfg.enable(releases)
+
+		stored := snapshots{}
+		svc := home.NewService(cfg, games, ownerOf(games), stored, prefs{}, home.WithReleases(releases), home.WithClock((&clock{start}).now))
+
+		t.Run("WHEN the releases are refreshed and read", func(t *testing.T) {
+			h, err := svc.Refresh(ctx, home.BlockReleases)
+			require.NoError(t, err)
+
+			t.Run("THEN the page gets the twenty soonest, soonest first", func(t *testing.T) {
+				require.Len(t, h.FromSeries, 20)
+				assert.Equal(t, "Lantern Keep 1", h.FromSeries[0].Title)
+				assert.Equal(t, "Lantern Keep 20", h.FromSeries[19].Title)
+			})
+
+			t.Run("AND the stored snapshot keeps every entry", func(t *testing.T) {
+				assert.Len(t, stored[home.BlockReleases].FromSeries, 31)
+			})
+		})
+	})
+}

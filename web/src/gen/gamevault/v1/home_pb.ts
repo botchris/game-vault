@@ -268,7 +268,7 @@ export type GetHomeResponse = Message<"gamevault.v1.GetHomeResponse"> & {
   releases?: HomeBlock | undefined;
 
   /**
-   * Upcoming entries of the user's series, soonest first.
+   * Upcoming entries of the user's series, soonest first: at most the 20 soonest.
    *
    * @generated from field: repeated gamevault.v1.HomeRelease from_series = 5;
    */
