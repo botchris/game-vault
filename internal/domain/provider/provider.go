@@ -27,12 +27,23 @@ const (
 	KindBarcode   Kind = "barcode"
 	KindMetadata  Kind = "metadata"  // game details: summary, genres, companies, trailers...
 	KindValuation Kind = "valuation" // second-hand price estimates of physical copies
+	KindDeals     Kind = "deals"     // current store deals, for the home page
+	KindReleases  Kind = "releases"  // upcoming games, for the home page
 )
 
 // Kinds returns every kind of provider, in the order the Providers page lists them. A new kind is
 // added here and to the plugins that bring providers of it; the configuration registry ranges over
 // this list.
-func Kinds() []Kind { return []Kind{KindCover, KindBarcode, KindMetadata, KindValuation} }
+func Kinds() []Kind {
+	return []Kind{KindCover, KindBarcode, KindMetadata, KindValuation, KindDeals, KindReleases}
+}
+
+// Scheduled reports whether providers of the kind are asked on a schedule rather than when a person
+// looks at something: price estimates, and the home page's deals and releases. They send requests
+// nobody asked for at that moment, so the user turns each of them on explicitly.
+func (k Kind) Scheduled() bool {
+	return k == KindValuation || k == KindDeals || k == KindReleases
+}
 
 // ErrNotFound means no configuration exists for the provider.
 var ErrNotFound = errkind.New(errkind.NotFound, "provider not found")
