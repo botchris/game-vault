@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 
+	"gamevault/internal/application/home"
 	"gamevault/internal/application/media"
 	"gamevault/internal/application/providers"
 	"gamevault/internal/application/sync"
@@ -41,6 +42,10 @@ type Plugin struct {
 
 	// Valuations estimate second-hand prices of physical copies.
 	Valuations []valuation.Provider
+
+	// Deals and Releases feed the home page: current deals and upcoming games.
+	Deals    []home.DealsProvider
+	Releases []home.ReleasesProvider
 }
 
 // Registry holds the plugins compiled into Game Vault.
@@ -112,6 +117,10 @@ func (p Plugin) providersOf(kind provider.Kind) []providers.Impl {
 		return asProviders(p.Metadata)
 	case provider.KindValuation:
 		return asProviders(p.Valuations)
+	case provider.KindDeals:
+		return asProviders(p.Deals)
+	case provider.KindReleases:
+		return asProviders(p.Releases)
 	default:
 		return nil
 	}
@@ -139,7 +148,7 @@ func (r *Registry) Sources() []sync.Provider {
 	return out
 }
 
-// Providers returns every plugin's providers (covers, barcodes, metadata, prices), kind by kind in
+// Providers returns every plugin's providers (covers, barcodes, metadata, prices, deals, releases), kind by kind in
 // provider.Kinds' order and, within a kind, in registration order: the order that breaks ties
 // between equal DefaultOrders in the providers registry.
 func (r *Registry) Providers() []providers.Impl {
@@ -164,6 +173,26 @@ func (r *Registry) Valuations() []valuation.Provider {
 	var out []valuation.Provider
 	for _, p := range r.plugins {
 		out = append(out, p.Valuations...)
+	}
+
+	return out
+}
+
+// Deals returns every plugin's deals providers, for the home service.
+func (r *Registry) Deals() []home.DealsProvider {
+	var out []home.DealsProvider
+	for _, p := range r.plugins {
+		out = append(out, p.Deals...)
+	}
+
+	return out
+}
+
+// Releases returns every plugin's releases providers, for the home service.
+func (r *Registry) Releases() []home.ReleasesProvider {
+	var out []home.ReleasesProvider
+	for _, p := range r.plugins {
+		out = append(out, p.Releases...)
 	}
 
 	return out

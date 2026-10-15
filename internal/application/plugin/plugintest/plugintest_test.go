@@ -2,10 +2,13 @@ package plugintest
 
 import (
 	"context"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
+	"gamevault/internal/application/home"
 	"gamevault/internal/application/media"
 	"gamevault/internal/application/plugin"
 	"gamevault/internal/application/sync"
@@ -105,6 +108,61 @@ func TestProblems_valuations(t *testing.T) {
 		t.Run("THEN the wrong kind and the missing default place are reported", func(t *testing.T) {
 			assert.Len(t, problems, 2)
 			assert.Contains(t, problems[0]+problems[1], "valuation")
+		})
+	})
+}
+
+// misfiledHome is a deals provider and a releases provider written in a hurry: both described as
+// barcode providers, without a default place.
+type misfiledHome struct{}
+
+func (misfiledHome) Descriptor() provider.Descriptor {
+	return provider.Descriptor{
+		ID:             "misfiled-home",
+		Kind:           provider.KindBarcode,
+		Name:           "Misfiled home",
+		DescriptionKey: "providers.misfiledHome.description",
+	}
+}
+func (misfiledHome) Test(context.Context, schema.Settings) error { return nil }
+func (misfiledHome) Deals(context.Context, schema.Settings, home.DealQuery) ([]game.Deal, error) {
+	return nil, nil
+}
+func (misfiledHome) Anticipated(context.Context, schema.Settings, time.Duration) ([]game.Release, error) {
+	return nil, nil
+}
+func (misfiledHome) Sequels(context.Context, schema.Settings, []home.OwnedRef) ([]game.Release, error) {
+	return nil, nil
+}
+
+func TestProblems_homeProviders(t *testing.T) {
+	tr := Translations{"en": {"providers.misfiledHome.description": true}}
+
+	t.Run("GIVEN a plugin whose deals provider is misfiled", func(t *testing.T) {
+		problems := Problems(plugin.Plugin{
+			ID:    "misfiled",
+			Name:  "Misfiled",
+			Deals: []home.DealsProvider{misfiledHome{}},
+		}, tr)
+
+		t.Run("THEN the wrong kind is reported, and the plugin is not said to add nothing", func(t *testing.T) {
+			assert.NotEmpty(t, problems)
+			assert.Contains(t, strings.Join(problems, "\n"), "deals")
+			assert.NotContains(t, strings.Join(problems, "\n"), "adds nothing")
+		})
+	})
+
+	t.Run("GIVEN a plugin whose releases provider is misfiled", func(t *testing.T) {
+		problems := Problems(plugin.Plugin{
+			ID:       "misfiled",
+			Name:     "Misfiled",
+			Releases: []home.ReleasesProvider{misfiledHome{}},
+		}, tr)
+
+		t.Run("THEN the wrong kind is reported, and the plugin is not said to add nothing", func(t *testing.T) {
+			assert.NotEmpty(t, problems)
+			assert.Contains(t, strings.Join(problems, "\n"), "releases")
+			assert.NotContains(t, strings.Join(problems, "\n"), "adds nothing")
 		})
 	})
 }

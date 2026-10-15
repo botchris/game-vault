@@ -3,10 +3,12 @@ package plugin_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gamevault/internal/application/home"
 	"gamevault/internal/application/media"
 	"gamevault/internal/application/plugin"
 	"gamevault/internal/application/sync"
@@ -127,6 +129,90 @@ func TestRegistry_valuations(t *testing.T) {
 		})
 
 		t.Run("THEN they are refused", func(t *testing.T) {
+			assert.ErrorIs(t, err, plugin.ErrDuplicate)
+		})
+	})
+}
+
+type fakeDeals struct{ id provider.ID }
+
+func (f fakeDeals) Descriptor() provider.Descriptor {
+	return provider.Descriptor{
+		ID:   f.id,
+		Kind: provider.KindDeals,
+	}
+}
+
+func (fakeDeals) Test(context.Context, schema.Settings) error { return nil }
+
+func (fakeDeals) Deals(context.Context, schema.Settings, home.DealQuery) ([]game.Deal, error) {
+	return nil, nil
+}
+
+type fakeReleases struct{ id provider.ID }
+
+func (f fakeReleases) Descriptor() provider.Descriptor {
+	return provider.Descriptor{
+		ID:   f.id,
+		Kind: provider.KindReleases,
+	}
+}
+
+func (fakeReleases) Test(context.Context, schema.Settings) error { return nil }
+
+func (fakeReleases) Anticipated(context.Context, schema.Settings, time.Duration) ([]game.Release, error) {
+	return nil, nil
+}
+
+func (fakeReleases) Sequels(context.Context, schema.Settings, []home.OwnedRef) ([]game.Release, error) {
+	return nil, nil
+}
+
+func TestRegistry_homeProviders(t *testing.T) {
+	t.Run("GIVEN a deals plugin and a game database that also lists releases", func(t *testing.T) {
+		deals := plugin.Plugin{
+			ID:    "deals",
+			Name:  "Deals",
+			Deals: []home.DealsProvider{fakeDeals{"deals"}},
+		}
+		db := plugin.Plugin{
+			ID:       "db",
+			Name:     "DB",
+			Covers:   []media.CoverProvider{fakeCovers{"db"}},
+			Releases: []home.ReleasesProvider{fakeReleases{"db-releases"}},
+		}
+
+		r, err := plugin.NewRegistry(deals, db)
+		require.NoError(t, err)
+
+		t.Run("THEN the home service gets them, and the providers registry configures them with the others", func(t *testing.T) {
+			require.Len(t, r.Deals(), 1)
+			require.Len(t, r.Releases(), 1)
+
+			all := r.Providers()
+			ids := make([]provider.ID, 0, len(all))
+
+			for _, p := range all {
+				ids = append(ids, p.Descriptor().ID)
+			}
+
+			assert.Equal(t, []provider.ID{"db", "deals", "db-releases"}, ids, "kind by kind, in provider.Kinds' order")
+		})
+	})
+
+	t.Run("GIVEN a releases provider whose id another plugin's deals provider uses", func(t *testing.T) {
+		_, err := plugin.NewRegistry(
+			plugin.Plugin{
+				ID:    "a",
+				Deals: []home.DealsProvider{fakeDeals{"same"}},
+			},
+			plugin.Plugin{
+				ID:       "b",
+				Releases: []home.ReleasesProvider{fakeReleases{"same"}},
+			},
+		)
+
+		t.Run("THEN the registry refuses them", func(t *testing.T) {
 			assert.ErrorIs(t, err, plugin.ErrDuplicate)
 		})
 	})
