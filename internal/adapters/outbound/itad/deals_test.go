@@ -33,13 +33,14 @@ func TestDeals(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			t.Run("THEN the settings' country wins, in ITAD's own order, without mature games", func(t *testing.T) {
+			t.Run("THEN the settings' country wins, hottest first as on ITAD's deals page, without mature games", func(t *testing.T) {
 				q := f.sentQueries()
 				require.Len(t, q, 1)
 				assert.Equal(t, "ES", q[0].Get("country"))
 				assert.Equal(t, "40", q[0].Get("limit"))
 				assert.Equal(t, "false", q[0].Get("mature"))
-				assert.False(t, q[0].Has("sort"))
+				assert.Equal(t, "-hot", q[0].Get("sort"))
+				assert.False(t, q[0].Has("filter"))
 			})
 
 			t.Run("AND the key travels in the header, never in the URL", func(t *testing.T) {
@@ -113,10 +114,11 @@ func TestDeals(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			t.Run("THEN the deepest cuts are asked for, a full page of them", func(t *testing.T) {
+			t.Run("THEN ITAD is asked for its historical lows, hottest first, a full page of them", func(t *testing.T) {
 				q := f.sentQueries()
 				last := q[len(q)-1]
-				assert.Equal(t, "-cut", last.Get("sort"))
+				assert.Equal(t, "-hot", last.Get("sort"))
+				assert.JSONEq(t, `{"flag":"H"}`, last.Get("filter"))
 				assert.Equal(t, "200", last.Get("limit"))
 			})
 
@@ -241,7 +243,7 @@ func TestDeals_test(t *testing.T) {
 				assert.Equal(t, "ES", q.Get("country"))
 				assert.Equal(t, "40", q.Get("limit"))
 				assert.Equal(t, "false", q.Get("mature"))
-				assert.False(t, q.Has("sort"))
+				assert.Equal(t, "-hot", q.Get("sort"))
 			})
 		})
 

@@ -197,10 +197,14 @@ func (d *Deals) Deals(ctx context.Context, s schema.Settings, q home.DealQuery) 
 	case home.DealsFeatured:
 		query = featuredQuery(country, limit)
 	case home.DealsHistoricalLows:
+		// ITAD keeps only its historical lows and orders them as its deals page does, so the page
+		// holds lows of games people care about rather than the deepest cuts, which shovelware
+		// fills. The check here stays: the filter's semantics are not documented in full.
 		query = url.Values{
 			"country": {country},
 			"mature":  {"false"},
-			"sort":    {"-cut"},
+			"sort":    {sortHot},
+			"filter":  {`{"flag":"H"}`},
 			"limit":   {strconv.Itoa(maxList)},
 		}
 
@@ -243,12 +247,17 @@ func (d *Deals) Deals(ctx context.Context, s schema.Settings, q home.DealQuery) 
 	return out, nil
 }
 
-// featuredQuery is the featured list's query: no sort, so ITAD's own order, the one its deals
-// page opens with, and no mature games.
+// sortHot is the order ITAD's deals page opens with ("Hottest games"). Without a sort the API's
+// order is undocumented, and it filled the list with obscure games.
+const sortHot = "-hot"
+
+// featuredQuery is the featured list's query: the hottest deals, as ITAD's deals page shows them
+// first, and no mature games.
 func featuredQuery(country string, limit int) url.Values {
 	return url.Values{
 		"country": {country},
 		"mature":  {"false"},
+		"sort":    {sortHot},
 		"limit":   {strconv.Itoa(limit)},
 	}
 }
