@@ -104,6 +104,11 @@ type fakeIGDB struct {
 	searchFor map[string]string
 	byID      string
 
+	// anticipated answers the anticipated releases query (sorted by hypes); series answers the
+	// upcoming entries of series (sorted by date).
+	anticipated string
+	series      string
+
 	// terms records every search term.
 	terms []string
 
@@ -115,12 +120,14 @@ func newFakeIGDB(t *testing.T) *fakeIGDB {
 	t.Helper()
 
 	f := &fakeIGDB{
-		valid:     map[string]bool{},
-		bodies:    map[string][]string{},
-		external:  "[]",
-		search:    "[]",
-		byID:      "[]",
-		expiresIn: "5011271",
+		valid:       map[string]bool{},
+		bodies:      map[string][]string{},
+		external:    "[]",
+		search:      "[]",
+		byID:        "[]",
+		anticipated: "[]",
+		series:      "[]",
+		expiresIn:   "5011271",
 	}
 	f.srv = httptest.NewServer(http.HandlerFunc(f.serve))
 	t.Cleanup(f.srv.Close)
@@ -199,6 +206,10 @@ func (f *fakeIGDB) serve(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch {
+	case endpoint == "games" && strings.Contains(string(body), "sort hypes desc"):
+		w.Write([]byte(f.anticipated))
+	case endpoint == "games" && strings.Contains(string(body), "sort first_release_date asc"):
+		w.Write([]byte(f.series))
 	case endpoint == "external_games":
 		w.Write([]byte(f.external))
 	case strings.Contains(string(body), "search "):

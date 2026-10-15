@@ -549,6 +549,9 @@
     "igdbDetails": {
       "description": "Fichas de IGDB para cualquier juego: sinopsis (en inglés), géneros, compañías, fecha de lanzamiento, clasificación por edades, capturas y tráilers de YouTube. Usa la aplicación de Twitch de Carátulas; unas pocas peticiones por juego y luego se guarda."
     },
+    "igdbReleases": {
+      "description": "Próximos lanzamientos para la página de inicio: las siguientes entregas de las series a las que pertenecen tus juegos (encontradas por sus aplicaciones de Steam) y los lanzamientos más esperados de los próximos 60 días. Usa la aplicación de Twitch de Carátulas; unas pocas peticiones al día. IGDB recibe los identificadores de Steam de tus juegos para encontrar sus series."
+    },
     "wikipediaDetails": {
       "description": "Artículo de Wikipedia y datos de Wikidata para cualquier juego que pueda identificar sin dudas: la introducción del artículo en tu idioma (en inglés si no existe), desarrolladoras, editoras, fecha de lanzamiento y géneros. Se muestra con un enlace al artículo (CC BY-SA). Gratis, sin key."
     },
