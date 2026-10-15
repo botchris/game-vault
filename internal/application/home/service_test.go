@@ -844,3 +844,34 @@ func TestHome_seriesCap(t *testing.T) {
 		})
 	})
 }
+
+func TestHome_ownedOnOther(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a game held only as a copy without a platform, and one also on PS4", func(t *testing.T) {
+		unknown := game.CopyDetails{Kind: game.KindPhysical}
+		games := catalog{
+			newGame(t, "Echo Valley", nil, unknown),
+			newGame(t, "Harbor Lights", nil, unknown, ps4Disc),
+		}
+		deals := &fakeDeals{featured: []game.Deal{deal("Echo Valley", ""), deal("Harbor Lights", "")}}
+		cfg := &configs{}
+		cfg.enable(deals)
+		svc := home.NewService(cfg, games, ownerOf(games), snapshots{}, prefs{}, home.WithDeals(deals), home.WithClock((&clock{start}).now))
+
+		t.Run("WHEN the deals are refreshed and read", func(t *testing.T) {
+			h, err := svc.Refresh(ctx, home.BlockDeals)
+			require.NoError(t, err)
+
+			t.Run("THEN both deals stay: a copy without a platform is not a PC copy", func(t *testing.T) {
+				assert.Equal(t, []string{"Echo Valley", "Harbor Lights"}, titles(h.Featured))
+			})
+
+			t.Run("AND the note never names Other: none at all when nothing else is left", func(t *testing.T) {
+				assert.Empty(t, h.Featured[0].OwnedOn)
+				assert.Equal(t, []string{game.SystemPS4}, h.Featured[1].OwnedOn)
+			})
+		})
+	})
+}

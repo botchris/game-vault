@@ -465,9 +465,11 @@ bottom:
 - **Deals** (provider kind `deals`, IsThereAnyDeal): "Featured now" and "Historical lows", 12 each,
   without the games you own on PC. Whether a deal is yours is decided by the ownership lookup
   ("Do I own it?"): the deal's Steam app, or exactly its title. A game you own on PC is hidden; one
-  you own only on consoles stays, with a note ("You have it on PS4"). The filter runs when the page
-  is read, so a game bought since the last refresh is gone at once, and so is a deal whose end has
-  passed (after a downtime, say); the stored snapshot is not changed. Cards show ITAD's art (through
+  you own only on consoles stays, with a note ("You have it on PS4"); a copy without a platform
+  ("Other") is not a PC copy either, but the note leaves it out, and shows nothing when it is all
+  you have. The filter runs when the page is read, so a game bought since the last refresh is gone
+  at once, and so is a deal whose end has passed (after a downtime, say); the stored snapshot is not
+  changed. Cards show ITAD's art (through
   the image proxy), the shop, the price with the cut and the regular price, a "Historical low" badge
   and "Ends in N days" when known, and open the deal through ITAD's own link (https only),
   unchanged. A credit line links to IsThereAnyDeal.

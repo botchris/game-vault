@@ -35,8 +35,8 @@ type Deal struct {
 	// ImageURL is the game's art on the service; "" when there is none.
 	ImageURL string
 
-	// OwnedOn lists the systems the user owns the game on, when they own it only on consoles. The
-	// home page fills it; providers leave it empty.
+	// OwnedOn lists the systems the user owns the game on, when they own it only on consoles (never
+	// Other, a copy without a platform). The home page fills it; providers leave it empty.
 	OwnedOn []string
 }
 

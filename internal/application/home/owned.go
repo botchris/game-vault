@@ -86,12 +86,14 @@ func keep(deals []game.Deal, results []ownership.Result) []game.Deal {
 }
 
 // heldSystems returns the systems of the copies, sorted and without repeats, nil when there are
-// none. The lookup lists only the copies the user still has.
+// none. The lookup lists only the copies the user still has. Other (a copy without a platform) is
+// left out: it is not PC, so the deal stays, but "You have it on Other" tells the user nothing, and
+// a game held only that way gets no note.
 func heldSystems(copies []ownership.Copy) []string {
 	var out []string
 
 	for _, c := range copies {
-		if !slices.Contains(out, c.System) {
+		if c.System != game.SystemOther && !slices.Contains(out, c.System) {
 			out = append(out, c.System)
 		}
 	}
