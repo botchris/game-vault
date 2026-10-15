@@ -1172,7 +1172,7 @@
       "tokenHelp": "Only for a protected topic or server: create an access token in ntfy (Account, Access tokens) and paste it here. Leave it empty for an open topic."
     },
     "webhook": {
-      "description": "Sends each event as a JSON document to an address of your own, so other tools (Home Assistant, n8n, a script) can react to it.",
+      "description": "Sends each event as a JSON document to an address of your own, so your own tools or scripts can react to it.",
       "url": "Address",
       "urlHelp": "The address that receives a POST with the JSON document, starting with http:// or https://. It must answer with a 2xx status; redirects are not followed, so use the final address.",
       "header": "Header name",

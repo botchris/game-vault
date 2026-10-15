@@ -1,5 +1,5 @@
 // Package webhook is the webhook plugin: every event posted as one JSON document to an address
-// the user gives, for the tools that want to react to it (Home Assistant, n8n, a script). The
+// the user gives, so the user's own tools or scripts can react to it. The
 // optional header value is a secret: nothing this package returns repeats it, and neither does an
 // address, which may hold a token of its own.
 package webhook

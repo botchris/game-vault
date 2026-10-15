@@ -1172,7 +1172,7 @@
       "tokenHelp": "Solo para un tema o servidor protegido: crea un token de acceso en ntfy (Cuenta, Tokens de acceso) y pégalo aquí. Déjalo vacío para un tema abierto."
     },
     "webhook": {
-      "description": "Envía cada evento como un documento JSON a una dirección propia, para que otras herramientas (Home Assistant, n8n, un script) reaccionen.",
+      "description": "Envía cada evento como un documento JSON a una dirección propia, para que tus propias herramientas o scripts reaccionen.",
       "url": "Dirección",
       "urlHelp": "La dirección que recibe un POST con el documento JSON, empezando por http:// o https://. Debe responder con un estado 2xx; no se siguen redirecciones, así que usa la dirección final.",
       "header": "Nombre de la cabecera",
