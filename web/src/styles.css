@@ -784,7 +784,8 @@ td.title { font-weight: 500; min-width: 220px; }
 .home-hero .home-hero-ghost { background: var(--glass-strong); border-color: transparent; color: var(--on-dark); }
 .home-hero .home-hero-ghost:hover { background: var(--glass-border); }
 .home-hero-art { flex: none; width: min(600px, 46%); aspect-ratio: 460 / 215; object-fit: cover; border-radius: var(--radius-media); box-shadow: var(--shadow-lg); }
-.home-hero-poster { flex: none; width: 210px; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); }
+.home-hero-poster { flex: none; width: 210px; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); overflow: hidden; }
+.home-hero-poster > img { display: block; width: 100%; aspect-ratio: 2 / 3; object-fit: cover; }
 .home-hero-dots { position: absolute; right: var(--home-gutter); bottom: 20px; z-index: 2; display: flex; gap: 6px; }
 .home-hero-dots button { position: relative; width: 32px; min-height: 0; height: 20px; padding: 0; border: 0; background: none; }
 .home-hero-dots button:hover:not(:disabled) { background: none; }
@@ -926,10 +927,14 @@ a.home-because { color: var(--link); }
   .home-hero:empty { min-height: 320px; }
   .home-hero-body { flex-direction: column-reverse; align-items: stretch; gap: 20px; padding: 16px var(--home-gutter) 40px; }
   .home-hero-art { width: 100%; box-shadow: var(--shadow-md); }
-  /* The newest game's hero leaves its poster to the blurred backdrop: beside the text it would
-     squeeze the title into a column of syllables. */
-  .home-hero-poster { display: none; }
-  .home-hero-body:has(.home-hero-poster) { padding-top: 40px; }
+  /* A poster goes above the text, small: beside it, it would squeeze the title into a column of
+     syllables. */
+  /* Art and text keep together at the bottom of the band, so the text sits at the same height on
+     every slide however tall the tallest one makes the band. */
+  .home-hero-body { align-items: flex-start; justify-content: flex-start; }
+  .home-hero-art { align-self: stretch; }
+  .home-hero-poster { width: 104px; box-shadow: var(--shadow-md); }
+  .home-hero-body:has(.home-hero-poster) { padding-top: 24px; }
   .home-hero-title { font-size: 30px; }
   .home-hero-price b { font-size: 24px; }
   .home-hero-dots { bottom: 12px; }

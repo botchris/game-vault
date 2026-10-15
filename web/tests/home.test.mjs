@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  blockMode, canRefresh, collectionSummary, endsInDays, heroDeals, httpsLink, isBoxArt, libraryPreset, minutesUntil, pendingItems, pickValue,
+  blockMode, canRefresh, collectionSummary, endsInDays, heroSlides, httpsLink, isBoxArt, libraryPreset, minutesUntil, pendingItems, pickValue,
   railArrows, refreshDelay, staleLine,
 } from '../src/lib/home.ts';
 
@@ -66,7 +66,7 @@ test('the collection in figures: held copies, this month in local time, the back
   assert.equal(s.addedThisMonth, 2, 'September 30th at 23:30 is last month');
   assert.equal(s.backlog, 2);
   assert.deepEqual(s.recent, ['g3', 'g1', 'g2']);
-  assert.deepEqual(s.backlogGames, ['g3', 'g1'], 'the backlog row, newest first');
+  assert.deepEqual(s.backlogGames, ['g3', 'g1'], 'the backlog, newest first');
   assert.deepEqual(s.systems, [
     { system: 'PC', count: 2, rest: false },
     { system: 'PS4', count: 1, rest: false },
@@ -91,23 +91,57 @@ test('the share by system keeps the five largest and adds the rest up', () => {
   ]);
 });
 
-test('"Recently added" and "In your backlog" keep the twelve newest', () => {
+test('"Recently added" keeps the twelve newest; the backlog keeps every game, newest first', () => {
   const games = Array.from({ length: 14 }, (_, i) => game(`g${i}`, `Example ${i}`, [], { createdAt: ts(new Date(2026, 9, 1 + i)), playStatus: 1 }));
   const newest = ['g13', 'g12', 'g11', 'g10', 'g9', 'g8', 'g7', 'g6', 'g5', 'g4', 'g3', 'g2'];
   const s = collectionSummary(games, today);
   assert.deepEqual(s.recent, newest);
-  assert.deepEqual(s.backlogGames, newest);
+  assert.deepEqual(s.backlogGames, [...newest, 'g1', 'g0']);
 });
 
-// Deals as the API sends them, with only the fields the hero reads; every title is invented.
+// Deals and releases as the API sends them, with only the fields the hero reads; every title is invented.
 const deal = (title, extra = {}) => ({ title, imageUrl: `https://assets.example/${title}.jpg`, url: `https://itad.example/${title}`, ...extra });
+const release = (title, extra = {}) => ({ title, coverUrl: `https://images.example/${title}.jpg`, url: `https://igdb.example/${title}`, ...extra });
+const kinds = (slides) => slides.map((s) => `${s.kind}:${s.deal?.title ?? s.release?.title ?? s.gameId}`);
+const everything = {
+  featured: [deal('Starfall'), deal('Copper Coast')],
+  lows: [deal('Starfall'), deal('Tidebreaker')],
+  series: [release('Echo Valley II')],
+  anticipated: [release('Veilborn')],
+  recent: ['g9', 'g8'],
+  backlog: ['g7', 'g6', 'g5'],
+};
 
-test('the hero shows up to four deals with art and an https link, featured first, then the lows', () => {
-  const featured = [deal('Starfall'), deal('No Art', { imageUrl: '' }), deal('Plain Link', { url: 'http://itad.example/x' }), deal('Copper Coast')];
-  const lows = [deal('Copper Coast'), deal('Tidebreaker'), deal('Glass Garden'), deal('Rookwood')];
-  assert.deepEqual(heroDeals(featured, lows).map((d) => d.title), ['Starfall', 'Copper Coast', 'Tidebreaker', 'Glass Garden'],
-    'a game in both lists shows once');
-  assert.deepEqual(heroDeals([], []), []);
+test('the hero takes one of each kind, never two of a kind in a row', () => {
+  assert.deepEqual(kinds(heroSlides(everything, today)), [
+    'deal:Starfall', 'series:Echo Valley II', 'recent:g9', 'anticipated:Veilborn', 'backlog:g5', 'low:Tidebreaker',
+  ], 'the low is another game than the featured deal');
+});
+
+test('a kind with nothing to show is left out, and without anything the hero is empty', () => {
+  const none = { featured: [], lows: [], series: [], anticipated: [], recent: [], backlog: [] };
+  assert.deepEqual(kinds(heroSlides({ ...none, recent: ['g9'] }, today)), ['recent:g9']);
+  assert.deepEqual(heroSlides(none, today), []);
+});
+
+test('the hero shows deals and releases only with art and an https link', () => {
+  const slides = heroSlides({
+    ...everything,
+    featured: [deal('No Art', { imageUrl: '' }), deal('Plain Link', { url: 'http://itad.example/x' }), deal('Copper Coast')],
+    series: [release('No Cover', { coverUrl: '' })],
+    anticipated: [release('Plain Link', { url: 'http://igdb.example/x' }), release('Veilborn')],
+  }, today);
+  assert.deepEqual(kinds(slides).filter((k) => !k.startsWith('recent') && !k.startsWith('backlog')),
+    ['deal:Copper Coast', 'anticipated:Veilborn', 'low:Starfall']);
+});
+
+test("the backlog's game changes from one day to the next, and is never the newest game", () => {
+  const pick = (day) => heroSlides(everything, new Date(2026, 9, day, 10)).find((s) => s.kind === 'backlog').gameId;
+  assert.deepEqual([pick(15), pick(16), pick(17), pick(18)], ['g5', 'g7', 'g6', 'g5']);
+  assert.equal(pick(15), heroSlides(everything, new Date(2026, 9, 15, 23, 59)).find((s) => s.kind === 'backlog').gameId,
+    'the same all day');
+  const onlyNewest = heroSlides({ ...everything, backlog: ['g9'] }, today);
+  assert.equal(onlyNewest.find((s) => s.kind === 'backlog'), undefined);
 });
 
 test('a row shows its arrows only when it does not fit, and each one hides at its end', () => {

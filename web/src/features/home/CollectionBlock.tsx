@@ -5,7 +5,7 @@ import { Cover } from '../../components/Cover';
 import { platformLook } from '../../components/PlatformBadge';
 import type { Game } from '../../gen/gamevault/v1/game_pb';
 import { gameHash } from '../../lib/gameRoute';
-import { pickValue, type CollectionSummary } from '../../lib/home';
+import { pickValue, ROW, type CollectionSummary } from '../../lib/home';
 import { formatAmount } from '../../lib/money';
 import { HomeRow } from './Carousel';
 
@@ -68,7 +68,7 @@ export function CollectionRows({ games, summary }: { games: Game[]; summary: Col
       </HomeRow>
       {summary.backlogGames.length > 0 && (
         <HomeRow id="home-backlog" title={t('home.collection.backlogRow')} aside={seeAll('#/library/backlog')}>
-          {pick(summary.backlogGames).map((g) => <GamePoster key={g.id} game={g} />)}
+          {pick(summary.backlogGames.slice(0, ROW)).map((g) => <GamePoster key={g.id} game={g} />)}
         </HomeRow>
       )}
       <section className="home-row" aria-labelledby="home-systems">
