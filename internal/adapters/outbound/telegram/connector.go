@@ -152,7 +152,7 @@ func (c *Connector) FindChat(ctx context.Context, settings schema.Settings) (key
 		}
 	}
 
-	return "", "", errkind.Invalidf("Telegram has no message for this bot yet: send a message to the bot (or add it to the group and write there), then press Find again")
+	return "", "", errkind.Invalidf("Telegram has no message for this bot yet: send a message to the bot (or add it to the group and write there), then press Test again")
 }
 
 // credentials reads the settings; the chat is only needed to send.

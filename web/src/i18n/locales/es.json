@@ -1106,6 +1106,7 @@
     "eventsTitle": "Qué enviar",
     "noEvents": "Elige al menos un evento.",
     "all": "Todos",
+    "allGroup": "Todos: {{group}}",
     "groups": {
       "activity": "Actividad",
       "attention": "Requiere atención",
@@ -1132,6 +1133,7 @@
       "auth.failed_logins": "Varias contraseñas incorrectas desde la misma dirección en una hora."
     },
     "state": {
+      "failing": "El último mensaje falló",
       "working": "Funciona",
       "paused": "En pausa",
       "off": "Apagada",

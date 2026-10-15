@@ -34,12 +34,14 @@ export function toggleGroup(selected: string[], kinds: string[], on: boolean): s
 }
 
 /** What a connection's row says. */
-export type ConnectionState = 'working' | 'paused' | 'off' | 'untested';
+export type ConnectionState = 'working' | 'failing' | 'paused' | 'off' | 'untested';
 
 /** A connection's state. Paused comes first even when it is off: Health reports a paused connection
- *  as an error, and the row must show why. Untested until something was delivered through it. */
+ *  as an error, and the row must show why. Untested until something was queued for it; failing when the last message
+ *  failed or was dropped. */
 export function connectionState(c: { enabled: boolean; pausedReason: string }, lastDelivery?: { state: string }): ConnectionState {
   if (c.pausedReason) return 'paused';
   if (!c.enabled) return 'off';
-  return lastDelivery ? 'working' : 'untested';
+  if (!lastDelivery) return 'untested';
+  return lastDelivery.state === 'failed' || lastDelivery.state === 'dropped' ? 'failing' : 'working';
 }

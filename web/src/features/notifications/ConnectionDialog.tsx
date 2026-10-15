@@ -85,7 +85,7 @@ export default function ConnectionDialog({ type, connection, catalog, onClose, o
             {t('notifications.name')}
             <input value={name} onChange={(e) => setName(e.target.value)} />
           </label>
-          <SettingInputs fields={type.fields} settings={settings} onChange={setSettings} idPrefix="connection" />
+          <SettingInputs fields={type.fields} settings={settings} onChange={(next) => { setFound([]); setSettings(next); }} idPrefix="connection" />
           <label>
             {t('notifications.language')}
             <select value={language} onChange={(e) => setLanguage(e.target.value)}>
@@ -140,7 +140,7 @@ function EventGroup({ group, kinds, selected, onChange }: {
       <div className="notify-group-head">
         <h4 id={titleId}>{t(`notifications.groups.${group}`, { defaultValue: group })}</h4>
         <label className="check-inline small">
-          <AllBox all={chosen === kinds.length} some={chosen > 0} onChange={(on) => onChange(toggleGroup(selected, kinds, on))} />
+          <AllBox label={t('notifications.allGroup', { group: t(`notifications.groups.${group}`, { defaultValue: group }) })} all={chosen === kinds.length} some={chosen > 0} onChange={(on) => onChange(toggleGroup(selected, kinds, on))} />
           {t('notifications.all')}
         </label>
       </div>
@@ -158,10 +158,10 @@ function EventGroup({ group, kinds, selected, onChange }: {
 }
 
 /** A group's "All" box: checked when every kind is, mixed when only some are. */
-function AllBox({ all, some, onChange }: { all: boolean; some: boolean; onChange: (on: boolean) => void }) {
+function AllBox({ label, all, some, onChange }: { label: string; all: boolean; some: boolean; onChange: (on: boolean) => void }) {
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (ref.current) ref.current.indeterminate = some && !all;
   }, [all, some]);
-  return <input ref={ref} type="checkbox" checked={all} onChange={(e) => onChange(e.target.checked)} />;
+  return <input ref={ref} type="checkbox" aria-label={label} checked={all} onChange={(e) => onChange(e.target.checked)} />;
 }

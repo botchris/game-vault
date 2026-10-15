@@ -422,6 +422,8 @@ func TestFindChat(t *testing.T) {
 			t.Run("THEN the error says to write to the bot", func(t *testing.T) {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "send a message to the bot")
+				assert.Contains(t, err.Error(), "press Test again")
+				assert.NotContains(t, err.Error(), "Find")
 				assert.Equal(t, errkind.Invalid, errkind.Of(err))
 			})
 		})

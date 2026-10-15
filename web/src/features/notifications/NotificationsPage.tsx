@@ -182,7 +182,7 @@ function AddressField() {
   );
 }
 
-const STATE_TONES: Record<ConnectionState, string> = { working: 'ok', paused: 'error', off: 'never', untested: 'never' };
+const STATE_TONES: Record<ConnectionState, string> = { working: 'ok', failing: 'warn', paused: 'error', off: 'never', untested: 'never' };
 
 function ConnectionRow(props: {
   connection: Connection;

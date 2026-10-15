@@ -41,3 +41,9 @@ test("a connection's state: paused wins (health reports it), then off, then unte
   assert.equal(connectionState({ enabled: true, pausedReason: '' }, { state: 'sent' }), 'working');
   assert.equal(connectionState({ enabled: true, pausedReason: '' }, { state: 'queued' }), 'working');
 });
+
+test("a connection whose last delivery failed or was dropped is not shown as working", () => {
+  assert.equal(connectionState({ enabled: true, pausedReason: '' }, { state: 'failed' }), 'failing');
+  assert.equal(connectionState({ enabled: true, pausedReason: '' }, { state: 'dropped' }), 'failing');
+  assert.equal(connectionState({ enabled: false, pausedReason: '' }, { state: 'failed' }), 'off');
+});
