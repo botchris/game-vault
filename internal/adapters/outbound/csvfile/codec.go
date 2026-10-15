@@ -9,6 +9,9 @@
 // currency's decimals (29.95, 1500 for JPY), and currency its ISO 4217 code. A price without
 // currency is left without one: the importer applies the default currency.
 //
+// region is the copy's region, one of pal, ntsc_u, ntsc_j, ntsc_k, ntsc_c, asia, region_free (an
+// import also reads "NTSC-J", "Region free"…); any kind of copy may have one.
+//
 // system is the system the copy is played on (PC, PS4, Switch…). The export writes each copy's
 // effective system; the import keeps a value only when it differs from the one the platform
 // implies (it is then the copy's own system), so an export imported again changes nothing.
@@ -75,6 +78,7 @@ var columns = []column{
 	{"barcode", func(r exportRow) string { return string(r.copy.Barcode) }},
 	{"system", func(r exportRow) string { return r.copy.System() }},
 	{"autoLinks", func(r exportRow) string { return r.autoLinks }},
+	{"region", func(r exportRow) string { return string(r.copy.Region) }},
 }
 
 var aliases = map[string]string{
@@ -252,6 +256,7 @@ func (r *rowReader) copy() (_ game.ImportedCopy, ok bool) {
 	links := r.links("links")
 	autoLinks := r.links("autoLinks")
 	d.Grade = r.grade()
+	d.Region = r.region()
 	d.Contents = r.contents()
 	d.Price = r.price()
 
@@ -349,6 +354,22 @@ func (r *rowReader) grade() game.Grade {
 	g := game.Grade(strings.ToLower(v))
 	if !g.Valid() {
 		r.warn("grade %q is not one of sealed, mint, very_good, good, acceptable, damaged", v)
+
+		return ""
+	}
+
+	return g
+}
+
+func (r *rowReader) region() game.Region {
+	v := r.get("region")
+	if v == "" {
+		return ""
+	}
+
+	g, ok := game.ParseRegion(v)
+	if !ok {
+		r.warn("region %q is not one of pal, ntsc_u, ntsc_j, ntsc_k, ntsc_c, asia, region_free", v)
 
 		return ""
 	}

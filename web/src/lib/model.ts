@@ -1,5 +1,5 @@
 import { timestampDate, type Timestamp } from '@bufbuild/protobuf/wkt';
-import { CopyContent, CopyGrade, CopyKind, CopyStatus, PlayStatus, type Copy, type CopyDetails, type Game } from '../gen/gamevault/v1/game_pb';
+import { CopyContent, CopyGrade, CopyKind, CopyRegion, CopyStatus, PlayStatus, type Copy, type CopyDetails, type Game } from '../gen/gamevault/v1/game_pb';
 import { daysUntil, isPendingKey } from './deadlines';
 
 export { CopyKind, CopyStatus, PlayStatus };
@@ -46,7 +46,7 @@ export const PHYSICAL_PLATFORMS = [
 export function emptyDetails(kind: CopyKind = CopyKind.PHYSICAL): CopyDetailsInput {
   return {
     kind, platform: '', status: STATUSES_BY_KIND[kind][0], key: '', redeemBy: '', origin: '',
-    acquiredOn: '', edition: '', grade: CopyGrade.UNSPECIFIED, contents: [], location: '', notes: '', barcode: '', system: '', fields: {},
+    acquiredOn: '', edition: '', grade: CopyGrade.UNSPECIFIED, region: CopyRegion.UNSPECIFIED, contents: [], location: '', notes: '', barcode: '', system: '', fields: {},
   };
 }
 
@@ -66,10 +66,15 @@ export const gameInfo = (g: Game) => ({
 });
 
 export const GRADES = [CopyGrade.SEALED, CopyGrade.MINT, CopyGrade.VERY_GOOD, CopyGrade.GOOD, CopyGrade.ACCEPTABLE, CopyGrade.DAMAGED] as const;
+export const REGIONS = [
+  CopyRegion.PAL, CopyRegion.NTSC_U, CopyRegion.NTSC_J, CopyRegion.NTSC_K, CopyRegion.NTSC_C, CopyRegion.ASIA, CopyRegion.REGION_FREE,
+] as const;
 export const CONTENTS = [CopyContent.BOX, CopyContent.MANUAL, CopyContent.MEDIA, CopyContent.EXTRAS] as const;
 
 /** Translation key suffixes: t(`grade.${gradeKey(g)}`), t(`content.${contentKey(c)}`). */
 export const gradeKey = (g: CopyGrade) => CopyGrade[g].toLowerCase();
+/** Translation key suffix: t(`region.${regionKey(r)}`). */
+export const regionKey = (r: CopyRegion) => CopyRegion[r].toLowerCase();
 export const contentKey = (c: CopyContent) => CopyContent[c].toLowerCase();
 
 /** A physical copy's grade and contents in words ('' for each one not set), as the copy card and

@@ -38,6 +38,16 @@ var gradeToPB = map[game.Grade]pb.CopyGrade{
 	game.GradeDamaged:    pb.CopyGrade_COPY_GRADE_DAMAGED,
 }
 
+var regionToPB = map[game.Region]pb.CopyRegion{
+	game.RegionPAL:   pb.CopyRegion_COPY_REGION_PAL,
+	game.RegionNTSCU: pb.CopyRegion_COPY_REGION_NTSC_U,
+	game.RegionNTSCJ: pb.CopyRegion_COPY_REGION_NTSC_J,
+	game.RegionNTSCK: pb.CopyRegion_COPY_REGION_NTSC_K,
+	game.RegionNTSCC: pb.CopyRegion_COPY_REGION_NTSC_C,
+	game.RegionAsia:  pb.CopyRegion_COPY_REGION_ASIA,
+	game.RegionFree:  pb.CopyRegion_COPY_REGION_REGION_FREE,
+}
+
 var contentToPB = map[game.Content]pb.CopyContent{
 	game.ContentBox:    pb.CopyContent_COPY_CONTENT_BOX,
 	game.ContentManual: pb.CopyContent_COPY_CONTENT_MANUAL,
@@ -58,6 +68,7 @@ var (
 	kindFromPB       = invert(kindToPB)
 	statusFromPB     = invert(statusToPB)
 	gradeFromPB      = invert(gradeToPB)
+	regionFromPB     = invert(regionToPB)
 	contentFromPB    = invert(contentToPB)
 )
 
@@ -193,6 +204,7 @@ func detailsToPB(d game.CopyDetails) *pb.CopyDetails {
 		AcquiredOn: string(d.AcquiredOn),
 		Edition:    d.Edition,
 		Grade:      gradeToPB[d.Grade],
+		Region:     regionToPB[d.Region],
 		Contents:   contentsToPB(d.Contents),
 		Location:   d.Location,
 		Price:      moneyToPB(d.Price),
@@ -242,6 +254,11 @@ func detailsFromPB(d *pb.CopyDetails) (game.CopyDetails, error) {
 		return game.CopyDetails{}, err
 	}
 
+	region, err := enumFromPB(regionFromPB, d.Region, "copy region")
+	if err != nil {
+		return game.CopyDetails{}, err
+	}
+
 	return game.CopyDetails{
 		Kind:       kind,
 		Platform:   d.Platform,
@@ -252,6 +269,7 @@ func detailsFromPB(d *pb.CopyDetails) (game.CopyDetails, error) {
 		AcquiredOn: acquired,
 		Edition:    d.Edition,
 		Grade:      grade,
+		Region:     region,
 		Contents:   contents,
 		Location:   d.Location,
 		Price: game.Money{

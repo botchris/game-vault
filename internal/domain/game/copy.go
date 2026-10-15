@@ -64,6 +64,9 @@ type CopyDetails struct {
 	Price      Money    // what was paid, any kind
 	Notes      string
 
+	// Region is the copy's region (PAL, NTSC-J…); empty: not stated. Any kind may have one.
+	Region Region
+
 	// System is the system the user says the copy is played on; empty: automatic (see Copy.System).
 	System string
 }
@@ -97,6 +100,10 @@ func (d CopyDetails) normalize() (CopyDetails, error) {
 
 	if !d.Grade.Valid() {
 		return d, invalid("grade %q is not valid", d.Grade)
+	}
+
+	if !d.Region.Valid() {
+		return d, invalid("region %q is not valid", d.Region)
 	}
 
 	if !d.Contents.valid() {
@@ -212,6 +219,10 @@ func (c *Copy) applyImport(in CopyDetails) bool {
 
 	if in.Contents != 0 {
 		c.Contents = in.Contents
+	}
+
+	if in.Region != "" {
+		c.Region = in.Region
 	}
 
 	if !in.Price.IsZero() {

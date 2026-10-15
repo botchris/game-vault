@@ -246,6 +246,7 @@ func TestDocuments_physicalFields(t *testing.T) {
 					Platform: "Xbox 360",
 					Status:   game.StatusOwned,
 					Grade:    game.GradeGood,
+					Region:   game.RegionPAL,
 					Contents: contents,
 					Price: game.Money{
 						Amount:   1500,
@@ -269,6 +270,7 @@ func TestDocuments_physicalFields(t *testing.T) {
 			t.Run("THEN the new fields come back, as version 3", func(t *testing.T) {
 				assert.Equal(t, g.Copies(), got.Copies())
 				assert.Contains(t, raw, `"v":3`)
+				assert.Contains(t, raw, `"region":"pal"`)
 				assert.Contains(t, raw, `"contents":["box","media"]`)
 			})
 		})
