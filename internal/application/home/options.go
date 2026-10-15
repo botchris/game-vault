@@ -3,6 +3,7 @@ package home
 import (
 	"log/slog"
 
+	"gamevault/internal/application/events"
 	"gamevault/internal/application/port"
 	"gamevault/internal/application/unattended"
 )
@@ -37,3 +38,7 @@ func WithLogger(log *slog.Logger) Option { return func(s *Service) { s.log = log
 // WithRhythm sets how the job draws and waits its pauses (random and a real timer by default);
 // tests make it deterministic.
 func WithRhythm(r unattended.Rhythm) Option { return func(s *Service) { s.rhythm = r } }
+
+// WithEvents sets the publisher told about new releases of the user's series and new historical
+// lows (none by default: events.Nop).
+func WithEvents(p events.Publisher) Option { return func(s *Service) { s.events = p } }
