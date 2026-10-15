@@ -136,6 +136,29 @@ func TestCodec_roundTrip(t *testing.T) {
 		}
 	})
 
+	t.Run("GIVEN each payload with its lists and maps left nil WHEN encoded THEN each is [] or {}", func(t *testing.T) {
+		for _, tc := range []struct {
+			e    event.Event
+			want []string
+		}{
+			{event.New(event.KindCollectionAdded, at, event.CollectionAdded{}), []string{`"games":[]`}},
+			{event.New(event.KindCollectionAdded, at, event.CollectionAdded{Games: []event.GameRef{{ID: "g-1"}}}), []string{`"systems":[]`}},
+			{event.New(event.KindReleaseAnnounced, at, event.Release{}), []string{`"platforms":[]`}},
+			{event.New(event.KindReleaseOut, at, event.Release{}), []string{`"platforms":[]`}},
+			{event.New(event.KindIssueOpened, at, event.Issue{}), []string{`"params":{}`}},
+			{event.New(event.KindIssueResolved, at, event.Issue{}), []string{`"params":{}`}},
+			{event.New(event.KindKeysExpiring, at, event.KeysExpiring{}), []string{`"keys":[]`}},
+			{event.New(event.KindKeysExpiring, at, event.KeysExpiring{Keys: []event.ExpiringKey{{}}}), []string{`"systems":[]`}},
+		} {
+			raw, err := EncodeEvent(tc.e)
+			require.NoError(t, err)
+
+			for _, want := range tc.want {
+				assert.Contains(t, raw, want, tc.e.Kind)
+			}
+		}
+	})
+
 	t.Run("GIVEN the stored form THEN its names are id, kind, at and data", func(t *testing.T) {
 		raw, err := EncodeEvent(event.Event{
 			ID:   "e-1",
