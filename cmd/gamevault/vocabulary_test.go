@@ -31,6 +31,8 @@ var rawVocabulary = []struct {
 	{"internal/adapters/outbound/playstation/provider.go", "sonyPlatforms", "PS5"},
 	{"internal/adapters/outbound/playstation/provider.go", "sonyPlatforms", "PS4"},
 	{"internal/adapters/outbound/playstation/provider.go", "sonyPlatforms", "PS3"},
+	{"internal/adapters/outbound/playstation/provider.go", "sonyPlatforms", "PS2"},
+	{"internal/adapters/outbound/playstation/provider.go", "sonyPlatforms", "PS1"},
 	{"internal/adapters/outbound/playstation/provider.go", "sonyPlatforms", "PS VITA"},
 
 	// Ubisoft's game type, and the word in its product names, that mark a PC game.
