@@ -17,9 +17,9 @@ import (
 	"time"
 
 	"gamevault/internal/adapters/outbound/apiclient"
+	"gamevault/internal/adapters/outbound/notifyerr"
 	"gamevault/internal/application/notify"
 	"gamevault/internal/domain/connection"
-	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/event"
 	"gamevault/internal/domain/schema"
 )
@@ -170,14 +170,14 @@ func (c *Connector) post(ctx context.Context, settings schema.Settings, doc docu
 
 	u, err := url.Parse(endpoint)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		return permanent("the webhook address must start with http:// or https:// and name a host")
+		return notifyerr.Permanent("the webhook address must start with http:// or https:// and name a host")
 	}
 
 	name := strings.TrimSpace(settings[settingHeader])
 	secret := settings[settingSecret]
 
 	if name != "" && secret != "" && !validHeader(name, secret) {
-		return permanent("the webhook header is not valid: use a plain name such as X-Webhook-Secret and a value without line breaks")
+		return notifyerr.Permanent("the webhook header is not valid: use a plain name such as X-Webhook-Secret and a value without line breaks")
 	}
 
 	body, err := json.Marshal(doc)
@@ -187,7 +187,7 @@ func (c *Connector) post(ctx context.Context, settings schema.Settings, doc docu
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
-		return permanent("the webhook address is not valid: check it")
+		return notifyerr.Permanent("the webhook address is not valid: check it")
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -222,21 +222,18 @@ func classify(res *http.Response) error {
 	case status >= 200 && status < 300:
 		return nil
 	case status >= 300 && status < 400:
-		return permanent("the webhook answered with a redirect: use its final address")
+		return notifyerr.Permanent("the webhook answered with a redirect: use its final address")
 	case status == http.StatusTooManyRequests:
 		after := time.Duration(0)
 		if secs, err := strconv.Atoi(strings.TrimSpace(res.Header.Get("Retry-After"))); err == nil && secs > 0 {
 			after = time.Duration(secs) * time.Second
 		}
 
-		return &rateLimitError{
-			msg:   "the webhook asks to slow down (HTTP 429)",
-			after: after,
-		}
+		return notifyerr.RateLimited("the webhook asks to slow down (HTTP 429)", after)
 	case status == http.StatusRequestTimeout || status >= 500:
 		return fmt.Errorf("the webhook is not answering (HTTP %d)", status)
 	default:
-		return permanent(fmt.Sprintf("the webhook refused the message (HTTP %d): check its address and the header it expects", status))
+		return notifyerr.Permanent(fmt.Sprintf("the webhook refused the message (HTTP %d): check its address and the header it expects", status))
 	}
 }
 
@@ -261,30 +258,3 @@ func validHeader(name, value string) bool {
 
 	return !strings.ContainsAny(value, "\r\n\x00")
 }
-
-// permanentError is a failure retrying cannot fix. It is an Invalid error too, so a failed Test
-// reaches the API as InvalidArgument and not as an internal error.
-type permanentError string
-
-// Error implements error.
-func (e permanentError) Error() string { return string(e) }
-
-// Is makes errors.Is(e, notify.ErrPermanent) true.
-func (permanentError) Is(target error) bool { return target == notify.ErrPermanent }
-
-// Kind returns errkind.Invalid.
-func (permanentError) Kind() errkind.Kind { return errkind.Invalid }
-
-func permanent(msg string) error { return permanentError(msg) }
-
-// rateLimitError is the receiver's rate limit; the dispatcher waits RetryAfter before the next try.
-type rateLimitError struct {
-	msg   string
-	after time.Duration
-}
-
-// Error implements error.
-func (e *rateLimitError) Error() string { return e.msg }
-
-// RetryAfter returns how long the receiver asked to wait, 0 when it did not say.
-func (e *rateLimitError) RetryAfter() time.Duration { return e.after }

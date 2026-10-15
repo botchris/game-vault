@@ -18,9 +18,9 @@ import (
 	"time"
 
 	"gamevault/internal/adapters/outbound/apiclient"
+	"gamevault/internal/adapters/outbound/notifyerr"
 	"gamevault/internal/application/notify"
 	"gamevault/internal/domain/connection"
-	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/schema"
 )
 
@@ -117,7 +117,7 @@ func (c *Connector) Test(ctx context.Context, settings schema.Settings, m notify
 func (c *Connector) target(settings schema.Settings) (endpoint, token string, err error) {
 	topic := strings.TrimSpace(settings[settingTopic])
 	if topic == "" {
-		return "", "", permanent("ntfy needs the topic: pick a name nobody else would guess and use it here and in the ntfy app")
+		return "", "", notifyerr.Permanent("ntfy needs the topic: pick a name nobody else would guess and use it here and in the ntfy app")
 	}
 
 	base := strings.TrimSpace(settings[settingServer])
@@ -127,7 +127,7 @@ func (c *Connector) target(settings schema.Settings) (endpoint, token string, er
 
 	u, perr := url.Parse(base)
 	if perr != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		return "", "", permanent("the ntfy server must be an address starting with http:// or https:// (leave it empty for https://ntfy.sh)")
+		return "", "", notifyerr.Permanent("the ntfy server must be an address starting with http:// or https:// (leave it empty for https://ntfy.sh)")
 	}
 
 	return strings.TrimRight(base, "/") + "/" + url.PathEscape(topic), strings.TrimSpace(settings[settingToken]), nil
@@ -143,7 +143,7 @@ func (c *Connector) publish(ctx context.Context, endpoint, token string, m notif
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, endpoint, bytes.NewReader(body))
 	if err != nil {
-		return permanent("the ntfy address is not valid: check the server and the topic")
+		return notifyerr.Permanent("the ntfy address is not valid: check the server and the topic")
 	}
 
 	for k, v := range header {
@@ -219,25 +219,22 @@ func classify(res *http.Response, data []byte) error {
 
 	switch {
 	case res.StatusCode == http.StatusUnauthorized || res.StatusCode == http.StatusForbidden:
-		return permanent("ntfy refused the access: check the access token (and that it may publish to the topic) (" + reason + ")")
+		return notifyerr.Permanent("ntfy refused the access: check the access token (and that it may publish to the topic) (" + reason + ")")
 	case res.StatusCode == http.StatusNotFound:
-		return permanent("ntfy does not know that address: check the topic and the server (" + reason + ")")
+		return notifyerr.Permanent("ntfy does not know that address: check the topic and the server (" + reason + ")")
 	case res.StatusCode == http.StatusRequestEntityTooLarge:
-		return &tooLargeError{permanentError("ntfy refused the image as too large (" + reason + ")")}
+		return &tooLargeError{notifyerr.PermanentError("ntfy refused the image as too large (" + reason + ")")}
 	case res.StatusCode == http.StatusTooManyRequests:
 		after := time.Duration(0)
 		if secs, err := strconv.Atoi(strings.TrimSpace(res.Header.Get("Retry-After"))); err == nil && secs > 0 {
 			after = time.Duration(secs) * time.Second
 		}
 
-		return &rateLimitError{
-			msg:   "ntfy asks to slow down (" + reason + ")",
-			after: after,
-		}
+		return notifyerr.RateLimited("ntfy asks to slow down ("+reason+")", after)
 	case res.StatusCode == http.StatusRequestTimeout || res.StatusCode >= 500:
 		return fmt.Errorf("the ntfy server is not answering (HTTP %d)", res.StatusCode)
 	case res.StatusCode >= 400:
-		return permanent(fmt.Sprintf("ntfy rejected the message (HTTP %d): %s", res.StatusCode, reason))
+		return notifyerr.Permanent(fmt.Sprintf("ntfy rejected the message (HTTP %d): %s", res.StatusCode, reason))
 	case res.StatusCode >= 300:
 		return fmt.Errorf("the ntfy server answered with a redirect (HTTP %d): use its final address as the server", res.StatusCode)
 	}
@@ -308,34 +305,7 @@ func fitHeader(s string) string {
 	return ""
 }
 
-// permanentError is a failure retrying cannot fix. It is an Invalid error too, so a failed Test
-// reaches the API as InvalidArgument and not as an internal error.
-type permanentError string
-
-// Error implements error.
-func (e permanentError) Error() string { return string(e) }
-
-// Is makes errors.Is(e, notify.ErrPermanent) true.
-func (permanentError) Is(target error) bool { return target == notify.ErrPermanent }
-
-// Kind returns errkind.Invalid.
-func (permanentError) Kind() errkind.Kind { return errkind.Invalid }
-
-func permanent(msg string) error { return permanentError(msg) }
-
 // tooLargeError is ntfy refusing an attachment; the message itself may still be fine.
 type tooLargeError struct {
-	permanentError
+	notifyerr.PermanentError
 }
-
-// rateLimitError is ntfy's rate limit; the dispatcher waits RetryAfter before the next try.
-type rateLimitError struct {
-	msg   string
-	after time.Duration
-}
-
-// Error implements error.
-func (e *rateLimitError) Error() string { return e.msg }
-
-// RetryAfter returns how long ntfy asked to wait, 0 when it did not say.
-func (e *rateLimitError) RetryAfter() time.Duration { return e.after }

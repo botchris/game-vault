@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"gamevault/internal/adapters/outbound/apiclient"
+	"gamevault/internal/adapters/outbound/notifyerr"
 	"gamevault/internal/application/notify"
 	"gamevault/internal/domain/connection"
 	"gamevault/internal/domain/errkind"
@@ -162,9 +163,9 @@ func credentials(settings schema.Settings, needChat bool) (token, chat string, e
 
 	switch {
 	case token == "":
-		return "", "", permanent("Telegram needs the bot token: create a bot with @BotFather and paste its token")
+		return "", "", notifyerr.Permanent("Telegram needs the bot token: create a bot with @BotFather and paste its token")
 	case needChat && chat == "":
-		return "", "", permanent("Telegram needs the chat: send a message to the bot, then press Test with the chat empty")
+		return "", "", notifyerr.Permanent("Telegram needs the chat: send a message to the bot, then press Test with the chat empty")
 	}
 
 	return token, chat, nil
@@ -419,10 +420,7 @@ func (c *Connector) call(ctx context.Context, token, method, contentType string,
 
 	switch {
 	case res.StatusCode == http.StatusTooManyRequests:
-		return &rateLimitError{
-			msg:   "Telegram asks to slow down (" + describe(a.Description) + ")",
-			after: time.Duration(a.Parameters.RetryAfter) * time.Second,
-		}
+		return notifyerr.RateLimited("Telegram asks to slow down ("+describe(a.Description)+")", time.Duration(a.Parameters.RetryAfter)*time.Second)
 	case res.StatusCode >= 500:
 		return fmt.Errorf("the Telegram API is not answering (HTTP %d)", res.StatusCode)
 	case res.StatusCode >= 400:
@@ -464,25 +462,25 @@ func rejection(status int, description string) error {
 
 	switch {
 	case status == http.StatusUnauthorized || status == http.StatusNotFound:
-		return permanent("Telegram rejected the bot token: create a new one with @BotFather (" + d + ")")
+		return notifyerr.Permanent("Telegram rejected the bot token: create a new one with @BotFather (" + d + ")")
 	case (status == http.StatusBadRequest && badMediaDescription(d)) || status == http.StatusRequestEntityTooLarge:
 		// A 413 is an upload over the size limit: only a message with images is big enough.
-		return &mediaError{permanentError("Telegram could not use the image (" + d + ")")}
+		return &mediaError{notifyerr.PermanentError("Telegram could not use the image (" + d + ")")}
 	case status == http.StatusBadRequest && strings.Contains(strings.ToLower(d), "chat not found"):
-		return permanent("Telegram cannot find the chat: send a message to the bot, then press Test with the chat empty (" + d + ")")
+		return notifyerr.Permanent("Telegram cannot find the chat: send a message to the bot, then press Test with the chat empty (" + d + ")")
 	case status == http.StatusForbidden:
-		return permanent("Telegram does not let the bot write to the chat: start the conversation with the bot again or add it back to the group (" + d + ")")
+		return notifyerr.Permanent("Telegram does not let the bot write to the chat: start the conversation with the bot again or add it back to the group (" + d + ")")
 	case status == http.StatusConflict:
-		return permanent("Telegram cannot give the bot's messages while a webhook is set on it: use a bot without one (" + d + ")")
+		return notifyerr.Permanent("Telegram cannot give the bot's messages while a webhook is set on it: use a bot without one (" + d + ")")
 	}
 
-	return permanent(fmt.Sprintf("Telegram rejected the request (HTTP %d): %s", status, d))
+	return notifyerr.Permanent(fmt.Sprintf("Telegram rejected the request (HTTP %d): %s", status, d))
 }
 
 // mediaError is Telegram refusing an image it could not fetch or read; the message itself may
 // still be fine.
 type mediaError struct {
-	permanentError
+	notifyerr.PermanentError
 }
 
 // badMediaDescription reports whether a 400's description is about the image, not the chat.
@@ -500,33 +498,6 @@ func badMediaDescription(d string) bool {
 
 	return false
 }
-
-// permanentError is a failure retrying cannot fix. It is an Invalid error too, so a failed Test
-// reaches the API as InvalidArgument and not as an internal error.
-type permanentError string
-
-// Error implements error.
-func (e permanentError) Error() string { return string(e) }
-
-// Is makes errors.Is(e, notify.ErrPermanent) true.
-func (permanentError) Is(target error) bool { return target == notify.ErrPermanent }
-
-// Kind returns errkind.Invalid.
-func (permanentError) Kind() errkind.Kind { return errkind.Invalid }
-
-func permanent(msg string) error { return permanentError(msg) }
-
-// rateLimitError is Telegram's flood limit; the dispatcher waits RetryAfter before the next try.
-type rateLimitError struct {
-	msg   string
-	after time.Duration
-}
-
-// Error implements error.
-func (e *rateLimitError) Error() string { return e.msg }
-
-// RetryAfter returns how long Telegram asked to wait, 0 when it did not say.
-func (e *rateLimitError) RetryAfter() time.Duration { return e.after }
 
 // redacted is an error whose text lacks the bot token. It matches what the original matched
 // (context.Canceled, the sentinels) but does not expose it to errors.As: a *url.Error in it names
