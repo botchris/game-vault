@@ -45,6 +45,7 @@
       "recent": "Añadidos recientemente",
       "systems": "Por sistema",
       "otherSystems": "Otros sistemas",
+      "systemCount": "{{system}}: {{n}}",
       "empty": "Tu colección está vacía.",
       "start": "Conecta una tienda o añade tu primer juego"
     }

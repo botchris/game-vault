@@ -45,6 +45,7 @@
       "recent": "Recently added",
       "systems": "By system",
       "otherSystems": "Other systems",
+      "systemCount": "{{system}}: {{n}}",
       "empty": "Your collection is empty.",
       "start": "Connect a store or add your first game"
     }

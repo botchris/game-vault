@@ -4,8 +4,9 @@ import type { Game } from '../../gen/gamevault/v1/game_pb';
 import type { HealthIssue } from '../../gen/gamevault/v1/health_pb';
 import { pendingItems, type PendingItem } from '../../lib/home';
 
-/** What needs the user's attention, as chips that open the library view (or System) behind each:
- *  the counts use the library's own rules, so a chip says what its view shows. */
+/** What needs the user's attention, as chips that open the library view (or System) behind each.
+ *  The chips count keys with the library's own rules (which keys are pending, which expire, which
+ *  are not needed), while the views they open count games. */
 export function PendingStrip({ games, issues }: { games: Game[]; issues: HealthIssue[] }) {
   const { t } = useTranslation();
   const items = useMemo(() => pendingItems(games, issues, new Date()), [games, issues]);

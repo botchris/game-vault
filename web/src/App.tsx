@@ -5,6 +5,7 @@ import { Icon, type IconName } from './components/Icon';
 import { Alert, LanguageSwitcher } from './components/ui';
 import AuthGate, { useAuth } from './features/auth/AuthGate';
 import HomePage from './features/home/HomePage';
+import { noteOpeningPage } from './features/home/entrance';
 import LibraryPage from './features/library/LibraryPage';
 import LogsPage from './features/logs/LogsPage';
 import FieldsPage from './features/fields/FieldsPage';
@@ -56,6 +57,8 @@ export default function App() {
 function Shell() {
   const { t } = useTranslation();
   const { page: route, target } = useRoute();
+  // The page the app opens on decides whether Home fades in (only when it is Home); later calls are ignored.
+  noteOpeningPage(route);
   const { games, loading, error } = useAppData();
   const { principal, logout } = useAuth();
   const inSettings = SETTINGS.some((s) => s.route === route) || route === 'settings';

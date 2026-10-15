@@ -24,6 +24,8 @@ export function CollectionBlock({ games }: { games: Game[] }) {
 
   const n = (x: number) => x.toLocaleString(lang);
   const systemName = (s: { system: string; rest: boolean }) => (s.rest ? t('home.collection.otherSystems') : s.system);
+  const shareLabel = new Intl.ListFormat(lang, { type: 'unit' })
+    .format(summary.systems.map((s) => t('home.collection.systemCount', { system: systemName(s), n: n(s.count) })));
 
   return (
     <section className="card home-block" aria-labelledby="home-collection">
@@ -63,7 +65,7 @@ export function CollectionBlock({ games }: { games: Game[] }) {
 
           <h3>{t('home.collection.systems')}</h3>
           <div className="home-share" role="img"
-            aria-label={summary.systems.map((s) => `${systemName(s)}: ${n(s.count)}`).join(', ')}>
+            aria-label={shareLabel}>
             {summary.systems.map((s) => (
               <span key={s.system || 'rest'} style={{ flexGrow: s.count, background: s.rest ? 'var(--surface-3)' : platformLook(s.system).bg }} />
             ))}
