@@ -1406,7 +1406,7 @@ message GetNotificationSettingsResponse { string address = 1; }
 message SaveNotificationSettingsRequest { string address = 1; }
 ```
 
-(plus the empty request/response messages buf STANDARD needs). `summary` is the rendered title (English? No: the connection's language). `TestConnection` mirrors `TestSource`: a failure is `success=false` with the error text, not an RPC error.
+(plus the empty request/response messages buf STANDARD needs). `summary` is the delivery's title rendered in the connection's language. `TestConnection` mirrors `TestSource`: a failure is `success=false` with the error text, not an RPC error.
 
 - [ ] **Step 1:** write the proto; `task generate`.
 - [ ] **Step 2: Failing tests** (`notify_handler_test.go` through the rpc harness): list types includes the three connectors and the eight events; save → list (secret masked) → test (fake connector) → deliveries → delete; an access token is refused (`Unauthenticated`/`PermissionDenied` as the harness asserts for other services).
