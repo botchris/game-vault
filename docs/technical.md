@@ -175,7 +175,7 @@ semantics); on phones a bottom sheet with the search on top.
 **Region.** A copy may say the market it was made for: `pal`, `ntsc_u`, `ntsc_j`, `ntsc_k`,
 `ntsc_c`, `asia` or `region_free`, or nothing (`CopyDetails.Region`, an additive field of the copy
 document; `CopyDetails.region` in the API). The copy form's **Region** select, a small label on the
-copy and the library's **Region** filter use it, and Scan remembers the last one chosen. A barcode
+copy and the library's **Region** filter use it, and Scan remembers the last one chosen on each device (with its other batch defaults). A barcode
 lookup fills it when the provider knows: CeX by the country whose catalog knew the code (UK, Spain,
 Ireland, Portugal, Italy, Poland, Australia and India are PAL, Mexico NTSC-U); an EAN's country
 prefix is not used, since it does not tell the region.
