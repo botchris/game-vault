@@ -4,6 +4,8 @@ import { PageHeader } from './components/PageHeader';
 import { Icon, type IconName } from './components/Icon';
 import { Alert, LanguageSwitcher } from './components/ui';
 import AuthGate, { useAuth } from './features/auth/AuthGate';
+import HomePage from './features/home/HomePage';
+import { noteOpeningPage } from './features/home/entrance';
 import LibraryPage from './features/library/LibraryPage';
 import LogsPage from './features/logs/LogsPage';
 import FieldsPage from './features/fields/FieldsPage';
@@ -55,6 +57,8 @@ export default function App() {
 function Shell() {
   const { t } = useTranslation();
   const { page: route, target } = useRoute();
+  // The page the app opens on decides whether Home fades in (only when it is Home); later calls are ignored.
+  noteOpeningPage(route);
   const { games, loading, error } = useAppData();
   const { principal, logout } = useAuth();
   const inSettings = SETTINGS.some((s) => s.route === route) || route === 'settings';
@@ -64,8 +68,9 @@ function Shell() {
   return (
     <div className="shell">
       <aside className="sidebar">
-        <a className="brand" href="#/library">Game Vault</a>
+        <a className="brand" href="#/home">Game Vault</a>
         <nav className="side-nav" aria-label={t('nav.main')}>
+          <NavLink route="home" icon="home" active={route === 'home'} />
           <NavLink route="library" icon="library" active={route === 'library'} count={games.length} />
           <NavLink route="scan" icon="scan" active={route === 'scan'} />
           <p className="side-group">{t('nav.settings')}</p>
@@ -88,7 +93,8 @@ function Shell() {
         {error && <Alert tone="error">{t('app.backendError', { error })}</Alert>}
         {loading ? <p className="muted page-loading">{t('common.loading')}</p> : (
           <>
-            {route === 'library' && <LibraryPage />}
+            {route === 'home' && <HomePage />}
+            {route === 'library' && <LibraryPage target={target} />}
             {route === 'scan' && <ScanPage />}
             {route === 'sources' && <SourcesPage target={target} />}
             {route === 'providers' && <ProvidersPage />}
@@ -101,6 +107,7 @@ function Shell() {
       </main>
 
       <nav className="bottom-nav" aria-label={t('nav.main')}>
+        <BottomLink route="home" icon="home" active={route === 'home'} />
         <BottomLink route="library" icon="library" active={route === 'library'} />
         <BottomLink route="scan" icon="scan" active={route === 'scan'} />
         <BottomLink route="settings" icon="settings" active={inSettings} label={t('nav.settings')} dot={health} />

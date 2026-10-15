@@ -13,5 +13,9 @@ metadata:
 - Every loop uses `internal/application/unattended.Rhythm` (`Vary`, `Between`, `Wait`; injectable
   random source and sleep for tests): sync, valuation, the auto-linker and the details scanner. Do
   not write another jitter or context-aware sleep.
+- The home page's job (`home.Service.Run`, 2026-10-15): deals every 6 h, releases every 24 h, ±10 %;
+  an overdue block 1–5 min after start; a block without a provider is looked at about hourly and
+  sends nothing; a user's Refresh in the second half of the interval takes the job's turn. Off with
+  `-no-unattended`.
 - **Why:** the user asked for it to avoid being flagged as automated. Keep it for any new
   unattended request.

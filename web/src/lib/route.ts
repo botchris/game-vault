@@ -3,8 +3,8 @@
 // the hook that follows the address is useHashRoute.ts.
 import { gameIdFromHash } from './gameRoute.ts';
 
-/** The app's pages, as their addresses name them. */
-export const PAGES = ['library', 'scan', 'sources', 'providers', 'fields', 'system', 'logs', 'settings'] as const;
+/** The app's pages, as their addresses name them; the first is the start page. */
+export const PAGES = ['home', 'library', 'scan', 'sources', 'providers', 'fields', 'system', 'logs', 'settings'] as const;
 
 export type Page = (typeof PAGES)[number];
 
@@ -17,12 +17,12 @@ export interface Route {
   game: string;
 }
 
-/** The route an address names; anything unknown is the library. */
+/** The route an address names; anything unknown is the home page. */
 export function parseHash(hash: string): Route {
   const game = gameIdFromHash(hash);
   if (game) return { page: 'library', target: '', game };
   const [first = '', rest = ''] = hash.replace(/^#\/?/, '').split(/\/(.*)/s);
-  const page = (PAGES as readonly string[]).includes(first) ? first as Page : 'library';
+  const page = (PAGES as readonly string[]).includes(first) ? first as Page : 'home';
   if (page !== first) return { page, target: '', game: '' };
   let target = '';
   try {

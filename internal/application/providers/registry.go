@@ -157,8 +157,9 @@ func (r *Registry) registerNew(ctx context.Context, kind provider.Kind) error {
 		if sib := r.siblings(d.SettingsGroup, id); len(sib) > 0 {
 			p.ShareSettings(sib[0].Settings(), r.now())
 
-			// Price providers query on their own schedule, so the user turns them on explicitly.
-			if sib[0].Enabled() && d.Kind != provider.KindValuation {
+			// Providers asked on a schedule (prices, deals, releases) send requests nobody asked
+			// for at that moment, so the user turns them on explicitly.
+			if sib[0].Enabled() && !d.Kind.Scheduled() {
 				_ = p.Configure(d, true, sib[0].Settings(), r.now()) // stays disabled if settings are incomplete
 			}
 		}

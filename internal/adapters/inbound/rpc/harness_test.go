@@ -19,6 +19,7 @@ import (
 	"gamevault/internal/adapters/outbound/passwordhash"
 	"gamevault/internal/adapters/outbound/sqlite"
 	"gamevault/internal/app"
+	"gamevault/internal/application/home"
 	"gamevault/internal/application/media"
 	"gamevault/internal/application/providers"
 	"gamevault/internal/application/sync"
@@ -297,6 +298,7 @@ type clients struct {
 	logs      gamevaultv1connect.LogServiceClient
 	health    gamevaultv1connect.HealthServiceClient
 	ownership gamevaultv1connect.OwnershipServiceClient
+	home      gamevaultv1connect.HomeServiceClient
 	baseURL   string
 	images    *fakeImages
 	dataDir   string
@@ -308,6 +310,8 @@ type testPlugins struct {
 	sources    []sync.Provider
 	providers  []providers.Impl
 	valuations []valuation.Provider
+	deals      []home.DealsProvider
+	releases   []home.ReleasesProvider
 }
 
 func (p testPlugins) Sources() []sync.Provider { return p.sources }
@@ -315,6 +319,10 @@ func (p testPlugins) Sources() []sync.Provider { return p.sources }
 func (p testPlugins) Providers() []providers.Impl { return p.providers }
 
 func (p testPlugins) Valuations() []valuation.Provider { return p.valuations }
+
+func (p testPlugins) Deals() []home.DealsProvider { return p.deals }
+
+func (p testPlugins) Releases() []home.ReleasesProvider { return p.releases }
 
 // newServer builds Game Vault the way the server does (app.Build), on a database and folders in a
 // temporary directory, with p as its only source and fakes for every provider, and serves it.
@@ -347,8 +355,9 @@ func newServer(t *testing.T, p sync.Provider) clients {
 	}, db, logFiles, log,
 		app.WithPlugins(testPlugins{
 			sources:    []sync.Provider{p},
-			providers:  []providers.Impl{fakeSteamStore{}, boxart, &fakeBarcodes{}, fakeStoreDetails{}, boxDet, fakePrices{}},
+			providers:  []providers.Impl{fakeSteamStore{}, boxart, &fakeBarcodes{}, fakeStoreDetails{}, boxDet, fakePrices{}, fakeDeals{}},
 			valuations: []valuation.Provider{fakePrices{}},
+			deals:      []home.DealsProvider{fakeDeals{}},
 		}),
 		app.WithImageFetcher(images),
 		app.WithHasher(passwordhash.Bcrypt{Cost: 4}), // the lowest cost: tests sign in often
@@ -367,6 +376,7 @@ func newServer(t *testing.T, p sync.Provider) clients {
 		logs:      gamevaultv1connect.NewLogServiceClient(http.DefaultClient, srv.URL),
 		health:    gamevaultv1connect.NewHealthServiceClient(http.DefaultClient, srv.URL),
 		ownership: gamevaultv1connect.NewOwnershipServiceClient(http.DefaultClient, srv.URL),
+		home:      gamevaultv1connect.NewHomeServiceClient(http.DefaultClient, srv.URL),
 		baseURL:   srv.URL,
 		providers: gamevaultv1connect.NewProviderServiceClient(http.DefaultClient, srv.URL),
 		covers:    gamevaultv1connect.NewCoverServiceClient(http.DefaultClient, srv.URL),
@@ -417,6 +427,53 @@ func (fakePrices) Estimate(_ context.Context, _ schema.Settings, code game.Barco
 		BuyCash: game.Money{
 			Amount:   600,
 			Currency: "EUR",
+		},
+	}, nil
+}
+
+// fakeDeals is a deals provider, on by default, with one deal for a game the tests own (Lantern
+// Keep, Steam 4410) and one for a game they do not.
+type fakeDeals struct{}
+
+func (fakeDeals) Descriptor() provider.Descriptor {
+	return provider.Descriptor{
+		ID:               "fake-deals",
+		Kind:             provider.KindDeals,
+		Name:             "Fake deals",
+		EnabledByDefault: true,
+		DefaultOrder:     10,
+	}
+}
+
+func (fakeDeals) Test(context.Context, schema.Settings) error { return nil }
+
+func (fakeDeals) Deals(_ context.Context, _ schema.Settings, q home.DealQuery) ([]game.Deal, error) {
+	if q.List != home.DealsFeatured {
+		return nil, nil
+	}
+
+	return []game.Deal{
+		{
+			Title:      "Lantern Keep",
+			SteamAppID: "4410",
+			Price: game.Money{
+				Amount:   199,
+				Currency: "EUR",
+			},
+		},
+		{
+			Title: "Harbor Lights",
+			Shop:  "Steam",
+			Price: game.Money{
+				Amount:   499,
+				Currency: "EUR",
+			},
+			Regular: game.Money{
+				Amount:   1999,
+				Currency: "EUR",
+			},
+			Cut: 75,
+			URL: "https://itad.link/fake/",
 		},
 	}, nil
 }

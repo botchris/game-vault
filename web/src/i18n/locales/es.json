@@ -3,6 +3,7 @@
     "backendError": "No puedo conectar con el servidor de Game Vault: {{error}}"
   },
   "nav": {
+    "home": "Inicio",
     "library": "Biblioteca",
     "sources": "Fuentes",
     "system": "Sistema",
@@ -13,6 +14,95 @@
     "scan": "Escanear",
     "main": "Principal",
     "settings": "Ajustes"
+  },
+  "home": {
+    "title": "Inicio",
+    "pending": {
+      "label": "Requiere tu atención",
+      "none": "Todo al día",
+      "expiring_one": "1 clave caduca pronto · {{title}}, {{when}}",
+      "expiring_other": "{{count}} claves caducan pronto · la primera {{title}}, {{when}}",
+      "today": "hoy",
+      "inDays_one": "en {{count}} día",
+      "inDays_other": "en {{count}} días",
+      "expired_one": "1 clave con el plazo vencido",
+      "expired_other": "{{count}} claves con el plazo vencido",
+      "pending_one": "1 clave por canjear",
+      "pending_other": "{{count}} claves por canjear",
+      "redundant_one": "1 clave que no necesitas",
+      "redundant_other": "{{count}} claves que no necesitas",
+      "health_one": "1 problema que revisar",
+      "health_other": "{{count}} problemas que revisar"
+    },
+    "hero": {
+      "label": "Ofertas destacadas",
+      "show": "Mostrar {{title}}",
+      "see": "Ver la oferta",
+      "newest": "Lo último de tu colección",
+      "open": "Abrir ficha",
+      "addDeals": "Ver ofertas aquí"
+    },
+    "refresh": "Actualizar",
+    "refreshing": "Actualizando…",
+    "refreshSoon": "Actualizado hace menos de 15 minutos",
+    "updated": "Actualizado {{when}}",
+    "neverUpdated": "Aún sin actualizar",
+    "tooSoon_one": "Se actualizó hace un momento: vuelve a intentarlo en {{count}} minuto.",
+    "tooSoon_other": "Se actualizó hace un momento: vuelve a intentarlo en {{count}} minutos.",
+    "configure": "Configurar en Proveedores",
+    "previous": "Anterior",
+    "next": "Siguiente",
+    "errors": {
+      "rate_limited": "{{provider}} pidió ir más despacio",
+      "quota": "{{provider}} agotó su cupo de peticiones",
+      "settings": "{{provider}} rechaza la clave: revísala en Proveedores",
+      "unavailable": "{{provider}} no responde",
+      "failed": "No se pudo leer {{provider}}"
+    },
+    "deals": {
+      "title": "Ofertas",
+      "featured": "Destacadas ahora",
+      "lows": "Mínimos históricos",
+      "none": "Ahora mismo no hay ofertas de juegos que no tengas.",
+      "free": "Gratis",
+      "cut": "-{{cut}} %",
+      "historicalLow": "Mínimo histórico",
+      "endsToday": "Termina hoy",
+      "endsIn_one": "Termina en {{count}} día",
+      "endsIn_other": "Termina en {{count}} días",
+      "ownedOn": "Lo tienes en {{systems}}",
+      "credit": "Precios de",
+      "notConfigured": "Añade una clave gratuita de IsThereAnyDeal para ver las ofertas del día, sin los juegos que ya tienes.",
+      "neverFetched": "Aún no hay nada: se pregunta a {{provider}} en segundo plano cada 6 horas, o ahora con Actualizar."
+    },
+    "releases": {
+      "title": "Próximos lanzamientos",
+      "series": "De tus series",
+      "anticipated": "Los más esperados",
+      "noneSeries": "No hay nada anunciado en tus series.",
+      "noneAnticipated": "No hay nada anunciado para los próximos 60 días.",
+      "because": "Porque tienes {{title}}",
+      "tba": "Fecha por anunciar",
+      "notConfigured": "Activa los lanzamientos de IGDB para ver lo que sale pronto de tus series y los juegos más esperados.",
+      "neverFetched": "Aún no hay nada: se pregunta a {{provider}} en segundo plano una vez al día, o ahora con Actualizar."
+    },
+    "collection": {
+      "title": "Tu colección",
+      "games_one": "juego",
+      "games_other": "juegos",
+      "copies_one": "{{n}} copia",
+      "copies_other": "{{n}} copias",
+      "added": "añadidos este mes",
+      "backlog": "pendientes de jugar",
+      "value": "valen tus juegos físicos",
+      "recent": "Añadidos recientemente",
+      "systems": "Por sistema",
+      "otherSystems": "Otros sistemas",
+      "empty": "Tu colección está vacía.",
+      "start": "Conecta una tienda o añade tu primer juego",
+      "backlogRow": "En tu backlog",
+      "seeAll": "Ver todo"
+    }
   },
   "common": {
     "loading": "Cargando…",
@@ -539,8 +629,18 @@
       "apiKey": "Clave de API",
       "apiKeyHelp": "1. Abre steamgriddb.com e inicia sesión con Steam.\n2. Abre Preferences → API (la página de arriba).\n3. Elige Generate API Key y copia aquí la clave.\nNo la compartas nunca: actúa sobre tu cuenta de SteamGridDB."
     },
+    "itad": {
+      "description": "Ofertas actuales para la página de inicio: las ofertas destacadas y los mínimos históricos de IsThereAnyDeal en tu país, sin los juegos que ya tienes. Necesita una clave gratuita de la API de IsThereAnyDeal. Precios y enlaces se muestran tal como los da IsThereAnyDeal.",
+      "apiKey": "Clave de la API",
+      "apiKeyHelp": "1. Inicia sesión en IsThereAnyDeal (página de arriba) y abre tus aplicaciones.\n2. Registra una aplicación (con cualquier nombre, por ejemplo `Game Vault`).\n3. Copia aquí su clave de la API. Solo se usa desde este ordenador, para tu uso personal.",
+      "country": "País",
+      "countryHelp": "Código de dos letras del país cuyos precios mostrar, por ejemplo `ES` o `US`. Vacío: el que corresponde a tu moneda por defecto."
+    },
     "igdbDetails": {
       "description": "Fichas de IGDB para cualquier juego: sinopsis (en inglés), géneros, compañías, fecha de lanzamiento, clasificación por edades, capturas y tráilers de YouTube. Usa la aplicación de Twitch de Carátulas; unas pocas peticiones por juego y luego se guarda."
+    },
+    "igdbReleases": {
+      "description": "Próximos lanzamientos para la página de inicio: las siguientes entregas de las series a las que pertenecen tus juegos (encontradas por sus aplicaciones de Steam) y los lanzamientos más esperados de los próximos 60 días. Usa la aplicación de Twitch de Carátulas; unas pocas peticiones al día. IGDB recibe los identificadores de Steam de tus juegos para encontrar sus series."
     },
     "wikipediaDetails": {
       "description": "Artículo de Wikipedia y datos de Wikidata para cualquier juego que pueda identificar sin dudas: la introducción del artículo en tu idioma (en inglés si no existe), desarrolladoras, editoras, fecha de lanzamiento y géneros. Se muestra con un enlace al artículo (CC BY-SA). Gratis, sin key."
@@ -573,6 +673,10 @@
     },
     "valuations": "Precios",
     "valuationsIntro": "Precios de segunda mano de tus copias físicas con código de barras. Se consultan todas las fuentes activadas, cada copia en su propia fecha, más o menos una vez al mes; el orden solo indica cómo se muestran.",
+    "deals": "Ofertas",
+    "dealsIntro": "Se muestran en la página de inicio. Se piden en segundo plano cada 6 horas, nunca al abrir la página.",
+    "releases": "Próximos lanzamientos",
+    "releasesIntro": "Se muestran en la página de inicio. Se piden en segundo plano una vez al día.",
     "enabled": "Activado"
   },
   "health": {

@@ -104,6 +104,15 @@ type fakeIGDB struct {
 	searchFor map[string]string
 	byID      string
 
+	// anticipated answers the anticipated releases query (sorted by hypes); series answers the
+	// upcoming entries of series (sorted by date).
+	anticipated string
+	series      string
+
+	// externalPages, when set, answers external_games queries by page (offset / 500), "[]" past
+	// the last one.
+	externalPages []string
+
 	// terms records every search term.
 	terms []string
 
@@ -115,12 +124,14 @@ func newFakeIGDB(t *testing.T) *fakeIGDB {
 	t.Helper()
 
 	f := &fakeIGDB{
-		valid:     map[string]bool{},
-		bodies:    map[string][]string{},
-		external:  "[]",
-		search:    "[]",
-		byID:      "[]",
-		expiresIn: "5011271",
+		valid:       map[string]bool{},
+		bodies:      map[string][]string{},
+		external:    "[]",
+		search:      "[]",
+		byID:        "[]",
+		anticipated: "[]",
+		series:      "[]",
+		expiresIn:   "5011271",
 	}
 	f.srv = httptest.NewServer(http.HandlerFunc(f.serve))
 	t.Cleanup(f.srv.Close)
@@ -134,6 +145,7 @@ var (
 	reWhere     = regexp.MustCompile(`where platforms = \(([0-9,]+)\);`)
 	reWhereSome = regexp.MustCompile(`\bwhere\b`)
 	reSearch    = regexp.MustCompile(`search "([^"]*)";`)
+	reOffset    = regexp.MustCompile(`offset ([0-9]+);`)
 )
 
 func (f *fakeIGDB) serve(w http.ResponseWriter, r *http.Request) {
@@ -199,6 +211,24 @@ func (f *fakeIGDB) serve(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch {
+	case endpoint == "games" && strings.Contains(string(body), "sort hypes desc"):
+		w.Write([]byte(f.anticipated))
+	case endpoint == "games" && strings.Contains(string(body), "sort first_release_date asc"):
+		w.Write([]byte(f.series))
+	case endpoint == "external_games" && f.externalPages != nil:
+		page := 0
+
+		if m := reOffset.FindStringSubmatch(string(body)); m != nil {
+			n, _ := strconv.Atoi(m[1])
+			page = n / maxBatch
+		}
+
+		answer := "[]"
+		if page < len(f.externalPages) {
+			answer = f.externalPages[page]
+		}
+
+		w.Write([]byte(answer))
 	case endpoint == "external_games":
 		w.Write([]byte(f.external))
 	case strings.Contains(string(body), "search "):

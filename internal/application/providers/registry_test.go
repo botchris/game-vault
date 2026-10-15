@@ -241,3 +241,31 @@ func TestRegistry_concurrentReadsAndChanges(t *testing.T) {
 		})
 	})
 }
+
+func TestProviders_scheduledKindsStayOff(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN an enabled metadata provider with a key, and a releases provider of the same service seen for the first time", func(t *testing.T) {
+		reg := providers.NewRegistry(newRepo(t, ctx), []providers.Impl{
+			grouped{"shop", provider.KindMetadata},
+			grouped{"shop-releases", provider.KindReleases},
+		})
+
+		_, err := reg.Providers(ctx, provider.KindMetadata)
+		require.NoError(t, err)
+		_, err = reg.ConfigureProvider(ctx, "shop", true, schema.Settings{"key": "k"})
+		require.NoError(t, err)
+
+		t.Run("WHEN the releases providers are listed", func(t *testing.T) {
+			views, err := reg.Providers(ctx, provider.KindReleases)
+			require.NoError(t, err)
+
+			t.Run("THEN it shares the key but stays off: it would send requests on its own schedule", func(t *testing.T) {
+				require.Len(t, views, 1)
+				assert.Equal(t, "k", views[0].Settings()["key"])
+				assert.False(t, views[0].Enabled())
+			})
+		})
+	})
+}

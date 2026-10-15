@@ -36,7 +36,9 @@ func (c *covers) InvalidateEdition(_ context.Context, id game.ID, system string)
 func photoID(n int) game.PhotoID { return game.PhotoID(fmt.Sprintf("%064x", n)) }
 
 func TestEditionCoverCache(t *testing.T) {
-	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	// Every scenario opens and migrates its own database under this one context, which takes
+	// several seconds per scenario with the race detector on: the budget covers all of them.
+	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
 	defer cancel()
 
 	// setup returns a service and a game with two PS3 discs; the first disc's photo is the PS3 cover.

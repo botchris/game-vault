@@ -7,7 +7,9 @@ import { Icon } from '../../components/Icon';
 import { Alert, useFormatters } from '../../components/ui';
 import { deadlineTone, expiresSoon } from '../../lib/deadlines';
 import { searchableText } from '../../lib/fields';
+import { libraryPreset } from '../../lib/home';
 import { useGameAddress } from '../../lib/useGameAddress';
+import { replaceRoute } from '../../lib/useHashRoute';
 import { useStoredChoice } from '../../lib/useStoredChoice';
 import { CopyStatus, PlayStatus, daysUntil, isPendingKey, nextDeadline, playKey, toDate, type Game } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
@@ -40,7 +42,7 @@ export function initialOf(title: string): string {
 
 const isExpiring = (g: Game) => expiresSoon(daysUntil(nextDeadline(g)));
 
-export default function LibraryPage() {
+export default function LibraryPage({ target }: { target: string }) {
   const { t, i18n } = useTranslation();
   const { games, loading, reloadGames, detailsCached, fields } = useAppData();
   const [q, setQ] = useState('');
@@ -52,6 +54,25 @@ export default function LibraryPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [sortBy, setSortBy] = useStoredChoice<SortBy>('gamevault.librarySort', 'titleAsc', SORTS);
   const [view, setView] = useStoredChoice<View>('gamevault.libraryView', 'posters', ['list', 'posters']);
+  // A home page link names a ready view ("#/library/pending"): it is applied once, then the address
+  // goes back to the plain library, so a later change of view is not undone by a re-render.
+  useEffect(() => {
+    const preset = libraryPreset(target);
+    if (!preset) return;
+    if ('quick' in preset) {
+      setFilters(NO_FILTERS);
+      setQuick(preset.quick);
+    } else if ('play' in preset) {
+      setQuick(null);
+      setFilters({ ...NO_FILTERS, play: [preset.play] });
+    } else if ('kind' in preset) {
+      setQuick(null);
+      setFilters({ ...NO_FILTERS, kind: preset.kind });
+    } else {
+      setSortBy(preset.sort);
+    }
+    replaceRoute('#/library');
+  }, [target, setSortBy]);
   const [grouping, setGrouping] = useStoredChoice<Grouping>('gamevault.libraryGrouping', 'platform', ['platform', 'game']);
   const [shown, setShown] = useState(CHUNK);
   // The open sheet, which a "#/game/<id>" address opens too.

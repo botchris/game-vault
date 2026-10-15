@@ -252,6 +252,16 @@ func (c *Client) send(ctx context.Context, id, tok, endpoint, body string, out a
 
 // Test checks the credentials with a new access token and one minimal query.
 func (c *Client) Test(ctx context.Context, s schema.Settings) error {
+	var out []struct {
+		ID int64 `json:"id"`
+	}
+
+	return c.testWith(ctx, s, "games", "fields id; limit 1;", &out)
+}
+
+// testWith checks the credentials with a new access token, then sends the query: a provider tests
+// with a request its own work sends, so IGDB is never asked something only the check would ask.
+func (c *Client) testWith(ctx context.Context, s schema.Settings, endpoint, body string, out any) error {
 	// The cached token, if any, counts as stale: the check must reach Twitch with these credentials.
 	id, secret, key, err := credentials(s)
 	if err != nil {
@@ -264,9 +274,5 @@ func (c *Client) Test(ctx context.Context, s schema.Settings) error {
 		return err
 	}
 
-	var out []struct {
-		ID int64 `json:"id"`
-	}
-
-	return c.query(ctx, s, "games", "fields id; limit 1;", &out)
+	return c.query(ctx, s, endpoint, body, out)
 }

@@ -28,7 +28,8 @@ const (
 type Provider struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// "cover", "barcode", "metadata" or "valuation" (see ListProvidersRequest.kind).
+	// "cover", "barcode", "metadata", "valuation", "deals" or "releases" (see
+	// ListProvidersRequest.kind).
 	Kind           string          `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
 	Name           string          `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
 	DescriptionKey string          `protobuf:"bytes,4,opt,name=description_key,json=descriptionKey,proto3" json:"description_key,omitempty"`
@@ -138,8 +139,8 @@ func (x *Provider) GetStatus() *ProviderStatus {
 
 type ListProvidersRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The chain to list: "cover", "barcode", "metadata" or "valuation". Any other kind has no
-	// providers, so the list is empty.
+	// The chain to list: "cover", "barcode", "metadata", "valuation", "deals" or "releases". Any
+	// other kind has no providers, so the list is empty.
 	Kind          string `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

@@ -111,7 +111,7 @@ func Problems(p plugin.Plugin, tr Translations) []string {
 		c.add("plugin %q: needs an ID and a Name", p.ID)
 	}
 
-	if len(p.Sources)+len(p.Covers)+len(p.Metadata)+len(p.Barcodes)+len(p.Valuations) == 0 {
+	if len(p.Sources)+len(p.Covers)+len(p.Metadata)+len(p.Barcodes)+len(p.Valuations)+len(p.Deals)+len(p.Releases) == 0 {
 		c.add("plugin %q: adds nothing (no source and no provider)", p.ID)
 	}
 
@@ -133,6 +133,14 @@ func Problems(p plugin.Plugin, tr Translations) []string {
 
 	for _, v := range p.Valuations {
 		c.provider(p.ID, v, provider.KindValuation)
+	}
+
+	for _, d := range p.Deals {
+		c.provider(p.ID, d, provider.KindDeals)
+	}
+
+	for _, r := range p.Releases {
+		c.provider(p.ID, r, provider.KindReleases)
 	}
 
 	return c.problems

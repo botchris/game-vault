@@ -1,7 +1,11 @@
 import { timestampDate, type Timestamp } from '@bufbuild/protobuf/wkt';
 import { CopyContent, CopyGrade, CopyKind, CopyStatus, PlayStatus, type Copy, type CopyDetails, type Game } from '../gen/gamevault/v1/game_pb';
+import { daysUntil, isPendingKey } from './deadlines';
 
 export { CopyKind, CopyStatus, PlayStatus };
+// The pending-key and deadline rules live in deadlines.ts, which Node tests import without the
+// generated code; the pages keep importing them from here.
+export { daysUntil, isPendingKey };
 export type { Copy, CopyDetails, Game };
 
 /** Plain, editable shape of CopyDetails (without the protobuf $typeName). */
@@ -82,19 +86,6 @@ export function usedLocations(games: Game[]): string[] {
   const set = new Set<string>();
   for (const g of games) for (const c of g.copies) if (c.details?.location) set.add(c.details.location);
   return [...set].sort((a, b) => a.localeCompare(b));
-}
-
-/** Pending = a key you still have to reveal or redeem. */
-export const isPendingKey = (c: Copy) =>
-  c.details?.kind === CopyKind.KEY &&
-  (c.details.status === CopyStatus.UNREVEALED || c.details.status === CopyStatus.REVEALED);
-
-/** Whole days from today until a YYYY-MM-DD date; null when there is no date. */
-export function daysUntil(date: string): number | null {
-  if (!date) return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return Math.round((new Date(`${date}T00:00:00`).getTime() - today.getTime()) / 86_400_000);
 }
 
 /** Earliest redeem-by date among the game's pending keys, or ''. */

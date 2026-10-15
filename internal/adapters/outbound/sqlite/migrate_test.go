@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gamevault/internal/application/home"
 	"gamevault/internal/domain/auth"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
@@ -240,6 +241,33 @@ func TestMigration0011(t *testing.T) {
 					Hash:      auth.HashToken("gvt_one"),
 					CreatedAt: time.Now(),
 				}))
+			})
+		})
+	})
+}
+
+func TestMigration0012(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a database migrated up to 0011", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "old.db")
+		backups := filepath.Join(dir, "backups")
+
+		db, err := openUpTo(ctx, path, "", "0011")
+		require.NoError(t, err)
+		db.Close()
+
+		t.Run("WHEN this version opens it", func(t *testing.T) {
+			db, err := Open(ctx, path, backups)
+			require.NoError(t, err)
+
+			defer db.Close()
+
+			t.Run("THEN it was copied first, and home snapshots can be stored", func(t *testing.T) {
+				assert.FileExists(t, filepath.Join(backups, "pre-migration-0012.db"))
+				assert.NoError(t, NewHomeSnapshots(db).SaveSnapshot(ctx, home.Snapshot{Block: home.BlockDeals}))
 			})
 		})
 	})

@@ -12,7 +12,8 @@ option go_package = "gamevault/internal/gen/gamevault/v1;gamevaultv1";
 // first one with an answer wins.
 message Provider {
   string id = 1;
-  // "cover", "barcode", "metadata" or "valuation" (see ListProvidersRequest.kind).
+  // "cover", "barcode", "metadata", "valuation", "deals" or "releases" (see
+  // ListProvidersRequest.kind).
   string kind = 2;
   string name = 3;
   string description_key = 4;
@@ -26,8 +27,8 @@ message Provider {
 }
 
 message ListProvidersRequest {
-  // The chain to list: "cover", "barcode", "metadata" or "valuation". Any other kind has no
-  // providers, so the list is empty.
+  // The chain to list: "cover", "barcode", "metadata", "valuation", "deals" or "releases". Any
+  // other kind has no providers, so the list is empty.
   string kind = 1;
 }
 message ListProvidersResponse {

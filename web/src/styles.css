@@ -741,6 +741,214 @@ td.title { font-weight: 500; min-width: 220px; }
 
 .link-thumb { width: 92px; height: 35px; object-fit: cover; border-radius: var(--radius-xs); flex: none; }
 
+/* ---------- Home ---------- */
+/* Edge to edge: the page cancels the main column's padding, so the hero spans the window and the
+   rows scroll from one edge to the other; text and the rows' first cards keep to the gutter. */
+.home {
+  --home-gutter: 36px;
+  gap: 28px; margin: -28px -36px 0; min-width: 0;
+}
+.home-pad { padding-inline: var(--home-gutter); }
+.home-pad:empty { display: none; }
+.home-caught-up { margin: 0; }
+
+/* The hero: always dark (its art sets the colour), the slides stacked in one cell and cross-faded.
+   The scrim keeps the text readable over any art. */
+.home-hero { position: relative; isolation: isolate; display: grid; overflow: hidden; background: var(--ink); color: var(--on-dark); min-height: clamp(340px, 50vh, 500px); }
+.home-hero-slide { grid-area: 1 / 1; position: relative; display: grid; opacity: 0; transition: opacity 500ms ease; }
+.home-hero-slide.on { opacity: 1; }
+.home-hero-backdrop { position: absolute; inset: 0; z-index: -1; overflow: hidden; }
+.home-hero-backdrop img, .home-hero-backdrop .cover {
+  position: absolute; inset: -48px; width: calc(100% + 96px); height: calc(100% + 96px); aspect-ratio: auto; border-radius: 0;
+  object-fit: cover; filter: blur(44px) saturate(1.4); opacity: .75;
+}
+.home-hero-backdrop .cover img { object-fit: cover; }
+.home-hero-backdrop::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, rgb(14 16 28 / .9) 0%, rgb(14 16 28 / .6) 45%, rgb(14 16 28 / .3) 100%);
+}
+.home-hero-body { display: flex; align-items: center; justify-content: space-between; gap: 48px; padding: 56px var(--home-gutter) 64px; }
+.home-hero-text { display: grid; gap: 14px; justify-items: start; max-width: 560px; min-width: 0; }
+.home-hero-title {
+  margin: 0; font-size: clamp(32px, 4.2vw, 56px); font-weight: 800; font-stretch: 118%; line-height: 1.02; letter-spacing: -.02em;
+  text-wrap: balance; overflow-wrap: break-word;
+}
+.home-hero-price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; margin: 0; }
+.home-hero-price b { font-size: 30px; font-weight: 800; font-stretch: 112%; }
+.home-hero-price s { color: var(--on-dark-muted); }
+.home-hero-price .home-cut { position: static; font-size: 15px; }
+.home-hero-line { margin: 0; color: var(--on-dark-soft); font-size: 14px; }
+.home-hero-text .button { margin-top: 8px; }
+.home-hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+.home-hero-actions .button { margin: 0; }
+.home-hero .home-hero-ghost { background: var(--glass-strong); border-color: transparent; color: var(--on-dark); }
+.home-hero .home-hero-ghost:hover { background: var(--glass-border); }
+.home-hero-art { flex: none; width: min(600px, 46%); aspect-ratio: 460 / 215; object-fit: cover; border-radius: var(--radius-media); box-shadow: var(--shadow-lg); }
+.home-hero-poster { flex: none; width: 210px; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); }
+.home-hero-dots { position: absolute; right: var(--home-gutter); bottom: 20px; z-index: 2; display: flex; gap: 6px; }
+.home-hero-dots button { position: relative; width: 32px; min-height: 0; height: 20px; padding: 0; border: 0; background: none; }
+.home-hero-dots button:hover:not(:disabled) { background: none; }
+.home-hero-dots button::before, .home-hero-dots i {
+  content: ''; position: absolute; left: 0; right: 0; top: 8px; height: 4px; border-radius: var(--radius-pill); background: var(--glass-strong);
+}
+.home-hero-dots i { background: var(--on-dark); transform-origin: left; animation: home-hero-turn 7s linear forwards; }
+.home-hero.held .home-hero-dots i { animation-play-state: paused; }
+@keyframes home-hero-turn { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* The collection in figures, then the chips of what needs attention. */
+.home-stats { display: flex; flex-wrap: wrap; gap: 14px 48px; }
+.home-stat { display: grid; gap: 4px; color: var(--text); text-decoration: none; transition: transform 160ms var(--ease-out); }
+.home-stat strong { font-size: 34px; font-weight: 800; font-stretch: 118%; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.home-stat span { color: var(--muted); font-size: 13px; }
+.home-stat:active { transform: scale(0.97); }
+@media (hover: hover) and (pointer: fine) {
+  .home-stat:hover span { color: var(--text); }
+}
+.home-pending { display: flex; flex-wrap: wrap; gap: 8px; margin-top: -12px; }
+.home-chip {
+  display: inline-flex; align-items: center; padding: 7px 14px; border-radius: var(--radius-pill);
+  background: var(--surface); border: 1px solid var(--border); color: var(--text); text-decoration: none; font-weight: 600; font-size: 14px;
+  transition: transform 160ms var(--ease-out);
+}
+.home-chip.warn { background: var(--warn-bg); color: var(--warn); border-color: transparent; }
+.home-chip.danger { background: var(--danger-bg); color: var(--danger); border-color: transparent; }
+.home-chip:active { transform: scale(0.97); }
+
+/* Rows: a head (title, how old the data is, Refresh or See all), then cards scrolling sideways. */
+.home-row { display: grid; gap: 8px; min-width: 0; }
+.home-row-head { display: flex; align-items: baseline; gap: 14px; padding-inline: var(--home-gutter); min-width: 0; }
+.home-row-head h2 { margin: 0; font-size: 21px; font-weight: 800; font-stretch: 112%; letter-spacing: -.01em; white-space: nowrap; }
+.home-row-meta { color: var(--muted); font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-refresh, .home-row-more { margin-left: auto; }
+.home-row-head .home-refresh {
+  min-height: 0; padding: 4px 8px; border: 0; background: none; color: var(--muted); font-size: 13px; gap: 6px;
+}
+.home-row-head .home-refresh:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
+.home-row-more { color: var(--muted); font-size: 13px; text-decoration: none; white-space: nowrap; }
+.home-row-more:hover { color: var(--text); }
+.home-none { margin: 0; padding-inline: var(--home-gutter); }
+.home-credit { margin: -16px 0 0; }
+.home-invite {
+  display: grid; justify-items: start; gap: 12px; margin-inline: var(--home-gutter); padding: 20px 22px;
+  border-radius: var(--radius-lg); background: var(--surface); border: 1px solid var(--border);
+}
+.home-invite p { margin: 0; max-width: 60ch; }
+.home-skeleton { display: flex; gap: 14px; overflow: hidden; padding-inline: var(--home-gutter); }
+.home-skeleton span { flex: none; border-radius: var(--radius-media); background: var(--surface-2); }
+.home-skeleton.deal span { width: 300px; aspect-ratio: 460 / 215; }
+.home-skeleton.poster span { width: 168px; aspect-ratio: 2 / 3; }
+
+.carousel { position: relative; min-width: 0; }
+.carousel-track {
+  display: flex; gap: 14px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none;
+  list-style: none; margin: 0; padding: 6px var(--home-gutter) 10px; scroll-padding-inline: var(--home-gutter);
+}
+.carousel-track::-webkit-scrollbar { display: none; }
+.carousel-track > li { flex: none; scroll-snap-align: start; min-width: 0; }
+/* The side with more cards fades out, which says the row goes on before any arrow shows. */
+.carousel.more-before .carousel-track { mask-image: linear-gradient(90deg, transparent, #000 var(--home-gutter)); }
+.carousel.more-after .carousel-track { mask-image: linear-gradient(90deg, #000 calc(100% - var(--home-gutter)), transparent); }
+.carousel.more-before.more-after .carousel-track {
+  mask-image: linear-gradient(90deg, transparent, #000 var(--home-gutter), #000 calc(100% - var(--home-gutter)), transparent);
+}
+.carousel-arrow {
+  position: absolute; top: 28%; z-index: 1; display: none; width: 42px; height: 42px; min-height: 0; padding: 0; border-radius: var(--radius-pill);
+  background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-md); color: var(--text);
+}
+.carousel-arrow.prev { left: 8px; }
+.carousel-arrow.next { right: 8px; }
+@media (hover: hover) and (pointer: fine) {
+  .carousel:hover .carousel-arrow { display: inline-flex; }
+}
+
+/* Cards: art first (a banner for deals, a poster for games), then a line or two of text. */
+.home-card.is-deal { width: 300px; }
+.home-card.is-poster { width: 168px; }
+.home-card-link { display: grid; gap: 4px; color: var(--text); text-decoration: none; border-radius: var(--radius-media); transition: transform 220ms var(--ease-out); }
+.home-card-link:active { transform: scale(0.97); }
+.home-media { position: relative; overflow: hidden; border-radius: var(--radius-media); background: var(--surface-2); }
+.home-media.is-wide { aspect-ratio: 460 / 215; }
+.home-media.is-poster { aspect-ratio: 2 / 3; }
+.home-media > img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 400ms var(--ease-out); }
+/* The box art a game without a banner falls back to is a tall cover, shown whole. */
+.home-media.tall-art > img { object-fit: contain; }
+.home-media-title { position: absolute; inset: auto 12px 12px; font-weight: 800; font-stretch: 112%; line-height: 1.1; }
+.home-cut, .home-low { position: absolute; top: 8px; padding: 2px 7px; border-radius: var(--radius-xs); font-size: 13px; font-weight: 800; }
+.home-cut { left: 8px; background: var(--ok); color: var(--on-dark); }
+.home-low { right: 8px; background: var(--label-on-cover); color: var(--on-dark); font-size: 11px; font-weight: 700; }
+.home-card-line { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; min-width: 0; padding-inline: 2px; }
+.home-card-line > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-card-title { min-width: 0; font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-inline: 2px; }
+.home-card-line .home-card-title { padding: 0; }
+.home-card.is-deal .home-card-line:first-of-type { margin-top: 6px; }
+.home-card.is-poster .home-card-title { margin-top: 4px; }
+.home-price { font-weight: 800; white-space: nowrap; }
+.home-owned { color: var(--warn); padding-inline: 2px; }
+.home-date {
+  position: absolute; left: 8px; bottom: 8px; padding: 3px 7px; border-radius: var(--radius-xs);
+  background: var(--label-on-cover); color: var(--on-dark); font-size: 12px; font-weight: 700; transition: opacity 200ms ease;
+}
+.home-reveal {
+  position: absolute; inset: auto 0 0 0; padding: 36px 10px 10px; color: var(--on-dark); font-size: 12px; line-height: 1.35;
+  background: linear-gradient(0deg, rgb(10 12 22 / .92), transparent); opacity: 0; transform: translateY(6px);
+  transition: opacity 200ms ease, transform 200ms var(--ease-out);
+}
+.home-because { display: block; padding: 2px 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+a.home-because { color: var(--link); }
+@media (hover: hover) and (pointer: fine) {
+  .home-card-link:hover { transform: translateY(-4px); }
+  .home-card-link:hover .home-media > img { transform: scale(1.04); }
+  .home-card-link:hover .home-reveal { opacity: 1; transform: none; }
+  .home-card-link:hover .home-date { opacity: 0; }
+}
+
+/* A tile per system in its platform's colour, with a bar for its share. */
+.home-systems { display: flex; flex-wrap: wrap; gap: 12px; list-style: none; margin: 0; }
+.home-system {
+  position: relative; overflow: hidden; flex: 1 1 150px; display: grid; align-content: space-between; gap: 18px; min-height: 104px;
+  padding: 16px 18px; border-radius: var(--radius-lg); background: var(--surface-2); color: var(--text);
+}
+.home-system[style] { color: var(--on-dark); }
+.home-system strong { font-size: 28px; font-weight: 800; font-stretch: 118%; line-height: 1; font-variant-numeric: tabular-nums; }
+.home-system span { font-size: 14px; font-weight: 600; }
+.home-system i { position: absolute; left: 0; bottom: 0; height: 4px; background: currentColor; opacity: .55; }
+
+/* The page fades in only when the app opens on it (HomePage adds .home-enter then, see
+   features/home/entrance.ts); switching to it from another page does not animate. */
+.home-enter > * {
+  transition: opacity 240ms var(--ease-out);
+  @starting-style { opacity: 0; }
+}
+
+@media (max-width: 860px) {
+  .home { --home-gutter: 16px; gap: 24px; margin: -16px -16px 0; }
+  .home-hero { min-height: 0; }
+  .home-hero:empty { min-height: 320px; }
+  .home-hero-body { flex-direction: column-reverse; align-items: stretch; gap: 20px; padding: 16px var(--home-gutter) 40px; }
+  .home-hero-art { width: 100%; box-shadow: var(--shadow-md); }
+  /* The newest game's hero leaves its poster to the blurred backdrop: beside the text it would
+     squeeze the title into a column of syllables. */
+  .home-hero-poster { display: none; }
+  .home-hero-body:has(.home-hero-poster) { padding-top: 40px; }
+  .home-hero-title { font-size: 30px; }
+  .home-hero-price b { font-size: 24px; }
+  .home-hero-dots { bottom: 12px; }
+  .home-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 20px; }
+  .home-stat strong { font-size: 26px; }
+  .home-row-head h2 { font-size: 18px; }
+  .home-row-meta { display: none; }
+  .home-card.is-deal { width: min(78vw, 320px); }
+  .home-card.is-poster { width: min(40vw, 168px); }
+  .home-skeleton.poster span { width: min(40vw, 168px); }
+  .home-system { flex-basis: 130px; min-height: 92px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-enter > *, .home-hero-slide, .home-card-link, .home-media > img, .home-reveal { transition: none; }
+  /* Without the bar's motion the deals never move on by themselves; the dots still choose one. */
+  .home-hero-dots i { animation: none; }
+}
+
 /* ---------- Game sheet ---------- */
 .sheet-overlay { place-items: start center; padding: 4vh 16px; overflow-y: auto; }
 .game-sheet {

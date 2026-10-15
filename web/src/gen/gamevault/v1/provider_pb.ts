@@ -30,7 +30,8 @@ export type Provider = Message<"gamevault.v1.Provider"> & {
   id: string;
 
   /**
-   * "cover", "barcode", "metadata" or "valuation" (see ListProvidersRequest.kind).
+   * "cover", "barcode", "metadata", "valuation", "deals" or "releases" (see
+   * ListProvidersRequest.kind).
    *
    * @generated from field: string kind = 2;
    */
@@ -88,8 +89,8 @@ export const ProviderSchema: GenMessage<Provider> = /*@__PURE__*/
  */
 export type ListProvidersRequest = Message<"gamevault.v1.ListProvidersRequest"> & {
   /**
-   * The chain to list: "cover", "barcode", "metadata" or "valuation". Any other kind has no
-   * providers, so the list is empty.
+   * The chain to list: "cover", "barcode", "metadata", "valuation", "deals" or "releases". Any
+   * other kind has no providers, so the list is empty.
    *
    * @generated from field: string kind = 1;
    */
