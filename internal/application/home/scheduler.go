@@ -58,7 +58,7 @@ func (s *Service) firstTurn(ctx context.Context, b Block) time.Time {
 		return soon
 	}
 
-	last := lastAttempt(snap, now)
+	last := s.lastTry(b, snap, now)
 	if last.IsZero() {
 		return soon
 	}
@@ -83,7 +83,7 @@ func (s *Service) turn(ctx context.Context, b Block) time.Duration {
 	// the service all the same).
 	if snap, _, err := s.snaps.Snapshot(ctx, b); err == nil {
 		now := s.now()
-		if last := lastAttempt(snap, now); !last.IsZero() && now.Sub(last) < every(b)/2 {
+		if last := s.lastTry(b, snap, now); !last.IsZero() && now.Sub(last) < every(b)/2 {
 			return last.Add(s.rhythm.Vary(every(b), jitter)).Sub(now)
 		}
 	}

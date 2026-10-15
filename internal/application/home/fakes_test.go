@@ -2,6 +2,7 @@ package home_test
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"gamevault/internal/application/home"
@@ -175,4 +176,11 @@ type prefs settings.Preferences
 
 func (p prefs) Preferences(context.Context) (settings.Preferences, error) {
 	return settings.Preferences(p), nil
+}
+
+// unsaved is a home.Snapshots whose saves fail, as a full disk or a locked database does.
+type unsaved struct{ snapshots }
+
+func (u unsaved) SaveSnapshot(context.Context, home.Snapshot) error {
+	return errors.New("database is locked")
 }

@@ -152,6 +152,13 @@ type Service struct {
 	// mu makes refreshes one at a time: the job's and the user's never overlap, and a user's
 	// refresh right after the job's is refused by the guard instead of asking again.
 	mu sync.Mutex
+
+	// attempts is when each block's providers were last asked, kept in memory too: when the
+	// snapshot cannot be saved (a full disk, a locked database), the guard and the job still count
+	// the attempt, so pressing Refresh again never sends requests every time. attemptsMu guards it,
+	// as Home reads it without mu.
+	attempts   map[Block]time.Time
+	attemptsMu sync.Mutex
 }
 
 // NewService builds the service. Without providers (WithDeals, WithReleases) both blocks say they
@@ -165,6 +172,7 @@ func NewService(configs Configs, games Catalog, owners Ownership, snaps Snapshot
 		prefs:    prefs,
 		deals:    map[provider.ID]DealsProvider{},
 		releases: map[provider.ID]ReleasesProvider{},
+		attempts: map[Block]time.Time{},
 		now:      time.Now,
 		log:      slog.New(slog.DiscardHandler),
 	}
@@ -204,6 +212,30 @@ func lastAttempt(s Snapshot, now time.Time) time.Time {
 	}
 
 	return last
+}
+
+// lastTry returns when the block was last refreshed or tried, from its snapshot or from memory,
+// whichever is later (see lastAttempt; a time after now is ignored either way).
+func (s *Service) lastTry(b Block, snap Snapshot, now time.Time) time.Time {
+	last := lastAttempt(snap, now)
+
+	s.attemptsMu.Lock()
+	tried := s.attempts[b]
+	s.attemptsMu.Unlock()
+
+	if tried.After(last) && !tried.After(now) {
+		last = tried
+	}
+
+	return last
+}
+
+// tried remembers that the block's providers were asked at t.
+func (s *Service) tried(b Block, t time.Time) {
+	s.attemptsMu.Lock()
+	defer s.attemptsMu.Unlock()
+
+	s.attempts[b] = t
 }
 
 // enabled returns the block's enabled providers that are compiled in, in the user's order.
@@ -292,7 +324,7 @@ func (s *Service) block(ctx context.Context, b Block) (BlockView, Snapshot, erro
 		ErrorKind: snap.ErrorKind,
 	}
 
-	if last := lastAttempt(snap, s.now()); !last.IsZero() {
+	if last := s.lastTry(b, snap, s.now()); !last.IsZero() {
 		v.RefreshableAt = last.Add(manualGap)
 	}
 
@@ -355,7 +387,7 @@ func (s *Service) refreshGuarded(ctx context.Context, b Block) error {
 	}
 
 	now := s.now()
-	if last := lastAttempt(snap, now); !last.IsZero() && now.Before(last.Add(manualGap)) {
+	if last := s.lastTry(b, snap, now); !last.IsZero() && now.Before(last.Add(manualGap)) {
 		return ErrTooSoon
 	}
 
@@ -393,6 +425,7 @@ func (s *Service) refresh(ctx context.Context, b Block) error {
 	defer cancel()
 
 	began := s.now()
+	s.tried(b, began)
 
 	var last error
 

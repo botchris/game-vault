@@ -258,3 +258,35 @@ func TestRun_futureAttempt(t *testing.T) {
 		})
 	})
 }
+
+func TestRun_unsavedAttempt(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN deals never gathered, and a snapshot store that cannot save", func(t *testing.T) {
+		deals := &fakeDeals{}
+		cfg := &configs{}
+		cfg.enable(deals)
+
+		clk := &clock{start}
+		st := &steps{
+			clk:  clk,
+			left: 1,
+		}
+		svc := home.NewService(cfg, catalog{}, ownerOf(catalog{}), unsaved{snapshots{}}, prefs{},
+			home.WithDeals(deals), home.WithClock(clk.now), home.WithRhythm(st.rhythm()))
+
+		st.during = func() {
+			_, err := svc.Refresh(ctx, home.BlockDeals)
+			require.Error(t, err)
+		}
+
+		t.Run("WHEN the user refreshes deals just before the job's turn", func(t *testing.T) {
+			svc.Run(ctx)
+
+			t.Run("THEN the job does not ask again: the unsaved attempt counts as its turn", func(t *testing.T) {
+				assert.Len(t, deals.calls, 2, "the user's refresh only")
+			})
+		})
+	})
+}

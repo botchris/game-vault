@@ -748,3 +748,54 @@ func TestRefresh_futureAttempt(t *testing.T) {
 		})
 	})
 }
+
+func TestRefresh_unsavedAttempt(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a deals provider and a snapshot store that cannot save", func(t *testing.T) {
+		deals := &fakeDeals{featured: []game.Deal{deal("Echo Valley", "")}}
+		cfg := &configs{}
+		cfg.enable(deals)
+
+		clk := &clock{start}
+		svc := home.NewService(cfg, catalog{}, ownerOf(catalog{}), unsaved{snapshots{}}, prefs{}, home.WithDeals(deals), home.WithClock(clk.now))
+
+		t.Run("WHEN the user refreshes deals", func(t *testing.T) {
+			_, err := svc.Refresh(ctx, home.BlockDeals)
+
+			t.Run("THEN the storage error is returned, after the provider was asked", func(t *testing.T) {
+				require.Error(t, err)
+				assert.Len(t, deals.calls, 2)
+			})
+		})
+
+		t.Run("WHEN the user presses Refresh again a minute later", func(t *testing.T) {
+			clk.advance(time.Minute)
+
+			_, err := svc.Refresh(ctx, home.BlockDeals)
+
+			t.Run("THEN it is refused without a request: the attempt is remembered in memory", func(t *testing.T) {
+				assert.ErrorIs(t, err, home.ErrTooSoon)
+				assert.Len(t, deals.calls, 2)
+			})
+
+			t.Run("AND the page says when it can be refreshed", func(t *testing.T) {
+				h, err := svc.Home(ctx)
+				require.NoError(t, err)
+				assert.Equal(t, start.Add(15*time.Minute), h.Deals.RefreshableAt)
+			})
+		})
+
+		t.Run("WHEN the user presses Refresh fifteen minutes after the first", func(t *testing.T) {
+			clk.advance(14 * time.Minute)
+
+			_, err := svc.Refresh(ctx, home.BlockDeals)
+
+			t.Run("THEN the provider is asked again", func(t *testing.T) {
+				assert.NotErrorIs(t, err, home.ErrTooSoon)
+				assert.Len(t, deals.calls, 4)
+			})
+		})
+	})
+}
