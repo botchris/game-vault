@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log/slog"
+	"sync"
 
 	"golang.org/x/sync/singleflight"
 
@@ -58,6 +59,9 @@ type Assets struct {
 	downloads *Downloads
 	log       *slog.Logger
 	group     singleflight.Group
+
+	// prefetching counts the background downloads under way, for Wait.
+	prefetching sync.WaitGroup
 }
 
 // NewAssets builds the sheet images service. Options: WithLogger.
@@ -116,6 +120,10 @@ func (a *Assets) download(ctx context.Context, id game.ID, name, remote string) 
 	return img, nil
 }
 
+// Wait returns once the background downloads started so far have finished, so a caller can tear
+// down the store they write into (tests, a shutdown).
+func (a *Assets) Wait() { a.prefetching.Wait() }
+
 // register records where the sheet's images come from and downloads the missing ones in the
 // background, so the next view of the sheet (or any view offline) is served from disk.
 func (a *Assets) register(ctx context.Context, g GameRef, d *GameDetails) {
@@ -139,7 +147,11 @@ func (a *Assets) register(ctx context.Context, g GameRef, d *GameDetails) {
 
 	bg := context.WithoutCancel(ctx)
 
+	a.prefetching.Add(1)
+
 	go func() {
+		defer a.prefetching.Done()
+
 		n := 0
 
 		for _, name := range missing {
