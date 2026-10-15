@@ -530,6 +530,47 @@ func TestSend_unfetchableImage(t *testing.T) {
 	})
 }
 
+func TestSend_imageErrorsFallBackToText(t *testing.T) {
+	// Answers Telegram gives to photos it cannot use, from the Bot API's error descriptions; the
+	// last is the proxy in front of it refusing an upload over its size limit.
+	for _, tc := range []struct {
+		name   string
+		status int
+		body   string
+	}{
+		{"invalid dimensions", http.StatusBadRequest, `{"ok":false,"error_code":400,"description":"Bad Request: PHOTO_INVALID_DIMENSIONS"}`},
+		{"image not processed", http.StatusBadRequest, `{"ok":false,"error_code":400,"description":"Bad Request: IMAGE_PROCESS_FAILED"}`},
+		{"bad extension", http.StatusBadRequest, `{"ok":false,"error_code":400,"description":"Bad Request: PHOTO_EXT_INVALID"}`},
+		{"file too big", http.StatusBadRequest, `{"ok":false,"error_code":400,"description":"Bad Request: File is too big"}`},
+		{"request too large", http.StatusRequestEntityTooLarge, `{"ok":false,"error_code":413,"description":"Request Entity Too Large"}`},
+	} {
+		t.Run("GIVEN Telegram refuses the photo: "+tc.name, func(t *testing.T) {
+			f := newFakeTelegram(t)
+			f.failMethod("sendPhoto", tc.status, tc.body)
+
+			t.Run("WHEN the message is sent", func(t *testing.T) {
+				err := f.connector().Send(ctx10(t), goodSettings, notify.Message{
+					Title: "x",
+					Images: []notify.Image{
+						{
+							Name: "a.png",
+							Data: []byte("AAA"),
+						},
+					},
+				})
+
+				t.Run("THEN it goes once as text and succeeds", func(t *testing.T) {
+					require.NoError(t, err)
+
+					calls := f.received()
+					require.Len(t, calls, 2)
+					assert.Equal(t, "sendMessage", calls[1].method)
+				})
+			})
+		})
+	}
+}
+
 func TestRender_overLongTitleWithoutText(t *testing.T) {
 	t.Run("GIVEN a title over the limit and no text", func(t *testing.T) {
 		got := render(notify.Message{Title: strings.Repeat("a", 30)}, 10)

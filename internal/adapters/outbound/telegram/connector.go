@@ -465,7 +465,8 @@ func rejection(status int, description string) error {
 	switch {
 	case status == http.StatusUnauthorized || status == http.StatusNotFound:
 		return permanent("Telegram rejected the bot token: create a new one with @BotFather (" + d + ")")
-	case status == http.StatusBadRequest && badMediaDescription(d):
+	case (status == http.StatusBadRequest && badMediaDescription(d)) || status == http.StatusRequestEntityTooLarge:
+		// A 413 is an upload over the size limit: only a message with images is big enough.
 		return &mediaError{permanentError("Telegram could not use the image (" + d + ")")}
 	case status == http.StatusBadRequest && strings.Contains(strings.ToLower(d), "chat not found"):
 		return permanent("Telegram cannot find the chat: send a message to the bot, then press Test with the chat empty (" + d + ")")
@@ -488,7 +489,10 @@ type mediaError struct {
 func badMediaDescription(d string) bool {
 	d = strings.ToLower(d)
 
-	for _, frag := range []string{"wrong file identifier", "http url", "failed to get http url content", "wrong type of the web page content"} {
+	for _, frag := range []string{
+		"wrong file identifier", "http url", "failed to get http url content", "wrong type of the web page content",
+		"photo_invalid_dimensions", "image_process_failed", "photo_ext_invalid", "file is too big",
+	} {
 		if strings.Contains(d, frag) {
 			return true
 		}
