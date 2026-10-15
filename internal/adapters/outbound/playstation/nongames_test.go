@@ -306,6 +306,11 @@ func TestNonGameName(t *testing.T) {
 		{"Paper Kites Avatares", true}, //nolint:misspell // Spanish plural of avatar
 		{"Paper Kites: Behind the Scenes", true},
 		{"Behind the Scenes of Paper Kites", true},
+		{"PAPER KITES: Timefall - Detrás de cámaras: desarrollo del vídeo", true},
+		{"Paper Kites: detrás de las cámaras", true},
+		{"Cómo se hizo Paper Kites", true},
+		{"Paper Kites - Cómo se hizo", true},
+		{"Detrás del Muro", false},
 		{"The Making of Paper Kites", true},
 		{"Banda sonora de Lantern Keep™", true},
 		{"Banda sonora original de Paper Comet™ 2", true},

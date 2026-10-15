@@ -22,7 +22,7 @@ As of 2026-10:
     second is not a game. Never-played titles stay; if a list fails, no category exclusions (warn log).
     Response shape taken from psn-api's types, only tested against fakes so far;
   - name markers (`nonGameName`): trailing Demo / Trial / Beta / Soundtrack / OST / Theme / Avatar(s) /
-    Art Book (+ Spanish), "Behind the Scenes" / "Making of" anywhere, and (2026-10-13) the same words at the
+    Art Book (+ Spanish), "Behind the Scenes" / "Making of" anywhere (Spanish "Detrás de (las) cámaras" / "Cómo se hizo" since 2026-10-15), and (2026-10-13) the same words at the
     start when a joiner follows ("Banda sonora de X", "Soundtrack of X", "Original Soundtrack: X",
     "Demo - X"; no "of" for demo/trial/theme/avatar, since "Trial of the Lantern" is a game). ™ ® are
     ignored. Withdrawn copies keep their id, so earlier imports are removed on the next scan.
