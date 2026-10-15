@@ -456,10 +456,10 @@ Game Vault opens on **Home** (`#/home`; the empty address and unknown ones go th
 bottom:
 
 - **Needs your attention** (shown only when something is pending; otherwise "All caught up"): keys
-  that expire soon (the library's "Expiring" rule: within 30 days, past deadlines included) with the
-  nearest one, keys still to redeem, keys you don't need, and the Health problems. Each chip opens
-  the library already filtered (`#/library/expiring`, `#/library/pending`, `#/library/redundant`) or
-  System → Health. The web counts them from the games it already holds, with the library's own
+  whose deadline has passed, keys that expire within 30 days with the nearest one, keys still to
+  redeem, keys you don't need, and the Health problems. Each chip opens the library already filtered
+  (`#/library/expiring`, `#/library/pending`, `#/library/redundant`) or System → Health; both
+  deadline chips open "Expiring", which lists the two together. The web counts them from the games it already holds, with the library's own
   helpers (`web/src/lib/home.ts`). The chips count keys, while the library views they open count
   games, so a chip's number can be larger than the games its view lists.
 - **Deals** (provider kind `deals`, IsThereAnyDeal): "Featured now" and "Historical lows", 12 each,

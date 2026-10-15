@@ -31,13 +31,22 @@ test('the pending strip counts keys with the library\'s rules, nearest deadline 
   ]);
 });
 
-test('"Expiring" is the library\'s rule: within 30 days, a deadline already past included', () => {
+test('keys past their deadline get their own chip; "expiring" is today up to 30 days', () => {
   const items = pendingItems([
     game('g1', 'Lantern Keep', [key(1, '2026-11-14')]), // 30 days
     game('g2', 'Echo Valley', [key(1, '2026-11-15')]),  // 31 days
     game('g3', 'Harbor Lights', [key(1, '2026-10-12')]), // 3 days ago
+    game('g4', 'Copper Coast', [key(1, '2026-10-15')]),  // today
   ], [], today);
-  assert.deepEqual(items[0], { kind: 'expiring', count: 2, nearest: { title: 'Harbor Lights', days: -3, gameId: 'g3' }, href: '#/library/expiring' });
+  assert.deepEqual(items.slice(0, 2), [
+    { kind: 'expired', count: 1, href: '#/library/expiring' },
+    { kind: 'expiring', count: 2, nearest: { title: 'Copper Coast', days: 0, gameId: 'g4' }, href: '#/library/expiring' },
+  ]);
+});
+
+test('with only past deadlines there is no "expiring" chip', () => {
+  const items = pendingItems([game('g1', 'Harbor Lights', [key(1, '2026-10-12')])], [], today);
+  assert.deepEqual(items.map((it) => it.kind), ['expired', 'pending']);
 });
 
 test('with nothing pending, the strip is empty (the page says "All caught up")', () => {

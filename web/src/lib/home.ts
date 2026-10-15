@@ -40,15 +40,17 @@ const isHeld = (c: CopyLike) => !GONE.has(c.details?.status ?? 0);
 /** One chip of the pending strip. */
 export type PendingItem =
   | { kind: 'expiring'; count: number; nearest: { title: string; days: number; gameId: string }; href: string }
-  | { kind: 'pending' | 'redundant'; count: number; href: string }
+  | { kind: 'expired' | 'pending' | 'redundant'; count: number; href: string }
   | { kind: 'health'; count: number; level: 'error' | 'warning'; href: string };
 
-/** The pending strip: keys that expire soon (the library's "Expiring" rule, past deadlines
- *  included) with the nearest one, keys still to redeem, keys not needed, and the Health issues.
+/** The pending strip: keys whose deadline has passed, keys that expire within the library's
+ *  "Expiring" window with the nearest one, keys still to redeem, keys not needed, and the Health
+ *  issues. Both deadline chips open the library's "Expiring" view, which lists the two together.
  *  Empty when nothing is pending. */
 export function pendingItems(games: GameLike[], issues: { level: string }[], today: Date): PendingItem[] {
   let pending = 0;
   let redundant = 0;
+  let expired = 0;
   let expiring = 0;
   let nearest: { title: string; days: number; gameId: string } | null = null;
 
@@ -59,12 +61,17 @@ export function pendingItems(games: GameLike[], issues: { level: string }[], tod
       if (c.redundant) redundant++;
       const days = daysUntil(c.details?.redeemBy ?? '', today);
       if (days === null || !expiresSoon(days)) continue;
+      if (days < 0) {
+        expired++;
+        continue;
+      }
       expiring++;
       if (!nearest || days < nearest.days) nearest = { title: g.title, days, gameId: g.id };
     }
   }
 
   const out: PendingItem[] = [];
+  if (expired) out.push({ kind: 'expired', count: expired, href: '#/library/expiring' });
   if (nearest) out.push({ kind: 'expiring', count: expiring, nearest, href: '#/library/expiring' });
   if (pending) out.push({ kind: 'pending', count: pending, href: '#/library/pending' });
   if (redundant) out.push({ kind: 'redundant', count: redundant, href: '#/library/redundant' });

@@ -13,7 +13,7 @@ export function PendingStrip({ games, issues }: { games: Game[]; issues: HealthI
 
   if (!items.length) return <p className="muted home-caught-up">{t('home.pending.none')}</p>;
 
-  const when = (days: number) => (days < 0 ? t('home.pending.expired') : days === 0 ? t('home.pending.today') : t('home.pending.inDays', { count: days }));
+  const when = (days: number) => (days === 0 ? t('home.pending.today') : t('home.pending.inDays', { count: days }));
   const label = (it: PendingItem) => {
     switch (it.kind) {
       case 'expiring':
@@ -24,7 +24,7 @@ export function PendingStrip({ games, issues }: { games: Game[]; issues: HealthI
         return t(`home.pending.${it.kind}`, { count: it.count });
     }
   };
-  const tone = (it: PendingItem) => (it.kind === 'expiring' || (it.kind === 'health' && it.level === 'error') ? 'danger' : it.kind === 'health' ? 'warn' : '');
+  const tone = (it: PendingItem) => (it.kind === 'expired' || it.kind === 'expiring' || (it.kind === 'health' && it.level === 'error') ? 'danger' : it.kind === 'health' ? 'warn' : '');
 
   return (
     <nav className="home-pending" aria-label={t('home.pending.label')}>
