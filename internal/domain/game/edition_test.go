@@ -494,3 +494,80 @@ func TestPCBox(t *testing.T) {
 		assert.False(t, IsPCStoreLink("psn"))
 	})
 }
+
+func TestEditions_followARenamedSystem(t *testing.T) {
+	disc := func(platform string) Copy {
+		return Copy{
+			ID: NewID(),
+			CopyDetails: CopyDetails{
+				Kind:     KindPhysical,
+				Platform: platform,
+			},
+			Photos: []Photo{{ID: pid(1)}},
+		}
+	}
+
+	t.Run("GIVEN a stored game whose disc platform was typed in lowercase before the catalog knew it", func(t *testing.T) {
+		g := Rehydrate(Snapshot{
+			ID:         NewID(),
+			Info:       Info{Title: "Sonic Adventure"},
+			Copies:     []Copy{disc("dreamcast"), disc("PS2")},
+			Covers:     map[string]EditionCover{"dreamcast": {Photo: pid(1)}},
+			MainSystem: "dreamcast",
+		})
+
+		t.Run("WHEN it is loaded and the catalog fixes the casing of its system", func(t *testing.T) {
+			require.Equal(t, []string{"Dreamcast", "PS2"}, g.Systems())
+
+			t.Run("THEN the photo cover chosen for it follows the edition", func(t *testing.T) {
+				assert.Equal(t, map[string]EditionCover{"Dreamcast": {Photo: pid(1)}}, g.Covers())
+			})
+
+			t.Run("AND it is still the main edition", func(t *testing.T) {
+				assert.Equal(t, "Dreamcast", g.MainSystem())
+			})
+		})
+	})
+
+	t.Run("GIVEN a stored game whose disc platform is a catalog alias", func(t *testing.T) {
+		d := disc("Mega Drive")
+		g := Rehydrate(Snapshot{
+			ID:         NewID(),
+			Info:       Info{Title: "Sonic the Hedgehog"},
+			Copies:     []Copy{d, disc("PS2")},
+			Covers:     map[string]EditionCover{"Mega Drive": {URL: "https://example.test/md.jpg"}},
+			MainSystem: "Mega Drive",
+		})
+		require.Equal(t, []string{"Mega Drive", "PS2"}, g.Systems(), "an alias is kept until the copy is saved")
+
+		t.Run("WHEN the copy is saved and its platform becomes the catalog name", func(t *testing.T) {
+			_, err := g.UpdateCopy(d.ID, d.CopyDetails, t0)
+			require.NoError(t, err)
+			require.Equal(t, []string{"Mega Drive / Genesis", "PS2"}, g.Systems())
+
+			t.Run("THEN the chosen cover follows the edition", func(t *testing.T) {
+				assert.Equal(t, map[string]EditionCover{"Mega Drive / Genesis": {URL: "https://example.test/md.jpg"}}, g.Covers())
+			})
+
+			t.Run("AND it is still the main edition", func(t *testing.T) {
+				assert.Equal(t, "Mega Drive / Genesis", g.MainSystem())
+			})
+		})
+	})
+
+	t.Run("GIVEN a renamed system whose new name already has a cover of its own", func(t *testing.T) {
+		g := Rehydrate(Snapshot{
+			ID:     NewID(),
+			Info:   Info{Title: "Sonic Adventure"},
+			Copies: []Copy{disc("dreamcast"), disc("Dreamcast")},
+			Covers: map[string]EditionCover{
+				"dreamcast": {URL: "https://example.test/old.jpg"},
+				"Dreamcast": {URL: "https://example.test/new.jpg"},
+			},
+		})
+
+		t.Run("WHEN it is loaded THEN the edition keeps its own cover", func(t *testing.T) {
+			assert.Equal(t, map[string]EditionCover{"Dreamcast": {URL: "https://example.test/new.jpg"}}, g.Covers())
+		})
+	})
+}

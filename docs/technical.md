@@ -183,7 +183,12 @@ prefix is not used, since it does not tell the region.
 A game has one **edition** per system of its copies. The **main edition** is the one the user chose
 (**Use as the game's cover**), else one with a physical copy, then the one with the most copies,
 then the first by system. A chosen cover whose system has no copy left is dropped, a photo cover
-must be of a copy of that system, and a main system without copies is cleared. A game without
+must be of a copy of that system, and a main system without copies is cleared. When the catalog
+renames a stored system (its casing on load, "dreamcast" → "Dreamcast"; an alias when the copy is
+next saved, "Mega Drive" → "Mega Drive / Genesis"), its chosen cover and the main-edition choice
+follow the edition to the new name instead, unless that edition already has a cover of its own. The
+cover file cached under the old name is not renamed: the chosen photo or URL is read again for the
+new name on first view, and the old file stays unused in the game's folder. A game without
 copies keeps its chosen cover under the empty system until its first copy appears: it then moves to
 that edition if it has no cover of its own, else it is dropped. Merging games keeps the kept game's
 covers and main system and fills the gaps from the other. Redundant keys still compare platforms;
