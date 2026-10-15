@@ -450,6 +450,85 @@ Store covers: every library source links the games it imports to its store (Stea
 
 **Answers that cannot become a marker.** An edition is only marked "no cover found" when no provider asked to slow down. While one is limited (TheGamesDB's allowance used up), the providers that did answer "no cover" are remembered in memory for 24 hours for that edition and not asked again on every view; **Retry games without cover**, a change to the cover providers, a change to the edition's cover inputs or deleting the game forgets them. An add-on (DLC, soundtrack…) borrows its base game's cover before the fallback pass, so a link-less add-on key does not spend title searches first (unless a provider was limited: it may have had the add-on's own art). When the way covers are found improves, "no cover found" markers written before the change are ignored, so those games are retried (see `coverLogicChanged` in `internal/application/media`).
 
+## Home page
+
+Game Vault opens on **Home** (`#/home`; the empty address and unknown ones go there too). Top to
+bottom:
+
+- **Needs your attention** (shown only when something is pending; otherwise "All caught up"): keys
+  that expire soon (the library's "Expiring" rule: within 30 days, past deadlines included) with the
+  nearest one, keys still to redeem, keys you don't need, and the Health problems. Each chip opens
+  the library already filtered (`#/library/expiring`, `#/library/pending`, `#/library/redundant`) or
+  System → Health. The web counts them from the games it already holds, with the library's own
+  helpers (`web/src/lib/home.ts`). The chips count keys, while the library views they open count
+  games, so a chip's number can be larger than the games its view lists.
+- **Deals** (provider kind `deals`, IsThereAnyDeal): "Featured now" and "Historical lows", 12 each,
+  without the games you own on PC. Whether a deal is yours is decided by the ownership lookup
+  ("Do I own it?"): the deal's Steam app, or exactly its title. A game you own on PC is hidden; one
+  you own only on consoles stays, with a note ("You have it on PS4"). The filter runs when the page
+  is read, so a game bought since the last refresh is gone at once. Cards show ITAD's art (through
+  the image proxy), the shop, the price with the cut and the regular price, a "Historical low" badge
+  and "Ends in N days" when known, and open the deal through ITAD's own link (https only),
+  unchanged. A credit line links to IsThereAnyDeal.
+- **Upcoming releases** (provider kind `releases`, IGDB): "From your series" (upcoming entries of
+  the collections and franchises of games you own, each with "Because you have X", which opens X's
+  sheet) and "Most anticipated" (main games of the next 60 days with the most follows before
+  release). Releases already out, or explained by a game no longer in the catalog, are left out
+  when the page is read.
+- **Your collection:** games and copies, games added this month (local time), games in the backlog,
+  the value of physical copies (the first price source with estimates; hidden without any), the 8
+  newest covers, and the share of each system (editions per system, the five largest and the rest,
+  named in the UI language). Each figure opens its library view (`#/library`, `#/library/recent`,
+  `#/library/backlog`, `#/library/physical`).
+
+**How deals and releases are gathered.** `internal/application/home` keeps one snapshot per block
+in SQLite (`home_snapshots`: the lists as JSON, when they were gathered, and the last failure).
+Reading the page (`HomeService/GetHome`) never asks a service. An unattended job asks the providers
+of each block in the user's order until one answers: deals every 6 hours, releases every 24, each
+±10 % (`unattended.Rhythm`); a block that is overdue at start-up is gathered at a random moment 1–5
+minutes later, and a block without an enabled provider is looked at again about every hour, sending
+nothing. `-no-unattended` turns the job off: the page shows what is stored, and only **Refresh**
+asks a service. **Refresh** (`RefreshHome`) gathers one block now, at most once every 15 minutes
+counted from the last attempt (`AttemptedAt`: failed attempts and interrupted ones count too, and it
+survives restarts). A refresh the user makes in the second half of the interval takes the job's
+turn: the job's next one is a whole interval after it. A refresh is all or nothing: if a list
+fails, the previous snapshot stays whole, the failure is recorded next to it and reaches the
+provider's status (System → Health). When the page itself cannot be read, the two blocks are
+hidden (the alert says so) instead of claiming to be not configured; when reads and refreshes
+overlap, the newest answer wins.
+
+**Block states:** *not configured* (no provider enabled; stored data is hidden, and a card links to
+Providers), *never fetched* (a card with Refresh; the skeleton shows only while a request runs),
+*stale* (the last attempt failed, or the data is older than twice its interval: "Updated 6 hours ago
+· IsThereAnyDeal is not answering"; Refresh says when to try again while the guard holds), *fresh*.
+
+**IsThereAnyDeal** (`internal/adapters/outbound/itad`, provider `itad`): ITAD's API v2 with your own
+free API key (Providers → Deals; an app registered on isthereanydeal.com) and a country setting
+(two letters). Left empty, the country follows your default currency: euro maps to Spain (ES), other
+currencies to their own country in a table, else ITAD's own default (the United States).
+A refresh sends four requests: the deals list in ITAD's own order (`GET /deals/v2`, 40 games), the
+deepest cuts (`sort=-cut`, 200) kept when at their historical low, and one Steam lookup per list
+(`POST /lookup/shop/61/id/v1`). Only games are kept (no DLC or soundtracks), never mature ones. The
+key travels in the `ITAD-API-Key` header. A bad key is answered with 403 (not 401); a 403 that is
+an HTML page is treated as a passing trouble, not a bad key. **Test connection** sends the featured
+request with a limit of 40. Requests are one a second at most, and a 429 or an outage rests the
+provider for a minute or as long as `Retry-After` asks (ITAD allows 1000 requests per 5 minutes).
+ITAD's terms allow private personal use with your own key and forbid altering its data or
+competing with it: prices and links are shown as given, and Game Vault has no price alerts of its
+own. ITAD receives no collection data: only the deal requests, with the country, and lookups of its
+own game ids.
+
+**IGDB releases** (provider `igdb-releases`, settings shared with IGDB covers and details): off
+until you turn it on, even with the Twitch application entered (it runs on a schedule). "Most
+anticipated" is one `games` query; "From your series" finds your games by their Steam apps
+(`external_games`, source 1, 500 at a time), then asks for the upcoming main games of their
+collections and franchises (500 ids at a time, paged while a page is full). So IGDB receives Steam
+AppIDs, not IGDB ids, and games without a Steam link contribute no series. The series queries
+scale with the games linked to Steam: one lookup per 500 games, and each batch of the series query
+is capped at 500 entries. Until the query filters on IGDB's `game_type`, a bundle or an episode of a
+series may show up as a sequel. IGDB receives the Steam ids of the games you own to find their
+series (it already receives titles and store ids for game sheets).
+
 ## Browsing the library
 
 - **Sort** by title (A–Z or Z–A), recently added, release year, redeem deadline, number of copies or rating. The choice and the view (covers or list) are remembered per device.
@@ -461,6 +540,11 @@ Store covers: every library source links the games it imports to its store (Stea
 - **System badges** in "By game" show where you have the game: the store or console logo (with the generation for consoles: PS3, 360…). Solid badges are copies you own; hollow ones with a key glyph are keys you have not redeemed yet. Sold, gifted and expired copies are not shown. Logos come from [Simple Icons](https://simpleicons.org) (CC0); Xbox and Nintendo, which Simple Icons does not ship, use simple drawn glyphs. Brand logos are trademarks of their owners.
 - On phones the sidebar becomes a bottom tab bar, filters open as a bottom sheet and the game sheet takes the full screen.
 - A `#/game/<id>` address opens that game's sheet; moving to another game in that sheet (‹ ›, ← →) updates the address to the game shown, and closing it returns to `#/library`. Changing the address within a page (a sheet over the library, a card of System) keeps the scroll position; only a new page starts at the top.
+- `#/library/pending`, `#/library/expiring`, `#/library/redundant`, `#/library/backlog`,
+  `#/library/physical` and `#/library/recent` open the library with that quick filter, play status,
+  kind of copy or sort (the home page links to them); the address then goes back to `#/library`.
+  `#/library/recent` changes the stored library sort (the choice is remembered per device), so the
+  library keeps that sort afterwards.
 
 ## Game sheets
 

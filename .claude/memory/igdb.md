@@ -40,6 +40,17 @@ settings group `igdb`):
   start time; a store id listed under several games keeps the main one, else nothing.
 - Images: `https://images.igdb.com/igdb/image/upload/t_<size>/<image_id>.jpg` (cover_big,
   cover_big_2x, screenshot_big, 1080p); removed images stay 30 days.
+- **Releases (2026-10-15):** `igdb-releases` (kind `releases`, off until turned on). Anticipated: one
+  `games` query, `first_release_date` within 60 days, `hypes > 0`, `version_parent = null &
+  parent_game = null`, `sort hypes desc; limit 40;`. Sequels: `external_games` by Steam uid
+  (source 1; IGDB receives Steam AppIDs, not IGDB ids) in batches of 500 with
+  `game.franchise,game.franchises,game.collections`, then `games` with `collections = (…) |
+  franchises = (…) | franchise = (…)` and `first_release_date > now`, 500 ids a batch, paged while
+  full. Games without a Steam link contribute no series; queries scale with Steam-linked games (one
+  lookup per 500). Bundles or episodes may show as sequels until a `game_type` filter is added.
+  `hypes` = follows before release; `follows`, `category` and `collection` are deprecated; `limit`
+  max 500. Only the documentation was read: no real query has run yet. IGDB receives the Steam ids
+  of owned games (privacy note in `docs/technical.md`).
 - **Awaits a test with a real Twitch application**; only the error shapes above were seen live,
   everything else against the fake in `fake_test.go`. If the first real sheet fails, ask for the
   warning text (IGDB's own `[{"title":…,"cause":…}]` is passed through).

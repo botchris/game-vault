@@ -44,6 +44,7 @@ one line here. Update a file instead of adding a duplicate; date facts about ext
 - [itch.io](memory/itch.md) — official API, personal key, `/profile/owned-keys` until an empty page, errors list even with 200
 - [Fanatical](memory/fanatical.md) — `/api/user/keys` with the `bsauth` token; terms forbid it, built only behind a required risk consent (user's decision)
 - [SteamGridDB](memory/steamgriddb.md) — official API v2 with a personal key; terms forbid automated use, built only behind a required risk consent (maintainer's decision 2026-10-11); fallback pass, 1 req/s
+- [IsThereAnyDeal](memory/itad.md) — API v2 with the user's own key in `ITAD-API-Key`; bad key = 403 JSON, empty lookup array = 400 first; `/deals/v2` (featured = no sort, lows = `-cut` + historyLow) and Steam lookup; terms: personal use, never alter data, never compete (no alerts), cache, credit
 - [CeX](memory/cex.md) — free EAN box-detail API with PAL coverage; barcode lookups keep name and platform; prices of own copies allowed (2026-10-09); search behind Cloudflare; no images
 - [EAN-Search](memory/ean-search.md) — never scrape the public site
 

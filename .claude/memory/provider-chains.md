@@ -100,3 +100,10 @@ metadata:
   `Assets`, `Identifier`, `Photos`, `AutoLinker`, `ImageProxy`; `media.NewStores` merges the link
   stores of providers and sources. `CoverQuery` is now `GameQuery`; add-on titles and retail product
   names are domain rules (`game.IsAddOnTitle`, `game.ParseProductName`).
+- **Home page kinds (2026-10-15):** `deals` (IsThereAnyDeal, [[itad]]) and `releases` (IGDB
+  `igdb-releases`) joined `provider.Kinds()`. They feed `internal/application/home`, which keeps one
+  snapshot per block (`home_snapshots`), refreshed by an unattended job (deals 6 h, releases 24 h,
+  ±10 %) or the user's Refresh (15-minute guard on `AttemptedAt`: failed and interrupted attempts
+  count, across restarts). `provider.Kind.Scheduled()` (valuation, deals, releases) keeps a provider
+  off when a sibling of its settings group is on. Owned deals are removed when the page is read,
+  through the ownership lookup (Steam id or exact title; owned on PC hides, consoles only adds a note).

@@ -10,6 +10,8 @@ these pieces:
 | Cover provider | `media.CoverProvider` | Finds box art for a game | Providers → Covers |
 | Metadata provider | `media.MetadataProvider` | Fills the game sheet (summary, genres, trailers…) | Providers → Game details |
 | Barcode provider | `media.BarcodeProvider` | Names the game behind a barcode | Providers → Barcodes |
+| Deals provider | `home.DealsProvider` | Lists current deals for the home page | Providers → Deals |
+| Releases provider | `home.ReleasesProvider` | Lists upcoming games for the home page | Providers → Upcoming releases |
 
 The Steam plugin has a source, a cover provider and a metadata provider; Fanatical only a source;
 TheGamesDB a cover and a metadata provider; CeX only a barcode provider.
@@ -183,6 +185,23 @@ extension update: discuss it first.
   `provider.ErrRateLimited`, so nothing is remembered as missing.
 - An application token (client credentials: a Client ID and Secret) lives in an
   `oauthapp.Tokens`, keyed by `oauthapp.Key(id, secret)`, used through `WithRetry`.
+
+## Rules for home page providers
+
+- A deals provider (`provider.KindDeals`) answers `Deals(ctx, settings, home.DealQuery)` for one
+  list (`home.DealsFeatured`, `home.DealsHistoricalLows`) with the country and the size asked; it
+  knows nothing of the collection (the home service removes owned games through the ownership
+  lookup). It fills `SteamAppID` when the service knows it, so ownership is matched by Steam id as
+  well as by title, and passes prices and links through unchanged.
+- A releases provider (`provider.KindReleases`) answers `Anticipated(ctx, settings, window)` and
+  `Sequels(ctx, settings, owned)`, where each `home.OwnedRef` carries an owned game's id, title and
+  store links; every sequel names the owned game that explains it (`Release.Because`). Its `Test`
+  sends the refresh's own anticipated query.
+- Both kinds are asked on a schedule (`provider.Kind.Scheduled`): they never switch on with a
+  sibling of the same settings group, and must stay well within the service's limits (a refresh is
+  a handful of requests). Provider-level failures use the usual sentinels; they keep the last good
+  data on the page and reach Health.
+- Images they return are loaded through the image proxy: declare their hosts (`media.ImageHoster`).
 
 ## Tests
 

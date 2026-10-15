@@ -7,12 +7,16 @@ because Simple Icons removed them).
 
 ## Structure
 
-- `App.tsx`: shell (sidebar on desktop, bottom tab bar under 860 px). Addresses (`#/library`,
+- `App.tsx`: shell (sidebar on desktop, bottom tab bar under 860 px). Addresses (`#/home` (the start page; unknown addresses open it), `#/library`,
   `#/sources/<id>`, `#/system/backups`, `#/game/<id>`) are parsed only by `lib/route.ts` and followed
   only by `lib/useHashRoute.ts` (`replaceRoute` changes the address without a history entry); pages
   get the route's `target`. A new page scrolls to the top; an address within a page does not.
   `lib/useGameAddress.ts` owns the library's open sheet and its `#/game/<id>` address (history rules in `lib/gameAddress.ts`, tested on happy-dom), which follows
   the game the sheet shows.
+- `features/home/`: `HomePage` (the start page: `PendingStrip`, `DealsBlock`, `ReleasesBlock`,
+  `CollectionBlock`), `ExternalBlock` (title, Refresh, stale line and the not configured / never
+  fetched / loading states), `Carousel` (scroll-snap row, arrows on hover). Pure helpers in
+  `lib/home.ts` (Node-tested). Library views open from `#/library/<view>` (`libraryPreset`).
 - `state/AppData.tsx`: the catalog and sources shared by every page; mutations call `putGame`
   instead of refetching.
 - `features/library/`: `LibraryPage` (search, sort, A–Z rail, filters, by platform or by game, posters/list,

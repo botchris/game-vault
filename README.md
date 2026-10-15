@@ -21,6 +21,9 @@ Game Vault puts your whole collection in one catalog that runs on your own compu
 - **Keys are tracked:** which ones you have not redeemed, which expire soon, and which you don't
   need because you already own the game on that platform (so you can gift them). Steam keys get a
   direct "redeem" link.
+- **A home page** that opens with what needs your attention, the deals of the day for games you don't
+  own yet (with a free [IsThereAnyDeal](https://isthereanydeal.com) key) and the upcoming releases of
+  your series (with IGDB).
 - **Do I already own it?** Paste a bundle's games, or any list of titles, to see which ones you have.
   With the browser extension, Steam, GOG, Humble Bundle and Fanatical pages show whether a game is in
   your collection, and bundle pages how many of their games you own. If the extension talks to Game
