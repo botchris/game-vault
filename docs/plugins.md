@@ -203,6 +203,38 @@ extension update: discuss it first.
   data on the page and reach Health.
 - Images they return are loaded through the image proxy: declare their hosts (`media.ImageHoster`).
 
+## Rules for connectors
+
+A connector (`plugin.Plugin.Connectors`) sends Game Vault's notifications to one kind of service
+(Telegram, ntfy and the webhook are the ones to copy). It implements `notify.Connector`:
+`Descriptor` (type id, name and the settings fields, secrets as `schema.FieldSecret`), `Send` and
+`Test`, both given the settings and the `notify.Message` the service rendered in the connection's
+language. A connector only formats the message for its service: it never decides what to say, when
+to retry or whom to tell.
+
+- Wrap `notify.ErrPermanent` (with an `errkind.Invalid` kind, so a failed Test reaches the API as
+  `InvalidArgument`) for what retrying cannot fix: a rejected token, an unknown chat or topic, an
+  invalid address (the usual 400, 401, 403, 404). Anything else is transient and retried by the
+  dispatcher. Write the error as what happened and what to do.
+- A 429 returns an error with `RetryAfter() time.Duration`, read from the service's own answer
+  (`Retry-After`, Telegram's `retry_after`); the dispatcher waits that long, within its limits.
+- A service that needs more than a second between messages implements `notify.Pacer` (`Gap`), as
+  Telegram does (three seconds). One that can look up where to send implements `notify.ChatFinder`
+  (`FindChat`), and Test fills the field in.
+- Secrets never reach an error, a log line or an API answer. Telegram's token is in the URL path, so
+  every error it returns goes through `redact`; ntfy's token and the webhook's header value only
+  travel in headers. Never quote a receiver's error page: receivers echo what they were sent.
+- Never follow redirects with credentials (`apiclient.Client.NoRedirects`, or a `CheckRedirect` that
+  stops at the first one).
+- Images arrive as bytes (a local cover) or as a public URL (a deal's or a release's art). Use what
+  the service supports; an image the service cannot fetch should not fail the news.
+- `Test` sends a short sample with the unsaved settings; it must not need the connection to exist.
+- Add the type's texts (name, description, labels, numbered-step help) to both locale files and list
+  the plugin in `cmd/gamevault/plugins.go`.
+- Test it against a fake server that reproduces the service's answers, failures included:
+  `apiclienttest.Failures()` for an outage, no answer, a truncated answer and an HTML page, plus the
+  permanent rejections, a 429 with its wait, and an assertion that no error contains the secrets.
+
 ## Tests
 
 Every plugin has a test against an `httptest` fake server that reproduces the real API's answers,

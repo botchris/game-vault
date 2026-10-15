@@ -54,6 +54,13 @@ because Simple Icons removed them).
   `components/PlatformBadge.tsx`, status dot, copies, a round scan button; the row opens the
   settings dialog, which holds the last scan report and Delete), then tiles for the stores not
   added yet. Only "Scan all" is amber.
+- `features/notifications` (`#/notifications`): `NotificationsPage` (the optional Game Vault address,
+  the connections as rows with their Enabled switch and state, then tiles for the connector types not
+  added yet), `ConnectionDialog` (name, the type's fields with their help, language, events by group
+  with a named "All" box per group, Test with the unsaved settings, Save, Delete; a chat the test found
+  is shown until the settings are edited) and `Deliveries` (the last 20 messages of a connection).
+  `lib/notifications.ts` holds the pure parts (event groups, a connection's state: working, failing,
+  paused, off, untested), Node-tested.
 - `features/sources`, `features/providers`: settings dialogs; field help is rendered by
   `components/FieldHelp.tsx` from plain text (lines `1. …` become numbered steps, backticks become
   code).

@@ -37,6 +37,8 @@ Game Vault puts your whole collection in one catalog that runs on your own compu
     lists such as "keys you don't need" or "games you own on several platforms".
 - **Your own fields:** add the details you care about (where you bought it, who you lent it to,
   which shelf it is on…) to games or to copies, and filter by them.
+- **Notifications** to Telegram, ntfy or any webhook: new games, upcoming releases, keys about to
+  expire, sign-ins that failed, and problems that need your attention.
 - **A health check** tells you when something needs your attention: an account that signed you
   out, a failed backup, a service that is not answering, a disk running out of space.
 - Works on desktop and phone, in English and Spanish. Your data stays on your machine.
