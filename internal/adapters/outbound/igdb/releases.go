@@ -34,7 +34,7 @@ const (
 
 // releaseFields are the game fields a release card needs. Platforms stay ids: they are mapped to
 // Game Vault's systems, unknown ones left out.
-const releaseFields = "name,first_release_date,url,cover.image_id,platforms,franchise,franchises,collections"
+const releaseFields = "name,first_release_date,url,cover.image_id,artworks.image_id,screenshots.image_id,platforms,franchise,franchises,collections"
 
 // mainGames keeps editions and add-ons out: a deluxe edition or a DLC is not a new game.
 const mainGames = "version_parent = null & parent_game = null"
@@ -86,10 +86,12 @@ type releaseJSON struct {
 	Cover            struct {
 		ImageID string `json:"image_id"`
 	} `json:"cover"`
-	Platforms   []int   `json:"platforms"`
-	Franchise   int64   `json:"franchise"`
-	Franchises  []int64 `json:"franchises"`
-	Collections []int64 `json:"collections"`
+	Artworks    []imageJSON `json:"artworks"`
+	Screenshots []imageJSON `json:"screenshots"`
+	Platforms   []int       `json:"platforms"`
+	Franchise   int64       `json:"franchise"`
+	Franchises  []int64     `json:"franchises"`
+	Collections []int64     `json:"collections"`
 }
 
 // Anticipated implements home.ReleasesProvider with one query: main games whose first release falls
@@ -342,6 +344,11 @@ var systemByPlatform = func() map[int]string {
 	return out
 }()
 
+// imageJSON is an artwork or a screenshot as the release queries return it.
+type imageJSON struct {
+	ImageID string `json:"image_id"`
+}
+
 // release returns the game as a game.Release; Because is the caller's to fill.
 func (g releaseJSON) release() game.Release {
 	out := game.Release{
@@ -356,6 +363,14 @@ func (g releaseJSON) release() game.Release {
 
 	if g.Cover.ImageID != "" {
 		out.CoverURL = imageURL("cover_big", g.Cover.ImageID)
+	}
+
+	// The hero's band is wide: an artwork (key art) suits it best, a screenshot does too.
+	for _, images := range [][]imageJSON{g.Artworks, g.Screenshots} {
+		if len(images) > 0 && images[0].ImageID != "" {
+			out.ArtURL = imageURL("1080p", images[0].ImageID)
+			break
+		}
 	}
 
 	for _, id := range g.Platforms {

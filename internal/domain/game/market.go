@@ -57,6 +57,10 @@ type Release struct {
 	CoverURL string
 	URL      string
 
+	// ArtURL is a wide picture of the game (artwork, else a screenshot), "" without one: the home
+	// page's hero fills its band with it.
+	ArtURL string
+
 	// Because is the owned game whose series it continues, and BecauseTitle that game's title;
 	// both empty for a release listed for its anticipation alone.
 	Because      ID

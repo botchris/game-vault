@@ -414,7 +414,10 @@ type GetGameDetailsRequest struct {
 	// UI language ("en", "es"...). Providers that support it answer in that language.
 	Language string `protobuf:"bytes,2,opt,name=language,proto3" json:"language,omitempty"`
 	// Ask the providers again instead of using the cache (cached for 30 days).
-	Refresh       bool `protobuf:"varint,3,opt,name=refresh,proto3" json:"refresh,omitempty"`
+	Refresh bool `protobuf:"varint,3,opt,name=refresh,proto3" json:"refresh,omitempty"`
+	// Only the sheet gathered before, however old, and never a provider request: for pages that show
+	// a picture of the game in passing. Without one, the answer has empty details.
+	CachedOnly    bool `protobuf:"varint,4,opt,name=cached_only,json=cachedOnly,proto3" json:"cached_only,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -466,6 +469,13 @@ func (x *GetGameDetailsRequest) GetLanguage() string {
 func (x *GetGameDetailsRequest) GetRefresh() bool {
 	if x != nil {
 		return x.Refresh
+	}
+	return false
+}
+
+func (x *GetGameDetailsRequest) GetCachedOnly() bool {
+	if x != nil {
+		return x.CachedOnly
 	}
 	return false
 }
@@ -572,11 +582,13 @@ const file_gamevault_v1_metadata_proto_rawDesc = "" +
 	"\x03url\x18\x02 \x01(\tR\x03url\x12\x18\n" +
 	"\alicense\x18\x03 \x01(\tR\alicense\x12\x1f\n" +
 	"\vlicense_url\x18\x04 \x01(\tR\n" +
-	"licenseUrl\"f\n" +
+	"licenseUrl\"\x87\x01\n" +
 	"\x15GetGameDetailsRequest\x12\x17\n" +
 	"\agame_id\x18\x01 \x01(\tR\x06gameId\x12\x1a\n" +
 	"\blanguage\x18\x02 \x01(\tR\blanguage\x12\x18\n" +
-	"\arefresh\x18\x03 \x01(\bR\arefresh\"i\n" +
+	"\arefresh\x18\x03 \x01(\bR\arefresh\x12\x1f\n" +
+	"\vcached_only\x18\x04 \x01(\bR\n" +
+	"cachedOnly\"i\n" +
 	"\x16GetGameDetailsResponse\x123\n" +
 	"\adetails\x18\x01 \x01(\v2\x19.gamevault.v1.GameDetailsR\adetails\x12\x1a\n" +
 	"\bwarnings\x18\x02 \x03(\tR\bwarnings2n\n" +

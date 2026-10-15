@@ -1,6 +1,6 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { proxiedImage } from '../../api/client';
+import { mediaUrl, metadataClient, proxiedImage } from '../../api/client';
 import { Cover } from '../../components/Cover';
 import { useFormatters } from '../../components/ui';
 import type { Game } from '../../gen/gamevault/v1/game_pb';
@@ -91,7 +91,7 @@ function HeroSlideView({ slide, shown, games, dealsNotConfigured }: {
 /** A slide's picture in the strip of what comes next: its art, cropped to the thumbnail. */
 function Thumb({ slide: s, games }: { slide: Slide; games: Map<string, Game> }) {
   if ('deal' in s) return <img src={proxiedImage(s.deal.imageUrl)} alt="" loading="lazy" decoding="async" />;
-  if ('release' in s) return <img src={proxiedImage(s.release.coverUrl)} alt="" loading="lazy" decoding="async" />;
+  if ('release' in s) return <img src={proxiedImage(s.release.artUrl || s.release.coverUrl)} alt="" loading="lazy" decoding="async" />;
   const game = games.get(s.gameId);
   return game ? <Cover game={game} /> : null;
 }
@@ -151,12 +151,14 @@ function ReleaseSlide({ release: r, series, shown }: { release: HomeRelease; ser
   const { t, i18n } = useTranslation();
   const fmt = useFormatters();
   const cover = proxiedImage(r.coverUrl);
+  // A release with wide art fills the band with it, like a deal; without, its poster sits beside the text.
+  const art = r.artUrl ? proxiedImage(r.artUrl) : '';
   const when = r.releaseDate ? fmt.date(r.releaseDate) : t('home.releases.tba');
   const systems = new Intl.ListFormat(i18n.language, { type: 'unit' }).format(r.platforms);
 
   return (
-    <SlideFrame shown={shown} backdrop={<img src={cover} alt="" decoding="async" />}
-      art={<div className="home-hero-poster"><img src={cover} alt="" decoding="async" /></div>}>
+    <SlideFrame shown={shown} backdrop={<img src={art || cover} alt="" decoding="async" />} wide={art || undefined}
+      art={art ? <img className="home-hero-art" src={art} alt="" decoding="async" /> : <div className="home-hero-poster"><img src={cover} alt="" decoding="async" /></div>}>
       <p className="home-hero-line">{t(series ? 'home.hero.kind.series' : 'home.hero.kind.anticipated')}</p>
       <h2 className="home-hero-title">{r.title}</h2>
       <p className="home-hero-line">{[when, systems].filter(Boolean).join(' · ')}</p>
@@ -171,12 +173,15 @@ function ReleaseSlide({ release: r, series, shown }: { release: HomeRelease; ser
 }
 
 function GameSlide({ game, backlog, shown, dealsNotConfigured }: { game: Game; backlog: boolean; shown: boolean; dealsNotConfigured: boolean }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const systems = [...new Set(game.copies.map((c) => c.effectiveSystem).filter(Boolean))].join(' · ');
+  const art = useScreenshot(game.id, i18n.language);
 
   return (
-    <SlideFrame shown={shown} backdrop={<Cover game={game} />}
-      art={<a className="home-hero-poster" href={gameHash(game.id)} tabIndex={-1} aria-hidden="true"><Cover game={game} /></a>}>
+    <SlideFrame shown={shown} backdrop={art ? <img src={art} alt="" decoding="async" /> : <Cover game={game} />} wide={art || undefined}
+      art={art
+        ? <img className="home-hero-art" src={art} alt="" decoding="async" />
+        : <a className="home-hero-poster" href={gameHash(game.id)} tabIndex={-1} aria-hidden="true"><Cover game={game} /></a>}>
       <p className="home-hero-line">{t(backlog ? 'home.hero.kind.backlog' : 'home.hero.kind.recent')}</p>
       <h2 className="home-hero-title">{game.title}</h2>
       {systems && <p className="home-hero-line">{systems}</p>}
@@ -186,4 +191,20 @@ function GameSlide({ game, backlog, shown, dealsNotConfigured }: { game: Game; b
       </div>
     </SlideFrame>
   );
+}
+
+/** The first screenshot of a game's sheet when the sheet was gathered before, "" otherwise: the hero
+ *  shows it as the game's wide art. It reads the cached sheet only, so opening Home never makes the
+ *  metadata providers send a request; a game without a sheet keeps its poster. */
+function useScreenshot(id: string, language: string): string {
+  const [shot, setShot] = useState('');
+
+  useEffect(() => {
+    let live = true;
+    metadataClient.getGameDetails({ gameId: id, language, cachedOnly: true })
+      .then((res) => { if (live) setShot(mediaUrl(res.details?.screenshots[0]?.fullUrl ?? '')); }, () => {});
+    return () => { live = false; };
+  }, [id, language]);
+
+  return shot;
 }
