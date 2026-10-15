@@ -24,7 +24,7 @@ export default function EditTab({ game, actions, drafts, onSave, onDeleted }: {
   onDeleted: () => void;
 }) {
   const { t } = useTranslation();
-  const { dropGame, putGame, fields } = useAppData();
+  const { dropGame, putGame, fields, reloadSources } = useAppData();
   const { busy, run, openDialog } = actions;
   const gameDefs = fields.filter((f) => f.scope === 'game');
   // The form starts where the user left it, when they changed it and switched tabs or games.
@@ -99,6 +99,8 @@ export default function EditTab({ game, actions, drafts, onSave, onDeleted }: {
     run(async () => {
       await gameClient.deleteGame({ id: game.id });
       dropGame(game.id);
+      // Its store copies are now on their sources' removed lists; the page does not wait for them.
+      void reloadSources();
       onDeleted();
     });
   };
