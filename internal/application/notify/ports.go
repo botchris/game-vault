@@ -36,6 +36,14 @@ type ChatFinder interface {
 	FindChat(ctx context.Context, settings schema.Settings) (key, value string, err error)
 }
 
+// Validator is implemented by connectors that can check their settings beyond the descriptor's
+// rules (an address that must be an http or https URL with a host), so Save and Test refuse them
+// at once instead of the first delivery failing.
+type Validator interface {
+	// Validate returns an Invalid error that says what to fix, or nil.
+	Validate(settings schema.Settings) error
+}
+
 // Pacer is implemented by connectors that need more than a second between messages.
 type Pacer interface {
 	// Gap returns the time to leave between two messages of one connection.

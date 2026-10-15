@@ -11,9 +11,60 @@ import (
 
 	"gamevault/internal/application/notify"
 	"gamevault/internal/domain/connection"
+	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/event"
 	"gamevault/internal/domain/schema"
 )
+
+var _ notify.Validator = (*fakeConnector)(nil)
+
+func TestService_validator(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	badAddress := errkind.New(errkind.Invalid, "the address must start with http:// or https://")
+	cfg := connection.Config{
+		Name:     "Desk",
+		Enabled:  true,
+		Events:   []event.Kind{event.KindIssueOpened},
+		Language: "en",
+		Settings: schema.Settings{
+			"token": "t-123",
+			"chat":  "42",
+		},
+	}
+
+	t.Run("GIVEN a connector that finds the settings invalid", func(t *testing.T) {
+		w := newWorld(t, notify.WithSending(true))
+		saved := w.connect(t, ctx, "Saved", true, event.KindIssueOpened)
+		w.connector.invalid = badAddress
+
+		t.Run("WHEN a new connection is saved THEN it is refused as invalid and nothing is stored", func(t *testing.T) {
+			_, err := w.svc.Save(ctx, "", "fake", cfg)
+			require.ErrorIs(t, err, badAddress)
+			assert.Equal(t, errkind.Invalid, errkind.Of(err))
+
+			all, err := w.svc.List(ctx)
+			require.NoError(t, err)
+			assert.Len(t, all, 1)
+		})
+
+		t.Run("WHEN a saved connection is reconfigured THEN it is refused too", func(t *testing.T) {
+			_, err := w.svc.Save(ctx, saved.ID(), "", cfg)
+			require.ErrorIs(t, err, badAddress)
+
+			got, err := w.svc.Get(ctx, saved.ID())
+			require.NoError(t, err)
+			assert.Equal(t, "Saved", got.Name())
+		})
+
+		t.Run("WHEN the settings are tested THEN they are refused before anything is sent", func(t *testing.T) {
+			_, err := w.svc.Test(ctx, "", "fake", cfg)
+			require.ErrorIs(t, err, badAddress)
+			assert.Empty(t, w.connector.tested)
+		})
+	})
+}
 
 func TestService_connections(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)

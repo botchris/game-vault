@@ -801,6 +801,8 @@ Every connector is a plugin piece (`notify.Connector`, see `docs/plugins.md`) ov
 | ntfy | server (default `https://ntfy.sh`), topic, access token (secret, optional) | One `PUT` to `<server>/<topic>`: the text as the body, or the first cover as the body with `Filename` and the text in the `Message` header; a public art URL goes in `Attach`. `Title`, `Click` (the link) and `Priority` (`high` for attention and security events) are headers; non-ASCII text is RFC 2047 encoded and the `Message` header is cut below 3900 bytes. The token travels only in `Authorization`. |
 | Webhook | URL, header name and value (secret, both optional) | One `POST` of the JSON document below. Images are not sent, only the public URLs. Redirects are refused (a redirect could carry the secret header elsewhere); any 2xx is success. |
 
+A connector that can check its settings beyond the required fields implements `notify.Validator`, which Save and Test call first: the webhook's address (and the ntfy server, when given) must be an `http://` or `https://` URL with a host, and the webhook header a plain name with a one-line value, so a bad address is refused on Save (InvalidArgument) instead of pausing the connection on its first delivery.
+
 The webhook's document is stable and versioned:
 
 ```json

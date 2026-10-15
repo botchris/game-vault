@@ -164,11 +164,10 @@ func newDocument(m notify.Message) (document, error) {
 	return doc, nil
 }
 
-// post sends the document with the connection's address and header.
-func (c *Connector) post(ctx context.Context, settings schema.Settings, doc document) error {
-	endpoint := strings.TrimSpace(settings[settingURL])
-
-	u, err := url.Parse(endpoint)
+// Validate implements notify.Validator: the address must be an http or https URL with a host, and
+// the header a plain name with a value on one line.
+func (*Connector) Validate(settings schema.Settings) error {
+	u, err := url.Parse(strings.TrimSpace(settings[settingURL]))
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return notifyerr.Permanent("the webhook address must start with http:// or https:// and name a host")
 	}
@@ -179,6 +178,19 @@ func (c *Connector) post(ctx context.Context, settings schema.Settings, doc docu
 	if name != "" && secret != "" && !validHeader(name, secret) {
 		return notifyerr.Permanent("the webhook header is not valid: use a plain name such as X-Webhook-Secret and a value without line breaks")
 	}
+
+	return nil
+}
+
+// post sends the document with the connection's address and header.
+func (c *Connector) post(ctx context.Context, settings schema.Settings, doc document) error {
+	if err := c.Validate(settings); err != nil {
+		return err
+	}
+
+	endpoint := strings.TrimSpace(settings[settingURL])
+	name := strings.TrimSpace(settings[settingHeader])
+	secret := settings[settingSecret]
 
 	body, err := json.Marshal(doc)
 	if err != nil {

@@ -452,3 +452,36 @@ func TestTest(t *testing.T) {
 		})
 	})
 }
+
+func TestValidate(t *testing.T) {
+	var _ notify.Validator = (*Connector)(nil)
+
+	for _, tc := range []struct {
+		name     string
+		settings schema.Settings
+		valid    bool
+	}{
+		{"an https address", schema.Settings{"url": "https://hooks.example.test/notify"}, true},
+		{"an http address with a port", schema.Settings{"url": " http://192.168.1.20:8123/api/webhook/abc "}, true},
+		{"no scheme", schema.Settings{"url": "hooks.example.test/notify"}, false},
+		{"another scheme", schema.Settings{"url": "ftp://hooks.example.test/notify"}, false},
+		{"no host", schema.Settings{"url": "https:///notify"}, false},
+		{"a header name with a space", schema.Settings{"url": "https://hooks.example.test", "header": "X Secret", "secret": "s"}, false},
+	} {
+		t.Run("GIVEN "+tc.name+" WHEN validated", func(t *testing.T) {
+			err := NewConnector().Validate(tc.settings)
+
+			if tc.valid {
+				t.Run("THEN it passes", func(t *testing.T) { assert.NoError(t, err) })
+
+				return
+			}
+
+			t.Run("THEN it is an Invalid error saying what to fix", func(t *testing.T) {
+				require.Error(t, err)
+				assert.Equal(t, errkind.Invalid, errkind.Of(err))
+				assert.Contains(t, err.Error(), "webhook")
+			})
+		})
+	}
+}

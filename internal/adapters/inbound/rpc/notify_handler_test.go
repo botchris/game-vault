@@ -232,6 +232,42 @@ func TestNotifications_endToEnd(t *testing.T) {
 	})
 }
 
+func TestNotifications_badAddressesRefusedOnSave(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	c := newServer(t, &fakeProvider{})
+
+	for _, tc := range []struct {
+		typ      string
+		settings map[string]string
+	}{
+		{"webhook", map[string]string{"url": "hooks.example.test/notify"}},
+		{"webhook", map[string]string{"url": "ftp://hooks.example.test/notify"}},
+		{"ntfy", map[string]string{"topic": "vault-test", "server": "ntfy.example.test"}},
+	} {
+		t.Run("GIVEN a "+tc.typ+" connection with the address "+tc.settings["url"]+tc.settings["server"], func(t *testing.T) {
+			in := &pb.ConnectionInput{
+				Type:     tc.typ,
+				Name:     "Hook",
+				Enabled:  true,
+				Events:   []string{"collection.added"},
+				Language: "en",
+				Settings: tc.settings,
+			}
+
+			t.Run("WHEN it is saved THEN the request is invalid and nothing is stored", func(t *testing.T) {
+				_, err := c.notify.SaveConnection(ctx, connect.NewRequest(&pb.SaveConnectionRequest{Connection: in}))
+				assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+
+				list, err := c.notify.ListConnections(ctx, connect.NewRequest(&pb.ListConnectionsRequest{}))
+				require.NoError(t, err)
+				assert.Empty(t, list.Msg.Connections)
+			})
+		})
+	}
+}
+
 func TestNotifications_accessTokenRefused(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()

@@ -493,3 +493,34 @@ func TestTest(t *testing.T) {
 		})
 	})
 }
+
+func TestValidate(t *testing.T) {
+	var _ notify.Validator = (*Connector)(nil)
+
+	for _, tc := range []struct {
+		name     string
+		settings schema.Settings
+		valid    bool
+	}{
+		{"the default server", schema.Settings{"topic": "vault-test"}, true},
+		{"a server of one's own", schema.Settings{"topic": "vault-test", "server": "https://ntfy.example.test/"}, true},
+		{"a server without a scheme", schema.Settings{"topic": "vault-test", "server": "ntfy.example.test"}, false},
+		{"a server with another scheme", schema.Settings{"topic": "vault-test", "server": "ws://ntfy.example.test"}, false},
+	} {
+		t.Run("GIVEN "+tc.name+" WHEN validated", func(t *testing.T) {
+			err := NewConnector().Validate(tc.settings)
+
+			if tc.valid {
+				t.Run("THEN it passes", func(t *testing.T) { assert.NoError(t, err) })
+
+				return
+			}
+
+			t.Run("THEN it is an Invalid error saying what to fix", func(t *testing.T) {
+				require.Error(t, err)
+				assert.Equal(t, errkind.Invalid, errkind.Of(err))
+				assert.Contains(t, err.Error(), "ntfy server")
+			})
+		})
+	}
+}

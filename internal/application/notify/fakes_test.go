@@ -273,6 +273,9 @@ type fakeConnector struct {
 	found  string
 	finds  int
 
+	// invalid is what Validate answers.
+	invalid error
+
 	// onTest runs inside Test, before it answers (a change made while the sample is on its way).
 	onTest func()
 }
@@ -314,6 +317,8 @@ func (f *fakeConnector) Test(_ context.Context, settings schema.Settings, m noti
 
 	return f.err
 }
+
+func (f *fakeConnector) Validate(schema.Settings) error { return f.invalid }
 
 func (f *fakeConnector) FindChat(context.Context, schema.Settings) (key, value string, err error) {
 	f.finds++

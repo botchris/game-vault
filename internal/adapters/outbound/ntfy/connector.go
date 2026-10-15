@@ -113,6 +113,14 @@ func (c *Connector) Test(ctx context.Context, settings schema.Settings, m notify
 	return c.Send(ctx, settings, m)
 }
 
+// Validate implements notify.Validator: the topic is set and the server, when given, is an http or
+// https URL with a host.
+func (c *Connector) Validate(settings schema.Settings) error {
+	_, _, err := c.target(settings)
+
+	return err
+}
+
 // target reads the settings: the topic's URL and the access token.
 func (c *Connector) target(settings schema.Settings) (endpoint, token string, err error) {
 	topic := strings.TrimSpace(settings[settingTopic])

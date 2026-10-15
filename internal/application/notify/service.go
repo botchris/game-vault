@@ -141,6 +141,10 @@ func (s *Service) Save(ctx context.Context, id connection.ID, typ connection.Typ
 			return nil, err
 		}
 
+		if err := validate(conn, c.Settings()); err != nil {
+			return nil, err
+		}
+
 		if err := s.conns.Save(ctx, c); err != nil {
 			return nil, fmt.Errorf("saving the connection: %w", err)
 		}
@@ -159,6 +163,10 @@ func (s *Service) Save(ctx context.Context, id connection.ID, typ connection.Typ
 	}
 
 	if err := c.Reconfigure(conn.Descriptor(), cfg, s.now()); err != nil {
+		return nil, err
+	}
+
+	if err := validate(conn, c.Settings()); err != nil {
 		return nil, err
 	}
 
@@ -221,6 +229,10 @@ func (s *Service) Test(ctx context.Context, id connection.ID, typ connection.Typ
 
 	maps.Copy(settings, found)
 
+	if err := validate(conn, settings); err != nil {
+		return found, err
+	}
+
 	if err := conn.Test(ctx, settings, s.sample(ctx, cfg.Language)); err != nil {
 		return found, err
 	}
@@ -257,6 +269,15 @@ func (s *Service) unpause(ctx context.Context, id connection.ID, tested schema.S
 
 	if err := s.conns.Save(ctx, c); err != nil {
 		return fmt.Errorf("unpausing the connection: %w", err)
+	}
+
+	return nil
+}
+
+// validate asks the connector to check settings when it is a Validator.
+func validate(conn Connector, settings schema.Settings) error {
+	if v, ok := conn.(Validator); ok {
+		return v.Validate(settings)
 	}
 
 	return nil
