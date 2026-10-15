@@ -3,6 +3,7 @@ package igdb
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -65,6 +66,12 @@ func TestReleases_anticipated(t *testing.T) {
 					CoverURL:       "https://images.igdb.com/igdb/image/upload/t_cover_big/co-hl.jpg",
 					URL:            "https://www.igdb.com/games/harbor-lights",
 				}, got[0])
+			})
+
+			t.Run("AND the cover's host is declared, so the page loads it through the image proxy", func(t *testing.T) {
+				u, err := url.Parse(got[0].CoverURL)
+				require.NoError(t, err)
+				assert.Contains(t, r.ImageHosts(), u.Hostname())
 			})
 		})
 	})

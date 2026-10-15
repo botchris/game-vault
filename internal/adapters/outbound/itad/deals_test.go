@@ -2,6 +2,7 @@ package itad
 
 import (
 	"context"
+	"net/url"
 	"testing"
 	"time"
 
@@ -68,6 +69,12 @@ func TestDeals(t *testing.T) {
 				}, normalized(got[0]))
 				assert.Equal(t, "Echo Valley", got[1].Title)
 				assert.Equal(t, "Copper Coast", got[2].Title)
+			})
+
+			t.Run("AND the art's host is declared, so the page loads it through the image proxy", func(t *testing.T) {
+				u, err := url.Parse(got[0].ImageURL)
+				require.NoError(t, err)
+				assert.Contains(t, d.ImageHosts(), u.Hostname())
 			})
 
 			t.Run("AND a game ITAD knows no Steam app for keeps an empty Steam id", func(t *testing.T) {
