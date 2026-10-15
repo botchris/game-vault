@@ -5,6 +5,7 @@ import { FieldService } from '../gen/gamevault/v1/field_pb';
 import { GameService, type Game } from '../gen/gamevault/v1/game_pb';
 import { HealthService } from '../gen/gamevault/v1/health_pb';
 import { HomeService } from '../gen/gamevault/v1/home_pb';
+import { NotificationService } from '../gen/gamevault/v1/notify_pb';
 import { OwnershipService } from '../gen/gamevault/v1/ownership_pb';
 import { LogService } from '../gen/gamevault/v1/log_pb';
 import { LookupService } from '../gen/gamevault/v1/lookup_pb';
@@ -46,6 +47,7 @@ export const metadataClient = createClient(MetadataService, transport);
 export const valuationClient = createClient(ValuationService, transport);
 export const healthClient = createClient(HealthService, transport);
 export const homeClient = createClient(HomeService, transport);
+export const notificationClient = createClient(NotificationService, transport);
 export const ownershipClient = createClient(OwnershipService, transport);
 
 /**

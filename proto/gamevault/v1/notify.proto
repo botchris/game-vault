@@ -1,0 +1,247 @@
+syntax = "proto3";
+
+package gamevault.v1;
+
+import "gamevault/v1/source.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "gamevault/internal/gen/gamevault/v1;gamevaultv1";
+
+// NotificationService manages where Game Vault tells the user what happened: the connections
+// (Telegram, ntfy, a webhook…), what each one sends, and the address messages link to.
+service NotificationService {
+  // ListConnectorTypes returns the kinds of connection that can be created, the events they can
+  // send and the languages messages are written in.
+  rpc ListConnectorTypes(ListConnectorTypesRequest) returns (ListConnectorTypesResponse);
+
+  // ListConnections returns the configured connections, secrets masked.
+  rpc ListConnections(ListConnectionsRequest) returns (ListConnectionsResponse);
+
+  // SaveConnection creates a connection (empty id) or reconfigures one; a secret sent back as the
+  // placeholder keeps its stored value.
+  rpc SaveConnection(SaveConnectionRequest) returns (SaveConnectionResponse);
+
+  // DeleteConnection removes a connection and its queued deliveries.
+  rpc DeleteConnection(DeleteConnectionRequest) returns (DeleteConnectionResponse);
+
+  // TestConnection sends a sample message with the settings given. A failure is a valid result
+  // (success false with the reason), not an RPC error.
+  rpc TestConnection(TestConnectionRequest) returns (TestConnectionResponse);
+
+  // ListDeliveries returns a connection's latest deliveries, newest first.
+  rpc ListDeliveries(ListDeliveriesRequest) returns (ListDeliveriesResponse);
+
+  // GetNotificationSettings returns the notification settings that belong to no connection.
+  rpc GetNotificationSettings(GetNotificationSettingsRequest) returns (GetNotificationSettingsResponse);
+
+  // SaveNotificationSettings stores the notification settings that belong to no connection.
+  rpc SaveNotificationSettings(SaveNotificationSettingsRequest) returns (SaveNotificationSettingsResponse);
+}
+
+// ConnectorType is a kind of connection that can be created (Telegram, ntfy, a webhook).
+message ConnectorType {
+  // The type's id ("telegram", "ntfy", "webhook"); connections refer to it.
+  string id = 1;
+
+  // The name shown in the UI.
+  string name = 2;
+
+  // Translation key for a one-line description.
+  string description_key = 3;
+
+  // The settings a connection of this type needs.
+  repeated SettingField fields = 4;
+}
+
+// EventKind is an event a connection can send.
+message EventKind {
+  // The event's kind ("collection.added"); stored in subscriptions, never renamed.
+  string kind = 1;
+
+  // The group the UI lists it under: "activity", "attention" or "security".
+  string group = 2;
+}
+
+// ListConnectorTypesRequest asks for the connector types.
+message ListConnectorTypesRequest {}
+
+// ListConnectorTypesResponse lists what a connection can be made of.
+message ListConnectorTypesResponse {
+  // The connector types compiled in, in the order the UI lists them.
+  repeated ConnectorType types = 1;
+
+  // Every event, in display order.
+  repeated EventKind events = 2;
+
+  // The languages messages can be written in ("en", "es").
+  repeated string languages = 3;
+
+  // What a secret setting shows instead of its value; sending it back keeps the stored value.
+  string secret_placeholder = 4;
+}
+
+// Connection is a configured connector.
+message Connection {
+  // The connection's id.
+  string id = 1;
+
+  // Its connector type's id.
+  string type = 2;
+
+  // The label the user gave it.
+  string name = 3;
+
+  // Whether it sends.
+  bool enabled = 4;
+
+  // The event kinds it sends.
+  repeated string events = 5;
+
+  // The language of its messages.
+  string language = 6;
+
+  // Its settings, secrets masked with the placeholder.
+  map<string, string> settings = 7;
+
+  // Why it was paused (a rejected token…), empty when it is not paused.
+  string paused_reason = 8;
+
+  // When it was paused; unset when it is not.
+  google.protobuf.Timestamp paused_at = 9;
+}
+
+// ConnectionInput is what the user sets on a connection.
+message ConnectionInput {
+  // The connector type's id; ignored when reconfiguring (a type cannot change).
+  string type = 1;
+
+  // The label; empty uses the type's name.
+  string name = 2;
+
+  // Whether it sends.
+  bool enabled = 3;
+
+  // The event kinds it sends; at least one.
+  repeated string events = 4;
+
+  // The language of its messages ("en" or "es").
+  string language = 5;
+
+  // The connector's settings; a secret sent as the placeholder keeps its stored value.
+  map<string, string> settings = 6;
+}
+
+// ListConnectionsRequest asks for the connections.
+message ListConnectionsRequest {}
+
+// ListConnectionsResponse lists the connections.
+message ListConnectionsResponse {
+  // Every connection, by name.
+  repeated Connection connections = 1;
+}
+
+// SaveConnectionRequest creates or reconfigures a connection.
+message SaveConnectionRequest {
+  // The connection to reconfigure; empty creates a new one.
+  string id = 1;
+
+  // The configuration.
+  ConnectionInput connection = 2;
+}
+
+// SaveConnectionResponse returns the saved connection.
+message SaveConnectionResponse {
+  // The connection as stored, secrets masked.
+  Connection connection = 1;
+}
+
+// DeleteConnectionRequest removes a connection.
+message DeleteConnectionRequest {
+  // The connection's id.
+  string id = 1;
+}
+
+// DeleteConnectionResponse confirms the removal.
+message DeleteConnectionResponse {}
+
+// TestConnectionRequest sends a sample message.
+message TestConnectionRequest {
+  // The saved connection whose stored settings fill what the input leaves masked; empty tests
+  // the input alone.
+  string id = 1;
+
+  // The settings to test.
+  ConnectionInput connection = 2;
+}
+
+// TestConnectionResponse is the outcome of a test.
+message TestConnectionResponse {
+  // Whether the sample arrived.
+  bool success = 1;
+
+  // Why it did not, in English; empty on success.
+  string message = 2;
+
+  // Settings the connector found for the user and the form should fill (Telegram's chat id).
+  map<string, string> found = 3;
+}
+
+// Delivery is one event sent, or to send, through a connection.
+message Delivery {
+  // The delivery's id.
+  string id = 1;
+
+  // The event's kind.
+  string event = 2;
+
+  // "queued", "sent", "failed" or "dropped".
+  string state = 3;
+
+  // How many sends failed so far.
+  int32 attempts = 4;
+
+  // The last failure's reason; empty when none.
+  string last_error = 5;
+
+  // When it was queued.
+  google.protobuf.Timestamp created_at = 6;
+
+  // Its last change.
+  google.protobuf.Timestamp updated_at = 7;
+
+  // The message's title in the connection's language, for the list.
+  string summary = 8;
+}
+
+// ListDeliveriesRequest asks for a connection's deliveries.
+message ListDeliveriesRequest {
+  // The connection's id.
+  string connection_id = 1;
+}
+
+// ListDeliveriesResponse lists deliveries.
+message ListDeliveriesResponse {
+  // The latest deliveries, newest first.
+  repeated Delivery deliveries = 1;
+}
+
+// GetNotificationSettingsRequest asks for the notification settings.
+message GetNotificationSettingsRequest {}
+
+// GetNotificationSettingsResponse holds the notification settings.
+message GetNotificationSettingsResponse {
+  // The Game Vault address messages link to; empty: no links to the library.
+  string address = 1;
+}
+
+// SaveNotificationSettingsRequest stores the notification settings.
+message SaveNotificationSettingsRequest {
+  // The address, empty or an absolute http(s) address.
+  string address = 1;
+}
+
+// SaveNotificationSettingsResponse returns the settings as stored.
+message SaveNotificationSettingsResponse {
+  // The address as stored (without a trailing slash).
+  string address = 1;
+}

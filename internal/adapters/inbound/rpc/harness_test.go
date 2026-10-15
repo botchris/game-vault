@@ -16,8 +16,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/adapters/outbound/logfile"
+	"gamevault/internal/adapters/outbound/ntfy"
 	"gamevault/internal/adapters/outbound/passwordhash"
 	"gamevault/internal/adapters/outbound/sqlite"
+	"gamevault/internal/adapters/outbound/telegram"
+	"gamevault/internal/adapters/outbound/webhook"
 	"gamevault/internal/app"
 	"gamevault/internal/application/home"
 	"gamevault/internal/application/media"
@@ -300,6 +303,7 @@ type clients struct {
 	health    gamevaultv1connect.HealthServiceClient
 	ownership gamevaultv1connect.OwnershipServiceClient
 	home      gamevaultv1connect.HomeServiceClient
+	notify    gamevaultv1connect.NotificationServiceClient
 	baseURL   string
 	images    *fakeImages
 	dataDir   string
@@ -313,6 +317,7 @@ type testPlugins struct {
 	valuations []valuation.Provider
 	deals      []home.DealsProvider
 	releases   []home.ReleasesProvider
+	connectors []notify.Connector
 }
 
 func (p testPlugins) Sources() []sync.Provider { return p.sources }
@@ -325,11 +330,12 @@ func (p testPlugins) Deals() []home.DealsProvider { return p.deals }
 
 func (p testPlugins) Releases() []home.ReleasesProvider { return p.releases }
 
-func (p testPlugins) Connectors() []notify.Connector { return nil }
+func (p testPlugins) Connectors() []notify.Connector { return p.connectors }
 
 // newServer builds Game Vault the way the server does (app.Build), on a database and folders in a
-// temporary directory, with p as its only source and fakes for every provider, and serves it.
-func newServer(t *testing.T, p sync.Provider) clients {
+// temporary directory, with p as its only source and fakes for every provider, and serves it. opts
+// are applied last, so a test can turn on what the harness leaves off (app.WithSending).
+func newServer(t *testing.T, p sync.Provider, opts ...app.Option) clients {
 	t.Helper()
 
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
@@ -355,18 +361,24 @@ func newServer(t *testing.T, p sync.Provider) clients {
 	vault, err := app.Build(ctx, config.Config{
 		ConfigDir:  dir,
 		BackupKeep: 3,
-	}, db, logFiles, log,
+	}, db, logFiles, log, append([]app.Option{
 		app.WithPlugins(testPlugins{
 			sources:    []sync.Provider{p},
 			providers:  []providers.Impl{fakeSteamStore{}, boxart, &fakeBarcodes{}, fakeStoreDetails{}, boxDet, fakePrices{}, fakeDeals{}},
 			valuations: []valuation.Provider{fakePrices{}},
 			deals:      []home.DealsProvider{fakeDeals{}},
+			connectors: []notify.Connector{
+				telegram.NewConnector(),
+				ntfy.NewConnector(),
+				webhook.NewConnector(),
+				fakeChat{},
+			},
 		}),
 		app.WithImageFetcher(images),
 		app.WithHasher(passwordhash.Bcrypt{Cost: 4}), // the lowest cost: tests sign in often
 		app.WithDiskSpace(nil),                       // the test machine's free space is not under test
 		app.WithVersion("test"),
-	)
+	}, opts...)...)
 	require.NoError(t, err)
 
 	srv := httptest.NewServer(vault.Handler)
@@ -380,6 +392,7 @@ func newServer(t *testing.T, p sync.Provider) clients {
 		health:    gamevaultv1connect.NewHealthServiceClient(http.DefaultClient, srv.URL),
 		ownership: gamevaultv1connect.NewOwnershipServiceClient(http.DefaultClient, srv.URL),
 		home:      gamevaultv1connect.NewHomeServiceClient(http.DefaultClient, srv.URL),
+		notify:    gamevaultv1connect.NewNotificationServiceClient(http.DefaultClient, srv.URL),
 		baseURL:   srv.URL,
 		providers: gamevaultv1connect.NewProviderServiceClient(http.DefaultClient, srv.URL),
 		covers:    gamevaultv1connect.NewCoverServiceClient(http.DefaultClient, srv.URL),

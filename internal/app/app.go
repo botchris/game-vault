@@ -277,6 +277,8 @@ func Build(ctx context.Context, cfg config.Config, db *sqlite.DB, logFiles *logf
 		Health:      rpc.NewHealthHandler(healthSvc),
 		Ownership:   rpc.NewOwnershipHandler(ownershipSvc),
 		Home:        rpc.NewHomeHandler(homeSvc),
+
+		Notifications: rpc.NewNotificationHandler(notifySvc),
 	}, rpc.Options{
 		UIDir:       cfg.UIDir,
 		CORSOrigins: cfg.CORSOrigins,

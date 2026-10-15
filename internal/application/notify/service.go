@@ -97,6 +97,16 @@ func (s *Service) Types() []connection.TypeDescriptor {
 	return out
 }
 
+// Descriptor returns the descriptor of connector type typ; false when no connector has it.
+func (s *Service) Descriptor(typ connection.Type) (connection.TypeDescriptor, bool) {
+	c, ok := s.connectors[typ]
+	if !ok {
+		return connection.TypeDescriptor{}, false
+	}
+
+	return c.Descriptor(), true
+}
+
 // connector returns the connector of type typ, or connection.ErrUnknownType.
 func (s *Service) connector(typ connection.Type) (Connector, error) {
 	c, ok := s.connectors[typ]
@@ -314,6 +324,12 @@ func (s *Service) sample(ctx context.Context, lang string) Message {
 // Deliveries returns a connection's latest deliveries, newest first.
 func (s *Service) Deliveries(ctx context.Context, id connection.ID, limit int) ([]Delivery, error) {
 	return s.outbox.Recent(ctx, id, limit)
+}
+
+// DeliveryTitle returns the title d's message has in language lang, for lists. It needs neither the
+// library nor the address: a title never does.
+func (s *Service) DeliveryTitle(ctx context.Context, d Delivery, lang string) string {
+	return Render(ctx, d.Event, lang, "", noGames{}, noCovers{}).Title
 }
 
 // Address returns the Game Vault address messages link to, "" when unset.
