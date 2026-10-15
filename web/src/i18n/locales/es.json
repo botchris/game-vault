@@ -35,12 +35,20 @@
       "health_other": "{{count}} problemas que revisar"
     },
     "hero": {
-      "label": "Ofertas destacadas",
+      "label": "Destacados",
       "show": "Mostrar {{title}}",
       "see": "Ver la oferta",
-      "newest": "Lo último de tu colección",
       "open": "Abrir ficha",
-      "addDeals": "Ver ofertas aquí"
+      "addDeals": "Ver ofertas aquí",
+      "igdb": "Ver en IGDB",
+      "kind": {
+        "deal": "Oferta destacada",
+        "low": "Mínimo histórico",
+        "series": "Nuevo en tu saga",
+        "anticipated": "Lo más esperado",
+        "recent": "Añadido recientemente",
+        "backlog": "De tu backlog"
+      }
     },
     "refresh": "Actualizar",
     "refreshing": "Actualizando…",

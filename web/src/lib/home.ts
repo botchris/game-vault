@@ -14,7 +14,7 @@ const GONE = new Set([4, 5, 8]); // gifted, expired, sold: the user no longer ha
 const PLAY_BACKLOG = 1;
 
 /** How many covers "Recently added" and "In your backlog" show, and how many systems get a tile. */
-const ROW = 12;
+export const ROW = 12;
 const TOP_SYSTEMS = 5;
 
 const DAY = 86_400_000;
@@ -91,7 +91,7 @@ export interface CollectionSummary {
   backlog: number;
   /** The newest games' ids, newest first. */
   recent: string[];
-  /** The newest backlog games' ids, newest first. */
+  /** Every backlog game's id, newest first (the row shows the first twelve, the hero picks one). */
   backlogGames: string[];
   /** Editions (a game on a system) per system, largest first; `rest` adds up the smaller ones. */
   systems: { system: string; count: number; rest: boolean }[];
@@ -124,7 +124,7 @@ export function collectionSummary(games: GameLike[], now: Date): CollectionSumma
 
   const newest = [...games].sort((a, b) => createdMs(b) - createdMs(a));
   const recent = newest.slice(0, ROW).map((g) => g.id);
-  const backlogGames = newest.filter((g) => g.playStatus === PLAY_BACKLOG).slice(0, ROW).map((g) => g.id);
+  const backlogGames = newest.filter((g) => g.playStatus === PLAY_BACKLOG).map((g) => g.id);
 
   return { games: games.length, copies, addedThisMonth, backlog, recent, backlogGames, systems };
 }
@@ -159,20 +159,48 @@ export function endsInDays(expires: Date | null, now: Date): number | null {
   return Math.floor((expires.getTime() - now.getTime()) / DAY);
 }
 
-/** How many deals the hero rotates through. */
-const HERO = 4;
+/** A slide of the hero: a deal (featured, or at its historical low), a release (from the user's
+ *  series, or among the most anticipated), or a game of the collection (the newest, or one of the
+ *  backlog). */
+export type HeroSlide<D, R> =
+  | { kind: 'deal' | 'low'; deal: D }
+  | { kind: 'series' | 'anticipated'; release: R }
+  | { kind: 'recent' | 'backlog'; gameId: string };
 
-/** The deals the hero shows: up to four with art and an https link (the hero has nothing to show
- *  without either), the featured ones first, then the lows; a game in both lists shows once. */
-export function heroDeals<D extends { title: string; imageUrl: string; url: string }>(featured: D[], lows: D[]): D[] {
-  const seen = new Set<string>();
-  const out: D[] = [];
-  for (const d of [...featured, ...lows]) {
-    if (out.length === HERO) break;
-    if (!d.imageUrl || !httpsLink(d.url) || seen.has(d.title)) continue;
-    seen.add(d.title);
-    out.push(d);
-  }
+/** What the hero picks its slides from: the page's lists, and the collection's game ids newest
+ *  first. */
+export interface HeroSource<D, R> {
+  featured: D[];
+  lows: D[];
+  series: R[];
+  anticipated: R[];
+  recent: string[];
+  backlog: string[];
+}
+
+/** The hero's slides: one of each kind, in an order that never puts two of a kind side by side.
+ *  A kind with nothing to show is left out: deals and releases need art and an https link, the low
+ *  is another game than the featured deal, and the backlog's game (one a day, the same all day) is
+ *  never the newest game, which has a slide of its own. */
+export function heroSlides<D extends { title: string; imageUrl: string; url: string }, R extends { title: string; coverUrl: string; url: string }>(
+  src: HeroSource<D, R>, today: Date): HeroSlide<D, R>[] {
+  const showable = <T extends { url: string }>(art: (x: T) => string) => (x: T) => !!art(x) && !!httpsLink(x.url);
+  const deals = src.featured.filter(showable((d: D) => d.imageUrl));
+  const deal = deals[0];
+  const low = src.lows.filter(showable((d: D) => d.imageUrl)).find((d) => d.title !== deal?.title);
+  const series = src.series.find(showable((r: R) => r.coverUrl));
+  const anticipated = src.anticipated.filter(showable((r: R) => r.coverUrl)).find((r) => r.title !== series?.title);
+  const newest = src.recent[0];
+  const backlog = src.backlog.filter((id) => id !== newest);
+  const day = Math.floor(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) / DAY);
+
+  const out: HeroSlide<D, R>[] = [];
+  if (deal) out.push({ kind: 'deal', deal });
+  if (series) out.push({ kind: 'series', release: series });
+  if (newest) out.push({ kind: 'recent', gameId: newest });
+  if (anticipated) out.push({ kind: 'anticipated', release: anticipated });
+  if (backlog.length) out.push({ kind: 'backlog', gameId: backlog[day % backlog.length] });
+  if (low) out.push({ kind: 'low', deal: low });
   return out;
 }
 

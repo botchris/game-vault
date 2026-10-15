@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { errorMessage, homeClient } from '../../api/client';
 import { Alert } from '../../components/ui';
 import type { GetHomeResponse } from '../../gen/gamevault/v1/home_pb';
-import { blockMode, collectionSummary, heroDeals, minutesUntil } from '../../lib/home';
+import { blockMode, collectionSummary, heroSlides, minutesUntil } from '../../lib/home';
 import { homeSync } from '../../lib/homeSync';
 import { toDate } from '../../lib/model';
 import { useAction, type Action } from '../../lib/useAction';
@@ -17,7 +17,7 @@ import { HomeHero } from './HomeHero';
 import { PendingStrip } from './PendingStrip';
 import { ReleasesBlock } from './ReleasesBlock';
 
-/** The start page, edge to edge: a hero (the featured deals, or the newest game), the collection in
+/** The start page, edge to edge: a hero (a slide of each kind: deals, releases, games), the collection in
  *  figures, what needs attention, then rows of cards: the deals, the upcoming releases, the newest
  *  games, the backlog and a tile per system. Deals and releases are read from what the server
  *  stored (gathered in the background); opening the page never asks an external service. Refresh
@@ -66,14 +66,24 @@ export default function HomePage() {
   // When the home cannot be read, the page's alert says so; the blocks would otherwise claim to be
   // not configured.
   const unreadable = home === null && !!error;
-  const hero = useMemo(() => (blockMode(home?.deals) === 'data' ? heroDeals(home?.featured ?? [], home?.historicalLows ?? []) : []),
-    [home]);
-  const newest = games.find((g) => g.id === summary.recent[0]);
+  const byId = useMemo(() => new Map(games.map((g) => [g.id, g])), [games]);
+  const hero = useMemo(() => {
+    const deals = blockMode(home?.deals) === 'data';
+    const releases = blockMode(home?.releases) === 'data';
+    return heroSlides({
+      featured: deals ? home?.featured ?? [] : [],
+      lows: deals ? home?.historicalLows ?? [] : [],
+      series: releases ? home?.fromSeries ?? [] : [],
+      anticipated: releases ? home?.anticipated ?? [] : [],
+      recent: summary.recent,
+      backlog: summary.backlogGames,
+    }, new Date());
+  }, [home, summary]);
 
   return (
     <div className={entering ? 'page home home-enter' : 'page home'}>
       <h1 className="sr-only">{t('home.title')}</h1>
-      <HomeHero loading={loading} deals={hero} newest={newest} dealsNotConfigured={!loading && blockMode(home?.deals) === 'notConfigured'} />
+      <HomeHero loading={loading} slides={hero} games={byId} dealsNotConfigured={!loading && blockMode(home?.deals) === 'notConfigured'} />
       <CollectionStats summary={summary} />
       <PendingStrip games={games} issues={issues} />
       {error && <div className="home-pad"><Alert tone="error">{error}</Alert></div>}

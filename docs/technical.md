@@ -455,13 +455,19 @@ Store covers: every library source links the games it imports to its store (Stea
 Game Vault opens on **Home** (`#/home`; the empty address and unknown ones go there too), a page
 that runs edge to edge. Top to bottom:
 
-- **The hero:** up to four deals (featured first, then historical lows; only those with art and an
-  https link), each with its title, price, cut, shop and "See the deal". ITAD's art is at most 600
-  pixels wide, so it is shown at its size beside the text, over a blurred copy of itself that fills
-  the band. The deals take turns every seven seconds, shown by a bar filling under the current dot;
-  hovering or focusing the hero holds it, reduced motion never moves on by itself, and the dots
-  choose a deal. Without deals, the hero shows the newest game in the collection (with "See deals
-  here", to Providers, when no deals provider is enabled); while the page loads, an empty band.
+- **The hero:** a showcase of the page, one slide of each kind, in an order that never puts two of a
+  kind side by side: a featured deal, a release from your series, the newest game, a most
+  anticipated release, a backlog game and a historical low. A kind with nothing to show is left
+  out: deals and releases need art and an https link (`heroSlides` in `web/src/lib/home.ts`), the
+  low is another game than the featured deal, and the backlog's game changes once a day (the same
+  all day) and is never the newest game. Each slide says what it is above its title and has its
+  action: "See the deal" (through ITAD's link), "See on IGDB" (plus "Because you have X" to that
+  game's sheet), or "Open" (the sheet; the newest game's slide adds "See deals here", to Providers,
+  when no deals provider is enabled). The art sits beside the text over a blurred copy of itself
+  that fills the band: a deal's banner at its size (at most 600 pixels wide), a poster for the rest
+  (small and above the text on phones). The slides take turns every seven seconds, shown by a bar
+  filling under the current dot; hovering or focusing the hero holds it, reduced motion never moves
+  on by itself, and the dots choose a slide. While the page loads, an empty band.
 - **The collection in figures:** games and copies, games added this month (local time), games in
   the backlog and the value of physical copies (the first price source with estimates; hidden
   without any). Each figure opens its library view (`#/library`, `#/library/recent`,

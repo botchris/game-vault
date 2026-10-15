@@ -1,49 +1,59 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { proxiedImage } from '../../api/client';
 import { Cover } from '../../components/Cover';
+import { useFormatters } from '../../components/ui';
 import type { Game } from '../../gen/gamevault/v1/game_pb';
-import type { HomeDeal } from '../../gen/gamevault/v1/home_pb';
+import type { HomeDeal, HomeRelease } from '../../gen/gamevault/v1/home_pb';
 import { gameHash } from '../../lib/gameRoute';
-import { endsInDays, httpsLink } from '../../lib/home';
+import { endsInDays, httpsLink, type HeroSlide } from '../../lib/home';
 import { toDate } from '../../lib/model';
 import { dealPrice, dealRegular } from './DealsBlock';
 
-/** The top of the home page, edge to edge: the featured deals one after another (see heroDeals),
- *  or, without deals, the newest game in the collection. A deal's art is at most 600 pixels wide,
- *  so it is shown at its size beside the text, over a blurred copy of itself that fills the band.
+/** A slide of the hero, as the page builds it (see heroSlides). */
+export type Slide = HeroSlide<HomeDeal, HomeRelease>;
+
+/** The top of the home page, edge to edge: a showcase of the page, one slide of each kind (a deal,
+ *  a release from the user's series, the newest game, an anticipated release, a backlog game, a
+ *  historical low; see heroSlides). Each slide shows its art over a blurred copy of itself that
+ *  fills the band: a deal's banner (at most 600 pixels wide) at its size, a poster for the rest.
  *
- *  The deals take turns: each dot's bar fills in seven seconds and its end shows the next deal, so
- *  hovering or focusing the hero (which pauses the bar) holds the deal on screen, and reduced motion
- *  (no bar) never moves on by itself; the dots choose a deal. */
-export function HomeHero({ loading, deals, newest, dealsNotConfigured }: {
-  /** The page's first read is still running: the band waits empty rather than show the newest
-   *  game and then swap it for the deals. */
+ *  The slides take turns: each dot's bar fills in seven seconds and its end shows the next slide, so
+ *  hovering or focusing the hero (which pauses the bar) holds the slide on screen, and reduced motion
+ *  (no bar) never moves on by itself; the dots choose a slide. */
+export function HomeHero({ loading, slides, games, dealsNotConfigured }: {
+  /** The page's first read is still running: the band waits empty rather than show the
+   *  collection's slides and then add the deals and releases between them. */
   loading: boolean;
-  deals: HomeDeal[];
-  newest: Game | undefined;
-  /** No deals provider is enabled: the newest game's hero points to Providers. */
+  slides: Slide[];
+  /** The catalog, where the collection's slides find their games. */
+  games: Map<string, Game>;
+  /** No deals provider is enabled: the newest game's slide points to Providers. */
   dealsNotConfigured: boolean;
 }) {
   const { t } = useTranslation();
   const [shown, setShown] = useState(0);
   const [held, setHeld] = useState(false);
-  const index = shown < deals.length ? shown : 0;
+  const shownSlides = slides.filter((s) => !('gameId' in s) || games.has(s.gameId));
+  const index = shown < shownSlides.length ? shown : 0;
 
   if (loading) return <div className="home-hero" aria-hidden="true" />;
-  if (!deals.length) return newest ? <GameHero game={newest} dealsNotConfigured={dealsNotConfigured} /> : null;
+  if (!shownSlides.length) return null;
 
+  const title = (s: Slide) => ('deal' in s ? s.deal.title : 'release' in s ? s.release.title : games.get(s.gameId)?.title ?? '');
   return (
     <section className={`home-hero${held ? ' held' : ''}`} aria-roledescription="carousel" aria-label={t('home.hero.label')}
       onMouseEnter={() => setHeld(true)} onMouseLeave={() => setHeld(false)}
       onFocus={() => setHeld(true)} onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setHeld(false); }}>
-      {deals.map((d, i) => <DealSlide key={`${d.title}-${d.shop}`} deal={d} shown={i === index} />)}
-      {deals.length > 1 && (
+      {shownSlides.map((s, i) => (
+        <HeroSlideView key={`${s.kind}-${title(s)}`} slide={s} shown={i === index} games={games} dealsNotConfigured={dealsNotConfigured} />
+      ))}
+      {shownSlides.length > 1 && (
         <div className="home-hero-dots">
-          {deals.map((d, i) => (
-            <button key={`${d.title}-${d.shop}`} className={i === index ? 'on' : ''} aria-current={i === index}
-              aria-label={t('home.hero.show', { title: d.title })} onClick={() => setShown(i)}>
-              {i === index && <i key={index} onAnimationEnd={() => setShown((index + 1) % deals.length)} />}
+          {shownSlides.map((s, i) => (
+            <button key={`${s.kind}-${title(s)}`} className={i === index ? 'on' : ''} aria-current={i === index}
+              aria-label={t('home.hero.show', { title: title(s) })} onClick={() => setShown(i)}>
+              {i === index && <i key={index} onAnimationEnd={() => setShown((index + 1) % shownSlides.length)} />}
             </button>
           ))}
         </div>
@@ -52,58 +62,104 @@ export function HomeHero({ loading, deals, newest, dealsNotConfigured }: {
   );
 }
 
-function DealSlide({ deal: d, shown }: { deal: HomeDeal; shown: boolean }) {
-  const { t, i18n } = useTranslation();
-  const lang = i18n.language;
-  const art = proxiedImage(d.imageUrl);
-  const regular = dealRegular(d, lang);
-  const ends = endsInDays(toDate(d.expiresAt), new Date());
+function HeroSlideView({ slide, shown, games, dealsNotConfigured }: {
+  slide: Slide;
+  shown: boolean;
+  games: Map<string, Game>;
+  dealsNotConfigured: boolean;
+}) {
+  switch (slide.kind) {
+    case 'deal':
+    case 'low':
+      return <DealSlide deal={slide.deal} low={slide.kind === 'low'} shown={shown} />;
+    case 'series':
+    case 'anticipated':
+      return <ReleaseSlide release={slide.release} series={slide.kind === 'series'} shown={shown} />;
+    default: {
+      const game = games.get(slide.gameId);
+      return game ? <GameSlide game={game} backlog={slide.kind === 'backlog'} shown={shown} dealsNotConfigured={dealsNotConfigured} /> : null;
+    }
+  }
+}
 
-  // Slides that are not shown stay in the page (they cross-fade) but out of reach.
+/** The frame every slide shares: the blurred backdrop, the text, and the art beside it. Slides that
+ *  are not shown stay in the page (they cross-fade) but out of reach. */
+function SlideFrame({ shown, backdrop, art, children }: { shown: boolean; backdrop: ReactNode; art: ReactNode; children: ReactNode }) {
   return (
     <div className={`home-hero-slide${shown ? ' on' : ''}`} aria-hidden={!shown} inert={!shown}>
-      <div className="home-hero-backdrop"><img src={art} alt="" decoding="async" /></div>
+      <div className="home-hero-backdrop">{backdrop}</div>
       <div className="home-hero-body">
-        <div className="home-hero-text">
-          <h2 className="home-hero-title">{d.title}</h2>
-          <p className="home-hero-price">
-            {d.cut > 0 && <span className="home-cut">{t('home.deals.cut', { cut: d.cut })}</span>}
-            <b>{dealPrice(d, lang, t('home.deals.free'))}</b>
-            {regular && <s>{regular}</s>}
-          </p>
-          <p className="home-hero-line">
-            {[d.historicalLow ? t('home.deals.historicalLow') : '', d.shop,
-              ends === null ? '' : ends === 0 ? t('home.deals.endsToday') : t('home.deals.endsIn', { count: ends })].filter(Boolean).join(' · ')}
-          </p>
-          <a className="button primary" href={httpsLink(d.url)} target="_blank" rel="noopener noreferrer">{t('home.hero.see')}</a>
-        </div>
-        <img className="home-hero-art" src={art} alt="" decoding="async" />
+        <div className="home-hero-text">{children}</div>
+        {art}
       </div>
     </div>
   );
 }
 
-function GameHero({ game, dealsNotConfigured }: { game: Game; dealsNotConfigured: boolean }) {
+function DealSlide({ deal: d, low, shown }: { deal: HomeDeal; low: boolean; shown: boolean }) {
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language;
+  const art = proxiedImage(d.imageUrl);
+  const regular = dealRegular(d, lang);
+  const ends = endsInDays(toDate(d.expiresAt), new Date());
+  // The featured deal's line says when it is also at its lowest; the low's own label says it already.
+  const context = [t(low ? 'home.hero.kind.low' : 'home.hero.kind.deal'), !low && d.historicalLow ? t('home.deals.historicalLow') : '', d.shop];
+
+  return (
+    <SlideFrame shown={shown} backdrop={<img src={art} alt="" decoding="async" />}
+      art={<img className="home-hero-art" src={art} alt="" decoding="async" />}>
+      <p className="home-hero-line">{context.filter(Boolean).join(' · ')}</p>
+      <h2 className="home-hero-title">{d.title}</h2>
+      <p className="home-hero-price">
+        {d.cut > 0 && <span className="home-cut">{t('home.deals.cut', { cut: d.cut })}</span>}
+        <b>{dealPrice(d, lang, t('home.deals.free'))}</b>
+        {regular && <s>{regular}</s>}
+      </p>
+      {ends !== null && <p className="home-hero-line">{ends === 0 ? t('home.deals.endsToday') : t('home.deals.endsIn', { count: ends })}</p>}
+      <div className="home-hero-actions">
+        <a className="button primary" href={httpsLink(d.url)} target="_blank" rel="noopener noreferrer">{t('home.hero.see')}</a>
+      </div>
+    </SlideFrame>
+  );
+}
+
+function ReleaseSlide({ release: r, series, shown }: { release: HomeRelease; series: boolean; shown: boolean }) {
+  const { t, i18n } = useTranslation();
+  const fmt = useFormatters();
+  const cover = proxiedImage(r.coverUrl);
+  const when = r.releaseDate ? fmt.date(r.releaseDate) : t('home.releases.tba');
+  const systems = new Intl.ListFormat(i18n.language, { type: 'unit' }).format(r.platforms);
+
+  return (
+    <SlideFrame shown={shown} backdrop={<img src={cover} alt="" decoding="async" />}
+      art={<div className="home-hero-poster"><img src={cover} alt="" decoding="async" /></div>}>
+      <p className="home-hero-line">{t(series ? 'home.hero.kind.series' : 'home.hero.kind.anticipated')}</p>
+      <h2 className="home-hero-title">{r.title}</h2>
+      <p className="home-hero-line">{[when, systems].filter(Boolean).join(' · ')}</p>
+      <div className="home-hero-actions">
+        <a className="button primary" href={httpsLink(r.url)} target="_blank" rel="noopener noreferrer">{t('home.hero.igdb')}</a>
+        {series && r.becauseGameId && (
+          <a className="button home-hero-ghost" href={gameHash(r.becauseGameId)}>{t('home.releases.because', { title: r.becauseTitle })}</a>
+        )}
+      </div>
+    </SlideFrame>
+  );
+}
+
+function GameSlide({ game, backlog, shown, dealsNotConfigured }: { game: Game; backlog: boolean; shown: boolean; dealsNotConfigured: boolean }) {
   const { t } = useTranslation();
   const systems = [...new Set(game.copies.map((c) => c.effectiveSystem).filter(Boolean))].join(' · ');
 
   return (
-    <section className="home-hero" aria-label={t('home.hero.newest')}>
-      <div className="home-hero-slide on">
-        <div className="home-hero-backdrop"><Cover game={game} /></div>
-        <div className="home-hero-body">
-          <div className="home-hero-text">
-            <p className="home-hero-line">{t('home.hero.newest')}</p>
-            <h2 className="home-hero-title">{game.title}</h2>
-            {systems && <p className="home-hero-line">{systems}</p>}
-            <div className="home-hero-actions">
-              <a className="button primary" href={gameHash(game.id)}>{t('home.hero.open')}</a>
-              {dealsNotConfigured && <a className="button home-hero-ghost" href="#/providers">{t('home.hero.addDeals')}</a>}
-            </div>
-          </div>
-          <a className="home-hero-poster" href={gameHash(game.id)} tabIndex={-1} aria-hidden="true"><Cover game={game} /></a>
-        </div>
+    <SlideFrame shown={shown} backdrop={<Cover game={game} />}
+      art={<a className="home-hero-poster" href={gameHash(game.id)} tabIndex={-1} aria-hidden="true"><Cover game={game} /></a>}>
+      <p className="home-hero-line">{t(backlog ? 'home.hero.kind.backlog' : 'home.hero.kind.recent')}</p>
+      <h2 className="home-hero-title">{game.title}</h2>
+      {systems && <p className="home-hero-line">{systems}</p>}
+      <div className="home-hero-actions">
+        <a className="button primary" href={gameHash(game.id)}>{t('home.hero.open')}</a>
+        {!backlog && dealsNotConfigured && <a className="button home-hero-ghost" href="#/providers">{t('home.hero.addDeals')}</a>}
       </div>
-    </section>
+    </SlideFrame>
   );
 }

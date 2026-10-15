@@ -35,12 +35,20 @@
       "health_other": "{{count}} problems to look at"
     },
     "hero": {
-      "label": "Featured deals",
+      "label": "Highlights",
       "show": "Show {{title}}",
       "see": "See the deal",
-      "newest": "Newest in your collection",
       "open": "Open",
-      "addDeals": "See deals here"
+      "addDeals": "See deals here",
+      "igdb": "See on IGDB",
+      "kind": {
+        "deal": "Featured deal",
+        "low": "Historical low",
+        "series": "New in your series",
+        "anticipated": "Most anticipated",
+        "recent": "Recently added",
+        "backlog": "From your backlog"
+      }
     },
     "refresh": "Refresh",
     "refreshing": "Refreshing…",

@@ -14,7 +14,7 @@ because Simple Icons removed them).
   `lib/useGameAddress.ts` owns the library's open sheet and its `#/game/<id>` address (history rules in `lib/gameAddress.ts`, tested on happy-dom), which follows
   the game the sheet shows.
 - `features/home/`: `HomePage` (the start page, edge to edge: it cancels `.main`'s padding and
-  keeps text to `--home-gutter`): `HomeHero` (deals taking turns, or the newest game),
+  keeps text to `--home-gutter`): `HomeHero` (a slide of each kind, `heroSlides`),
   `CollectionStats`, `PendingStrip`, `DealsBlock`, `ReleasesBlock`, `CollectionRows`;
   `ExternalBlock` (Refresh and the stale line beside the first row's title, and the not configured /
   never fetched / loading states), `Carousel` and `HomeRow` (a titled scroll-snap row; arrows on
@@ -89,7 +89,7 @@ because Simple Icons removed them).
   `@media (hover: hover) and (pointer: fine)`.
 - The image viewer opens and closes with fade + scale 0.97 → 1; changing image is not animated.
 - `prefers-reduced-motion` collapses transitions.
-- The one thing that moves by itself is Home's hero: its deals cross-fade every seven seconds (the
+- The one thing that moves by itself is Home's hero: its slides cross-fade every seven seconds (the
   bar under the current dot shows the time), hovering or focusing it holds the deal, and reduced
   motion stops it. The scrims over the hero's art and under a poster's platforms are gradients for
   legibility, not decoration.
