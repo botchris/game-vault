@@ -5,6 +5,7 @@ import (
 
 	"connectrpc.com/connect"
 
+	"gamevault/internal/application/media"
 	"gamevault/internal/domain/game"
 	pb "gamevault/internal/gen/gamevault/v1"
 	"gamevault/internal/gen/gamevault/v1/gamevaultv1connect"
@@ -14,7 +15,18 @@ var _ gamevaultv1connect.MetadataServiceHandler = (*MediaHandler)(nil)
 
 // GetGameDetails returns the details of a game from the metadata provider chain.
 func (h *MediaHandler) GetGameDetails(ctx context.Context, req *connect.Request[pb.GetGameDetailsRequest]) (*connect.Response[pb.GetGameDetailsResponse], error) {
-	d, warnings, err := h.details.GameDetails(ctx, game.ID(req.Msg.GameId), req.Msg.Language, req.Msg.Refresh)
+	var (
+		d        media.GameDetails
+		warnings []string
+		err      error
+	)
+
+	if req.Msg.CachedOnly {
+		d, _, err = h.details.Cached(ctx, game.ID(req.Msg.GameId), req.Msg.Language)
+	} else {
+		d, warnings, err = h.details.GameDetails(ctx, game.ID(req.Msg.GameId), req.Msg.Language, req.Msg.Refresh)
+	}
+
 	if err != nil {
 		return nil, toConnectError(err)
 	}

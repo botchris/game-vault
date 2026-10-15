@@ -463,10 +463,13 @@ that runs edge to edge. Top to bottom:
   all day) and is never the newest game. Each slide says what it is above its title and has its
   action: "See the deal" (through ITAD's link), "See on IGDB" (plus "Because you have X" to that
   game's sheet), or "Open" (the sheet; the newest game's slide adds "See deals here", to Providers,
-  when no deals provider is enabled). On desktops a deal's banner fills the right
-  of the band edge to edge, fading into the text (ITAD's art is at most 600 pixels wide, so it is
-  stretched; the scrims keep it soft rather than sharp); a release or a game shows its poster beside
-  the text over a blurred copy of itself. On phones the art sits above the text (a poster small).
+  when no deals provider is enabled). On desktops a wide picture fills the right
+  of the band edge to edge and fades into the text through a mask: a deal's banner (ITAD's art is at
+  most 600 pixels wide, so it is stretched), a release's artwork or screenshot from IGDB
+  (`artworks`/`screenshots` in the releases queries, `t_1080p`), and for a game of the collection the
+  first screenshot of its sheet when the sheet was gathered before (`GetGameDetails` with
+  `cached_only`, which never asks a provider, so opening Home sends no metadata requests). Without a
+  wide picture, the slide shows the poster beside the text over a blurred copy of itself. On phones the art sits above the text (a poster small).
   A strip in the bottom-right corner shows every slide as a thumbnail with its kind and title (on
   phones, as bars); the current one's bar fills in seven seconds and then the next slide shows.
   Hovering or focusing the hero holds it, reduced motion never moves on by itself, and the strip

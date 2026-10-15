@@ -70,6 +70,9 @@ message GetGameDetailsRequest {
   string language = 2;
   // Ask the providers again instead of using the cache (cached for 30 days).
   bool refresh = 3;
+  // Only the sheet gathered before, however old, and never a provider request: for pages that show
+  // a picture of the game in passing. Without one, the answer has empty details.
+  bool cached_only = 4;
 }
 message GetGameDetailsResponse {
   GameDetails details = 1;

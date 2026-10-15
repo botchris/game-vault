@@ -24,10 +24,11 @@ var releaseNow = time.Date(2026, 10, 15, 0, 0, 0, 0, time.UTC)
 const (
 	harborLights = `{"id": 3001, "name": "Harbor Lights", "first_release_date": 1796083200,
   "url": "https://www.igdb.com/games/harbor-lights", "cover": {"id": 1, "image_id": "co-hl"},
+  "artworks": [{"id": 5, "image_id": "ar-hl"}], "screenshots": [{"id": 6, "image_id": "sc-hl"}],
   "platforms": [6, 167, 999], "franchises": [], "collections": []}`
 
 	lanternKeepII = `{"id": 2001, "name": "Lantern Keep II", "first_release_date": 1795132800,
-  "url": "https://www.igdb.com/games/lantern-keep-ii", "cover": {"id": 2, "image_id": "co-lk2"},
+  "url": "https://www.igdb.com/games/lantern-keep-ii", "cover": {"id": 2, "image_id": "co-lk2"}, "screenshots": [{"id": 7, "image_id": "sc-lk2"}],
   "platforms": [6], "franchise": 40, "franchises": [40], "collections": [70]}`
 
 	echoValleyRemake = `{"id": 2002, "name": "Echo Valley Remake", "first_release_date": 1796860800,
@@ -64,8 +65,14 @@ func TestReleases_anticipated(t *testing.T) {
 					Date:           "2026-12-01",
 					Platforms:      []string{game.SystemPC, game.SystemPS5},
 					CoverURL:       "https://images.igdb.com/igdb/image/upload/t_cover_big/co-hl.jpg",
+					ArtURL:         "https://images.igdb.com/igdb/image/upload/t_1080p/ar-hl.jpg",
 					URL:            "https://www.igdb.com/games/harbor-lights",
 				}, got[0])
+			})
+
+			t.Run("AND the query asks for the wide art the home page's hero shows", func(t *testing.T) {
+				assert.Contains(t, f.sent("games")[0], "artworks.image_id")
+				assert.Contains(t, f.sent("games")[0], "screenshots.image_id")
 			})
 
 			t.Run("AND the cover's host is declared, so the page loads it through the image proxy", func(t *testing.T) {
@@ -151,6 +158,11 @@ func TestReleases_sequels(t *testing.T) {
 				assert.Equal(t, game.ID("g2"), got[1].Because)
 				assert.Equal(t, []string{game.SystemPS4, game.SystemPS5}, got[1].Platforms)
 				assert.Empty(t, got[1].CoverURL)
+			})
+
+			t.Run("AND a release without artwork takes a screenshot as its wide art, and one without either has none", func(t *testing.T) {
+				assert.Equal(t, "https://images.igdb.com/igdb/image/upload/t_1080p/sc-lk2.jpg", got[0].ArtURL)
+				assert.Empty(t, got[1].ArtURL)
 			})
 		})
 	})

@@ -114,6 +114,7 @@ func TestHomeSnapshots(t *testing.T) {
 				Date:           "2026-11-20",
 				Platforms:      []string{game.SystemPC, game.SystemPS5},
 				CoverURL:       "https://images.igdb.com/igdb/image/upload/t_cover_big/co-lk2.jpg",
+				ArtURL:         "https://images.igdb.com/igdb/image/upload/t_1080p/ar-lk2.jpg",
 				URL:            "https://www.igdb.com/games/lantern-keep-ii",
 				Because:        "g1",
 				BecauseTitle:   "Lantern Keep",

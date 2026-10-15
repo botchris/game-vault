@@ -265,6 +265,9 @@ type HomeRelease struct {
 	// The owned game whose series it continues, and its title; empty for an anticipated release.
 	BecauseGameId string `protobuf:"bytes,6,opt,name=because_game_id,json=becauseGameId,proto3" json:"because_game_id,omitempty"`
 	BecauseTitle  string `protobuf:"bytes,7,opt,name=because_title,json=becauseTitle,proto3" json:"because_title,omitempty"`
+	// A wide picture of the game (artwork, else a screenshot), loaded through the image proxy; the
+	// hero fills its band with it. Empty when there is none.
+	ArtUrl        string `protobuf:"bytes,8,opt,name=art_url,json=artUrl,proto3" json:"art_url,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -344,6 +347,13 @@ func (x *HomeRelease) GetBecauseGameId() string {
 func (x *HomeRelease) GetBecauseTitle() string {
 	if x != nil {
 		return x.BecauseTitle
+	}
+	return ""
+}
+
+func (x *HomeRelease) GetArtUrl() string {
+	if x != nil {
+		return x.ArtUrl
 	}
 	return ""
 }
@@ -588,7 +598,7 @@ const file_gamevault_v1_home_proto_rawDesc = "" +
 	"\x03url\x18\b \x01(\tR\x03url\x12\x1b\n" +
 	"\timage_url\x18\t \x01(\tR\bimageUrl\x12\x19\n" +
 	"\bowned_on\x18\n" +
-	" \x03(\tR\aownedOnJ\x04\b\v\x10\fR\fsteam_app_id\"\xe0\x01\n" +
+	" \x03(\tR\aownedOnJ\x04\b\v\x10\fR\fsteam_app_id\"\xf9\x01\n" +
 	"\vHomeRelease\x12\x14\n" +
 	"\x05title\x18\x01 \x01(\tR\x05title\x12!\n" +
 	"\frelease_date\x18\x02 \x01(\tR\vreleaseDate\x12\x1c\n" +
@@ -596,7 +606,8 @@ const file_gamevault_v1_home_proto_rawDesc = "" +
 	"\tcover_url\x18\x04 \x01(\tR\bcoverUrl\x12\x10\n" +
 	"\x03url\x18\x05 \x01(\tR\x03url\x12&\n" +
 	"\x0fbecause_game_id\x18\x06 \x01(\tR\rbecauseGameId\x12#\n" +
-	"\rbecause_title\x18\a \x01(\tR\fbecauseTitle\"\x10\n" +
+	"\rbecause_title\x18\a \x01(\tR\fbecauseTitle\x12\x17\n" +
+	"\aart_url\x18\b \x01(\tR\x06artUrl\"\x10\n" +
 	"\x0eGetHomeRequest\"\xe3\x02\n" +
 	"\x0fGetHomeResponse\x12-\n" +
 	"\x05deals\x18\x01 \x01(\v2\x17.gamevault.v1.HomeBlockR\x05deals\x122\n" +

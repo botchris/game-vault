@@ -125,6 +125,7 @@ type releaseDoc struct {
 	Date           string   `json:"date"`
 	Platforms      []string `json:"platforms"`
 	CoverURL       string   `json:"coverUrl"`
+	ArtURL         string   `json:"artUrl,omitempty"`
 	URL            string   `json:"url"`
 	Because        string   `json:"because"`
 	BecauseTitle   string   `json:"becauseTitle"`
@@ -195,6 +196,7 @@ func releaseDocsOf(in []game.Release) []releaseDoc {
 			Date:           string(r.Date),
 			Platforms:      r.Platforms,
 			CoverURL:       r.CoverURL,
+			ArtURL:         r.ArtURL,
 			URL:            r.URL,
 			Because:        string(r.Because),
 			BecauseTitle:   r.BecauseTitle,
@@ -217,6 +219,7 @@ func releasesOf(in []releaseDoc) []game.Release {
 			Date:           game.Date(r.Date),
 			Platforms:      r.Platforms,
 			CoverURL:       r.CoverURL,
+			ArtURL:         r.ArtURL,
 			URL:            r.URL,
 			Because:        game.ID(r.Because),
 			BecauseTitle:   r.BecauseTitle,
