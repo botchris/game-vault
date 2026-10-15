@@ -101,7 +101,12 @@ export function platformLook(platform: string): PlatformLook {
   const known = LOOKS[platform.trim().toLowerCase()];
   if (known) return known;
   const system = catalogSystems.get(systemKey(platform));
-  if (system) return { glyph: MAKER_GLYPHS[system.maker], label: system.short || system.name, bg: MAKER_BG[system.maker] ?? '#4b5568' };
+  if (system) {
+    // A variant spelling of a system with its own look ("GameBoy", "PS-Vita") looks like the canonical name.
+    const canonical = LOOKS[system.name.toLowerCase()];
+    if (canonical) return canonical;
+    return { glyph: MAKER_GLYPHS[system.maker], label: system.short || system.name, bg: MAKER_BG[system.maker] ?? '#4b5568' };
+  }
   return { glyph: STORE, label: platform, bg: '#4b5568' };
 }
 

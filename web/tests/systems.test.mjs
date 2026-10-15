@@ -56,3 +56,8 @@ test('groupByMaker groups by maker in catalog order and puts unknown names last'
     { maker: '', names: ['Zeebo'] },
   ]);
 });
+
+test('groupByMaker keeps every name that shares a system key', () => {
+  const groups = groupByMaker(['SNES', 'S.N.E.S', 'NES'], catalog);
+  assert.deepEqual(groups, [{ maker: 'Nintendo', names: ['SNES', 'S.N.E.S', 'NES'] }]);
+});
