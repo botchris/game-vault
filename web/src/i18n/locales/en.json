@@ -1102,6 +1102,15 @@
       "topicHelp": "1. Install the ntfy app on your phone.\n2. Pick a topic name nobody else would guess, for example a long random phrase: on ntfy.sh anyone who knows the name can read it.\n3. Subscribe to that topic in the app and type the same name here.",
       "token": "Access token",
       "tokenHelp": "Only for a protected topic or server: create an access token in ntfy (Account, Access tokens) and paste it here. Leave it empty for an open topic."
+    },
+    "webhook": {
+      "description": "Sends each event as a JSON document to an address of your own, so other tools (Home Assistant, n8n, a script) can react to it.",
+      "url": "Address",
+      "urlHelp": "The address that receives a POST with the JSON document, starting with http:// or https://. It must answer with a 2xx status; redirects are not followed, so use the final address.",
+      "header": "Header name",
+      "headerHelp": "Optional: the name of a header sent with every request, for example Authorization or X-Webhook-Secret. Fill in the value below.",
+      "secret": "Header value",
+      "secretHelp": "Optional: the value of that header (a token or a shared secret). Never shared or shown again once saved."
     }
   }
 }
