@@ -54,6 +54,9 @@ func TestParseProductName(t *testing.T) {
 		{"Crash Bandicoot Xbox Classics", "Crash Bandicoot", "Xbox", ""},
 		{"Zelda Breath of the Wild Switch Game", "Zelda Breath of the Wild", "Switch", ""},
 		{"Mario Kart Wii Game", "Mario Kart", "Wii", ""},
+		// A system word at the start of a title stays when the name names its system elsewhere.
+		{"Genesis Classics - Nintendo Switch", "Genesis Classics", "Switch", ""},
+		{"Genesis Classics", "Genesis Classics", "", ""},
 		{"Sonic Adventure Dreamcast Player's Choice", "Sonic Adventure", "Dreamcast", ""},
 	}
 	for _, c := range cases {

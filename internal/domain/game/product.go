@@ -92,19 +92,31 @@ func SystemPattern() string {
 // a system ("Switch Games", "Xbox Classics", "Wii Platinum Hits", "Switch Juegos"), and punctuation.
 var reTrailingCategory = regexp.MustCompile(`(?i)^[^\p{L}\p{N}]*(?:(?:games?|software|juegos?|jeux|spiele|giochi|classics|platinum|hits|player'?s[\s\-]*choice|essentials|original|complete|boxed)(?:[^\p{L}\p{N}]+|$))*$`)
 
+// reStoreCategory matches text made only of the words of a store's category name after a system
+// ("Switch Games", "Xbox Juegos"), and punctuation.
+var reStoreCategory = regexp.MustCompile(`(?i)^[^\p{L}\p{N}]*(?:(?:games?|software|juegos?|jeux|spiele|giochi)(?:[^\p{L}\p{N}]+|$))*$`)
+
 // matchIn returns the span to remove for the first acceptable match of the token's alias in s, nil
 // when there is none. A weak alias is acceptable inside brackets, at the end of s (nothing but
-// punctuation after it), followed only by category words (reTrailingCategory, which the span then
-// covers too, so they leave the title with the system), or in capitals when it has at most four
-// letters.
-func (t systemToken) matchIn(s string) []int {
+// punctuation after it), or in capitals when it has at most four letters. While no system has been
+// found yet (found is false), it is also acceptable followed only by category words
+// (reTrailingCategory, which the span then covers too, so they leave the title with the system):
+// after a title ("Halo 2 Xbox Platinum Hits"), or, with nothing before it, only by a store's
+// category words ("Switch Games"), so a title such as "Genesis Classics" is kept.
+func (t systemToken) matchIn(s string, found bool) []int {
 	for _, m := range t.re.FindAllStringSubmatchIndex(s, -1) {
 		start, end := m[2], m[3]
 		if !t.weak {
 			return []int{start, end}
 		}
 
-		if reTrailingCategory.MatchString(s[end:]) {
+		rest := s[end:]
+		if !strings.ContainsFunc(rest, isAlnum) {
+			return []int{start, end}
+		}
+
+		if !found && reTrailingCategory.MatchString(rest) &&
+			(strings.ContainsFunc(s[:start], isAlnum) || reStoreCategory.MatchString(rest)) {
 			return []int{start, len(s)}
 		}
 
@@ -150,7 +162,7 @@ func ParseProductName(raw string) (title, platform, edition string) {
 
 	for _, t := range systemTokens {
 		for {
-			loc := t.matchIn(s)
+			loc := t.matchIn(s, platform != "")
 			if loc == nil {
 				break
 			}
@@ -210,3 +222,6 @@ func editionName(m string) string {
 		return "Special Edition"
 	}
 }
+
+// isAlnum reports whether r is a letter or a digit.
+func isAlnum(r rune) bool { return unicode.IsLetter(r) || unicode.IsDigit(r) }
