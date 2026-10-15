@@ -65,10 +65,14 @@ func TestDeals(t *testing.T) {
 					HistoricalLow: true,
 					Expires:       time.Date(2026, 10, 20, 17, 0, 0, 0, time.UTC),
 					URL:           "https://itad.link/018d9386-0000-7000-8000-00000000aaaa/",
-					ImageURL:      "https://assets.isthereanydeal.com/018d937f-0000-7000-8000-000000000001/boxart.jpg?t=1",
+					ImageURL:      "https://assets.isthereanydeal.com/018d937f-0000-7000-8000-000000000001/banner400.jpg?t=1",
 				}, normalized(got[0]))
 				assert.Equal(t, "Echo Valley", got[1].Title)
 				assert.Equal(t, "Copper Coast", got[2].Title)
+			})
+
+			t.Run("AND a game without a banner falls back to its box art", func(t *testing.T) {
+				assert.Equal(t, "https://assets.isthereanydeal.com/018d937f-0000-7000-8000-000000000002/boxart.jpg?t=2", got[1].ImageURL)
 			})
 
 			t.Run("AND the art's host is declared, so the page loads it through the image proxy", func(t *testing.T) {
@@ -258,4 +262,24 @@ func normalized(d game.Deal) game.Deal {
 	}
 
 	return d
+}
+
+func TestImage_prefersBanners(t *testing.T) {
+	const host = "https://assets.isthereanydeal.com/018d937f-0000-7000-8000-000000000001/"
+
+	for _, tc := range []struct {
+		name   string
+		assets string
+		want   string
+	}{
+		{"every banner", `{"boxart":"` + host + `boxart.jpg","banner145":"` + host + `banner145.jpg","banner300":"` + host + `banner300.jpg","banner400":"` + host + `banner400.jpg","banner600":"` + host + `banner600.jpg"}`, host + "banner400.jpg"},
+		{"no banner400", `{"boxart":"` + host + `boxart.jpg","banner145":"` + host + `banner145.jpg","banner300":"` + host + `banner300.jpg","banner600":"` + host + `banner600.jpg"}`, host + "banner300.jpg"},
+		{"only the large and small banners", `{"banner145":"` + host + `banner145.jpg","banner600":"` + host + `banner600.jpg"}`, host + "banner600.jpg"},
+		{"only the smallest banner", `{"boxart":"` + host + `boxart.jpg","banner145":"` + host + `banner145.jpg"}`, host + "banner145.jpg"},
+		{"only box art", `{"boxart":"` + host + `boxart.jpg"}`, host + "boxart.jpg"},
+		{"a banner on another host", `{"banner400":"https://example.com/banner400.jpg","boxart":"` + host + `boxart.jpg"}`, host + "boxart.jpg"},
+		{"no art", `[]`, ""},
+	} {
+		assert.Equal(t, tc.want, image([]byte(tc.assets)), tc.name)
+	}
 }

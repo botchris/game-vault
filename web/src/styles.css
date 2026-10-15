@@ -805,6 +805,9 @@ td.title { font-weight: 500; min-width: 220px; }
 .deal-art, .release-cover { aspect-ratio: 460 / 215; border-radius: var(--radius-sm); background: var(--surface-2); overflow: hidden; }
 .release-cover { aspect-ratio: 2 / 3; }
 .deal-art img, .release-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Deal art is a banner of the frame's shape, shown as it is; the box art a game without a banner
+   falls back to is a tall cover, shown whole rather than cropped to a strip. */
+.deal-art img { object-fit: contain; }
 .deal-title { font-size: 14px; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .deal-price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
 .deal-price s { font-size: 13px; }
