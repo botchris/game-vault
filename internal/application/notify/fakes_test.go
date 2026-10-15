@@ -272,6 +272,9 @@ type fakeConnector struct {
 	err    error
 	found  string
 	finds  int
+
+	// onTest runs inside Test, before it answers (a change made while the sample is on its way).
+	onTest func()
 }
 
 func (f *fakeConnector) Descriptor() connection.TypeDescriptor {
@@ -304,6 +307,10 @@ func (f *fakeConnector) Send(_ context.Context, _ schema.Settings, m notify.Mess
 func (f *fakeConnector) Test(_ context.Context, settings schema.Settings, m notify.Message) error {
 	f.sent = append(f.sent, m)
 	f.tested = append(f.tested, settings)
+
+	if f.onTest != nil {
+		f.onTest()
+	}
 
 	return f.err
 }

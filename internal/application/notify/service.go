@@ -218,14 +218,38 @@ func (s *Service) Test(ctx context.Context, id connection.ID, typ connection.Typ
 	// Only a pass of the very settings stored proves the pause is over; a pass of other, unsaved
 	// ones says nothing about them (Save unpauses when those are stored).
 	if saved != nil && saved.Paused() && maps.Equal(settings, stored) {
-		saved.Unpause()
-
-		if err := s.conns.Save(ctx, saved); err != nil {
-			return found, fmt.Errorf("unpausing the connection: %w", err)
+		if err := s.unpause(ctx, saved.ID(), stored); err != nil {
+			return found, err
 		}
 	}
 
 	return found, nil
+}
+
+// unpause lets connection id send again after its stored settings passed a test. It reads the
+// connection again first: the user may have changed or deleted it while the sample was on its way,
+// and saving the old copy would undo that.
+func (s *Service) unpause(ctx context.Context, id connection.ID, tested schema.Settings) error {
+	c, err := s.conns.Get(ctx, id)
+	if errors.Is(err, connection.ErrNotFound) {
+		return nil
+	}
+
+	if err != nil {
+		return fmt.Errorf("unpausing the connection: %w", err)
+	}
+
+	if !c.Paused() || !maps.Equal(c.Settings(), tested) {
+		return nil // newer settings: the test said nothing about them
+	}
+
+	c.Unpause()
+
+	if err := s.conns.Save(ctx, c); err != nil {
+		return fmt.Errorf("unpausing the connection: %w", err)
+	}
+
+	return nil
 }
 
 // findMissing validates settings; when they miss something and the connector can find it, it asks

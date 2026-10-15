@@ -3,6 +3,7 @@ package notify
 import (
 	"context"
 	"errors"
+	"maps"
 	"time"
 
 	"gamevault/internal/domain/connection"
@@ -166,7 +167,7 @@ func (s *Service) sendAll(ctx context.Context, id connection.ID, ds []Delivery, 
 			return
 		}
 
-		if permanent := s.send(ctx, c, conn, d, address); permanent {
+		if stop := s.send(ctx, c, conn, d, address); stop {
 			return
 		}
 	}
@@ -187,9 +188,9 @@ func (s *Service) pace(ctx context.Context, id connection.ID, gap time.Duration)
 	return s.rhythm.Wait(ctx, wait)
 }
 
-// send tries one delivery and records the outcome. It reports whether the failure was permanent,
-// in which case the connection is paused.
-func (s *Service) send(ctx context.Context, c *connection.Connection, conn Connector, d Delivery, address string) (permanent bool) {
+// send tries one delivery and records the outcome. It reports whether the connection's round must
+// stop: its failure was permanent (the connection is paused), or the server is stopping.
+func (s *Service) send(ctx context.Context, c *connection.Connection, conn Connector, d Delivery, address string) (stop bool) {
 	m := Render(ctx, d.Event, c.Language(), address, s.catalog, s.covers)
 
 	sendCtx, cancel := context.WithTimeout(ctx, sendTimeout)
@@ -200,10 +201,20 @@ func (s *Service) send(ctx context.Context, c *connection.Connection, conn Conne
 	now := s.now()
 	s.lastSend[c.ID()] = now
 
+	// The outcome is recorded even when the server is stopping: a message that arrived must not be
+	// sent again after the restart.
+	record := context.WithoutCancel(ctx)
+
 	if err == nil {
-		s.mark(s.outbox.MarkSent(ctx, d.ID, now))
+		s.mark(s.outbox.MarkSent(record, d.ID, now))
 
 		return false
+	}
+
+	if ctx.Err() != nil {
+		// Stopping is not the service's failure: the delivery stays as it was, tried again after
+		// the restart.
+		return true
 	}
 
 	// The connector's error never holds its settings (connectors keep tokens out of them), and the
@@ -211,27 +222,48 @@ func (s *Service) send(ctx context.Context, c *connection.Connection, conn Conne
 	s.log.Warn("sending a notification", "connection", c.Name(), "event", d.Event.Kind, "error", err)
 
 	if errors.Is(err, ErrPermanent) {
-		s.mark(s.outbox.MarkFailed(ctx, d.ID, err.Error(), now))
-
-		c.Pause(err.Error(), now)
-
-		if err := s.conns.Save(ctx, c); err != nil {
-			s.log.Warn("pausing a connection", "connection", c.Name(), "error", err)
-		}
+		s.mark(s.outbox.MarkFailed(record, d.ID, err.Error(), now))
+		s.pause(record, c, err.Error(), now)
 
 		return true
 	}
 
 	attempt := d.Attempts + 1
 	if attempt > len(retryAfter) {
-		s.mark(s.outbox.MarkFailed(ctx, d.ID, err.Error(), now))
+		s.mark(s.outbox.MarkFailed(record, d.ID, err.Error(), now))
 
 		return false
 	}
 
-	s.mark(s.outbox.MarkRetry(ctx, d.ID, attempt, now.Add(retryWait(err, attempt)), err.Error(), now))
+	s.mark(s.outbox.MarkRetry(record, d.ID, attempt, now.Add(retryWait(err, attempt)), err.Error(), now))
 
 	return false
+}
+
+// pause stops connection sent from sending, sent being the copy whose settings failed. The
+// connection is read again first: the user may have fixed or deleted it while the message was on its
+// way, and saving the old copy would undo that.
+func (s *Service) pause(ctx context.Context, sent *connection.Connection, why string, at time.Time) {
+	c, err := s.conns.Get(ctx, sent.ID())
+	if errors.Is(err, connection.ErrNotFound) {
+		return
+	}
+
+	if err != nil {
+		s.log.Warn("pausing a connection", "connection", sent.Name(), "error", err)
+
+		return
+	}
+
+	if !maps.Equal(c.Settings(), sent.Settings()) {
+		return // new settings, not yet tried: they get their own chance
+	}
+
+	c.Pause(why, at)
+
+	if err := s.conns.Save(ctx, c); err != nil {
+		s.log.Warn("pausing a connection", "connection", c.Name(), "error", err)
+	}
 }
 
 // retryWait is how long to wait before attempt+1: the schedule's wait, or longer when the service

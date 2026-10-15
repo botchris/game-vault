@@ -32,6 +32,9 @@ type pacedConnector struct {
 	errs []error
 	got  []notify.Message
 	sent chan string
+
+	// onSend runs inside Send, before it answers (a change made while the message is on its way).
+	onSend func()
 }
 
 func newPacedConnector(gap time.Duration) *pacedConnector {
@@ -47,6 +50,10 @@ func (p *pacedConnector) Gap() time.Duration { return p.gap }
 func (p *pacedConnector) Send(_ context.Context, _ schema.Settings, m notify.Message) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
+	if p.onSend != nil {
+		p.onSend()
+	}
 
 	var err error
 	if len(p.errs) > 0 {
@@ -396,6 +403,101 @@ func TestDispatcher_permanentFailure(t *testing.T) {
 				assert.Equal(t, []string{"Example Two", "Example Three"}, w.paced.titles())
 				assert.Equal(t, notify.StateSent, w.delivery(t, third).State)
 			})
+		})
+	})
+}
+
+func TestDispatcher_permanentFailureRace(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a delivery whose send fails for good", func(t *testing.T) {
+		t.Run("WHEN the user saves new settings while it is on its way", func(t *testing.T) {
+			w := newDispatchWorld(t, 0)
+			c := w.connect(t, ctx, "Phone", true, event.KindReleaseOut)
+			id := w.queue(t, ctx, c, "Example One", time.Minute)
+			w.paced.fail(fmt.Errorf("the service rejected the token: %w", notify.ErrPermanent))
+			w.paced.onSend = func() {
+				_, err := w.svc.Save(ctx, c.ID(), "", connection.Config{
+					Name:     "Phone",
+					Enabled:  true,
+					Events:   []event.Kind{event.KindReleaseOut},
+					Language: "en",
+					Settings: schema.Settings{
+						"token": "t-456",
+						"chat":  "42",
+					},
+				})
+				require.NoError(t, err)
+			}
+
+			w.svc.Round(ctx)
+
+			t.Run("THEN the delivery is given up but the connection keeps the new settings, unpaused", func(t *testing.T) {
+				assert.Equal(t, notify.StateFailed, w.delivery(t, id).State)
+
+				got, err := w.svc.Get(ctx, c.ID())
+				require.NoError(t, err)
+				assert.False(t, got.Paused())
+				assert.Equal(t, "t-456", got.Settings()["token"])
+			})
+		})
+
+		t.Run("WHEN the user deletes the connection while it is on its way", func(t *testing.T) {
+			w := newDispatchWorld(t, 0)
+			c := w.connect(t, ctx, "Phone", true, event.KindReleaseOut)
+			w.queue(t, ctx, c, "Example One", time.Minute)
+			w.paced.fail(fmt.Errorf("the service rejected the token: %w", notify.ErrPermanent))
+			w.paced.onSend = func() { require.NoError(t, w.conns.Delete(ctx, c.ID())) }
+
+			w.svc.Round(ctx)
+
+			t.Run("THEN it is not brought back", func(t *testing.T) {
+				_, err := w.svc.Get(ctx, c.ID())
+				assert.ErrorIs(t, err, connection.ErrNotFound)
+			})
+		})
+	})
+}
+
+func TestDispatcher_shutdown(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a send that fails because the server is stopping", func(t *testing.T) {
+		w := newDispatchWorld(t, 0)
+		c := w.connect(t, ctx, "Phone", true, event.KindReleaseOut)
+		id := w.queue(t, ctx, c, "Example One", time.Minute)
+		w.queue(t, ctx, c, "Example Two", time.Minute)
+
+		roundCtx, stop := context.WithCancel(ctx)
+
+		w.paced.fail(context.Canceled)
+		w.paced.onSend = stop
+
+		w.svc.Round(roundCtx)
+
+		t.Run("THEN the delivery stays queued, no attempt counted, nothing logged, the rest untried", func(t *testing.T) {
+			d := w.delivery(t, id)
+			assert.Equal(t, notify.StateQueued, d.State)
+			assert.Zero(t, d.Attempts)
+			assert.NotContains(t, w.logs.String(), "sending a notification")
+			assert.Empty(t, w.paced.titles())
+		})
+	})
+
+	t.Run("GIVEN a send that arrives just as the server is stopping", func(t *testing.T) {
+		w := newDispatchWorld(t, 0)
+		c := w.connect(t, ctx, "Phone", true, event.KindReleaseOut)
+		id := w.queue(t, ctx, c, "Example One", time.Minute)
+
+		roundCtx, stop := context.WithCancel(ctx)
+		w.paced.onSend = stop
+
+		w.svc.Round(roundCtx)
+
+		t.Run("THEN it is still recorded as sent", func(t *testing.T) {
+			assert.Equal(t, notify.StateSent, w.delivery(t, id).State)
 		})
 	})
 }

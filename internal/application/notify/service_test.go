@@ -261,4 +261,65 @@ func TestService_test(t *testing.T) {
 			})
 		})
 	})
+
+	t.Run("GIVEN a paused connection whose stored settings are tested", func(t *testing.T) {
+		masked := connection.Config{
+			Language: "en",
+			Settings: schema.Settings{
+				"token": schema.SecretPlaceholder,
+				"chat":  "42",
+			},
+		}
+
+		t.Run("WHEN the user saves other settings while the sample is on its way", func(t *testing.T) {
+			w := newWorld(t)
+			c := w.connect(t, ctx, "Phone", true, event.KindIssueOpened)
+			c.Pause("the token was rejected", w.clock.Now())
+			require.NoError(t, w.conns.Save(ctx, c))
+
+			w.connector.onTest = func() {
+				fresh, err := w.conns.Get(ctx, c.ID())
+				require.NoError(t, err)
+				require.NoError(t, fresh.Reconfigure(w.connector.Descriptor(), connection.Config{
+					Name:     "Phone",
+					Enabled:  true,
+					Events:   []event.Kind{event.KindIssueOpened},
+					Language: "en",
+					Settings: schema.Settings{
+						"token": "t-456",
+						"chat":  "99",
+					},
+				}, w.clock.Now()))
+				fresh.Pause("still rejected", w.clock.Now())
+				require.NoError(t, w.conns.Save(ctx, fresh))
+			}
+
+			_, err := w.svc.Test(ctx, c.ID(), "", masked)
+			require.NoError(t, err)
+
+			t.Run("THEN the newer settings are kept and their pause stands", func(t *testing.T) {
+				got, err := w.svc.Get(ctx, c.ID())
+				require.NoError(t, err)
+				assert.Equal(t, "99", got.Settings()["chat"])
+				assert.True(t, got.Paused())
+			})
+		})
+
+		t.Run("WHEN the user deletes it while the sample is on its way", func(t *testing.T) {
+			w := newWorld(t)
+			c := w.connect(t, ctx, "Phone", true, event.KindIssueOpened)
+			c.Pause("the token was rejected", w.clock.Now())
+			require.NoError(t, w.conns.Save(ctx, c))
+
+			w.connector.onTest = func() { require.NoError(t, w.conns.Delete(ctx, c.ID())) }
+
+			_, err := w.svc.Test(ctx, c.ID(), "", masked)
+			require.NoError(t, err)
+
+			t.Run("THEN it is not brought back", func(t *testing.T) {
+				_, err := w.svc.Get(ctx, c.ID())
+				assert.ErrorIs(t, err, connection.ErrNotFound)
+			})
+		})
+	})
 }
