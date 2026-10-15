@@ -23,8 +23,9 @@ type systemToken struct {
 	length int
 
 	// weak is set for an alias that is one word of letters ("Genesis", "Switch", "Wii", "DS"): an
-	// ordinary word in a title, so it only counts in brackets, at the end of the name, or written in
-	// capitals when it has at most four letters ("DS", "SNES").
+	// ordinary word in a title, so it only counts in brackets, at the end of the name (or followed
+	// only by category words: "Switch Games", "Xbox Classics"), or written in capitals when it has
+	// at most four letters ("DS", "SNES").
 	weak bool
 }
 
@@ -87,15 +88,27 @@ func SystemPattern() string {
 	return strings.Join(parts, "|")
 }
 
-// matchIn returns the position of the first acceptable match of the token's alias in s, nil when
-// there is none. A weak alias is acceptable inside brackets, at the end of s (nothing but
-// punctuation after it), or in capitals when it has at most four letters.
+// reTrailingCategory matches text made only of the category and budget-line words stores put after
+// a system ("Switch Games", "Xbox Classics", "Wii Platinum Hits", "Switch Juegos"), and punctuation.
+var reTrailingCategory = regexp.MustCompile(`(?i)^[^\p{L}\p{N}]*(?:(?:games?|software|juegos?|jeux|spiele|giochi|classics|platinum|hits|player'?s[\s\-]*choice|essentials|original|complete|boxed)(?:[^\p{L}\p{N}]+|$))*$`)
+
+// matchIn returns the span to remove for the first acceptable match of the token's alias in s, nil
+// when there is none. A weak alias is acceptable inside brackets, at the end of s (nothing but
+// punctuation after it), followed only by category words (reTrailingCategory, which the span then
+// covers too, so they leave the title with the system), or in capitals when it has at most four
+// letters.
 func (t systemToken) matchIn(s string) []int {
 	for _, m := range t.re.FindAllStringSubmatchIndex(s, -1) {
 		start, end := m[2], m[3]
-		word := s[start:end]
+		if !t.weak {
+			return []int{start, end}
+		}
 
-		if !t.weak || inBrackets(s, start, end) || strings.TrimFunc(s[end:], isNotAlnum) == "" || isShortCaps(word) {
+		if reTrailingCategory.MatchString(s[end:]) {
+			return []int{start, len(s)}
+		}
+
+		if inBrackets(s, start, end) || isShortCaps(s[start:end]) {
 			return []int{start, end}
 		}
 	}
@@ -115,11 +128,6 @@ func inBrackets(s string, start, end int) bool {
 
 	return before != "" && after != "" && strings.ContainsRune("([", rune(before[len(before)-1])) &&
 		strings.ContainsRune(")]", rune(after[0]))
-}
-
-// isNotAlnum reports whether r is neither a letter nor a digit.
-func isNotAlnum(r rune) bool {
-	return !unicode.IsLetter(r) && !unicode.IsNumber(r)
 }
 
 var (

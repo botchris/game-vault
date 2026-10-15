@@ -48,10 +48,38 @@ func TestParseProductName(t *testing.T) {
 		{"Donkey Kong Game & Watch", "Donkey Kong", "Game & Watch", ""},
 		{"Pokémon Pinball Pokémon Mini", "Pokémon Pinball", "Pokémon Mini", ""},
 		{"Chuckie Egg Dragon 32/64", "Chuckie Egg", "Dragon 32/64", ""},
+		// CeX listings: a one-word system followed only by category or budget-line words.
+		{"Halo 2 Xbox Platinum Hits", "Halo 2", "Xbox", ""},
+		{"Splinter Cell Xbox Classics PAL", "Splinter Cell", "Xbox", ""},
+		{"Crash Bandicoot Xbox Classics", "Crash Bandicoot", "Xbox", ""},
+		{"Zelda Breath of the Wild Switch Game", "Zelda Breath of the Wild", "Switch", ""},
+		{"Mario Kart Wii Game", "Mario Kart", "Wii", ""},
+		{"Sonic Adventure Dreamcast Player's Choice", "Sonic Adventure", "Dreamcast", ""},
 	}
 	for _, c := range cases {
 		title, platform, edition := ParseProductName(c.raw)
 		assert.Equal(t, []string{c.title, c.platform, c.edition}, []string{title, platform, edition}, c.raw)
+	}
+}
+
+// TestParseProductName_cexCategories checks CeX's category names, whose system is followed by the
+// word for games in the store's language: the system is what matters, the title is ignored.
+func TestParseProductName_cexCategories(t *testing.T) {
+	cases := map[string]string{
+		"Switch Games":       "Switch",
+		"Switch Juegos":      "Switch",
+		"Wii Games":          "Wii",
+		"Xbox Games":         "Xbox",
+		"Xbox Juegos":        "Xbox",
+		"Playstation Games":  "PS1",
+		"Dreamcast Games":    "Dreamcast",
+		"Saturn Games":       "Saturn",
+		"Xbox 360 Juegos":    "Xbox 360",
+		"Playstation4 Games": "PS4",
+	}
+	for raw, want := range cases {
+		_, platform, _ := ParseProductName(raw)
+		assert.Equal(t, want, platform, raw)
 	}
 }
 
