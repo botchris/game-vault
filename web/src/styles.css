@@ -372,11 +372,12 @@ input[type="checkbox"], input[type="radio"] { min-height: 0; accent-color: var(-
 }
 
 /* System picker (components/SystemPicker.tsx): a popover list on desktop, a bottom sheet on phones.
-   Both are manual popovers in the top layer (over any dialog), so the UA's popover box is reset. The
+   Both are manual popovers in the top layer (over any dialog), so the UA's popover box is reset. Without
+   the Popover API they are plain fixed boxes in <body>, so their z-index must clear the dialogs too. The
    popover is placed by script (fixed, under or over its field); keyboard moves are never animated. */
 .system-popover, .system-sheet-layer { margin: 0; padding: 0; border: none; color: var(--text); inset: auto; }
 .system-popover {
-  position: fixed; z-index: var(--z-popover); overflow-y: auto; overscroll-behavior: contain;
+  position: fixed; z-index: calc(var(--z-modal) + 1); overflow-y: auto; overscroll-behavior: contain;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-control); box-shadow: var(--shadow-md);
   padding: 4px;
   transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out);
@@ -392,9 +393,9 @@ input[type="checkbox"], input[type="radio"] { min-height: 0; accent-color: var(-
 .system-option.active { background: var(--surface-2); }
 .system-none { margin: 0; padding: 10px; font-size: 14px; color: var(--muted); }
 .system-sheet-layer {
-  position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; z-index: var(--z-modal);
+  position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; z-index: calc(var(--z-modal) + 1);
   background: var(--backdrop); display: flex; flex-direction: column; justify-content: flex-end;
-  transition: opacity 240ms ease;
+  transition: opacity 240ms var(--ease-out);
   @starting-style { opacity: 0; }
 }
 .system-sheet {
