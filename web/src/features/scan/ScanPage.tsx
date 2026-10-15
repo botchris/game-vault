@@ -7,13 +7,13 @@ import { Icon } from '../../components/Icon';
 import SystemPicker from '../../components/SystemPicker';
 import { Alert } from '../../components/ui';
 import type { IdentifyBarcodeResponse } from '../../gen/gamevault/v1/lookup_pb';
-import { CopyContent, CopyGrade } from '../../gen/gamevault/v1/game_pb';
-import { CopyKind, CopyStatus, describePhysical, emptyDetails } from '../../lib/model';
+import { CopyContent, CopyGrade, CopyRegion } from '../../gen/gamevault/v1/game_pb';
+import { CopyKind, CopyStatus, describePhysical, emptyDetails, regionKey } from '../../lib/model';
 import { normalizeBarcode } from '../../lib/barcode.ts';
 import { recall, remember } from '../../lib/storage';
 import { useAppData } from '../../state/AppData';
 import GameDetail from '../library/GameDetail';
-import { ContentsToggles, GradeSelect, LocationInput } from '../library/PhysicalInputs';
+import { ContentsToggles, GradeSelect, LocationInput, RegionSelect } from '../library/PhysicalInputs';
 import { signal, unlockAudio } from './feedback';
 import { createLookupQueue } from './lookupQueue';
 import { ScanRow } from './ScanRow';
@@ -29,11 +29,13 @@ const CAMERA_KEY = 'gamevault.scanCamera';
 interface Defaults {
   platform: string;
   grade: CopyGrade;
+  /** Applied to the boxes whose lookup found no region. */
+  region: CopyRegion;
   contents: CopyContent[];
   location: string;
 }
 
-const NO_DEFAULTS: Defaults = { platform: '', grade: CopyGrade.UNSPECIFIED, contents: [], location: '' };
+const NO_DEFAULTS: Defaults = { platform: '', grade: CopyGrade.UNSPECIFIED, region: CopyRegion.UNSPECIFIED, contents: [], location: '' };
 
 function loadDefaults(): Defaults {
   try {
@@ -62,7 +64,7 @@ function toAnswer(res: IdentifyBarcodeResponse): Answer {
   return {
     barcode: res.barcode,
     owned: res.owned.map((o) => ({ gameId: o.game?.id ?? '', title: o.game?.title ?? '', platform: o.platform })),
-    match: res.match ? { raw: res.match.raw, title: res.match.title, platform: res.match.platform, edition: res.match.edition, providerId: res.match.providerId } : null,
+    match: res.match ? { raw: res.match.raw, title: res.match.title, platform: res.match.platform, edition: res.match.edition, providerId: res.match.providerId, region: res.match.region } : null,
     suggestions: res.suggestions.map((s) => ({ title: s.title, platform: s.platform, coverUrl: s.coverUrl, thumbUrl: s.thumbUrl, label: s.label })),
     existing: res.existing.map((g) => ({ id: g.id, title: g.title })),
     warnings: res.warnings,
@@ -218,7 +220,7 @@ export default function ScanPage() {
             clientId: it.clientId, gameId: it.gameId, title: it.title, coverUrl: it.coverUrl,
             details: {
               ...emptyDetails(CopyKind.PHYSICAL), status: CopyStatus.OWNED, platform: it.platform, edition: it.edition,
-              grade: defaults.grade, contents: defaults.contents, location: defaults.location, barcode: it.barcode,
+              grade: defaults.grade, region: it.region || defaults.region, contents: defaults.contents, location: defaults.location, barcode: it.barcode,
             },
           })),
         });
@@ -340,6 +342,7 @@ function BatchBar({ defaults, onChange }: { defaults: Defaults; onChange: (d: De
         <span className="batch-label">{t('scan.batch.label')}</span>
         <span className="batch-chip">{t('scan.batch.platform')}: <strong>{value(defaults.platform, t('scan.batch.auto'))}</strong></span>
         <span className="batch-chip">{t('copy.grade')}: <strong>{value(physical.grade, '—')}</strong></span>
+        <span className="batch-chip">{t('copy.region')}: <strong>{defaults.region ? t(`region.${regionKey(defaults.region)}`) : '—'}</strong></span>
         <span className="batch-chip">{t('copy.contents')}: <strong>{value(physical.contents, '—')}</strong></span>
         <span className="batch-chip">{t('copy.location')}: <strong>{value(defaults.location, '—')}</strong></span>
         <span className="batch-edit-label">{editing ? t('scan.batch.done') : t('scan.batch.change')}</span>
@@ -350,6 +353,7 @@ function BatchBar({ defaults, onChange }: { defaults: Defaults; onChange: (d: De
           <SystemPicker label={t('scan.batch.platform')} value={defaults.platform} autoFocus
             onChange={(platform) => onChange({ ...defaults, platform })} placeholder={t('scan.batch.platformAuto')} />
           <GradeSelect value={defaults.grade} onChange={(grade) => onChange({ ...defaults, grade })} />
+          <RegionSelect value={defaults.region} onChange={(region) => onChange({ ...defaults, region })} />
           <ContentsToggles value={defaults.contents} onChange={(contents) => onChange({ ...defaults, contents })} />
           <LocationInput value={defaults.location} onChange={(location) => onChange({ ...defaults, location })} />
           <p className="muted small batch-hint">{t('scan.batch.hint')}</p>

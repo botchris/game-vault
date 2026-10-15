@@ -4,7 +4,7 @@ import { Icon } from '../../components/Icon';
 import { useEscape } from '../../components/useEscape';
 import { MANUAL, NO_FILTERS, activeFilterCount, systemCounts, type Filters } from '../../lib/editions';
 import { filterOptions, isFilterable, type Definition } from '../../lib/fields';
-import { CopyKind, KINDS, PLAY_STATUSES, PlayStatus, kindKey, playKey, type Game } from '../../lib/model';
+import { CopyKind, KINDS, PLAY_STATUSES, PlayStatus, REGIONS, kindKey, playKey, regionKey, type Game } from '../../lib/model';
 import { groupByMaker } from '../../lib/systems';
 import { useAppData } from '../../state/AppData';
 
@@ -59,6 +59,12 @@ export default function FilterPanel({ games, total, filters, onChange, onClose, 
     const played = [...PLAY_STATUSES, PlayStatus.UNSPECIFIED].filter((x) => pl.has(x)).map((x) => ({ status: x, count: pl.get(x)! }));
     return { platforms: sorted(p), genres: sorted(g), sources: src, play: played };
   }, [games, configured, i18n.language]);
+
+  // The regions the user's copies have, in the enum's order, with how many items each would match.
+  const regions = useMemo(() => REGIONS.map((r) => ({
+    region: r,
+    count: games.filter((g) => g.copies.some((c) => c.details?.region === r)).length,
+  })).filter((x) => x.count > 0 || filters.regions.includes(x.region)), [games, filters.regions]);
 
   const systems = useMemo(() => systemCounts(games), [games]);
   const systemGroups = useMemo(() => {
@@ -146,6 +152,20 @@ export default function FilterPanel({ games, total, filters, onChange, onClose, 
             </div>
           ))}
         </section>
+
+        {regions.length > 0 && (
+          <section>
+            <h3>{t('library.filters.regions')}</h3>
+            <div className="choice-row">
+              {regions.map((x) => (
+                <button key={x.region} className={`choice ${filters.regions.includes(x.region) ? 'active' : ''}`} aria-pressed={filters.regions.includes(x.region)}
+                  onClick={() => onChange({ ...filters, regions: toggle(filters.regions, x.region) })}>
+                  {t(`region.${regionKey(x.region)}`)}<span className="choice-count">{x.count}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section>
           <h3>{t('copy.platform')}</h3>

@@ -14,7 +14,7 @@ import {
 import { usePreferredCurrency } from '../../lib/usePreferences';
 import { useAppData } from '../../state/AppData';
 import { FieldInputs, applyField, cleanFields, useFieldValidity } from '../fields/FieldInput';
-import { ContentsToggles, GradeSelect, LocationInput } from './PhysicalInputs';
+import { ContentsToggles, GradeSelect, LocationInput, RegionSelect } from './PhysicalInputs';
 import { useAmountReading } from '../../lib/useAmountReading';
 import { useAction } from '../../lib/useAction';
 
@@ -134,6 +134,7 @@ export default function CopyForm({ initial, managedBy, sourceSystem, onSubmit, o
               </label>
             </>
           )}
+          <RegionSelect value={d.region} onChange={(r) => set('region', r)} />
           <label>
             {t('copy.origin')}
             <input value={d.origin} onChange={(e) => set('origin', e.target.value)} placeholder={t('copy.originPlaceholder')} />

@@ -258,3 +258,12 @@ test('"On several platforms": two or more systems, not two stores of one system,
   assert.equal(severalSystemsCount(libraryItems(all, 'platform')), 3 + 2 + 2, 'editions in "By platform"');
   assert.equal(severalSystemsCount(libraryItems(all, 'game')), 3, 'games in "By game"');
 });
+
+test('region filter: a copy in one of the regions, counted, empty by default', () => {
+  const pal = game('g9', 'Zelda', [copy('Switch', 'Switch', 3, { details: { kind: 3, platform: 'Switch', region: 1, fields: {} } })], [edition('Switch', { main: true })]);
+  const items = libraryItems([pal, hades], 'game');
+  assert.deepEqual(NO_FILTERS.regions, []);
+  assert.deepEqual(keys(items, { regions: [1] }), ['g9']);
+  assert.deepEqual(keys(items, { regions: [2] }), []);
+  assert.equal(activeFilterCount({ ...NO_FILTERS, regions: [1, 2] }), 2);
+});

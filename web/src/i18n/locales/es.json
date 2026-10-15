@@ -227,7 +227,8 @@
       "genresPartial": "Géneros conocidos para {{cached}} de {{total}} juegos; el resto se descarga en segundo plano.",
       "done": "Ver resultados",
       "sources": "Fuente",
-      "manual": "Añadidos a mano"
+      "manual": "Añadidos a mano",
+      "regions": "Región"
     },
     "alpha": "Ir a la letra",
     "noResults": "Ningún juego coincide con estos filtros."
@@ -317,7 +318,8 @@
     "currency": "Moneda",
     "priceInvalid": "No es un importe, p. ej. 29,95",
     "confirmExclude": "¿Quitar «{{title}}» de {{source}} y no volver a importarlo? La próxima sincronización lo saltará; puedes recuperarlo desde los ajustes de la fuente.",
-    "confirmExcludeLoses": " Se borrarán sus fotos y sus precios estimados."
+    "confirmExcludeLoses": " Se borrarán sus fotos y sus precios estimados.",
+    "region": "Región"
   },
   "picker": {
     "search": "Buscar juegos…",
@@ -1186,6 +1188,25 @@
       "headerHelp": "Opcional: el nombre de una cabecera que se envía en cada petición, por ejemplo Authorization o X-Webhook-Secret. Rellena el valor debajo.",
       "secret": "Valor de la cabecera",
       "secretHelp": "Opcional: el valor de esa cabecera (un token o un secreto compartido). No se muestra de nuevo una vez guardado."
+    }
+  },
+  "region": {
+    "unspecified": "Sin indicar",
+    "pal": "PAL (Europa, Australia)",
+    "ntsc_u": "NTSC-U (América)",
+    "ntsc_j": "NTSC-J (Japón)",
+    "ntsc_k": "NTSC-K (Corea)",
+    "ntsc_c": "NTSC-C (China)",
+    "asia": "Asia",
+    "region_free": "Sin región",
+    "short": {
+      "pal": "PAL",
+      "ntsc_u": "US",
+      "ntsc_j": "JP",
+      "ntsc_k": "KR",
+      "ntsc_c": "CN",
+      "asia": "Asia",
+      "region_free": "Libre"
     }
   }
 }

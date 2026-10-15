@@ -9,7 +9,7 @@ export interface EditionLike { system: string; coverUrl: string; coverPhotoId: s
 export interface CopyLike {
   effectiveSystem: string;
   sourceId: string;
-  details?: { kind: number; platform: string; fields: Values };
+  details?: { kind: number; platform: string; region?: number; fields: Values };
 }
 export interface GameLike {
   id: string;
@@ -104,6 +104,8 @@ export interface Filters {
   platforms: string[];
   /** Systems (PC, PS4…): an item matches when one of its copies is on one of them. */
   systems: string[];
+  /** Copy regions (CopyRegion's numbers): an item matches when one of its copies is in one of them. */
+  regions: number[];
   genres: string[];
   /** Source ids; MANUAL stands for copies added by hand or from a CSV. */
   sources: string[];
@@ -115,9 +117,9 @@ export interface Filters {
 
 export const MANUAL = '';
 
-export const NO_FILTERS: Filters = { kind: 0, platforms: [], systems: [], genres: [], sources: [], play: [], fields: {} };
+export const NO_FILTERS: Filters = { kind: 0, platforms: [], systems: [], regions: [], genres: [], sources: [], play: [], fields: {} };
 
-export const activeFilterCount = (f: Filters) => (f.kind ? 1 : 0) + f.platforms.length + f.systems.length + f.genres.length
+export const activeFilterCount = (f: Filters) => (f.kind ? 1 : 0) + f.platforms.length + f.systems.length + f.regions.length + f.genres.length
   + f.sources.length + f.play.length + Object.values(f.fields).reduce((n, keys) => n + keys.length, 0);
 
 /** The filters without custom field values that no longer exist (a deleted field, a removed
@@ -128,7 +130,7 @@ export function pruneFilters(f: Filters, defs: Definition[]): Filters {
 }
 
 /** A game (or an edition's view of it) matches when it has a copy of the kind on one of the
- *  platforms, a copy on one of the systems, a copy from one of the sources, one of the genres, one of
+ *  platforms, a copy on one of the systems, a copy in one of the regions, a copy from one of the sources, one of the genres, one of
  *  the play statuses and one of the chosen values of each filtered custom field. */
 export function matchesFilters(g: GameLike, f: Filters, defs: Definition[]): boolean {
   if (f.kind || f.platforms.length) {
@@ -136,6 +138,7 @@ export function matchesFilters(g: GameLike, f: Filters, defs: Definition[]): boo
     if (!ok) return false;
   }
   if (f.systems.length && !g.copies.some((c) => f.systems.includes(c.effectiveSystem))) return false;
+  if (f.regions.length && !g.copies.some((c) => f.regions.includes(c.details?.region ?? 0))) return false;
   if (f.sources.length && !g.copies.some((c) => f.sources.includes(c.sourceId))) return false;
   if (f.genres.length && !g.genres.some((x) => f.genres.includes(x))) return false;
   if (f.play.length && !f.play.includes(g.playStatus)) return false;

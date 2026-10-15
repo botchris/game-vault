@@ -82,8 +82,8 @@ test('failed lookups can be retried; send items carry one item per copy', () => 
   assert.equal(status(rows[0], ''), 'looking');
   rows = plusOne(settle(rows, 'r1', answer()), 'r1');
   assert.deepEqual(sendItems(rows, 'PS3'), [
-    { clientId: 'r1:0', rowId: 'r1', gameId: '', title: 'Dead Space 3', coverUrl: 'https://c/ds3.jpg', platform: 'PS3', edition: '', barcode: DS3 },
-    { clientId: 'r1:1', rowId: 'r1', gameId: '', title: 'Dead Space 3', coverUrl: 'https://c/ds3.jpg', platform: 'PS3', edition: '', barcode: DS3 },
+    { clientId: 'r1:0', rowId: 'r1', gameId: '', title: 'Dead Space 3', coverUrl: 'https://c/ds3.jpg', platform: 'PS3', edition: '', region: 0, barcode: DS3 },
+    { clientId: 'r1:1', rowId: 'r1', gameId: '', title: 'Dead Space 3', coverUrl: 'https://c/ds3.jpg', platform: 'PS3', edition: '', region: 0, barcode: DS3 },
   ]);
 });
 
@@ -200,4 +200,10 @@ test('a stored answer keeps "providers unavailable", and rows stored before it e
   assert.equal(loadRows(saveRows(older)).length, 1);
   const broken = settle(scanned(), 'r1', answer({ providersUnavailable: 'yes' }));
   assert.equal(loadRows(saveRows(broken)).length, 0);
+});
+
+test('sendItems carries the region the lookup found', () => {
+  const a = answer();
+  const rows = settle(scanned(), 'r1', { ...a, match: { ...a.match, region: 3 } });
+  assert.equal(sendItems(rows, '')[0].region, 3);
 });

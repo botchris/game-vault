@@ -11,7 +11,7 @@ export type Status = 'looking' | 'ready' | 'owned' | 'review' | 'error';
 export interface Answer {
   barcode: string;
   owned: { gameId: string; title: string; platform: string }[];
-  match: { raw: string; title: string; platform: string; edition: string; providerId: string } | null;
+  match: { raw: string; title: string; platform: string; edition: string; providerId: string; region?: number } | null;
   suggestions: { title: string; platform: string; coverUrl: string; thumbUrl: string; label: string }[];
   existing: { id: string; title: string }[];
   warnings: string[];
@@ -50,6 +50,8 @@ export interface SendItem {
   coverUrl: string;
   platform: string;
   edition: string;
+  /** The region the barcode lookup found (CopyRegion's number); 0 when it had none. */
+  region: number;
   barcode: string;
 }
 
@@ -177,7 +179,7 @@ export function sendItems(rows: Row[], batchPlatform: string): SendItem[] {
     for (let n = 0; n < r.count; n++) {
       items.push({
         clientId: `${r.id}:${n}`, rowId: r.id, gameId: c.gameId, title: c.title.trim(), coverUrl: c.coverUrl,
-        platform: c.platform.trim(), edition: c.edition.trim(), barcode: r.code,
+        platform: c.platform.trim(), edition: c.edition.trim(), region: r.answer?.match?.region ?? 0, barcode: r.code,
       });
     }
   }
