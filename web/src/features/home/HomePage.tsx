@@ -1,12 +1,12 @@
 import { Code, ConnectError } from '@connectrpc/connect';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { errorMessage, homeClient } from '../../api/client';
 import { PageHeader } from '../../components/PageHeader';
 import { Alert } from '../../components/ui';
 import type { GetHomeResponse } from '../../gen/gamevault/v1/home_pb';
 import { minutesUntil } from '../../lib/home';
-import { latestOnly } from '../../lib/latest';
+import { homeSync } from '../../lib/homeSync';
 import { toDate } from '../../lib/model';
 import { useAction, type Action } from '../../lib/useAction';
 import { useAppData } from '../../state/AppData';
@@ -32,46 +32,29 @@ export default function HomePage() {
   const [error, setError] = useState('');
   const deals = useAction();
   const releases = useAction();
-  // Reads and refreshes overlap (a refresh, then the page read again after it fails): only the
-  // newest answer may replace the home.
-  const [latest] = useState(latestOnly);
-
-  /** Reads the home; resolves to it, or null when the read failed or a newer one took over. */
-  const load = useCallback(async () => {
-    const current = latest();
-    try {
-      const res = await homeClient.getHome({});
-      if (!current()) return null;
-      setHome(res);
-      setError('');
-      return res;
-    } catch (e) {
-      if (current()) setError(errorMessage(e));
-      return null;
-    }
-  }, [latest]);
+  // Reads and refreshes overlap (two blocks refreshed at once, a read after each): every refresh
+  // reads the home again once it settles, and only the newest read is shown (see lib/homeSync.ts).
+  const [sync] = useState(() => homeSync(() => homeClient.getHome({}), (res: GetHomeResponse) => {
+    setHome(res);
+    setError('');
+  }, (e) => setError(errorMessage(e))));
 
   useEffect(() => {
-    load();
-  }, [load]);
+    sync.load();
+  }, [sync]);
 
-  // A refresh answers with the whole home; a provider problem it met reaches System → Health too.
-  // A failed one keeps the stored lists, so the page reads them again for the block's new state;
-  // one asked too soon says when it may be asked again, from that read.
+  // A refresh's provider problem reaches System → Health too. A failed one keeps the stored lists,
+  // and the read after it gives the block's new state; one asked too soon says when it may be asked
+  // again, from that read.
   const refresh = async (action: Action, block: 'deals' | 'releases') => {
     await action.run(async () => {
-      const current = latest();
-      try {
-        const res = await homeClient.refreshHome({ block });
-        if (res.home && current()) setHome(res.home);
-      } catch (e) {
-        const fresh = await load();
-        if (e instanceof ConnectError && e.code === Code.ResourceExhausted) {
-          const count = minutesUntil(toDate(fresh?.[block]?.refreshableAt), new Date());
-          throw new Error(t('home.tooSoon', { count }));
-        }
-        throw e;
+      const { failed, error: e, fresh } = await sync.refresh(() => homeClient.refreshHome({ block }));
+      if (!failed) return;
+      if (e instanceof ConnectError && e.code === Code.ResourceExhausted) {
+        const count = minutesUntil(toDate(fresh?.[block]?.refreshableAt), new Date());
+        throw new Error(t('home.tooSoon', { count }));
       }
+      throw e;
     });
     reloadHealth();
   };

@@ -500,8 +500,9 @@ and the job's turn. A refresh the user makes in the second half of the interval 
 turn: the job's next one is a whole interval after it. A refresh is all or nothing: if a list
 fails, the previous snapshot stays whole, the failure is recorded next to it and reaches the
 provider's status (System → Health). When the page itself cannot be read, the two blocks are
-hidden (the alert says so) instead of claiming to be not configured; when reads and refreshes
-overlap, the newest answer wins.
+hidden (the alert says so) instead of claiming to be not configured. Every refresh, once it
+settles, reads the home again and only the newest read is shown (`web/src/lib/homeSync.ts`), so a
+refresh of one block never drops or overwrites the other block's newer answer.
 
 **Block states:** *not configured* (no provider enabled; stored data is hidden, and a card links to
 Providers), *never fetched* (a card with Refresh; the skeleton shows only while a request runs),
