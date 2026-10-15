@@ -26,6 +26,7 @@ import (
 	"gamevault/internal/application/sync"
 	"gamevault/internal/application/valuation"
 	"gamevault/internal/domain/auth"
+	"gamevault/internal/domain/connection"
 	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/field"
 	"gamevault/internal/domain/game"
@@ -41,20 +42,25 @@ var sentinels = map[string]struct {
 	err  error
 	code connect.Code
 }{
-	"domain/auth.ErrUnauthenticated": {auth.ErrUnauthenticated, connect.CodeUnauthenticated},
-	"domain/auth.ErrBadCredentials":  {auth.ErrBadCredentials, connect.CodeUnauthenticated},
-	"domain/auth.ErrNotFound":        {auth.ErrNotFound, connect.CodeNotFound},
-	"domain/auth.ErrSetupDone":       {auth.ErrSetupDone, connect.CodeAlreadyExists},
-	"domain/auth.ErrSetupNotTrusted": {auth.ErrSetupNotTrusted, connect.CodePermissionDenied},
-	"domain/auth.ErrTooManyAttempts": {auth.ErrTooManyAttempts, connect.CodeResourceExhausted},
-	"domain/auth.ErrLockout":         {auth.ErrLockout, connect.CodeFailedPrecondition},
-	"domain/field.ErrNotFound":       {field.ErrNotFound, connect.CodeNotFound},
-	"domain/game.ErrGameNotFound":    {game.ErrGameNotFound, connect.CodeNotFound},
-	"domain/game.ErrCopyNotFound":    {game.ErrCopyNotFound, connect.CodeNotFound},
-	"domain/game.ErrPhotoNotFound":   {game.ErrPhotoNotFound, connect.CodeNotFound},
-	"domain/game.ErrEditionNotFound": {game.ErrEditionNotFound, connect.CodeNotFound},
-	"domain/provider.ErrNotFound":    {provider.ErrNotFound, connect.CodeNotFound},
-	"domain/provider.ErrRateLimited": {provider.ErrRateLimited, connect.CodeUnavailable},
+	"domain/auth.ErrUnauthenticated":    {auth.ErrUnauthenticated, connect.CodeUnauthenticated},
+	"domain/auth.ErrBadCredentials":     {auth.ErrBadCredentials, connect.CodeUnauthenticated},
+	"domain/auth.ErrNotFound":           {auth.ErrNotFound, connect.CodeNotFound},
+	"domain/auth.ErrSetupDone":          {auth.ErrSetupDone, connect.CodeAlreadyExists},
+	"domain/auth.ErrSetupNotTrusted":    {auth.ErrSetupNotTrusted, connect.CodePermissionDenied},
+	"domain/auth.ErrTooManyAttempts":    {auth.ErrTooManyAttempts, connect.CodeResourceExhausted},
+	"domain/auth.ErrLockout":            {auth.ErrLockout, connect.CodeFailedPrecondition},
+	"domain/connection.ErrNotFound":     {connection.ErrNotFound, connect.CodeNotFound},
+	"domain/connection.ErrUnknownType":  {connection.ErrUnknownType, connect.CodeNotFound},
+	"domain/connection.ErrNoEvents":     {connection.ErrNoEvents, connect.CodeInvalidArgument},
+	"domain/connection.ErrUnknownEvent": {connection.ErrUnknownEvent, connect.CodeInvalidArgument},
+	"domain/connection.ErrBadLanguage":  {connection.ErrBadLanguage, connect.CodeInvalidArgument},
+	"domain/field.ErrNotFound":          {field.ErrNotFound, connect.CodeNotFound},
+	"domain/game.ErrGameNotFound":       {game.ErrGameNotFound, connect.CodeNotFound},
+	"domain/game.ErrCopyNotFound":       {game.ErrCopyNotFound, connect.CodeNotFound},
+	"domain/game.ErrPhotoNotFound":      {game.ErrPhotoNotFound, connect.CodeNotFound},
+	"domain/game.ErrEditionNotFound":    {game.ErrEditionNotFound, connect.CodeNotFound},
+	"domain/provider.ErrNotFound":       {provider.ErrNotFound, connect.CodeNotFound},
+	"domain/provider.ErrRateLimited":    {provider.ErrRateLimited, connect.CodeUnavailable},
 	"domain/provider.ErrQuotaExhausted": {
 		provider.ErrQuotaExhausted, connect.CodeUnavailable,
 	},
