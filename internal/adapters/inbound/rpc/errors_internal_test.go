@@ -18,6 +18,7 @@ import (
 
 	"gamevault/internal/application/catalog"
 	"gamevault/internal/application/fields"
+	"gamevault/internal/application/home"
 	"gamevault/internal/application/logs"
 	"gamevault/internal/application/media"
 	"gamevault/internal/application/ownership"
@@ -68,6 +69,9 @@ var sentinels = map[string]struct {
 	"application/catalog.ErrCopyAlreadyThere":     {catalog.ErrCopyAlreadyThere, connect.CodeInvalidArgument},
 	"application/catalog.ErrScannedGameGone":      {catalog.ErrScannedGameGone, connect.CodeNotFound},
 	"application/fields.ErrValuesDoNotFit":        {fields.ErrValuesDoNotFit, connect.CodeFailedPrecondition},
+	"application/home.ErrUnknownBlock":            {home.ErrUnknownBlock, connect.CodeInvalidArgument},
+	"application/home.ErrTooSoon":                 {home.ErrTooSoon, connect.CodeResourceExhausted},
+	"application/home.ErrNotConfigured":           {home.ErrNotConfigured, connect.CodeFailedPrecondition},
 	"application/logs.ErrInvalidName":             {logs.ErrInvalidName, connect.CodeInvalidArgument},
 	"application/logs.ErrNotFound":                {logs.ErrNotFound, connect.CodeNotFound},
 	"application/media.ErrNoEdition":              {media.ErrNoEdition, connect.CodeNotFound},
