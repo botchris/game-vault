@@ -33,7 +33,7 @@ dependencies: the host only needs Docker and Task.
 | Translations check only | `task i18n` |
 | One-off command in the toolchain (one package, a tool…) | `task shell`, or `docker run` with the volumes from `Taskfile.yml` (`DOCKER_RUN`) |
 | Release binaries (linux, darwin, windows) | `task build:release` |
-| Tag a release (SemVer, from a clean main) | `task release -- X.Y.Z` — creates a local tag only |
+| Tag a release (SemVer, from a clean main) | `task release -- X.Y.Z` — creates a local tag only (see "Branches and releases") |
 | Docker image: try locally / publish a tagged release | `task docker:build` / `task docker:publish`. Pushing a `v*` tag makes GitHub Actions (`.github/workflows/release.yml`) run the checks and `task docker:publish`, so **pushing a tag publishes**: never push tags, or run the task, without the user's go-ahead |
 | Docker image for testing (`:dev`, overwritten each time) | `task docker:publish:dev`, or the hand-run "Publish dev image" workflow (`.github/workflows/dev-image.yml`). It publishes too: only on the user's go-ahead |
 
@@ -100,10 +100,29 @@ Rules of the architecture:
   supported platform, a new install step). No implementation details or product comparisons in
   the README.
 
+## Branches and releases
+
+Work flows **feature → dev → main → tag**:
+
+1. **Feature branches start from `dev`** (`git fetch origin && git checkout -b feature/<name> origin/dev`)
+   and their pull requests target `dev` (`gh pr create --base dev`). Name them `feature/…`, `fix/…`
+   or `docs/…`. CI runs on every pull request; the user merges.
+2. **`dev` collects merged features** and is where they are tried together (a test server, or the
+   `:dev` Docker image published from `dev` on the user's go-ahead). CI runs on every push to `dev`.
+3. **`dev` reaches `main` when it is well tested**, through a pull request from `dev` to `main`
+   (`gh pr create --base main --head dev`), opened when the user asks; the user merges.
+4. **Releases are tagged on `main`**: after that merge, `task release -- X.Y.Z` on a clean, up-to-date
+   `main` creates the local tag (the script refuses any other branch), and pushing it publishes
+   (see Commands: only on the user's go-ahead).
+
+A fix for a released version that cannot wait for `dev` branches from `main`, goes to `main` by pull
+request and is then merged back into `dev`, so `dev` never misses it. `main` and `dev` are protected
+by a repository ruleset (no deletion, no force push): never rewrite their history.
+
 ## How to verify a change
 
 CI (`.github/workflows/ci.yml`) runs `task lint`, a `task generate` freshness check, `task test` and
-`task test:race` on every push to main and pull request; it does not replace the steps below.
+`task test:race` on every push to main or dev and on every pull request; it does not replace the steps below.
 
 1. `task lint` and `task test` pass (golangci-lint, buf lint, vet, Go tests, TS types, translations).
 2. `task test-server` (builds web + server first) and look at the result in the browser pane on

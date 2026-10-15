@@ -1,11 +1,11 @@
-# Lint and test every push to main and every pull request, the same way as on a developer's
+# Lint and test every push to main and dev and every pull request, the same way as on a developer's
 # machine: through Task, inside the toolchain container (build/toolchain.Dockerfile), so CI uses
 # exactly the pinned Go, Node, golangci-lint and buf versions. The runner only needs Docker and Task.
 name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
   # The release workflow runs these checks before publishing a tagged version.
   workflow_call:
