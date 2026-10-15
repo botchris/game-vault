@@ -44,6 +44,14 @@ type ReleaseSource interface {
 	SeriesReleases(ctx context.Context) ([]game.Release, error)
 }
 
+// Interest is an optional capability of the publisher the daily job is given: whether anybody
+// would receive an event of a kind now. The job tells keys only then, since a key it tells is
+// remembered as told and never told again at that threshold.
+type Interest interface {
+	// Wants reports whether an event of kind published now would reach anybody.
+	Wants(ctx context.Context, kind event.Kind) bool
+}
+
 // DailyOption configures a Daily.
 type DailyOption func(*Daily)
 
@@ -72,6 +80,9 @@ type Daily struct {
 	rhythm   unattended.Rhythm
 	loc      *time.Location
 
+	// interest is pub's Interest, or nil when it has none (everything is wanted then).
+	interest Interest
+
 	// mu guards toldReleases.
 	mu sync.Mutex
 
@@ -98,6 +109,8 @@ func NewDaily(catalog Catalog, keys KeyMemory, releases ReleaseSource, pub event
 	for _, opt := range opts {
 		opt(d)
 	}
+
+	d.interest, _ = pub.(Interest)
 
 	return d
 }
@@ -151,7 +164,8 @@ func (d *Daily) RunOnce(ctx context.Context) error {
 }
 
 // tellKeys publishes one message with every pending key that reached a threshold not told yet,
-// nearest deadline first, then remembers them and forgets the keys no longer pending.
+// nearest deadline first, then remembers them and forgets the keys no longer pending. With nobody
+// to tell, it neither publishes nor remembers: a connection subscribing later still hears of them.
 func (d *Daily) tellKeys(ctx context.Context, today time.Time) error {
 	games, err := d.catalog.List(ctx)
 	if err != nil {
@@ -205,7 +219,7 @@ func (d *Daily) tellKeys(ctx context.Context, today time.Time) error {
 		}
 	}
 
-	if len(tell) > 0 {
+	if len(tell) > 0 && (d.interest == nil || d.interest.Wants(ctx, event.KindKeysExpiring)) {
 		slices.SortFunc(tell, func(a, b due) int {
 			return cmp.Or(cmp.Compare(a.key.DaysLeft, b.key.DaysLeft), cmp.Compare(a.key.Game.Title, b.key.Game.Title))
 		})

@@ -268,6 +268,47 @@ func TestDaily_keys(t *testing.T) {
 	})
 }
 
+// choosyRecorder is a recorder that says whether anybody wants an event, as notify.Service does.
+type choosyRecorder struct {
+	recorder
+
+	wants bool
+}
+
+func (c *choosyRecorder) Wants(context.Context, event.Kind) bool { return c.wants }
+
+func TestDaily_keysNobodyWants(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a key due in 7 days and no connection that wants keys.expiring", func(t *testing.T) {
+		w := newDailyWorld()
+		pub := &choosyRecorder{}
+		w.daily = notify.NewDaily(w.catalog, w.keys, w.releases, pub,
+			notify.WithDailyClock(w.clock.Now), notify.WithDailyLocation(zone))
+		in7 := w.addKey(t, "Third Game", "Steam", "2026-10-22", game.StatusUnrevealed)
+
+		t.Run("WHEN the job runs", func(t *testing.T) {
+			require.NoError(t, w.daily.RunOnce(ctx))
+
+			t.Run("THEN nothing is published and the key is not remembered as told", func(t *testing.T) {
+				assert.Empty(t, keysTold(t, pub.all()))
+				assert.Empty(t, w.keys.thresholds(in7))
+			})
+		})
+
+		t.Run("WHEN a connection then subscribes and the job runs again", func(t *testing.T) {
+			pub.wants = true
+			require.NoError(t, w.daily.RunOnce(ctx))
+
+			t.Run("THEN the key is told and remembered", func(t *testing.T) {
+				require.Len(t, keysTold(t, pub.all()), 1)
+				assert.Equal(t, []int{7}, w.keys.thresholds(in7))
+			})
+		})
+	})
+}
+
 func TestDaily_releases(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()

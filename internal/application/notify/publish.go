@@ -148,3 +148,21 @@ func ownIssue(e event.Event, id connection.ID) bool {
 
 	return ok && is.Key == ConnectionIssueKey(id)
 }
+
+// Wants implements Interest: it reports whether sending is on and at least one enabled, unpaused
+// connection subscribes to kind. A failure to read the connections counts as no: the caller then
+// keeps nothing as told, and asks again next time.
+func (s *Service) Wants(ctx context.Context, kind event.Kind) bool {
+	if !s.sending {
+		return false
+	}
+
+	conns, err := s.conns.List(ctx)
+	if err != nil {
+		s.log.Warn("reading the connections", "error", err)
+
+		return false
+	}
+
+	return slices.ContainsFunc(conns, func(c *connection.Connection) bool { return c.Subscribed(kind) && !c.Paused() })
+}

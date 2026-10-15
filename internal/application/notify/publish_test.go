@@ -168,3 +168,32 @@ func TestPublish_ownIssue(t *testing.T) {
 		})
 	})
 }
+
+func TestService_Wants(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN sending on, a disabled connection and a paused one subscribed to keys.expiring", func(t *testing.T) {
+		w := newWorld(t, notify.WithSending(true))
+		w.connect(t, ctx, "Off", false, event.KindKeysExpiring)
+		paused := w.connect(t, ctx, "Paused", true, event.KindKeysExpiring)
+		paused.Pause("the token was rejected", w.clock.Now())
+		require.NoError(t, w.conns.Save(ctx, paused))
+		w.connect(t, ctx, "Phone", true, event.KindCollectionAdded)
+
+		t.Run("WHEN asked about keys.expiring THEN nobody wants it", func(t *testing.T) {
+			assert.False(t, w.svc.Wants(ctx, event.KindKeysExpiring))
+		})
+
+		t.Run("AND an enabled connection that subscribes makes it wanted", func(t *testing.T) {
+			w.connect(t, ctx, "Desk", true, event.KindKeysExpiring)
+			assert.True(t, w.svc.Wants(ctx, event.KindKeysExpiring))
+		})
+	})
+
+	t.Run("GIVEN sending off and a subscribed connection WHEN asked THEN nobody wants it", func(t *testing.T) {
+		w := newWorld(t, notify.WithSending(false))
+		w.connect(t, ctx, "Desk", true, event.KindKeysExpiring)
+		assert.False(t, w.svc.Wants(ctx, event.KindKeysExpiring))
+	})
+}
