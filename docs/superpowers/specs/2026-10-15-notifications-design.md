@@ -43,8 +43,9 @@ Event kinds are stored in subscriptions and in the queue, so their names never c
 | `auth.failed_logins` | security | 3 or more failed sign-ins from one address within an hour | address, count, first and last attempt |
 
 Health's issues cover: a source signed out or failing, a provider whose key is rejected, whose quota
-is used up or which is unavailable, a failed or stale backup, low disk space, and (new) a connector
-paused by a permanent failure. The first gathering of deals or releases after a provider is set up
+is used up or which is unavailable, a failed or stale backup, low disk space, and (new: Health kind
+`connector`, reason `connector_paused`, target the Notifications page) a connector paused by a
+permanent failure. The first gathering of deals or releases after a provider is set up
 seeds the snapshot silently: no `release.announced` or `deal.historical_low` for it.
 
 ## Architecture
@@ -72,18 +73,22 @@ seeds the snapshot silently: no `release.announced` or `deal.historical_low` for
   optional `ChatFinder` (Telegram: find the chat of the last message sent to the bot).
 - **`Message`**: what a connector sends, built by the service from an event: `Title`, `Text`,
   `Level` (info or important), `Link` (empty without a Game Vault address), `Images` (up to two:
-  bytes, content type, name), and the `Event` itself (the webhook sends its data). Connectors only
-  format it for their service.
+  either bytes with a content type, for the collection's covers, or a public URL, for a deal's or a
+  release's art, which Telegram and ntfy fetch themselves), and the `Event` itself (the webhook sends
+  its data). Connectors only format it for their service.
 - **`Service`**:
   - `Publish`: finds the enabled, unpaused connections subscribed to the kind and queues one
     delivery per connection. Does nothing under `-no-unattended`.
   - Rendering: event → `Message` in the connection's language, from a small catalog of texts in Go
     (en, es; English when a text is missing; a test requires the same keys in every language).
-    Covers come from the local game data (`config/game-data`) as bytes; a game without a cached
-    cover is sent without one.
+    Covers come from the local game data (`config/game-data`, through the asset store's
+    `GetCover`, which never reaches the network) as bytes; a game without a cached cover is sent
+    without one. The language is the connection's own: the web creates a connection with the UI's
+    language (the UI language lives in the browser, not on the server).
   - CRUD for connections, `Test(type, settings)` (sends a sample message built from a fixed
     example event, with unsaved settings), deliveries listing, the Game Vault address.
-- **Health watcher** (job, every minute): reads `health.Service.Issues`, keyed by `Issue.Key`;
+- **Health watcher** (job, every minute; a component of its own, built after Health, since the use
+  cases Health reads are built with the publisher): reads `health.Service.Issues`, keyed by `Issue.Key`;
   publishes `issue.opened` after an issue is seen in two consecutive checks and `issue.resolved`
   after a notified issue is missing from two. The notified set is stored (`notified_issues`), so a
   restart neither repeats nor loses one. On its first run (fresh install or upgrade) the current
@@ -111,7 +116,8 @@ seeds the snapshot silently: no `release.announced` or `deal.historical_low` for
   - `home`: in `refresh`, before saving the snapshot, comparing with the previous one
     (`release.announced`, `deal.historical_low`; only deals left after the owned filter).
   - `auth`: failed sign-ins are counted per address in one-hour windows (in memory); the third in a
-    window publishes `auth.failed_logins`, once per window.
+    window publishes `auth.failed_logins`, once per window. `auth.NewService` gains a variadic
+    options parameter for it.
 
 ### Adapters
 
@@ -120,6 +126,7 @@ seeds the snapshot silently: no `release.announced` or `deal.historical_low` for
   escaped; captions are cut to Telegram's 1024 characters with "… and N more"), `sendMessage`
   without images. `Test` sends a sample; `ChatFinder` reads `getUpdates` for the last chat that
   wrote to the bot. Errors: 401 bad token, 400 "chat not found", 429 with `parameters.retry_after`.
+  The token is part of the URL path, so every error the adapter returns has it replaced by `…`.
 - **`ntfy`**: settings: server (default `https://ntfy.sh`), topic, optional access token (secret).
   Publishes with the image as the body (`PUT` with `Filename`, `Title`, `Message`, `Priority`,
   `Click` headers) or as a plain message without one; important messages get high priority.
