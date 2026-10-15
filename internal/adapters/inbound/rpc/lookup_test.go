@@ -32,6 +32,10 @@ func TestBarcodeScanFlow(t *testing.T) {
 		t.Fatalf("identify: %+v", res.Msg)
 	}
 
+	if m.Region != pb.CopyRegion_COPY_REGION_PAL {
+		t.Fatalf("identify: the match's region is %v, want PAL", m.Region)
+	}
+
 	// Save it with GameService, barcode included, pinning the suggested cover.
 	s := res.Msg.Suggestions[0]
 

@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
 )
@@ -58,7 +59,7 @@ func (f *fakeCeX) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ean := parts[2]
 
 	switch {
-	case ean == "5030934110075" && country == "es":
+	case ean == "5030934110075" && (country == "es" || country == "mx"):
 		w.Write([]byte(deadSpace3))
 	case ean == "5051892123456":
 		w.Write([]byte(film))
@@ -252,4 +253,35 @@ func TestLookup_failures(t *testing.T) {
 			})
 		})
 	})
+}
+
+func TestLookup_regionOfTheCountry(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	srv := httptest.NewServer(&fakeCeX{})
+	defer srv.Close()
+
+	p := New()
+	p.API.BaseURL = srv.URL + "/%s"
+
+	for country, want := range map[string]game.Region{"es": game.RegionPAL, "mx": game.RegionNTSCU} {
+		t.Run("GIVEN a code only the "+country+" catalog knows", func(t *testing.T) {
+			t.Run("WHEN that catalog answers", func(t *testing.T) {
+				matches, err := p.Lookup(ctx, "5030934110075", schema.Settings{settingCountries: country})
+				require.NoError(t, err)
+				require.Len(t, matches, 1)
+
+				t.Run("THEN the match carries the region its country sells", func(t *testing.T) {
+					assert.Equal(t, want, matches[0].Region)
+				})
+			})
+		})
+	}
+}
+
+func TestCountries_haveARegion(t *testing.T) {
+	for _, c := range Countries {
+		assert.NotEmpty(t, countryRegions[c], "country %s needs a region", c)
+	}
 }

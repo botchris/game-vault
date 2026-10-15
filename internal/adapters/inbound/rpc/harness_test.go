@@ -140,6 +140,7 @@ func (*fakeBarcodes) Lookup(_ context.Context, code game.Barcode, _ schema.Setti
 			Platform: platform,
 			Edition:  edition,
 			Provider: "barcodes",
+			Region:   game.RegionPAL,
 		}}, nil
 	}
 
