@@ -2,31 +2,114 @@ package game
 
 import (
 	"regexp"
+	"slices"
 	"strings"
+	"unicode"
 )
 
-// platformTokens recognizes platforms inside retail product names, longest patterns first.
-var platformTokens = []struct {
-	re       *regexp.Regexp
-	platform string
-}{
-	{regexp.MustCompile(`(?i)\b(xbox\s*360|x360|xb360)\b`), SystemXbox360},
-	{regexp.MustCompile(`(?i)\b(xbox\s*series\s*[xs](\s*\|\s*[xs])?)\b`), SystemXboxSeries},
-	{regexp.MustCompile(`(?i)\b(xbox\s*one|xb1|xbone)\b`), SystemXboxOne},
-	{regexp.MustCompile(`(?i)\b(playstation\s*5|ps5)\b`), SystemPS5},
-	{regexp.MustCompile(`(?i)\b(playstation\s*4|ps4)\b`), SystemPS4},
-	{regexp.MustCompile(`(?i)\b(playstation\s*3|ps3)\b`), SystemPS3},
-	{regexp.MustCompile(`(?i)\b(playstation\s*2|ps2)\b`), SystemPS2},
-	{regexp.MustCompile(`(?i)\b(ps\s*vita|psvita)\b`), SystemPSVita},
-	{regexp.MustCompile(`(?i)\bpsp\b`), SystemPSP},
-	{regexp.MustCompile(`(?i)\bwii\s*u\b`), SystemWiiU},
-	{regexp.MustCompile(`(?i)\bwii\b`), SystemWii},
-	{regexp.MustCompile(`(?i)\b(nintendo\s*)?switch\b`), SystemSwitch},
-	{regexp.MustCompile(`(?i)\b(nintendo\s*)?3ds\b`), System3DS},
-	{regexp.MustCompile(`(?i)\b(nintendo\s*)?ds\b`), SystemDS},
-	{regexp.MustCompile(`(?i)\bgamecube\b`), SystemGameCube},
-	{regexp.MustCompile(`(?i)\bxbox\b`), SystemXbox},
-	{regexp.MustCompile(`(?i)\b(pc\s*(dvd|cd)?(-?rom)?|windows)\b`), SystemPC},
+// systemToken is one name or alias of a catalog system as ParseProductName looks for it.
+type systemToken struct {
+	// re matches the alias as a whole word; its first group is the alias itself.
+	re *regexp.Regexp
+
+	// pattern is the alias's own regexp source (aliasPattern), without the word boundaries.
+	pattern string
+
+	// system is the catalog name the alias belongs to.
+	system string
+
+	// weak is set for an alias that is one word of letters ("Genesis", "Switch", "Wii", "DS"): an
+	// ordinary word in a title, so it only counts in brackets, at the end of the name, or written in
+	// capitals when it has at most four letters ("DS", "SNES").
+	weak bool
+}
+
+// systemTokens are every name and alias of the catalog, longest first ("Switch 2" before "Switch",
+// "Game Boy Advance" before "Game Boy"). Names holding brackets ("Mac (classic)") are left out:
+// their aliases are enough.
+var systemTokens = func() []systemToken {
+	var out []systemToken
+
+	for _, s := range catalog {
+		for _, w := range append([]string{s.Name}, s.Aliases...) {
+			if strings.ContainsAny(w, "()[]") {
+				continue
+			}
+
+			p := aliasPattern(w)
+			out = append(out, systemToken{
+				re:      regexp.MustCompile(`(?i)(?:^|[^\p{L}\p{N}])(` + p + `)(?:$|[^\p{L}\p{N}])`),
+				pattern: p,
+				system:  s.Name,
+				weak:    isWeakAlias(w),
+			})
+		}
+	}
+
+	slices.SortStableFunc(out, func(a, b systemToken) int { return len(b.pattern) - len(a.pattern) })
+
+	return out
+}()
+
+// reAliasRuns splits an alias into runs of letters, runs of digits and single other characters.
+var reAliasRuns = regexp.MustCompile(`\p{L}+|\p{N}+|[^\s.\-\p{L}\p{N}]`)
+
+// aliasPattern is the regexp source of an alias whose parts may be written together or apart with
+// spaces, hyphens or dots ("PS4", "PS 4", "PlayStation4", "Mega-Drive").
+func aliasPattern(alias string) string {
+	runs := reAliasRuns.FindAllString(alias, -1)
+	for i, r := range runs {
+		runs[i] = regexp.QuoteMeta(r)
+	}
+
+	return strings.Join(runs, `[\s.\-]*`)
+}
+
+// isWeakAlias reports whether an alias is a single word of letters (see systemToken.weak).
+func isWeakAlias(alias string) bool {
+	return alias != "" && !strings.ContainsFunc(alias, func(r rune) bool { return !unicode.IsLetter(r) })
+}
+
+// SystemPattern is a regexp source matching any catalog name or alias (case-insensitive by the
+// caller's flags), longest first, for adapters that strip system words from titles.
+func SystemPattern() string {
+	parts := make([]string, 0, len(systemTokens))
+	for _, t := range systemTokens {
+		parts = append(parts, t.pattern)
+	}
+
+	return strings.Join(parts, "|")
+}
+
+// matchIn returns the position of the first acceptable match of the token's alias in s, nil when
+// there is none. A weak alias is acceptable inside brackets, at the end of s (nothing but
+// punctuation after it), or in capitals when it has at most four letters.
+func (t systemToken) matchIn(s string) []int {
+	for _, m := range t.re.FindAllStringSubmatchIndex(s, -1) {
+		start, end := m[2], m[3]
+		word := s[start:end]
+
+		if !t.weak || inBrackets(s, start, end) || strings.TrimFunc(s[end:], isNotAlnum) == "" ||
+			len(word) <= 4 && word == strings.ToUpper(word) {
+			return []int{start, end}
+		}
+	}
+
+	return nil
+}
+
+// inBrackets reports whether s[start:end] is the only thing inside a pair of round or square brackets.
+func inBrackets(s string, start, end int) bool {
+	before := strings.TrimRight(s[:start], " ")
+	after := strings.TrimLeft(s[end:], " ")
+
+	return before != "" && after != "" && strings.ContainsRune("([", rune(before[len(before)-1])) &&
+		strings.ContainsRune(")]", rune(after[0]))
+}
+
+// isNotAlnum reports whether r is neither a letter nor a digit.
+func isNotAlnum(r rune) bool {
+	return !unicode.IsLetter(r) && !unicode.IsNumber(r)
 }
 
 var (
@@ -43,11 +126,19 @@ var (
 // into a searchable game title, the platform and the edition it mentions:
 // ("Assassin's Creed III", "PS3", "Special Edition").
 func ParseProductName(raw string) (title, platform, edition string) {
-	s := raw
-	for _, t := range platformTokens {
-		if loc := t.re.FindStringIndex(s); loc != nil {
+	// Barcodes and region tags go first, so "Switch PAL" ends with its system.
+	s := reGTIN.ReplaceAllString(raw, " ")
+	s = reRegion.ReplaceAllString(s, " ")
+
+	for _, t := range systemTokens {
+		for {
+			loc := t.matchIn(s)
+			if loc == nil {
+				break
+			}
+
 			if platform == "" {
-				platform = t.platform
+				platform = t.system
 			}
 
 			s = s[:loc[0]] + " " + s[loc[1]:]
@@ -59,9 +150,7 @@ func ParseProductName(raw string) (title, platform, edition string) {
 		s = strings.Replace(s, m, " ", 1)
 	}
 
-	s = reRegion.ReplaceAllString(s, " ")
 	s = reNoise.ReplaceAllString(s, " ")
-	s = reGTIN.ReplaceAllString(s, " ")
 	s = reBracketChars.ReplaceAllString(s, " ")
 
 	s = strings.Trim(reSpaces.ReplaceAllString(s, " "), " -–:,")

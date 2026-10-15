@@ -1043,7 +1043,10 @@ func SystemNamed(s string) (System, bool) {
 		return System{}, false
 	}
 
-	return Systems()[i], true
+	sys := catalog[i]
+	sys.Aliases = slices.Clone(sys.Aliases)
+
+	return sys, true
 }
 
 // IsModernSystem reports whether name is a catalog system with Modern set.
