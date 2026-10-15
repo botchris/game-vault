@@ -452,8 +452,20 @@ Store covers: every library source links the games it imports to its store (Stea
 
 ## Home page
 
-Game Vault opens on **Home** (`#/home`; the empty address and unknown ones go there too). Top to
-bottom:
+Game Vault opens on **Home** (`#/home`; the empty address and unknown ones go there too), a page
+that runs edge to edge. Top to bottom:
+
+- **The hero:** up to four deals (featured first, then historical lows; only those with art and an
+  https link), each with its title, price, cut, shop and "See the deal". ITAD's art is at most 600
+  pixels wide, so it is shown at its size beside the text, over a blurred copy of itself that fills
+  the band. The deals take turns every seven seconds, shown by a bar filling under the current dot;
+  hovering or focusing the hero holds it, reduced motion never moves on by itself, and the dots
+  choose a deal. Without deals, the hero shows the newest game in the collection (with "See deals
+  here", to Providers, when no deals provider is enabled); while the page loads, an empty band.
+- **The collection in figures:** games and copies, games added this month (local time), games in
+  the backlog and the value of physical copies (the first price source with estimates; hidden
+  without any). Each figure opens its library view (`#/library`, `#/library/recent`,
+  `#/library/backlog`, `#/library/physical`).
 
 - **Needs your attention** (shown only when something is pending; otherwise "All caught up"): keys
   whose deadline has passed, keys that expire within 30 days with the nearest one, keys still to
@@ -462,7 +474,7 @@ bottom:
   deadline chips open "Expiring", which lists the two together. The web counts them from the games it already holds, with the library's own
   helpers (`web/src/lib/home.ts`). The chips count keys, while the library views they open count
   games, so a chip's number can be larger than the games its view lists.
-- **Deals** (provider kind `deals`, IsThereAnyDeal): "Featured now" and "Historical lows", 12 each,
+- **Deals** (provider kind `deals`, IsThereAnyDeal): rows "Featured now" and "Historical lows", 12 each,
   without the games you own on PC. Whether a deal is yours is decided by the ownership lookup
   ("Do I own it?"): the deal's Steam app, or exactly its title. A game you own on PC is hidden; one
   you own only on consoles stays, with a note ("You have it on PS4"); a copy without a platform
@@ -473,16 +485,21 @@ bottom:
   the image proxy), the shop, the price with the cut and the regular price, a "Historical low" badge
   and "Ends in N days" when known, and open the deal through ITAD's own link (https only),
   unchanged. A credit line links to IsThereAnyDeal.
-- **Upcoming releases** (provider kind `releases`, IGDB): "From your series" (upcoming entries of
+- **Upcoming releases** (provider kind `releases`, IGDB): rows of posters with the date on them,
+  the platforms on hover. "From your series" (upcoming entries of
   the collections and franchises of games you own, each with "Because you have X", which opens X's
   sheet) and "Most anticipated" (main games of the next 60 days with the most follows before
   release). Releases already out, or explained by a game no longer in the catalog, are left out
   when the page is read, and "From your series" shows the 20 soonest (the snapshot keeps them all).
-- **Your collection:** games and copies, games added this month (local time), games in the backlog,
-  the value of physical copies (the first price source with estimates; hidden without any), the 8
-  newest covers, and the share of each system (editions per system, the five largest and the rest,
-  named in the UI language). Each figure opens its library view (`#/library`, `#/library/recent`,
-  `#/library/backlog`, `#/library/physical`).
+- **Your collection:** rows of the 12 newest games and the 12 newest in the backlog (left out when
+  empty), each with "See all" to its library view, and a tile per system in its platform's colour
+  (editions per system, the five largest and the rest, named in the UI language) with a bar for its
+  share.
+
+Every row scrolls sideways from one edge of the window to the other, swiped on phones. An arrow
+shows on hover only while there is more on its side, so a row whose cards fit has none, and the
+side that goes on fades out. When deals or releases are not configured or not fetched yet, the
+block shows one card under its name instead of its rows.
 
 **How deals and releases are gathered.** `internal/application/home` keeps one snapshot per block
 in SQLite (`home_snapshots`: the lists as JSON, when they were gathered, and the last failure).
@@ -516,7 +533,7 @@ currencies to their own country in a table; with no country at all, the adapter 
 A refresh sends four requests: the deals list in ITAD's own order (`GET /deals/v2`, 40 games), the
 deepest cuts (`sort=-cut`, 200) kept when at their historical low, and one Steam lookup per list
 (`POST /lookup/shop/61/id/v1`). Only games are kept (no DLC or soundtracks), never mature ones. A
-card's art is ITAD's wide banner (`banner400`, else `banner300`, `banner600`, `banner145`), and the
+card's art is ITAD's widest banner (`banner600`, else `banner400`, `banner300`, `banner145`), and the
 box art, shown whole rather than cropped, only for a game without one. The
 key travels in the `ITAD-API-Key` header, and redirects are refused, so it never reaches another
 host. A bad key is answered with 403 (not 401); a 403 that is

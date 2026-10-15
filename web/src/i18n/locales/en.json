@@ -34,6 +34,14 @@
       "health_one": "1 problem to look at",
       "health_other": "{{count}} problems to look at"
     },
+    "hero": {
+      "label": "Featured deals",
+      "show": "Show {{title}}",
+      "see": "See the deal",
+      "newest": "Newest in your collection",
+      "open": "Open",
+      "addDeals": "See deals here"
+    },
     "refresh": "Refresh",
     "refreshing": "Refreshing…",
     "refreshSoon": "Refreshed less than 15 minutes ago",
@@ -90,9 +98,10 @@
       "recent": "Recently added",
       "systems": "By system",
       "otherSystems": "Other systems",
-      "systemCount": "{{system}}: {{n}}",
       "empty": "Your collection is empty.",
-      "start": "Connect a store or add your first game"
+      "start": "Connect a store or add your first game",
+      "backlogRow": "In your backlog",
+      "seeAll": "See all"
     }
   },
   "common": {

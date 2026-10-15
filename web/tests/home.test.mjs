@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  blockMode, canRefresh, collectionSummary, endsInDays, httpsLink, libraryPreset, minutesUntil, pendingItems, pickValue, refreshDelay,
-  staleLine,
+  blockMode, canRefresh, collectionSummary, endsInDays, heroDeals, httpsLink, isBoxArt, libraryPreset, minutesUntil, pendingItems, pickValue,
+  railArrows, refreshDelay, staleLine,
 } from '../src/lib/home.ts';
 
 const t = (key, opts) => `${key}${opts ? ' ' + JSON.stringify(opts) : ''}`;
@@ -66,6 +66,7 @@ test('the collection in figures: held copies, this month in local time, the back
   assert.equal(s.addedThisMonth, 2, 'September 30th at 23:30 is last month');
   assert.equal(s.backlog, 2);
   assert.deepEqual(s.recent, ['g3', 'g1', 'g2']);
+  assert.deepEqual(s.backlogGames, ['g3', 'g1'], 'the backlog row, newest first');
   assert.deepEqual(s.systems, [
     { system: 'PC', count: 2, rest: false },
     { system: 'PS4', count: 1, rest: false },
@@ -74,7 +75,7 @@ test('the collection in figures: held copies, this month in local time, the back
 });
 
 test('an empty collection is all zeros, not an error', () => {
-  assert.deepEqual(collectionSummary([], today), { games: 0, copies: 0, addedThisMonth: 0, backlog: 0, recent: [], systems: [] });
+  assert.deepEqual(collectionSummary([], today), { games: 0, copies: 0, addedThisMonth: 0, backlog: 0, recent: [], backlogGames: [], systems: [] });
 });
 
 test('the share by system keeps the five largest and adds the rest up', () => {
@@ -90,9 +91,31 @@ test('the share by system keeps the five largest and adds the rest up', () => {
   ]);
 });
 
-test('"Recently added" keeps the eight newest', () => {
-  const games = Array.from({ length: 12 }, (_, i) => game(`g${i}`, `Example ${i}`, [], { createdAt: ts(new Date(2026, 9, 1 + i)) }));
-  assert.deepEqual(collectionSummary(games, today).recent, ['g11', 'g10', 'g9', 'g8', 'g7', 'g6', 'g5', 'g4']);
+test('"Recently added" and "In your backlog" keep the twelve newest', () => {
+  const games = Array.from({ length: 14 }, (_, i) => game(`g${i}`, `Example ${i}`, [], { createdAt: ts(new Date(2026, 9, 1 + i)), playStatus: 1 }));
+  const newest = ['g13', 'g12', 'g11', 'g10', 'g9', 'g8', 'g7', 'g6', 'g5', 'g4', 'g3', 'g2'];
+  const s = collectionSummary(games, today);
+  assert.deepEqual(s.recent, newest);
+  assert.deepEqual(s.backlogGames, newest);
+});
+
+// Deals as the API sends them, with only the fields the hero reads; every title is invented.
+const deal = (title, extra = {}) => ({ title, imageUrl: `https://assets.example/${title}.jpg`, url: `https://itad.example/${title}`, ...extra });
+
+test('the hero shows up to four deals with art and an https link, featured first, then the lows', () => {
+  const featured = [deal('Starfall'), deal('No Art', { imageUrl: '' }), deal('Plain Link', { url: 'http://itad.example/x' }), deal('Copper Coast')];
+  const lows = [deal('Copper Coast'), deal('Tidebreaker'), deal('Glass Garden'), deal('Rookwood')];
+  assert.deepEqual(heroDeals(featured, lows).map((d) => d.title), ['Starfall', 'Copper Coast', 'Tidebreaker', 'Glass Garden'],
+    'a game in both lists shows once');
+  assert.deepEqual(heroDeals([], []), []);
+});
+
+test('a row shows its arrows only when it does not fit, and each one hides at its end', () => {
+  assert.deepEqual(railArrows({ scrollLeft: 0, scrollWidth: 900, clientWidth: 900 }), { prev: false, next: false }, 'everything fits');
+  assert.deepEqual(railArrows({ scrollLeft: 0, scrollWidth: 901, clientWidth: 900 }), { prev: false, next: false }, 'a pixel of rounding is not a row to scroll');
+  assert.deepEqual(railArrows({ scrollLeft: 0, scrollWidth: 2000, clientWidth: 900 }), { prev: false, next: true });
+  assert.deepEqual(railArrows({ scrollLeft: 500, scrollWidth: 2000, clientWidth: 900 }), { prev: true, next: true });
+  assert.deepEqual(railArrows({ scrollLeft: 1099.5, scrollWidth: 2000, clientWidth: 900 }), { prev: true, next: false }, 'the end, give or take a subpixel');
 });
 
 test("the collection's value is the first source that priced copies", () => {
@@ -173,4 +196,10 @@ test('a refresh asked too soon says how many whole minutes are left, at least on
   assert.equal(minutesUntil(new Date('2026-10-15T12:00:10Z'), now), 1);
   assert.equal(minutesUntil(new Date('2026-10-15T11:59:00Z'), now), 1, 'already past: still "in 1 minute"');
   assert.equal(minutesUntil(null, now), 1);
+});
+
+test("a deal's art is box art only when ITAD's file says so", () => {
+  assert.equal(isBoxArt('https://assets.isthereanydeal.com/018d937f/boxart.jpg?t=1'), true);
+  assert.equal(isBoxArt('https://assets.isthereanydeal.com/018d937f/banner600.jpg?t=1'), false);
+  assert.equal(isBoxArt(''), false);
 });

@@ -1,28 +1,31 @@
 import { Code, ConnectError } from '@connectrpc/connect';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { errorMessage, homeClient } from '../../api/client';
-import { PageHeader } from '../../components/PageHeader';
 import { Alert } from '../../components/ui';
 import type { GetHomeResponse } from '../../gen/gamevault/v1/home_pb';
-import { minutesUntil } from '../../lib/home';
+import { blockMode, collectionSummary, heroDeals, minutesUntil } from '../../lib/home';
 import { homeSync } from '../../lib/homeSync';
 import { toDate } from '../../lib/model';
 import { useAction, type Action } from '../../lib/useAction';
 import { useAppData } from '../../state/AppData';
 import { useHealth } from '../../state/Health';
-import { CollectionBlock } from './CollectionBlock';
+import { CollectionRows, CollectionStats } from './CollectionBlock';
 import { DealsBlock } from './DealsBlock';
 import { homeEntrance, homeEntranceTaken } from './entrance';
+import { HomeHero } from './HomeHero';
 import { PendingStrip } from './PendingStrip';
 import { ReleasesBlock } from './ReleasesBlock';
 
-/** The start page: what needs attention, current deals, upcoming releases and the collection at a
- *  glance. Deals and releases are read from what the server stored (gathered in the background);
- *  opening the page never asks an external service. Refresh asks one now. */
+/** The start page, edge to edge: a hero (the featured deals, or the newest game), the collection in
+ *  figures, what needs attention, then rows of cards: the deals, the upcoming releases, the newest
+ *  games, the backlog and a tile per system. Deals and releases are read from what the server
+ *  stored (gathered in the background); opening the page never asks an external service. Refresh
+ *  asks one now. */
 export default function HomePage() {
   const { t } = useTranslation();
   const { games } = useAppData();
+  const summary = useMemo(() => collectionSummary(games, new Date()), [games]);
   const { issues, reload: reloadHealth } = useHealth();
   // Decided on the first render and marked after it, so strict mode's second render keeps the
   // entrance; it fades only when the app opened on Home (see entrance.ts).
@@ -63,17 +66,22 @@ export default function HomePage() {
   // When the home cannot be read, the page's alert says so; the blocks would otherwise claim to be
   // not configured.
   const unreadable = home === null && !!error;
+  const hero = useMemo(() => (blockMode(home?.deals) === 'data' ? heroDeals(home?.featured ?? [], home?.historicalLows ?? []) : []),
+    [home]);
+  const newest = games.find((g) => g.id === summary.recent[0]);
 
   return (
     <div className={entering ? 'page home home-enter' : 'page home'}>
-      <PageHeader title={t('home.title')} />
+      <h1 className="sr-only">{t('home.title')}</h1>
+      <HomeHero loading={loading} deals={hero} newest={newest} dealsNotConfigured={!loading && blockMode(home?.deals) === 'notConfigured'} />
+      <CollectionStats summary={summary} />
       <PendingStrip games={games} issues={issues} />
-      {error && <Alert tone="error">{error}</Alert>}
+      {error && <div className="home-pad"><Alert tone="error">{error}</Alert></div>}
       {!unreadable && <DealsBlock block={home?.deals} featured={home?.featured ?? []} lows={home?.historicalLows ?? []} loading={loading}
         refreshing={deals.busy} refreshError={deals.error} onRefresh={() => refresh(deals, 'deals')} />}
       {!unreadable && <ReleasesBlock block={home?.releases} fromSeries={home?.fromSeries ?? []} anticipated={home?.anticipated ?? []} loading={loading}
         refreshing={releases.busy} refreshError={releases.error} onRefresh={() => refresh(releases, 'releases')} />}
-      <CollectionBlock games={games} />
+      <CollectionRows games={games} summary={summary} />
     </div>
   );
 }

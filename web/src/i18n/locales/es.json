@@ -34,6 +34,14 @@
       "health_one": "1 problema que revisar",
       "health_other": "{{count}} problemas que revisar"
     },
+    "hero": {
+      "label": "Ofertas destacadas",
+      "show": "Mostrar {{title}}",
+      "see": "Ver la oferta",
+      "newest": "Lo último de tu colección",
+      "open": "Abrir ficha",
+      "addDeals": "Ver ofertas aquí"
+    },
     "refresh": "Actualizar",
     "refreshing": "Actualizando…",
     "refreshSoon": "Actualizado hace menos de 15 minutos",
@@ -90,9 +98,10 @@
       "recent": "Añadidos recientemente",
       "systems": "Por sistema",
       "otherSystems": "Otros sistemas",
-      "systemCount": "{{system}}: {{n}}",
       "empty": "Tu colección está vacía.",
-      "start": "Conecta una tienda o añade tu primer juego"
+      "start": "Conecta una tienda o añade tu primer juego",
+      "backlogRow": "En tu backlog",
+      "seeAll": "Ver todo"
     }
   },
   "common": {

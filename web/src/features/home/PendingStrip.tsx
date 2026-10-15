@@ -11,7 +11,7 @@ export function PendingStrip({ games, issues }: { games: Game[]; issues: HealthI
   const { t } = useTranslation();
   const items = useMemo(() => pendingItems(games, issues, new Date()), [games, issues]);
 
-  if (!items.length) return <p className="muted home-caught-up">{t('home.pending.none')}</p>;
+  if (!items.length) return <p className="muted home-caught-up home-pad">{t('home.pending.none')}</p>;
 
   const when = (days: number) => (days === 0 ? t('home.pending.today') : t('home.pending.inDays', { count: days }));
   const label = (it: PendingItem) => {
@@ -27,7 +27,7 @@ export function PendingStrip({ games, issues }: { games: Game[]; issues: HealthI
   const tone = (it: PendingItem) => (it.kind === 'expired' || it.kind === 'expiring' || (it.kind === 'health' && it.level === 'error') ? 'danger' : it.kind === 'health' ? 'warn' : '');
 
   return (
-    <nav className="home-pending" aria-label={t('home.pending.label')}>
+    <nav className="home-pending home-pad" aria-label={t('home.pending.label')}>
       {items.map((it) => <a key={it.kind} className={`home-chip ${tone(it)}`} href={it.href}>{label(it)}</a>)}
     </nav>
   );

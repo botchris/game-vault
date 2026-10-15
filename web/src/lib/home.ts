@@ -13,8 +13,8 @@ const KIND_PHYSICAL = 3;
 const GONE = new Set([4, 5, 8]); // gifted, expired, sold: the user no longer has the copy
 const PLAY_BACKLOG = 1;
 
-/** How many covers "Recently added" shows, and how many systems the share bar names. */
-const RECENT = 8;
+/** How many covers "Recently added" and "In your backlog" show, and how many systems get a tile. */
+const ROW = 12;
 const TOP_SYSTEMS = 5;
 
 const DAY = 86_400_000;
@@ -91,6 +91,8 @@ export interface CollectionSummary {
   backlog: number;
   /** The newest games' ids, newest first. */
   recent: string[];
+  /** The newest backlog games' ids, newest first. */
+  backlogGames: string[];
   /** Editions (a game on a system) per system, largest first; `rest` adds up the smaller ones. */
   systems: { system: string; count: number; rest: boolean }[];
 }
@@ -120,9 +122,11 @@ export function collectionSummary(games: GameLike[], now: Date): CollectionSumma
   const rest = ranked.slice(TOP_SYSTEMS).reduce((n, [, count]) => n + count, 0);
   if (rest) systems.push({ system: '', count: rest, rest: true });
 
-  const recent = [...games].sort((a, b) => createdMs(b) - createdMs(a)).slice(0, RECENT).map((g) => g.id);
+  const newest = [...games].sort((a, b) => createdMs(b) - createdMs(a));
+  const recent = newest.slice(0, ROW).map((g) => g.id);
+  const backlogGames = newest.filter((g) => g.playStatus === PLAY_BACKLOG).slice(0, ROW).map((g) => g.id);
 
-  return { games: games.length, copies, addedThisMonth, backlog, recent, systems };
+  return { games: games.length, copies, addedThisMonth, backlog, recent, backlogGames, systems };
 }
 
 /** The collection's value: the first price source that priced copies (System shows them all). */
@@ -153,6 +157,40 @@ export function staleLine(b: { state: string; errorKind: string; provider: strin
 export function endsInDays(expires: Date | null, now: Date): number | null {
   if (!expires || expires.getTime() <= now.getTime()) return null;
   return Math.floor((expires.getTime() - now.getTime()) / DAY);
+}
+
+/** How many deals the hero rotates through. */
+const HERO = 4;
+
+/** The deals the hero shows: up to four with art and an https link (the hero has nothing to show
+ *  without either), the featured ones first, then the lows; a game in both lists shows once. */
+export function heroDeals<D extends { title: string; imageUrl: string; url: string }>(featured: D[], lows: D[]): D[] {
+  const seen = new Set<string>();
+  const out: D[] = [];
+  for (const d of [...featured, ...lows]) {
+    if (out.length === HERO) break;
+    if (!d.imageUrl || !httpsLink(d.url) || seen.has(d.title)) continue;
+    seen.add(d.title);
+    out.push(d);
+  }
+  return out;
+}
+
+/** Whether a deal's art is ITAD's tall box art (a game without a banner), which is shown whole
+ *  rather than cropped to a banner's shape. */
+export function isBoxArt(url: string): boolean {
+  return /\/boxart\.[a-z]+(\?|$)/i.test(url);
+}
+
+/** Below this many pixels a row's overflow is rounding, not more cards. */
+const SLACK = 2;
+
+/** Which of a row's arrows to show: none when the cards fit, and each one only while there is
+ *  more on its side. */
+export function railArrows(el: { scrollLeft: number; scrollWidth: number; clientWidth: number }): { prev: boolean; next: boolean } {
+  const max = el.scrollWidth - el.clientWidth;
+  if (max <= SLACK) return { prev: false, next: false };
+  return { prev: el.scrollLeft > SLACK, next: el.scrollLeft < max - SLACK };
 }
 
 /** Whether the user may refresh a block now. */

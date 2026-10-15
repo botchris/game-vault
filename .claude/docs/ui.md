@@ -13,10 +13,13 @@ because Simple Icons removed them).
   get the route's `target`. A new page scrolls to the top; an address within a page does not.
   `lib/useGameAddress.ts` owns the library's open sheet and its `#/game/<id>` address (history rules in `lib/gameAddress.ts`, tested on happy-dom), which follows
   the game the sheet shows.
-- `features/home/`: `HomePage` (the start page: `PendingStrip`, `DealsBlock`, `ReleasesBlock`,
-  `CollectionBlock`), `ExternalBlock` (title, Refresh, stale line and the not configured / never
-  fetched / loading states), `Carousel` (scroll-snap row, arrows on hover). Pure helpers in
-  `lib/home.ts` (Node-tested). Library views open from `#/library/<view>` (`libraryPreset`).
+- `features/home/`: `HomePage` (the start page, edge to edge: it cancels `.main`'s padding and
+  keeps text to `--home-gutter`): `HomeHero` (deals taking turns, or the newest game),
+  `CollectionStats`, `PendingStrip`, `DealsBlock`, `ReleasesBlock`, `CollectionRows`;
+  `ExternalBlock` (Refresh and the stale line beside the first row's title, and the not configured /
+  never fetched / loading states), `Carousel` and `HomeRow` (a titled scroll-snap row; arrows on
+  hover only while there is more on their side, `railArrows`). Pure helpers in `lib/home.ts`
+  (Node-tested). Library views open from `#/library/<view>` (`libraryPreset`).
 - `state/AppData.tsx`: the catalog and sources shared by every page; mutations call `putGame`
   instead of refetching.
 - `features/library/`: `LibraryPage` (search, sort, A–Z rail, filters, by platform or by game, posters/list,
@@ -86,6 +89,10 @@ because Simple Icons removed them).
   `@media (hover: hover) and (pointer: fine)`.
 - The image viewer opens and closes with fade + scale 0.97 → 1; changing image is not animated.
 - `prefers-reduced-motion` collapses transitions.
+- The one thing that moves by itself is Home's hero: its deals cross-fade every seven seconds (the
+  bar under the current dot shows the time), hovering or focusing it holds the deal, and reduced
+  motion stops it. The scrims over the hero's art and under a poster's platforms are gradients for
+  legibility, not decoration.
 
 ## Patterns
 

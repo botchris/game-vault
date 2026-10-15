@@ -6,9 +6,10 @@ import type { HomeBlock } from '../../gen/gamevault/v1/home_pb';
 import { blockMode, canRefresh, refreshDelay, staleLine } from '../../lib/home';
 import { toDate } from '../../lib/model';
 
-/** The frame of an external block: its title and Refresh button, then either a quiet skeleton
- *  (while the page or a refresh loads), a "not configured" card that links to Providers, a "not
- *  fetched yet" card, or the data with a line saying how old it is when it is stale. */
+/** What an external block shows: its rows, given what goes beside the first row's title (how old
+ *  the data is when it is stale, and Refresh); or, under the block's name, a quiet skeleton of
+ *  `shape` cards (while the page or a refresh loads), a "not configured" invitation that links to
+ *  Providers, or a "not fetched yet" one with Refresh. */
 export function ExternalBlock(props: {
   id: string;
   title: string;
@@ -22,7 +23,9 @@ export function ExternalBlock(props: {
   notConfigured: string;
   /** What the block says before its first gathering. */
   neverFetched: string;
-  children: ReactNode;
+  /** The shape of the block's cards, for the skeleton. */
+  shape: 'deal' | 'poster';
+  children: (aside: ReactNode) => ReactNode;
 }) {
   const { t, i18n } = useTranslation();
   const { block } = props;
@@ -42,32 +45,35 @@ export function ExternalBlock(props: {
     return () => window.clearTimeout(timer);
   }, [refreshableMs]);
 
+  const refresh = block && mode !== 'notConfigured' && (
+    <button className="home-refresh" onClick={props.onRefresh} disabled={!refreshable || props.refreshing}
+      title={refreshable ? undefined : t('home.refreshSoon')}>
+      <Icon name="refresh" size={15} /> {props.refreshing ? t('home.refreshing') : t('home.refresh')}
+    </button>
+  );
+  const error = props.refreshError && <div className="home-pad"><Alert tone="error">{props.refreshError}</Alert></div>;
+
+  // A refresh of data already on screen keeps it there; Refresh says it is working.
+  if (!props.loading && mode === 'data') {
+    return <>{error}{props.children(<>{stale && !props.refreshing && <span className="home-row-meta">{stale}</span>}{refresh}</>)}</>;
+  }
+
   return (
-    <section className="card home-block" aria-labelledby={props.id} aria-busy={props.loading || props.refreshing}>
-      <div className="home-block-head">
+    <section className="home-row" aria-labelledby={props.id} aria-busy={props.loading || props.refreshing}>
+      <div className="home-row-head">
         <h2 id={props.id}>{props.title}</h2>
-        {block && mode !== 'notConfigured' && (
-          <button className="home-refresh" onClick={props.onRefresh} disabled={!refreshable || props.refreshing}
-            title={refreshable ? undefined : t('home.refreshSoon')}>
-            <Icon name="refresh" size={16} /> {props.refreshing ? t('home.refreshing') : t('home.refresh')}
-          </button>
-        )}
+        {refresh}
       </div>
-      {props.refreshError && <Alert tone="error">{props.refreshError}</Alert>}
-      {props.loading || (props.refreshing && mode === 'neverFetched') ? (
-        <div className="home-skeleton" aria-hidden="true"><span /><span /><span /><span /></div>
+      {error}
+      {props.loading || props.refreshing ? (
+        <div className={`home-skeleton ${props.shape}`} aria-hidden="true"><span /><span /><span /><span /><span /><span /></div>
       ) : mode === 'notConfigured' ? (
-        <div className="home-empty">
+        <div className="home-invite">
           <p>{props.notConfigured}</p>
           <a className="button" href="#/providers">{t('home.configure')}</a>
         </div>
-      ) : mode === 'neverFetched' ? (
-        <div className="home-empty"><p className="muted">{props.neverFetched}</p></div>
       ) : (
-        <>
-          {stale && <p className="muted small home-stale">{stale}</p>}
-          {props.children}
-        </>
+        <div className="home-invite"><p className="muted">{props.neverFetched}</p></div>
       )}
     </section>
   );
