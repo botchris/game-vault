@@ -44,5 +44,9 @@ func normalizeSystem(s string) (string, error) {
 		return "", invalid("system %q needs at least one letter or digit", s)
 	}
 
+	if sys, ok := SystemNamed(s); ok {
+		return sys.Name, nil
+	}
+
 	return SystemOf(s), nil
 }
