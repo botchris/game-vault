@@ -44,7 +44,7 @@
 - **IGDB series are resolved by Steam AppID, not by an IGDB id from the details cache**: the cache stores no provider ids. `OwnedRef` carries the game's id, title and store links; `Sequels` asks `external_games` (source 1, Steam) in batches of 500 for `game.franchise`, `game.franchises`, `game.collections`, then one `games` query per 500 series ids for upcoming entries. Owned games without a Steam link (discs, other stores) do not contribute series yet (see open questions).
 - **Anticipated** = one `games` query: `first_release_date` within the next 60 days, `hypes > 0`, no editions or add-ons (`version_parent = null & parent_game = null`), `sort hypes desc`, 40 results. `hypes` is documented as "number of follows a game gets before release"; `follows` and `category`/`collection` are deprecated.
 - **Scheduled kinds do not switch on with a sibling.** `registerNew` already keeps price providers off when their service's other providers are enabled; `deals` and `releases` run on a schedule too, so `provider.Kind.Scheduled()` names the three and IGDB releases stays off (with the shared Twitch keys) until the user turns it on.
-- **Country:** ITAD's own optional setting (two letters), else derived from the preferred currency (a small table in `home`; EUR → DE, since euro-zone shops mostly charge one price), else US.
+- **Country:** ITAD's own optional setting (two letters), else derived from the preferred currency (a small table in `home`; EUR → ES (maintainer's choice, 2026-10-15; euro-zone shops mostly charge one price, and the country is a provider setting anyone can change)), else US.
 - **Block states:** `not_configured` (no enabled provider; stored data hidden), `never_fetched` (configured, nothing stored yet: a card with Refresh; the skeleton shows only while a request runs, so a `-no-unattended` server never shows an endless skeleton), `stale` (the last attempt failed, or the data is older than twice the block's interval), `fresh`.
 - **Refresh is synchronous** and returns the whole home, so the page re-renders from one answer. The 15-minute guard counts failed attempts too and is read from the snapshot, so it survives a restart. A refresh is all or nothing per block: if the second list fails, the previous snapshot stays whole.
 - **At read time**, releases whose date has passed are dropped, and so are "from your series" entries whose owned game no longer exists.
@@ -3253,7 +3253,7 @@ import (
 
 func TestCountryFor(t *testing.T) {
 	for currency, want := range map[string]string{
-		"EUR": "DE", "USD": "US", "GBP": "GB", "JPY": "JP", "BRL": "BR", "eur": "DE", "": "", "XYZ": "",
+		"EUR": "ES", "USD": "US", "GBP": "GB", "JPY": "JP", "BRL": "BR", "eur": "ES", "": "", "XYZ": "",
 	} {
 		assert.Equal(t, want, countryFor(currency), currency)
 	}
@@ -3795,9 +3795,9 @@ func (s *Service) country(ctx context.Context) string {
 }
 
 // countries maps currencies to the country whose prices to ask for. Euro-zone shops mostly charge
-// one price, so the euro asks for Germany's; a user elsewhere sets the country in the provider.
+// one price; the euro asks for Spain's (the maintainer's choice) and anyone sets their own country in the provider.
 var countries = map[string]string{
-	"EUR": "DE", "USD": "US", "GBP": "GB", "CAD": "CA", "AUD": "AU", "NZD": "NZ", "JPY": "JP",
+	"EUR": "ES", "USD": "US", "GBP": "GB", "CAD": "CA", "AUD": "AU", "NZD": "NZ", "JPY": "JP",
 	"BRL": "BR", "MXN": "MX", "PLN": "PL", "CHF": "CH", "SEK": "SE", "NOK": "NO", "DKK": "DK",
 	"CZK": "CZ", "HUF": "HU", "TRY": "TR", "INR": "IN", "KRW": "KR", "CNY": "CN", "ARS": "AR",
 	"CLP": "CL", "COP": "CO", "ZAR": "ZA",
