@@ -1,6 +1,6 @@
 // Package plugintest checks that a plugin is complete before it reaches the UI: ids and names set,
 // every text it shows translated, every provider (media or price) in the right chain with a default place,
-// and every store it links games to named. cmd/gamevault runs it on every registered plugin, so a
+// every store it links games to named, and every notification connector typed and translated. cmd/gamevault runs it on every registered plugin, so a
 // new plugin is checked without writing anything.
 package plugintest
 
@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"gamevault/internal/application/media"
+	"gamevault/internal/application/notify"
 	"gamevault/internal/application/plugin"
 	"gamevault/internal/application/providers"
 	"gamevault/internal/application/sync"
@@ -111,8 +112,8 @@ func Problems(p plugin.Plugin, tr Translations) []string {
 		c.add("plugin %q: needs an ID and a Name", p.ID)
 	}
 
-	if len(p.Sources)+len(p.Covers)+len(p.Metadata)+len(p.Barcodes)+len(p.Valuations)+len(p.Deals)+len(p.Releases) == 0 {
-		c.add("plugin %q: adds nothing (no source and no provider)", p.ID)
+	if len(p.Sources)+len(p.Covers)+len(p.Metadata)+len(p.Barcodes)+len(p.Valuations)+len(p.Deals)+len(p.Releases)+len(p.Connectors) == 0 {
+		c.add("plugin %q: adds nothing (no source, no provider and no connector)", p.ID)
 	}
 
 	for _, s := range p.Sources {
@@ -141,6 +142,10 @@ func Problems(p plugin.Plugin, tr Translations) []string {
 
 	for _, r := range p.Releases {
 		c.provider(p.ID, r, provider.KindReleases)
+	}
+
+	for _, cn := range p.Connectors {
+		c.connector(p.ID, cn)
 	}
 
 	return c.problems
@@ -193,6 +198,18 @@ func (c *checker) provider(plugin string, p providers.Impl, kind provider.Kind) 
 	if l, ok := p.(media.StoreLinker); ok {
 		c.store(where, l.LinkStore())
 	}
+}
+
+func (c *checker) connector(plugin string, cn notify.Connector) {
+	d := cn.Descriptor()
+	where := fmt.Sprintf("plugin %q, connector %q", plugin, d.Type)
+
+	if d.Type == "" || d.Name == "" {
+		c.add("%s: needs a Type and a Name", where)
+	}
+
+	c.translated(where, d.DescriptionKey)
+	c.fields(where, d.Fields)
 }
 
 func (c *checker) fields(where string, fs schema.Fields) {

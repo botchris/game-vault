@@ -21,6 +21,7 @@ import (
 	"gamevault/internal/app"
 	"gamevault/internal/application/home"
 	"gamevault/internal/application/media"
+	"gamevault/internal/application/notify"
 	"gamevault/internal/application/providers"
 	"gamevault/internal/application/sync"
 	"gamevault/internal/application/valuation"
@@ -323,6 +324,8 @@ func (p testPlugins) Valuations() []valuation.Provider { return p.valuations }
 func (p testPlugins) Deals() []home.DealsProvider { return p.deals }
 
 func (p testPlugins) Releases() []home.ReleasesProvider { return p.releases }
+
+func (p testPlugins) Connectors() []notify.Connector { return nil }
 
 // newServer builds Game Vault the way the server does (app.Build), on a database and folders in a
 // temporary directory, with p as its only source and fakes for every provider, and serves it.
