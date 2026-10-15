@@ -133,3 +133,14 @@ func TestIsXboxSystem(t *testing.T) {
 	assert.Equal(t, []string{"Xbox Series", "Xbox One", "Xbox 360", "Xbox"},
 		slices.DeleteFunc(Consoles(), func(c string) bool { return !IsXboxSystem(c) }))
 }
+
+// TestIsKnownPlatform_catalogNames checks that catalog systems are known by their exact name,
+// ignoring case and surrounding spaces, but not by an alias, which CanonicalPlatform turns into
+// their name when a copy is saved.
+func TestIsKnownPlatform_catalogNames(t *testing.T) {
+	assert.True(t, IsKnownPlatform(" dreamcast "))
+	assert.True(t, IsKnownPlatform("mega drive / genesis"))
+	assert.Equal(t, "Dreamcast", SystemOf("DREAMCAST"))
+	assert.False(t, IsKnownPlatform("Mega Drive"), "an alias")
+	assert.False(t, IsKnownPlatform("Mega-Drive / Genesis"), "an exact name, not a system key")
+}

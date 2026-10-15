@@ -199,7 +199,7 @@ func platformNamed(p string) (platformInfo, bool) {
 		return platforms[i], true
 	}
 
-	if i := slices.IndexFunc(catalog, func(s System) bool { return strings.EqualFold(s.Name, p) }); i >= 0 {
+	if i, ok := catalogNameIndex[strings.ToLower(p)]; ok {
 		return platformInfo{
 			name:   catalog[i].Name,
 			system: catalog[i].Name,
@@ -208,6 +208,18 @@ func platformNamed(p string) (platformInfo, bool) {
 
 	return platformInfo{}, false
 }
+
+// catalogNameIndex maps every catalog name, in lower case, to its system's position in catalog:
+// platformNamed is called for every copy, and the catalog has over a hundred systems. Unlike
+// systemIndex it holds exact names only, not aliases or system keys.
+var catalogNameIndex = func() map[string]int {
+	out := make(map[string]int, len(catalog))
+	for i, s := range catalog {
+		out[strings.ToLower(s.Name)] = i
+	}
+
+	return out
+}()
 
 // IsKnownPlatform reports whether p is one of the stores, launchers or systems Game Vault knows,
 // as opposed to whatever a source names a key type (a software vendor, a course site…).
