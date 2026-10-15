@@ -39,8 +39,17 @@ As of 2026-10-15 (plugin `internal/adapters/outbound/itad`, provider `itad`, kin
   mature, assets {boxart, banner145…600 on assets.isthereanydeal.com}, deal {shop {id, name},
   price/regular/storeLow/historyLow/historyLow_1y/historyLow_3m {amount, amountInt, currency}, cut,
   voucher, flag ("H" in the sample at a historical low; null), drm, platforms, timestamp, expiry
-  (RFC 3339 with offset, or null), url (https://itad.link/…)}}]}`. Featured = no `sort`; historical
-  lows = `sort=-cut&limit=200`, kept when `flag == "H"` or price ≤ historyLow. Only `type == "game"`
+  (RFC 3339 with offset, or null), url (https://itad.link/…)}}]}`. Featured = `sort=-hot`; historical
+  lows = `sort=-hot&filter={"flag":"H"}&limit=200`, kept when `flag == "H"` or price ≤ historyLow.
+  (Until 2026-10-15 featured sent no sort and lows `sort=-cut`: both filled with obscure games.) Sort
+  values (from the website's deals page bundle): `-hot` (its default), `-time`, `-cut`, `price`,
+  `expiry`, `-release-date`, `rank`, `-waitlisted`, `-collected`, `-steam-players`,
+  `-steam-reviews`, `-steam-reviews-count`, `-opencritic`, `-metacritic`, `-metacritic-user`.
+  `filter` takes raw JSON: ranges `{min,max}` for price, cut, `steamPerc`, `steamCount`…, `flag`
+  ("N" new low, "H" low, "S" store low), `type`, `tags`. Stats `/stats/most-waitlisted/v1`,
+  `most-collected`, `most-popular` (key only, no prices; prices via `POST /games/overview/v2`, 200
+  ids) back the website's "Most waitlisted/collected in last 30 days". `-hot` and the filter are
+  not yet verified with a real key. Only `type == "game"`
   is kept. `assets` is decoded leniently (an empty array is plausible for a game without art).
   The docs name the asset fields (all URL strings) without sizes or optionality, and a sample leaves
   `banner600` out; the frames are wide banners and Home's hero shows one at up to 600 px, so the

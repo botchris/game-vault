@@ -536,8 +536,9 @@ Providers), *never fetched* (a card with Refresh; the skeleton shows only while 
 free API key (Providers → Deals; an app registered on isthereanydeal.com) and a country setting
 (two letters). Left empty, the country follows your default currency: euro maps to Spain (ES), other
 currencies to their own country in a table; with no country at all, the adapter sends US itself.
-A refresh sends four requests: the deals list in ITAD's own order (`GET /deals/v2`, 40 games), the
-deepest cuts (`sort=-cut`, 200) kept when at their historical low, and one Steam lookup per list
+A refresh sends four requests: the hottest deals, the order ITAD's deals page opens with
+(`GET /deals/v2?sort=-hot`, 40 games), ITAD's historical lows in the same order
+(`sort=-hot&filter={"flag":"H"}`, 200, checked again against each deal's low), and one Steam lookup per list
 (`POST /lookup/shop/61/id/v1`). Only games are kept (no DLC or soundtracks), never mature ones. A
 card's art is ITAD's widest banner (`banner600`, else `banner400`, `banner300`, `banner145`), and the
 box art, shown whole rather than cropped, only for a game without one. The
