@@ -284,3 +284,63 @@ func TestNotifyStore_address(t *testing.T) {
 		})
 	})
 }
+
+func TestNotifyStore_unreadableDeliveries(t *testing.T) {
+	ctx, store := newNotifyStore(t)
+	t0 := time.Date(2026, 10, 15, 8, 0, 0, 0, time.UTC)
+	a := connection.ID("conn-a")
+
+	t.Run("GIVEN a good delivery between two rows this version cannot read", func(t *testing.T) {
+		require.NoError(t, store.Enqueue(ctx, []notify.Delivery{delivery("d2", a, t0, t0.Add(time.Second))}))
+
+		// One row from a newer version (an event kind this one does not know), one damaged.
+		for _, bad := range []struct {
+			id      string
+			raw     string
+			created time.Time
+		}{
+			{"d1", `{"v":1,"id":"e-d1","kind":"future.kind","at":"2026-10-15T08:00:00Z","data":{}}`, t0},
+			{"d3", `{not json`, t0.Add(2 * time.Second)},
+		} {
+			_, err := store.db.conn(ctx).ExecContext(ctx, `INSERT INTO notification_outbox
+				(id, connection_id, event, state, attempts, next_at, last_error, created_at, updated_at)
+				VALUES (?, ?, ?, ?, 0, ?, '', ?, ?)`,
+				bad.id, a, bad.raw, notify.StateQueued, sortableTime(t0), sortableTime(bad.created), sortableTime(bad.created))
+			require.NoError(t, err)
+		}
+
+		t.Run("WHEN the due ones are read", func(t *testing.T) {
+			due, err := store.Due(ctx, t0.Add(time.Minute))
+
+			t.Run("THEN the good one is delivered and the others are skipped", func(t *testing.T) {
+				require.NoError(t, err)
+				require.Len(t, due, 1)
+				assert.Equal(t, "d2", due[0].ID)
+			})
+		})
+
+		t.Run("WHEN the recent ones are listed", func(t *testing.T) {
+			recent, err := store.Recent(ctx, a, 10)
+
+			t.Run("THEN the unreadable ones show as failed, with the reason", func(t *testing.T) {
+				require.NoError(t, err)
+				require.Len(t, recent, 3)
+				assert.Equal(t, []string{"d3", "d2", "d1"}, []string{recent[0].ID, recent[1].ID, recent[2].ID})
+
+				for _, d := range []notify.Delivery{recent[0], recent[2]} {
+					assert.Equal(t, notify.StateFailed, d.State)
+					assert.Equal(t, "unreadable notification (from a newer version?)", d.LastError)
+				}
+
+				assert.Equal(t, notify.StateQueued, recent[1].State)
+				assert.Equal(t, event.Kind("future.kind"), recent[2].Event.Kind)
+			})
+
+			t.Run("AND they are no longer due", func(t *testing.T) {
+				due, err := store.Due(ctx, t0.Add(time.Minute))
+				require.NoError(t, err)
+				require.Len(t, due, 1)
+			})
+		})
+	})
+}

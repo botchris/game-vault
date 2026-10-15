@@ -72,10 +72,34 @@ func sortableTime(t time.Time) string { return t.UTC().Format("2006-01-02T15:04:
 
 const deliveryColumns = `id, connection_id, event, state, attempts, next_at, last_error, created_at, updated_at`
 
-// Due implements notify.Outbox.
+// unreadableReason is the failure recorded for a delivery whose event this version cannot decode.
+const unreadableReason = "unreadable notification (from a newer version?)"
+
+// Due implements notify.Outbox. A delivery whose event cannot be decoded (written by a newer
+// version, or damaged) is marked failed and skipped, so it never holds up the others.
 func (s *NotifyStore) Due(ctx context.Context, now time.Time) ([]notify.Delivery, error) {
-	return s.deliveries(ctx, `SELECT `+deliveryColumns+` FROM notification_outbox
+	ds, err := s.deliveries(ctx, `SELECT `+deliveryColumns+` FROM notification_outbox
 		WHERE state = ? AND next_at <= ? ORDER BY next_at, created_at, id`, notify.StateQueued, sortableTime(now))
+	if err != nil {
+		return nil, err
+	}
+
+	due := make([]notify.Delivery, 0, len(ds))
+
+	for _, d := range ds {
+		if d.State != notify.StateFailed {
+			due = append(due, d)
+
+			continue
+		}
+
+		// Marked after the rows are closed: the database has a single connection.
+		if err := s.MarkFailed(ctx, d.ID, unreadableReason, now); err != nil {
+			return nil, err
+		}
+	}
+
+	return due, nil
 }
 
 // MarkSent implements notify.Outbox.
@@ -128,6 +152,8 @@ func (s *NotifyStore) Prune(ctx context.Context, before time.Time) error {
 	return err
 }
 
+// deliveries reads the deliveries query finds. One whose event cannot be decoded comes back failed,
+// with unreadableReason and as much of its event as could be read, instead of failing the list.
 func (s *NotifyStore) deliveries(ctx context.Context, query string, args ...any) ([]notify.Delivery, error) {
 	rows, err := s.db.conn(ctx).QueryContext(ctx, query, args...)
 	if err != nil {
@@ -149,7 +175,7 @@ func (s *NotifyStore) deliveries(ctx context.Context, query string, args ...any)
 		}
 
 		if d.Event, err = notify.DecodeEvent(raw); err != nil {
-			return nil, fmt.Errorf("reading delivery %s: %w", d.ID, err)
+			d.Event, d.State, d.LastError = unreadableEvent(raw), notify.StateFailed, unreadableReason
 		}
 
 		d.NextAt = parseTime(next)
@@ -159,6 +185,24 @@ func (s *NotifyStore) deliveries(ctx context.Context, query string, args ...any)
 	}
 
 	return out, rows.Err()
+}
+
+// unreadableEvent is what can be read of an event the codec refused: its id, kind and time when
+// the document is JSON (an event kind from a newer version), nothing otherwise.
+func unreadableEvent(raw string) event.Event {
+	var doc struct {
+		ID   string     `json:"id"`
+		Kind event.Kind `json:"kind"`
+		At   time.Time  `json:"at"`
+	}
+
+	_ = json.Unmarshal([]byte(raw), &doc) // a damaged document leaves the zero event
+
+	return event.Event{
+		ID:   doc.ID,
+		Kind: doc.Kind,
+		At:   doc.At,
+	}
 }
 
 // Notified implements notify.IssueMemory.
