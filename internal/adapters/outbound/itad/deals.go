@@ -88,6 +88,10 @@ var (
 func NewDeals() *Deals {
 	api := apiclient.New(defaultBaseURL)
 	api.HTTP.Timeout = requestTimeout
+	// Go forwards custom headers such as ITAD-API-Key on a redirect, even to another host. ITAD's
+	// API answers without redirects, so one would come from something in between: it is refused
+	// (an unexpected HTTP 3xx) rather than followed, and the key never leaves ITAD's host.
+	api.NoRedirects = true
 
 	return &Deals{
 		API: api,

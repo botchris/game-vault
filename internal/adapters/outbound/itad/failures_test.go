@@ -92,3 +92,43 @@ func TestDeals_forbiddenPage(t *testing.T) {
 		})
 	}
 }
+
+// TestDeals_redirect checks that a redirect to another host never carries the API key there: ITAD
+// sends none, so one would come from something in between, and following it would hand the key on.
+func TestDeals_redirect(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN ITAD's deals list redirects to another host", func(t *testing.T) {
+		var keys []string
+
+		elsewhere := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			keys = append(keys, r.Header.Get("ITAD-API-Key"))
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(featuredPage))
+		}))
+		t.Cleanup(elsewhere.Close)
+
+		f := newFakeITAD(t)
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, elsewhere.URL+r.URL.RequestURI(), http.StatusFound)
+		}))
+		t.Cleanup(srv.Close)
+
+		d := f.provider()
+		d.API.BaseURL = srv.URL
+		d.API.HTTP = srv.Client()
+
+		t.Run("WHEN the featured deals are asked for", func(t *testing.T) {
+			_, err := d.Deals(ctx, goodSettings, home.DealQuery{
+				List:  home.DealsFeatured,
+				Limit: 10,
+			})
+
+			t.Run("THEN the redirect is not followed and the list fails", func(t *testing.T) {
+				require.Error(t, err)
+				assert.Empty(t, keys, "the other host was never asked")
+			})
+		})
+	})
+}

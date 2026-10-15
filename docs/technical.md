@@ -517,7 +517,8 @@ deepest cuts (`sort=-cut`, 200) kept when at their historical low, and one Steam
 (`POST /lookup/shop/61/id/v1`). Only games are kept (no DLC or soundtracks), never mature ones. A
 card's art is ITAD's wide banner (`banner400`, else `banner300`, `banner600`, `banner145`), and the
 box art, shown whole rather than cropped, only for a game without one. The
-key travels in the `ITAD-API-Key` header. A bad key is answered with 403 (not 401); a 403 that is
+key travels in the `ITAD-API-Key` header, and redirects are refused, so it never reaches another
+host. A bad key is answered with 403 (not 401); a 403 that is
 an HTML page is treated as a passing trouble, not a bad key. **Test connection** sends the featured
 request with a limit of 40. Requests are one a second at most, and a 429 or an outage rests the
 provider for a minute or as long as `Retry-After` asks (ITAD allows 1000 requests per 5 minutes).
