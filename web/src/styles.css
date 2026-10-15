@@ -754,7 +754,7 @@ td.title { font-weight: 500; min-width: 220px; }
 
 /* The hero: always dark (its art sets the colour), the slides stacked in one cell and cross-faded.
    The scrim keeps the text readable over any art. */
-.home-hero { position: relative; isolation: isolate; display: grid; overflow: hidden; background: var(--ink); color: var(--on-dark); min-height: clamp(340px, 50vh, 500px); }
+.home-hero { position: relative; isolation: isolate; display: grid; overflow: hidden; background: var(--ink); color: var(--on-dark); min-height: clamp(380px, 54vh, 540px); }
 .home-hero-slide { grid-area: 1 / 1; position: relative; display: grid; opacity: 0; transition: opacity 500ms ease; }
 .home-hero-slide.on { opacity: 1; }
 .home-hero-backdrop { position: absolute; inset: 0; z-index: -1; overflow: hidden; }
@@ -767,7 +767,18 @@ td.title { font-weight: 500; min-width: 220px; }
   content: ''; position: absolute; inset: 0;
   background: linear-gradient(90deg, rgb(14 16 28 / .9) 0%, rgb(14 16 28 / .6) 45%, rgb(14 16 28 / .3) 100%);
 }
-.home-hero-body { display: flex; align-items: center; justify-content: space-between; gap: 48px; padding: 56px var(--home-gutter) 64px; }
+.home-hero-body { display: flex; align-items: center; justify-content: space-between; gap: 48px; padding: 56px var(--home-gutter) 140px; }
+/* A wide picture fills the right of the band and fades into the text and the strip; the art beside
+   the text is the phone's. The scrims keep the text and the strip readable over any art. */
+.home-hero-wide { position: absolute; inset: 0 0 0 36%; z-index: -1; }
+/* Anchored right: the band is less wide than the art, and its left edge lies under the scrim anyway. */
+.home-hero-wide > img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: right center; }
+.home-hero-wide::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, var(--ink) 0%, rgb(20 23 38 / .5) 30%, rgb(20 23 38 / 0) 60%),
+    linear-gradient(0deg, rgb(14 16 28 / .85) 0%, rgb(14 16 28 / 0) 45%);
+}
+.home-hero-slide.is-wide .home-hero-art { display: none; }
 .home-hero-text { display: grid; gap: 14px; justify-items: start; max-width: 560px; min-width: 0; }
 .home-hero-title {
   margin: 0; font-size: clamp(32px, 4.2vw, 56px); font-weight: 800; font-stretch: 118%; line-height: 1.02; letter-spacing: -.02em;
@@ -786,14 +797,30 @@ td.title { font-weight: 500; min-width: 220px; }
 .home-hero-art { flex: none; width: min(600px, 46%); aspect-ratio: 460 / 215; object-fit: cover; border-radius: var(--radius-media); box-shadow: var(--shadow-lg); }
 .home-hero-poster { flex: none; width: 210px; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); overflow: hidden; }
 .home-hero-poster > img { display: block; width: 100%; aspect-ratio: 2 / 3; object-fit: cover; }
-.home-hero-dots { position: absolute; right: var(--home-gutter); bottom: 20px; z-index: 2; display: flex; gap: 6px; }
-.home-hero-dots button { position: relative; width: 32px; min-height: 0; height: 20px; padding: 0; border: 0; background: none; }
-.home-hero-dots button:hover:not(:disabled) { background: none; }
-.home-hero-dots button::before, .home-hero-dots i {
-  content: ''; position: absolute; left: 0; right: 0; top: 8px; height: 4px; border-radius: var(--radius-pill); background: var(--glass-strong);
+.home-hero-strip { position: absolute; right: var(--home-gutter); bottom: 22px; z-index: 2; display: flex; gap: 10px; }
+.home-hero-strip button {
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; width: 116px; min-height: 0; padding: 0; border: 0; background: none;
+  color: var(--on-dark-muted);
+  font-size: 12px; text-align: left; justify-items: stretch;
 }
-.home-hero-dots i { background: var(--on-dark); transform-origin: left; animation: home-hero-turn 7s linear forwards; }
-.home-hero.held .home-hero-dots i { animation-play-state: paused; }
+.home-hero-strip button:hover:not(:disabled) { background: none; color: var(--on-dark-soft); }
+.home-hero-thumb {
+  position: relative; display: block; aspect-ratio: 16 / 9; margin-bottom: 4px; border-radius: var(--radius-sm); overflow: hidden;
+  background: var(--glass); outline: 2px solid transparent; outline-offset: 2px; transition: outline-color 160ms ease;
+}
+.home-hero-thumb > img, .home-hero-thumb > .cover {
+  display: block; width: 100%; height: 100%; aspect-ratio: auto; border-radius: 0; object-fit: cover;
+}
+.home-hero-thumb > .cover img { object-fit: cover; }
+.home-hero-thumb > i {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--on-dark); transform-origin: left;
+  animation: home-hero-turn 7s linear forwards;
+}
+.home-hero.held .home-hero-thumb > i { animation-play-state: paused; }
+.home-hero-strip .on .home-hero-thumb { outline-color: var(--on-dark); }
+.home-hero-thumb-kind, .home-hero-thumb-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home-hero-thumb-kind { font-size: 11px; }
+.home-hero-strip .on .home-hero-thumb-title { color: var(--on-dark); font-weight: 600; }
 @keyframes home-hero-turn { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
 /* The collection in figures, then the chips of what needs attention. */
@@ -937,7 +964,14 @@ a.home-because { color: var(--link); }
   .home-hero-body:has(.home-hero-poster) { padding-top: 24px; }
   .home-hero-title { font-size: 30px; }
   .home-hero-price b { font-size: 24px; }
-  .home-hero-dots { bottom: 12px; }
+  /* Phones keep the art above the text and the strip as bars, without pictures or names. */
+  .home-hero-wide { display: none; }
+  .home-hero-slide.is-wide .home-hero-art { display: block; }
+  .home-hero-strip { bottom: 14px; gap: 6px; }
+  .home-hero-strip button { width: 32px; }
+  .home-hero-thumb { aspect-ratio: auto; height: 4px; margin: 8px 0; border-radius: var(--radius-pill); background: var(--glass-strong); outline: 0; }
+  .home-hero-thumb > img, .home-hero-thumb > .cover, .home-hero-thumb-kind, .home-hero-thumb-title { display: none; }
+  .home-hero-thumb > i { height: 100%; }
   .home-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 20px; }
   .home-stat strong { font-size: 26px; }
   .home-row-head h2 { font-size: 18px; }
@@ -951,7 +985,7 @@ a.home-because { color: var(--link); }
 @media (prefers-reduced-motion: reduce) {
   .home-enter > *, .home-hero-slide, .home-card-link, .home-media > img, .home-reveal { transition: none; }
   /* Without the bar's motion the deals never move on by themselves; the dots still choose one. */
-  .home-hero-dots i { animation: none; }
+  .home-hero-thumb > i { animation: none; }
 }
 
 /* ---------- Game sheet ---------- */

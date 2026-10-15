@@ -113,7 +113,7 @@ func newDetailsEnv(t *testing.T, ctx context.Context, now func() time.Time, stor
 
 	games, details := sqlite.NewGameRepository(db), sqlite.NewDetailsStore(db)
 	store, quota := &storeDetails{sheet: storeSheet}, &quotaDetails{}
-	svc := newServicesAt(db, now, games, assets, echo{}, []providers.Impl{store, quota}, append([]media.Option{media.WithDetailsStore(details)}, opts...)...)
+	svc := newServicesAt(t, db, now, games, assets, echo{}, []providers.Impl{store, quota}, append([]media.Option{media.WithDetailsStore(details)}, opts...)...)
 
 	return detailsEnv{
 		svc:     svc,
@@ -401,7 +401,7 @@ func TestGameDetails_summarySourceAndTrailers(t *testing.T) {
 		}
 
 		games, details := sqlite.NewGameRepository(db), sqlite.NewDetailsStore(db)
-		svc := newServices(db, games, assets, echo{}, []providers.Impl{database, encyclopedia}, media.WithDetailsStore(details))
+		svc := newServices(t, db, games, assets, echo{}, []providers.Impl{database, encyclopedia}, media.WithDetailsStore(details))
 		g := saveGame(t, ctx, games, "Example Quest", nil, game.CopyDetails{
 			Kind:     game.KindPhysical,
 			Platform: "PS4",
@@ -429,6 +429,14 @@ func TestGameDetails_summarySourceAndTrailers(t *testing.T) {
 
 					assert.Equal(t, []string{"yt-shared", "yt-own"}, ids)
 				})
+			})
+
+			t.Run("AND the screenshot is downloaded in the background, and Wait waits for it", func(t *testing.T) {
+				svc.Assets.Wait()
+
+				_, ok, err := assets.GetAsset(g.ID(), d.Screenshots[0].FullAsset)
+				require.NoError(t, err)
+				assert.True(t, ok)
 			})
 
 			t.Run("AND the credit is cached with the sheet", func(t *testing.T) {

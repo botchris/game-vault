@@ -112,9 +112,9 @@ const everything = {
   backlog: ['g7', 'g6', 'g5'],
 };
 
-test('the hero takes one of each kind, never two of a kind in a row', () => {
+test('the hero takes one of each kind, both deals first, then releases and games in turn', () => {
   assert.deepEqual(kinds(heroSlides(everything, today)), [
-    'deal:Starfall', 'series:Echo Valley II', 'recent:g9', 'anticipated:Veilborn', 'backlog:g5', 'low:Tidebreaker',
+    'deal:Starfall', 'low:Tidebreaker', 'series:Echo Valley II', 'recent:g9', 'anticipated:Veilborn', 'backlog:g5',
   ], 'the low is another game than the featured deal');
 });
 
@@ -132,7 +132,7 @@ test('the hero shows deals and releases only with art and an https link', () => 
     anticipated: [release('Plain Link', { url: 'http://igdb.example/x' }), release('Veilborn')],
   }, today);
   assert.deepEqual(kinds(slides).filter((k) => !k.startsWith('recent') && !k.startsWith('backlog')),
-    ['deal:Copper Coast', 'anticipated:Veilborn', 'low:Starfall']);
+    ['deal:Copper Coast', 'low:Starfall', 'anticipated:Veilborn']);
 });
 
 test("the backlog's game changes from one day to the next, and is never the newest game", () => {

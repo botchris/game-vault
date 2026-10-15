@@ -14,13 +14,14 @@ import { dealPrice, dealRegular } from './DealsBlock';
 export type Slide = HeroSlide<HomeDeal, HomeRelease>;
 
 /** The top of the home page, edge to edge: a showcase of the page, one slide of each kind (a deal,
- *  a release from the user's series, the newest game, an anticipated release, a backlog game, a
- *  historical low; see heroSlides). Each slide shows its art over a blurred copy of itself that
+ *  a historical low, a release from the user's series, the newest game, an anticipated release, a
+ *  backlog game; see heroSlides). Each slide shows its art over a blurred copy of itself that
  *  fills the band: a deal's banner (at most 600 pixels wide) at its size, a poster for the rest.
  *
- *  The slides take turns: each dot's bar fills in seven seconds and its end shows the next slide, so
- *  hovering or focusing the hero (which pauses the bar) holds the slide on screen, and reduced motion
- *  (no bar) never moves on by itself; the dots choose a slide. */
+ *  The slides take turns: a strip in the corner shows them all (on phones, as bars), the current
+ *  one's bar fills in seven seconds and its end shows the next slide, so hovering or focusing the
+ *  hero (which pauses the bar) holds the slide on screen, and reduced motion (no bar) never moves on
+ *  by itself; the strip chooses a slide. */
 export function HomeHero({ loading, slides, games, dealsNotConfigured }: {
   /** The page's first read is still running: the band waits empty rather than show the
    *  collection's slides and then add the deals and releases between them. */
@@ -49,11 +50,16 @@ export function HomeHero({ loading, slides, games, dealsNotConfigured }: {
         <HeroSlideView key={`${s.kind}-${title(s)}`} slide={s} shown={i === index} games={games} dealsNotConfigured={dealsNotConfigured} />
       ))}
       {shownSlides.length > 1 && (
-        <div className="home-hero-dots">
+        <div className="home-hero-strip">
           {shownSlides.map((s, i) => (
             <button key={`${s.kind}-${title(s)}`} className={i === index ? 'on' : ''} aria-current={i === index}
               aria-label={t('home.hero.show', { title: title(s) })} onClick={() => setShown(i)}>
-              {i === index && <i key={index} onAnimationEnd={() => setShown((index + 1) % shownSlides.length)} />}
+              <span className="home-hero-thumb">
+                <Thumb slide={s} games={games} />
+                {i === index && <i key={index} onAnimationEnd={() => setShown((index + 1) % shownSlides.length)} />}
+              </span>
+              <span className="home-hero-thumb-kind">{t(`home.hero.kind.${s.kind}`)}</span>
+              <span className="home-hero-thumb-title">{title(s)}</span>
             </button>
           ))}
         </div>
@@ -82,12 +88,30 @@ function HeroSlideView({ slide, shown, games, dealsNotConfigured }: {
   }
 }
 
-/** The frame every slide shares: the blurred backdrop, the text, and the art beside it. Slides that
- *  are not shown stay in the page (they cross-fade) but out of reach. */
-function SlideFrame({ shown, backdrop, art, children }: { shown: boolean; backdrop: ReactNode; art: ReactNode; children: ReactNode }) {
+/** A slide's picture in the strip of what comes next: its art, cropped to the thumbnail. */
+function Thumb({ slide: s, games }: { slide: Slide; games: Map<string, Game> }) {
+  if ('deal' in s) return <img src={proxiedImage(s.deal.imageUrl)} alt="" loading="lazy" decoding="async" />;
+  if ('release' in s) return <img src={proxiedImage(s.release.coverUrl)} alt="" loading="lazy" decoding="async" />;
+  const game = games.get(s.gameId);
+  return game ? <Cover game={game} /> : null;
+}
+
+/** The frame every slide shares: the blurred backdrop, the text, and the art beside it. A wide
+ *  picture (a deal's banner) also fills the right of the band on desktops, fading into the text;
+ *  phones show the art above the text instead. Slides that are not shown stay in the page (they
+ *  cross-fade) but out of reach. */
+function SlideFrame({ shown, backdrop, wide, art, children }: {
+  shown: boolean;
+  backdrop: ReactNode;
+  /** The picture that fills the right of the band, for wide art. */
+  wide?: string;
+  art: ReactNode;
+  children: ReactNode;
+}) {
   return (
-    <div className={`home-hero-slide${shown ? ' on' : ''}`} aria-hidden={!shown} inert={!shown}>
+    <div className={`home-hero-slide${shown ? ' on' : ''}${wide ? ' is-wide' : ''}`} aria-hidden={!shown} inert={!shown}>
       <div className="home-hero-backdrop">{backdrop}</div>
+      {wide && <div className="home-hero-wide"><img src={wide} alt="" decoding="async" /></div>}
       <div className="home-hero-body">
         <div className="home-hero-text">{children}</div>
         {art}
@@ -106,7 +130,7 @@ function DealSlide({ deal: d, low, shown }: { deal: HomeDeal; low: boolean; show
   const context = [t(low ? 'home.hero.kind.low' : 'home.hero.kind.deal'), !low && d.historicalLow ? t('home.deals.historicalLow') : '', d.shop];
 
   return (
-    <SlideFrame shown={shown} backdrop={<img src={art} alt="" decoding="async" />}
+    <SlideFrame shown={shown} backdrop={<img src={art} alt="" decoding="async" />} wide={art}
       art={<img className="home-hero-art" src={art} alt="" decoding="async" />}>
       <p className="home-hero-line">{context.filter(Boolean).join(' · ')}</p>
       <h2 className="home-hero-title">{d.title}</h2>

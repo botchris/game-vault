@@ -172,7 +172,7 @@ func newFallbackEnv(t *testing.T, ctx context.Context) fallbackEnv {
 		quota:   &quotaArt{},
 		perGame: &perGameArt{},
 	}
-	env.svc = newServices(db, env.games, assets, echo{}, []providers.Impl{env.store, env.quota, env.perGame})
+	env.svc = newServices(t, db, env.games, assets, echo{}, []providers.Impl{env.store, env.quota, env.perGame})
 
 	return env
 }
@@ -514,7 +514,7 @@ func TestCovers_pcBoxMisses(t *testing.T) {
 		require.NoError(t, err)
 
 		games, store, perGame := sqlite.NewGameRepository(db), &missingStore{}, &perGameArt{}
-		svc := newServices(db, games, assets, echo{}, []providers.Impl{store, perGame})
+		svc := newServices(t, db, games, assets, echo{}, []providers.Impl{store, perGame})
 
 		return svc, games, assets, store, perGame
 	}
