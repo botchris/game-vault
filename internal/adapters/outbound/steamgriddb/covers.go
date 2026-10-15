@@ -332,7 +332,7 @@ func pick(games []gameJSON, title string) *gameJSON {
 // key words, never edition words or years. The systems come from the catalog (game.SystemPattern).
 const storeWords = `steam|gog(\.com)?|epic(\s*games)?(\s*store)?|ubisoft(\s*connect)?|uplay|ea(\s*app)?|origin|` +
 	`battle\.?\s*net|rockstar(\s*games)?|microsoft(\s*store)?|windows|mac|linux|` +
-	`psn|itch(\.io)?|amazon(\s*games)?|digital|download|cd|key|code|global|region\s*free`
+	`psn|playstation(\s*store)?|nintendo(\s*eshop)?|itch(\.io)?|amazon(\s*games)?|digital|download|cd|key|code|global|region\s*free`
 
 var (
 	// storeAndSystemWords is every word a tag may hold: the store and key words, then the catalog's

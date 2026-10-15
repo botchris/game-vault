@@ -688,6 +688,9 @@ func TestWithoutStoreTags(t *testing.T) {
 		"Example: Definitive Edition":           "Example: Definitive Edition",
 		"Example Quest (Director's Cut)":        "Example Quest (Director's Cut)",
 		"Example Quest (Gold) Steam Key":        "Example Quest (Gold)",
+		"Example Quest (Nintendo eShop)":        "Example Quest",
+		"Example Quest (PlayStation Store)":     "Example Quest",
+		"Example Quest PC Key":                  "Example Quest",
 	} {
 		assert.Equal(t, want, withoutStoreTags(title), title)
 	}
