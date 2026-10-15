@@ -192,6 +192,68 @@ func TestReleases_sequels(t *testing.T) {
 		})
 	})
 
+	t.Run("GIVEN a batch of Steam apps listed under more IGDB games than the limit", func(t *testing.T) {
+		f := newFakeIGDB(t)
+
+		many := make([]home.OwnedRef, maxBatch)
+		rows := make([]string, maxBatch)
+
+		for i := range many {
+			app := fmt.Sprint(10000 + i)
+			many[i] = home.OwnedRef{
+				Game:  game.ID(fmt.Sprintf("g%d", i)),
+				Links: game.Links{game.LinkSteam: app},
+			}
+			rows[i] = fmt.Sprintf(`{"id": %d, "uid": %q, "game": {"id": %d, "franchises": [], "collections": []}}`, i+1, app, 1000+i)
+		}
+
+		// The last app is also listed under a second game, the one in a collection: its row only
+		// comes on the second page.
+		f.externalPages = []string{
+			"[" + strings.Join(rows, ",") + "]",
+			`[{"id": 9999, "uid": "10499", "game": {"id": 9001, "franchises": [], "collections": [70]}}]`,
+		}
+		r := NewReleases(f.client(func() time.Time { return releaseNow }))
+
+		t.Run("WHEN the sequels are asked for", func(t *testing.T) {
+			_, err := r.Sequels(ctx, goodSettings, many)
+			require.NoError(t, err)
+
+			t.Run("THEN the full page is followed by the next one, in a stable order", func(t *testing.T) {
+				sent := f.sent("external_games")
+				require.Len(t, sent, 2)
+				assert.Contains(t, sent[0], "sort id asc; limit 500; offset 0;")
+				assert.Contains(t, sent[1], "sort id asc; limit 500; offset 500;")
+			})
+
+			t.Run("AND the rows of the second page count", func(t *testing.T) {
+				sent := f.sent("games")
+				require.Len(t, sent, 1)
+				assert.Contains(t, sent[0], "collections = (70)")
+			})
+		})
+	})
+
+	t.Run("GIVEN two owned games of the same franchise, which IGDB lists in the reverse order", func(t *testing.T) {
+		f := newFakeIGDB(t)
+		f.external = `[
+  {"id": 6, "uid": "4420", "game": {"id": 1002, "franchises": [40], "collections": []}},
+  {"id": 5, "uid": "4410", "game": {"id": 1001, "franchises": [40], "collections": []}}
+]`
+		f.series = "[" + lanternKeepII + "]"
+		r := NewReleases(f.client(func() time.Time { return releaseNow }))
+
+		t.Run("WHEN the sequels are asked for", func(t *testing.T) {
+			got, err := r.Sequels(ctx, goodSettings, owned[:2])
+			require.NoError(t, err)
+
+			t.Run("THEN the sequel names the first owned game, whatever IGDB's order", func(t *testing.T) {
+				require.Len(t, got, 1)
+				assert.Equal(t, game.ID("g1"), got[0].Because)
+			})
+		})
+	})
+
 	t.Run("GIVEN IGDB asks to slow down", func(t *testing.T) {
 		f := newFakeIGDB(t)
 		f.setBusy(true)

@@ -157,6 +157,8 @@ func (r *Releases) Sequels(ctx context.Context, s schema.Settings, owned []home.
 }
 
 // seriesOf finds the collections and franchises of the owned games, in batches of maxBatch apps.
+// The owned game that explains a series is the first in apps (the owned games' order) to belong to
+// it, whatever order IGDB lists them in, so it does not change from one refresh to the next.
 func (r *Releases) seriesOf(ctx context.Context, s schema.Settings, apps []string, byApp map[string]home.OwnedRef) (series, error) {
 	ser := series{
 		collections: map[int64]home.OwnedRef{},
@@ -164,38 +166,27 @@ func (r *Releases) seriesOf(ctx context.Context, s schema.Settings, apps []strin
 		owned:       map[int64]bool{},
 	}
 
+	gamesOf := map[string][]*releaseJSON{}
+
 	for batch := range slices.Chunk(apps, maxBatch) {
-		quoted := make([]string, len(batch))
-		for i, a := range batch {
-			quoted[i] = strconv.Quote(a)
-		}
-
-		body := fmt.Sprintf("fields uid,game.franchise,game.franchises,game.collections; where external_game_source = %d & uid = (%s); limit %d;",
-			steamSource, strings.Join(quoted, ","), maxBatch)
-
-		var out []struct {
-			UID  string       `json:"uid"`
-			Game *releaseJSON `json:"game"`
-		}
-		if err := r.c.query(ctx, s, "external_games", body, &out); err != nil {
+		if err := r.externalGames(ctx, s, batch, gamesOf); err != nil {
 			return series{}, err
 		}
+	}
 
-		for _, e := range out {
-			ref, ok := byApp[e.UID]
-			if !ok || e.Game == nil {
-				continue
-			}
+	for _, app := range apps {
+		ref := byApp[app]
 
-			ser.owned[e.Game.ID] = true
+		for _, g := range gamesOf[app] {
+			ser.owned[g.ID] = true
 
-			for _, id := range e.Game.Collections {
+			for _, id := range g.Collections {
 				if _, seen := ser.collections[id]; !seen {
 					ser.collections[id] = ref
 				}
 			}
 
-			for _, id := range append(slices.Clone(e.Game.Franchises), e.Game.Franchise) {
+			for _, id := range append(slices.Clone(g.Franchises), g.Franchise) {
 				if _, seen := ser.franchises[id]; id != 0 && !seen {
 					ser.franchises[id] = ref
 				}
@@ -204,6 +195,39 @@ func (r *Releases) seriesOf(ctx context.Context, s schema.Settings, apps []strin
 	}
 
 	return ser, nil
+}
+
+// externalGames adds the IGDB games of the Steam apps to gamesOf. One app can be listed under
+// several games (editions, re-releases), so a batch can have more rows than apps: pages follow
+// while they come back full, sorted by id so that paging neither skips nor repeats a row.
+func (r *Releases) externalGames(ctx context.Context, s schema.Settings, apps []string, gamesOf map[string][]*releaseJSON) error {
+	quoted := make([]string, len(apps))
+	for i, a := range apps {
+		quoted[i] = strconv.Quote(a)
+	}
+
+	for offset := 0; ; offset += maxBatch {
+		body := fmt.Sprintf("fields uid,game.franchise,game.franchises,game.collections; where external_game_source = %d & uid = (%s); sort id asc; limit %d; offset %d;",
+			steamSource, strings.Join(quoted, ","), maxBatch, offset)
+
+		var out []struct {
+			UID  string       `json:"uid"`
+			Game *releaseJSON `json:"game"`
+		}
+		if err := r.c.query(ctx, s, "external_games", body, &out); err != nil {
+			return err
+		}
+
+		for _, e := range out {
+			if e.Game != nil {
+				gamesOf[e.UID] = append(gamesOf[e.UID], e.Game)
+			}
+		}
+
+		if len(out) < maxBatch {
+			return nil
+		}
+	}
 }
 
 // upcoming asks for the main games of the series that come out after now, soonest first, in
