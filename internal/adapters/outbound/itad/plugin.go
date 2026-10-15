@@ -8,7 +8,7 @@ import (
 // Plugin is the IsThereAnyDeal plugin: the home page's current deals.
 func Plugin() plugin.Plugin {
 	return plugin.Plugin{
-		ID:    "itad",
+		ID:    string(ID),
 		Name:  "IsThereAnyDeal",
 		Deals: []home.DealsProvider{NewDeals()},
 	}

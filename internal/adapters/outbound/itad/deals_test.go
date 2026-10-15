@@ -222,10 +222,15 @@ func TestDeals_test(t *testing.T) {
 		t.Run("WHEN a good key is tested", func(t *testing.T) {
 			err := d.Test(ctx, goodSettings)
 
-			t.Run("THEN it works, with one small request", func(t *testing.T) {
+			t.Run("THEN it works, with the featured list's request as a refresh sends it", func(t *testing.T) {
 				require.NoError(t, err)
 				require.Len(t, f.sentQueries(), 1)
-				assert.Equal(t, "1", f.sentQueries()[0].Get("limit"))
+
+				q := f.sentQueries()[0]
+				assert.Equal(t, "ES", q.Get("country"))
+				assert.Equal(t, "40", q.Get("limit"))
+				assert.Equal(t, "false", q.Get("mature"))
+				assert.False(t, q.Has("sort"))
 			})
 		})
 

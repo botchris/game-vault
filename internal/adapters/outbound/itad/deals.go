@@ -52,11 +52,15 @@ const (
 	maxList = 200
 
 	requestTimeout = 20 * time.Second
+
+	// testLimit is the size of the featured list the home page's refresh asks for, so Test sends
+	// the request a refresh sends and never a shape of its own.
+	testLimit = 40
 )
 
 var (
 	// ErrNotConfigured means the API key is missing.
-	ErrNotConfigured = provider.BadSettings("enter your IsThereAnyDeal API key in the provider settings")
+	ErrNotConfigured = provider.BadSettings("enter your API key in the provider settings")
 
 	// ErrBadKey means ITAD rejected the API key (HTTP 403 "Invalid or expired api key").
 	ErrBadKey = provider.BadSettings("the API key was rejected: check it in the provider settings")
@@ -126,7 +130,8 @@ func (d *Deals) Descriptor() provider.Descriptor {
 // ImageHosts implements media.ImageHoster: the games' art goes through the image proxy.
 func (d *Deals) ImageHosts() []string { return []string{imageHost} }
 
-// Test implements providers.Impl with the smallest deals list.
+// Test implements providers.Impl with the featured list's request, as a refresh sends it, without
+// the Steam lookup.
 func (d *Deals) Test(ctx context.Context, s schema.Settings) error {
 	key, country, err := settingsOf(s, "")
 	if err != nil {
@@ -137,7 +142,7 @@ func (d *Deals) Test(ctx context.Context, s schema.Settings) error {
 
 	return d.send(ctx, key, apiclient.Request{
 		Path:  "/deals/v2",
-		Query: url.Values{"country": {country}, "limit": {"1"}},
+		Query: featuredQuery(country, testLimit),
 	}, &page)
 }
 
@@ -180,16 +185,20 @@ func (d *Deals) Deals(ctx context.Context, s schema.Settings, q home.DealQuery) 
 		limit = maxList
 	}
 
-	query := url.Values{"country": {country}, "mature": {"false"}}
+	var query url.Values
+
 	keep := func(itemJSON) bool { return true }
 
 	switch q.List {
 	case home.DealsFeatured:
-		// No sort: ITAD's own order, the one its deals page opens with.
-		query.Set("limit", strconv.Itoa(limit))
+		query = featuredQuery(country, limit)
 	case home.DealsHistoricalLows:
-		query.Set("sort", "-cut")
-		query.Set("limit", strconv.Itoa(maxList))
+		query = url.Values{
+			"country": {country},
+			"mature":  {"false"},
+			"sort":    {"-cut"},
+			"limit":   {strconv.Itoa(maxList)},
+		}
 
 		keep = itemJSON.atLow
 	default:
@@ -228,6 +237,16 @@ func (d *Deals) Deals(ctx context.Context, s schema.Settings, q home.DealQuery) 
 	}
 
 	return out, nil
+}
+
+// featuredQuery is the featured list's query: no sort, so ITAD's own order, the one its deals
+// page opens with, and no mature games.
+func featuredQuery(country string, limit int) url.Values {
+	return url.Values{
+		"country": {country},
+		"mature":  {"false"},
+		"limit":   {strconv.Itoa(limit)},
+	}
 }
 
 var reAppID = regexp.MustCompile(`^[0-9]{1,10}$`)
