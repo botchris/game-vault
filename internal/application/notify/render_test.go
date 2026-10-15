@@ -50,7 +50,7 @@ func TestRender_texts(t *testing.T) {
 		Kind:    "provider",
 		Source:  "Example DB",
 		Reason:  "provider_quota",
-		Params:  map[string]string{"until": "2026-11-01"},
+		Params:  map[string]string{"until": "2026-11-01T12:00:00Z"},
 		Message: "monthly allowance used up",
 	}
 	stale := event.Issue{
@@ -148,7 +148,7 @@ func TestRender_texts(t *testing.T) {
 		},
 		{
 			"a provider's issue", event.KindIssueOpened, quota,
-			"⚠ Example DB: Monthly allowance used up; renews 2026-11-01", "monthly allowance used up",
+			"⚠ Example DB: Monthly allowance used up; renews on November 1", "monthly allowance used up",
 		},
 		{
 			"a backups issue", event.KindIssueOpened, stale,
@@ -156,7 +156,7 @@ func TestRender_texts(t *testing.T) {
 		},
 		{
 			"a resolved issue", event.KindIssueResolved, quota,
-			"✓ Example DB works again", "monthly allowance used up",
+			"✓ Example DB works again", "",
 		},
 		{
 			"keys expiring", event.KindKeysExpiring,
@@ -415,5 +415,75 @@ func TestRender_linksAndImages(t *testing.T) {
 			Games:  []event.GameRef{ref("g-1", "Example Game")},
 		}), "en", "", w.catalog, w.covers)
 		assert.False(t, m.Important)
+	})
+}
+
+func TestRender_issueDetails(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	w := newWorld(t)
+
+	t.Run("GIVEN a provider out of its allowance until a moment in RFC 3339", func(t *testing.T) {
+		e := event.New(event.KindIssueOpened, at, event.Issue{
+			Kind:    "provider",
+			Source:  "Example DB",
+			Reason:  "provider_quota",
+			Params:  map[string]string{"until": "2026-11-01T12:00:00Z"},
+			Message: "monthly allowance used up",
+		})
+
+		t.Run("WHEN it is rendered in Spanish THEN the moment reads as a Spanish date", func(t *testing.T) {
+			m := notify.Render(ctx, e, "es", "", w.catalog, w.covers)
+			assert.Equal(t, "⚠ Example DB: Cupo mensual agotado; se renueva el 1 de noviembre", m.Title)
+		})
+
+		t.Run("AND the stored event keeps the raw moment", func(t *testing.T) {
+			m := notify.Render(ctx, e, "en", "", w.catalog, w.covers)
+			got, ok := m.Event.Data.(event.Issue)
+			require.True(t, ok)
+			assert.Equal(t, "2026-11-01T12:00:00Z", got.Params["until"])
+		})
+	})
+
+	t.Run("GIVEN a moment that does not parse WHEN rendered THEN it is shown as it came", func(t *testing.T) {
+		m := notify.Render(ctx, event.New(event.KindIssueOpened, at, event.Issue{
+			Source: "Example DB",
+			Reason: "provider_quota",
+			Params: map[string]string{"until": "soon"},
+		}), "en", "", w.catalog, w.covers)
+		assert.Equal(t, "⚠ Example DB: Monthly allowance used up; renews soon", m.Title)
+	})
+
+	t.Run("GIVEN an issue with a reason this version has no text for", func(t *testing.T) {
+		unknown := event.Issue{
+			Kind:    "provider",
+			Source:  "Example DB",
+			Reason:  "provider_on_fire",
+			Message: "the provider is on fire",
+		}
+
+		t.Run("WHEN it is rendered THEN the title says the English message, never the reason's key", func(t *testing.T) {
+			m := notify.Render(ctx, event.New(event.KindIssueOpened, at, unknown), "es", "", w.catalog, w.covers)
+			assert.Equal(t, "⚠ Example DB: the provider is on fire", m.Title)
+			assert.Empty(t, m.Text, "the message is not repeated under the title")
+		})
+
+		t.Run("OR without a reason at all THEN the same", func(t *testing.T) {
+			unknown.Reason = ""
+			m := notify.Render(ctx, event.New(event.KindIssueOpened, at, unknown), "en", "", w.catalog, w.covers)
+			assert.Equal(t, "⚠ Example DB: the provider is on fire", m.Title)
+		})
+	})
+
+	t.Run("GIVEN a resolved issue WHEN rendered THEN it is the title alone", func(t *testing.T) {
+		m := notify.Render(ctx, event.New(event.KindIssueResolved, at, event.Issue{
+			Kind:    "provider",
+			Source:  "Example DB",
+			Reason:  "provider_unavailable",
+			Message: "not answering",
+		}), "en", "", w.catalog, w.covers)
+		assert.Equal(t, "✓ Example DB works again", m.Title)
+		assert.Empty(t, m.Text)
 	})
 }

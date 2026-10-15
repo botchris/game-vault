@@ -4,7 +4,9 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"maps"
 	"strings"
+	"time"
 
 	"gamevault/internal/domain/event"
 	"gamevault/internal/domain/game"
@@ -220,15 +222,20 @@ func renderIssue(kind event.Kind, is event.Issue, lang, address string) Message 
 
 	name = cmp.Or(name, is.Kind)
 
-	title := text(lang, "issue.resolved.title", name)
-	if kind == event.KindIssueOpened {
-		title = text(lang, "issue.opened.title", name+": "+fillParams(text(lang, "reason."+is.Reason), is.Params))
+	m := Message{
+		Title:     text(lang, "issue.resolved.title", name),
+		Important: true,
 	}
 
-	m := Message{
-		Title:     title,
-		Text:      is.Message,
-		Important: true,
+	// A resolved problem is told by its title alone: repeating what was wrong would read as if it
+	// still were.
+	if kind == event.KindIssueOpened {
+		m.Title = text(lang, "issue.opened.title", name+": "+issueReason(is, lang))
+
+		// Without a text for the reason, the title already carries the English message.
+		if _, known := texts[fallbackLanguage]["reason."+is.Reason]; known {
+			m.Text = is.Message
+		}
 	}
 
 	if address != "" {
@@ -236,6 +243,35 @@ func renderIssue(kind event.Kind, is event.Issue, lang, address string) Message 
 	}
 
 	return m
+}
+
+// issueReason is the issue's reason in lang, its params filled for a reader (a moment as a date);
+// for a reason this version has no text for (one added to Health later), Health's English message.
+func issueReason(is event.Issue, lang string) string {
+	if _, known := texts[fallbackLanguage]["reason."+is.Reason]; !known {
+		return is.Message
+	}
+
+	params := is.Params
+	if until, ok := params["until"]; ok {
+		params = maps.Clone(params)
+		params["until"] = formatMoment(until, lang)
+	}
+
+	return fillParams(text(lang, "reason."+is.Reason), params)
+}
+
+// formatMoment writes an RFC 3339 moment as the server's local date for a reader of lang ("on
+// November 1", "el 1 de noviembre"); a value that does not parse is shown as it came.
+func formatMoment(raw, lang string) string {
+	t, err := time.Parse(time.RFC3339, raw)
+	if err != nil {
+		return raw
+	}
+
+	t = t.Local()
+
+	return text(lang, "date.on", text(lang, fmt.Sprintf("month.%d", t.Month())), t.Day())
 }
 
 func renderKeys(k event.KeysExpiring, lang, address string) Message {
