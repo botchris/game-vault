@@ -23,7 +23,8 @@ test('an issue links to where it can be fixed: the source itself, the backups ca
   assert.equal(issueHref({ target: 'providers', targetId: '' }), '#/providers');
   assert.equal(issueHref({ target: 'sources', targetId: 's 1' }), '#/sources/s%201');
   assert.equal(issueHref({ target: 'system/backups', targetId: '' }), '#/system/backups');
-  assert.equal(issueHref({ target: 'notifications', targetId: 'c-1' }), '#/notifications');
+  assert.equal(issueHref({ target: 'notifications', targetId: 'c 1' }), '#/notifications/c%201');
+  assert.equal(issueHref({ target: 'notifications', targetId: '' }), '#/notifications');
   assert.equal(issueHref({ target: '', targetId: '' }), null);
   assert.equal(issueHref({ target: 'somewhere-new', targetId: '' }), null);
   assert.equal(parseHash(issueHref({ target: 'sources', targetId: 's 1' })).target, 's 1', 'the page opens what the link names');

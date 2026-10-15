@@ -21,13 +21,13 @@ export function worstLevel(issues: { level: string }[]): 'error' | 'warning' | n
 }
 
 /** Where in the app an issue can be fixed, or null when nowhere this version knows. A source's
- *  issue opens that source; the backups' scroll to the Backups card. */
+ *  or connection's issue opens its dialog; the backups' scroll to the Backups card. */
 export function issueHref(issue: { target: string; targetId: string }): string | null {
   switch (issue.target) {
     case 'providers': return '#/providers';
     case 'sources': return issue.targetId ? `#/sources/${encodeURIComponent(issue.targetId)}` : '#/sources';
     case 'system/backups': return '#/system/backups';
-    case 'notifications': return '#/notifications';
+    case 'notifications': return issue.targetId ? `#/notifications/${encodeURIComponent(issue.targetId)}` : '#/notifications';
     default: return null;
   }
 }

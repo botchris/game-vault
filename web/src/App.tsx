@@ -8,6 +8,7 @@ import HomePage from './features/home/HomePage';
 import { noteOpeningPage } from './features/home/entrance';
 import LibraryPage from './features/library/LibraryPage';
 import LogsPage from './features/logs/LogsPage';
+import NotificationsPage from './features/notifications/NotificationsPage';
 import FieldsPage from './features/fields/FieldsPage';
 import ProvidersPage from './features/providers/ProvidersPage';
 import ScanPage from './features/scan/ScanPage';
@@ -23,6 +24,7 @@ import { AppDataProvider, useAppData } from './state/AppData';
 const SETTINGS: { route: Page; icon: IconName }[] = [
   { route: 'sources', icon: 'sources' },
   { route: 'providers', icon: 'providers' },
+  { route: 'notifications', icon: 'bell' },
   { route: 'fields', icon: 'fields' },
   { route: 'system', icon: 'system' },
   { route: 'logs', icon: 'logs' },
@@ -98,6 +100,7 @@ function Shell() {
             {route === 'scan' && <ScanPage />}
             {route === 'sources' && <SourcesPage target={target} />}
             {route === 'providers' && <ProvidersPage />}
+            {route === 'notifications' && <NotificationsPage target={target} />}
             {route === 'fields' && <FieldsPage />}
             {route === 'system' && <SystemPage target={target} />}
             {route === 'logs' && <LogsPage />}
