@@ -5,6 +5,7 @@ import type { FieldDefinition } from '../gen/gamevault/v1/field_pb';
 import type { Game } from '../gen/gamevault/v1/game_pb';
 import type { Source, SourceType } from '../gen/gamevault/v1/source_pb';
 import type { PreferencesState } from '../lib/preferences';
+import { registerSystems } from '../components/PlatformBadge';
 import type { SystemInfo } from '../lib/systems';
 
 interface AppData {
@@ -80,7 +81,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const loadSystems = useCallback(async () => {
     try {
       const res = await catalogClient.listSystems({});
-      setSystems(res.systems.map((s) => ({ name: s.name, maker: s.maker, kind: s.kind, year: s.year, aliases: s.aliases, short: s.short })));
+      const list = res.systems.map((s) => ({ name: s.name, maker: s.maker, kind: s.kind, year: s.year, aliases: s.aliases, short: s.short }));
+      registerSystems(list);
+      setSystems(list);
     } catch (e) {
       setError(errorMessage(e));
     }

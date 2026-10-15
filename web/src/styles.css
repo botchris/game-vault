@@ -344,6 +344,8 @@ input[type="checkbox"], input[type="radio"] { min-height: 0; accent-color: var(-
 .filter-panel h3 { margin: 0 0 10px; font-size: 14px; color: var(--muted); font-weight: 600; }
 .filter-panel p { margin: 10px 0 0; }
 .choice-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.choice-group + .choice-group { margin-top: 10px; }
+.choice-group-title { margin: 0 0 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
 .choice { border-radius: var(--radius-pill); min-height: 32px; padding: 4px 12px; font-size: 14px; font-weight: 500; }
 .choice.active { background: var(--text); border-color: var(--text); color: var(--bg); }
 .choice.active:hover:not(:disabled) { background: var(--text); }

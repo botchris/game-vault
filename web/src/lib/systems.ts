@@ -70,3 +70,29 @@ export function pickerGroups(catalog: readonly SystemInfo[], owned: readonly str
   const own = owned.map((name) => ({ name, maker: findSystem(catalog, name)?.maker ?? '' }));
   return [{ maker: null, options: own }, ...groups];
 }
+
+/** The user's system names grouped by maker, makers and systems in catalog order; names the catalog does not know go last under an empty maker. */
+export function groupByMaker(names: readonly string[], catalog: readonly SystemInfo[]): { maker: string; names: string[] }[] {
+  const wanted = new Map(names.map((n) => [systemKey(n), n]));
+  const byMaker = new Map<string, string[]>();
+  for (const s of catalog) {
+    const key = systemKey(s.name);
+    const name = wanted.get(key);
+    if (name === undefined) continue;
+    wanted.delete(key);
+    const list = byMaker.get(s.maker);
+    if (list) list.push(name);
+    else byMaker.set(s.maker, [name]);
+  }
+  const groups = [...byMaker].map(([maker, list]) => ({ maker, names: list }));
+  // Aliases (a name the user typed that the catalog knows by another) count as catalog systems.
+  const others: string[] = [];
+  for (const name of wanted.values()) {
+    const found = findSystem(catalog, name);
+    const g = found && groups.find((x) => x.maker === found.maker);
+    if (g) g.names.push(name);
+    else if (found) groups.push({ maker: found.maker, names: [name] });
+    else others.push(name);
+  }
+  return others.length ? [...groups, { maker: '', names: others }] : groups;
+}

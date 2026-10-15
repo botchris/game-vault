@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { findSystem, pickerGroups, systemKey } from '../src/lib/systems.ts';
+import { findSystem, groupByMaker, pickerGroups, systemKey } from '../src/lib/systems.ts';
 
 const sys = (name, maker, aliases = [], kind = 'home') => ({ name, maker, kind, year: 2000, aliases, short: '' });
 const catalog = [
@@ -45,4 +45,14 @@ test('a query matching a name shows no alias', () => {
 
 test('no match gives no groups (the picker offers the typed text)', () => {
   assert.deepEqual(pickerGroups(catalog, [], 'amiga'), []);
+});
+
+test('groupByMaker groups by maker in catalog order and puts unknown names last', () => {
+  const groups = groupByMaker(['Mega Drive', 'Zeebo', 'NES', 'PS4', 'SNES'], catalog);
+  assert.deepEqual(groups, [
+    { maker: 'Sony', names: ['PS4'] },
+    { maker: 'Nintendo', names: ['SNES', 'NES'] },
+    { maker: 'Sega', names: ['Mega Drive'] },
+    { maker: '', names: ['Zeebo'] },
+  ]);
 });

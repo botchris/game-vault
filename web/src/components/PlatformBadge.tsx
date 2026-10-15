@@ -5,6 +5,7 @@ import {
 import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CopyKind, CopyStatus, isPendingKey, kindKey, type Copy, type Game } from '../lib/model';
+import { systemKey, type SystemInfo } from '../lib/systems';
 
 /**
  * A glyph: a filled path (Simple Icons, CC0, on a 24×24 box unless viewBox says otherwise) or our
@@ -80,8 +81,28 @@ const LOOKS: Record<string, PlatformLook> = {
   'sega': { glyph: si(siSega), bg: '#0089cf' },
 };
 
+/** Each maker's colour: platform colours encode who made the system. */
+const MAKER_BG: Record<string, string> = {
+  Nintendo: NINTENDO_BG, Sony: PS_BG, Microsoft: XBOX_BG, Sega: '#0089cf', Atari: '#c4161c', NEC: '#24408e',
+  SNK: '#1f1f1f', Bandai: '#e4002b', Commodore: '#3d4f9e', Sinclair: '#2b2b2b', Amstrad: '#1f6f43',
+};
+const MAKER_GLYPHS: Record<string, Glyph | undefined> = { Sega: si(siSega), Sony: PS, Microsoft: XBOX };
+
+// The catalog of systems, by systemKey(name). platformLook is used outside components (e.g. the
+// home's collection block), so it reads this module-level map instead of the React context.
+let catalogSystems = new Map<string, SystemInfo>();
+
+/** Hands the catalog to platformLook; AppData calls it as soon as the catalog loads, before it sets its state. */
+export function registerSystems(list: SystemInfo[]) {
+  catalogSystems = new Map(list.map((s) => [systemKey(s.name), s]));
+}
+
 export function platformLook(platform: string): PlatformLook {
-  return LOOKS[platform.trim().toLowerCase()] ?? { glyph: STORE, label: platform, bg: '#4b5568' };
+  const known = LOOKS[platform.trim().toLowerCase()];
+  if (known) return known;
+  const system = catalogSystems.get(systemKey(platform));
+  if (system) return { glyph: MAKER_GLYPHS[system.maker], label: system.short || system.name, bg: MAKER_BG[system.maker] ?? '#4b5568' };
+  return { glyph: STORE, label: platform, bg: '#4b5568' };
 }
 
 function GlyphSvg({ glyph, size }: { glyph: Glyph; size: number }) {

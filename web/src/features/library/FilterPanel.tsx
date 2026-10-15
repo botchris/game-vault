@@ -5,6 +5,7 @@ import { useEscape } from '../../components/useEscape';
 import { MANUAL, NO_FILTERS, activeFilterCount, systemCounts, type Filters } from '../../lib/editions';
 import { filterOptions, isFilterable, type Definition } from '../../lib/fields';
 import { CopyKind, KINDS, PLAY_STATUSES, PlayStatus, kindKey, playKey, type Game } from '../../lib/model';
+import { groupByMaker } from '../../lib/systems';
 import { useAppData } from '../../state/AppData';
 
 function toggle<T>(list: T[], v: T) {
@@ -27,7 +28,7 @@ export default function FilterPanel({ games, total, filters, onChange, onClose, 
 }) {
   const { t, i18n } = useTranslation();
   const panel = useRef<HTMLDivElement>(null);
-  const { sources: configured, fields: defs } = useAppData();
+  const { sources: configured, fields: defs, systems: catalog } = useAppData();
 
   useEscape(onClose);
   useEffect(() => {
@@ -60,6 +61,11 @@ export default function FilterPanel({ games, total, filters, onChange, onClose, 
   }, [games, configured, i18n.language]);
 
   const systems = useMemo(() => systemCounts(games), [games]);
+  const systemGroups = useMemo(() => {
+    if (systems.length <= 8) return null;
+    const counts = new Map(systems);
+    return groupByMaker(systems.map(([s]) => s), catalog).map((g) => ({ maker: g.maker, items: g.names.map((n) => [n, counts.get(n) ?? 0] as const) }));
+  }, [systems, catalog]);
 
   // Only fields with a fixed set of values make sense as filters; options no game has are hidden.
   const fieldGroups = useMemo(() => defs.filter(isFilterable)
@@ -128,12 +134,17 @@ export default function FilterPanel({ games, total, filters, onChange, onClose, 
 
         <section>
           <h3>{t('library.filters.systems')}</h3>
-          <div className="choice-row">
-            {systems.map(([s, n]) => (
-              <button key={s} className={`choice ${filters.systems.includes(s) ? 'active' : ''}`} aria-pressed={filters.systems.includes(s)}
-                onClick={() => onChange({ ...filters, systems: toggle(filters.systems, s) })}>{s}<span className="choice-count">{n}</span></button>
-            ))}
-          </div>
+          {(systemGroups ?? [{ maker: null, items: systems }]).map((g) => (
+            <div key={g.maker ?? ''} className="choice-group">
+              {g.maker !== null && <h4 className="choice-group-title">{g.maker || t('systemPicker.otherMaker')}</h4>}
+              <div className="choice-row">
+                {g.items.map(([s, n]) => (
+                  <button key={s} className={`choice ${filters.systems.includes(s) ? 'active' : ''}`} aria-pressed={filters.systems.includes(s)}
+                    onClick={() => onChange({ ...filters, systems: toggle(filters.systems, s) })}>{s}<span className="choice-count">{n}</span></button>
+                ))}
+              </div>
+            </div>
+          ))}
         </section>
 
         <section>
