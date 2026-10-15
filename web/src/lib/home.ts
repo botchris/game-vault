@@ -153,6 +153,18 @@ export function canRefresh(refreshableAt: Date | null, now: Date): boolean {
   return !refreshableAt || refreshableAt.getTime() <= now.getTime();
 }
 
+/** How long until a disabled Refresh may be pressed again, in ms; null when it may be now. */
+export function refreshDelay(refreshableAt: Date | null, now: Date): number | null {
+  if (!refreshableAt || refreshableAt.getTime() <= now.getTime()) return null;
+  return refreshableAt.getTime() - now.getTime();
+}
+
+/** Whole minutes until `at`, rounded up and at least 1: what "try again in N minutes" says. */
+export function minutesUntil(at: Date | null, now: Date): number {
+  const ms = at ? at.getTime() - now.getTime() : 0;
+  return Math.max(1, Math.ceil(ms / 60_000));
+}
+
 /** The address a deal or release card links to: the service's own, unaltered (ITAD's terms forbid
  *  changing its links), and only when it is https; anything else leaves the card without a link. */
 export function httpsLink(url: string): string {

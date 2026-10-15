@@ -22,7 +22,8 @@ export function ReleasesBlock(props: {
   return (
     <ExternalBlock id="home-releases" title={t('home.releases.title')} block={props.block} loading={props.loading}
       refreshing={props.refreshing} refreshError={props.refreshError} onRefresh={props.onRefresh}
-      notConfigured={t('home.releases.notConfigured')}>
+      notConfigured={t('home.releases.notConfigured')}
+      neverFetched={t('home.releases.neverFetched', { provider: props.block?.provider ?? '' })}>
       <h3>{t('home.releases.series')}</h3>
       <ReleaseRow releases={props.fromSeries} label={t('home.releases.series')} none={t('home.releases.noneSeries')} />
       <h3>{t('home.releases.anticipated')}</h3>
@@ -37,8 +38,9 @@ function ReleaseRow({ releases, label, none }: { releases: HomeRelease[]; label:
 }
 
 function ReleaseCard({ release: r }: { release: HomeRelease }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const fmt = useFormatters();
+  const systems = new Intl.ListFormat(i18n.language, { type: 'unit' }).format(r.platforms);
   const when = r.releaseDate ? fmt.date(r.releaseDate) : t('home.releases.tba');
   const href = httpsLink(r.url);
 
@@ -46,7 +48,7 @@ function ReleaseCard({ release: r }: { release: HomeRelease }) {
     <>
       <div className="release-cover">{r.coverUrl ? <img src={proxiedImage(r.coverUrl)} alt="" loading="lazy" /> : null}</div>
       <strong className="deal-title">{r.title}</strong>
-      <span className="muted small">{[when, r.platforms.join(', ')].filter(Boolean).join(' · ')}</span>
+      <span className="muted small">{[when, systems].filter(Boolean).join(' · ')}</span>
     </>
   );
 

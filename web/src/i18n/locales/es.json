@@ -38,7 +38,8 @@
     "refreshSoon": "Actualizado hace menos de 15 minutos",
     "updated": "Actualizado {{when}}",
     "neverUpdated": "Aún sin actualizar",
-    "neverFetched": "Aún no hay nada: se pregunta a {{provider}} en segundo plano cada pocas horas, o ahora con Actualizar.",
+    "tooSoon_one": "Se actualizó hace un momento: vuelve a intentarlo en {{count}} minuto.",
+    "tooSoon_other": "Se actualizó hace un momento: vuelve a intentarlo en {{count}} minutos.",
     "configure": "Configurar en Proveedores",
     "previous": "Anterior",
     "next": "Siguiente",
@@ -62,7 +63,8 @@
       "endsIn_other": "Termina en {{count}} días",
       "ownedOn": "Lo tienes en {{systems}}",
       "credit": "Precios de",
-      "notConfigured": "Añade una clave gratuita de IsThereAnyDeal para ver las ofertas del día, sin los juegos que ya tienes."
+      "notConfigured": "Añade una clave gratuita de IsThereAnyDeal para ver las ofertas del día, sin los juegos que ya tienes.",
+      "neverFetched": "Aún no hay nada: se pregunta a {{provider}} en segundo plano cada 6 horas, o ahora con Actualizar."
     },
     "releases": {
       "title": "Próximos lanzamientos",
@@ -72,7 +74,8 @@
       "noneAnticipated": "No hay nada anunciado para los próximos 60 días.",
       "because": "Porque tienes {{title}}",
       "tba": "Fecha por anunciar",
-      "notConfigured": "Activa los lanzamientos de IGDB para ver lo que sale pronto de tus series y los juegos más esperados."
+      "notConfigured": "Activa los lanzamientos de IGDB para ver lo que sale pronto de tus series y los juegos más esperados.",
+      "neverFetched": "Aún no hay nada: se pregunta a {{provider}} en segundo plano una vez al día, o ahora con Actualizar."
     },
     "collection": {
       "title": "Tu colección",

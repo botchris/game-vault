@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  blockMode, canRefresh, collectionSummary, endsInDays, httpsLink, libraryPreset, pendingItems, pickValue, staleLine,
+  blockMode, canRefresh, collectionSummary, endsInDays, httpsLink, libraryPreset, minutesUntil, pendingItems, pickValue, refreshDelay,
+  staleLine,
 } from '../src/lib/home.ts';
 
 const t = (key, opts) => `${key}${opts ? ' ' + JSON.stringify(opts) : ''}`;
@@ -146,4 +147,21 @@ test('a card links out only over https, with the address exactly as the service 
   assert.equal(httpsLink('//www.igdb.com/games/harbor-lights'), '');
   assert.equal(httpsLink('not a url'), '');
   assert.equal(httpsLink(''), '');
+});
+
+test('a disabled Refresh comes back when its time has come', () => {
+  const now = new Date('2026-10-15T12:00:00Z');
+  assert.equal(refreshDelay(null, now), null, 'never refreshed: enabled now');
+  assert.equal(refreshDelay(new Date('2026-10-15T11:59:00Z'), now), null, 'already past');
+  assert.equal(refreshDelay(now, now), null, 'exactly now');
+  assert.equal(refreshDelay(new Date('2026-10-15T12:07:30Z'), now), 450_000);
+});
+
+test('a refresh asked too soon says how many whole minutes are left, at least one', () => {
+  const now = new Date('2026-10-15T12:00:00Z');
+  assert.equal(minutesUntil(new Date('2026-10-15T12:14:01Z'), now), 15);
+  assert.equal(minutesUntil(new Date('2026-10-15T12:14:00Z'), now), 14);
+  assert.equal(minutesUntil(new Date('2026-10-15T12:00:10Z'), now), 1);
+  assert.equal(minutesUntil(new Date('2026-10-15T11:59:00Z'), now), 1, 'already past: still "in 1 minute"');
+  assert.equal(minutesUntil(null, now), 1);
 });

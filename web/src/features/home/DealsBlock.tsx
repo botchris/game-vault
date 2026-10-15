@@ -25,7 +25,8 @@ export function DealsBlock(props: {
   return (
     <ExternalBlock id="home-deals" title={t('home.deals.title')} block={props.block} loading={props.loading}
       refreshing={props.refreshing} refreshError={props.refreshError} onRefresh={props.onRefresh}
-      notConfigured={t('home.deals.notConfigured')}>
+      notConfigured={t('home.deals.notConfigured')}
+      neverFetched={t('home.deals.neverFetched', { provider: props.block?.provider ?? '' })}>
       <h3>{t('home.deals.featured')}</h3>
       <DealRow deals={props.featured} label={t('home.deals.featured')} />
       <h3>{t('home.deals.lows')}</h3>
@@ -48,6 +49,7 @@ function DealCard({ deal: d }: { deal: HomeDeal }) {
   const lang = i18n.language;
   const ends = endsInDays(toDate(d.expiresAt), new Date());
   const price = d.price ? formatAmount(d.price.amountMinor, d.price.currency, lang) : t('home.deals.free');
+  const owned = d.ownedOn.length ? new Intl.ListFormat(lang, { type: 'conjunction' }).format(d.ownedOn) : '';
   const regular = d.regular && d.cut > 0 ? formatAmount(d.regular.amountMinor, d.regular.currency, lang) : '';
   // ITAD's link as it gave it (with its tags), and only over https.
   const href = httpsLink(d.url);
@@ -64,7 +66,7 @@ function DealCard({ deal: d }: { deal: HomeDeal }) {
       </span>
       {d.historicalLow && <span className="badge low">{t('home.deals.historicalLow')}</span>}
       {ends !== null && <span className="muted small">{ends === 0 ? t('home.deals.endsToday') : t('home.deals.endsIn', { count: ends })}</span>}
-      {d.ownedOn.length > 0 && <span className="small">{t('home.deals.ownedOn', { systems: d.ownedOn.join(', ') })}</span>}
+      {owned && <span className="small">{t('home.deals.ownedOn', { systems: owned })}</span>}
     </>
   );
 

@@ -784,7 +784,10 @@ td.title { font-weight: 500; min-width: 220px; }
 .carousel { position: relative; }
 .carousel-track {
   display: grid; grid-auto-flow: column; grid-auto-columns: 168px; gap: 12px; overflow-x: auto; overscroll-behavior-x: contain;
-  scroll-snap-type: x mandatory; list-style: none; margin: 0; padding: 2px 2px 8px; scrollbar-width: thin;
+  scroll-snap-type: x mandatory; list-style: none; scrollbar-width: thin;
+  /* Room for the cards' focus ring, which the scroller would clip; the negative margin keeps the
+     cards aligned with the headings, and the scroll padding keeps the snap points on them. */
+  margin: 0 -4px; padding: 4px 4px 8px; scroll-padding-inline: 4px;
 }
 .carousel-track > li { scroll-snap-align: start; min-width: 0; }
 .carousel-arrow {
