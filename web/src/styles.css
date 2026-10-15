@@ -807,19 +807,24 @@ td.title { font-weight: 500; min-width: 220px; }
 }
 .home-hero-body { display: flex; align-items: center; justify-content: space-between; gap: 48px; padding: 56px var(--home-gutter) 140px; }
 /* A wide picture fills the right of the band and fades into the text and the strip; the art beside
-   the text is the phone's. The scrims keep the text and the strip readable over any art. */
-.home-hero-wide { position: absolute; inset: 0 0 0 36%; z-index: -1; }
-/* Anchored right: the band is less wide than the art, and its left edge fades out anyway. The
-   picture fades to transparent towards the text (a mask, not dark paint over it), so it melts into
-   whatever lies behind, with no edge where the layer starts; a shade at the bottom keeps the strip
-   readable. */
-.home-hero-wide > img {
-  display: block; width: 100%; height: 100%; object-fit: cover; object-position: right center;
-  mask-image: linear-gradient(90deg, transparent 0%, rgb(0 0 0 / .55) 22%, #000 48%);
+   the text is the phone's. Anchored right: the band is less wide than the art, and its left edge
+   fades out anyway. The whole layer fades to transparent towards the text through a mask (no dark
+   paint over it, and nothing in the layer escapes the mask), along an eased ramp across more than
+   most of its width, so it melts into what lies behind with no edge where it starts. */
+.home-hero-wide {
+  position: absolute; inset: 0 0 0 28%; z-index: -1;
+  /* A smoothstep: it starts and ends flat, so no line shows where the fade begins over bright art. */
+  mask-image: linear-gradient(90deg, transparent 0%, rgb(0 0 0 / .03) 8%, rgb(0 0 0 / .1) 16%, rgb(0 0 0 / .22) 24%,
+    rgb(0 0 0 / .37) 32%, rgb(0 0 0 / .54) 40%, rgb(0 0 0 / .7) 48%, rgb(0 0 0 / .84) 56%, rgb(0 0 0 / .94) 64%, #000 72%);
 }
-.home-hero-wide::after {
-  content: ''; position: absolute; inset: 0;
-  background: linear-gradient(0deg, rgb(14 16 28 / .85) 0%, rgb(14 16 28 / 0) 45%);
+.home-hero-wide > img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: right center; }
+/* The shade that keeps the strip readable spans the whole band, so it has no edge either; drawn
+   after the layers, under the text. */
+@media (min-width: 861px) {
+  .home-hero-slide.is-wide::after {
+    content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    background: linear-gradient(0deg, rgb(14 16 28 / .8) 0%, rgb(14 16 28 / 0) 42%);
+  }
 }
 /* Behind a wide picture the blurred copy only tints the text's side, darker than for a poster. */
 .home-hero-slide.is-wide .home-hero-backdrop > img { opacity: .45; }
