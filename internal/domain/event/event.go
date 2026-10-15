@@ -123,6 +123,15 @@ type GameRef struct {
 	Systems []string `json:"systems"`
 }
 
+// RefOf names game g in an event, with the systems of its copies.
+func RefOf(g *game.Game) GameRef {
+	return GameRef{
+		ID:      g.ID(),
+		Title:   g.Title(),
+		Systems: g.Systems(),
+	}
+}
+
 // CollectionAdded is KindCollectionAdded's payload.
 type CollectionAdded struct {
 	// Origin says where the games came from.
@@ -160,6 +169,19 @@ type Release struct {
 
 	// BecauseTitle is that game's title.
 	BecauseTitle string `json:"becauseTitle"`
+}
+
+// ReleaseOf returns the payload telling about release r.
+func ReleaseOf(r game.Release) Release {
+	return Release{
+		Title:        r.Title,
+		Date:         r.Date,
+		Platforms:    r.Platforms,
+		CoverURL:     r.CoverURL,
+		URL:          r.URL,
+		Because:      r.Because,
+		BecauseTitle: r.BecauseTitle,
+	}
 }
 
 // Money is an amount in a currency's minor unit (cents for EUR), as game.Money, with stable JSON

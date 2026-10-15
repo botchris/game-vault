@@ -7,8 +7,10 @@ import (
 	"slices"
 	"time"
 
+	"gamevault/internal/application/events"
 	"gamevault/internal/application/port"
 	"gamevault/internal/domain/errkind"
+	"gamevault/internal/domain/event"
 	"gamevault/internal/domain/field"
 	"gamevault/internal/domain/game"
 )
@@ -37,9 +39,11 @@ type Service struct {
 	covers CoverCache
 	photos PhotoFiles
 	fields field.Repository
+	events events.Publisher
 }
 
-// NewService builds the service. Options: WithClock, WithCoverCache, WithPhotoFiles, WithFields.
+// NewService builds the service. Options: WithClock, WithCoverCache, WithPhotoFiles, WithFields,
+// WithEvents.
 func NewService(games game.Repository, tx port.TxManager, opts ...Option) *Service {
 	s := &Service{
 		games:  games,
@@ -48,12 +52,18 @@ func NewService(games game.Repository, tx port.TxManager, opts ...Option) *Servi
 		covers: NoCoverCache{},
 		photos: anyPhoto{},
 		fields: noFields{},
+		events: events.Nop{},
 	}
 	for _, opt := range opts {
 		opt(s)
 	}
 
 	return s
+}
+
+// publishAdded tells that games entered the collection. Call it once the change is saved.
+func (s *Service) publishAdded(ctx context.Context, added event.CollectionAdded) {
+	s.events.Publish(ctx, event.New(event.KindCollectionAdded, s.now(), added))
 }
 
 // fieldSet returns the custom field definitions.
@@ -136,6 +146,11 @@ func (s *Service) CreateGame(ctx context.Context, info game.Info, copies []game.
 	if err != nil {
 		return nil, err
 	}
+
+	s.publishAdded(ctx, event.CollectionAdded{
+		Origin: event.OriginManual,
+		Games:  []event.GameRef{event.RefOf(g)},
+	})
 
 	return g, nil
 }

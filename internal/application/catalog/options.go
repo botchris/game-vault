@@ -3,6 +3,7 @@ package catalog
 import (
 	"context"
 
+	"gamevault/internal/application/events"
 	"gamevault/internal/application/port"
 	"gamevault/internal/domain/field"
 	"gamevault/internal/domain/game"
@@ -23,6 +24,9 @@ func WithPhotoFiles(photos PhotoFiles) Option { return func(s *Service) { s.phot
 
 // WithFields sets the custom field definitions. Without them, no custom fields are defined.
 func WithFields(fields field.Repository) Option { return func(s *Service) { s.fields = fields } }
+
+// WithEvents sets the publisher told about the games added by hand (none by default: events.Nop).
+func WithEvents(p events.Publisher) Option { return func(s *Service) { s.events = p } }
 
 // anyPhoto is the PhotoFiles of a service built without one: every photo counts as uploaded.
 type anyPhoto struct{}

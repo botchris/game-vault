@@ -101,3 +101,41 @@ func TestPayloads_jsonNames(t *testing.T) {
 		})
 	})
 }
+
+func TestRefOf_andReleaseOf(t *testing.T) {
+	g, err := game.New("Copper Tides", time.Date(2026, 10, 15, 9, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	for _, platform := range []string{"PS4", "Steam", "PS4"} {
+		_, err := g.AddCopy(game.CopyDetails{
+			Kind:     game.KindLibrary,
+			Platform: platform,
+		}, time.Date(2026, 10, 15, 9, 0, 0, 0, time.UTC))
+		require.NoError(t, err)
+	}
+
+	assert.Equal(t, event.GameRef{
+		ID:      g.ID(),
+		Title:   "Copper Tides",
+		Systems: []string{"PC", "PS4"},
+	}, event.RefOf(g), "each system once, sorted")
+
+	assert.Equal(t, event.Release{
+		Title:        "Copper Tides II",
+		Date:         "2027-03-01",
+		Platforms:    []string{"PC"},
+		CoverURL:     "https://example.com/c.jpg",
+		URL:          "https://example.com/r",
+		Because:      g.ID(),
+		BecauseTitle: "Copper Tides",
+	}, event.ReleaseOf(game.Release{
+		ProviderGameID: "db-1",
+		Title:          "Copper Tides II",
+		Date:           "2027-03-01",
+		Platforms:      []string{"PC"},
+		CoverURL:       "https://example.com/c.jpg",
+		URL:            "https://example.com/r",
+		Because:        g.ID(),
+		BecauseTitle:   "Copper Tides",
+	}))
+}
