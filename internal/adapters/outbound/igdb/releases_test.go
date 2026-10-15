@@ -325,3 +325,25 @@ func TestReleases_test(t *testing.T) {
 		})
 	})
 }
+
+func TestReleases_systemsBeyondTheFirstTwentyAreNamed(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN IGDB lists an upcoming game for the Switch 2", func(t *testing.T) {
+		f := newFakeIGDB(t)
+		f.anticipated = `[{"id": 3002, "name": "Tide Runner", "first_release_date": 1796083200,
+  "url": "https://www.igdb.com/games/tide-runner", "platforms": [508], "franchises": [], "collections": []}]`
+		r := NewReleases(f.client(func() time.Time { return releaseNow }))
+
+		t.Run("WHEN the releases are asked for", func(t *testing.T) {
+			got, err := r.Anticipated(ctx, goodSettings, 60*24*time.Hour)
+			require.NoError(t, err)
+
+			t.Run("THEN its platform is the catalog's Switch 2", func(t *testing.T) {
+				require.Len(t, got, 1)
+				assert.Equal(t, []string{"Switch 2"}, got[0].Platforms)
+			})
+		})
+	})
+}

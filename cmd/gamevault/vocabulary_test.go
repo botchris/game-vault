@@ -6,6 +6,7 @@ import (
 	"go/token"
 	"io/fs"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -32,9 +33,6 @@ var rawVocabulary = []struct {
 	{"internal/adapters/outbound/playstation/provider.go", "sonyPlatforms", "PS3"},
 	{"internal/adapters/outbound/playstation/provider.go", "sonyPlatforms", "PS VITA"},
 
-	// TheGamesDB's own platform name for PC.
-	{"internal/adapters/outbound/thegamesdb/provider.go", "platformNames", "PC"},
-
 	// Ubisoft's game type, and the word in its product names, that mark a PC game.
 	{"internal/adapters/outbound/ubisoft/provider.go", "onPC", "PC"},
 
@@ -45,6 +43,22 @@ var rawVocabulary = []struct {
 	// The imaginary store of the plugin template, which is never registered: a real store adds its
 	// link key to the domain (internal/domain/game/platforms.go).
 	{"internal/adapters/outbound/example/plugin.go", "LinkedStore", "example"},
+}
+
+// systemTables are provider tables keyed by catalog system names written as literals: a hundred
+// systems have no game constant, and game.CheckProviderCoverage fails on a key that is not a
+// catalog name, so they cannot drift; the same goes for each provider's unmappedSystems. Literals
+// inside them are not checked.
+var systemTables = []struct {
+	file string
+	decl string
+}{
+	{"internal/adapters/outbound/igdb/match.go", "platformIDs"},
+	{"internal/adapters/outbound/igdb/match.go", "unmappedSystems"},
+	{"internal/adapters/outbound/thegamesdb/provider.go", "platformNames"},
+	{"internal/adapters/outbound/thegamesdb/provider.go", "unmappedSystems"},
+	{"internal/adapters/outbound/wikipedia/details.go", "platformItems"},
+	{"internal/adapters/outbound/wikipedia/details.go", "unmappedSystems"},
 }
 
 // TestVocabulary_adaptersUseTheDomainNames fails when the code outside the domain writes a platform
@@ -105,6 +119,14 @@ func TestVocabulary_adaptersUseTheDomainNames(t *testing.T) {
 
 			for _, decl := range f.Decls {
 				name := declName(decl)
+				if slices.ContainsFunc(systemTables, func(tb struct {
+					file string
+					decl string
+				}) bool {
+					return tb.file == rel && tb.decl == name
+				}) {
+					continue
+				}
 
 				ast.Inspect(decl, func(n ast.Node) bool {
 					if lit, ok := n.(*ast.CompositeLit); ok {
