@@ -4,6 +4,7 @@ import { PageHeader } from '../../components/PageHeader';
 import { errorMessage, gameClient, lookupClient } from '../../api/client';
 import { Cover } from '../../components/Cover';
 import { Icon } from '../../components/Icon';
+import SystemPicker from '../../components/SystemPicker';
 import { Alert } from '../../components/ui';
 import type { IdentifyBarcodeResponse } from '../../gen/gamevault/v1/lookup_pb';
 import { CopyContent, CopyGrade } from '../../gen/gamevault/v1/game_pb';
@@ -330,7 +331,6 @@ export default function ScanPage() {
 /** What is applied to every box of the batch, always visible; the fields open in place. */
 function BatchBar({ defaults, onChange }: { defaults: Defaults; onChange: (d: Defaults) => void }) {
   const { t } = useTranslation();
-  const { systems } = useAppData();
   const [editing, setEditing] = useState(false);
   const value = (v: string, empty: string) => v || empty;
   const physical = describePhysical(t, defaults);
@@ -346,18 +346,15 @@ function BatchBar({ defaults, onChange }: { defaults: Defaults; onChange: (d: De
       </button>
       {editing && (
         <div className="batch-fields">
-          <label>
-            {t('scan.batch.platform')}
-            <input list="scan-platforms" value={defaults.platform} autoFocus
-              onChange={(e) => onChange({ ...defaults, platform: e.target.value })} placeholder={t('scan.batch.platformAuto')} />
-          </label>
+          {/* Focused when the user opens these fields; the list opens only when they type or click. */}
+          <SystemPicker label={t('scan.batch.platform')} value={defaults.platform} autoFocus
+            onChange={(platform) => onChange({ ...defaults, platform })} placeholder={t('scan.batch.platformAuto')} />
           <GradeSelect value={defaults.grade} onChange={(grade) => onChange({ ...defaults, grade })} />
           <ContentsToggles value={defaults.contents} onChange={(contents) => onChange({ ...defaults, contents })} />
           <LocationInput value={defaults.location} onChange={(location) => onChange({ ...defaults, location })} />
           <p className="muted small batch-hint">{t('scan.batch.hint')}</p>
         </div>
       )}
-      <datalist id="scan-platforms">{systems.map((s) => <option key={s.name} value={s.name} />)}</datalist>
     </div>
   );
 }

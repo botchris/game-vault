@@ -1,9 +1,11 @@
 import { create } from '@bufbuild/protobuf';
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import SystemPicker from '../../components/SystemPicker';
 import { Alert, Modal } from '../../components/ui';
 import { MoneySchema } from '../../gen/gamevault/v1/game_pb';
 import { systemOf } from '../../lib/editions';
+import { findSystem } from '../../lib/systems';
 import { copyValuesFor } from '../../lib/fields';
 import { amountInput, currencyList } from '../../lib/money';
 import {
@@ -66,14 +68,13 @@ export default function CopyForm({ initial, managedBy, sourceSystem, onSubmit, o
       // after a kind change; values of fields this page does not know are kept, never erased.
       const values = cleanFields(copyValuesFor(d.fields, fields, d.kind));
       // The system goes back to automatic when it is emptied, or edited to what automatic gives
-      // (when that is known).
+      // (when that is known). A typed alias counts as its system ("Super Famicom" is "SNES").
       const typed = d.system.trim();
-      const system = typed === '' || (systemEdited && automatic !== null && systemOf(typed, systemNames) === automatic) ? '' : typed;
+      const resolved = findSystem(systems, typed)?.name ?? typed;
+      const system = typed === '' || (systemEdited && automatic !== null && systemOf(resolved, systemNames) === automatic) ? '' : typed;
       await onSubmit({ ...d, system, price: price.minor ? create(MoneySchema, { amountMinor: price.minor, currency }) : undefined, fields: values });
     });
   };
-
-  const platforms = d.kind === CopyKind.PHYSICAL ? systemNames : STORE_PLATFORMS;
 
   return (
     <Modal title={initial ? t('copy.edit') : t('copy.add')} onClose={onClose}
@@ -90,19 +91,20 @@ export default function CopyForm({ initial, managedBy, sourceSystem, onSubmit, o
           ))}
         </div>
         <div className="grid">
-          <label>
-            {t('copy.platform')}
-            <input list="copy-platforms" value={d.platform} onChange={(e) => set('platform', e.target.value)}
-              placeholder={d.kind === CopyKind.PHYSICAL ? 'PS4, Xbox 360…' : 'Steam, Ubisoft Connect…'} autoFocus />
-            <datalist id="copy-platforms">{platforms.map((p) => <option key={p} value={p} />)}</datalist>
-          </label>
-          <label>
-            {t('copy.system')}
-            <input list="copy-systems" value={d.system} placeholder={automatic ?? t('copy.systemAutomatic')}
-              onChange={(e) => { setSystemEdited(true); set('system', e.target.value); }} />
-            <datalist id="copy-systems">{systemNames.map((s) => <option key={s} value={s} />)}</datalist>
+          {d.kind === CopyKind.PHYSICAL ? (
+            <SystemPicker label={t('copy.platform')} value={d.platform} onChange={(v) => set('platform', v)} placeholder="PS4, Xbox 360…" autoFocus />
+          ) : (
+            <label>
+              {t('copy.platform')}
+              <input list="copy-platforms" value={d.platform} onChange={(e) => set('platform', e.target.value)}
+                placeholder="Steam, Ubisoft Connect…" autoFocus />
+              <datalist id="copy-platforms">{STORE_PLATFORMS.map((p) => <option key={p} value={p} />)}</datalist>
+            </label>
+          )}
+          <SystemPicker label={t('copy.system')} value={d.system} placeholder={automatic ?? t('copy.systemAutomatic')}
+            onChange={(v) => { setSystemEdited(true); set('system', v); }}>
             <span className="help">{automatic === null ? t('copy.systemHelpOverride') : t('copy.systemHelp', { system: automatic })}</span>
-          </label>
+          </SystemPicker>
           <label>
             {t('copy.status')}
             <select value={d.status} onChange={(e) => set('status', Number(e.target.value))}>

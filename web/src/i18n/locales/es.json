@@ -1087,6 +1087,13 @@
     "useAsMain": "Usar como portada del juego",
     "isMain": "Portada del juego"
   },
+  "systemPicker": {
+    "search": "Buscar sistemas",
+    "yours": "En tu colección",
+    "use": "Usar «{{text}}»",
+    "none": "Ningún sistema coincide",
+    "otherMaker": "Otros"
+  },
   "notifications": {
     "title": "Notificaciones",
     "intro": "Envía lo que pasa en Game Vault a Telegram, ntfy o cualquier dirección web.",

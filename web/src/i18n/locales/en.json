@@ -1087,6 +1087,13 @@
     "useAsMain": "Use as the game's cover",
     "isMain": "The game's cover"
   },
+  "systemPicker": {
+    "search": "Search systems",
+    "yours": "In your collection",
+    "use": "Use “{{text}}”",
+    "none": "No system matches",
+    "otherMaker": "Other"
+  },
   "notifications": {
     "title": "Notifications",
     "intro": "Send what happens in Game Vault to Telegram, ntfy or any web address.",

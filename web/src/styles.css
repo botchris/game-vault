@@ -371,6 +371,49 @@ input[type="checkbox"], input[type="radio"] { min-height: 0; accent-color: var(-
   .choice { min-height: 38px; }
 }
 
+/* System picker (components/SystemPicker.tsx): a popover list on desktop, a bottom sheet on phones.
+   Both are manual popovers in the top layer (over any dialog), so the UA's popover box is reset. The
+   popover is placed by script (fixed, under or over its field); keyboard moves are never animated. */
+.system-popover, .system-sheet-layer { margin: 0; padding: 0; border: none; color: var(--text); inset: auto; }
+.system-popover {
+  position: fixed; z-index: var(--z-popover); overflow-y: auto; overscroll-behavior: contain;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-control); box-shadow: var(--shadow-md);
+  padding: 4px;
+  transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out);
+  @starting-style { opacity: 0; transform: scale(0.97); }
+}
+.system-group + .system-group, .system-use { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 4px; }
+.system-group-name { padding: 6px 10px 2px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.system-option {
+  padding: 7px 10px; border-radius: var(--radius-sm); font-size: 14px; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.system-option.current { font-weight: 650; }
+.system-option.active { background: var(--surface-2); }
+.system-none { margin: 0; padding: 10px; font-size: 14px; color: var(--muted); }
+.system-sheet-layer {
+  position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; z-index: var(--z-modal);
+  background: var(--backdrop); display: flex; flex-direction: column; justify-content: flex-end;
+  transition: opacity 240ms ease;
+  @starting-style { opacity: 0; }
+}
+.system-sheet {
+  display: flex; flex-direction: column; max-height: 82dvh; background: var(--surface);
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0; box-shadow: var(--shadow-lg);
+  padding-bottom: env(safe-area-inset-bottom);
+  transition: transform 380ms var(--ease-drawer);
+  @starting-style { transform: translateY(100%); }
+}
+.system-sheet-head { position: relative; padding: 18px 18px 10px; border-bottom: 1px solid var(--border); }
+.system-sheet-head::before {
+  content: ''; position: absolute; top: 7px; left: 50%; width: 38px; height: 4px; margin-left: -19px; border-radius: 2px; background: var(--surface-3);
+}
+.system-sheet-head h2 { margin: 0 0 10px; font-size: 17px; }
+.system-sheet-head input { width: 100%; font-size: 16px; min-height: 44px; }
+.system-sheet .system-list { overflow-y: auto; overscroll-behavior: contain; padding: 6px 10px 12px; }
+.system-sheet .system-option { padding: 11px 10px; font-size: 16px; }
+.system-sheet .system-group-name { padding-top: 10px; }
+
 /* ---------- Covers & posters ---------- */
 .cover { position: relative; aspect-ratio: 2 / 3; border-radius: var(--radius-md); overflow: hidden; background: var(--surface-2); }
 .cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
