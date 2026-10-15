@@ -15,6 +15,7 @@ import (
 	"gamevault/internal/application/events"
 	"gamevault/internal/application/media"
 	"gamevault/internal/application/port"
+	"gamevault/internal/application/unattended"
 	"gamevault/internal/domain/connection"
 	"gamevault/internal/domain/errkind"
 	"gamevault/internal/domain/event"
@@ -45,10 +46,20 @@ type Service struct {
 	// wakeup tells the dispatcher that deliveries were queued; it holds one signal at most.
 	wakeup chan struct{}
 
-	// mu guards the batch of games added by hand.
+	// rhythm waits between two messages of a connection and between two looks at the queue.
+	rhythm unattended.Rhythm
+
+	// lastSend is when each connection last sent, so its pace holds across rounds. Only the
+	// dispatcher's goroutine touches it.
+	lastSend map[connection.ID]time.Time
+
+	// mu guards the batch of games added by hand and flushFailing.
 	mu      sync.Mutex
 	pending *event.CollectionAdded
 	lastAt  time.Time
+
+	// flushFailing is true while queueing the batch keeps failing, so the failure is logged once.
+	flushFailing bool
 }
 
 var _ events.Publisher = (*Service)(nil)
@@ -66,6 +77,7 @@ func NewService(conns Connections, outbox Outbox, settings SettingsStore, catalo
 		log:        slog.New(slog.DiscardHandler),
 		window:     defaultBatchWindow,
 		wakeup:     make(chan struct{}, 1),
+		lastSend:   map[connection.ID]time.Time{},
 	}
 
 	for _, o := range opts {
@@ -165,8 +177,8 @@ func (s *Service) Delete(ctx context.Context, id connection.ID) error {
 // Test sends a sample message with the settings given, merged over the stored ones when id names a
 // saved connection (so masked secrets keep theirs), in cfg's language. When the connector can find
 // a setting the user left empty (Telegram's chat), it finds it first and returns it in found, for
-// the form to fill. A saved connection that was paused and passes the test is unpaused. Test sends
-// even when sending is off: the user pressed it.
+// the form to fill. A saved connection that was paused is unpaused when its stored settings pass the
+// test. Test sends even when sending is off: the user pressed it.
 func (s *Service) Test(ctx context.Context, id connection.ID, typ connection.Type, cfg connection.Config) (found map[string]string, err error) {
 	var (
 		saved  *connection.Connection
@@ -203,7 +215,9 @@ func (s *Service) Test(ctx context.Context, id connection.ID, typ connection.Typ
 		return found, err
 	}
 
-	if saved != nil && saved.Paused() {
+	// Only a pass of the very settings stored proves the pause is over; a pass of other, unsaved
+	// ones says nothing about them (Save unpauses when those are stored).
+	if saved != nil && saved.Paused() && maps.Equal(settings, stored) {
 		saved.Unpause()
 
 		if err := s.conns.Save(ctx, saved); err != nil {

@@ -86,15 +86,21 @@ func compare(a, b string) int {
 	}
 }
 
-// fakeOutbox keeps deliveries in memory, in the order they were queued.
+// fakeOutbox keeps deliveries in memory, in the order they were queued; enqueueErr makes queueing
+// fail.
 type fakeOutbox struct {
-	mu    sync.Mutex
-	items []notify.Delivery
+	mu         sync.Mutex
+	items      []notify.Delivery
+	enqueueErr error
 }
 
 func (f *fakeOutbox) Enqueue(_ context.Context, ds []notify.Delivery) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+
+	if f.enqueueErr != nil {
+		return f.enqueueErr
+	}
 
 	f.items = append(f.items, ds...)
 

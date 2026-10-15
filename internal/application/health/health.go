@@ -28,6 +28,9 @@ const (
 	KindSource   Kind = "source"
 	KindBackups  Kind = "backups"
 	KindDisk     Kind = "disk"
+
+	// KindConnector is a notification connection (Telegram, ntfy, a webhook…).
+	KindConnector Kind = "connector"
 )
 
 // Target is where in the app an issue can be fixed.
@@ -39,6 +42,9 @@ const (
 	TargetProviders Target = "providers"
 	TargetSources   Target = "sources"
 	TargetBackups   Target = "system/backups"
+
+	// TargetNotifications is the Notifications page; TargetID names the connection.
+	TargetNotifications Target = "notifications"
 )
 
 // Reason is a code clients translate. It is part of the API: the web UI lists the same codes
@@ -84,13 +90,17 @@ const (
 
 	// ReasonDiskCritical means that disk is almost full; Params as for ReasonDiskLow.
 	ReasonDiskCritical Reason = "disk_critical"
+
+	// ReasonConnectorPaused means a notification connection stopped after its service refused a
+	// message for good (a rejected token, an unknown chat); Params has "reason".
+	ReasonConnectorPaused Reason = "connector_paused"
 )
 
 // reasons lists every Reason.
 var reasons = []Reason{
 	ReasonProviderQuota, ReasonProviderRateLimited, ReasonProviderUnavailable, ReasonProviderSettings,
 	ReasonSourceSignedOut, ReasonSourceSyncFailed, ReasonSourceKeepAliveFailed, ReasonSourceListFailed,
-	ReasonBackupFailed, ReasonBackupStale, ReasonDiskLow, ReasonDiskCritical,
+	ReasonBackupFailed, ReasonBackupStale, ReasonDiskLow, ReasonDiskCritical, ReasonConnectorPaused,
 }
 
 // Reasons returns every reason an issue can have (a copy: callers cannot change the list).

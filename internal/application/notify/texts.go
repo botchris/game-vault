@@ -52,7 +52,7 @@ var texts = map[string]map[string]string{
 		"reason.backup_stale":            "No backup in {{days}} days",
 		"reason.disk_low":                "Only {{free}} free ({{percent}}%) on the disk with the data",
 		"reason.disk_critical":           "Almost no space left: {{free}} free on the disk with the data",
-		"reason.connector_paused":        "Notifications to {{source}} are paused: {{reason}}",
+		"reason.connector_paused":        "Notifications are paused: {{reason}}",
 	},
 	"es": {
 		"added.title.source":      "%s: %d juegos nuevos",
@@ -97,7 +97,7 @@ var texts = map[string]map[string]string{
 		"reason.backup_stale":            "Ninguna copia de seguridad en {{days}} días",
 		"reason.disk_low":                "Solo quedan {{free}} libres ({{percent}} %) en el disco de los datos",
 		"reason.disk_critical":           "Casi sin espacio: {{free}} libres en el disco de los datos",
-		"reason.connector_paused":        "Las notificaciones a {{source}} están en pausa: {{reason}}",
+		"reason.connector_paused":        "Las notificaciones están en pausa: {{reason}}",
 	},
 }
 

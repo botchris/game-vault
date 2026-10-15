@@ -218,6 +218,23 @@ func TestService_test(t *testing.T) {
 			assert.True(t, got.Paused())
 		})
 
+		t.Run("WHEN a test of other, unsaved settings succeeds THEN it stays paused", func(t *testing.T) {
+			w.connector.err = nil
+
+			_, err := w.svc.Test(ctx, c.ID(), "", connection.Config{
+				Language: "en",
+				Settings: schema.Settings{
+					"token": schema.SecretPlaceholder,
+					"chat":  "77",
+				},
+			})
+			require.NoError(t, err)
+
+			got, err := w.svc.Get(ctx, c.ID())
+			require.NoError(t, err)
+			assert.True(t, got.Paused(), "the stored settings were not the ones tested")
+		})
+
 		t.Run("WHEN a test with the masked secret succeeds", func(t *testing.T) {
 			w.connector.err = nil
 

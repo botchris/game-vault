@@ -44,8 +44,19 @@ func (s *Service) FlushBatches(ctx context.Context) {
 	s.pending = nil
 	s.mu.Unlock()
 
-	if err := s.enqueue(ctx, event.New(event.KindCollectionAdded, at, added)); err != nil {
-		s.log.Warn("queueing the games added by hand", "error", err)
+	err := s.enqueue(ctx, event.New(event.KindCollectionAdded, at, added))
+
+	s.mu.Lock()
+	first := err != nil && !s.flushFailing
+	s.flushFailing = err != nil
+	s.mu.Unlock()
+
+	if err != nil {
+		// The batch is tried again on every tick: one line per failure streak, not one a tick.
+		if first {
+			s.log.Warn("queueing the games added by hand", "error", err)
+		}
+
 		s.unbatch(added)
 	}
 }

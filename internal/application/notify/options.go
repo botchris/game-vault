@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"gamevault/internal/application/port"
+	"gamevault/internal/application/unattended"
 )
 
 // Option configures a Service.
@@ -39,3 +40,6 @@ func WithSending(on bool) Option { return func(s *Service) { s.sending = on } }
 // WithBatchWindow sets how long games added by hand wait for another before they are told in one
 // message (10 minutes by default).
 func WithBatchWindow(d time.Duration) Option { return func(s *Service) { s.window = d } }
+
+// WithRhythm sets how the dispatcher waits (real timers by default); tests make the waits instant.
+func WithRhythm(r unattended.Rhythm) Option { return func(s *Service) { s.rhythm = r } }

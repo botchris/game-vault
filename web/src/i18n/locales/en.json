@@ -712,7 +712,8 @@
       "backup_failed": "The last backup failed: make one now in Backups below",
       "backup_stale": "No backup in {{days}} days",
       "disk_low": "Only {{free}} free ({{percent}}%) on the disk with the data",
-      "disk_critical": "Almost no space left: {{free}} free on the disk with the data"
+      "disk_critical": "Almost no space left: {{free}} free on the disk with the data",
+      "connector_paused": "Notifications are paused: {{reason}}"
     }
   },
   "providerStatus": {

@@ -712,7 +712,8 @@
       "backup_failed": "La última copia de seguridad falló: haz una ahora en Copias de seguridad",
       "backup_stale": "Ninguna copia de seguridad en {{days}} días",
       "disk_low": "Solo quedan {{free}} libres ({{percent}} %) en el disco de los datos",
-      "disk_critical": "Casi sin espacio: {{free}} libres en el disco de los datos"
+      "disk_critical": "Casi sin espacio: {{free}} libres en el disco de los datos",
+      "connector_paused": "Las notificaciones están en pausa: {{reason}}"
     }
   },
   "providerStatus": {
