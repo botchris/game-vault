@@ -2,6 +2,7 @@ package home_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -150,6 +151,123 @@ func TestRefresh_tellsNewHistoricalLows(t *testing.T) {
 			t.Run("THEN only the new low of the game not owned is told", func(t *testing.T) {
 				require.Len(t, rec.events, 1)
 				assert.Equal(t, event.KindHistoricalLow, rec.events[0].Kind)
+				assert.Equal(t, event.HistoricalLowOf(low("Quiet Orbit", "5530")), rec.events[0].Data)
+			})
+		})
+	})
+}
+
+func TestRefresh_unreadablePreviousGatheringTellsNothingButSaves(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	low := func(title, steam string) game.Deal {
+		d := deal(title, steam)
+		d.HistoricalLow = true
+
+		return d
+	}
+
+	t.Run("GIVEN deals gathered once, with one historical low", func(t *testing.T) {
+		games := catalog{newGame(t, "Copper Tides", game.Links{game.LinkSteam: "5510"}, steamLibrary)}
+		failNext := false
+		deals := &fakeDeals{lows: []game.Deal{low("Moss Runner", "5520")}}
+		cfg := &configs{}
+		cfg.enable(deals)
+
+		clk := &clock{start}
+		rec := &recorder{}
+		snaps := snapshots{}
+		svc := home.NewService(cfg, games, ownerOf(games), unreadable{
+			snapshots: snaps,
+			failNext:  &failNext,
+		}, prefs{},
+			home.WithDeals(deals), home.WithClock(clk.now), home.WithEvents(rec))
+
+		_, err := svc.Refresh(ctx, home.BlockDeals)
+		require.NoError(t, err)
+
+		t.Run("WHEN a gathering finds a new low but the previous gathering cannot be read", func(t *testing.T) {
+			clk.advance(time.Hour)
+
+			deals.lows = []game.Deal{low("Moss Runner", "5520"), low("Quiet Orbit", "5530")}
+			// The provider is asked after the refresh guard's read, so the failing read is the one
+			// that looks for the previous gathering.
+			deals.asked = func() { failNext = true }
+
+			_, err := svc.Refresh(ctx, home.BlockDeals)
+			deals.asked = nil
+
+			t.Run("THEN the refresh succeeds and tells nothing, as a first gathering would", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.Empty(t, rec.events)
+			})
+
+			t.Run("AND what it gathered is saved", func(t *testing.T) {
+				assert.Len(t, snaps[home.BlockDeals].HistoricalLows, 2)
+			})
+		})
+
+		t.Run("WHEN the same lows are gathered again", func(t *testing.T) {
+			clk.advance(time.Hour)
+
+			_, err := svc.Refresh(ctx, home.BlockDeals)
+			require.NoError(t, err)
+
+			t.Run("THEN nothing is told: the saved gathering is the baseline", func(t *testing.T) {
+				assert.Empty(t, rec.events)
+			})
+		})
+	})
+}
+
+func TestRefresh_failedGatheringKeepsTheBaseline(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	low := func(title, steam string) game.Deal {
+		d := deal(title, steam)
+		d.HistoricalLow = true
+
+		return d
+	}
+
+	t.Run("GIVEN deals gathered once, with one historical low", func(t *testing.T) {
+		games := catalog{newGame(t, "Copper Tides", game.Links{game.LinkSteam: "5510"}, steamLibrary)}
+		deals := &fakeDeals{lows: []game.Deal{low("Moss Runner", "5520")}}
+		cfg := &configs{}
+		cfg.enable(deals)
+
+		clk := &clock{start}
+		rec := &recorder{}
+		svc := home.NewService(cfg, games, ownerOf(games), snapshots{}, prefs{}, home.WithDeals(deals),
+			home.WithClock(clk.now), home.WithEvents(rec))
+
+		_, err := svc.Refresh(ctx, home.BlockDeals)
+		require.NoError(t, err)
+
+		t.Run("WHEN the next gathering fails", func(t *testing.T) {
+			clk.advance(time.Hour)
+
+			deals.err = errors.New("service unavailable")
+			_, _ = svc.Refresh(ctx, home.BlockDeals) // the failure is stored next to the last good data
+
+			t.Run("THEN nothing is told", func(t *testing.T) {
+				assert.Empty(t, rec.events)
+			})
+		})
+
+		t.Run("WHEN a later gathering succeeds with the same low and a new one", func(t *testing.T) {
+			clk.advance(time.Hour)
+
+			deals.err = nil
+			deals.lows = []game.Deal{low("Moss Runner", "5520"), low("Quiet Orbit", "5530")}
+
+			_, err := svc.Refresh(ctx, home.BlockDeals)
+			require.NoError(t, err)
+
+			t.Run("THEN only the new low is told: the failure kept the earlier gathering as the baseline", func(t *testing.T) {
+				require.Len(t, rec.events, 1)
 				assert.Equal(t, event.HistoricalLowOf(low("Quiet Orbit", "5530")), rec.events[0].Data)
 			})
 		})

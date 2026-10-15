@@ -9,12 +9,16 @@ import (
 
 // store saves what a refresh gathered for block b, then publishes what is new since the previous
 // gathering: releases of the user's series and historical lows of games not owned on PC. The first
-// gathering publishes nothing, since everything in it would look new. owned are the games the
-// releases were asked for. s.mu is held.
+// gathering publishes nothing, since everything in it would look new. A previous gathering that
+// cannot be read is treated the same way: the fresh data is still worth saving, and telling
+// everything in it would flood the user. owned are the games the releases were asked for. s.mu is
+// held.
 func (s *Service) store(ctx context.Context, gathered Snapshot, b Block, owned []OwnedRef) error {
 	prev, _, err := s.snaps.Snapshot(ctx, b)
 	if err != nil {
-		return err
+		s.log.Warn("reading the previous home gathering, nothing new is told this time", "block", b, "error", err)
+
+		prev = Snapshot{}
 	}
 
 	gathered.Block, gathered.FetchedAt = b, s.now()
