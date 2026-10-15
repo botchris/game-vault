@@ -821,8 +821,8 @@ Event kinds are stored in subscriptions and in the queue, so their names never c
 | `release.announced` | activity | A release from the user's series appears that was not in the previous releases snapshot of the home page. The first gathering after a provider is set up seeds the snapshot silently. |
 | `release.out` | activity | A release from the user's series is dated today (daily job), once per release. |
 | `deal.historical_low` | activity | A game the user does not own, on PC, enters the historical lows (not in the previous deals snapshot, and only deals left after the ownership filter). The first gathering seeds silently. |
-| `issue.opened` | attention | A System → Health issue appears and is seen in two consecutive checks. |
-| `issue.resolved` | attention | An issue that was notified is missing from two consecutive checks. |
+| `issue.opened` | attention | A System → Health issue appears and is seen in two consecutive checks (checked every minute). A provider asking to slow down (`provider_rate_limited`) is never told: it ends by itself. |
+| `issue.resolved` | attention | An issue that was notified has been missing for 30 minutes without a break (a reappearance starts the wait again), and never in the first 30 minutes after the server starts: Health keeps provider statuses and keep-alive failures in memory, so they vanish on a restart or when they expire without being fixed. |
 | `keys.expiring` | attention | Daily: pending keys (`Copy.IsPendingKey()`) whose redeem-by date is within 30 days (`notify.ExpiringDays`, the library's `EXPIRING_DAYS`: a test keeps them equal), told on entering the window and again at 7 and 1 day left; the thresholds told per copy are stored. Nearest first. |
 | `auth.failed_logins` | security | Failed sign-ins are counted per client address in one-hour windows (in memory); the 3rd failure of a window publishes, once per window. |
 

@@ -139,18 +139,21 @@ var (
 	}
 )
 
-func newWatcher(issues *fakeIssues, memory *memIssueMemory, pub *recorder) *notify.Watcher {
-	return notify.NewWatcher(issues, memory, pub, notify.WithWatcherClock(func() time.Time { return at }))
+func newWatcher(issues *fakeIssues, memory *memIssueMemory, pub *recorder, clk *clock) *notify.Watcher {
+	return notify.NewWatcher(issues, memory, pub, notify.WithWatcherClock(clk.Now))
 }
+
+// resolveAfter mirrors the watcher's rule: a told issue resolves after this long missing.
+const resolveAfter = 30 * time.Minute
 
 func TestWatcher(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
 	t.Run("GIVEN a first run with two current issues", func(t *testing.T) {
-		issues, memory, pub := &fakeIssues{}, &memIssueMemory{}, &recorder{}
+		issues, memory, pub, clk := &fakeIssues{}, &memIssueMemory{}, &recorder{}, &clock{now: at}
 		issues.set(signedOut, diskLow)
-		w := newWatcher(issues, memory, pub)
+		w := newWatcher(issues, memory, pub, clk)
 
 		t.Run("WHEN it checks THEN nothing is published and both are remembered as told", func(t *testing.T) {
 			require.NoError(t, w.Check(ctx))
@@ -161,8 +164,8 @@ func TestWatcher(t *testing.T) {
 	})
 
 	t.Run("GIVEN a seeded watcher", func(t *testing.T) {
-		issues, memory, pub := &fakeIssues{}, &memIssueMemory{}, &recorder{}
-		w := newWatcher(issues, memory, pub)
+		issues, memory, pub, clk := &fakeIssues{}, &memIssueMemory{}, &recorder{}, &clock{now: at}
+		w := newWatcher(issues, memory, pub, clk)
 		require.NoError(t, w.Check(ctx))
 
 		t.Run("WHEN a new issue appears in one check THEN nothing is published", func(t *testing.T) {
@@ -200,13 +203,16 @@ func TestWatcher(t *testing.T) {
 			assert.Empty(t, pub.all())
 		})
 
-		t.Run("WHEN it is missing from one check THEN nothing is published", func(t *testing.T) {
+		t.Run("WHEN it is missing for just under half an hour THEN nothing is published", func(t *testing.T) {
 			issues.set()
+			require.NoError(t, w.Check(ctx))
+			clk.Add(resolveAfter - time.Minute)
 			require.NoError(t, w.Check(ctx))
 			assert.Empty(t, pub.all())
 		})
 
-		t.Run("WHEN it is missing from the next check too THEN it is told as resolved", func(t *testing.T) {
+		t.Run("WHEN it has been missing for half an hour THEN it is told as resolved", func(t *testing.T) {
+			clk.Add(time.Minute)
 			require.NoError(t, w.Check(ctx))
 
 			got := pub.all()
@@ -221,8 +227,8 @@ func TestWatcher(t *testing.T) {
 	})
 
 	t.Run("GIVEN a seeded watcher and a new issue that flaps (present, absent, present)", func(t *testing.T) {
-		issues, memory, pub := &fakeIssues{}, &memIssueMemory{}, &recorder{}
-		w := newWatcher(issues, memory, pub)
+		issues, memory, pub, clk := &fakeIssues{}, &memIssueMemory{}, &recorder{}, &clock{now: at}
+		w := newWatcher(issues, memory, pub, clk)
 		require.NoError(t, w.Check(ctx))
 
 		for _, present := range []bool{true, false, true, false} {
@@ -241,9 +247,9 @@ func TestWatcher(t *testing.T) {
 	})
 
 	t.Run("GIVEN a told issue that flaps (absent, present, absent)", func(t *testing.T) {
-		issues, memory, pub := &fakeIssues{}, &memIssueMemory{}, &recorder{}
+		issues, memory, pub, clk := &fakeIssues{}, &memIssueMemory{}, &recorder{}, &clock{now: at}
 		issues.set(diskLow)
-		w := newWatcher(issues, memory, pub)
+		w := newWatcher(issues, memory, pub, clk)
 		require.NoError(t, w.Check(ctx))
 
 		for _, present := range []bool{false, true, false, true} {
@@ -263,9 +269,9 @@ func TestWatcher(t *testing.T) {
 	})
 
 	t.Run("GIVEN a told issue whose reason changes", func(t *testing.T) {
-		issues, memory, pub := &fakeIssues{}, &memIssueMemory{}, &recorder{}
+		issues, memory, pub, clk := &fakeIssues{}, &memIssueMemory{}, &recorder{}, &clock{now: at}
 		issues.set(signedOut)
-		w := newWatcher(issues, memory, pub)
+		w := newWatcher(issues, memory, pub, clk)
 		require.NoError(t, w.Check(ctx))
 
 		failed := signedOut
@@ -296,8 +302,8 @@ func TestWatcher(t *testing.T) {
 	})
 
 	t.Run("GIVEN a told issue WHEN the server restarts and a new watcher still sees it", func(t *testing.T) {
-		issues, memory, pub := &fakeIssues{}, &memIssueMemory{}, &recorder{}
-		w := newWatcher(issues, memory, pub)
+		issues, memory, pub, clk := &fakeIssues{}, &memIssueMemory{}, &recorder{}, &clock{now: at}
+		w := newWatcher(issues, memory, pub, clk)
 		require.NoError(t, w.Check(ctx))
 		issues.set(staleBackup)
 		require.NoError(t, w.Check(ctx))
@@ -305,7 +311,7 @@ func TestWatcher(t *testing.T) {
 		require.Len(t, pub.all(), 1)
 		pub.reset()
 
-		restarted := newWatcher(issues, memory, pub)
+		restarted := newWatcher(issues, memory, pub, clk)
 		require.NoError(t, restarted.Check(ctx))
 		require.NoError(t, restarted.Check(ctx))
 
@@ -313,14 +319,139 @@ func TestWatcher(t *testing.T) {
 			assert.Empty(t, pub.all())
 		})
 
-		t.Run("AND once it goes away for two checks, it is told as resolved", func(t *testing.T) {
+		t.Run("AND once it has been gone for half an hour, it is told as resolved", func(t *testing.T) {
 			issues.set()
 			require.NoError(t, restarted.Check(ctx))
+			clk.Add(resolveAfter)
 			require.NoError(t, restarted.Check(ctx))
 
 			got := pub.all()
 			require.Len(t, got, 1)
 			assert.Equal(t, event.KindIssueResolved, got[0].Kind)
+		})
+	})
+}
+
+func TestWatcher_inMemoryIssues(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	rateLimited := health.Issue{
+		Key:    "provider:example-covers",
+		Level:  health.LevelWarning,
+		Kind:   health.KindProvider,
+		Source: "Example Covers",
+		Reason: health.ReasonProviderRateLimited,
+	}
+
+	t.Run("GIVEN a told issue that Health forgets on a restart", func(t *testing.T) {
+		issues, memory, pub, clk := &fakeIssues{}, &memIssueMemory{}, &recorder{}, &clock{now: at}
+		issues.set(signedOut)
+		require.NoError(t, newWatcher(issues, memory, pub, clk).Check(ctx))
+
+		issues.set()
+		restarted := newWatcher(issues, memory, pub, clk)
+
+		t.Run("WHEN the new watcher checks every minute for just under half an hour", func(t *testing.T) {
+			for range 30 {
+				require.NoError(t, restarted.Check(ctx))
+				clk.Add(time.Minute - time.Second)
+			}
+
+			t.Run("THEN it is not told as resolved", func(t *testing.T) {
+				assert.Empty(t, pub.all())
+				assert.Equal(t, []string{"source:src-1"}, memory.keys())
+			})
+		})
+
+		t.Run("WHEN it comes back THEN nothing is told either", func(t *testing.T) {
+			issues.set(signedOut)
+			clk.Add(time.Hour)
+			require.NoError(t, restarted.Check(ctx))
+			assert.Empty(t, pub.all())
+		})
+	})
+
+	t.Run("GIVEN a told issue that disappears for five minutes", func(t *testing.T) {
+		issues, memory, pub, clk := &fakeIssues{}, &memIssueMemory{}, &recorder{}, &clock{now: at}
+		issues.set(diskLow)
+		w := newWatcher(issues, memory, pub, clk)
+		require.NoError(t, w.Check(ctx))
+		clk.Add(time.Hour)
+
+		issues.set()
+
+		for range 5 {
+			require.NoError(t, w.Check(ctx))
+			clk.Add(time.Minute)
+		}
+
+		issues.set(diskLow)
+		require.NoError(t, w.Check(ctx))
+
+		t.Run("WHEN it then disappears again for less than half an hour", func(t *testing.T) {
+			issues.set()
+
+			for range 29 {
+				require.NoError(t, w.Check(ctx))
+				clk.Add(time.Minute)
+			}
+
+			t.Run("THEN nothing is published: the blip reset the count", func(t *testing.T) {
+				assert.Empty(t, pub.all())
+			})
+		})
+	})
+
+	t.Run("GIVEN a seeded watcher WHEN a provider is rate limited for a while and then recovers", func(t *testing.T) {
+		issues, memory, pub, clk := &fakeIssues{}, &memIssueMemory{}, &recorder{}, &clock{now: at}
+		w := newWatcher(issues, memory, pub, clk)
+		require.NoError(t, w.Check(ctx))
+		issues.set(rateLimited)
+
+		for range 10 {
+			clk.Add(time.Minute)
+			require.NoError(t, w.Check(ctx))
+		}
+
+		issues.set()
+
+		for range 40 {
+			clk.Add(time.Minute)
+			require.NoError(t, w.Check(ctx))
+		}
+
+		t.Run("THEN nothing is published: it ends by itself", func(t *testing.T) {
+			assert.Empty(t, pub.all())
+			assert.Empty(t, memory.keys())
+		})
+	})
+
+	t.Run("GIVEN a watcher that told an issue opened", func(t *testing.T) {
+		issues, memory, pub, clk := &fakeIssues{}, &memIssueMemory{}, &recorder{}, &clock{now: at}
+		w := newWatcher(issues, memory, pub, clk)
+		require.NoError(t, w.Check(ctx))
+		issues.set(signedOut)
+		require.NoError(t, w.Check(ctx))
+		require.NoError(t, w.Check(ctx))
+		require.Len(t, pub.all(), 1)
+		pub.reset()
+
+		t.Run("WHEN it is really fixed and stays gone for half an hour", func(t *testing.T) {
+			issues.set()
+			require.NoError(t, w.Check(ctx))
+
+			for range 30 {
+				clk.Add(time.Minute)
+				require.NoError(t, w.Check(ctx))
+			}
+
+			t.Run("THEN it is told as resolved once", func(t *testing.T) {
+				got := pub.all()
+				require.Len(t, got, 1)
+				assert.Equal(t, event.KindIssueResolved, got[0].Kind)
+				assert.Equal(t, at.Add(resolveAfter), got[0].At)
+			})
 		})
 	})
 }

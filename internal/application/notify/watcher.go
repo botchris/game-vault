@@ -21,9 +21,19 @@ const (
 	// cheap local reads, so a fixed rhythm is fine: nothing here reaches the network.
 	watchEvery = time.Minute
 
-	// watchMargin is how many consecutive checks a problem must be seen in to be told as open, and
-	// missing from to be told as resolved, so a source failing once does not notify.
+	// watchMargin is how many consecutive checks a problem must be seen in to be told as open, so a
+	// source failing once does not notify.
 	watchMargin = 2
+
+	// resolveAfter is how long a told problem must be absent, without a break, to be told as
+	// resolved. Health keeps some problems only in memory (provider statuses that expire, keep-alive
+	// failures): they vanish on a restart or on a timer without being fixed, so a short absence
+	// is no news. A told problem that comes back starts the wait again.
+	resolveAfter = 30 * time.Minute
+
+	// startGrace is how long after the watcher starts nothing is told as resolved: the problems
+	// Health keeps in memory are gone right after a restart, fixed or not.
+	startGrace = 30 * time.Minute
 )
 
 // WatcherOption configures a Watcher.
@@ -58,6 +68,9 @@ type Watcher struct {
 	loaded bool
 	seeded bool
 
+	// started is when the watcher was made, for startGrace.
+	started time.Time
+
 	// notified are the issues told as open, by key, as the memory keeps them.
 	notified map[string]event.Issue
 
@@ -65,25 +78,27 @@ type Watcher struct {
 	// told key whose reason changed).
 	seen map[string]int
 
-	// missing counts the consecutive checks each told problem was absent from.
-	missing map[string]int
+	// missingSince is when each told problem was first seen absent, in the current absence.
+	missingSince map[string]time.Time
 }
 
 // NewWatcher returns a watcher of issues that remembers in memory and publishes through pub.
 func NewWatcher(issues Issues, memory IssueMemory, pub events.Publisher, opts ...WatcherOption) *Watcher {
 	w := &Watcher{
-		issues:  issues,
-		memory:  memory,
-		pub:     pub,
-		now:     time.Now,
-		log:     slog.New(slog.DiscardHandler),
-		seen:    map[string]int{},
-		missing: map[string]int{},
+		issues:       issues,
+		memory:       memory,
+		pub:          pub,
+		now:          time.Now,
+		log:          slog.New(slog.DiscardHandler),
+		seen:         map[string]int{},
+		missingSince: map[string]time.Time{},
 	}
 
 	for _, opt := range opts {
 		opt(w)
 	}
+
+	w.started = w.now()
 
 	return w
 }
@@ -101,10 +116,10 @@ func (w *Watcher) Run(ctx context.Context) {
 	}
 }
 
-// Check compares Health's issues with the ones told once, and publishes those that opened or
-// resolved for watchMargin checks in a row. A problem whose reason changed is a new problem: the
-// new one is told when it lasts, and the old one is never told as resolved, since the thing still
-// does not work.
+// Check compares Health's issues with the ones told once, and publishes those that opened for
+// watchMargin checks in a row and those that have been gone for resolveAfter. A problem whose
+// reason changed is a new problem: the new one is told when it lasts, and the old one is never told
+// as resolved, since the thing still does not work. A rate limit is never told: it ends by itself.
 func (w *Watcher) Check(ctx context.Context) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -128,15 +143,18 @@ func (w *Watcher) Check(ctx context.Context) error {
 		return w.seed(ctx, current)
 	}
 
-	var told []event.Event
+	var tell []event.Event
 
 	now := w.now()
 
 	for _, key := range order {
 		is := current[key]
-		delete(w.missing, key)
+		delete(w.missingSince, key)
 
-		if prev, ok := w.notified[key]; ok && prev.Reason == is.Reason {
+		prev, told := w.notified[key]
+		if (told && prev.Reason == is.Reason) || selfHealing(is) {
+			// A rate limit on a told problem keeps it as it was: the problem is not news, and it is
+			// not resolved either.
 			delete(w.seen, key)
 
 			continue
@@ -149,7 +167,7 @@ func (w *Watcher) Check(ctx context.Context) error {
 
 		delete(w.seen, key)
 		w.notified[key] = is
-		told = append(told, event.New(event.KindIssueOpened, now, is))
+		tell = append(tell, event.New(event.KindIssueOpened, now, is))
 	}
 
 	// A problem not told yet that went away starts counting again when it comes back.
@@ -159,22 +177,35 @@ func (w *Watcher) Check(ctx context.Context) error {
 		}
 	}
 
+	changed := len(tell) > 0
+
 	for _, key := range slices.Sorted(maps.Keys(w.notified)) {
 		if _, ok := current[key]; ok {
 			continue
 		}
 
-		w.missing[key]++
-		if w.missing[key] < watchMargin {
+		since, ok := w.missingSince[key]
+		if !ok {
+			since = now
+			w.missingSince[key] = now
+		}
+
+		if now.Sub(since) < resolveAfter || now.Sub(w.started) < startGrace {
 			continue
 		}
 
-		told = append(told, event.New(event.KindIssueResolved, now, w.notified[key]))
+		// A rate limit remembered by an older version goes quietly, like it came.
+		if !selfHealing(w.notified[key]) {
+			tell = append(tell, event.New(event.KindIssueResolved, now, w.notified[key]))
+		}
+
 		delete(w.notified, key)
-		delete(w.missing, key)
+		delete(w.missingSince, key)
+
+		changed = true
 	}
 
-	if len(told) == 0 {
+	if !changed {
 		return nil
 	}
 
@@ -182,7 +213,7 @@ func (w *Watcher) Check(ctx context.Context) error {
 	// a restart (which may then tell it again).
 	err := w.memory.SaveNotified(ctx, w.notified)
 
-	for _, e := range told {
+	for _, e := range tell {
 		w.pub.Publish(ctx, e)
 	}
 
@@ -232,6 +263,11 @@ func (w *Watcher) seed(ctx context.Context, current map[string]event.Issue) erro
 	w.seeded, w.notified = true, current
 
 	return nil
+}
+
+// selfHealing reports whether a problem ends by itself, so telling it would only be noise.
+func selfHealing(is event.Issue) bool {
+	return is.Reason == string(health.ReasonProviderRateLimited)
 }
 
 // issueOf is a Health issue as an event's payload, field by field.
