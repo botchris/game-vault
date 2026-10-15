@@ -299,6 +299,7 @@ func TestDaily_keysNobodyWants(t *testing.T) {
 
 		t.Run("WHEN a connection then subscribes and the job runs again", func(t *testing.T) {
 			pub.wants = true
+
 			require.NoError(t, w.daily.RunOnce(ctx))
 
 			t.Run("THEN the key is told and remembered", func(t *testing.T) {
