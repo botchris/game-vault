@@ -162,10 +162,71 @@ type Release struct {
 	BecauseTitle string `json:"becauseTitle"`
 }
 
-// HistoricalLow is KindHistoricalLow's payload.
+// Money is an amount in a currency's minor unit (cents for EUR), as game.Money, with stable JSON
+// names: payloads are stored and sent to webhooks, so they do not follow the domain's renames.
+type Money struct {
+	// Amount is in the currency's minor unit.
+	Amount int64 `json:"amount"`
+
+	// Currency is the ISO 4217 code.
+	Currency string `json:"currency"`
+}
+
+// HistoricalLow is KindHistoricalLow's payload: the deal as the provider gave it, in fields of its
+// own so the stored JSON keeps its names whatever happens to game.Deal.
 type HistoricalLow struct {
-	// Deal is the deal as the provider gave it.
-	Deal game.Deal `json:"deal"`
+	// ProviderGameID is the deals service's own id of the game.
+	ProviderGameID string `json:"providerGameId"`
+
+	// Title is the game's title.
+	Title string `json:"title"`
+
+	// Shop names the shop that sells it.
+	Shop string `json:"shop"`
+
+	// Price is what it costs now.
+	Price Money `json:"price"`
+
+	// Regular is what it costs when not on sale.
+	Regular Money `json:"regular"`
+
+	// Cut is the discount, in percent of the regular price.
+	Cut int `json:"cut"`
+
+	// HistoricalLow reports that the price is the lowest the service has seen.
+	HistoricalLow bool `json:"historicalLow"`
+
+	// Expires is when the deal ends; zero (and left out) when the shop does not say.
+	Expires time.Time `json:"expires,omitzero"`
+
+	// URL opens the deal through the service's link.
+	URL string `json:"url"`
+
+	// ImageURL is the game's art on the service, "" without one.
+	ImageURL string `json:"imageUrl"`
+}
+
+// HistoricalLowOf returns the payload telling about deal d.
+func HistoricalLowOf(d game.Deal) HistoricalLow {
+	return HistoricalLow{
+		ProviderGameID: d.ProviderGameID,
+		Title:          d.Title,
+		Shop:           d.Shop,
+		Price:          moneyOf(d.Price),
+		Regular:        moneyOf(d.Regular),
+		Cut:            d.Cut,
+		HistoricalLow:  d.HistoricalLow,
+		Expires:        d.Expires,
+		URL:            d.URL,
+		ImageURL:       d.ImageURL,
+	}
+}
+
+func moneyOf(m game.Money) Money {
+	return Money{
+		Amount:   m.Amount,
+		Currency: m.Currency,
+	}
 }
 
 // Issue is KindIssueOpened's and KindIssueResolved's payload: a Health issue, in plain data.

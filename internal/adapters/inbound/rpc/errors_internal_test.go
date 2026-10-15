@@ -21,6 +21,7 @@ import (
 	"gamevault/internal/application/home"
 	"gamevault/internal/application/logs"
 	"gamevault/internal/application/media"
+	"gamevault/internal/application/notify"
 	"gamevault/internal/application/ownership"
 	"gamevault/internal/application/providers"
 	"gamevault/internal/application/sync"
@@ -81,6 +82,7 @@ var sentinels = map[string]struct {
 	"application/logs.ErrInvalidName":             {logs.ErrInvalidName, connect.CodeInvalidArgument},
 	"application/logs.ErrNotFound":                {logs.ErrNotFound, connect.CodeNotFound},
 	"application/media.ErrNoEdition":              {media.ErrNoEdition, connect.CodeNotFound},
+	"application/notify.ErrBadAddress":            {notify.ErrBadAddress, connect.CodeInvalidArgument},
 	"application/providers.ErrUnknownProvider":    {providers.ErrUnknownProvider, connect.CodeNotFound},
 	"application/media.ErrUnknownStore":           {media.ErrUnknownStore, connect.CodeNotFound},
 	"application/media.ErrInvalidBarcode":         {media.ErrInvalidBarcode, connect.CodeInvalidArgument},
@@ -101,6 +103,8 @@ var internalOnly = map[string]string{
 	"application/media.ErrImageNotAllowed": "HTTP only: the image proxy answers it with a 403",
 	"application/media.ErrNoAsset":         "HTTP only: the image endpoints answer it with a 404",
 	"application/media.ErrNoPhoto":         "HTTP only: the photo endpoint answers it with a 404",
+	"application/notify.ErrPermanent": "a mark connectors wrap around their own errors, which carry " +
+		"the kind; the dispatcher reads it to pause a connection",
 	"application/valuation.ErrNotListed": "a price provider's answer that the valuation service turns " +
 		"into \"no estimate\"",
 }
