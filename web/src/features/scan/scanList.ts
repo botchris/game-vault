@@ -50,7 +50,7 @@ export interface SendItem {
   coverUrl: string;
   platform: string;
   edition: string;
-  /** The region the barcode lookup found (CopyRegion's number); 0 when it had none. */
+  /** The copy's region (CopyRegion's number): the batch's, else the lookup's (see sendItems); 0 for none. */
   region: number;
   barcode: string;
 }
@@ -169,8 +169,22 @@ export function summary(rows: Row[], batchPlatform: string) {
   return out;
 }
 
-/** One item per copy of every Ready row, and of "you have it" rows with "+1". */
-export function sendItems(rows: Row[], batchPlatform: string): SendItem[] {
+/**
+ * Whether the row adds the box its lookup matched: it resolved by itself, or the user kept the
+ * match's game (changing only its platform or edition). Picking another candidate or typing another
+ * title makes it another product, which the lookup's region says nothing about.
+ */
+function addsMatch(row: Row): boolean {
+  if (!row.choice) return true;
+  const same = (a?: string) => !!a && a.trim().toLowerCase() === row.choice!.title.trim().toLowerCase();
+  return same(row.answer?.match?.title) || same(resolved({ ...row, choice: undefined }, '')?.title);
+}
+
+/**
+ * One item per copy of every Ready row, and of "you have it" rows with "+1". An explicit batch
+ * region wins; otherwise a copy takes the region its lookup found, when the row adds that match.
+ */
+export function sendItems(rows: Row[], batchPlatform: string, batchRegion = 0): SendItem[] {
   const items: SendItem[] = [];
   for (const r of rows) {
     const st = status(r, batchPlatform);
@@ -179,7 +193,7 @@ export function sendItems(rows: Row[], batchPlatform: string): SendItem[] {
     for (let n = 0; n < r.count; n++) {
       items.push({
         clientId: `${r.id}:${n}`, rowId: r.id, gameId: c.gameId, title: c.title.trim(), coverUrl: c.coverUrl,
-        platform: c.platform.trim(), edition: c.edition.trim(), region: r.answer?.match?.region ?? 0, barcode: r.code,
+        platform: c.platform.trim(), edition: c.edition.trim(), region: batchRegion || (addsMatch(r) ? r.answer?.match?.region ?? 0 : 0), barcode: r.code,
       });
     }
   }

@@ -202,8 +202,29 @@ test('a stored answer keeps "providers unavailable", and rows stored before it e
   assert.equal(loadRows(saveRows(broken)).length, 0);
 });
 
-test('sendItems carries the region the lookup found', () => {
+test('sendItems carries the region the lookup found when the batch has none', () => {
   const a = answer();
   const rows = settle(scanned(), 'r1', { ...a, match: { ...a.match, region: 3 } });
   assert.equal(sendItems(rows, '')[0].region, 3);
+  assert.equal(sendItems(rows, '', 0)[0].region, 3);
+});
+
+test('an explicit batch region wins over the lookup\'s', () => {
+  const a = answer();
+  const rows = settle(scanned(), 'r1', { ...a, match: { ...a.match, region: 3 } });
+  assert.equal(sendItems(rows, '', 2)[0].region, 2);
+  assert.equal(sendItems(settle(scanned(), 'r1', answer()), '', 2)[0].region, 2, 'and fills boxes the lookup found none for');
+});
+
+test('the lookup\'s region applies only when its match is what the row adds', () => {
+  const a = answer({ suggestions: [
+    { title: 'Dead Space 3', platform: 'Xbox 360', coverUrl: 'https://c/ds3.jpg', thumbUrl: '', label: '' },
+    { title: 'Dead Space 2', platform: 'Xbox 360', coverUrl: 'https://c/ds2.jpg', thumbUrl: '', label: '' },
+  ] });
+  const rows = settle(scanned(), 'r1', { ...a, match: { ...a.match, region: 3 } });
+  const pick = (title) => ({ title, platform: 'Xbox 360', edition: '', coverUrl: '', thumbUrl: '', gameId: '' });
+  assert.equal(sendItems(amend(rows, 'r1', { platform: 'PS3' }), '')[0].region, 3, 'the match with another platform');
+  assert.equal(sendItems(choose(rows, 'r1', pick('Dead Space 3')), '')[0].region, 3, 'the match chosen again');
+  assert.equal(sendItems(choose(rows, 'r1', pick('Dead Space 2')), '')[0].region, 0, 'another candidate');
+  assert.equal(sendItems(choose(rows, 'r1', pick('Dead Rising')), '')[0].region, 0, 'a typed title');
 });

@@ -71,8 +71,13 @@ export function pickerGroups(catalog: readonly SystemInfo[], owned: readonly str
   return [{ maker: null, options: own }, ...groups];
 }
 
-/** The user's system names grouped by maker, makers and systems in catalog order; names the catalog does not know go last under an empty maker. */
-export function groupByMaker(names: readonly string[], catalog: readonly SystemInfo[]): { maker: string; names: string[] }[] {
+/**
+ * The user's system names grouped by maker, makers and systems in catalog order; names the catalog
+ * does not know go last under an empty maker. Null without a catalog (it failed to load): every
+ * name would land under "Other", so callers show a flat list instead.
+ */
+export function groupByMaker(names: readonly string[], catalog: readonly SystemInfo[]): { maker: string; names: string[] }[] | null {
+  if (catalog.length === 0) return null;
   // Several names can share a key ("GameBoy" and "Game Boy"): each stays its own entry.
   const wanted = new Map<string, string[]>();
   for (const n of names) wanted.set(systemKey(n), [...(wanted.get(systemKey(n)) ?? []), n]);

@@ -29,7 +29,7 @@ const CAMERA_KEY = 'gamevault.scanCamera';
 interface Defaults {
   platform: string;
   grade: CopyGrade;
-  /** Applied to the boxes whose lookup found no region. */
+  /** Applied to every box when set; otherwise each box takes the region its lookup found (see sendItems). */
   region: CopyRegion;
   contents: CopyContent[];
   location: string;
@@ -209,7 +209,7 @@ export default function ScanPage() {
   };
 
   const send = async () => {
-    const items = sendItems(rowsRef.current, defaults.platform);
+    const items = sendItems(rowsRef.current, defaults.platform, defaults.region);
     if (!items.length) return;
     setSending(true);
     setNotice(null);
@@ -220,7 +220,7 @@ export default function ScanPage() {
             clientId: it.clientId, gameId: it.gameId, title: it.title, coverUrl: it.coverUrl,
             details: {
               ...emptyDetails(CopyKind.PHYSICAL), status: CopyStatus.OWNED, platform: it.platform, edition: it.edition,
-              grade: defaults.grade, region: it.region || defaults.region, contents: defaults.contents, location: defaults.location, barcode: it.barcode,
+              grade: defaults.grade, region: it.region, contents: defaults.contents, location: defaults.location, barcode: it.barcode,
             },
           })),
         });

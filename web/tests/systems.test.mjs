@@ -61,3 +61,7 @@ test('groupByMaker keeps every name that shares a system key', () => {
   const groups = groupByMaker(['SNES', 'S.N.E.S', 'NES'], catalog);
   assert.deepEqual(groups, [{ maker: 'Nintendo', names: ['SNES', 'S.N.E.S', 'NES'] }]);
 });
+
+test('groupByMaker does not group without a catalog (it failed to load): no maker headings', () => {
+  assert.equal(groupByMaker(['PS4', 'Zeebo'], []), null);
+});

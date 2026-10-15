@@ -70,7 +70,7 @@ export default function FilterPanel({ games, total, filters, onChange, onClose, 
   const systemGroups = useMemo(() => {
     if (systems.length <= 8) return null;
     const counts = new Map(systems);
-    return groupByMaker(systems.map(([s]) => s), catalog).map((g) => ({ maker: g.maker, items: g.names.map((n) => [n, counts.get(n) ?? 0] as const) }));
+    return groupByMaker(systems.map(([s]) => s), catalog)?.map((g) => ({ maker: g.maker, items: g.names.map((n) => [n, counts.get(n) ?? 0] as const) })) ?? null;
   }, [systems, catalog]);
 
   // Only fields with a fixed set of values make sense as filters; options no game has are hidden.
