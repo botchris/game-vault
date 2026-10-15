@@ -651,3 +651,19 @@ func TestDocuments_autoLinks(t *testing.T) {
 		})
 	})
 }
+
+func TestDocuments_withoutRegion(t *testing.T) {
+	t.Run("GIVEN a stored copy document written before copies had a region", func(t *testing.T) {
+		raw := `{"v":3,"title":"Halo 3","copies":[{"id":"c1","kind":"physical","status":"owned","createdAt":"2026-01-01T00:00:00Z","updatedAt":"2026-01-01T00:00:00Z"}]}`
+
+		t.Run("WHEN it is decoded", func(t *testing.T) {
+			got, err := decodeGame("g1", raw)
+			require.NoError(t, err)
+
+			t.Run("THEN the region is empty", func(t *testing.T) {
+				require.Len(t, got.Copies(), 1)
+				assert.Equal(t, game.Region(""), got.Copies()[0].Region)
+			})
+		})
+	})
+}

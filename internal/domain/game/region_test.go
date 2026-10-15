@@ -52,3 +52,36 @@ func TestRegion(t *testing.T) {
 		assert.Equal(t, errkind.Invalid, errkind.Of(err))
 	})
 }
+
+func TestCopy_applyImportRegion(t *testing.T) {
+	t.Run("GIVEN a copy with a region", func(t *testing.T) {
+		newCopy := func() *Copy {
+			return &Copy{CopyDetails: CopyDetails{
+				Kind:   KindPhysical,
+				Region: RegionPAL,
+			}}
+		}
+
+		t.Run("WHEN an import states another region", func(t *testing.T) {
+			c := newCopy()
+			changed := c.applyImport(CopyDetails{
+				Kind:   KindPhysical,
+				Region: RegionNTSCU,
+			})
+
+			t.Run("THEN the region is set", func(t *testing.T) {
+				assert.True(t, changed)
+				assert.Equal(t, RegionNTSCU, c.Region)
+			})
+		})
+
+		t.Run("WHEN an import states none", func(t *testing.T) {
+			c := newCopy()
+			c.applyImport(CopyDetails{Kind: KindPhysical})
+
+			t.Run("THEN the copy keeps its region", func(t *testing.T) {
+				assert.Equal(t, RegionPAL, c.Region)
+			})
+		})
+	})
+}

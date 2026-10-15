@@ -367,14 +367,14 @@ func (r *rowReader) region() game.Region {
 		return ""
 	}
 
-	g, ok := game.ParseRegion(v)
+	reg, ok := game.ParseRegion(v)
 	if !ok {
 		r.warn("region %q is not one of pal, ntsc_u, ntsc_j, ntsc_k, ntsc_c, asia, region_free", v)
 
 		return ""
 	}
 
-	return g
+	return reg
 }
 
 func (r *rowReader) contents() game.Contents {
