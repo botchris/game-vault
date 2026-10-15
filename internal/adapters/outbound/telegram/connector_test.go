@@ -234,6 +234,7 @@ func TestSend_failures(t *testing.T) {
 	}{
 		{"a rejected token", http.StatusUnauthorized, unauthorized, true, "create a new one with @BotFather"},
 		{"an unknown chat", http.StatusBadRequest, chatNotFound, true, "send a message to the bot"},
+		{"a malformed token", http.StatusNotFound, `{"ok":false,"error_code":404,"description":"Not Found"}`, true, "create a new one with @BotFather"},
 		{"a blocked bot", http.StatusForbidden, blocked, true, "blocked by the user"},
 		{"a conflict with a webhook", http.StatusConflict, webhookSet, true, "webhook"},
 		{"an outage", http.StatusInternalServerError, `{"ok":false,"error_code":500,"description":"Internal Server Error"}`, false, ""},
@@ -457,6 +458,82 @@ func TestTest(t *testing.T) {
 				require.Len(t, calls, 1)
 				assert.Equal(t, "sendMessage", calls[0].method)
 			})
+		})
+	})
+}
+
+func TestSend_unfetchableImage(t *testing.T) {
+	m := notify.Message{
+		Title: "Deal",
+		Text:  "Cheap",
+		Images: []notify.Image{
+			{
+				Name: "a.png",
+				Data: []byte("AAA"),
+			},
+			{URL: "https://img.example/dead.jpg"},
+		},
+	}
+
+	t.Run("GIVEN Telegram cannot fetch an image URL", func(t *testing.T) {
+		f := newFakeTelegram(t)
+		f.failMethod("sendMediaGroup", http.StatusBadRequest, badImage)
+
+		t.Run("WHEN the message is sent", func(t *testing.T) {
+			err := f.connector().Send(ctx10(t), goodSettings, m)
+
+			t.Run("THEN it goes once as text and succeeds", func(t *testing.T) {
+				require.NoError(t, err)
+
+				calls := f.received()
+				require.Len(t, calls, 2)
+				assert.Equal(t, "sendMediaGroup", calls[0].method)
+				assert.Equal(t, "sendMessage", calls[1].method)
+				assert.Equal(t, "<b>Deal</b>\nCheap", calls[1].json["text"])
+			})
+		})
+	})
+
+	t.Run("GIVEN a single photo Telegram cannot fetch", func(t *testing.T) {
+		f := newFakeTelegram(t)
+		f.failMethod("sendPhoto", http.StatusBadRequest, `{"ok":false,"error_code":400,"description":"Bad Request: Failed to get HTTP URL content"}`)
+
+		t.Run("WHEN the message is sent", func(t *testing.T) {
+			err := f.connector().Send(ctx10(t), goodSettings, notify.Message{
+				Title:  "x",
+				Images: []notify.Image{{URL: "https://img.example/x"}},
+			})
+
+			t.Run("THEN the text is sent instead", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.Equal(t, "sendMessage", f.received()[1].method)
+			})
+		})
+	})
+
+	t.Run("GIVEN the image fails and the text is refused too", func(t *testing.T) {
+		f := newFakeTelegram(t)
+		f.failMethod("sendMediaGroup", http.StatusBadRequest, badImage)
+		f.failMethod("sendMessage", http.StatusUnauthorized, unauthorized)
+
+		t.Run("WHEN the message is sent", func(t *testing.T) {
+			err := f.connector().Send(ctx10(t), goodSettings, m)
+
+			t.Run("THEN the text's failure is permanent", func(t *testing.T) {
+				require.ErrorIs(t, err, notify.ErrPermanent)
+				assert.Contains(t, err.Error(), "bot token")
+				assert.Len(t, f.received(), 2)
+			})
+		})
+	})
+}
+
+func TestRender_overLongTitleWithoutText(t *testing.T) {
+	t.Run("GIVEN a title over the limit and no text", func(t *testing.T) {
+		got := render(notify.Message{Title: strings.Repeat("a", 30)}, 10)
+
+		t.Run("THEN the title is cut with one ellipsis and no extra line", func(t *testing.T) {
+			assert.Equal(t, "<b>aaaaaaaa…</b>\n", got)
 		})
 	})
 }

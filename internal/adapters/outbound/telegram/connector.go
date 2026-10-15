@@ -172,8 +172,7 @@ func credentials(settings schema.Settings, needChat bool) (token, chat string, e
 
 // deliver sends m the way its images ask for.
 func (c *Connector) deliver(ctx context.Context, token, chat string, m notify.Message) error {
-	switch len(m.Images) {
-	case 0:
+	if len(m.Images) == 0 {
 		body, err := json.Marshal(map[string]any{
 			"chat_id":              chat,
 			"text":                 render(m, maxMessage),
@@ -185,11 +184,25 @@ func (c *Connector) deliver(ctx context.Context, token, chat string, m notify.Me
 		}
 
 		return c.call(ctx, token, "sendMessage", "application/json", body, nil)
-	case 1:
-		return c.sendPhoto(ctx, token, chat, m)
-	default:
-		return c.sendAlbum(ctx, token, chat, m)
 	}
+
+	var err error
+	if len(m.Images) == 1 {
+		err = c.sendPhoto(ctx, token, chat, m)
+	} else {
+		err = c.sendAlbum(ctx, token, chat, m)
+	}
+
+	// One image Telegram cannot fetch (a dead or unsupported art URL) must not fail the delivery,
+	// and with it pause the connection: the news goes as text.
+	var bad *mediaError
+	if errors.As(err, &bad) {
+		m.Images = nil
+
+		return c.deliver(ctx, token, chat, m)
+	}
+
+	return err
 }
 
 func (c *Connector) sendPhoto(ctx context.Context, token, chat string, m notify.Message) error {
@@ -264,11 +277,15 @@ func render(m notify.Message, limit int) string {
 	}
 
 	if excess := len(title) + len(text) + fixed - limit; excess > 0 {
-		keep := max(len(text)-excess-1, 0)
-		text = append(text[:keep:keep], '…')
+		// An empty text has nothing to cut: an ellipsis would only add a line.
+		if len(text) > 0 {
+			keep := max(len(text)-excess-1, 0)
+			text = append(text[:keep:keep], '…')
+		}
 
 		if len(title)+len(text)+fixed > limit {
-			title = append(title[:max(limit-fixed-len(text)-1, 0):max(limit-fixed-len(text)-1, 0)], '…')
+			keep := max(limit-fixed-len(text)-1, 0)
+			title = append(title[:keep:keep], '…')
 		}
 	}
 
@@ -446,8 +463,10 @@ func rejection(status int, description string) error {
 	d := describe(description)
 
 	switch {
-	case status == http.StatusUnauthorized:
+	case status == http.StatusUnauthorized || status == http.StatusNotFound:
 		return permanent("Telegram rejected the bot token: create a new one with @BotFather (" + d + ")")
+	case status == http.StatusBadRequest && badMediaDescription(d):
+		return &mediaError{permanentError("Telegram could not use the image (" + d + ")")}
 	case status == http.StatusBadRequest && strings.Contains(strings.ToLower(d), "chat not found"):
 		return permanent("Telegram cannot find the chat: send a message to the bot, then press Test with the chat empty (" + d + ")")
 	case status == http.StatusForbidden:
@@ -457,6 +476,25 @@ func rejection(status int, description string) error {
 	}
 
 	return permanent(fmt.Sprintf("Telegram rejected the request (HTTP %d): %s", status, d))
+}
+
+// mediaError is Telegram refusing an image it could not fetch or read; the message itself may
+// still be fine.
+type mediaError struct {
+	permanentError
+}
+
+// badMediaDescription reports whether a 400's description is about the image, not the chat.
+func badMediaDescription(d string) bool {
+	d = strings.ToLower(d)
+
+	for _, frag := range []string{"wrong file identifier", "http url", "failed to get http url content", "wrong type of the web page content"} {
+		if strings.Contains(d, frag) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // permanentError is a failure retrying cannot fix. It is an Invalid error too, so a failed Test

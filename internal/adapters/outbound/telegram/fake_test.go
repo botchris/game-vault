@@ -23,12 +23,19 @@ const (
 	blocked      = `{"ok":false,"error_code":403,"description":"Forbidden: bot was blocked by the user"}`
 	flood        = `{"ok":false,"error_code":429,"description":"Too Many Requests: retry after 7","parameters":{"retry_after":7}}`
 	webhookSet   = `{"ok":false,"error_code":409,"description":"Conflict: can't use getUpdates method while webhook is active"}`
+	badImage     = `{"ok":false,"error_code":400,"description":"Bad Request: wrong file identifier/HTTP URL specified"}`
 	sentOK       = `{"ok":true,"result":{"message_id":10,"date":1790000000,"chat":{"id":1001,"type":"private"}}}`
 	noUpdates    = `{"ok":true,"result":[]}`
 	twoUpdates   = `{"ok":true,"result":[
  {"update_id":1,"message":{"message_id":1,"date":1790000000,"chat":{"id":1001,"type":"private","first_name":"Ana"},"text":"/start"}},
  {"update_id":2,"message":{"message_id":2,"date":1790000100,"chat":{"id":-100777,"type":"supergroup","title":"Friends"},"text":"hi"}}]}`
 )
+
+// reply is a canned answer.
+type reply struct {
+	status int
+	body   string
+}
 
 // call is one request the fake received.
 type call struct {
@@ -49,6 +56,9 @@ type fakeTelegram struct {
 	// status and body, when set, replace the answer of every request with a valid token.
 	status int
 	body   string
+
+	// byMethod answers the given methods with a failure, whatever the other requests get.
+	byMethod map[string]reply
 
 	// updates answers getUpdates.
 	updates string
@@ -108,6 +118,13 @@ func (f *fakeTelegram) serve(w http.ResponseWriter, r *http.Request) {
 
 	f.calls = append(f.calls, c)
 
+	if r, ok := f.byMethod[method]; ok {
+		w.WriteHeader(r.status)
+		_, _ = w.Write([]byte(r.body))
+
+		return
+	}
+
 	if f.status != 0 {
 		w.WriteHeader(f.status)
 		_, _ = w.Write([]byte(f.body))
@@ -130,6 +147,18 @@ func (f *fakeTelegram) fail(status int, body string) {
 	defer f.mu.Unlock()
 
 	f.status, f.body = status, body
+}
+
+// failMethod makes one method answer status and body.
+func (f *fakeTelegram) failMethod(method string, status int, body string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if f.byMethod == nil {
+		f.byMethod = map[string]reply{}
+	}
+
+	f.byMethod[method] = reply{status, body}
 }
 
 // received returns the requests so far.
