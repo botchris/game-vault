@@ -476,6 +476,20 @@ func TestRender_issueDetails(t *testing.T) {
 		})
 	})
 
+	t.Run("GIVEN a failed backup WHEN rendered THEN it says where to make one, outside the Health page", func(t *testing.T) {
+		failed := event.New(event.KindIssueOpened, at, event.Issue{
+			Kind:   "backups",
+			Reason: "backup_failed",
+		})
+
+		en := notify.Render(ctx, failed, "en", "", w.catalog, w.covers)
+		assert.Contains(t, en.Title, "make one now in System → Backups")
+		assert.NotContains(t, en.Title, "below")
+
+		es := notify.Render(ctx, failed, "es", "", w.catalog, w.covers)
+		assert.Contains(t, es.Title, "haz una ahora en Sistema → Copias de seguridad")
+	})
+
 	t.Run("GIVEN a resolved issue WHEN rendered THEN it is the title alone", func(t *testing.T) {
 		m := notify.Render(ctx, event.New(event.KindIssueResolved, at, event.Issue{
 			Kind:    "provider",
