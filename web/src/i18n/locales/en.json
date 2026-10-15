@@ -539,6 +539,13 @@
       "apiKey": "API key",
       "apiKeyHelp": "1. Open steamgriddb.com and sign in with Steam.\n2. Open Preferences → API (the page above).\n3. Choose Generate API Key and copy the key here.\nNever share it: it acts on your SteamGridDB account."
     },
+    "itad": {
+      "description": "Current game deals for the home page: IsThereAnyDeal's featured deals and historical lows in your country, without the games you already own. Needs a free IsThereAnyDeal API key. Prices and links are shown as IsThereAnyDeal gives them.",
+      "apiKey": "API key",
+      "apiKeyHelp": "1. Sign in to IsThereAnyDeal (page above) and open your apps.\n2. Register an app (any name, for example `Game Vault`).\n3. Copy its API key here. It is only used from this computer, for your own use.",
+      "country": "Country",
+      "countryHelp": "Two-letter code of the country whose prices to show, for example `ES` or `US`. Empty: the one that goes with your default currency."
+    },
     "igdbDetails": {
       "description": "Game sheets from IGDB for any game: summary (English), genres, companies, release date, age rating, screenshots and YouTube trailers. Uses the Twitch application from Covers; a few requests per game, then cached."
     },
