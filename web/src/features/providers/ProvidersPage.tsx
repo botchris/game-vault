@@ -54,12 +54,16 @@ export default function ProvidersPage() {
 
       <ProviderChain kind="valuation" healthKey={healthKey} title={t('providers.valuations')} intro={t('providers.valuationsIntro')} onNotice={setNotice}
         onChanged={async () => forgetPriceProviders()} />
+
+      <ProviderChain kind="deals" healthKey={healthKey} title={t('providers.deals')} intro={t('providers.dealsIntro')} onNotice={setNotice} />
+
+      <ProviderChain kind="releases" healthKey={healthKey} title={t('providers.releases')} intro={t('providers.releasesIntro')} onNotice={setNotice} />
     </div>
   );
 }
 
 function ProviderChain(props: {
-  kind: 'cover' | 'barcode' | 'metadata' | 'valuation';
+  kind: 'cover' | 'barcode' | 'metadata' | 'valuation' | 'deals' | 'releases';
   title: string;
   intro: string;
   pinned?: { name: string; description: string };

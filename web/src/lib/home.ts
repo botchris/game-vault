@@ -153,6 +153,16 @@ export function canRefresh(refreshableAt: Date | null, now: Date): boolean {
   return !refreshableAt || refreshableAt.getTime() <= now.getTime();
 }
 
+/** The address a deal or release card links to: the service's own, unaltered (ITAD's terms forbid
+ *  changing its links), and only when it is https; anything else leaves the card without a link. */
+export function httpsLink(url: string): string {
+  try {
+    return new URL(url).protocol === 'https:' ? url : '';
+  } catch {
+    return '';
+  }
+}
+
 /** A library view the home page links to ("#/library/<target>"). */
 export type LibraryPreset =
   | { quick: 'pending' | 'expiring' | 'redundant' }

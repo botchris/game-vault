@@ -33,6 +33,47 @@
       "health_one": "1 problema que revisar",
       "health_other": "{{count}} problemas que revisar"
     },
+    "refresh": "Actualizar",
+    "refreshing": "Actualizando…",
+    "refreshSoon": "Actualizado hace menos de 15 minutos",
+    "updated": "Actualizado {{when}}",
+    "neverUpdated": "Aún sin actualizar",
+    "neverFetched": "Aún no hay nada: se pregunta a {{provider}} en segundo plano cada pocas horas, o ahora con Actualizar.",
+    "configure": "Configurar en Proveedores",
+    "previous": "Anterior",
+    "next": "Siguiente",
+    "errors": {
+      "rate_limited": "{{provider}} pidió ir más despacio",
+      "quota": "{{provider}} agotó su cupo de peticiones",
+      "settings": "{{provider}} rechaza la clave: revísala en Proveedores",
+      "unavailable": "{{provider}} no responde",
+      "failed": "No se pudo leer {{provider}}"
+    },
+    "deals": {
+      "title": "Ofertas",
+      "featured": "Destacadas ahora",
+      "lows": "Mínimos históricos",
+      "none": "Ahora mismo no hay ofertas de juegos que no tengas.",
+      "free": "Gratis",
+      "cut": "-{{cut}} %",
+      "historicalLow": "Mínimo histórico",
+      "endsToday": "Termina hoy",
+      "endsIn_one": "Termina en {{count}} día",
+      "endsIn_other": "Termina en {{count}} días",
+      "ownedOn": "Lo tienes en {{systems}}",
+      "credit": "Precios de",
+      "notConfigured": "Añade una clave gratuita de IsThereAnyDeal para ver las ofertas del día, sin los juegos que ya tienes."
+    },
+    "releases": {
+      "title": "Próximos lanzamientos",
+      "series": "De tus series",
+      "anticipated": "Los más esperados",
+      "noneSeries": "No hay nada anunciado en tus series.",
+      "noneAnticipated": "No hay nada anunciado para los próximos 60 días.",
+      "because": "Porque tienes {{title}}",
+      "tba": "Fecha por anunciar",
+      "notConfigured": "Activa los lanzamientos de IGDB para ver lo que sale pronto de tus series y los juegos más esperados."
+    },
     "collection": {
       "title": "Tu colección",
       "games_one": "juego",
@@ -619,6 +660,10 @@
     },
     "valuations": "Precios",
     "valuationsIntro": "Precios de segunda mano de tus copias físicas con código de barras. Se consultan todas las fuentes activadas, cada copia en su propia fecha, más o menos una vez al mes; el orden solo indica cómo se muestran.",
+    "deals": "Ofertas",
+    "dealsIntro": "Se muestran en la página de inicio. Se piden en segundo plano cada 6 horas, nunca al abrir la página.",
+    "releases": "Próximos lanzamientos",
+    "releasesIntro": "Se muestran en la página de inicio. Se piden en segundo plano una vez al día.",
     "enabled": "Activado"
   },
   "health": {

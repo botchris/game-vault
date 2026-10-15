@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  blockMode, canRefresh, collectionSummary, endsInDays, libraryPreset, pendingItems, pickValue, staleLine,
+  blockMode, canRefresh, collectionSummary, endsInDays, httpsLink, libraryPreset, pendingItems, pickValue, staleLine,
 } from '../src/lib/home.ts';
 
 const t = (key, opts) => `${key}${opts ? ' ' + JSON.stringify(opts) : ''}`;
@@ -135,4 +135,15 @@ test('the home page links to library views by address', () => {
   assert.deepEqual(libraryPreset('recent'), { sort: 'added' });
   assert.equal(libraryPreset(''), null);
   assert.equal(libraryPreset('anything'), null);
+});
+
+test('a card links out only over https, with the address exactly as the service gave it', () => {
+  const deal = 'https://itad.link/018d9386-0000-7000-8000-00000000aaaa/?ref=x&tag=y';
+  assert.equal(httpsLink(deal), deal);
+  assert.equal(httpsLink('HTTPS://www.igdb.com/games/harbor-lights'), 'HTTPS://www.igdb.com/games/harbor-lights');
+  assert.equal(httpsLink('http://www.igdb.com/games/harbor-lights'), '');
+  assert.equal(httpsLink('javascript:alert(1)'), '');
+  assert.equal(httpsLink('//www.igdb.com/games/harbor-lights'), '');
+  assert.equal(httpsLink('not a url'), '');
+  assert.equal(httpsLink(''), '');
 });

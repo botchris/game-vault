@@ -33,6 +33,47 @@
       "health_one": "1 problem to look at",
       "health_other": "{{count}} problems to look at"
     },
+    "refresh": "Refresh",
+    "refreshing": "Refreshing…",
+    "refreshSoon": "Refreshed less than 15 minutes ago",
+    "updated": "Updated {{when}}",
+    "neverUpdated": "Not updated yet",
+    "neverFetched": "Nothing here yet: {{provider}} is asked in the background every few hours, or now with Refresh.",
+    "configure": "Set up on Providers",
+    "previous": "Previous",
+    "next": "Next",
+    "errors": {
+      "rate_limited": "{{provider}} asked to slow down",
+      "quota": "{{provider}} has used up its allowance",
+      "settings": "{{provider}} rejects the key: check it on Providers",
+      "unavailable": "{{provider}} is not answering",
+      "failed": "{{provider}} could not be read"
+    },
+    "deals": {
+      "title": "Deals",
+      "featured": "Featured now",
+      "lows": "Historical lows",
+      "none": "No deals right now for games you don't own.",
+      "free": "Free",
+      "cut": "-{{cut}}%",
+      "historicalLow": "Historical low",
+      "endsToday": "Ends today",
+      "endsIn_one": "Ends in {{count}} day",
+      "endsIn_other": "Ends in {{count}} days",
+      "ownedOn": "You have it on {{systems}}",
+      "credit": "Prices from",
+      "notConfigured": "Add a free IsThereAnyDeal key to see the deals of the day, without the games you already own."
+    },
+    "releases": {
+      "title": "Upcoming releases",
+      "series": "From your series",
+      "anticipated": "Most anticipated",
+      "noneSeries": "Nothing announced in your series.",
+      "noneAnticipated": "Nothing announced for the next 60 days.",
+      "because": "Because you have {{title}}",
+      "tba": "Date to be announced",
+      "notConfigured": "Turn on IGDB releases to see what comes out soon in your series and the most anticipated games."
+    },
     "collection": {
       "title": "Your collection",
       "games_one": "game",
@@ -619,6 +660,10 @@
     },
     "valuations": "Prices",
     "valuationsIntro": "Second-hand prices of your physical copies with a barcode. Every enabled source is asked, each copy on its own date about once a month; the order is only how they are listed.",
+    "deals": "Deals",
+    "dealsIntro": "Shown on the home page. Asked in the background every 6 hours, never when you open the page.",
+    "releases": "Upcoming releases",
+    "releasesIntro": "Shown on the home page. Asked in the background once a day.",
     "enabled": "Enabled"
   },
   "health": {
