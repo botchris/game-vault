@@ -2,6 +2,7 @@ package home_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -550,6 +551,106 @@ func TestRefresh_releases(t *testing.T) {
 				assert.Equal(t, "Lantern Keep II", h.FromSeries[0].Title)
 				require.Len(t, h.Anticipated, 1)
 				assert.Equal(t, "Harbor Lights", h.Anticipated[0].Title)
+			})
+		})
+	})
+}
+
+func TestRefresh_canceled(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN deals gathered six hours ago", func(t *testing.T) {
+		deals := &fakeDeals{featured: []game.Deal{deal("Echo Valley", "")}}
+		cfg := &configs{}
+		cfg.enable(deals)
+
+		clk := &clock{start}
+		stored := snapshots{}
+		svc := home.NewService(cfg, catalog{}, ownerOf(catalog{}), stored, prefs{}, home.WithDeals(deals), home.WithClock(clk.now))
+
+		_, err := svc.Refresh(ctx, home.BlockDeals)
+		require.NoError(t, err)
+		clk.advance(6 * time.Hour)
+
+		t.Run("WHEN the caller goes away after the provider was asked", func(t *testing.T) {
+			gone, leave := context.WithCancel(ctx)
+			defer leave()
+
+			deals.asked = leave
+			_, err := svc.Refresh(gone, home.BlockDeals)
+			deals.asked = nil
+
+			t.Run("THEN the refresh reports the cancellation", func(t *testing.T) {
+				assert.ErrorIs(t, err, context.Canceled)
+			})
+
+			t.Run("AND the attempt is recorded, but not as a failure of the block, and the data stays", func(t *testing.T) {
+				snap := stored[home.BlockDeals]
+				assert.Equal(t, start.Add(6*time.Hour), snap.AttemptedAt)
+				assert.True(t, snap.FailedAt.IsZero())
+				assert.Empty(t, snap.Error)
+				assert.Equal(t, start, snap.FetchedAt)
+				assert.Equal(t, []string{"Echo Valley"}, titles(snap.Featured))
+			})
+
+			t.Run("AND the provider's status is not touched", func(t *testing.T) {
+				assert.Len(t, cfg.results, 1, "only the first refresh's answer")
+			})
+		})
+
+		t.Run("WHEN the user asks again five minutes later", func(t *testing.T) {
+			clk.advance(5 * time.Minute)
+
+			before := len(deals.calls)
+			_, err := svc.Refresh(ctx, home.BlockDeals)
+
+			t.Run("THEN the interrupted attempt counts for the guard", func(t *testing.T) {
+				assert.ErrorIs(t, err, home.ErrTooSoon)
+				assert.Len(t, deals.calls, before)
+			})
+
+			t.Run("AND the page says when it can be refreshed, and the block is still fresh", func(t *testing.T) {
+				h, err := svc.Home(ctx)
+				require.NoError(t, err)
+				assert.Equal(t, start.Add(6*time.Hour+15*time.Minute), h.Deals.RefreshableAt)
+				assert.Equal(t, home.StateFresh, h.Deals.State)
+			})
+		})
+	})
+}
+
+func TestRefresh_catalogError(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a releases provider and a catalog whose storage fails", func(t *testing.T) {
+		broken := errors.New("database is locked")
+		releases := &fakeReleases{anticipated: []game.Release{{
+			Title: "Harbor Lights",
+			Date:  "2026-12-01",
+		}}}
+		cfg := &configs{}
+		cfg.enable(releases)
+
+		stored := snapshots{}
+		svc := home.NewService(cfg, brokenCatalog{broken}, ownerOf(catalog{}), stored, prefs{},
+			home.WithReleases(releases), home.WithClock((&clock{start}).now))
+
+		t.Run("WHEN the releases block is refreshed", func(t *testing.T) {
+			_, err := svc.Refresh(ctx, home.BlockReleases)
+
+			t.Run("THEN the storage error is returned as it is", func(t *testing.T) {
+				assert.ErrorIs(t, err, broken)
+			})
+
+			t.Run("AND the provider was not asked, nor blamed in its status", func(t *testing.T) {
+				assert.Zero(t, releases.calls())
+				assert.Empty(t, cfg.results)
+			})
+
+			t.Run("AND nothing is stored as the block's failure", func(t *testing.T) {
+				assert.NotContains(t, stored, home.BlockReleases)
 			})
 		})
 	})

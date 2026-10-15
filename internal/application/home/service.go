@@ -3,6 +3,7 @@ package home
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"slices"
 	"strings"
@@ -55,6 +56,9 @@ const (
 
 	// refreshTimeout bounds one block's refresh, every provider of its chain included.
 	refreshTimeout = 2 * time.Minute
+
+	// saveTimeout bounds recording an interrupted refresh, whose caller's context is already done.
+	saveTimeout = 5 * time.Second
 )
 
 // Configs is the port that keeps the providers' configuration and status (implemented by the
@@ -186,13 +190,17 @@ func every(b Block) time.Duration {
 	return releasesEvery
 }
 
-// lastAttempt returns when the block was last refreshed or tried; zero when never.
+// lastAttempt returns when the block was last refreshed or tried, interrupted tries included; zero
+// when never.
 func lastAttempt(s Snapshot) time.Time {
-	if s.FailedAt.After(s.FetchedAt) {
-		return s.FailedAt
+	last := s.FetchedAt
+	for _, t := range []time.Time{s.FailedAt, s.AttemptedAt} {
+		if t.After(last) {
+			last = t
+		}
 	}
 
-	return s.FetchedAt
+	return last
 }
 
 // enabled returns the block's enabled providers that are compiled in, in the user's order.
@@ -350,7 +358,8 @@ func (s *Service) refreshGuarded(ctx context.Context, b Block) error {
 
 // refresh asks the block's providers in the user's order until one answers, and stores what it
 // gave; when all fail, it stores the last failure next to the last good data. It returns
-// ErrNotConfigured when no provider is enabled, and only storage errors otherwise. s.mu is held.
+// ErrNotConfigured when no provider is enabled, the caller's cancellation (recorded as an attempt
+// when a provider was asked), and storage errors otherwise. s.mu is held.
 func (s *Service) refresh(ctx context.Context, b Block) error {
 	views, err := s.enabled(ctx, b)
 	if err != nil {
@@ -361,13 +370,34 @@ func (s *Service) refresh(ctx context.Context, b Block) error {
 		return ErrNotConfigured
 	}
 
+	if err := ctx.Err(); err != nil {
+		return err // nothing was asked: there is no attempt to record
+	}
+
+	// The collection is read before any provider is asked: a storage error is the server's, never
+	// the provider's, so it must not reach the provider's status or the block's failure.
+	var owned []OwnedRef
+	if b == BlockReleases {
+		if owned, err = s.owned(ctx); err != nil {
+			return fmt.Errorf("reading the collection for the releases: %w", err)
+		}
+	}
+
 	asking, cancel := context.WithTimeout(ctx, refreshTimeout)
 	defer cancel()
+
+	began := s.now()
 
 	var last error
 
 	for _, v := range views {
-		gathered, err := s.gather(asking, b, v)
+		gathered, err := s.gather(asking, b, v, owned)
+		if ctx.Err() != nil {
+			// The caller went away (a closed page, the server shutting down) after the provider was
+			// asked: the answer says nothing about the provider, but the request reached it.
+			return s.interrupted(ctx, b, began)
+		}
+
 		s.configs.ReportResult(v.ID(), err)
 
 		if err == nil {
@@ -382,10 +412,6 @@ func (s *Service) refresh(ctx context.Context, b Block) error {
 		}
 	}
 
-	if ctx.Err() != nil {
-		return ctx.Err() // shutting down: nothing failed on the service's side
-	}
-
 	s.log.Warn("refreshing the home page", "block", b, "error", last)
 
 	snap, _, err := s.snaps.Snapshot(ctx, b)
@@ -398,8 +424,31 @@ func (s *Service) refresh(ctx context.Context, b Block) error {
 	return s.snaps.SaveSnapshot(ctx, snap)
 }
 
-// gather asks one provider for a block's lists. Both lists must come, or neither is kept.
-func (s *Service) gather(ctx context.Context, b Block, v providers.View) (Snapshot, error) {
+// interrupted records a refresh the caller canceled after a provider was asked, so the 15-minute
+// guard counts it, and returns the cancellation. A user leaving the page and the server shutting
+// down look the same from here, so neither is stored as the block's failure: only the attempt's
+// time is, next to the last good data and the last real failure. The caller's context is done, so
+// the record is written on a detached one, bounded by saveTimeout.
+func (s *Service) interrupted(ctx context.Context, b Block, began time.Time) error {
+	saving, cancel := context.WithTimeout(context.WithoutCancel(ctx), saveTimeout)
+	defer cancel()
+
+	snap, _, err := s.snaps.Snapshot(saving, b)
+	if err == nil {
+		snap.Block, snap.AttemptedAt = b, began
+		err = s.snaps.SaveSnapshot(saving, snap)
+	}
+
+	if err != nil {
+		s.log.Warn("recording an interrupted home refresh", "block", b, "error", err)
+	}
+
+	return ctx.Err()
+}
+
+// gather asks one provider for a block's lists, with the owned games for the releases. Both lists
+// must come, or neither is kept.
+func (s *Service) gather(ctx context.Context, b Block, v providers.View, owned []OwnedRef) (Snapshot, error) {
 	if b == BlockDeals {
 		p := s.deals[v.ID()]
 		country := s.country(ctx)
@@ -431,11 +480,6 @@ func (s *Service) gather(ctx context.Context, b Block, v providers.View) (Snapsh
 	p := s.releases[v.ID()]
 
 	anticipated, err := p.Anticipated(ctx, v.Settings(), anticipationWindow)
-	if err != nil {
-		return Snapshot{}, err
-	}
-
-	owned, err := s.owned(ctx)
 	if err != nil {
 		return Snapshot{}, err
 	}

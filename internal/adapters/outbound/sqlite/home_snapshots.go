@@ -50,6 +50,7 @@ func (r *HomeSnapshots) Snapshot(ctx context.Context, b home.Block) (home.Snapsh
 		Error:          msg,
 		ErrorKind:      home.ErrorKind(kind),
 		FailedAt:       parseTime(failed),
+		AttemptedAt:    parseTime(doc.AttemptedAt),
 	}, true, nil
 }
 
@@ -61,6 +62,7 @@ func (r *HomeSnapshots) SaveSnapshot(ctx context.Context, s home.Snapshot) error
 		HistoricalLows: dealDocsOf(s.HistoricalLows),
 		FromSeries:     releaseDocsOf(s.FromSeries),
 		Anticipated:    releaseDocsOf(s.Anticipated),
+		AttemptedAt:    timeOrEmpty(s.AttemptedAt),
 	})
 	if err != nil {
 		return err
@@ -92,6 +94,10 @@ type snapshotDoc struct {
 	HistoricalLows []dealDoc    `json:"historicalLows"`
 	FromSeries     []releaseDoc `json:"fromSeries"`
 	Anticipated    []releaseDoc `json:"anticipated"`
+
+	// AttemptedAt is home.Snapshot.AttemptedAt. It lives in the document rather than in a column of
+	// its own: it only feeds the refresh guard, and rows without it read as never interrupted.
+	AttemptedAt string `json:"attemptedAt,omitempty"`
 }
 
 // dealDoc is the stored form of a game.Deal.

@@ -28,6 +28,10 @@ type fakeDeals struct {
 	lows     []game.Deal
 	err      error
 	calls    []home.DealQuery
+
+	// asked, when set, runs once the provider has been asked, before it answers (to cancel the
+	// caller's context mid-refresh).
+	asked func()
 }
 
 func (f *fakeDeals) Descriptor() provider.Descriptor {
@@ -41,8 +45,16 @@ func (f *fakeDeals) Descriptor() provider.Descriptor {
 
 func (f *fakeDeals) Test(context.Context, schema.Settings) error { return nil }
 
-func (f *fakeDeals) Deals(_ context.Context, _ schema.Settings, q home.DealQuery) ([]game.Deal, error) {
+func (f *fakeDeals) Deals(ctx context.Context, _ schema.Settings, q home.DealQuery) ([]game.Deal, error) {
 	f.calls = append(f.calls, q)
+	if f.asked != nil {
+		f.asked()
+	}
+
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -152,6 +164,11 @@ func (o *owner) Check(ctx context.Context, items []ownership.Item) ([]ownership.
 	o.batches = append(o.batches, len(items))
 	return o.svc.Check(ctx, items)
 }
+
+// brokenCatalog is a catalog whose storage fails.
+type brokenCatalog struct{ err error }
+
+func (c brokenCatalog) List(context.Context) ([]*game.Game, error) { return nil, c.err }
 
 // prefs is the user's saved preferences.
 type prefs settings.Preferences

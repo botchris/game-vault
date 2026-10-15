@@ -114,6 +114,12 @@ type Snapshot struct {
 	Error     string
 	ErrorKind ErrorKind
 	FailedAt  time.Time
+
+	// AttemptedAt is when the last refresh that asked a provider and was interrupted on the caller's
+	// side started (a closed page, a server shutting down). It is not a failure of the service, so
+	// the block shows nothing of it, but it counts for the 15-minute guard: the request reached the
+	// service.
+	AttemptedAt time.Time
 }
 
 // Snapshots is the persistence port of the blocks' snapshots.

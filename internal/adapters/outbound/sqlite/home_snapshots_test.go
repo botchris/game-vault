@@ -90,6 +90,19 @@ func TestHomeSnapshots(t *testing.T) {
 				assert.Equal(t, failed, got)
 			})
 		})
+
+		t.Run("WHEN an interrupted attempt is saved over it", func(t *testing.T) {
+			interrupted := in
+			interrupted.AttemptedAt = fetched.Add(7 * time.Hour)
+			require.NoError(t, repo.SaveSnapshot(ctx, interrupted))
+
+			got, _, err := repo.Snapshot(ctx, home.BlockDeals)
+			require.NoError(t, err)
+
+			t.Run("THEN its time is stored, with the data and no failure", func(t *testing.T) {
+				assert.Equal(t, interrupted, got)
+			})
+		})
 	})
 
 	t.Run("GIVEN a releases snapshot", func(t *testing.T) {
