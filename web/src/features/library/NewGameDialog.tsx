@@ -2,14 +2,14 @@ import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { gameClient } from '../../api/client';
 import { Alert, Modal } from '../../components/ui';
-import { CopyKind, KINDS, emptyDetails, kindKey, PHYSICAL_PLATFORMS, STORE_PLATFORMS } from '../../lib/model';
+import { CopyKind, KINDS, emptyDetails, kindKey, STORE_PLATFORMS } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
 import { useAction } from '../../lib/useAction';
 
 /** Registers a new game together with its first copy. More copies are added from the game detail. */
 export default function NewGameDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
   const { t } = useTranslation();
-  const { putGame } = useAppData();
+  const { putGame, systems } = useAppData();
   const [title, setTitle] = useState('');
   const [kind, setKind] = useState<CopyKind>(CopyKind.PHYSICAL);
   const [platform, setPlatform] = useState('');
@@ -48,7 +48,7 @@ export default function NewGameDialog({ onClose, onCreated }: { onClose: () => v
             {t('copy.platform')}
             <input list="new-platforms" value={platform} onChange={(e) => setPlatform(e.target.value)} />
             <datalist id="new-platforms">
-              {(kind === CopyKind.PHYSICAL ? PHYSICAL_PLATFORMS : STORE_PLATFORMS).map((p) => <option key={p} value={p} />)}
+              {(kind === CopyKind.PHYSICAL ? systems.map((s) => s.name) : STORE_PLATFORMS).map((p) => <option key={p} value={p} />)}
             </datalist>
           </label>
         </div>

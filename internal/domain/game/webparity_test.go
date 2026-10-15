@@ -41,19 +41,23 @@ func TestSearchTitle_webAgrees(t *testing.T) {
 	})
 }
 
-// TestSystems_webAgrees pins the web UI's system tables (SYSTEMS, the PC platforms and the store
-// systems in web/src/lib/editions.ts) to the server's (game.SystemOf), in both directions: the
-// library groups and filters by the system the web computes, so a platform that each side maps
-// differently, or that only the server knows, would be listed under a system the server never
-// stored. The web's systemOf is TypeScript, so it is written out here from its tables rather than
-// run: go test has no JavaScript runtime.
+// TestSystems_webAgrees pins the web UI's store tables (the PC platforms and the store systems in
+// web/src/lib/editions.ts, the store platforms in web/src/lib/model.ts) to the server's
+// (game.SystemOf), in both directions: the library groups and filters by the system the web
+// computes, so a store that each side maps differently, or that only the server knows, would be
+// listed under a system the server never stored. The consoles are not checked: the web reads them
+// from the API (CatalogService). The web's systemOf is TypeScript, so it is written out here from
+// its tables rather than run: go test has no JavaScript runtime.
 func TestSystems_webAgrees(t *testing.T) {
-	t.Run("GIVEN the system tables of the web UI", func(t *testing.T) {
+	t.Run("GIVEN the store tables of the web UI", func(t *testing.T) {
 		src, err := os.ReadFile(filepath.Join("..", "..", "..", "web", "src", "lib", "editions.ts"))
 		require.NoError(t, err)
 
-		systems := webStrings(t, src, `export const SYSTEMS = \[(.*?)\];`)
+		model, err := os.ReadFile(filepath.Join("..", "..", "..", "web", "src", "lib", "model.ts"))
+		require.NoError(t, err)
+
 		pc := webStrings(t, src, `const PC_PLATFORMS = \[(.*?)\];`)
+		offered := webStrings(t, model, `export const STORE_PLATFORMS = \[(.*?)\];`)
 
 		stores := map[string]string{}
 
@@ -66,85 +70,47 @@ func TestSystems_webAgrees(t *testing.T) {
 
 		require.NotEmpty(t, stores)
 
-		// webSystemOf is the web's systemOf, written out from its tables.
+		// webSystemOf is the web's systemOf for a store, written out from its tables; a name it does
+		// not list is a console, which the web takes from the catalog and is its own system.
 		webSystemOf := func(platform string) string {
 			k := strings.ToLower(strings.TrimSpace(platform))
-			if k == "" {
-				return "Other"
-			}
 
-			for _, p := range pc {
-				if strings.ToLower(p) == k {
-					return "PC"
-				}
+			if slices.Contains(pc, k) {
+				return game.SystemPC
 			}
 
 			if s, ok := stores[k]; ok {
 				return s
 			}
 
-			for _, s := range systems {
-				if strings.ToLower(s) == k {
-					return s
-				}
-			}
-
 			return strings.TrimSpace(platform)
 		}
 
-		t.Run("THEN every platform the web knows maps to the same system on both sides", func(t *testing.T) {
-			platforms := append(append([]string{}, systems...), pc...)
+		t.Run("THEN every store the web knows maps to the same system on both sides", func(t *testing.T) {
+			platforms := append(append([]string{}, pc...), offered...)
 
 			for k := range stores {
 				platforms = append(platforms, k)
 			}
-
-			// The platforms the web offers in its forms (web/src/lib/model.ts) must agree too.
-			model, err := os.ReadFile(filepath.Join("..", "..", "..", "web", "src", "lib", "model.ts"))
-			require.NoError(t, err)
-
-			platforms = append(platforms, webStrings(t, model, `export const STORE_PLATFORMS = \[(.*?)\];`)...)
-			platforms = append(platforms, webStrings(t, model, `export const PHYSICAL_PLATFORMS = \[(.*?)\];`)...)
-			platforms = append(platforms, "", " Amiga ", "xbox 360", "STEAM", "Dreamcast")
 
 			for _, p := range platforms {
 				assert.Equal(t, game.SystemOf(p), webSystemOf(p), "platform %q", p)
 			}
 		})
 
-		t.Run("THEN every platform the server knows is in the web's tables, under the same system", func(t *testing.T) {
-			model, err := os.ReadFile(filepath.Join("..", "..", "..", "web", "src", "lib", "model.ts"))
-			require.NoError(t, err)
-
-			offered := append(webStrings(t, model, `export const STORE_PLATFORMS = \[(.*?)\];`),
-				webStrings(t, model, `export const PHYSICAL_PLATFORMS = \[(.*?)\];`)...)
-
+		t.Run("THEN every store the server knows is offered by the web, under the same system", func(t *testing.T) {
 			for _, p := range game.KnownPlatforms() {
-				// Until Task 7 rewrites this test, catalog systems the web does not list yet are skipped.
-				if _, isSystem := game.SystemNamed(p); isSystem && !slices.Contains(offered, p) {
+				system := game.SystemOf(p)
+				if system == p {
 					continue
 				}
 
-				system := game.SystemOf(p)
+				k := strings.ToLower(p)
+				inPC := system == game.SystemPC && slices.Contains(pc, k)
 
 				assert.Contains(t, offered, p, "the web's forms do not offer platform %q", p)
-				assert.Contains(t, systems, system, "the web does not offer system %q (of %q)", system, p)
-
-				// A platform that is not its own system is a PC store or a store of several systems: the
-				// web must list it in PC_PLATFORMS or STORE_SYSTEMS, not fall back to the name itself.
-				if k := strings.ToLower(p); system != p {
-					inPC := system == game.SystemPC && slices.Contains(pc, k)
-					assert.True(t, inPC || stores[k] == system, "neither PC_PLATFORMS nor STORE_SYSTEMS maps %q to %s", p, system)
-				}
+				assert.True(t, inPC || stores[k] == system, "neither PC_PLATFORMS nor STORE_SYSTEMS maps %q to %s", p, system)
 			}
-		})
-
-		t.Run("THEN every system the server derives from a console name is offered by the web", func(t *testing.T) {
-			for _, s := range systems {
-				assert.Equal(t, s, game.SystemOf(s), "system %q", s)
-			}
-
-			assert.Contains(t, systems, game.SystemPC)
 		})
 	})
 }

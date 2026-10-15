@@ -33,28 +33,21 @@ export interface LibraryItem<G extends GameLike> {
   view: G;
 }
 
-/** Systems offered in the copy form: PC, then the console names game.SystemOf knows. The same list
- *  as PHYSICAL_PLATFORMS in model.ts, kept apart because model.ts imports generated code that Node
- *  tests cannot load; TestSystems_webAgrees (internal/domain/game/webparity_test.go) reads both
- *  lists and pins them to the server's SystemOf. */
-export const SYSTEMS = [
-  'PC', 'PS5', 'PS4', 'PS3', 'PS2', 'PS1', 'PSP', 'PS Vita', 'Xbox Series', 'Xbox One', 'Xbox 360', 'Xbox',
-  'Switch', 'Wii U', 'Wii', 'GameCube', 'N64', '3DS', 'DS', 'Game Boy',
-];
 const PC_PLATFORMS = [
   'steam', 'epic games', 'gog', 'ea app', 'ubisoft connect', 'battle.net', 'itch.io', 'amazon games', 'rockstar', 'riot',
   'battlestate (tarkov)', 'pc',
 ];
 const STORE_SYSTEMS: Record<string, string> = { 'playstation store': 'PS4', 'nintendo eshop': 'Switch', 'microsoft store / xbox': 'PC' };
 
-/** The system a platform implies; mirrors game.SystemOf in the server. */
-export function systemOf(platform: string): string {
+/** The system a platform implies; mirrors game.SystemOf in the server. `systems` are the names of
+ *  the catalog (CatalogService, AppData.systems): a console is its own system. */
+export function systemOf(platform: string, systems: readonly string[]): string {
   const p = platform.trim();
   if (!p) return 'Other';
   const k = p.toLowerCase();
   if (PC_PLATFORMS.includes(k)) return 'PC';
   if (STORE_SYSTEMS[k]) return STORE_SYSTEMS[k]!;
-  return SYSTEMS.find((s) => s.toLowerCase() === k) ?? p;
+  return systems.find((s) => s.toLowerCase() === k) ?? p;
 }
 
 /** The system of the game's main edition; '' for a game without copies. */

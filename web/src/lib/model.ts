@@ -35,14 +35,6 @@ export const STORE_PLATFORMS = [
   'Rockstar', 'Battlestate (Tarkov)', 'Riot', 'itch.io', 'Amazon Games', 'PlayStation Store', 'Nintendo eShop',
 ];
 
-// The same names as SYSTEMS in editions.ts (a disc's platform is its system). Both stay literal
-// arrays: TestSystems_webAgrees (internal/domain/game/webparity_test.go) reads them from the
-// source and checks them against the server's SystemOf.
-export const PHYSICAL_PLATFORMS = [
-  'PC', 'PS5', 'PS4', 'PS3', 'PS2', 'PS1', 'PSP', 'PS Vita', 'Xbox Series', 'Xbox One', 'Xbox 360', 'Xbox',
-  'Switch', 'Wii U', 'Wii', 'GameCube', 'N64', '3DS', 'DS', 'Game Boy',
-];
-
 export function emptyDetails(kind: CopyKind = CopyKind.PHYSICAL): CopyDetailsInput {
   return {
     kind, platform: '', status: STATUSES_BY_KIND[kind][0], key: '', redeemBy: '', origin: '',

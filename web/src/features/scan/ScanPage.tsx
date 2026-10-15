@@ -7,7 +7,7 @@ import { Icon } from '../../components/Icon';
 import { Alert } from '../../components/ui';
 import type { IdentifyBarcodeResponse } from '../../gen/gamevault/v1/lookup_pb';
 import { CopyContent, CopyGrade } from '../../gen/gamevault/v1/game_pb';
-import { CopyKind, CopyStatus, PHYSICAL_PLATFORMS, describePhysical, emptyDetails } from '../../lib/model';
+import { CopyKind, CopyStatus, describePhysical, emptyDetails } from '../../lib/model';
 import { normalizeBarcode } from '../../lib/barcode.ts';
 import { recall, remember } from '../../lib/storage';
 import { useAppData } from '../../state/AppData';
@@ -330,6 +330,7 @@ export default function ScanPage() {
 /** What is applied to every box of the batch, always visible; the fields open in place. */
 function BatchBar({ defaults, onChange }: { defaults: Defaults; onChange: (d: Defaults) => void }) {
   const { t } = useTranslation();
+  const { systems } = useAppData();
   const [editing, setEditing] = useState(false);
   const value = (v: string, empty: string) => v || empty;
   const physical = describePhysical(t, defaults);
@@ -356,7 +357,7 @@ function BatchBar({ defaults, onChange }: { defaults: Defaults; onChange: (d: De
           <p className="muted small batch-hint">{t('scan.batch.hint')}</p>
         </div>
       )}
-      <datalist id="scan-platforms">{PHYSICAL_PLATFORMS.map((p) => <option key={p} value={p} />)}</datalist>
+      <datalist id="scan-platforms">{systems.map((s) => <option key={s.name} value={s.name} />)}</datalist>
     </div>
   );
 }

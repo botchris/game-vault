@@ -32,6 +32,9 @@ test('mainSystem is the edition marked main, or none without editions', () => {
 });
 
 // The cases of TestSystemOf (internal/domain/game/system_test.go): keep both lists the same.
+const SYSTEMS = ['PC', 'PS5', 'PS4', 'PS3', 'PS2', 'PS1', 'PSP', 'PS Vita', 'Xbox Series', 'Xbox One', 'Xbox 360', 'Xbox',
+  'Switch', 'Wii U', 'Wii', 'GameCube', 'N64', '3DS', 'DS', 'Game Boy'];
+
 const SYSTEM_OF_CASES = [
   ['Steam', 'PC'], ['Epic Games', 'PC'], ['GOG', 'PC'], ['EA App', 'PC'], ['Ubisoft Connect', 'PC'],
   ['Battle.net', 'PC'], ['itch.io', 'PC'], ['Amazon Games', 'PC'], ['Rockstar', 'PC'], ['Riot', 'PC'],
@@ -47,7 +50,7 @@ const SYSTEM_OF_CASES = [
 
 for (const [platform, want] of SYSTEM_OF_CASES) {
   test(`systemOf: ${JSON.stringify(platform)} is played on ${want}, as the server says`, () => {
-    assert.equal(systemOf(platform), want);
+    assert.equal(systemOf(platform, SYSTEMS), want);
   });
 }
 
