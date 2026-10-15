@@ -38,7 +38,7 @@ Event kinds are stored in subscriptions and in the queue, so their names never c
 | `release.out` | activity | a release from the user's series comes out today (daily job) | title, platforms, the owned game |
 | `deal.historical_low` | activity | a game the user does not own on PC enters the historical lows (not in the previous deals snapshot) | title, price, regular price, cut, shop, ITAD's link (unchanged) |
 | `issue.opened` | attention | a Health issue appears and holds for two checks | Health's issue: key, level, reason, params, target |
-| `issue.resolved` | attention | a notified issue is gone for two checks | the same issue |
+| `issue.resolved` | attention | a notified issue has been gone for 30 minutes (never in the first 30 minutes after start) | the same issue |
 | `keys.expiring` | attention | daily: keys that entered the 30-day window, or reached 7 or 1 day | the keys (title, store, deadline, days left), nearest first |
 | `auth.failed_logins` | security | 3 or more failed sign-ins from one address within an hour | address, count, first and last attempt |
 
@@ -90,7 +90,9 @@ seeds the snapshot silently: no `release.announced` or `deal.historical_low` for
 - **Health watcher** (job, every minute; a component of its own, built after Health, since the use
   cases Health reads are built with the publisher): reads `health.Service.Issues`, keyed by `Issue.Key`;
   publishes `issue.opened` after an issue is seen in two consecutive checks and `issue.resolved`
-  after a notified issue is missing from two. The notified set is stored (`notified_issues`), so a
+  after a notified issue has been missing for 30 minutes, and not in the first 30 minutes after the
+  watcher starts (several Health issues live in memory and vanish on a restart or after a while);
+  rate limits are never told, since they end by themselves. The notified set is stored (`notified_issues`), so a
   restart neither repeats nor loses one. On its first run (fresh install or upgrade) the current
   issues are recorded as notified without sending. A connection's own pause issue is never
   delivered to that connection.
