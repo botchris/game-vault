@@ -43,8 +43,9 @@ As of 2026-10-15 (plugin `internal/adapters/outbound/itad`, provider `itad`, kin
   lows = `sort=-cut&limit=200`, kept when `flag == "H"` or price ≤ historyLow. Only `type == "game"`
   is kept. `assets` is decoded leniently (an empty array is plausible for a game without art).
   The docs name the asset fields (all URL strings) without sizes or optionality, and a sample leaves
-  `banner600` out; the card frame is a wide banner, so the adapter prefers banner400 → 300 → 600 →
-  145 and falls back to boxart (shown contained, not cropped).
+  `banner600` out; the frames are wide banners and Home's hero shows one at up to 600 px, so the
+  adapter prefers banner600 → 400 → 300 → 145 (largest first, since 2026-10-15) and falls back to
+  boxart (shown contained, not cropped).
 - **Steam ids:** `POST /lookup/shop/61/id/v1` with a JSON array of ITAD ids →
   `{"<id>": ["app/…", "sub/…"] | null}`; the first `app/` is the Steam app.
 - **Not verified with a real key yet:** the order of `/deals/v2` without `sort`, the meaning of

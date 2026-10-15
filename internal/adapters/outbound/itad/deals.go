@@ -428,8 +428,9 @@ func httpsOnly(raw string) string {
 }
 
 // image returns the game's art on ITAD's image host, "" when there is none. The page frames deal
-// art as a wide banner, so ITAD's banners come first (the 400-pixel one fits the card best, then
-// the nearest sizes); the box art, a tall cover, is the last resort and the page shows it whole.
+// art as a wide banner, so ITAD's banners come first, largest first: the home page's hero shows
+// the banner at up to 600 pixels and the cards at twice their size on dense screens. The box art,
+// a tall cover, is the last resort and the page shows it whole.
 // ITAD's documentation names these fields without their sizes, and leaves some of them out for
 // some games.
 func image(raw json.RawMessage) string {
@@ -445,7 +446,7 @@ func image(raw json.RawMessage) string {
 		return "" // an empty array: no art
 	}
 
-	for _, candidate := range []string{assets.Banner400, assets.Banner300, assets.Banner600, assets.Banner145, assets.Boxart} {
+	for _, candidate := range []string{assets.Banner600, assets.Banner400, assets.Banner300, assets.Banner145, assets.Boxart} {
 		if u, err := url.Parse(candidate); err == nil && u.Scheme == "https" && u.Hostname() == imageHost {
 			return candidate
 		}

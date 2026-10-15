@@ -272,8 +272,9 @@ func TestImage_prefersBanners(t *testing.T) {
 		assets string
 		want   string
 	}{
-		{"every banner", `{"boxart":"` + host + `boxart.jpg","banner145":"` + host + `banner145.jpg","banner300":"` + host + `banner300.jpg","banner400":"` + host + `banner400.jpg","banner600":"` + host + `banner600.jpg"}`, host + "banner400.jpg"},
-		{"no banner400", `{"boxart":"` + host + `boxart.jpg","banner145":"` + host + `banner145.jpg","banner300":"` + host + `banner300.jpg","banner600":"` + host + `banner600.jpg"}`, host + "banner300.jpg"},
+		{"every banner", `{"boxart":"` + host + `boxart.jpg","banner145":"` + host + `banner145.jpg","banner300":"` + host + `banner300.jpg","banner400":"` + host + `banner400.jpg","banner600":"` + host + `banner600.jpg"}`, host + "banner600.jpg"},
+		{"no banner600", `{"boxart":"` + host + `boxart.jpg","banner145":"` + host + `banner145.jpg","banner300":"` + host + `banner300.jpg","banner400":"` + host + `banner400.jpg"}`, host + "banner400.jpg"},
+		{"no banner600 or banner400", `{"boxart":"` + host + `boxart.jpg","banner145":"` + host + `banner145.jpg","banner300":"` + host + `banner300.jpg"}`, host + "banner300.jpg"},
 		{"only the large and small banners", `{"banner145":"` + host + `banner145.jpg","banner600":"` + host + `banner600.jpg"}`, host + "banner600.jpg"},
 		{"only the smallest banner", `{"boxart":"` + host + `boxart.jpg","banner145":"` + host + `banner145.jpg"}`, host + "banner145.jpg"},
 		{"only box art", `{"boxart":"` + host + `boxart.jpg"}`, host + "boxart.jpg"},
