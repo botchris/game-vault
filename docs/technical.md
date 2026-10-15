@@ -511,7 +511,7 @@ Providers), *never fetched* (a card with Refresh; the skeleton shows only while 
 **IsThereAnyDeal** (`internal/adapters/outbound/itad`, provider `itad`): ITAD's API v2 with your own
 free API key (Providers → Deals; an app registered on isthereanydeal.com) and a country setting
 (two letters). Left empty, the country follows your default currency: euro maps to Spain (ES), other
-currencies to their own country in a table, else ITAD's own default (the United States).
+currencies to their own country in a table; with no country at all, the adapter sends US itself.
 A refresh sends four requests: the deals list in ITAD's own order (`GET /deals/v2`, 40 games), the
 deepest cuts (`sort=-cut`, 200) kept when at their historical low, and one Steam lookup per list
 (`POST /lookup/shop/61/id/v1`). Only games are kept (no DLC or soundtracks), never mature ones. A
@@ -530,8 +530,9 @@ own game ids.
 **IGDB releases** (provider `igdb-releases`, settings shared with IGDB covers and details): off
 until you turn it on, even with the Twitch application entered (it runs on a schedule). "Most
 anticipated" is one `games` query; "From your series" finds your games by their Steam apps
-(`external_games`, source 1, 500 at a time), then asks for the upcoming main games of their
-collections and franchises (500 ids at a time, paged while a page is full). So IGDB receives Steam
+(`external_games`, source 1, 500 at a time, paged while a page is full), then asks for the
+upcoming main games of their collections and franchises (500 ids at a time, not paged: at most 500
+entries per batch). So IGDB receives Steam
 AppIDs, not IGDB ids, and games without a Steam link contribute no series. The series queries
 scale with the games linked to Steam: one lookup per 500 games, and each batch of the series query
 is capped at 500 entries. Until the query filters on IGDB's `game_type`, a bundle or an episode of a

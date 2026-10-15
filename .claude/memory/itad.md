@@ -19,7 +19,7 @@ As of 2026-10-15 (plugin `internal/adapters/outbound/itad`, provider `itad`, kin
   rests a minute (or `Retry-After`) after a 429 or an outage, and a refresh is 4 requests every
   6 h ±10 %.
 - **Auth:** key as `key` query parameter or `ITAD-API-Key` header; the adapter uses the header
-  (request errors name URLs). Users get a key by registering an app at
+  (request errors name URLs) and refuses redirects (Go forwards custom headers to any host). Users get a key by registering an app at
   https://isthereanydeal.com/apps/my/ (redirects to /apps/ when signed out). OAuth with PKCE exists
   for user data (collection, waitlist): out of scope so far.
 - **Probed with a bogus key (2026-10-15):** `GET /deals/v2` → HTTP 403
@@ -30,7 +30,8 @@ As of 2026-10-15 (plugin `internal/adapters/outbound/itad`, provider `itad`, kin
   The adapter maps 401/403 to a bad key only when the body is that JSON; a 403 HTML page is a
   passing trouble. `Test` sends the featured request with limit 40 (the refresh's own size).
 - **Country:** the deals request takes a `country` (ISO alpha-2). Empty setting: the default
-  currency's country (EUR → ES, by the maintainer's choice), else ITAD's own default (US).
+  currency's country (EUR → ES, by the maintainer's choice), else the adapter sends US itself
+  (`settingsOf`; ITAD's own default when the parameter is missing was not checked).
 - **Deals list:** `GET /deals/v2` with `country`, `offset`, `limit` (1–200, default 20), `sort`
   ("same as in deals list on the website"; documented: `-cut`, `price`), `nondeals`, `mature`
   (default false), `shops`, `filter` (lz-compressed base64 or URL-encoded JSON, semantics

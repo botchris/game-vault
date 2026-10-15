@@ -44,9 +44,9 @@ settings group `igdb`):
   `games` query, `first_release_date` within 60 days, `hypes > 0`, `version_parent = null &
   parent_game = null`, `sort hypes desc; limit 40;`. Sequels: `external_games` by Steam uid
   (source 1; IGDB receives Steam AppIDs, not IGDB ids) in batches of 500 with
-  `game.franchise,game.franchises,game.collections`, then `games` with `collections = (…) |
-  franchises = (…) | franchise = (…)` and `first_release_date > now`, 500 ids a batch, paged while
-  full. Games without a Steam link contribute no series; queries scale with Steam-linked games (one
+  `game.franchise,game.franchises,game.collections`, paged while a page is full (one app can have
+  several rows); then `games` with `collections = (…) | franchises = (…) | franchise = (…)` and
+  `first_release_date > now`, 500 ids a batch, not paged: each batch is capped at 500 entries. Games without a Steam link contribute no series; queries scale with Steam-linked games (one
   lookup per 500). Bundles or episodes may show as sequels until a `game_type` filter is added.
   `hypes` = follows before release; `follows`, `category` and `collection` are deprecated; `limit`
   max 500. Only the documentation was read: no real query has run yet. IGDB receives the Steam ids
