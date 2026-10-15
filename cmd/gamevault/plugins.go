@@ -19,6 +19,7 @@ import (
 	"gamevault/internal/adapters/outbound/playstation"
 	"gamevault/internal/adapters/outbound/steam"
 	"gamevault/internal/adapters/outbound/steamgriddb"
+	"gamevault/internal/adapters/outbound/telegram"
 	"gamevault/internal/adapters/outbound/thegamesdb"
 	"gamevault/internal/adapters/outbound/ubisoft"
 	"gamevault/internal/adapters/outbound/upcitemdb"
@@ -60,5 +61,7 @@ func newPlugins(log *slog.Logger) (*plugin.Registry, error) {
 		ebay.Plugin(),
 		upcitemdb.Plugin(),
 		eansearch.Plugin(),
+		// Notifications
+		telegram.Plugin(),
 	)
 }

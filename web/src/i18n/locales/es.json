@@ -1085,5 +1085,14 @@
     "usePhoto": "Usar una foto",
     "useAsMain": "Usar como portada del juego",
     "isMain": "Portada del juego"
+  },
+  "notifications": {
+    "telegram": {
+      "description": "Mensajes por un bot de Telegram propio: juegos nuevos, lanzamientos, ofertas y problemas, con la portada cuando la hay.",
+      "token": "Token del bot",
+      "tokenHelp": "1. Abre Telegram y habla con @BotFather (la página de arriba).\n2. Envía `/newbot` y sigue los pasos para ponerle nombre a tu bot.\n3. Copia aquí el token que te da.\nNo lo compartas: quien lo tenga controla el bot.",
+      "chat": "Chat",
+      "chatHelp": "1. Abre tu bot en Telegram y envíale cualquier mensaje (o añádelo a un grupo y escribe ahí).\n2. Pulsa Probar con este campo vacío: Game Vault encuentra el chat y lo rellena."
+    }
   }
 }

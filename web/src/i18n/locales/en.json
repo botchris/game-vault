@@ -1085,5 +1085,14 @@
     "usePhoto": "Use a photo",
     "useAsMain": "Use as the game's cover",
     "isMain": "The game's cover"
+  },
+  "notifications": {
+    "telegram": {
+      "description": "Messages through a Telegram bot of your own: new games, releases, deals and problems, with the cover when there is one.",
+      "token": "Bot token",
+      "tokenHelp": "1. Open Telegram and talk to @BotFather (the page above).\n2. Send `/newbot` and follow the steps to name your bot.\n3. Copy the token it gives you here.\nNever share it: anyone with it controls the bot.",
+      "chat": "Chat",
+      "chatHelp": "1. Open your bot in Telegram and send it any message (or add it to a group and write there).\n2. Press Test with this field empty: Game Vault finds the chat and fills it in."
+    }
   }
 }
