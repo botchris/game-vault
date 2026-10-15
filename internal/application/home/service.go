@@ -220,8 +220,9 @@ func (s *Service) enabled(ctx context.Context, b Block) ([]providers.View, error
 }
 
 // Home returns the external blocks. It only reads: no provider is asked, so a server started
-// with -no-unattended never reaches a service on its own. Games owned on PC are left out of the
-// deals now, not when they were gathered, so a game bought since is gone at once.
+// with -no-unattended never reaches a service on its own. Games owned on PC, and deals that have
+// ended, are left out of the deals now, not when they were gathered, so a game bought since, or a
+// deal that ended while the server was off, is gone at once.
 func (s *Service) Home(ctx context.Context) (Home, error) {
 	games, err := s.games.List(ctx)
 	if err != nil {
@@ -237,7 +238,8 @@ func (s *Service) Home(ctx context.Context) (Home, error) {
 
 	out.Deals = view
 	if view.State != StateNotConfigured {
-		if out.Featured, out.HistoricalLows, err = s.unowned(ctx, snap.Featured, snap.HistoricalLows); err != nil {
+		now := s.now()
+		if out.Featured, out.HistoricalLows, err = s.unowned(ctx, current(snap.Featured, now), current(snap.HistoricalLows, now)); err != nil {
 			return Home{}, err
 		}
 	}

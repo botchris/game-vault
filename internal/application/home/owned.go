@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"time"
 
 	"gamevault/internal/application/ownership"
 	"gamevault/internal/domain/game"
@@ -42,6 +43,20 @@ func (s *Service) unowned(ctx context.Context, featured, lows []game.Deal) ([]ga
 	}
 
 	return keep(featured, results[:len(featured)]), keep(lows, results[len(featured):]), nil
+}
+
+// current returns the deals that have not ended at now, in order, in a new slice (the stored
+// snapshot is left as it is). A deal without an end stays.
+func current(deals []game.Deal, now time.Time) []game.Deal {
+	out := make([]game.Deal, 0, len(deals))
+
+	for _, d := range deals {
+		if d.Expires.IsZero() || !d.Expires.Before(now) {
+			out = append(out, d)
+		}
+	}
+
+	return out
 }
 
 // keep returns up to shownDeals deals whose result does not say the game is owned on PC. Only an

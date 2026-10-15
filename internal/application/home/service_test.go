@@ -655,3 +655,48 @@ func TestRefresh_catalogError(t *testing.T) {
 		})
 	})
 }
+
+func TestHome_expiredDeals(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN deals gathered with their ends, then a day passes", func(t *testing.T) {
+		ending := deal("Echo Valley", "")
+		ending.Expires = start.Add(12 * time.Hour)
+		lasting := deal("Harbor Lights", "")
+		lasting.Expires = start.Add(48 * time.Hour)
+		open := deal("Copper Coast", "")
+		low := deal("Lantern Keep", "")
+		low.Expires = start.Add(time.Hour)
+
+		deals := &fakeDeals{
+			featured: []game.Deal{ending, lasting, open},
+			lows:     []game.Deal{low},
+		}
+		cfg := &configs{}
+		cfg.enable(deals)
+
+		clk := &clock{start}
+		stored := snapshots{}
+		svc := home.NewService(cfg, catalog{}, ownerOf(catalog{}), stored, prefs{}, home.WithDeals(deals), home.WithClock(clk.now))
+
+		_, err := svc.Refresh(ctx, home.BlockDeals)
+		require.NoError(t, err)
+		clk.advance(24 * time.Hour)
+
+		t.Run("WHEN the home page is read", func(t *testing.T) {
+			h, err := svc.Home(ctx)
+			require.NoError(t, err)
+
+			t.Run("THEN the deals that ended are left out, and those without an end stay", func(t *testing.T) {
+				assert.Equal(t, []string{"Harbor Lights", "Copper Coast"}, titles(h.Featured))
+				assert.Empty(t, h.HistoricalLows)
+			})
+
+			t.Run("AND the stored snapshot is not changed", func(t *testing.T) {
+				assert.Len(t, stored[home.BlockDeals].Featured, 3)
+				assert.Len(t, stored[home.BlockDeals].HistoricalLows, 1)
+			})
+		})
+	})
+}
