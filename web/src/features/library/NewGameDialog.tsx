@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { gameClient } from '../../api/client';
+import SystemPicker from '../../components/SystemPicker';
 import { Alert, Modal } from '../../components/ui';
-import { CopyKind, KINDS, emptyDetails, kindKey, PHYSICAL_PLATFORMS, STORE_PLATFORMS } from '../../lib/model';
+import { CopyKind, KINDS, emptyDetails, kindKey, STORE_PLATFORMS } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
 import { useAction } from '../../lib/useAction';
 
@@ -44,13 +45,15 @@ export default function NewGameDialog({ onClose, onCreated }: { onClose: () => v
               {KINDS.map((k) => <option key={k} value={k}>{t(`kind.${kindKey(k)}`)}</option>)}
             </select>
           </label>
-          <label>
-            {t('copy.platform')}
-            <input list="new-platforms" value={platform} onChange={(e) => setPlatform(e.target.value)} />
-            <datalist id="new-platforms">
-              {(kind === CopyKind.PHYSICAL ? PHYSICAL_PLATFORMS : STORE_PLATFORMS).map((p) => <option key={p} value={p} />)}
-            </datalist>
-          </label>
+          {kind === CopyKind.PHYSICAL ? (
+            <SystemPicker label={t('copy.platform')} value={platform} onChange={setPlatform} />
+          ) : (
+            <label>
+              {t('copy.platform')}
+              <input list="new-platforms" value={platform} onChange={(e) => setPlatform(e.target.value)} />
+              <datalist id="new-platforms">{STORE_PLATFORMS.map((p) => <option key={p} value={p} />)}</datalist>
+            </label>
+          )}
         </div>
         <p className="muted small">{t('newGame.hint')}</p>
         {error && <Alert tone="error">{error}</Alert>}

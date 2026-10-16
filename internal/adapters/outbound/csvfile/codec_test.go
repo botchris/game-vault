@@ -253,8 +253,8 @@ func TestSystem_column(t *testing.T) {
 			require.Len(t, copies, 2)
 
 			t.Run("THEN the export writes each copy's effective system, and the import keeps the user's choice only", func(t *testing.T) {
-				assert.Contains(t, b.String(), ",PS5,\n") // system, then the empty autoLinks column
-				assert.Contains(t, b.String(), ",PC,\n")
+				assert.Contains(t, b.String(), ",PS5,,\n") // system, then the empty autoLinks and region columns
+				assert.Contains(t, b.String(), ",PC,,\n")
 				assert.Equal(t, "PS5", copies[0].Details.System)
 				assert.Empty(t, copies[1].Details.System)
 			})
@@ -310,4 +310,27 @@ func TestDecode_idWithoutExternalID(t *testing.T) {
 	require.Len(t, copies, 2)
 	assert.Equal(t, "csv:key|steam|example quest|AAAA-BBBB", copies[0].ExternalID)
 	assert.Equal(t, "csv:physical|switch|pokemon example and friends|", copies[1].ExternalID)
+}
+
+func TestDecode_regionColumn(t *testing.T) {
+	t.Run("GIVEN rows with a region written in different ways, and one that is not a region", func(t *testing.T) {
+		in := "title,kind,region\n" +
+			"Sonic,physical,NTSC-J\n" +
+			"Zelda,physical,Region free\n" +
+			"Okami,physical,Europe\n"
+
+		t.Run("WHEN they are imported", func(t *testing.T) {
+			copies, warnings, err := Codec{}.Decode(strings.NewReader(in))
+			require.NoError(t, err)
+			require.Len(t, copies, 3)
+
+			t.Run("THEN the regions are read and the unknown one is reported and left empty", func(t *testing.T) {
+				assert.Equal(t, game.RegionNTSCJ, copies[0].Details.Region)
+				assert.Equal(t, game.RegionFree, copies[1].Details.Region)
+				assert.Empty(t, copies[2].Details.Region)
+				require.Len(t, warnings, 1)
+				assert.Contains(t, warnings[0], `"Europe"`)
+			})
+		})
+	})
 }

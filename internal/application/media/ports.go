@@ -113,6 +113,10 @@ type BarcodeMatch struct {
 	Edition  string
 	ImageURL string
 	Provider provider.ID
+
+	// Region is the market of the box when the database knows it (CeX sells each country's own
+	// boxes); empty otherwise.
+	Region game.Region
 }
 
 // BarcodeProvider is the port each barcode database implements (UPCitemdb, EAN-Search...).

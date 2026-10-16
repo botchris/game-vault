@@ -219,10 +219,16 @@ func (g *Game) SetMainSystem(system string, now time.Time) error {
 }
 
 // reconcileEditions drops what no longer fits the copies: covers of systems without copies, photo
-// covers whose photo no copy of that system has, and a main system without copies. Once the game
-// has copies, the cover chosen while it had none goes to the main edition, unless that edition
-// has a cover of its own.
+// covers whose photo no copy of that system has, and a main system without copies. A cover or main
+// system whose system the catalog has since renamed ("dreamcast" → "Dreamcast" by casing, "Mega
+// Drive" → "Mega Drive / Genesis" by alias) follows the edition instead (see renamedSystem). Once
+// the game has copies, the cover chosen while it had none goes to the main edition, unless that
+// edition has a cover of its own.
 func (g *Game) reconcileEditions() {
+	if g.mainSystem != "" && !g.hasSystem(g.mainSystem) {
+		g.mainSystem = g.renamedSystem(g.mainSystem) // empty when the edition is really gone
+	}
+
 	if c, ok := g.covers[""]; ok && len(g.copies) > 0 {
 		delete(g.covers, "")
 
@@ -231,19 +237,42 @@ func (g *Game) reconcileEditions() {
 		}
 	}
 
-	for system, c := range g.covers {
+	// In order, so which of two old spellings of one system keeps its cover does not depend on
+	// the map's order, and moved covers are not visited while ranging over the map.
+	for _, system := range slices.Sorted(maps.Keys(g.covers)) {
 		if system == "" {
 			continue // the game has no copies yet
 		}
 
-		if !g.hasSystem(system) || (c.Photo != "" && !g.hasPhotoOn(system, c.Photo)) {
-			delete(g.covers, system)
+		c := g.covers[system]
+		if g.hasSystem(system) {
+			if c.Photo != "" && !g.hasPhotoOn(system, c.Photo) {
+				delete(g.covers, system)
+			}
+
+			continue
+		}
+
+		delete(g.covers, system)
+
+		// The user's choice survives a rename of its system, unless the edition already has its own.
+		to := g.renamedSystem(system)
+		if to != "" && g.covers[to].IsZero() && (c.Photo == "" || g.hasPhotoOn(to, c.Photo)) {
+			g.covers[to] = c
 		}
 	}
+}
 
-	if g.mainSystem != "" && !g.hasSystem(g.mainSystem) {
-		g.mainSystem = ""
+// renamedSystem returns the system the game has now under the catalog name of system, a system it
+// has no copies on: its canonical spelling (CanonicalPlatform, then SystemOf). Empty when that is
+// system itself or the game has no copies on it either: the edition is gone.
+func (g *Game) renamedSystem(system string) string {
+	to := SystemOf(CanonicalPlatform(system))
+	if to == system || !g.hasSystem(to) {
+		return ""
 	}
+
+	return to
 }
 
 // restoreEditions sets the chosen covers and the main system read from storage, dropping what no

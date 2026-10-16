@@ -172,13 +172,6 @@ func (s *Store) Covers(ctx context.Context, q media.GameQuery, _ schema.Settings
 	return out, nil
 }
 
-// modernSystems are the systems whose games Steam's PC versions usually match: a PC copy, or one on
-// a console of the PS4 generation or later. Older consoles and handhelds often share a title with a
-// different game on Steam (a later remake, a remaster), so no link is saved for them.
-var modernSystems = []string{
-	game.SystemPC, game.SystemPS4, game.SystemPS5, game.SystemXboxOne, game.SystemXboxSeries, game.SystemSwitch,
-}
-
 // FindLinks implements media.LinkFinder: for a game not linked to Steam, with a copy on PC or a
 // modern console (or no copies), the AppID of the only store app with exactly its title
 // (game.SameTitle: the same words, ignoring case, accents and punctuation; never game.MatchKey: a
@@ -203,13 +196,16 @@ func (s *Store) FindLinks(ctx context.Context, q media.GameQuery, _ schema.Setti
 }
 
 // modernEnough reports whether one of the game's copies is on PC or a modern console, or it has none.
+// What counts as modern is the catalog's Modern field: the systems whose games Steam's PC versions
+// usually match. Older consoles and handhelds often share a title with a different game on Steam (a
+// later remake, a remaster), so no link is saved for them.
 func modernEnough(q media.GameQuery) bool {
 	if len(q.Platforms) == 0 {
 		return true
 	}
 
 	for _, p := range q.Platforms {
-		if slices.Contains(modernSystems, game.SystemOf(p)) {
+		if game.IsModernSystem(game.SystemOf(p)) {
 			return true
 		}
 	}

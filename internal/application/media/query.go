@@ -52,11 +52,12 @@ func (q GameQuery) ForPC() bool { return q.System == "" || q.System == game.Syst
 // SearchSystems returns the systems a title search for the query is filtered to: the edition's
 // system, or without one the systems of the game's physical copies (the boxes the user holds), or
 // else of all its copies, each once. Platforms are named by their system ("PlayStation Store" →
-// "PS4", "Steam" → "PC"), the names the game databases' platform tables are keyed by, so covers
-// and sheets map a copy to the same platform there.
+// "PS4", "Steam" → "PC") and aliases by their catalog name ("Mega Drive" → "Mega Drive / Genesis"),
+// the names the game databases' platform tables are keyed by, so covers and sheets map a copy to
+// the same platform there, even one stored before its spelling became an alias.
 func (q GameQuery) SearchSystems() []string {
 	if q.System != "" {
-		return []string{q.System}
+		return []string{searchSystem(q.System)}
 	}
 
 	platforms := q.PhysicalPlatforms
@@ -66,12 +67,23 @@ func (q GameQuery) SearchSystems() []string {
 
 	systems := make([]string, 0, len(platforms))
 	for _, pl := range platforms {
-		if s := game.SystemOf(pl); s != game.SystemOther && !slices.Contains(systems, s) {
+		if s := searchSystem(pl); s != game.SystemOther && !slices.Contains(systems, s) {
 			systems = append(systems, s)
 		}
 	}
 
 	return systems
+}
+
+// searchSystem names a platform or system by its catalog system: SystemOf for stores and exact
+// names, then SystemNamed for an alias SystemOf leaves as typed.
+func searchSystem(p string) string {
+	s := game.SystemOf(p)
+	if sys, ok := game.SystemNamed(s); ok {
+		return sys.Name
+	}
+
+	return s
 }
 
 // HasPhysical reports whether the game has at least one physical copy.

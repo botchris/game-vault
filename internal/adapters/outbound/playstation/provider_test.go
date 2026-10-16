@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
@@ -498,4 +499,9 @@ func TestMapTitles_systems(t *testing.T) {
 			assert.Equal(t, "PlayStation Store", got[2].Details.Platform)
 		})
 	})
+}
+
+func TestPlatformName_olderConsoles(t *testing.T) {
+	assert.Equal(t, game.SystemPS2, platformName("PS2"))
+	assert.Equal(t, game.SystemPS1, platformName("ps1"))
 }

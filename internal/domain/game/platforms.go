@@ -168,8 +168,9 @@ type platformInfo struct {
 	link string
 }
 
-// platforms is the one list of the stores, launchers and consoles Game Vault knows, in the order
-// KnownPlatforms lists them. Adding a store or a console is one line here (and its constant).
+// platforms is the one list of the stores and launchers Game Vault knows, in the order
+// KnownPlatforms lists them. Adding a store is one line here (and its constant); consoles and PC are
+// systems of the catalog (systems.go).
 var platforms = []platformInfo{
 	// Stores and launchers.
 	{PlatformSteam, SystemPC, LinkSteam},
@@ -186,82 +187,87 @@ var platforms = []platformInfo{
 	{PlatformAmazon, SystemPC, LinkAmazon},
 	{PlatformPlayStation, SystemPS4, LinkPSN}, // sells for several consoles: PS4 is the most likely
 	{PlatformNintendo, SystemSwitch, ""},      // likewise, the Switch
-
-	// PC and consoles (physical formats too), each its own system.
-	{SystemPC, SystemPC, ""},
-	{SystemPS5, SystemPS5, ""},
-	{SystemPS4, SystemPS4, ""},
-	{SystemPS3, SystemPS3, ""},
-	{SystemPS2, SystemPS2, ""},
-	{SystemPS1, SystemPS1, ""},
-	{SystemPSP, SystemPSP, ""},
-	{SystemPSVita, SystemPSVita, ""},
-	{SystemXboxSeries, SystemXboxSeries, ""},
-	{SystemXboxOne, SystemXboxOne, ""},
-	{SystemXbox360, SystemXbox360, ""},
-	{SystemXbox, SystemXbox, ""},
-	{SystemSwitch, SystemSwitch, ""},
-	{SystemWiiU, SystemWiiU, ""},
-	{SystemWii, SystemWii, ""},
-	{SystemGameCube, SystemGameCube, ""},
-	{SystemN64, SystemN64, ""},
-	{System3DS, System3DS, ""},
-	{SystemDS, SystemDS, ""},
-	{SystemGameBoy, SystemGameBoy, ""},
 }
 
-// platformNamed returns the known platform p names, ignoring case and surrounding spaces.
+// platformNamed returns the known platform p names, ignoring case and surrounding spaces: a store,
+// or a catalog system by its exact name (an alias is not a platform name; CanonicalPlatform turns
+// it into one when a copy is saved).
 func platformNamed(p string) (platformInfo, bool) {
 	p = strings.TrimSpace(p)
-	i := slices.IndexFunc(platforms, func(k platformInfo) bool { return strings.EqualFold(k.name, p) })
 
-	if i < 0 {
-		return platformInfo{}, false
+	if i := slices.IndexFunc(platforms, func(k platformInfo) bool { return strings.EqualFold(k.name, p) }); i >= 0 {
+		return platforms[i], true
 	}
 
-	return platforms[i], true
+	if i, ok := catalogNameIndex[strings.ToLower(p)]; ok {
+		return platformInfo{
+			name:   catalog[i].Name,
+			system: catalog[i].Name,
+		}, true
+	}
+
+	return platformInfo{}, false
 }
 
-// IsKnownPlatform reports whether p is one of the stores, launchers or consoles Game Vault knows,
+// catalogNameIndex maps every catalog name, in lower case, to its system's position in catalog:
+// platformNamed is called for every copy, and the catalog has over a hundred systems. Unlike
+// systemIndex it holds exact names only, not aliases or system keys.
+var catalogNameIndex = func() map[string]int {
+	out := make(map[string]int, len(catalog))
+	for i, s := range catalog {
+		out[strings.ToLower(s.Name)] = i
+	}
+
+	return out
+}()
+
+// IsKnownPlatform reports whether p is one of the stores, launchers or systems Game Vault knows,
 // as opposed to whatever a source names a key type (a software vendor, a course site…).
 func IsKnownPlatform(p string) bool {
 	_, ok := platformNamed(p)
+
 	return ok
 }
 
-// KnownPlatforms returns the stores, launchers and consoles Game Vault knows, PC and console names
-// included (a copy of the list: callers cannot change it). The web's platform tables are checked
-// against it.
+// KnownPlatforms returns the stores and launchers Game Vault knows, then every catalog system (a
+// copy: callers cannot change it). The web's platform tables are checked against it.
 func KnownPlatforms() []string {
-	out := make([]string, 0, len(platforms))
+	out := make([]string, 0, len(platforms)+len(catalog))
 	for _, p := range platforms {
 		out = append(out, p.name)
+	}
+
+	for _, s := range catalog {
+		out = append(out, s.Name)
 	}
 
 	return out
 }
 
-// Consoles returns the consoles Game Vault knows, every known system but PC, grouped by family
-// (PlayStation, Xbox, Nintendo) and newest first within each (Nintendo's home consoles, then its
-// handhelds).
-// Providers that map systems to a catalog's own ids check their tables against it.
+// Consoles returns every catalog system but PC, in catalog order. Providers that map systems to a
+// catalog's own ids check their tables against the catalog.
 func Consoles() []string {
-	var out []string
+	out := make([]string, 0, len(catalog))
 
-	for _, p := range platforms {
-		if p.name == p.system && p.system != SystemPC {
-			out = append(out, p.system)
+	for _, s := range catalog {
+		if s.Name != SystemPC {
+			out = append(out, s.Name)
 		}
 	}
 
 	return out
 }
 
-// CanonicalPlatform fixes the casing of known platforms ("steam" → "Steam") so they compare equal.
-// Unknown platforms are returned trimmed but otherwise untouched.
+// CanonicalPlatform fixes the casing of known platforms ("steam" → "Steam") and turns a system's
+// alias into its name ("Sega Genesis" → "Mega Drive / Genesis"), so they compare equal. Unknown
+// platforms are returned trimmed but otherwise untouched.
 func CanonicalPlatform(p string) string {
 	if k, ok := platformNamed(p); ok {
 		return k.name
+	}
+
+	if s, ok := SystemNamed(p); ok {
+		return s.Name
 	}
 
 	return strings.TrimSpace(p)

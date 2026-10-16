@@ -24,6 +24,7 @@
           "Currency": "USD"
         },
         "Notes": "a; b",
+        "Region": "",
         "System": ""
       },
       "System": ""
@@ -52,6 +53,7 @@
           "Currency": ""
         },
         "Notes": "",
+        "Region": "",
         "System": ""
       },
       "System": ""

@@ -73,6 +73,7 @@ func (h *MediaHandler) IdentifyBarcode(ctx context.Context, req *connect.Request
 			Edition:    m.Edition,
 			ImageUrl:   m.ImageURL,
 			ProviderId: string(m.Provider),
+			Region:     regionToPB[m.Region],
 		}
 	}
 

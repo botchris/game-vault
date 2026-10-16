@@ -109,6 +109,7 @@ type copyDoc struct {
 	Edition    string `json:"edition,omitempty"`
 
 	Grade         string        `json:"grade,omitempty"`
+	Region        string        `json:"region,omitempty"`
 	Contents      []string      `json:"contents,omitempty"`
 	Location      string        `json:"location,omitempty"`
 	Barcode       string        `json:"barcode,omitempty"`
@@ -260,6 +261,7 @@ func encodeGame(g *game.Game) (string, error) {
 			AcquiredOn:    string(c.AcquiredOn),
 			Edition:       c.Edition,
 			Grade:         string(c.Grade),
+			Region:        string(c.Region),
 			Contents:      contentStrings(c.Contents),
 			Location:      c.Location,
 			Barcode:       string(c.Barcode),
@@ -312,6 +314,7 @@ func decodeGame(id game.ID, raw string) (*game.Game, error) {
 				AcquiredOn: game.Date(c.AcquiredOn),
 				Edition:    c.Edition,
 				Grade:      game.Grade(c.Grade),
+				Region:     game.Region(c.Region),
 				Contents:   contents,
 				Location:   c.Location,
 				Barcode:    game.Barcode(c.Barcode),

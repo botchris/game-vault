@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package gamevault.v1;
+
+option go_package = "gamevault/internal/gen/gamevault/v1;gamevaultv1";
+
+// SystemInfo is one game system of the catalog (see game.System).
+message SystemInfo {
+  // The stored name, never translated.
+  string name = 1;
+  string maker = 2;
+  // "pc", "home", "handheld" or "computer".
+  string kind = 3;
+  int32 year = 4;
+  repeated string aliases = 5;
+  // The badge label; empty means the name.
+  string short = 6;
+  bool modern = 7;
+}
+
+message ListSystemsRequest {}
+
+message ListSystemsResponse {
+  // Every system, in display order.
+  repeated SystemInfo systems = 1;
+}
+
+// CatalogService serves the catalog of game systems.
+service CatalogService {
+  // ListSystems returns every system of the catalog, in display order.
+  rpc ListSystems(ListSystemsRequest) returns (ListSystemsResponse);
+}

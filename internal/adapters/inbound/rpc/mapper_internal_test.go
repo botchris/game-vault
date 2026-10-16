@@ -123,6 +123,7 @@ func TestDetailsFromPB_enums(t *testing.T) {
 				assert.Empty(t, got.Kind)
 				assert.Empty(t, got.Status)
 				assert.Empty(t, got.Grade)
+				assert.Empty(t, got.Region)
 				assert.Empty(t, got.Contents.List())
 			})
 		})
@@ -134,6 +135,7 @@ func TestDetailsFromPB_enums(t *testing.T) {
 		"kind":    {Kind: pb.CopyKind(99)},
 		"status":  {Status: pb.CopyStatus(99)},
 		"grade":   {Grade: pb.CopyGrade(99)},
+		"region":  {Region: pb.CopyRegion(99)},
 		"content": {Contents: []pb.CopyContent{pb.CopyContent_COPY_CONTENT_BOX, pb.CopyContent(99)}},
 	} {
 		t.Run("GIVEN copy details with an unknown "+name, func(t *testing.T) {

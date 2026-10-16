@@ -81,3 +81,10 @@ metadata:
   refused when read ("game document version N is no longer supported", `errOlderDocument`), never
   converted. Migration 0009 still writes v1 docs, so a database from before it opens but its games
   are refused.
+- 2026-10-16: **systems catalog** (`game/systems.go`, 118 systems with maker, kind, year, aliases,
+  `Modern`, `Short`; served by `CatalogService.ListSystems`). A catalog `Name` is stored like the old
+  system names: never rename one (`TestSystems_namesNeverChange` pins them); aliases are matched by
+  `SystemKey` and an alias that matches is stored as the name on the copy's next save. Every
+  provider maps or excludes every system (`game.CheckProviderCoverage`). **Region** is a field of
+  the copy (`CopyDetails.Region`: `pal`, `ntsc_u`, `ntsc_j`, `ntsc_k`, `ntsc_c`, `asia`,
+  `region_free`; stored ids never change; additive document field, CSV column `region`).

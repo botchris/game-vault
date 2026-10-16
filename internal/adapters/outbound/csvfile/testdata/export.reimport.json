@@ -28,6 +28,7 @@
           "Currency": "EUR"
         },
         "Notes": "Lent to a friend, \"until spring\"",
+        "Region": "pal",
         "System": ""
       },
       "System": ""
@@ -60,6 +61,7 @@
           "Currency": ""
         },
         "Notes": "",
+        "Region": "",
         "System": ""
       },
       "System": ""
@@ -88,6 +90,7 @@
           "Currency": "JPY"
         },
         "Notes": "",
+        "Region": "",
         "System": ""
       },
       "System": ""
@@ -116,7 +119,37 @@
           "Currency": ""
         },
         "Notes": "",
+        "Region": "",
         "System": "Linux"
+      },
+      "System": ""
+    },
+    {
+      "ExternalID": "manual:sonic",
+      "Withdrawn": false,
+      "Title": "Sonic the Hedgehog",
+      "Links": null,
+      "AutoLinks": null,
+      "Details": {
+        "Kind": "physical",
+        "Platform": "Mega Drive / Genesis",
+        "Status": "owned",
+        "Key": "",
+        "RedeemBy": "",
+        "Origin": "",
+        "AcquiredOn": "",
+        "Edition": "",
+        "Grade": "",
+        "Contents": 0,
+        "Location": "",
+        "Barcode": "",
+        "Price": {
+          "Amount": 0,
+          "Currency": ""
+        },
+        "Notes": "",
+        "Region": "ntsc_j",
+        "System": ""
       },
       "System": ""
     }

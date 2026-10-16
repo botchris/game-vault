@@ -70,20 +70,27 @@ func TestVocabulary_valuesNeverChange(t *testing.T) {
 
 func TestKnownPlatforms(t *testing.T) {
 	t.Run("GIVEN the platforms Game Vault knows", func(t *testing.T) {
-		t.Run("THEN they are listed in a fixed order, stores first", func(t *testing.T) {
-			assert.Equal(t, []string{
+		t.Run("THEN they are the stores, in a fixed order, then every catalog system", func(t *testing.T) {
+			want := append(make([]string, 0, 14+len(Systems())),
 				"Steam", "Epic Games", "GOG", "EA App", "Battle.net", "Ubisoft Connect", "Microsoft Store / Xbox",
 				"Rockstar", "Battlestate (Tarkov)", "Riot", "itch.io", "Amazon Games", "PlayStation Store", "Nintendo eShop",
-				"PC", "PS5", "PS4", "PS3", "PS2", "PS1", "PSP", "PS Vita", "Xbox Series", "Xbox One", "Xbox 360", "Xbox",
-				"Switch", "Wii U", "Wii", "GameCube", "N64", "3DS", "DS", "Game Boy",
-			}, KnownPlatforms())
+			)
+
+			for _, s := range Systems() {
+				want = append(want, s.Name)
+			}
+
+			assert.Equal(t, want, KnownPlatforms())
 		})
 
-		t.Run("THEN the consoles are the systems that are not PC, each its own system", func(t *testing.T) {
-			assert.Equal(t, []string{
-				"PS5", "PS4", "PS3", "PS2", "PS1", "PSP", "PS Vita", "Xbox Series", "Xbox One", "Xbox 360", "Xbox",
-				"Switch", "Wii U", "Wii", "GameCube", "N64", "3DS", "DS", "Game Boy",
-			}, Consoles())
+		t.Run("THEN the consoles are the catalog's systems but PC, in catalog order", func(t *testing.T) {
+			want := make([]string, 0, len(Systems()))
+
+			for _, s := range Systems()[1:] {
+				want = append(want, s.Name)
+			}
+
+			assert.Equal(t, want, Consoles())
 
 			for _, c := range Consoles() {
 				assert.Equal(t, c, SystemOf(c))
@@ -125,4 +132,15 @@ func TestIsXboxSystem(t *testing.T) {
 
 	assert.Equal(t, []string{"Xbox Series", "Xbox One", "Xbox 360", "Xbox"},
 		slices.DeleteFunc(Consoles(), func(c string) bool { return !IsXboxSystem(c) }))
+}
+
+// TestIsKnownPlatform_catalogNames checks that catalog systems are known by their exact name,
+// ignoring case and surrounding spaces, but not by an alias, which CanonicalPlatform turns into
+// their name when a copy is saved.
+func TestIsKnownPlatform_catalogNames(t *testing.T) {
+	assert.True(t, IsKnownPlatform(" dreamcast "))
+	assert.True(t, IsKnownPlatform("mega drive / genesis"))
+	assert.Equal(t, "Dreamcast", SystemOf("DREAMCAST"))
+	assert.False(t, IsKnownPlatform("Mega Drive"), "an alias")
+	assert.False(t, IsKnownPlatform("Mega-Drive / Genesis"), "an exact name, not a system key")
 }

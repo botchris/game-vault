@@ -227,7 +227,8 @@
       "genresPartial": "Genres known for {{cached}} of {{total}} games; the rest download in the background.",
       "done": "Show results",
       "sources": "Source",
-      "manual": "Added by hand"
+      "manual": "Added by hand",
+      "regions": "Region"
     },
     "alpha": "Jump to letter",
     "noResults": "No games match these filters."
@@ -317,7 +318,8 @@
     "currency": "Currency",
     "priceInvalid": "Not an amount, e.g. 29.95",
     "confirmExclude": "Remove «{{title}}» from {{source}} and do not import it again? The next sync will skip it; you can bring it back from the source's settings.",
-    "confirmExcludeLoses": " Its photos and price estimates will be deleted."
+    "confirmExcludeLoses": " Its photos and price estimates will be deleted.",
+    "region": "Region"
   },
   "picker": {
     "search": "Search games…",
@@ -1087,6 +1089,13 @@
     "useAsMain": "Use as the game's cover",
     "isMain": "The game's cover"
   },
+  "systemPicker": {
+    "search": "Search systems",
+    "yours": "In your collection",
+    "use": "Use “{{text}}”",
+    "none": "No system matches",
+    "otherMaker": "Other"
+  },
   "notifications": {
     "title": "Notifications",
     "intro": "Send what happens in Game Vault to Telegram, ntfy or any web address.",
@@ -1179,6 +1188,25 @@
       "headerHelp": "Optional: the name of a header sent with every request, for example Authorization or X-Webhook-Secret. Fill in the value below.",
       "secret": "Header value",
       "secretHelp": "Optional: the value of that header (a token or a shared secret). Never shared or shown again once saved."
+    }
+  },
+  "region": {
+    "unspecified": "Not set",
+    "pal": "PAL (Europe, Australia)",
+    "ntsc_u": "NTSC-U (Americas)",
+    "ntsc_j": "NTSC-J (Japan)",
+    "ntsc_k": "NTSC-K (Korea)",
+    "ntsc_c": "NTSC-C (China)",
+    "asia": "Asia",
+    "region_free": "Region free",
+    "short": {
+      "pal": "PAL",
+      "ntsc_u": "US",
+      "ntsc_j": "JP",
+      "ntsc_k": "KR",
+      "ntsc_c": "CN",
+      "asia": "Asia",
+      "region_free": "Free"
     }
   }
 }

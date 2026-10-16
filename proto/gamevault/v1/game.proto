@@ -58,6 +58,18 @@ enum CopyGrade {
   COPY_GRADE_DAMAGED = 6;
 }
 
+// CopyRegion is the market a copy was made for.
+enum CopyRegion {
+  COPY_REGION_UNSPECIFIED = 0;
+  COPY_REGION_PAL = 1;
+  COPY_REGION_NTSC_U = 2;
+  COPY_REGION_NTSC_J = 3;
+  COPY_REGION_NTSC_K = 4;
+  COPY_REGION_NTSC_C = 5;
+  COPY_REGION_ASIA = 6;
+  COPY_REGION_REGION_FREE = 7;
+}
+
 // CopyContent is one part of what a physical copy comes with.
 enum CopyContent {
   COPY_CONTENT_UNSPECIFIED = 0;
@@ -129,6 +141,8 @@ message CopyDetails {
   // The system the copy is played on, as the user set it ("PS4", "PC"…); empty: automatic (the
   // source's system, else the one the platform implies). See Copy.effective_system.
   string system = 17;
+  // The copy's region; unspecified: not stated.
+  CopyRegion region = 18;
 }
 
 // Photo is a picture of a copy the user uploaded (POST /media/photos). The image is served at

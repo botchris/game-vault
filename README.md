@@ -50,7 +50,7 @@ Game Vault puts your whole collection in one catalog that runs on your own compu
 | Steam, Epic Games Store, GOG, Battle.net, EA app, Ubisoft Connect, Xbox / Microsoft Store, PlayStation (PS4, PS5), Amazon Games (Prime Gaming), itch.io | Imported from your account and rescanned automatically |
 | Humble Bundle keys (Steam, Epic, GOG, Ubisoft, EA… keys) | Imported from your Humble Bundle account, with their redeem deadlines |
 | Fanatical keys ⚠️ | Imported from your Fanatical account, **at your own risk**: Fanatical's terms do not allow other apps to read your account, and it could suspend it. You have to accept that in its settings before it works |
-| Physical games (Xbox 360, PS3, PS4, Switch…) | Barcode scan from the phone, or typed in |
+| Physical games of consoles, handhelds and classic computers of every generation (NES, Mega Drive, PS1, Xbox 360, Switch…), with their region | Barcode scan from the phone, or typed in |
 | Anything else (other launchers, older keys…) | Added by hand, or imported from a CSV file |
 
 Game Vault only **reads** your accounts: it never buys, redeems, installs or changes anything.

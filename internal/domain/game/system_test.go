@@ -88,7 +88,7 @@ func TestCopySystem(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("THEN known names are fixed and unknown ones kept, trimmed", func(t *testing.T) {
-			for typed, want := range map[string]string{"steam": "PC", "xbox 360": "Xbox 360", " Amiga 500 ": "Amiga 500", "Xbox 360/S Slim": "Xbox 360/S Slim"} {
+			for typed, want := range map[string]string{"steam": "PC", "xbox 360": "Xbox 360", " Vectrex Mk2 ": "Vectrex Mk2", "Xbox 360/S Slim": "Xbox 360/S Slim"} {
 				c, err := g.AddCopy(CopyDetails{
 					Kind:   KindPhysical,
 					System: typed,
@@ -194,6 +194,34 @@ func TestConsolidator_systems(t *testing.T) {
 			assert.Equal(t, "--", res.InvalidSystems[0].System)
 			assert.Contains(t, res.InvalidSystems[0].Warning, "Astro Bot")
 			assert.Empty(t, res.Warnings)
+		})
+	})
+}
+
+func TestSystems_aliasesOnSave(t *testing.T) {
+	t.Run("GIVEN copy details typed with aliases", func(t *testing.T) {
+		d := CopyDetails{
+			Kind:     KindPhysical,
+			Platform: "Sega Genesis",
+			System:   "super famicom",
+		}
+
+		t.Run("WHEN they are normalized", func(t *testing.T) {
+			got, err := d.normalize()
+			require.NoError(t, err)
+
+			t.Run("THEN the platform and the system become the catalog's names", func(t *testing.T) {
+				assert.Equal(t, "Mega Drive / Genesis", got.Platform)
+				assert.Equal(t, "SNES", got.System)
+			})
+		})
+	})
+
+	t.Run("GIVEN a stored platform that is an alias", func(t *testing.T) {
+		t.Run("THEN SystemOf keeps the stored text until the copy is saved again", func(t *testing.T) {
+			assert.Equal(t, "Sega Genesis", SystemOf("Sega Genesis"))
+			assert.Equal(t, "Dreamcast", SystemOf("dreamcast"))
+			assert.Equal(t, "Commodore PET", SystemOf(" Commodore PET "))
 		})
 	})
 }

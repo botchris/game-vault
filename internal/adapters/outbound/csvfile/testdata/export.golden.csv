@@ -1,5 +1,6 @@
-﻿title,platform,kind,status,key,redeemBy,origin,acquiredOn,edition,grade,contents,location,price,currency,notes,links,externalId,barcode,system,autoLinks
-Console Quest,PS5,physical,lent,,,,2025-12-24,Collector's,very_good,box manual media,Shelf B,29.95,EUR,"Lent to a friend, ""until spring""",gog:200,manual:quest,4006381333931,PS5,steam:100
-Console Quest,Steam,key,revealed,AAAAA-BBBBB-CCCCC,2026-12-31,Humble – Example Bundle,,,,,,,,,gog:200,humble:A:1,,PC,steam:100
-Pocket Hero,Switch,physical,,,,,,,,,,1500,JPY,,,copy:c3,,Switch,
-Pocket Hero,Steam,library,owned,,,,,,,,,,,,,steam:300,,Linux,
+﻿title,platform,kind,status,key,redeemBy,origin,acquiredOn,edition,grade,contents,location,price,currency,notes,links,externalId,barcode,system,autoLinks,region
+Console Quest,PS5,physical,lent,,,,2025-12-24,Collector's,very_good,box manual media,Shelf B,29.95,EUR,"Lent to a friend, ""until spring""",gog:200,manual:quest,4006381333931,PS5,steam:100,pal
+Console Quest,Steam,key,revealed,AAAAA-BBBBB-CCCCC,2026-12-31,Humble – Example Bundle,,,,,,,,,gog:200,humble:A:1,,PC,steam:100,
+Pocket Hero,Switch,physical,,,,,,,,,,1500,JPY,,,copy:c3,,Switch,,
+Pocket Hero,Steam,library,owned,,,,,,,,,,,,,steam:300,,Linux,,
+Sonic the Hedgehog,Mega Drive / Genesis,physical,owned,,,,,,,,,,,,,manual:sonic,,Mega Drive / Genesis,,ntsc_j
