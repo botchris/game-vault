@@ -6,10 +6,11 @@
 <title>Game Vault — know every game you own</title>
 <meta name="description" content="Game Vault is a self-hosted web app that catalogs every game you own: store libraries, Humble Bundle keys and physical discs scanned by barcode. One Docker container.">
 <link rel="icon" href="assets/mark.svg" type="image/svg+xml">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
+<link rel="preload" href="assets/fonts/archivo-latin-wdth-normal.woff2" as="font" type="font/woff2" crossorigin>
 <style>
+/* Archivo, the app's own face (SIL OFL, bundled from @fontsource-variable/archivo): no external font service. */
+@font-face { font-family: 'Archivo'; font-style: normal; font-display: swap; font-weight: 100 900; font-stretch: 62% 125%; src: url(assets/fonts/archivo-latin-wdth-normal.woff2) format('woff2-variations'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Archivo'; font-style: normal; font-display: swap; font-weight: 100 900; font-stretch: 62% 125%; src: url(assets/fonts/archivo-latin-ext-wdth-normal.woff2) format('woff2-variations'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
 :root {
   --ink: #181c2c;
   --slate: #262c42;
@@ -63,17 +64,17 @@ p { margin: 0; }
 .nav a { text-decoration: none; }
 
 /* ---------- Hero: headline upper left, the product's own question on a cut amber stage ---------- */
-.hero { position: relative; min-height: max(880px, 100svh); overflow: hidden; }
+.hero { position: relative; min-height: max(940px, 100svh); overflow: hidden; }
 .hero-text { position: relative; z-index: 2; padding: 120px var(--margin) 0; max-width: 760px; }
 .hero h1 { font-size: var(--step-display); }
 .hero-text p { margin-top: 22px; font-size: 18px; max-width: 34ch; }
 .hero-text .button { margin-top: 30px; }
 .stage {
-  position: absolute; left: 36%; right: 0; top: 46%; bottom: 0; background: var(--amber);
+  position: absolute; left: 36%; right: 0; top: 400px; bottom: 0; background: var(--amber);
   /* The top-left corner is cut into a step: the two stacked cases of the mark. */
   clip-path: polygon(0 64px, 120px 64px, 120px 0, 100% 0, 100% 100%, 0 100%);
 }
-.stage-inner { position: absolute; left: 56px; top: 118px; }
+.stage-inner { position: absolute; left: 56px; top: 104px; }
 
 /* ---------- Fragments of the real interface (their own conventions inside data-ui) ---------- */
 [data-ui] { font-family: var(--font); font-stretch: 100%; letter-spacing: 0; color: var(--ink); }
@@ -86,7 +87,7 @@ p { margin: 0; }
 .ask-hints button { padding: 4px 10px; border: 1px solid #c9d0dc; border-radius: 999px; background: var(--paper); cursor: pointer; font-size: 13px; } /* taste-skill-ignore: inside a data-ui fragment, the product's own convention */
 .ask-hints button:active { transform: scale(0.97); }
 @media (hover: hover) and (pointer: fine) { .ask-hints button:hover { border-color: var(--ink); } }
-.answer { margin-top: 14px; min-height: 260px; }
+.answer { margin-top: 14px; min-height: 200px; }
 .verdict { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .verdict b { font-size: 18px; font-weight: 800; font-stretch: 112%; letter-spacing: -0.01em; }
 .verdict span { font-size: 13px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
@@ -145,9 +146,9 @@ section { position: relative; }
 .cell-text h3 { font-size: 24px; font-stretch: 112%; letter-spacing: -0.015em; line-height: 1.1; }
 .cell-text p { margin-top: 10px; font-size: 16px; }
 .cell-frag { flex: 1; position: relative; overflow: hidden; background: var(--mist-2); }
-.cell-frag > [data-ui] { position: absolute; width: 340px; background: var(--paper); border-radius: 12px; padding: 14px; font-size: 14px; }
-.dock-tl { top: 24px; left: 24px; } .dock-tr { top: 24px; right: -12px; } .dock-bl { bottom: 24px; left: -12px; } .dock-br { bottom: 24px; right: 24px; }
-.cell-frag > img { position: absolute; width: 760px; max-width: none; top: 22px; left: 22px; border-radius: 10px; }
+.cell-frag > [data-ui] { position: absolute; width: calc(100% - 48px); max-width: 360px; background: var(--paper); border-radius: 12px; padding: 14px; font-size: 14px; }
+.dock-tl { top: 24px; left: 24px; } .dock-tr { top: 24px; right: 24px; } .dock-bl { bottom: 24px; left: 24px; } .dock-br { bottom: 24px; right: 24px; }
+.cell-frag > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 30% 0; }
 .src { display: grid; grid-template-columns: 26px 1fr auto; gap: 10px; align-items: center; padding: 8px 4px; font-size: 14px; }
 .src + .src { border-top: 1px solid var(--mist-2); } /* taste-skill-ignore: inside a data-ui fragment, the product's own convention */
 .src i { width: 26px; height: 26px; border-radius: 6px; background: var(--b); display: block; }
@@ -264,9 +265,9 @@ section { position: relative; }
   .hero-text { padding-top: 48px; }
   .hero h1 { font-size: 9.4vw; }
   .hero-text p { font-size: 16px; }
-  .stage { position: relative; left: 0; top: 0; margin-top: 40px; height: 600px; clip-path: polygon(0 40px, 72px 40px, 72px 0, 100% 0, 100% 100%, 0 100%); }
-  .stage-inner { left: 16px; top: 64px; }
-  .ask { width: 560px; }
+  .stage { position: relative; left: 0; top: 0; margin-top: 40px; height: auto; padding-bottom: 40px; clip-path: polygon(0 40px, 72px 40px, 72px 0, 100% 0, 100% 100%, 0 100%); }
+  .stage-inner { position: relative; left: 0; top: 0; padding: 64px 16px 0; }
+  .ask { width: 100%; max-width: none; }
   .gap { padding-top: 112px; }
   .demo { grid-template-columns: 1fr; min-height: 0; }
   .demo-controls { order: -1; }
@@ -650,11 +651,28 @@ QA.forEach(([q, a], i) => {
 });
 pane.textContent = QA[0][1];
 
-/* Entrances: once, as each part comes into view */
-const seen = new IntersectionObserver((entries) => entries.forEach((e) => {
-  if (e.isIntersecting) { e.target.classList.add('is-in'); seen.unobserve(e.target); }
-}), { rootMargin: '0px 0px -8% 0px' });
-document.querySelectorAll('.rise, .shutter, .stage').forEach((el) => seen.observe(el));
+/* Entrances: once, as each part comes into view. Content is never left hidden: what is already on
+   screen shows at once, and if the observer never runs (a preview, an old browser) everything shows
+   after 1.5 s. */
+const parts = [...document.querySelectorAll('.rise, .shutter, .stage')];
+const showAll = () => parts.forEach((el) => el.classList.add('is-in'));
+if ('IntersectionObserver' in window) {
+  let working = false;
+  const seen = new IntersectionObserver((entries) => {
+    working = true;
+    entries.forEach((e) => {
+      if (e.isIntersecting) { e.target.classList.add('is-in'); seen.unobserve(e.target); }
+    });
+  }, { rootMargin: '0px 0px -8% 0px' });
+  parts.forEach((el) => {
+    if (el.getBoundingClientRect().top < innerHeight) el.classList.add('is-in');
+    else seen.observe(el);
+  });
+  // The observer reports every element once as soon as it starts; if it never does, show everything.
+  setTimeout(() => { if (!working) showAll(); }, 1500);
+} else {
+  showAll();
+}
 </script>
 </body>
 </html>
