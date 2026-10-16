@@ -838,7 +838,7 @@ td.title { font-weight: 500; min-width: 220px; }
 
 /* The hero: always dark (its art sets the colour), the slides stacked in one cell and cross-faded.
    The scrim keeps the text readable over any art. */
-.home-hero { position: relative; isolation: isolate; display: grid; overflow: hidden; background: var(--ink); color: var(--on-dark); min-height: clamp(380px, 54vh, 540px); }
+.home-hero { position: relative; isolation: isolate; display: grid; overflow: hidden; background: var(--ink); color: var(--on-dark); min-height: clamp(300px, 38vh, 400px); }
 .home-hero-slide { grid-area: 1 / 1; position: relative; display: grid; opacity: 0; transition: opacity 500ms ease; }
 .home-hero-slide.on { opacity: 1; }
 .home-hero-backdrop { position: absolute; inset: 0; z-index: -1; overflow: hidden; }
@@ -851,7 +851,7 @@ td.title { font-weight: 500; min-width: 220px; }
   content: ''; position: absolute; inset: 0;
   background: linear-gradient(90deg, rgb(14 16 28 / .9) 0%, rgb(14 16 28 / .6) 45%, rgb(14 16 28 / .3) 100%);
 }
-.home-hero-body { display: flex; align-items: center; justify-content: space-between; gap: 48px; padding: 56px var(--home-gutter) 140px; }
+.home-hero-body { display: flex; align-items: center; justify-content: space-between; gap: 48px; padding: 28px var(--home-gutter) 96px; }
 /* A wide picture fills the right of the band and fades into the text and the strip; the art beside
    the text is the phone's. Anchored right: the band is less wide than the art, and its left edge
    fades out anyway. The whole layer fades to transparent towards the text through a mask (no dark
@@ -875,27 +875,29 @@ td.title { font-weight: 500; min-width: 220px; }
 /* Behind a wide picture the blurred copy only tints the text's side, darker than for a poster. */
 .home-hero-slide.is-wide .home-hero-backdrop > img { opacity: .45; }
 .home-hero-slide.is-wide .home-hero-art { display: none; }
-.home-hero-text { display: grid; gap: 14px; justify-items: start; max-width: 560px; min-width: 0; }
+.home-hero-text { display: grid; gap: 8px; justify-items: start; max-width: 560px; min-width: 0; }
 .home-hero-title {
-  margin: 0; font-size: clamp(32px, 4.2vw, 56px); font-weight: 800; font-stretch: 118%; line-height: 1.02; letter-spacing: -.02em;
+  margin: 0; font-size: clamp(26px, 2.8vw, 40px); font-weight: 800; font-stretch: 118%; line-height: 1.04; letter-spacing: -.02em;
   text-wrap: balance; overflow-wrap: break-word;
+  /* Two lines at most, so a long title does not make the band taller. */
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
 }
 .home-hero-price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; margin: 0; }
-.home-hero-price b { font-size: 30px; font-weight: 800; font-stretch: 112%; }
+.home-hero-price b { font-size: 26px; font-weight: 800; font-stretch: 112%; }
 .home-hero-price s { color: var(--on-dark-muted); }
 .home-hero-price .home-cut { position: static; font-size: 15px; }
 .home-hero-line { margin: 0; color: var(--on-dark-soft); font-size: 14px; }
-.home-hero-text .button { margin-top: 8px; }
-.home-hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+.home-hero-text .button { margin-top: 4px; }
+.home-hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
 .home-hero-actions .button { margin: 0; }
 .home-hero .home-hero-ghost { background: var(--glass-strong); border-color: transparent; color: var(--on-dark); }
 .home-hero .home-hero-ghost:hover { background: var(--glass-border); }
-.home-hero-art { flex: none; width: min(600px, 46%); aspect-ratio: 460 / 215; object-fit: cover; border-radius: var(--radius-media); box-shadow: var(--shadow-lg); }
-.home-hero-poster { flex: none; width: 210px; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); overflow: hidden; }
+.home-hero-art { flex: none; width: min(380px, 34%); aspect-ratio: 460 / 215; object-fit: cover; border-radius: var(--radius-media); box-shadow: var(--shadow-lg); }
+.home-hero-poster { flex: none; width: 120px; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); overflow: hidden; }
 .home-hero-poster > img { display: block; width: 100%; aspect-ratio: 2 / 3; object-fit: cover; }
-.home-hero-strip { position: absolute; right: var(--home-gutter); bottom: 22px; z-index: 2; display: flex; gap: 10px; }
+.home-hero-strip { position: absolute; right: var(--home-gutter); bottom: 16px; z-index: 2; display: flex; gap: 10px; }
 .home-hero-strip button {
-  display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; width: 116px; min-height: 0; padding: 0; border: 0; background: none;
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; width: 88px; min-height: 0; padding: 0; border: 0; background: none;
   color: var(--on-dark-muted);
   font-size: 12px; text-align: left; justify-items: stretch;
 }
