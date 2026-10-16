@@ -5,673 +5,428 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Game Vault — know every game you own</title>
 <meta name="description" content="Game Vault is a self-hosted web app that catalogs every game you own: store libraries, Humble Bundle keys and physical discs scanned by barcode. One Docker container.">
+<meta name="theme-color" content="#f7f7f7">
 <link rel="icon" href="assets/mark.svg" type="image/svg+xml">
-<link rel="preload" href="assets/fonts/archivo-latin-wdth-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/barlow-condensed-700-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/barlow-400-latin.woff2" as="font" type="font/woff2" crossorigin>
 <style>
-/* Archivo, the app's own face (SIL OFL, bundled from @fontsource-variable/archivo): no external font service. */
-@font-face { font-family: 'Archivo'; font-style: normal; font-display: swap; font-weight: 100 900; font-stretch: 62% 125%; src: url(assets/fonts/archivo-latin-wdth-normal.woff2) format('woff2-variations'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
-@font-face { font-family: 'Archivo'; font-style: normal; font-display: swap; font-weight: 100 900; font-stretch: 62% 125%; src: url(assets/fonts/archivo-latin-ext-wdth-normal.woff2) format('woff2-variations'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+/* Barlow Condensed and Barlow (SIL OFL), bundled: no external font service. */
+@font-face { font-family: 'Barlow Condensed'; font-weight: 700; font-display: swap; src: url(assets/fonts/barlow-condensed-700-latin.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Barlow Condensed'; font-weight: 700; font-display: swap; src: url(assets/fonts/barlow-condensed-700-latin-ext.woff2) format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1E00-1E9F, U+20A0-20C4, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'Barlow'; font-weight: 400; font-display: swap; src: url(assets/fonts/barlow-400-latin.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Barlow'; font-weight: 400; font-display: swap; src: url(assets/fonts/barlow-400-latin-ext.woff2) format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1E00-1E9F, U+20A0-20C4, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'Barlow'; font-weight: 500; font-display: swap; src: url(assets/fonts/barlow-500-latin.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Barlow'; font-weight: 500; font-display: swap; src: url(assets/fonts/barlow-500-latin-ext.woff2) format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1E00-1E9F, U+20A0-20C4, U+2C60-2C7F, U+A720-A7FF; }
+
 :root {
-  --ink: #181c2c;
-  --slate: #262c42;
-  --mist: #edf0f5;
-  --mist-2: #e1e6ee;
+  --bg: #f7f7f7;
+  --surface: #ebebeb;
+  --ink: #0d2a1c;
+  --muted: #4f5b55;
+  --accent: #f6e016;
   --paper: #ffffff;
-  --soft: #4c5571;
-  --amber: #ffb020;
-  --amber-deep: #e59400;
-  --ok: #0d6630;
-  --warn: #b45309;
-  --danger: #c22a2a;
-  --font: 'Archivo', system-ui, sans-serif;
-  --margin: 40px;
-  --step-display: clamp(52px, 5.4vw, 84px);
-  --step-title: clamp(32px, 3vw, 44px);
-  --step-statement: 24px;
-  --step-body: 18px;
-  --step-small: 14px;
+  --display: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --text: 'Barlow', system-ui, sans-serif;
+  --margin: 28px;
+  --step-head: clamp(40px, 4.4vw, 64px);
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
-  --ease-soft: cubic-bezier(0.25, 0.8, 0.25, 1);
+  --ease-wipe: cubic-bezier(0.77, 0, 0.175, 1);
 }
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
-body { margin: 0; background: var(--mist); color: var(--ink); font: 400 var(--step-body)/1.55 var(--font); font-stretch: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 400 18px/1.5 var(--text); touch-action: manipulation; }
 img { display: block; max-width: 100%; }
 a { color: inherit; }
 button, input { font: inherit; color: inherit; }
-::selection { background: var(--amber); color: var(--ink); }
-:focus-visible { outline: 3px solid var(--amber-deep); outline-offset: 3px; }
-.wrap { padding-inline: var(--margin); }
-h1, h2, h3 { margin: 0; font-weight: 800; font-stretch: 118%; letter-spacing: -0.03em; line-height: 0.98; }
+::selection { background: var(--accent); color: var(--ink); }
+:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+h1, h2, h3 { margin: 0; font-family: var(--display); font-weight: 700; line-height: 0.92; letter-spacing: -0.02em; text-wrap: balance; }
 p { margin: 0; }
-.link { text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 0.22em; text-decoration-thickness: 0.08em; transition: text-decoration-color 160ms ease; }
+[id] { scroll-margin-top: 24px; }
+.skip { position: absolute; left: 16px; top: -60px; z-index: 10; background: var(--accent); padding: 10px 14px; font-weight: 500; text-decoration: none; }
+.skip:focus { top: 16px; }
+.link { text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 0.2em; text-decoration-thickness: 0.07em; transition: text-decoration-color 160ms ease; }
 @media (hover: hover) and (pointer: fine) { .link:hover { text-decoration-color: currentColor; } }
-.button {
-  display: inline-flex; align-items: center; gap: 10px; padding: 15px 22px; background: var(--amber); color: var(--ink);
-  font-weight: 700; font-size: 16px; text-decoration: none; border: 0; cursor: pointer;
-  transition: transform 140ms var(--ease-out), background-color 160ms ease;
-}
+.button { display: inline-flex; align-items: center; padding: 14px 22px; background: var(--ink); color: var(--bg); font-weight: 500; font-size: 18px; text-decoration: none; white-space: nowrap; transition: transform 140ms var(--ease-out), background-color 160ms ease, color 160ms ease; }
 .button:active { transform: scale(0.97); }
-@media (hover: hover) and (pointer: fine) { .button:hover { background: var(--amber-deep); } }
+@media (hover: hover) and (pointer: fine) { .button:hover { background: var(--accent); color: var(--ink); } }
 
-/* ---------- Navigation ---------- */
-.nav { position: relative; z-index: 3; display: flex; align-items: center; justify-content: space-between; padding: 28px var(--margin) 0; }
-.wordmark { display: inline-flex; align-items: center; gap: 12px; font-weight: 800; font-stretch: 118%; font-size: 24px; letter-spacing: -0.02em; text-decoration: none; }
-.wordmark svg { width: 30px; height: 30px; }
-.nav ul { display: flex; gap: 28px; margin: 0; padding: 0; list-style: none; font-size: 16px; font-weight: 600; }
-.nav a { text-decoration: none; }
+/* ---------- Hero: the real app on top, the name as a monument under it ---------- */
+.hero { position: relative; min-height: 100svh; display: grid; grid-template-rows: 58svh 1fr auto; overflow: hidden; }
+.hero-shot { position: relative; overflow: hidden; background: var(--ink); }
+.hero-shot img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; }
+.nav { position: absolute; top: 18px; right: 24px; z-index: 2; display: flex; gap: 6px; }
+.nav a { padding: 8px 12px; background: var(--bg); color: var(--ink); font-size: 16px; font-weight: 500; text-decoration: none; transition: background-color 160ms ease; }
+@media (hover: hover) and (pointer: fine) { .nav a:hover { background: var(--accent); } }
+.hero-row { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 18px var(--margin) 28px; }
+.hero-row p { max-width: 52ch; }
+.monument { align-self: end; padding: 24px var(--margin) 0; }
+.monument h1 { font-size: clamp(96px, 24.3vw, 480px); line-height: 0.8; letter-spacing: -0.035em; text-transform: uppercase; white-space: nowrap; margin-left: -0.03em; transform-origin: 0 100%; }
 
-/* ---------- Hero: headline upper left, the product's own question on a cut amber stage ---------- */
-.hero { position: relative; min-height: max(940px, 100svh); overflow: hidden; }
-.hero-text { position: relative; z-index: 2; padding: 120px var(--margin) 0; max-width: 760px; }
-.hero h1 { font-size: var(--step-display); }
-.hero-text p { margin-top: 22px; font-size: 18px; max-width: 34ch; }
-.hero-text .button { margin-top: 30px; }
-.stage {
-  position: absolute; left: 36%; right: 0; top: 400px; bottom: 0; background: var(--amber);
-  /* The top-left corner is cut into a step: the two stacked cases of the mark. */
-  clip-path: polygon(0 64px, 120px 64px, 120px 0, 100% 0, 100% 100%, 0 100%);
-}
-.stage-inner { position: absolute; left: 56px; top: 104px; }
+/* ---------- Showcase: one band of unequal slices of the app ---------- */
+.gap { padding-top: 168px; }
+.lead-head { padding-left: calc(100% / 6); padding-right: var(--margin); }
+.lead-head h2 { font-size: var(--step-head); text-transform: uppercase; }
+.lead-head p { margin-top: 14px; max-width: 48ch; }
+.band { margin: 56px 0 0; height: 68svh; min-height: 460px; display: flex; overflow: hidden; }
+.slice { position: relative; flex: var(--g) 1 0; min-width: 0; margin: 0; overflow: hidden; transition: flex-grow 500ms var(--ease-out); background: var(--ink); }
+.slice img { width: 100%; height: 100%; object-fit: cover; }
+@media (hover: hover) and (pointer: fine) { .slice:hover { flex-grow: 6; } }
+.slice .over { position: absolute; left: 0; top: 0; padding: 20px 24px 22px; color: var(--paper); font: 700 32px/0.95 var(--display); text-transform: uppercase; background: rgb(13 42 28 / 0.85); }
+.band-note { margin-top: 14px; padding-left: var(--margin); font-size: 16px; }
 
-/* ---------- Fragments of the real interface (their own conventions inside data-ui) ---------- */
-[data-ui] { font-family: var(--font); font-stretch: 100%; letter-spacing: 0; color: var(--ink); }
-.ask { width: 620px; max-width: calc(100vw - 32px); background: var(--paper); border-radius: 14px; padding: 18px; box-shadow: 0 24px 60px rgb(24 28 44 / 0.22); } /* taste-skill-ignore: inside a data-ui fragment, the product's own convention */
-.ask-field { display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 14px; border: 1px solid #c9d0dc; border-radius: 10px; background: var(--mist); } /* taste-skill-ignore: inside a data-ui fragment, the product's own convention */
-.ask-field svg { flex: none; color: var(--soft); }
+/* ---------- Features: small proof beside text, one module at a time ---------- */
+.proofs { padding-left: 14%; padding-right: var(--margin); }
+.proofs > h2 { font-size: var(--step-head); text-transform: uppercase; margin-bottom: 64px; }
+.proof { display: grid; grid-template-columns: 560px minmax(0, 360px); gap: 40px; align-items: start; }
+.proof + .proof { margin-top: 96px; }
+.panel { position: relative; width: 560px; background: var(--surface); overflow: hidden; }
+.panel.shot { height: var(--h, 160px); }
+.panel.shot img { position: absolute; width: var(--w); max-width: none; height: auto; left: var(--x); top: var(--y); }
+.proof h3 { font: 700 36px/0.95 var(--display); text-transform: uppercase; }
+.proof p { margin-top: 10px; font-size: 18px; }
+.proof p + p { margin-top: 8px; color: var(--muted); font-size: 16px; }
+
+/* The live fragment: Game Vault's own "Do I own it?" answer (its own conventions inside data-ui) */
+.ask { padding: 20px; }
+.ask-field { display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 12px; background: var(--paper); border: 1px solid #c8cfc9; border-radius: 8px; } /* taste-skill-ignore: inside a data-ui fragment, the product's own control */
+.ask-field:focus-within { border-color: var(--ink); }
 .ask-field input { flex: 1; min-width: 0; border: 0; background: none; font-size: 16px; outline: none; }
-.ask-field:focus-within { border-color: var(--amber-deep); box-shadow: 0 0 0 3px rgb(255 176 32 / 0.35); } /* taste-skill-ignore: inside a data-ui fragment, the product's own convention */
-.ask-hints { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; font-size: 13px; color: var(--soft); align-items: center; }
-.ask-hints button { padding: 4px 10px; border: 1px solid #c9d0dc; border-radius: 999px; background: var(--paper); cursor: pointer; font-size: 13px; } /* taste-skill-ignore: inside a data-ui fragment, the product's own convention */
+.ask-hints { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.ask-hints button { padding: 3px 10px; border: 1px solid #c8cfc9; border-radius: 999px; background: var(--paper); font-size: 14px; cursor: pointer; transition: border-color 160ms ease; } /* taste-skill-ignore: inside a data-ui fragment, the product's own chips */
 .ask-hints button:active { transform: scale(0.97); }
 @media (hover: hover) and (pointer: fine) { .ask-hints button:hover { border-color: var(--ink); } }
-.answer { margin-top: 14px; min-height: 200px; }
-.verdict { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.verdict b { font-size: 18px; font-weight: 800; font-stretch: 112%; letter-spacing: -0.01em; }
-.verdict span { font-size: 13px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
-.verdict .yes { background: #dcf3e3; color: var(--ok); }
-.verdict .no { background: #fde7e7; color: var(--danger); }
-.copies { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
-.copy { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 10px; align-items: center; padding: 11px 12px; background: var(--mist); border-radius: 10px; border-left: 4px solid var(--copy, var(--ink)); font-size: 14px; }
-.copy .meta { color: var(--soft); font-size: 13px; grid-column: 2 / 4; }
-.copy .when { font-size: 13px; font-weight: 700; }
-.badge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 6px; color: #fff; font-size: 12.5px; font-weight: 700; background: var(--b, #4b5568); white-space: nowrap; }
-.chip { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 12.5px; font-weight: 700; background: var(--mist-2); color: var(--ink); }
-.chip.red { background: #fde7e7; color: var(--danger); }
-.chip.amber { background: #fff1d6; color: var(--warn); }
-.chip.green { background: #dcf3e3; color: var(--ok); }
-.nothing { margin-top: 10px; font-size: 15px; color: var(--soft); max-width: 46ch; }
+.answer { margin-top: 12px; min-height: 150px; }
+.verdict { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.verdict b { font: 700 24px/1 var(--display); }
+.verdict span { font-size: 14px; font-weight: 500; padding: 2px 8px; border-radius: 999px; }
+.yes { background: #d7f0df; color: #0b5a2a; }
+.no { background: #f9dcdc; color: #9b1c1c; }
+.copies { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
+.copy { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: center; padding: 8px 10px; background: var(--paper); border-radius: 8px; font-size: 14px; }
+.copy small { grid-column: 2; color: var(--muted); font-size: 14px; }
+.badge { padding: 1px 7px; border-radius: 5px; color: #fff; font-size: 14px; font-weight: 500; background: var(--b, #4b5568); }
+.nothing { margin-top: 8px; font-size: 14px; color: var(--muted); }
 
-/* ---------- Sections ---------- */
-section { position: relative; }
-.gap { padding-top: 180px; }
-.head { max-width: 640px; }
-.head h2 { font-size: var(--step-title); }
-.head p { margin-top: 14px; font-size: var(--step-body); }
+/* ---------- Gallery: real cartridges, staggered in empty ground ---------- */
+.gallery { display: grid; grid-template-columns: repeat(12, 1fr); column-gap: 24px; padding: 0 var(--margin); }
+.gallery figure { margin: 0; }
+.gallery figcaption { margin-top: 10px; font-size: 14px; color: var(--muted); }
+.g-img { overflow: hidden; background: var(--surface); }
+.g-img img { width: 100%; height: 100%; object-fit: cover; }
+.g1 { grid-column: 1 / 6; } .g1 .g-img { aspect-ratio: 3 / 4; }
+.gallery-head { grid-column: 7 / 13; align-self: start; padding-top: 2vh; }
+.gallery-head h2 { font-size: var(--step-head); text-transform: uppercase; }
+.gallery-head p { margin-top: 14px; max-width: 40ch; }
+.g2 { grid-column: 7 / 13; margin-top: -46vh; } .g2 .g-img { aspect-ratio: 5 / 4; }
+.g3 { grid-column: 2 / 8; margin-top: 10vh; } .g3 .g-img { aspect-ratio: 3 / 2; }
+.g4 { grid-column: 9 / 13; margin-top: -22vh; } .g4 .g-img { aspect-ratio: 4 / 5; }
+.g5 { grid-column: 1 / 5; margin-top: 8vh; } .g5 .g-img { aspect-ratio: 3 / 4; }
+.g6 { grid-column: 6 / 13; margin-top: -40vh; } .g6 .g-img { aspect-ratio: 5 / 4; }
+.g7 { grid-column: 1 / 8; margin-top: 10vh; } .g7 .g-img { aspect-ratio: 3 / 2; }
+.g8 { grid-column: 9 / 13; margin-top: -30vh; } .g8 .g-img { aspect-ratio: 4 / 5; }
 
-/* Showcase: the library with its filters, working */
-.demo { margin-top: 48px; display: grid; grid-template-columns: 62fr 38fr; width: min(1080px, 100%); min-height: 640px; border-radius: 14px; overflow: hidden; background: var(--paper); }
-.demo-list { padding: 22px; }
-.demo-list-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 14px; color: var(--soft); margin-bottom: 12px; }
-.demo-list-head b { color: var(--ink); font-size: 16px; font-weight: 800; font-stretch: 112%; }
-.rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.row { display: grid; grid-template-columns: 40px 1fr auto; gap: 12px; align-items: center; padding: 8px 10px; border-radius: 10px; background: var(--mist); font-size: 14px; transition: background-color 160ms ease; }
-.row .tile { width: 40px; height: 52px; border-radius: 6px; display: grid; place-items: center; font-weight: 800; font-stretch: 118%; font-size: 14px; color: #fff; background: var(--t, var(--slate)); }
-.row .title { font-weight: 700; font-size: 14px; }
-.row .plats { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 4px; }
-.row .flag { font-size: 12.5px; font-weight: 700; }
-@media (hover: hover) and (pointer: fine) { .row:hover { background: var(--mist-2); } }
-.demo-empty { padding: 24px 10px; color: var(--soft); font-size: 15px; }
-.demo-controls { background: var(--mist-2); padding: 22px 20px; display: flex; flex-direction: column; }
-.demo-controls .ui-title { font-size: 16px; font-weight: 800; font-stretch: 112%; margin-bottom: 8px; }
-.ctrl { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; font-size: 14px; }
-.ctrl small { display: block; color: var(--soft); font-size: 12.5px; }
-.toggle { appearance: none; width: 40px; height: 24px; border-radius: 999px; background: #c3cad6; position: relative; cursor: pointer; flex: none; transition: background-color 160ms ease; }
-.toggle::after { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform 200ms var(--ease-out); }
-.toggle:checked { background: var(--ink); }
-.toggle:checked::after { transform: translateX(16px); }
-.seg { display: inline-flex; background: #c9d0dc; border-radius: 8px; padding: 3px; }
-.seg button { border: 0; background: none; padding: 5px 10px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
-.seg button[aria-pressed="true"] { background: var(--paper); }
-.demo-controls .note { margin-top: auto; padding-top: 18px; font-size: 13px; color: var(--soft); }
-.under { margin-top: 18px; font-size: 16px; }
+/* ---------- The one action: the whole yellow band ---------- */
+.act { display: block; position: relative; margin-top: 168px; min-height: 60svh; background: var(--accent); color: var(--ink); text-decoration: none; overflow: hidden; transition: background-color 120ms linear, color 120ms linear; }
+.act .say { position: absolute; left: var(--margin); top: 24px; max-width: 52ch; font-size: 20px; }
+.act .say code { font-family: var(--text); font-weight: 500; overflow-wrap: anywhere; }
+.act svg { position: absolute; right: var(--margin); top: 24px; transition: transform 200ms var(--ease-out); }
+.act .word { position: absolute; left: var(--margin); right: var(--margin); bottom: 14px; font: 700 clamp(120px, 35.2vw, 680px)/0.78 var(--display); letter-spacing: -0.035em; text-transform: uppercase; white-space: nowrap; margin-left: -0.03em; }
+.act:hover, .act:focus-visible { background: var(--ink); color: var(--accent); }
+.act:hover svg { transform: translate(6px, -6px); }
+.act:focus-visible { outline-offset: -6px; outline-color: var(--accent); }
 
-/* Features: staggered cells, fragment docked to an edge */
-.cells { margin-top: 56px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.cell { position: relative; height: 450px; background: var(--paper); overflow: hidden; display: flex; flex-direction: column; }
-.cell.flip { flex-direction: column-reverse; }
-.cell-text { padding: 26px 26px 20px; }
-.cell-text h3 { font-size: 24px; font-stretch: 112%; letter-spacing: -0.015em; line-height: 1.1; }
-.cell-text p { margin-top: 10px; font-size: 16px; }
-.cell-frag { flex: 1; position: relative; overflow: hidden; background: var(--mist-2); }
-.cell-frag > [data-ui] { position: absolute; width: calc(100% - 48px); max-width: 360px; background: var(--paper); border-radius: 12px; padding: 14px; font-size: 14px; }
-.dock-tl { top: 24px; left: 24px; } .dock-tr { top: 24px; right: 24px; } .dock-bl { bottom: 24px; left: 24px; } .dock-br { bottom: 24px; right: 24px; }
-.cell-frag > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 30% 0; }
-.src { display: grid; grid-template-columns: 26px 1fr auto; gap: 10px; align-items: center; padding: 8px 4px; font-size: 14px; }
-.src + .src { border-top: 1px solid var(--mist-2); } /* taste-skill-ignore: inside a data-ui fragment, the product's own convention */
-.src i { width: 26px; height: 26px; border-radius: 6px; background: var(--b); display: block; }
-.src small { color: var(--soft); font-size: 12.5px; display: block; }
-.src em { font-style: normal; font-size: 12.5px; font-weight: 700; color: var(--ok); }
-.keyrow { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 9px 4px; font-size: 14px; }
-.keyrow + .keyrow { border-top: 1px solid var(--mist-2); } /* taste-skill-ignore: inside a data-ui fragment, the product's own convention */
-.keyrow small { color: var(--soft); font-size: 12.5px; }
-.keyrow code { font-family: var(--font); font-size: 12.5px; color: var(--soft); letter-spacing: 0.04em; }
-.scan-code { font-size: 24px; font-weight: 800; font-stretch: 112%; letter-spacing: 0.06em; font-variant-numeric: tabular-nums; }
-.scan-bars { display: block; width: 100%; height: 46px; margin: 8px 0 12px; color: var(--ink); }
-.label-chip { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 8px; background: var(--ink); color: #fff; font-weight: 700; font-size: 14px; }
-.label-chip i { width: 10px; height: 10px; border-radius: 50%; background: #3ddc84; }
-.msg { background: #e9f3ff; border-radius: 12px; padding: 12px 14px; font-size: 14px; line-height: 1.45; }
-.msg b { display: block; margin-bottom: 4px; }
+/* ---------- Questions: large on the left, answers beside ---------- */
+.faq { padding-left: var(--margin); padding-right: var(--margin); }
+.qa { display: grid; grid-template-columns: repeat(12, 1fr); column-gap: 24px; }
+.qa + .qa { margin-top: 80px; }
+.qa h2, .qa h3 { grid-column: 1 / 7; font: 500 clamp(26px, 2.6vw, 38px)/1.1 var(--text); letter-spacing: -0.01em; }
+.qa h2 { color: var(--muted); }
+.qa p { grid-column: 8 / 13; max-width: 40ch; padding-top: 6px; }
 
-/* List: the stores, two-ended rows in a narrow column */
-.listing { display: grid; grid-template-columns: 22% 520px 1fr; }
-.listing .head { grid-column: 2; }
-.stores { grid-column: 2; margin-top: 32px; }
-.group + .group { margin-top: 40px; }
-.group > p { color: var(--soft); font-size: 16px; margin-bottom: 4px; }
-.store { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 36px; font-size: 16px; }
-.store span { display: inline-flex; align-items: center; gap: 10px; }
-.store i { width: 16px; height: 16px; border-radius: 50%; background: var(--b); flex: none; }
-.store small { font-size: 14px; color: var(--soft); font-variant-numeric: tabular-nums; text-align: right; }
-.listing aside { grid-column: 3; align-self: end; padding-left: 64px; max-width: 420px; font-size: var(--step-statement); line-height: 1.3; font-weight: 500; }
+/* ---------- Footer: the name first, ways in under it ---------- */
+.foot { margin-top: 168px; min-height: 70svh; background: var(--ink); color: var(--bg); padding: 0 var(--margin) 28px; display: flex; flex-direction: column; overflow: hidden; }
+.foot .name { font: 700 clamp(96px, 24.3vw, 480px)/0.8 var(--display); letter-spacing: -0.035em; text-transform: uppercase; white-space: nowrap; padding-top: 36px; margin-left: -0.03em; }
+.foot-row { margin-top: 72px; display: grid; grid-template-columns: repeat(12, 1fr); column-gap: 24px; }
+.places { grid-column: 1 / 6; display: grid; gap: 6px; align-content: start; }
+.places a { font: 700 36px/1.05 var(--display); color: var(--accent); text-decoration: none; text-transform: uppercase; }
+@media (hover: hover) and (pointer: fine) { .places a:hover { text-decoration: underline; text-underline-offset: 0.12em; } }
+.links { grid-column: 7 / 13; display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; font-size: 16px; }
+.links ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; align-content: start; }
+.links li:first-child { color: #a9bdb2; }
+.links a { text-decoration: none; }
+.foot-last { margin-top: auto; padding-top: 72px; display: flex; justify-content: space-between; gap: 24px; font-size: 14px; color: #c3d2c9; }
+.foot-last a { color: inherit; }
 
-/* Gallery: photographs with their swing tags */
-.shelf { margin-top: 40px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px 12px; }
-.print { margin: 0; }
-.print .ph { aspect-ratio: 4 / 5; overflow: hidden; background: var(--mist-2); }
-.print img { width: 100%; height: 100%; object-fit: cover; transition: transform 700ms var(--ease-soft); }
-@media (hover: hover) and (pointer: fine) { .print:hover img { transform: scale(1.04); } }
-.tag { height: 92px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between; font-size: 13px; font-variant-numeric: tabular-nums; background: var(--tbg); color: var(--tfg); }
-.tag .r1 { display: flex; justify-content: space-between; font-weight: 700; }
-.tag .r2 { display: flex; justify-content: space-between; }
-.p1 { --tbg: var(--ink); --tfg: var(--paper); }
-.p2 { --tbg: var(--amber); --tfg: var(--ink); }
-.p3 { --tbg: var(--paper); --tfg: var(--ink); }
-.p4 { --tbg: var(--slate); --tfg: var(--mist); }
-.credits { margin-top: 28px; max-width: 980px; font-size: 14px; color: var(--soft); }
-.credits a { color: inherit; }
-.drift img { animation: drift 18s var(--ease-soft) infinite alternate; }
-@keyframes drift { from { transform: scale(1.02) translate(0, 0); } to { transform: scale(1.1) translate(-2%, -2%); } }
-
-/* CTA: the first step already open */
-.first { margin-top: 180px; min-height: 90svh; background: var(--amber); display: grid; grid-template-columns: repeat(12, 1fr); padding: 40px var(--margin); }
-.first-text { grid-column: 1 / 7; align-self: end; }
-.first-text h2 { font-size: var(--step-display); line-height: 0.95; }
-.first-text p { margin-top: 20px; font-size: 18px; max-width: 38ch; }
-.dialog { grid-column: 7 / 12; align-self: center; width: 460px; max-width: 100%; background: var(--paper); border-radius: 16px; padding: 24px; box-shadow: 0 30px 70px rgb(24 28 44 / 0.28); } /* taste-skill-ignore: inside a data-ui fragment, the product's own convention */
-.dialog .ui-title { font-size: 18px; font-weight: 800; font-stretch: 112%; letter-spacing: -0.01em; line-height: 1.2; }
-.dialog label { display: block; margin-top: 18px; font-size: 13px; font-weight: 700; color: var(--soft); }
-.dialog input[type=text] { width: 100%; margin-top: 6px; height: 46px; padding: 0 12px; border: 1px solid #c9d0dc; border-radius: 10px; font-size: 16px; background: var(--mist); }
-.dialog input[type=text]:focus { outline: none; border-color: var(--amber-deep); box-shadow: 0 0 0 3px rgb(255 176 32 / 0.35); } /* taste-skill-ignore: inside a data-ui fragment, the product's own convention */
-.dialog .seg { margin-top: 6px; }
-.dialog pre { margin: 16px 0 0; padding: 14px; border-radius: 10px; background: var(--ink); color: var(--mist); font-size: 13px; line-height: 1.55; white-space: pre-wrap; word-break: break-all; }
-.dialog .go { margin-top: 16px; width: 100%; justify-content: center; border-radius: 10px; background: var(--ink); color: var(--paper); }
-@media (hover: hover) and (pointer: fine) { .dialog .go:hover { background: var(--slate); } }
-.dialog .after { margin-top: 10px; font-size: 13px; color: var(--soft); min-height: 1.5em; }
-
-/* FAQ: questions left, one answer right */
-.faq { display: grid; grid-template-columns: repeat(12, 1fr); column-gap: 24px; }
-.qs { grid-column: 1 / 6; list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; font-size: 18px; }
-.qs li:first-child { color: var(--soft); }
-.qs button { display: flex; gap: 14px; align-items: baseline; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; color: var(--soft); font-size: 18px; transition: color 160ms ease; }
-.qs button::before { content: ''; flex: none; width: 8px; height: 8px; border-radius: 50%; background: currentColor; transform: translateY(-2px); }
-.qs button[aria-selected="true"] { color: var(--ink); }
-.qs button[aria-selected="true"]::before { background: var(--amber-deep); }
-@media (hover: hover) and (pointer: fine) { .qs button:hover { color: var(--ink); } }
-.pane { grid-column: 7 / 13; position: sticky; top: 120px; align-self: start; font-size: 24px; line-height: 1.3; max-width: 30ch; min-height: 260px; }
-.pane p { transition: opacity 150ms ease; }
-.qs .inline-a { display: none; }
-
-/* Footer: a board of tiles */
-.board { margin-top: 180px; padding: 10px; display: grid; grid-template-columns: repeat(12, 1fr); gap: 8px; }
-.tile-f { background: var(--paper); padding: 24px; display: flex; flex-direction: column; justify-content: space-between; min-height: 220px; }
-.t-statement { grid-column: 1 / 5; }
-.t-statement p:first-child { font-size: 24px; line-height: 1.3; max-width: 22ch; }
-.t-statement p:last-child { font-size: 13px; color: var(--soft); }
-.t-nav { grid-column: 5 / 8; }
-.t-nav ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; font-size: 16px; }
-.t-nav a { text-decoration: none; }
-.t-release { grid-column: 8 / 10; font-size: 16px; }
-.t-release b { font-size: 24px; font-stretch: 112%; display: block; }
-.t-repo { grid-column: 10 / 13; }
-.t-repo a { font-size: 24px; font-weight: 700; line-height: 1.2; }
-.t-word { grid-column: 1 / 9; min-height: 320px; background: var(--ink); color: var(--paper); justify-content: center; align-items: center; }
-.t-word span { font-size: 9vw; font-weight: 800; font-stretch: 118%; letter-spacing: -0.04em; line-height: 1; white-space: nowrap; }
-.t-go { grid-column: 9 / 13; min-height: 320px; background: var(--amber); text-decoration: none; transition: background-color 160ms ease; }
-.t-go b { font-size: 24px; font-stretch: 112%; letter-spacing: -0.02em; line-height: 1.15; }
-.t-go svg { align-self: flex-end; transition: transform 200ms var(--ease-out); }
-@media (hover: hover) and (pointer: fine) { .t-go:hover { background: var(--amber-deep); } .t-go:hover svg { transform: translate(6px, -6px); } }
-
-/* ---------- Entrances (only with script; content stays visible without it) ---------- */
+/* ---------- Motion ---------- */
 @media (prefers-reduced-motion: no-preference) {
-  .js .rise { opacity: 0; transform: translateY(24px); transition: opacity 700ms var(--ease-out), transform 700ms var(--ease-out); transition-delay: calc(var(--i, 0) * 75ms); }
-  .js .rise.is-in { opacity: 1; transform: none; }
-  .js .shutter { clip-path: inset(0 0 100% 0); transition: clip-path 1100ms var(--ease-in-out); }
-  .js .shutter img { transform: scale(1.12); transition: transform 1500ms var(--ease-soft); }
-  .js .shutter.is-in { clip-path: inset(0); }
-  .js .shutter.is-in img { transform: none; }
-  .js .stage { transform: translateY(40px); opacity: 0; transition: transform 900ms var(--ease-out) 150ms, opacity 900ms var(--ease-out) 150ms; }
-  .js .stage.is-in { transform: none; opacity: 1; }
+  .hero-shot img { animation: settle 1600ms var(--ease-out) both; }
+  @keyframes settle { from { transform: scale(1.06); } to { transform: none; } }
+  @supports (animation-timeline: scroll()) {
+    .monument h1 { animation: heavy linear both; animation-timeline: scroll(root); animation-range: 0 90vh; }
+    @keyframes heavy { to { transform: scale(0.94); } }
+    .foot .name { animation: arrive linear both; animation-timeline: view(); animation-range: entry 0% cover 40%; transform-origin: 0 0; }
+    @keyframes arrive { from { transform: scale(0.94); } to { transform: none; } }
+  }
 }
-@media (prefers-reduced-motion: reduce) { .drift img { animation: none; } }
 
-/* ---------- Phone: its own composition ---------- */
+/* ---------- Phone ---------- */
 @media (max-width: 860px) {
   :root { --margin: 16px; }
-  .nav ul { display: none; }
-  .hero { min-height: 0; }
-  .hero-text { padding-top: 48px; }
-  .hero h1 { font-size: 9.4vw; }
-  .hero-text p { font-size: 16px; }
-  .stage { position: relative; left: 0; top: 0; margin-top: 40px; height: auto; padding-bottom: 40px; clip-path: polygon(0 40px, 72px 40px, 72px 0, 100% 0, 100% 100%, 0 100%); }
-  .stage-inner { position: relative; left: 0; top: 0; padding: 64px 16px 0; }
-  .ask { width: 100%; max-width: none; }
-  .gap { padding-top: 112px; }
-  .demo { grid-template-columns: 1fr; min-height: 0; }
-  .demo-controls { order: -1; }
-  .ctrl.more { display: none; }
-  .row { padding: 6px 8px; }
-  .row .tile { width: 34px; height: 44px; }
-  .demo-controls .note { padding-top: 10px; }
-  .cells { grid-template-columns: 1fr; gap: 6px; }
-  .cell, .cell.flip { height: auto; flex-direction: column; }
-  .cell-frag { min-height: 280px; }
-  .listing { grid-template-columns: 1fr; }
-  .listing .head, .stores, .listing aside { grid-column: 1; }
-  .listing aside { padding: 40px 0 0; font-size: 24px; }
-  .store { min-height: 44px; }
-  .shelf { grid-template-columns: repeat(2, 1fr); gap: 20px 8px; }
-  .tag { height: auto; gap: 6px; }
-  .tag .r1 { flex-wrap: wrap; gap: 2px 8px; }
-  .tag .r2 { display: none; }
-  .first { grid-template-columns: 1fr; min-height: 84svh; gap: 32px; margin-top: 112px; }
-  .first-text, .dialog { grid-column: 1; min-width: 0; }
-  .dialog { width: 100%; }
-  .first-text { align-self: start; }
-  .first-text h2 { font-size: 11vw; }
-  .dialog .go { height: 52px; }
-  .faq { grid-template-columns: 1fr; }
-  .qs { grid-column: 1; }
-  .pane { display: none; }
-  .qs .inline-a { display: none; padding: 10px 0 0 22px; font-size: 18px; line-height: 1.4; color: var(--ink); }
-  .qs .inline-a.open { display: block; }
-  .board { grid-template-columns: 1fr 1fr; gap: 6px; padding: 6px; margin-top: 112px; }
-  .t-word, .t-go { grid-column: 1 / 3; min-height: 160px; }
-  .t-word { order: -2; } .t-go { order: -1; }
-  .t-word span { font-size: 15vw; }
-  .t-nav, .t-repo, .t-release, .t-statement { grid-column: span 1; padding: 20px; min-height: 180px; }
-  .t-statement p:first-child { font-size: 18px; }
-  .t-repo a { font-size: 16px; }
-  .t-statement { grid-column: 1 / 3; min-height: 0; gap: 24px; }
-  .t-release { min-height: 140px; }
+  .hero { grid-template-rows: 50svh auto auto; min-height: 0; }
+  .nav a:not(.keep) { display: none; }
+  .nav { right: 12px; top: 12px; }
+  .hero-row { flex-direction: column; align-items: flex-start; gap: 16px; padding-top: 20px; }
+  .hero-row p { font-size: 16px; }
+  .monument { padding-top: 28px; padding-bottom: 14px; }
+  .monument h1 { font-size: 30vw; white-space: normal; line-height: 0.82; }
+  .gap { padding-top: 104px; }
+  .lead-head { padding-left: var(--margin); }
+  .lead-head h2, .proofs > h2 { font-size: 40px; }
+  .band { flex-wrap: wrap; height: 84svh; }
+  .slice { height: 50%; }
+  .slice:nth-child(1) { flex: 0 0 64%; } .slice:nth-child(2) { flex: 0 0 36%; } .slice:nth-child(3) { flex: 0 0 36%; } .slice:nth-child(4) { flex: 0 0 64%; }
+  .slice .over { font-size: 24px; padding: 14px 16px; }
+  .proofs { padding-left: var(--margin); }
+  .proof { grid-template-columns: 1fr; gap: 16px; }
+  .proof + .proof { margin-top: 64px; }
+  .panel { width: 100%; }
+  .gallery { display: flex; flex-direction: column; gap: 64px; }
+  .gallery figure, .gallery-head { margin-top: 0; padding-top: 0; }
+  .g1 { width: 70%; } .g2 { width: 84%; align-self: flex-end; } .g3 { width: 56%; } .g4 { width: 100%; }
+  .g5 { width: 70%; align-self: flex-end; } .g6 { width: 84%; } .g7 { width: 100%; } .g8 { width: 56%; align-self: flex-end; }
+  .gallery-head { order: -1; }
+  .gallery-head h2 { font-size: 40px; }
+  .act { min-height: 46svh; margin-top: 104px; }
+  .act .say { font-size: 17px; right: 64px; }
+  .act svg { width: 32px; height: 32px; }
+  .act .word { font-size: 31vw; }
+  .qa { grid-template-columns: 1fr; }
+  .qa h2, .qa h3, .qa p { grid-column: 1; }
+  .qa h2, .qa h3 { font-size: 24px; }
+  .qa p { padding-top: 12px; font-size: 17px; }
+  .qa + .qa { margin-top: 56px; }
+  .foot { margin-top: 104px; min-height: 0; }
+  .foot .name { font-size: 20vw; }
+  .foot-row { grid-template-columns: 1fr; row-gap: 40px; margin-top: 40px; }
+  .places, .links { grid-column: 1; }
+  .places a { font-size: 28px; }
+  .links { grid-template-columns: 1fr 1fr; }
+  .foot-last { padding-top: 56px; flex-direction: column; }
 }
 </style>
 </head>
 <body>
-<header class="nav">
-  <a class="wordmark" href="#top" aria-label="Game Vault, top of the page">
-    <svg viewBox="0 0 16 20" aria-hidden="true"><rect x="6" y="4" width="10" height="16" rx="2" fill="#e59400"/><rect width="12" height="18" rx="3" fill="#ffb020"/></svg>
-    Game Vault
-  </a>
-  <nav aria-label="Sections">
-    <ul>
-      <li><a class="link" href="#ask">Ask it</a></li>
-      <li><a class="link" href="#stores">Stores</a></li>
-      <li><a class="link" href="#shelves">Shelves</a></li>
-      <li><a class="link" href="#install">Install</a></li>
-    </ul>
-  </nav>
+<a class="skip" href="#main">Skip to the content</a>
+
+<header class="hero">
+  <div class="hero-shot">
+    <img src="assets/home.jpg" width="2880" height="1800" fetchpriority="high" alt="Game Vault's home page: a featured deal, the collection's figures, keys to redeem and today's deals">
+    <nav class="nav" aria-label="Sections">
+      <a href="#inside">Inside</a>
+      <a href="#how">How it works</a>
+      <a href="#questions">Questions</a>
+      <a class="keep" href="https://github.com/botchris/game-vault">GitHub</a>
+    </nav>
+  </div>
+  <div class="monument"><h1 translate="no">Game Vault</h1></div>
+  <div class="hero-row">
+    <p class="rise">A self-hosted web app for every game you own: store libraries, CD keys and the discs on your shelves, in one catalog on your own server.</p>
+    <a class="button rise" style="--i:1" href="#install">Install with Docker</a>
+  </div>
 </header>
 
-<main id="top">
-  <section class="hero" aria-labelledby="hero-title">
-    <div class="hero-text">
-      <h1 id="hero-title" class="rise">Know every game you own.</h1>
-      <p class="rise" style="--i:1">One self-hosted catalog for your store libraries, CD keys and discs, open in any browser.</p>
-      <a class="button rise" style="--i:2" href="#install">Install with Docker</a>
+<main id="main">
+  <section class="gap" id="inside" aria-labelledby="inside-title">
+    <div class="lead-head">
+      <h2 id="inside-title" class="rise">What's inside</h2>
+      <p class="rise" style="--i:1">Every game once, with every platform you have it on, every key you haven't redeemed and every disc you've shelved.</p>
     </div>
-    <div class="stage" id="ask">
-      <div class="stage-inner">
-        <div class="ask" data-ui>
+    <div class="band rise" style="--i:2">
+      <figure class="slice" style="--g:5"><img src="assets/library.jpg" width="2880" height="1800" alt="The library: games with their box art and the platforms they're owned on" loading="lazy" style="object-position:22% 0"><figcaption class="over">The whole<br>collection</figcaption></figure>
+      <div class="slice" style="--g:2"><img src="assets/phone.jpg" width="2880" height="1800" alt="The library on a phone" loading="lazy" style="object-position:9% 50%"></div>
+      <div class="slice" style="--g:3"><img src="assets/game.jpg" width="2880" height="1800" alt="A game's sheet: cover, platforms, genres, release date and Metacritic score" loading="lazy" style="object-position:28% 0"></div>
+      <div class="slice" style="--g:2"><img src="assets/phone.jpg" width="2880" height="1800" alt="A game's copies on a phone: a sealed PAL collector's edition on shelf A, and the Steam copy" loading="lazy" style="object-position:91% 50%"></div>
+    </div>
+    <p class="band-note">The app with a demo catalog. Hover a slice to open it.</p>
+  </section>
+
+  <section class="gap proofs" id="how" aria-labelledby="how-title">
+    <h2 id="how-title" class="rise">How it works</h2>
+
+    <div class="proof rise">
+      <div class="panel" data-ui>
+        <div class="ask">
           <label class="ask-field">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
-            <span class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Do I own it? Type a game</span>
-            <input id="ask-input" type="search" autocomplete="off" spellcheck="false" placeholder="Do I own it? Type a game…" value="Hollow Knight">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+            <input id="ask-input" name="game" type="search" autocomplete="off" spellcheck="false" aria-label="Do I own it? Type a game" placeholder="Type a game, e.g. Elden Ring…" value="Hollow Knight">
           </label>
-          <div class="ask-hints">Try:
+          <div class="ask-hints">
             <button type="button" data-q="Elden Ring">Elden Ring</button>
             <button type="button" data-q="Dead Cells">Dead Cells</button>
-            <button type="button" data-q="Super Metroid">Super Metroid</button>
             <button type="button" data-q="Silksong">Silksong</button>
           </div>
-          <div class="answer" id="answer" aria-live="polite">
-            <div class="verdict"><b>Hollow Knight</b><span class="yes">You own it · 2 copies</span></div>
-            <ul class="copies">
-              <li class="copy" style="--copy:#e60012"><span class="badge" style="--b:#e60012">Switch</span><span>Physical · Collector's Edition</span><span class="when chip green">Owned</span><span class="meta">PAL · Sealed · Shelf A · €59.99</span></li>
-              <li class="copy" style="--copy:#1b2838"><span class="badge" style="--b:#1b2838">Steam</span><span>Library</span><span class="when chip green">Owned</span><span class="meta">Imported from Steam · added Jun 2019</span></li>
-            </ul>
-          </div>
+          <div class="answer" id="answer" aria-live="polite"></div>
         </div>
       </div>
-    </div>
-  </section>
-
-  <section class="wrap gap" id="library" aria-labelledby="lib-title">
-    <div class="head">
-      <h2 id="lib-title" class="rise">Filter the whole pile</h2>
-      <p class="rise" style="--i:1">Every game once, with every platform you have it on. The quick filters find what needs doing.</p>
-    </div>
-    <div class="demo rise" style="--i:2" data-ui>
-      <div class="demo-list">
-        <div class="demo-list-head"><b>Library</b><span id="demo-count">12 games</span></div>
-        <ul class="rows" id="demo-rows"></ul>
-      </div>
-      <div class="demo-controls">
-        <p class="ui-title">Quick filters</p>
-        <label class="ctrl"><span>Pending keys<small>Not redeemed yet</small></span><input class="toggle" type="checkbox" data-f="pending"></label>
-        <label class="ctrl"><span>Expiring soon<small>Redeem within 30 days</small></span><input class="toggle" type="checkbox" data-f="expiring"></label>
-        <label class="ctrl"><span>Keys you don't need<small>Already owned there</small></span><input class="toggle" type="checkbox" data-f="spare"></label>
-        <label class="ctrl"><span>On several platforms</span><input class="toggle" type="checkbox" data-f="several"></label>
-        <label class="ctrl more"><span>Physical only</span><input class="toggle" type="checkbox" data-f="physical"></label>
-        <div class="ctrl more"><span>Sort</span><span class="seg" role="group" aria-label="Sort"><button type="button" aria-pressed="true" data-sort="title">Title</button><button type="button" aria-pressed="false" data-sort="added">Recently added</button></span></div>
-        <p class="note">A demo catalog of twelve games. Your real one comes from your stores, keys and shelves.</p>
+      <div>
+        <h3>Ask before you buy</h3>
+        <p>Type a game and Game Vault answers with every copy you have: store libraries, keys and discs.</p>
+        <p>Try it here, on a demo catalog of twelve games.</p>
       </div>
     </div>
-    <p class="under">Switch a filter: the list answers at once, as it does in the app.</p>
-  </section>
 
-  <section class="wrap gap" aria-labelledby="in-title">
-    <div class="head"><h2 id="in-title" class="rise">It all comes in</h2></div>
-    <div class="cells">
-      <article class="cell rise">
-        <div class="cell-text"><h3>Ten store libraries</h3><p>Steam, Epic, GOG, Xbox, PlayStation and more, imported and rescanned on their own. Read only, always.</p></div>
-        <div class="cell-frag"><div class="dock-tl" data-ui>
-          <div class="src"><i style="--b:#1b2838"></i><span>Steam<small>Library · scanned 2 h ago</small></span><em>Working</em></div>
-          <div class="src"><i style="--b:#86328a"></i><span>GOG<small>Library · scanned 2 h ago</small></span><em>Working</em></div>
-          <div class="src"><i style="--b:#0070d1"></i><span>PlayStation<small>Library · scanned 5 h ago</small></span><em>Working</em></div>
-          <div class="src"><i style="--b:#2a2a2a"></i><span>Epic Games<small>Library · scanned 6 h ago</small></span><em>Working</em></div>
-        </div></div>
-      </article>
-      <article class="cell flip rise" style="--i:1">
-        <div class="cell-text"><h3>Keys with deadlines</h3><p>Humble Bundle keys arrive with their redeem dates. The ones about to expire come first.</p></div>
-        <div class="cell-frag"><div class="dock-br" data-ui>
-          <div class="keyrow"><b>Dead Cells</b><span class="chip red">12 days</span><small>Steam key · Humble Choice</small><code>••••• ••••• •••••</code></div>
-          <div class="keyrow"><b>Slay the Spire</b><span class="chip amber">45 days</span><small>Steam key · Humble Bundle</small><code>••••• ••••• •••••</code></div>
-          <div class="keyrow"><b>Elden Ring</b><span class="chip">You own it on PS5</span><small>Steam key · Humble Choice</small><code>••••• ••••• •••••</code></div>
-        </div></div>
-      </article>
-      <article class="cell rise" style="--i:2">
-        <div class="cell-text"><h3>Discs by barcode</h3><p>Point your phone at the box. The game, its system and its edition are found for you.</p></div>
-        <div class="cell-frag"><div class="dock-tr" data-ui>
-          <div class="scan-code">5 030917 112410</div>
-          <svg class="scan-bars" viewBox="0 0 300 46" preserveAspectRatio="none" aria-hidden="true" fill="currentColor"><rect x="0" width="3" height="46"/><rect x="6" width="4" height="46"/><rect x="12" width="2" height="46"/><rect x="16" width="3" height="46"/><rect x="21" width="6" height="46"/><rect x="30" width="2" height="46"/><rect x="34" width="4" height="46"/><rect x="43" width="2" height="46"/><rect x="48" width="2" height="46"/><rect x="55" width="2" height="46"/><rect x="59" width="2" height="46"/><rect x="63" width="6" height="46"/><rect x="74" width="2" height="46"/><rect x="79" width="2" height="46"/><rect x="84" width="3" height="46"/><rect x="92" width="2" height="46"/><rect x="96" width="6" height="46"/><rect x="106" width="6" height="46"/><rect x="115" width="2" height="46"/><rect x="120" width="3" height="46"/><rect x="125" width="6" height="46"/><rect x="133" width="6" height="46"/><rect x="141" width="6" height="46"/><rect x="150" width="4" height="46"/><rect x="159" width="3" height="46"/><rect x="167" width="6" height="46"/><rect x="178" width="3" height="46"/><rect x="185" width="2" height="46"/><rect x="190" width="2" height="46"/><rect x="194" width="6" height="46"/><rect x="204" width="6" height="46"/><rect x="215" width="3" height="46"/><rect x="223" width="3" height="46"/><rect x="228" width="2" height="46"/><rect x="235" width="2" height="46"/><rect x="241" width="2" height="46"/><rect x="248" width="4" height="46"/><rect x="254" width="2" height="46"/><rect x="260" width="3" height="46"/><rect x="267" width="6" height="46"/><rect x="278" width="6" height="46"/><rect x="289" width="2" height="46"/><rect x="293" width="3" height="46"/></svg>
-          <div class="verdict"><b>Dead Space 3</b><span class="badge" style="--b:#107c10">Xbox 360</span></div>
-          <p style="margin-top:6px;font-size:13px;color:var(--soft)">Found on CeX · PAL · added to the batch</p>
-        </div></div>
-      </article>
-      <article class="cell flip rise" style="--i:3">
-        <div class="cell-text"><h3>Box art and game sheets</h3><p>Covers for every edition, summaries, genres, ratings and trailers, found without asking.</p></div>
-        <div class="cell-frag"><img src="assets/ui-game.jpg" width="760" height="475" alt="A game's sheet in Game Vault: cover, platforms, release date, developer and Metacritic score" loading="lazy"></div>
-      </article>
-      <article class="cell rise" style="--i:4">
-        <div class="cell-text"><h3>Store pages that know</h3><p>The browser extension marks what you own on Steam, GOG, Humble and Fanatical pages.</p></div>
-        <div class="cell-frag"><div class="dock-bl" data-ui style="background:var(--slate);color:#fff">
-          <p style="font-size:13px;color:#b9c0d4">On the Steam store</p>
-          <p style="margin:6px 0 12px;font-size:18px;font-weight:800;font-stretch:112%">Hollow Knight</p>
-          <span class="label-chip"><i></i>In your collection · Steam, Switch</span>
-        </div></div>
-      </article>
-      <article class="cell flip rise" style="--i:5">
-        <div class="cell-text"><h3>News where you read it</h3><p>New games, releases in your series and keys about to expire, sent to Telegram, ntfy or a webhook.</p></div>
-        <div class="cell-frag"><div class="dock-tl" data-ui>
-          <div class="msg"><b>Game Vault</b>3 games added from Steam: Hades II, Sea of Stars, Tunic.</div>
-          <div class="msg" style="margin-top:8px"><b>Game Vault</b>A key expires in 7 days: Dead Cells (Steam), from Humble Choice.</div>
-        </div></div>
-      </article>
-    </div>
-  </section>
-
-  <section class="wrap gap listing" id="stores" aria-labelledby="stores-title">
-    <div class="head"><h2 id="stores-title" class="rise">Where it reads from</h2></div>
-    <div class="stores">
-      <div class="group rise">
-        <p>Libraries</p>
-        <div class="store"><span><i style="--b:#1b2838"></i>Steam</span><small>library</small></div>
-        <div class="store"><span><i style="--b:#2a2a2a"></i>Epic Games Store</span><small>library</small></div>
-        <div class="store"><span><i style="--b:#86328a"></i>GOG</span><small>library</small></div>
-        <div class="store"><span><i style="--b:#148eff"></i>Battle.net</span><small>library</small></div>
-        <div class="store"><span><i style="--b:#e4002b"></i>EA app</span><small>library</small></div>
-        <div class="store"><span><i style="--b:#1a1a1a"></i>Ubisoft Connect</span><small>library</small></div>
-        <div class="store"><span><i style="--b:#107c10"></i>Xbox / Microsoft Store</span><small>library</small></div>
-        <div class="store"><span><i style="--b:#0070d1"></i>PlayStation</span><small>PS4, PS5</small></div>
-        <div class="store"><span><i style="--b:#232f3e"></i>Amazon Games</span><small>library</small></div>
-        <div class="store"><span><i style="--b:#fa5c5c"></i>itch.io</span><small>library</small></div>
-      </div>
-      <div class="group rise" style="--i:1">
-        <p>Keys</p>
-        <div class="store"><span><i style="--b:#cc2929"></i>Humble Bundle</span><small>keys, deadlines</small></div>
-        <div class="store"><span><i style="--b:#ff9800"></i>Fanatical</span><small>keys, at your own risk</small></div>
-      </div>
-      <div class="group rise" style="--i:2">
-        <p>Everything else</p>
-        <div class="store"><span><i style="--b:var(--amber)"></i>Your shelves</span><small>barcode, 118 systems</small></div>
-        <div class="store"><span><i style="--b:var(--soft)"></i>A spreadsheet</span><small>CSV in and out</small></div>
+    <div class="proof rise">
+      <div class="panel shot" style="--h:300px"><img src="assets/library.jpg" width="1440" height="900" alt="The library's quick filters: pending keys, expiring soon, keys you don't need" loading="lazy" style="--w:1440px;--x:-250px;--y:-110px"></div>
+      <div>
+        <h3>Ten stores, read only</h3>
+        <p>Steam, Epic, GOG, Battle.net, EA app, Ubisoft Connect, Xbox, PlayStation, Amazon Games and itch.io come in by themselves.</p>
+        <p>It never buys, redeems or changes anything.</p>
       </div>
     </div>
-    <aside class="rise" style="--i:3"><p>It only reads. It never buys, redeems, installs or changes anything in your accounts.</p></aside>
+
+    <div class="proof rise">
+      <div class="panel shot" style="--h:260px"><img src="assets/copies.jpg" width="1440" height="900" alt="A sealed PAL collector's edition of Hollow Knight on shelf A" loading="lazy" style="--w:1440px;--x:-196px;--y:-600px"></div>
+      <div>
+        <h3>Discs by barcode</h3>
+        <p>Scan box after box with your phone: 118 systems, from the Atari 2600 to the Switch 2.</p>
+        <p>Each copy keeps its region, condition, edition, shelf and price.</p>
+      </div>
+    </div>
+
+    <div class="proof rise">
+      <div class="panel shot" style="--h:200px"><img src="assets/home.jpg" width="1440" height="900" alt="The home page's figures and alerts: keys past their deadline, keys to redeem, keys you don't need" loading="lazy" style="--w:1440px;--x:-250px;--y:-370px"></div>
+      <div>
+        <h3>No key dies forgotten</h3>
+        <p>Humble Bundle keys arrive with their redeem dates. The ones about to expire, and the ones you don't need, are flagged.</p>
+      </div>
+    </div>
+
+    <div class="proof rise">
+      <div class="panel shot" style="--h:300px"><img src="assets/home.jpg" width="1440" height="900" alt="Today's deals on games not in the collection, from IsThereAnyDeal" loading="lazy" style="--w:1440px;--x:-252px;--y:-650px"></div>
+      <div>
+        <h3>Deals on what you don't own</h3>
+        <p>With a free IsThereAnyDeal key, the home page shows today's deals and historical lows, never for games you already have.</p>
+      </div>
+    </div>
   </section>
 
-  <section class="wrap gap" id="shelves" aria-labelledby="shelves-title">
-    <div class="head">
-      <h2 id="shelves-title" class="rise">The shelves count too</h2>
-      <p class="rise" style="--i:1">118 consoles, handhelds and classic computers, from the Atari 2600 to the Switch 2. Each copy keeps its region, condition, edition and shelf.</p>
+  <section class="gap" aria-labelledby="shelves-title">
+    <div class="gallery">
+      <figure class="g1"><div class="g-img"><img src="assets/nintendo-nes-cartridges-17082182711.jpg" width="1280" height="1920" alt="A stack of NES cartridges, Super Mario Bros. and Duck Hunt on top" loading="lazy"></div><figcaption>NES. Photo: <a href="https://commons.wikimedia.org/w/index.php?curid=39883419">Tony Webster</a>, CC BY 2.0</figcaption></figure>
+      <div class="gallery-head">
+        <h2 id="shelves-title" class="rise">The shelves count too</h2>
+        <p class="rise" style="--i:1">Consoles, handhelds and classic computers of every generation, with the details collectors care about.</p>
+      </div>
+      <figure class="g2"><div class="g-img"><img src="assets/nintendo-64-with-mario-kart-64-cartridge.jpg" width="1280" height="894" alt="A Nintendo 64 with Mario Kart 64 inserted and a red controller" loading="lazy"></div><figcaption>N64. Photo: <a href="https://commons.wikimedia.org/w/index.php?curid=509097">Céréales Killer</a>, CC BY-SA 3.0</figcaption></figure>
+      <figure class="g3"><div class="g-img"><img src="assets/atari-2600-cartridges-17174080218.jpg" width="1280" height="853" alt="Atari 2600 cartridges scattered on a carpet" loading="lazy"></div><figcaption>Atari 2600. Photo: <a href="https://commons.wikimedia.org/w/index.php?curid=50293413">Kevin Savetz</a>, CC BY 2.0</figcaption></figure>
+      <figure class="g4"><div class="g-img"><img src="assets/game-boy-cartridge.jpg" width="1280" height="1350" alt="A yellow Game Boy Color cartridge, close up" loading="lazy"></div><figcaption>Game Boy Color. Photo: <a href="https://commons.wikimedia.org/w/index.php?curid=124916456">Monoklon</a>, CC BY-SA 4.0</figcaption></figure>
+      <figure class="g5"><div class="g-img"><img src="assets/sega-game-gear-20190714a.jpg" width="1280" height="960" alt="A Sega Game Gear on display with a 1990 label" loading="lazy"></div><figcaption>Game Gear. Photo: <a href="https://commons.wikimedia.org/w/index.php?curid=80447155">Solomon203</a>, CC BY-SA 4.0</figcaption></figure>
+      <figure class="g6"><div class="g-img"><img src="assets/sega-dreamcast-set.png" width="1280" height="698" alt="A white Sega Dreamcast with its controller" loading="lazy" style="object-position:40% 50%"></div><figcaption>Dreamcast. Photo: <a href="https://commons.wikimedia.org/w/index.php?curid=8782822">Asim Saleem</a>, CC BY 3.0</figcaption></figure>
+      <figure class="g7"><div class="g-img"><img src="assets/nintendo-game-cartridges-cards-game-boy-color.jpg" width="1280" height="795" alt="Nintendo cartridges and cards side by side, from Game Boy to Switch" loading="lazy"></div><figcaption>Game Boy to Switch. Photo: <a href="https://commons.wikimedia.org/w/index.php?curid=107704418">Derrick Rossignol</a>, CC BY-SA 4.0</figcaption></figure>
+      <figure class="g8"><div class="g-img"><img src="assets/the-legend-of-zelda-golden-catridge.jpg" width="1280" height="711" alt="The gold cartridge of The Legend of Zelda for the NES" loading="lazy" style="object-position:60% 50%"></div><figcaption>NES. Photo: <a href="https://commons.wikimedia.org/w/index.php?curid=9110518">Dave or Atox</a>, CC BY 2.0</figcaption></figure>
     </div>
-    <div class="shelf">
-      <figure class="print rise"><div class="ph shutter"><img src="assets/nintendo-nes-cartridges-17082182711.jpg" width="1280" height="1920" alt="A stack of NES cartridges, Super Mario Bros. and Duck Hunt on top"></div><figcaption class="tag p1"><div class="r1"><span>NES</span><span>PAL-B</span><span>Good</span><span>Shelf C</span></div><div class="r2"><span>Mar 2009</span><span>€12.00</span></div></figcaption></figure>
-      <figure class="print rise drift" style="--i:1"><div class="ph"><img src="assets/game-boy-cartridge.jpg" width="1280" height="1350" alt="A yellow Game Boy Color cartridge, close up" loading="lazy"></div><figcaption class="tag p2"><div class="r1"><span>Game Boy Color</span><span>NTSC-U</span><span>Loose</span><span>Box 2</span></div><div class="r2"><span>Jul 2015</span><span>€9.50</span></div></figcaption></figure>
-      <figure class="print rise" style="--i:2"><div class="ph"><img src="assets/nintendo-64-with-mario-kart-64-cartridge.jpg" width="1280" height="894" alt="A Nintendo 64 with Mario Kart 64 inserted and a red controller" loading="lazy" style="object-position:30% 50%"></div><figcaption class="tag p3"><div class="r1"><span>N64</span><span>PAL</span><span>Very good</span><span>Shelf B</span></div><div class="r2"><span>Dec 1997</span><span>€59.99</span></div></figcaption></figure>
-      <figure class="print rise" style="--i:3"><div class="ph"><img src="assets/atari-2600-cartridges-17174080218.jpg" width="1280" height="853" alt="Atari 2600 cartridges scattered on a carpet" loading="lazy"></div><figcaption class="tag p4"><div class="r1"><span>Atari 2600</span><span>PAL</span><span>Acceptable</span><span>Box 1</span></div><div class="r2"><span>Sep 2012</span><span>€4.00</span></div></figcaption></figure>
-      <figure class="print rise" style="--i:4"><div class="ph"><img src="assets/sega-game-gear-20190714a.jpg" width="1280" height="960" alt="A Sega Game Gear on display with a 1990 label" loading="lazy"></div><figcaption class="tag p2"><div class="r1"><span>Game Gear</span><span>PAL</span><span>Good</span><span>Shelf C</span></div><div class="r2"><span>Apr 2018</span><span>€45.00</span></div></figcaption></figure>
-      <figure class="print rise" style="--i:5"><div class="ph"><img src="assets/sega-dreamcast-set.png" width="1280" height="698" alt="A white Sega Dreamcast with its controller" loading="lazy" style="object-position:40% 50%"></div><figcaption class="tag p3"><div class="r1"><span>Dreamcast</span><span>PAL</span><span>Mint</span><span>Shelf B</span></div><div class="r2"><span>Oct 1999</span><span>€199.00</span></div></figcaption></figure>
-      <figure class="print rise" style="--i:6"><div class="ph"><img src="assets/the-legend-of-zelda-golden-catridge.jpg" width="1280" height="711" alt="The gold cartridge of The Legend of Zelda for the NES" loading="lazy" style="object-position:60% 50%"></div><figcaption class="tag p1"><div class="r1"><span>NES</span><span>NTSC-U</span><span>Good</span><span>Shelf C</span></div><div class="r2"><span>Feb 2014</span><span>€38.00</span></div></figcaption></figure>
-      <figure class="print rise" style="--i:7"><div class="ph"><img src="assets/nintendo-game-cartridges-cards-game-boy-color.jpg" width="1280" height="795" alt="Nintendo cartridges and cards side by side, from Game Boy to Switch" loading="lazy"></div><figcaption class="tag p4"><div class="r1"><span>Six systems</span><span>Mixed</span><span>Loose</span><span>Drawer</span></div><div class="r2"><span>1989–2025</span><span>one catalog</span></div></figcaption></figure>
-    </div>
-    <p class="credits">The tags are sample data. Pictures: <a href="https://commons.wikimedia.org/w/index.php?curid=39883419">“Nintendo NES Cartridges”</a> by Tony Webster, <a href="https://creativecommons.org/licenses/by/2.0/">CC BY 2.0</a>; <a href="https://commons.wikimedia.org/w/index.php?curid=124916456">“Game Boy Cartridge”</a> by Monoklon, <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>; <a href="https://commons.wikimedia.org/w/index.php?curid=509097">“Nintendo 64 with Mario Kart 64 cartridge”</a> by Céréales Killer, <a href="https://creativecommons.org/licenses/by-sa/3.0/">CC BY-SA 3.0</a>; <a href="https://commons.wikimedia.org/w/index.php?curid=50293413">“Atari 2600 cartridges”</a> by Kevin Savetz, <a href="https://creativecommons.org/licenses/by/2.0/">CC BY 2.0</a>; <a href="https://commons.wikimedia.org/w/index.php?curid=80447155">“Sega Game Gear 20190714a”</a> by Solomon203, <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>; <a href="https://commons.wikimedia.org/w/index.php?curid=8782822">“Sega-dreamcast-set”</a> by Asim Saleem, <a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a>; <a href="https://commons.wikimedia.org/w/index.php?curid=9110518">“The Legend of Zelda - Golden Catridge”</a> by Dave or Atox, <a href="https://creativecommons.org/licenses/by/2.0/">CC BY 2.0</a>; <a href="https://commons.wikimedia.org/w/index.php?curid=107704418">“Nintendo game cartridges, cards”</a> by Derrick Rossignol, <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>. All via Wikimedia Commons.</p>
   </section>
 
-  <section class="first" id="install" aria-labelledby="install-title">
-    <div class="first-text">
-      <h2 id="install-title" class="rise">Count yours tonight.</h2>
-      <p class="rise" style="--i:1">Run the command on your server, open the port in a browser, create your user and connect your first store.</p>
-    </div>
-    <form class="dialog rise" style="--i:2" data-ui id="installer">
-      <p class="ui-title">Run Game Vault</p>
-      <label for="port">Port on your server</label>
-      <input id="port" type="text" inputmode="numeric" value="8080" maxlength="5" autocomplete="off">
-      <label id="how-label">How you run containers</label>
-      <span class="seg" role="group" aria-labelledby="how-label"><button type="button" aria-pressed="true" data-how="run">docker run</button><button type="button" aria-pressed="false" data-how="compose">Compose</button></span>
-      <pre><code id="cmd">docker run -d --name game-vault -p 8080:8080 -v game-vault-data:/config botchrishub/game-vault</code></pre>
-      <button class="button go" type="submit">Copy the command</button>
-      <p class="after" id="after" aria-live="polite">Then open http://your-server:8080. Images for amd64 and arm64.</p>
-    </form>
-  </section>
+  <a class="act" id="install" href="https://github.com/botchris/game-vault#install-and-run">
+    <span class="say">One container on your server: <code translate="no">docker run -p 8080:8080 -v game-vault-data:/config botchrishub/game-vault</code>, then open port 8080.</span>
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg>
+    <span class="word">Install</span>
+  </a>
 
-  <section class="wrap gap" aria-labelledby="faq-title">
-    <div class="faq">
-      <ul class="qs" role="tablist" aria-orientation="vertical">
-        <li id="faq-title">Fair questions</li>
-      </ul>
-      <div class="pane" id="pane" role="tabpanel" aria-live="polite"><p></p></div>
-    </div>
+  <section class="gap faq" id="questions" aria-labelledby="q-title">
+    <div class="qa"><h2 id="q-title">Fair questions</h2></div>
+    <div class="qa rise"><h3>How does it read my stores?</h3><p>Most stores have no official way to list what you own, so it signs in the way their own apps or open-source launchers do, and only reads. Fanatical forbids that in its terms, so it stays off until you accept the risk.</p></div>
+    <div class="qa rise"><h3>Is my data safe?</h3><p>It never leaves your server. Store sessions sit unencrypted in its database: keep the config volume private, and use HTTPS if you reach it from outside. SECURITY.md has the details.</p></div>
+    <div class="qa rise"><h3>What does it cost?</h3><p>Nothing for personal use. The code is open to read and change under the PolyForm Noncommercial license; selling it or running it as a paid service isn't allowed.</p></div>
+    <div class="qa rise"><h3>Can I bring my spreadsheet?</h3><p>Yes. Import a CSV with titles, platforms, keys and discs, and export everything back the same way.</p></div>
+    <div class="qa rise"><h3>Was it built with AI?</h3><p>Yes, with a lot of help from Claude Code. The architecture, the specs and the reviews are its maintainer's, a software engineer with twenty years of experience, and every change goes through tests.</p></div>
   </section>
 </main>
 
-<footer class="board" aria-label="Game Vault">
-  <div class="tile-f t-statement">
-    <p>Built for one big collection, shared for yours.</p>
-    <p>Source-available under the PolyForm Noncommercial License 1.0.0. Free for personal use. Not affiliated with any store.</p>
+<footer class="foot">
+  <p class="name" translate="no" aria-hidden="true">Game Vault</p>
+  <div class="foot-row">
+    <div class="places">
+      <a href="https://github.com/botchris/game-vault">GitHub</a>
+      <a href="https://hub.docker.com/r/botchrishub/game-vault">Docker Hub</a>
+      <a href="https://github.com/botchris/game-vault/releases">Releases</a>
+    </div>
+    <div class="links">
+      <ul><li>Use it</li><li><a class="link" href="https://github.com/botchris/game-vault#install-and-run">Install</a></li><li><a class="link" href="https://github.com/botchris/game-vault/blob/main/compose.yaml">compose.yaml</a></li></ul>
+      <ul><li>Read</li><li><a class="link" href="https://github.com/botchris/game-vault/blob/main/docs/technical.md">Technical notes</a></li><li><a class="link" href="https://github.com/botchris/game-vault/blob/main/SECURITY.md">Security</a></li></ul>
+      <ul><li>Talk</li><li><a class="link" href="https://github.com/botchris/game-vault/issues">Issues</a></li><li><a class="link" href="https://github.com/botchris/game-vault/security/advisories/new">Report a vulnerability</a></li></ul>
+    </div>
   </div>
-  <nav class="tile-f t-nav" aria-label="More">
-    <ul>
-      <li><a class="link" href="https://github.com/botchris/game-vault#install-and-run">Install guide</a></li>
-      <li><a class="link" href="https://github.com/botchris/game-vault/blob/main/docs/technical.md">Technical notes</a></li>
-      <li><a class="link" href="https://github.com/botchris/game-vault/blob/main/SECURITY.md">Security</a></li>
-      <li><a class="link" href="https://github.com/botchris/game-vault/releases">Releases</a></li>
-    </ul>
-  </nav>
-  <div class="tile-f t-release"><span>Latest release</span><b>v0.8.0</b><span>English and Spanish</span></div>
-  <div class="tile-f t-repo"><span>The code</span><a class="link" href="https://github.com/botchris/game-vault">botchris/<wbr>game-vault on GitHub</a></div>
-  <div class="tile-f t-word"><span>Game Vault</span></div>
-  <a class="tile-f t-go" href="#install"><b>Install it on your server</b>
-    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg>
-  </a>
+  <div class="foot-last">
+    <span>Source-available under the PolyForm Noncommercial License 1.0.0. Not affiliated with any store. Photos via Wikimedia Commons, credited above.</span>
+    <a class="link" href="#main">Back to the top</a>
+  </div>
 </footer>
 
 <script>
 document.documentElement.classList.add('js');
 
-/* The demo catalog: well-known games, sample copies. */
-const P = { Steam: '#1b2838', GOG: '#86328a', Epic: '#2a2a2a', PS5: '#0070d1', PS4: '#0070d1', Switch: '#e60012', 'Xbox One': '#107c10', 'Xbox 360': '#107c10', SNES: '#e60012', Rockstar: '#7a5600' };
+/* Do I own it? A demo catalog of well-known games with sample copies. */
+const P = { Steam: '#1b2838', GOG: '#86328a', PS5: '#0070d1', PS4: '#0070d1', Switch: '#e60012', SNES: '#e60012', Rockstar: '#7a5600' };
 const C = [
-  { t: 'Hollow Knight', added: 2020, copies: [['Switch', 'Physical · Collector\'s Edition', 'PAL · Sealed · Shelf A · €59.99', 'Owned', 'green'], ['Steam', 'Library', 'Imported from Steam · added Jun 2019', 'Owned', 'green']] },
-  { t: 'Elden Ring', added: 2023, copies: [['PS5', 'Physical · Launch Edition', 'PAL · Mint · Shelf B · €69.99', 'Owned', 'green'], ['Steam', 'Key · Humble Choice', 'Not redeemed · you already own it on PS5', 'Spare key', 'amber']] },
-  { t: 'Dead Cells', added: 2024, copies: [['Steam', 'Key · Humble Choice', 'Redeem by 28 Oct 2026', '12 days', 'red']] },
-  { t: 'Super Metroid', added: 2012, copies: [['SNES', 'Physical', 'PAL · Good · box, manual, cartridge · Retro shelf · €35.00', 'Owned', 'green']] },
-  { t: 'Hades', added: 2021, copies: [['Switch', 'Physical', 'PAL · Mint · Shelf A · €34.99', 'Owned', 'green'], ['Steam', 'Library', 'Imported from Steam', 'Owned', 'green']] },
-  { t: 'Baldur\'s Gate 3', added: 2024, copies: [['PS5', 'Physical · Deluxe Edition', 'PAL · Sealed · Shelf B', 'Owned', 'green'], ['Steam', 'Library', 'Imported from Steam', 'Owned', 'green']] },
-  { t: 'Slay the Spire', added: 2024, copies: [['Steam', 'Key · Humble Bundle', 'Redeem by 30 Nov 2026', '45 days', 'amber']] },
-  { t: 'The Witcher 3: Wild Hunt', added: 2016, copies: [['GOG', 'Library · GOTY Edition', 'Imported from GOG', 'Owned', 'green'], ['PS4', 'Physical', 'PAL · Very good · Shelf B', 'Owned', 'green']] },
-  { t: 'Red Dead Redemption 2', added: 2019, copies: [['Rockstar', 'Library', 'Added by hand', 'Owned', 'green'], ['Xbox One', 'Physical', 'PAL · sold in 2021', 'Sold', '']] },
-  { t: 'Celeste', added: 2020, copies: [['Steam', 'Library', 'Imported from Steam', 'Owned', 'green']] },
-  { t: 'Portal 2', added: 2014, copies: [['Steam', 'Library', 'Imported from Steam', 'Owned', 'green'], ['Steam', 'Key · Humble Bundle', 'Revealed · you already own it on Steam', 'Spare key', 'amber']] },
-  { t: 'Persona 5 Royal', added: 2020, copies: [['PS4', 'Physical · import', 'NTSC-U · Mint · Shelf C · €44.99', 'Owned', 'green']] },
+  ['Hollow Knight', [['Switch', 'Physical · Collector’s Edition', 'PAL · sealed · shelf A'], ['Steam', 'Library', 'Imported from Steam']]],
+  ['Elden Ring', [['PS5', 'Physical · Launch Edition', 'PAL · mint · shelf B'], ['Steam', 'Key · Humble Choice', 'Not redeemed: you already own it on PS5']]],
+  ['Dead Cells', [['Steam', 'Key · Humble Choice', 'Redeem within 12 days']]],
+  ['Super Metroid', [['SNES', 'Physical', 'PAL · good · box, manual, cartridge']]],
+  ['Hades', [['Switch', 'Physical', 'PAL · mint · shelf A'], ['Steam', 'Library', 'Imported from Steam']]],
+  ['Baldur’s Gate 3', [['PS5', 'Physical · Deluxe Edition', 'PAL · sealed · shelf B'], ['Steam', 'Library', 'Imported from Steam']]],
+  ['Slay the Spire', [['Steam', 'Key · Humble Bundle', 'Redeem within 45 days']]],
+  ['The Witcher 3: Wild Hunt', [['GOG', 'Library · GOTY Edition', 'Imported from GOG'], ['PS4', 'Physical', 'PAL · very good · shelf B']]],
+  ['Red Dead Redemption 2', [['Rockstar', 'Library', 'Added by hand']]],
+  ['Celeste', [['Steam', 'Library', 'Imported from Steam']]],
+  ['Portal 2', [['Steam', 'Library', 'Imported from Steam'], ['Steam', 'Key · Humble Bundle', 'Spare: you already own it on Steam']]],
+  ['Persona 5 Royal', [['PS4', 'Physical · import', 'NTSC-U · mint · shelf C']]],
 ];
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g, '');
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-
-/* Do I own it? — the hero's live answer */
 const input = document.getElementById('ask-input');
 const answer = document.getElementById('answer');
 function ask(q) {
   const k = norm(q);
-  if (!k) { answer.innerHTML = '<p class="nothing">Type the name of a game, as a store or a box writes it.</p>'; return; }
-  const g = C.find((x) => norm(x.t).includes(k));
+  if (!k) { answer.innerHTML = '<p class="nothing">Type the name of a game.</p>'; return; }
+  const g = C.find(([t]) => norm(t).includes(k));
   if (!g) {
-    answer.innerHTML = `<div class="verdict"><b>${esc(q)}</b><span class="no">Not in your collection</span></div><p class="nothing">No copy on any store, key list or shelf. On the home page, deals only show games like this one: the ones you don't own yet.</p>`;
+    answer.innerHTML = `<div class="verdict"><b>${esc(q)}</b><span class="no">Not in your collection</span></div><p class="nothing">No copy on any store, key list or shelf.</p>`;
     return;
   }
-  const owned = g.copies.filter((c) => c[3] !== 'Sold').length;
-  answer.innerHTML = `<div class="verdict"><b>${esc(g.t)}</b><span class="yes">You own it · ${owned} ${owned === 1 ? 'copy' : 'copies'}</span></div><ul class="copies">${g.copies.map((c) => `<li class="copy" style="--copy:${P[c[0]]}"><span class="badge" style="--b:${P[c[0]]}">${c[0]}</span><span>${c[1]}</span><span class="when chip ${c[4]}">${c[3]}</span><span class="meta">${c[2]}</span></li>`).join('')}</ul>`;
+  const [t, copies] = g;
+  answer.innerHTML = `<div class="verdict"><b>${esc(t)}</b><span class="yes">You own it · ${copies.length} ${copies.length === 1 ? 'copy' : 'copies'}</span></div><ul class="copies">${copies.map(([p, kind, note]) => `<li class="copy"><span class="badge" style="--b:${P[p]}">${p}</span><span>${kind}</span><small>${note}</small></li>`).join('')}</ul>`;
 }
 input.addEventListener('input', () => ask(input.value));
-document.querySelectorAll('.ask-hints button').forEach((b) => b.addEventListener('click', () => { input.value = b.dataset.q; ask(input.value); input.focus(); }));
+document.querySelectorAll('.ask-hints button').forEach((b) => b.addEventListener('click', () => { input.value = b.dataset.q; ask(input.value); }));
+ask(input.value);
 
-/* The library demo with its quick filters */
-const rowsEl = document.getElementById('demo-rows');
-const countEl = document.getElementById('demo-count');
-const filters = {};
-let sortBy = 'title';
-const is = {
-  pending: (g) => g.copies.some((c) => c[1].startsWith('Key') && c[3] !== 'Owned'),
-  expiring: (g) => g.copies.some((c) => c[4] === 'red' || /^\d+ days$/.test(c[3])),
-  spare: (g) => g.copies.some((c) => c[3] === 'Spare key'),
-  several: (g) => new Set(g.copies.filter((c) => c[3] !== 'Sold').map((c) => c[0])).size > 1,
-  physical: (g) => g.copies.some((c) => c[1].startsWith('Physical')),
-};
-function renderDemo() {
-  let list = C.filter((g) => Object.keys(filters).every((f) => !filters[f] || is[f](g)));
-  list = [...list].sort(sortBy === 'title' ? (a, b) => a.t.localeCompare(b.t) : (a, b) => b.added - a.added);
-  countEl.textContent = `${list.length} of ${C.length} games`;
-  rowsEl.innerHTML = list.length ? list.map((g) => {
-    const plats = [...new Set(g.copies.filter((c) => c[3] !== 'Sold').map((c) => c[0]))];
-    const flag = g.copies.find((c) => c[4] === 'red' || c[4] === 'amber');
-    const initials = g.t.replace(/[^A-Za-z0-9 ]/g, '').split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('');
-    return `<li class="row"><span class="tile" style="--t:${P[plats[0]] || '#262c42'}">${initials}</span><span><span class="title">${esc(g.t)}</span><span class="plats">${plats.map((p) => `<span class="badge" style="--b:${P[p]}">${p}</span>`).join('')}</span></span>${flag ? `<span class="flag chip ${flag[4]}">${flag[3]}</span>` : '<span></span>'}</li>`;
-  }).join('') : '<li class="demo-empty">Nothing matches every filter at once.</li>';
-}
-document.querySelectorAll('.toggle').forEach((t) => t.addEventListener('change', () => { filters[t.dataset.f] = t.checked; renderDemo(); }));
-document.querySelectorAll('[data-sort]').forEach((b) => b.addEventListener('click', () => {
-  sortBy = b.dataset.sort;
-  document.querySelectorAll('[data-sort]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-  renderDemo();
-}));
-renderDemo();
-
-/* The installer: the port and the way you run containers build the command */
-const port = document.getElementById('port');
-const cmd = document.getElementById('cmd');
-const after = document.getElementById('after');
-let how = 'run';
-function command() {
-  const p = /^\d{2,5}$/.test(port.value) ? port.value : '8080';
-  cmd.textContent = how === 'run'
-    ? `docker run -d --name game-vault -p ${p}:8080 -v game-vault-data:/config botchrishub/game-vault`
-    : `curl -O https://raw.githubusercontent.com/botchris/game-vault/main/compose.yaml\n# set ports to "${p}:8080" and your TZ, then:\ndocker compose up -d`;
-  after.textContent = `Then open http://your-server:${p}. Images for amd64 and arm64.`;
-}
-port.addEventListener('input', command);
-document.querySelectorAll('[data-how]').forEach((b) => b.addEventListener('click', () => {
-  how = b.dataset.how;
-  document.querySelectorAll('[data-how]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-  command();
-}));
-document.getElementById('installer').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  try { await navigator.clipboard.writeText(cmd.textContent); after.textContent = 'Copied. Paste it on your server.'; }
-  catch { after.textContent = 'Select the command above and copy it.'; }
-});
-
-/* Fair questions: the index on the left, one answer on the right */
-const QA = [
-  ['How does it read my stores?', 'Most stores have no official way to list what you own, so Game Vault signs in the way their own apps or open-source launchers do, and only reads. Fanatical forbids that in its terms, so it stays off until you accept the risk.'],
-  ['Is my data safe?', 'It never leaves your server. Store sessions sit unencrypted in its database, so keep the config volume private and put the app behind HTTPS if you reach it from outside. SECURITY.md has the details.'],
-  ['What does it cost?', 'Nothing for personal use. The source is open to read and change under the PolyForm Noncommercial license; selling it or running it as a paid service is not allowed.'],
-  ['Which consoles does it know?', '118 systems: every PlayStation, Xbox and Nintendo, Sega, Atari, NEC, SNK and the classic computers from the ZX Spectrum to the Amiga, with their regional names.'],
-  ['Can I bring my spreadsheet?', 'Yes. Import a CSV with your titles, platforms, keys and discs, and export everything back the same way whenever you like.'],
-  ['Was it built with AI?', 'Yes, with a lot of help from Claude Code. The architecture, the specs and the reviews come from its maintainer, a software engineer with twenty years of experience, and every change goes through tests.'],
-];
-const qs = document.querySelector('.qs');
-const pane = document.querySelector('#pane p');
-QA.forEach(([q, a], i) => {
-  const li = document.createElement('li');
-  li.innerHTML = `<button type="button" role="tab" aria-selected="${i === 0}" aria-controls="pane">${q}</button><p class="inline-a${i === 0 ? ' open' : ''}">${a}</p>`;
-  qs.appendChild(li);
-  const btn = li.querySelector('button');
-  const show = () => {
-    qs.querySelectorAll('button').forEach((b) => b.setAttribute('aria-selected', String(b === btn)));
-    qs.querySelectorAll('.inline-a').forEach((p) => p.classList.toggle('open', p.parentElement === li));
-    pane.style.opacity = 0;
-    setTimeout(() => { pane.textContent = a; pane.style.opacity = 1; }, 150);
+/* Entrances, once, as each part comes into view. Nothing is ever hidden by CSS: the motion is played
+   on the element when it arrives, so a browser that never runs it still shows everything. */
+if (matchMedia('(prefers-reduced-motion: no-preference)').matches && 'IntersectionObserver' in window) {
+  const ease = 'cubic-bezier(0.23, 1, 0.32, 1)';
+  const play = (el) => {
+    const delay = (+getComputedStyle(el).getPropertyValue('--i') || 0) * 80;
+    if (el.classList.contains('wipe')) {
+      el.animate([{ clipPath: 'inset(100% 0 0 0)' }, { clipPath: 'inset(0 0 0 0)' }], { duration: 1000, easing: 'cubic-bezier(0.77, 0, 0.175, 1)', delay, fill: 'backwards' });
+    } else {
+      el.animate([{ opacity: 0, transform: 'translateY(24px)' }, { opacity: 1, transform: 'none' }], { duration: 700, easing: ease, delay, fill: 'backwards' });
+    }
   };
-  btn.addEventListener('click', show);
-  btn.addEventListener('focus', show);
-  if (matchMedia('(hover: hover)').matches) btn.addEventListener('mouseenter', show);
-});
-pane.textContent = QA[0][1];
-
-/* Entrances: once, as each part comes into view. Content is never left hidden: what is already on
-   screen shows at once, and if the observer never runs (a preview, an old browser) everything shows
-   after 1.5 s. */
-const parts = [...document.querySelectorAll('.rise, .shutter, .stage')];
-const showAll = () => parts.forEach((el) => el.classList.add('is-in'));
-if ('IntersectionObserver' in window) {
-  let working = false;
-  const seen = new IntersectionObserver((entries) => {
-    working = true;
-    entries.forEach((e) => {
-      if (e.isIntersecting) { e.target.classList.add('is-in'); seen.unobserve(e.target); }
-    });
-  }, { rootMargin: '0px 0px -8% 0px' });
-  parts.forEach((el) => {
-    if (el.getBoundingClientRect().top < innerHeight) el.classList.add('is-in');
-    else seen.observe(el);
-  });
-  // The observer reports every element once as soon as it starts; if it never does, show everything.
-  setTimeout(() => { if (!working) showAll(); }, 1500);
-} else {
-  showAll();
+  const seen = new IntersectionObserver((entries) => entries.forEach((e) => {
+    if (e.isIntersecting) { play(e.target); seen.unobserve(e.target); }
+  }), { rootMargin: '0px 0px -6% 0px' });
+  document.querySelectorAll('.rise, .wipe').forEach((el) => seen.observe(el));
+  // The photographs settle into their frames as they arrive; they are never hidden.
+  const settle = new IntersectionObserver((entries) => entries.forEach((e) => {
+    if (e.isIntersecting) {
+      e.target.animate([{ transform: 'scale(1.08)' }, { transform: 'none' }], { duration: 1400, easing: ease });
+      settle.unobserve(e.target);
+    }
+  }), { rootMargin: '0px 0px -6% 0px' });
+  document.querySelectorAll('.g-img img, .panel.shot img').forEach((el) => settle.observe(el));
 }
 </script>
 </body>
