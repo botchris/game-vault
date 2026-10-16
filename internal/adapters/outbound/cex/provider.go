@@ -50,6 +50,20 @@ const (
 // has been learned yet.
 var Countries = []string{"uk", "es", "ie", "pt", "au", "in", "mx", "it", "pl"}
 
+// countryRegions is the region of the boxes each CeX country sells: Europe, Australia and India are
+// PAL markets, Mexico an NTSC-U one.
+var countryRegions = map[string]game.Region{
+	"uk": game.RegionPAL,
+	"es": game.RegionPAL,
+	"ie": game.RegionPAL,
+	"pt": game.RegionPAL,
+	"it": game.RegionPAL,
+	"pl": game.RegionPAL,
+	"au": game.RegionPAL,
+	"in": game.RegionPAL,
+	"mx": game.RegionNTSCU,
+}
+
 // ErrBlocked means CeX answered with something other than its JSON API, typically a bot
 // protection page. It matches provider.ErrUnavailable: the provider's status shows it, and it says
 // nothing about the code.
@@ -129,7 +143,7 @@ func (p *Provider) Lookup(ctx context.Context, code game.Barcode, s schema.Setti
 			return nil, nil // a film, a controller…: the code is not a game
 		}
 
-		return []media.BarcodeMatch{match(*box)}, nil
+		return []media.BarcodeMatch{match(*box, country)}, nil
 	}
 
 	return nil, nil
@@ -207,7 +221,8 @@ func (p *Provider) get(ctx context.Context, country, path string, out any) error
 // reParens drops CeX's notes on the box ("(2 Discs)", "(No DLC)", "(Platinum)").
 var reParens = regexp.MustCompile(`\s*\([^)]*\)`)
 
-func match(b box) media.BarcodeMatch {
+// match turns a box of the given country's catalog into a barcode match; the country gives its region.
+func match(b box, country string) media.BarcodeMatch {
 	title, platform, edition := game.ParseProductName(reParens.ReplaceAllString(b.BoxName, ""))
 	// The platform comes from the category ("Xbox 360 Juegos", "Playstation4 Games").
 	if _, p, _ := game.ParseProductName(b.CategoryName); p != "" {
@@ -220,6 +235,7 @@ func match(b box) media.BarcodeMatch {
 		Platform: platform,
 		Edition:  edition,
 		Provider: ID,
+		Region:   countryRegions[country],
 	}
 }
 

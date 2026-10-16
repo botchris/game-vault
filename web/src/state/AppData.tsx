@@ -1,10 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { errorMessage, fieldClient, gameClient, sourceClient, systemClient } from '../api/client';
+import { catalogClient, errorMessage, fieldClient, gameClient, sourceClient, systemClient } from '../api/client';
 import type { FieldDefinition } from '../gen/gamevault/v1/field_pb';
 import type { Game } from '../gen/gamevault/v1/game_pb';
 import type { Source, SourceType } from '../gen/gamevault/v1/source_pb';
 import type { PreferencesState } from '../lib/preferences';
+import { registerSystems } from '../components/PlatformBadge';
+import type { SystemInfo } from '../lib/systems';
 
 interface AppData {
   games: Game[];
@@ -12,6 +14,8 @@ interface AppData {
   /** Custom field definitions, in display order. */
   fields: FieldDefinition[];
   sourceTypes: SourceType[];
+  /** The catalog of game systems, in display order; empty until it is loaded. */
+  systems: SystemInfo[];
   loading: boolean;
   error: string;
   /** Games whose details (genres, year) are already downloaded in the UI language. */
@@ -39,6 +43,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [sources, setSources] = useState<Source[]>([]);
   const [fields, setFields] = useState<FieldDefinition[]>([]);
   const [sourceTypes, setSourceTypes] = useState<SourceType[]>([]);
+  const [systems, setSystems] = useState<SystemInfo[]>([]);
   const [preferences, setPreferences] = useState<PreferencesState>({ loaded: false, error: '' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -72,6 +77,18 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // The catalog never changes while the server runs, so it is loaded once.
+  const loadSystems = useCallback(async () => {
+    try {
+      const res = await catalogClient.listSystems({});
+      const list = res.systems.map((s) => ({ name: s.name, maker: s.maker, kind: s.kind, year: s.year, aliases: s.aliases, short: s.short }));
+      registerSystems(list);
+      setSystems(list);
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  }, []);
+
   // Loaded once for every component that needs them (the money inputs, System), and again when
   // System saves them.
   const reloadPreferences = useCallback(async () => {
@@ -86,8 +103,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    Promise.all([reloadGames(), reloadSources(), reloadFields(), reloadPreferences()]).finally(() => setLoading(false));
-  }, [reloadGames, reloadSources, reloadFields, reloadPreferences]);
+    Promise.all([reloadGames(), reloadSources(), reloadFields(), reloadPreferences(), loadSystems()]).finally(() => setLoading(false));
+  }, [reloadGames, reloadSources, reloadFields, reloadPreferences, loadSystems]);
 
   const putGame = useCallback((g: Game) => {
     setGames((list) => {
@@ -104,11 +121,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AppData>(() => {
     const names = new Map(sources.map((s) => [s.id, s.name]));
     return {
-      games, sources, fields, sourceTypes, loading, error, detailsCached, preferences,
+      games, sources, fields, sourceTypes, systems, loading, error, detailsCached, preferences,
       reloadGames, reloadSources, reloadFields, reloadPreferences, putGame, dropGame,
       sourceName: (id) => names.get(id) ?? '',
     };
-  }, [games, sources, fields, sourceTypes, loading, error, detailsCached, preferences, reloadGames, reloadSources, reloadFields,
+  }, [games, sources, fields, sourceTypes, systems, loading, error, detailsCached, preferences, reloadGames, reloadSources, reloadFields,
     reloadPreferences, putGame, dropGame]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

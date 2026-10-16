@@ -3,20 +3,29 @@ package igdb
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"gamevault/internal/domain/game"
 )
 
-// TestSystems_mapEveryConsole checks the table of IGDB's platforms against the domain's systems: a
-// console missing from it, or a key spelled differently, silently drops the platform filter.
-func TestSystems_mapEveryConsole(t *testing.T) {
-	for _, c := range append(game.Consoles(), game.SystemPC) {
-		assert.NotEmpty(t, platformIDs[c], "system %q has no IGDB platform", c)
-	}
+// TestSystems_coverTheCatalog checks the table of IGDB's platforms against the catalog: a
+// system missing from it, or a key spelled differently, silently drops the platform filter.
+func TestSystems_coverTheCatalog(t *testing.T) {
+	require.NoError(t, game.CheckProviderCoverage(platformIDs, unmappedSystems))
+}
 
-	for s := range platformIDs {
-		assert.True(t, game.IsKnownPlatform(s), "%q is not a system Game Vault knows", s)
-		assert.Equal(t, s, game.SystemOf(s), "%q is not a system Game Vault knows", s)
+// TestPlatformIDs_noneSharedBetweenSystems checks that no IGDB platform id belongs to two
+// systems, which would make the platform filter and the reverse lookup ambiguous.
+func TestPlatformIDs_noneSharedBetweenSystems(t *testing.T) {
+	owner := map[int]string{}
+
+	for system, ids := range platformIDs {
+		for _, id := range ids {
+			if other, ok := owner[id]; ok {
+				t.Errorf("IGDB platform %d is under both %q and %q", id, other, system)
+			}
+
+			owner[id] = system
+		}
 	}
 }

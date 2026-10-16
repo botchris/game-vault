@@ -1,6 +1,7 @@
 // Package plugin groups what each integration adds to Game Vault. A plugin is one external
-// system (a store, a game database, a barcode service) and brings all of its pieces at once: the
-// source that imports its library, and the cover, details, barcode and price providers it offers. The
+// system (a store, a game database, a barcode service, a messaging service) and brings all of its
+// pieces at once: the source that imports its library, the cover, details, barcode and price
+// providers it offers, and the notification connectors that send to it. The
 // pieces stay independent at run time (a store's cover provider works without an account of that
 // store, through the game's link to it); the plugin only says they come together.
 //
@@ -14,9 +15,11 @@ import (
 
 	"gamevault/internal/application/home"
 	"gamevault/internal/application/media"
+	"gamevault/internal/application/notify"
 	"gamevault/internal/application/providers"
 	"gamevault/internal/application/sync"
 	"gamevault/internal/application/valuation"
+	"gamevault/internal/domain/connection"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/source"
 )
@@ -46,6 +49,10 @@ type Plugin struct {
 	// Deals and Releases feed the home page: current deals and upcoming games.
 	Deals    []home.DealsProvider
 	Releases []home.ReleasesProvider
+
+	// Connectors send notifications to a service (one connector type each). They are configured
+	// as connections, not as providers.
+	Connectors []notify.Connector
 }
 
 // Registry holds the plugins compiled into Game Vault.
@@ -53,16 +60,18 @@ type Registry struct {
 	plugins []Plugin
 }
 
-// ErrDuplicate means two plugins, two source types or two providers share an id.
+// ErrDuplicate means two plugins, two source types, two providers or two connector types share an
+// id.
 var ErrDuplicate = errors.New("duplicate plugin piece")
 
-// NewRegistry checks that every plugin, source type and provider id is unique: two pieces under one
-// id would silently replace each other in the services.
+// NewRegistry checks that every plugin, source type, provider id and connector type is unique: two
+// pieces under one id would silently replace each other in the services.
 func NewRegistry(plugins ...Plugin) (*Registry, error) {
 	var (
-		ids       = map[string]bool{}
-		types     = map[source.Type]string{}
-		providers = map[provider.ID]string{}
+		ids        = map[string]bool{}
+		types      = map[source.Type]string{}
+		providers  = map[provider.ID]string{}
+		connectors = map[connection.Type]string{}
 	)
 
 	for _, p := range plugins {
@@ -87,6 +96,15 @@ func NewRegistry(plugins ...Plugin) (*Registry, error) {
 			}
 
 			providers[d.ID] = p.ID
+		}
+
+		for _, c := range p.Connectors {
+			t := c.Descriptor().Type
+			if other, ok := connectors[t]; ok {
+				return nil, fmt.Errorf("%w: connector type %q in plugins %q and %q", ErrDuplicate, t, other, p.ID)
+			}
+
+			connectors[t] = p.ID
 		}
 	}
 
@@ -193,6 +211,17 @@ func (r *Registry) Releases() []home.ReleasesProvider {
 	var out []home.ReleasesProvider
 	for _, p := range r.plugins {
 		out = append(out, p.Releases...)
+	}
+
+	return out
+}
+
+// Connectors returns every plugin's notification connectors, for the notification service, in
+// registration order (the order the UI lists them in).
+func (r *Registry) Connectors() []notify.Connector {
+	var out []notify.Connector
+	for _, p := range r.plugins {
+		out = append(out, p.Connectors...)
 	}
 
 	return out

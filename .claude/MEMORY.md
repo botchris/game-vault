@@ -37,6 +37,8 @@ one line here. Update a file instead of adding a duplicate; date facts about ext
 - [GOG](memory/gog.md) — Galaxy credentials, 302 to login on bad token, public box art
 - [Battle.net](memory/battlenet.md) — cookies, short sessions, SSO renewal failed once, no public box art
 - [EA](memory/ea.md) — Origin dead; GraphQL validates before auth; public `game(slug)` pack art
+- [Telegram](memory/telegram.md) — Bot API: token in the URL path (redact it); bogus token = HTTP 401 `Unauthorized`; sendMessage/sendPhoto/sendMediaGroup, getUpdates as chat finder; probes 2026-10-15
+- [ntfy](memory/ntfy.md) — PUT to server/topic with headers; `/v1/health` probe only, never publish to a public topic; token only in `Authorization`; probe 2026-10-15
 - [Ubisoft](memory/ubisoft.md) — app `314d4fef…` blocked; `PRODrememberMe` rotates on every use; limit 50
 - [Xbox](memory/xbox.md) — Xbox app client; collections need `"beneficiaries": []`; public display catalog
 - [PlayStation](memory/playstation.md) — NPSSO; registered GraphQL hashes; CSRF header; store pages forbidden (no PS Store covers); non-games withdrawn via played-titles categories + name markers

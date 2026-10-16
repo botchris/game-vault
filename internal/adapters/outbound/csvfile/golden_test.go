@@ -61,6 +61,7 @@ func goldenGames(t *testing.T) []*game.Game {
 				AcquiredOn: "2025-12-24",
 				Edition:    "Collector's",
 				Grade:      game.GradeVeryGood,
+				Region:     game.RegionPAL,
 				Contents:   contents,
 				Location:   "Shelf B",
 				Price: game.Money{
@@ -116,7 +117,24 @@ func goldenGames(t *testing.T) []*game.Game {
 		UpdatedAt: at,
 	})
 
-	return []*game.Game{quest, hero}
+	genesis := game.Rehydrate(game.Snapshot{
+		ID:   "g3",
+		Info: game.Info{Title: "Sonic the Hedgehog"},
+		Copies: []game.Copy{{
+			ID: "c5",
+			CopyDetails: game.CopyDetails{
+				Kind:     game.KindPhysical,
+				Platform: "Mega Drive / Genesis",
+				Status:   game.StatusOwned,
+				Region:   game.RegionNTSCJ,
+			},
+			ExternalID: "manual:sonic",
+		}},
+		CreatedAt: at,
+		UpdatedAt: at,
+	})
+
+	return []*game.Game{quest, hero, genesis}
 }
 
 func TestGolden_export(t *testing.T) {

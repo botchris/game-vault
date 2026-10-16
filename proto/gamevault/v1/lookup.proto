@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package gamevault.v1;
 
+import "gamevault/v1/game.proto";
+
 option go_package = "gamevault/internal/gen/gamevault/v1;gamevaultv1";
 
 // BarcodeMatch is a barcode database's answer for a product.
@@ -14,6 +16,8 @@ message BarcodeMatch {
   string edition = 4;
   string image_url = 5;
   string provider_id = 6;
+  // The market of the box when the database knows it; unspecified otherwise.
+  CopyRegion region = 7;
 }
 
 // GameSuggestion is a canonical game proposed by a cover provider, with its cover.

@@ -111,6 +111,29 @@ func (s *Details) GameDetails(ctx context.Context, id game.ID, language string, 
 	return r.d, r.warnings, nil
 }
 
+// Cached returns the game's sheet in the given language only when one was gathered before, however
+// old, and never asks a provider: for pages that show a picture of the game in passing (the home
+// page's hero) and must not send requests when they open. false means there is none.
+func (s *Details) Cached(ctx context.Context, id game.ID, language string) (GameDetails, bool, error) {
+	if language == "" {
+		language = defaultLanguage
+	}
+
+	g, err := s.games.Get(ctx, id)
+	if err != nil {
+		return GameDetails{}, false, err
+	}
+
+	d, ok, err := s.store.Get(ctx, id, language)
+	if err != nil || !ok {
+		return GameDetails{}, false, err
+	}
+
+	s.assets.register(ctx, GameRef{g.ID(), g.Title()}, &d)
+
+	return d, true, nil
+}
+
 // fresh reports whether a cached sheet can be shown without asking the providers again: it is
 // younger than detailsTTL, and not a sparse sheet gathered by an older detailsLogicVersion or one
 // whose fallback pass did not complete.

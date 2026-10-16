@@ -328,19 +328,22 @@ func pick(games []gameJSON, title string) *gameJSON {
 	return nil
 }
 
-// storeWords are what a seller adds to a key's title to say where it redeems or runs: stores,
-// systems and key words, never edition words or years.
+// storeWords are what a seller adds to a key's title to say where it redeems or runs: stores and
+// key words, never edition words or years. The systems come from the catalog (game.SystemPattern).
 const storeWords = `steam|gog(\.com)?|epic(\s*games)?(\s*store)?|ubisoft(\s*connect)?|uplay|ea(\s*app)?|origin|` +
-	`battle\.?\s*net|rockstar(\s*games)?|microsoft(\s*store)?|xbox(\s*(one|360|series\s*[xs]))?|windows|mac|linux|pc|` +
-	`playstation(\s*[1-5])?|psn|ps\s*[1-5]|ps\s*vita|psp|nintendo(\s*(switch|eshop))?|switch|wii(\s*u)?|gamecube|n?3?ds|` +
-	`itch(\.io)?|amazon(\s*games)?|digital|download|cd|key|code|global|region\s*free`
+	`battle\.?\s*net|rockstar(\s*games)?|microsoft(\s*store)?|windows|mac|linux|` +
+	`psn|playstation(\s*store)?|nintendo(\s*eshop)?|itch(\.io)?|amazon(\s*games)?|digital|download|cd|key|code|global|region\s*free`
 
 var (
+	// storeAndSystemWords is every word a tag may hold: the store and key words, then the catalog's
+	// system names and aliases, in one group the expressions below embed.
+	storeAndSystemWords = `(?:` + storeWords + `|` + game.SystemPattern() + `)`
+
 	// reStoreBrackets matches a bracket holding only store words: "(Steam Key)", "[PS2]", "(PC/Mac)".
-	reStoreBrackets = regexp.MustCompile(`(?i)\s*[(\[]\s*(?:(?:` + storeWords + `)\b[\s/,&+-]*)+[)\]]`)
+	reStoreBrackets = regexp.MustCompile(`(?i)\s*[(\[]\s*(?:` + storeAndSystemWords + `\b[\s/,&+-]*)+[)\]]`)
 
 	// reStoreKeySuffix matches a trailing "Key", "Steam Key" or "- GOG CD Key".
-	reStoreKeySuffix = regexp.MustCompile(`(?i)[\s:–—-]*\b(?:(?:` + storeWords + `)\s*)*key\s*$`)
+	reStoreKeySuffix = regexp.MustCompile(`(?i)[\s:–—-]*\b(?:` + storeAndSystemWords + `\s*)*key\s*$`)
 )
 
 // withoutStoreTags returns the title without the store and key tags a seller adds, its edition

@@ -10,9 +10,11 @@ import (
 
 	"gamevault/internal/application/home"
 	"gamevault/internal/application/media"
+	"gamevault/internal/application/notify"
 	"gamevault/internal/application/plugin"
 	"gamevault/internal/application/sync"
 	"gamevault/internal/application/valuation"
+	"gamevault/internal/domain/connection"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
@@ -214,6 +216,45 @@ func TestRegistry_homeProviders(t *testing.T) {
 
 		t.Run("THEN the registry refuses them", func(t *testing.T) {
 			assert.ErrorIs(t, err, plugin.ErrDuplicate)
+		})
+	})
+}
+
+type fakeConnector struct{ typ connection.Type }
+
+func (f fakeConnector) Descriptor() connection.TypeDescriptor {
+	return connection.TypeDescriptor{Type: f.typ}
+}
+
+func (fakeConnector) Send(context.Context, schema.Settings, notify.Message) error { return nil }
+func (fakeConnector) Test(context.Context, schema.Settings, notify.Message) error { return nil }
+
+func TestRegistry_connectors(t *testing.T) {
+	chat := plugin.Plugin{
+		ID:         "chat",
+		Connectors: []notify.Connector{fakeConnector{"chat"}},
+	}
+
+	t.Run("GIVEN a plugin with a connector", func(t *testing.T) {
+		r, err := plugin.NewRegistry(chat)
+		require.NoError(t, err)
+
+		t.Run("THEN the notification service gets it, and no provider is added", func(t *testing.T) {
+			require.Len(t, r.Connectors(), 1)
+			assert.Equal(t, connection.Type("chat"), r.Connectors()[0].Descriptor().Type)
+			assert.Empty(t, r.Providers())
+		})
+	})
+
+	t.Run("GIVEN two plugins with the same connector type", func(t *testing.T) {
+		_, err := plugin.NewRegistry(chat, plugin.Plugin{
+			ID:         "other",
+			Connectors: []notify.Connector{fakeConnector{"chat"}},
+		})
+
+		t.Run("THEN they are refused, naming both", func(t *testing.T) {
+			assert.ErrorIs(t, err, plugin.ErrDuplicate)
+			assert.ErrorContains(t, err, `connector type "chat" in plugins "chat" and "other"`)
 		})
 	})
 }

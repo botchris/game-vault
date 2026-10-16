@@ -43,6 +43,20 @@ func TestGameQuery_SearchSystems(t *testing.T) {
 			q:    media.GameQuery{},
 			want: []string{},
 		},
+		{
+			name: "an edition stored under an alias searches the catalog name",
+			q: media.GameQuery{
+				System: "Mega Drive",
+			},
+			want: []string{"Mega Drive / Genesis"},
+		},
+		{
+			name: "copies typed with an alias search the catalog name, once",
+			q: media.GameQuery{
+				Platforms: []string{"Sega Genesis", "mega-drive", "Mega Drive / Genesis"},
+			},
+			want: []string{"Mega Drive / Genesis"},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			assert.Equal(t, tc.want, tc.q.SearchSystems())

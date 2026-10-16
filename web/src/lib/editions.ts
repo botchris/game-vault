@@ -9,7 +9,7 @@ export interface EditionLike { system: string; coverUrl: string; coverPhotoId: s
 export interface CopyLike {
   effectiveSystem: string;
   sourceId: string;
-  details?: { kind: number; platform: string; fields: Values };
+  details?: { kind: number; platform: string; region?: number; fields: Values };
 }
 export interface GameLike {
   id: string;
@@ -33,28 +33,21 @@ export interface LibraryItem<G extends GameLike> {
   view: G;
 }
 
-/** Systems offered in the copy form: PC, then the console names game.SystemOf knows. The same list
- *  as PHYSICAL_PLATFORMS in model.ts, kept apart because model.ts imports generated code that Node
- *  tests cannot load; TestSystems_webAgrees (internal/domain/game/webparity_test.go) reads both
- *  lists and pins them to the server's SystemOf. */
-export const SYSTEMS = [
-  'PC', 'PS5', 'PS4', 'PS3', 'PS2', 'PS1', 'PSP', 'PS Vita', 'Xbox Series', 'Xbox One', 'Xbox 360', 'Xbox',
-  'Switch', 'Wii U', 'Wii', 'GameCube', 'N64', '3DS', 'DS', 'Game Boy',
-];
 const PC_PLATFORMS = [
   'steam', 'epic games', 'gog', 'ea app', 'ubisoft connect', 'battle.net', 'itch.io', 'amazon games', 'rockstar', 'riot',
   'battlestate (tarkov)', 'pc',
 ];
 const STORE_SYSTEMS: Record<string, string> = { 'playstation store': 'PS4', 'nintendo eshop': 'Switch', 'microsoft store / xbox': 'PC' };
 
-/** The system a platform implies; mirrors game.SystemOf in the server. */
-export function systemOf(platform: string): string {
+/** The system a platform implies; mirrors game.SystemOf in the server. `systems` are the names of
+ *  the catalog (CatalogService, AppData.systems): a console is its own system. */
+export function systemOf(platform: string, systems: readonly string[]): string {
   const p = platform.trim();
   if (!p) return 'Other';
   const k = p.toLowerCase();
   if (PC_PLATFORMS.includes(k)) return 'PC';
   if (STORE_SYSTEMS[k]) return STORE_SYSTEMS[k]!;
-  return SYSTEMS.find((s) => s.toLowerCase() === k) ?? p;
+  return systems.find((s) => s.toLowerCase() === k) ?? p;
 }
 
 /** The system of the game's main edition; '' for a game without copies. */
@@ -111,6 +104,8 @@ export interface Filters {
   platforms: string[];
   /** Systems (PC, PS4…): an item matches when one of its copies is on one of them. */
   systems: string[];
+  /** Copy regions (CopyRegion's numbers): an item matches when one of its copies is in one of them. */
+  regions: number[];
   genres: string[];
   /** Source ids; MANUAL stands for copies added by hand or from a CSV. */
   sources: string[];
@@ -122,9 +117,9 @@ export interface Filters {
 
 export const MANUAL = '';
 
-export const NO_FILTERS: Filters = { kind: 0, platforms: [], systems: [], genres: [], sources: [], play: [], fields: {} };
+export const NO_FILTERS: Filters = { kind: 0, platforms: [], systems: [], regions: [], genres: [], sources: [], play: [], fields: {} };
 
-export const activeFilterCount = (f: Filters) => (f.kind ? 1 : 0) + f.platforms.length + f.systems.length + f.genres.length
+export const activeFilterCount = (f: Filters) => (f.kind ? 1 : 0) + f.platforms.length + f.systems.length + f.regions.length + f.genres.length
   + f.sources.length + f.play.length + Object.values(f.fields).reduce((n, keys) => n + keys.length, 0);
 
 /** The filters without custom field values that no longer exist (a deleted field, a removed
@@ -135,7 +130,7 @@ export function pruneFilters(f: Filters, defs: Definition[]): Filters {
 }
 
 /** A game (or an edition's view of it) matches when it has a copy of the kind on one of the
- *  platforms, a copy on one of the systems, a copy from one of the sources, one of the genres, one of
+ *  platforms, a copy on one of the systems, a copy in one of the regions, a copy from one of the sources, one of the genres, one of
  *  the play statuses and one of the chosen values of each filtered custom field. */
 export function matchesFilters(g: GameLike, f: Filters, defs: Definition[]): boolean {
   if (f.kind || f.platforms.length) {
@@ -143,6 +138,7 @@ export function matchesFilters(g: GameLike, f: Filters, defs: Definition[]): boo
     if (!ok) return false;
   }
   if (f.systems.length && !g.copies.some((c) => f.systems.includes(c.effectiveSystem))) return false;
+  if (f.regions.length && !g.copies.some((c) => f.regions.includes(c.details?.region ?? 0))) return false;
   if (f.sources.length && !g.copies.some((c) => f.sources.includes(c.sourceId))) return false;
   if (f.genres.length && !g.genres.some((x) => f.genres.includes(x))) return false;
   if (f.play.length && !f.play.includes(g.playStatus)) return false;

@@ -50,6 +50,12 @@ type Handlers struct {
 	// Home serves the home page's external blocks.
 	Home *HomeHandler
 
+	// Catalog serves the catalog of game systems.
+	Catalog *CatalogHandler
+
+	// Notifications serves the notification connections.
+	Notifications *NotificationHandler
+
 	// AuthService identifies callers for every request (see authMiddleware).
 	AuthService *appauth.Service
 }
@@ -88,6 +94,8 @@ func NewHTTPHandler(h Handlers, opts Options) http.Handler {
 	mux.Handle(gamevaultv1connect.NewFieldServiceHandler(h.Fields, ic))
 	mux.Handle(gamevaultv1connect.NewHealthServiceHandler(h.Health, ic))
 	mux.Handle(gamevaultv1connect.NewHomeServiceHandler(h.Home, ic))
+	mux.Handle(gamevaultv1connect.NewCatalogServiceHandler(h.Catalog, ic))
+	mux.Handle(gamevaultv1connect.NewNotificationServiceHandler(h.Notifications, ic))
 	mux.Handle(gamevaultv1connect.NewOwnershipServiceHandler(h.Ownership, ic, connect.WithReadMaxBytes(ownershipMaxBytes)))
 	mux.Handle("GET /media/covers/{id}", coverHandler(h.Covers))
 	mux.Handle("GET /media/covers/{id}/{system...}", coverHandler(h.Covers))

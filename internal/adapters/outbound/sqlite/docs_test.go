@@ -246,6 +246,7 @@ func TestDocuments_physicalFields(t *testing.T) {
 					Platform: "Xbox 360",
 					Status:   game.StatusOwned,
 					Grade:    game.GradeGood,
+					Region:   game.RegionPAL,
 					Contents: contents,
 					Price: game.Money{
 						Amount:   1500,
@@ -269,6 +270,7 @@ func TestDocuments_physicalFields(t *testing.T) {
 			t.Run("THEN the new fields come back, as version 3", func(t *testing.T) {
 				assert.Equal(t, g.Copies(), got.Copies())
 				assert.Contains(t, raw, `"v":3`)
+				assert.Contains(t, raw, `"region":"pal"`)
 				assert.Contains(t, raw, `"contents":["box","media"]`)
 			})
 		})
@@ -645,6 +647,22 @@ func TestDocuments_autoLinks(t *testing.T) {
 				assert.NotContains(t, plain, "autoLinks")
 				assert.NotContains(t, plain, "rejectedLinks")
 				assert.NotContains(t, plain, "autoLinkTriedAt")
+			})
+		})
+	})
+}
+
+func TestDocuments_withoutRegion(t *testing.T) {
+	t.Run("GIVEN a stored copy document written before copies had a region", func(t *testing.T) {
+		raw := `{"v":3,"title":"Halo 3","copies":[{"id":"c1","kind":"physical","status":"owned","createdAt":"2026-01-01T00:00:00Z","updatedAt":"2026-01-01T00:00:00Z"}]}`
+
+		t.Run("WHEN it is decoded", func(t *testing.T) {
+			got, err := decodeGame("g1", raw)
+			require.NoError(t, err)
+
+			t.Run("THEN the region is empty", func(t *testing.T) {
+				require.Len(t, got.Copies(), 1)
+				assert.Equal(t, game.Region(""), got.Copies()[0].Region)
 			})
 		})
 	})

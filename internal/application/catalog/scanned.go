@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"gamevault/internal/domain/errkind"
+	"gamevault/internal/domain/event"
 	"gamevault/internal/domain/game"
 )
 
@@ -60,7 +61,8 @@ type ScannedResult struct {
 // game are saved together; copies for new games are grouped by their title's match key, so two
 // discs of a game you did not have yet make one game with two copies. A copy that cannot be saved
 // (its game was deleted, the domain refuses it) fails alone; only a storage error fails the call.
-// It returns a result per item, in order, and every game created or changed.
+// It returns a result per item, in order, and every game created or changed. Once saved, the games
+// it created are published in one collection.added event, with the copies added to the others.
 func (s *Service) AddScannedCopies(ctx context.Context, items []ScannedCopy) ([]ScannedResult, []*game.Game, error) {
 	if len(items) > MaxScannedCopies {
 		return nil, nil, fmt.Errorf("%w: at most %d copies at once", ErrInvalidScannedCopies, MaxScannedCopies)
@@ -76,6 +78,7 @@ func (s *Service) AddScannedCopies(ctx context.Context, items []ScannedCopy) ([]
 		results []ScannedResult
 		changed []*game.Game
 		touched []editionPrints
+		added   event.CollectionAdded
 	)
 
 	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
@@ -83,6 +86,7 @@ func (s *Service) AddScannedCopies(ctx context.Context, items []ScannedCopy) ([]
 		results = make([]ScannedResult, len(items))
 		changed = nil
 		touched = nil
+		added = event.CollectionAdded{Origin: event.OriginManual}
 		now := s.now()
 
 		for i, it := range items {
@@ -109,7 +113,7 @@ func (s *Service) AddScannedCopies(ctx context.Context, items []ScannedCopy) ([]
 				continue
 			}
 
-			added := false
+			copies := 0
 			before := g.CoverFingerprints() // empty for a new game: all its editions count
 
 			for _, i := range group {
@@ -120,19 +124,26 @@ func (s *Service) AddScannedCopies(ctx context.Context, items []ScannedCopy) ([]
 				}
 
 				results[i].GameID, results[i].CopyID = g.ID(), c.ID
-				added = true
+				copies++
 			}
 
-			if !added {
+			if copies == 0 {
 				continue
 			}
 
-			if items[group[0]].GameID == "" {
+			isNew := items[group[0]].GameID == ""
+			if isNew {
 				setScannedCover(g, items, group, results, now)
 			}
 
 			if err := s.games.Save(ctx, g); err != nil {
 				return err
+			}
+
+			if isNew {
+				added.Games = append(added.Games, event.RefOf(g))
+			} else {
+				added.CopiesAdded += copies
 			}
 
 			changed = append(changed, g)
@@ -152,6 +163,10 @@ func (s *Service) AddScannedCopies(ctx context.Context, items []ScannedCopy) ([]
 	// A physical copy added to an edition that only had digital ones changes its cover inputs.
 	for _, p := range touched {
 		s.invalidateEditions(ctx, p.id, p.before, p.after)
+	}
+
+	if len(added.Games) > 0 {
+		s.publishAdded(ctx, added)
 	}
 
 	return results, changed, nil

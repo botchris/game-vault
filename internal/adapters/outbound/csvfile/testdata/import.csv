@@ -1,4 +1,4 @@
-﻿Game,Store,Type,Status,Key,Redeem By,Bundle,Acquired_On,Edition,Grade,Contents,Location,Price,Currency,Notes,Links,External-Id,EAN,System,autoLinks,Mystery
+﻿Game,Store,Type,Status,Key,Redeem By,Bundle,Acquired_On,Edition,Grade,Contents,Location,Price,Currency,Notes,Links,External-Id,EAN,System,autoLinks,Mystery,Region
 Console Quest,PS5,physical,owned,,,Example Shop,2025-12-24,Collector's,Mint,box MANUAL,Shelf A,"29,95",eur,"Note, with ""quotes""",steam:100 GOG:200,manual:quest,4006381333931,PS5,steam:100,whatever
 Celeste,Steam,,,KEY-1,19/10/2026,Humble Bundle,2023/05/01,,,,,,,,,,,,,
 Old Disc,PS2,,,,,,,,,,,,,,,,,,,
@@ -12,3 +12,5 @@ Yen Thing,Switch,physical,,,,,,,,,,15.00,JPY,,,,,,,
 Linux Thing,Steam,library,owned,,,,,,,,,,,,,steam:300,,linux,,
 ,Steam,library,,,,,,,,,,,,,,,,,,
   Padded Title  ,GOG
+Region Thing,Switch,physical,,,,,,,,,,,,,,,,,,,NTSC-J
+Bad Region Thing,Switch,physical,,,,,,,,,,,,,,,,,,,Europe

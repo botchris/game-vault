@@ -1,7 +1,7 @@
 import { useId, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CopyGrade, type CopyContent } from '../../gen/gamevault/v1/game_pb';
-import { CONTENTS, GRADES, contentKey, gradeKey, usedLocations } from '../../lib/model';
+import { CopyGrade, CopyRegion, type CopyContent } from '../../gen/gamevault/v1/game_pb';
+import { CONTENTS, GRADES, REGIONS, contentKey, gradeKey, regionKey, usedLocations } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
 
 // The controls of a physical copy's grade, contents and location, shared by the copy form and the
@@ -16,6 +16,20 @@ export function GradeSelect({ value, onChange }: { value: CopyGrade; onChange: (
       <select value={value} onChange={(e) => onChange(Number(e.target.value))}>
         <option value={CopyGrade.UNSPECIFIED}>{t('grade.unspecified')}</option>
         {GRADES.map((g) => <option key={g} value={g}>{t(`grade.${gradeKey(g)}`)}</option>)}
+      </select>
+    </label>
+  );
+}
+
+/** The copy's region, "Not set" first. */
+export function RegionSelect({ value, onChange }: { value: CopyRegion; onChange: (region: CopyRegion) => void }) {
+  const { t } = useTranslation();
+  return (
+    <label>
+      {t('copy.region')}
+      <select value={value} onChange={(e) => onChange(Number(e.target.value))}>
+        <option value={CopyRegion.UNSPECIFIED}>{t('region.unspecified')}</option>
+        {REGIONS.map((r) => <option key={r} value={r}>{t(`region.${regionKey(r)}`)}</option>)}
       </select>
     </label>
   );

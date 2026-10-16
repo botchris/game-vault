@@ -29,6 +29,7 @@
           "Currency": "EUR"
         },
         "Notes": "Note, with \"quotes\"",
+        "Region": "",
         "System": ""
       },
       "System": ""
@@ -57,6 +58,7 @@
           "Currency": ""
         },
         "Notes": "",
+        "Region": "",
         "System": ""
       },
       "System": ""
@@ -85,6 +87,7 @@
           "Currency": ""
         },
         "Notes": "",
+        "Region": "",
         "System": ""
       },
       "System": ""
@@ -113,6 +116,7 @@
           "Currency": ""
         },
         "Notes": "",
+        "Region": "",
         "System": ""
       },
       "System": ""
@@ -141,6 +145,7 @@
           "Currency": ""
         },
         "Notes": "",
+        "Region": "",
         "System": ""
       },
       "System": ""
@@ -169,6 +174,7 @@
           "Currency": ""
         },
         "Notes": "",
+        "Region": "",
         "System": ""
       },
       "System": ""
@@ -199,6 +205,7 @@
           "Currency": ""
         },
         "Notes": "",
+        "Region": "",
         "System": ""
       },
       "System": ""
@@ -227,6 +234,7 @@
           "Currency": ""
         },
         "Notes": "",
+        "Region": "",
         "System": ""
       },
       "System": ""
@@ -255,6 +263,7 @@
           "Currency": ""
         },
         "Notes": "",
+        "Region": "",
         "System": ""
       },
       "System": ""
@@ -283,6 +292,7 @@
           "Currency": ""
         },
         "Notes": "",
+        "Region": "",
         "System": ""
       },
       "System": ""
@@ -311,6 +321,7 @@
           "Currency": ""
         },
         "Notes": "",
+        "Region": "",
         "System": "linux"
       },
       "System": ""
@@ -339,6 +350,65 @@
           "Currency": ""
         },
         "Notes": "",
+        "Region": "",
+        "System": ""
+      },
+      "System": ""
+    },
+    {
+      "ExternalID": "csv:physical|switch|region thing|",
+      "Withdrawn": false,
+      "Title": "Region Thing",
+      "Links": null,
+      "AutoLinks": null,
+      "Details": {
+        "Kind": "physical",
+        "Platform": "Switch",
+        "Status": "",
+        "Key": "",
+        "RedeemBy": "",
+        "Origin": "",
+        "AcquiredOn": "",
+        "Edition": "",
+        "Grade": "",
+        "Contents": 0,
+        "Location": "",
+        "Barcode": "",
+        "Price": {
+          "Amount": 0,
+          "Currency": ""
+        },
+        "Notes": "",
+        "Region": "ntsc_j",
+        "System": ""
+      },
+      "System": ""
+    },
+    {
+      "ExternalID": "csv:physical|switch|bad region thing|",
+      "Withdrawn": false,
+      "Title": "Bad Region Thing",
+      "Links": null,
+      "AutoLinks": null,
+      "Details": {
+        "Kind": "physical",
+        "Platform": "Switch",
+        "Status": "",
+        "Key": "",
+        "RedeemBy": "",
+        "Origin": "",
+        "AcquiredOn": "",
+        "Edition": "",
+        "Grade": "",
+        "Contents": 0,
+        "Location": "",
+        "Barcode": "",
+        "Price": {
+          "Amount": 0,
+          "Currency": ""
+        },
+        "Notes": "",
+        "Region": "",
         "System": ""
       },
       "System": ""
@@ -357,6 +427,7 @@
     "row 8: link \"epic:\" is not store:id (e.g. steam:620), ignored",
     "row 9: currency \"EURO\" is not a three-letter code",
     "row 9: price \"abc\" is not an amount like 29.95",
-    "row 11: price \"15.00\" is not an amount like 29.95"
+    "row 11: price \"15.00\" is not an amount like 29.95",
+    "row 16: region \"Europe\" is not one of pal, ntsc_u, ntsc_j, ntsc_k, ntsc_c, asia, region_free"
   ]
 }

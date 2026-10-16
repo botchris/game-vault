@@ -137,7 +137,9 @@ func (h *GameHandler) UpdateGame(ctx context.Context, req *connect.Request[pb.Up
 
 // DeleteGame removes a game and all its copies.
 func (h *GameHandler) DeleteGame(ctx context.Context, req *connect.Request[pb.DeleteGameRequest]) (*connect.Response[pb.DeleteGameResponse], error) {
-	if err := h.catalog.DeleteGame(ctx, game.ID(req.Msg.Id)); err != nil {
+	// Through the sources: a game they imported must stay deleted, so its copies go on their
+	// removed lists instead of coming back with the next scan.
+	if err := h.sources.DeleteGame(ctx, game.ID(req.Msg.Id)); err != nil {
 		return nil, toConnectError(err)
 	}
 

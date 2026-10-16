@@ -21,17 +21,18 @@ export function worstLevel(issues: { level: string }[]): 'error' | 'warning' | n
 }
 
 /** Where in the app an issue can be fixed, or null when nowhere this version knows. A source's
- *  issue opens that source; the backups' scroll to the Backups card. */
+ *  or connection's issue opens its dialog; the backups' scroll to the Backups card. */
 export function issueHref(issue: { target: string; targetId: string }): string | null {
   switch (issue.target) {
     case 'providers': return '#/providers';
     case 'sources': return issue.targetId ? `#/sources/${encodeURIComponent(issue.targetId)}` : '#/sources';
     case 'system/backups': return '#/system/backups';
+    case 'notifications': return issue.targetId ? `#/notifications/${encodeURIComponent(issue.targetId)}` : '#/notifications';
     default: return null;
   }
 }
 
-/** What has the problem: the provider's or source's name, or the part of the app in the UI's
+/** What has the problem: the provider's, source's or connection's name, or the part of the app in the UI's
  *  language (the backups, the disk). */
 export function issueTitle(issue: Pick<IssueLike, 'kind' | 'source'>, t: Translate): string {
   if (issue.kind === 'backups' || issue.kind === 'disk') return t(`health.kinds.${issue.kind}`);
@@ -54,6 +55,7 @@ export const Reason = {
   BackupStale: 'backup_stale',
   DiskLow: 'disk_low',
   DiskCritical: 'disk_critical',
+  ConnectorPaused: 'connector_paused',
 } as const;
 
 const reasons = new Set<string>(Object.values(Reason));

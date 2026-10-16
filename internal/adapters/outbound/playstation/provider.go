@@ -553,6 +553,8 @@ var sonyPlatforms = map[string]string{
 	"PS5":     game.SystemPS5,
 	"PS4":     game.SystemPS4,
 	"PS3":     game.SystemPS3,
+	"PS2":     game.SystemPS2,
+	"PS1":     game.SystemPS1,
 	"PSVITA":  game.SystemPSVita,
 	"PS VITA": game.SystemPSVita,
 }

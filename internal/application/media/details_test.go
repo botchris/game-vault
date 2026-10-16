@@ -520,3 +520,44 @@ func TestGameDetails_notFoundByLeavesOutLimitedProviders(t *testing.T) {
 		})
 	})
 }
+
+func TestGameDetails_cachedOnly(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a game sold on a store whose sheet was never gathered", func(t *testing.T) {
+		env := newDetailsEnv(t, ctx, time.Now, &media.GameDetails{
+			Summary:     "A store's summary.",
+			Screenshots: []media.Screenshot{{FullURL: "https://cdn.test/shot.jpg"}},
+		})
+		g := saveGame(t, ctx, env.games, "Example Quest", game.Links{game.LinkSteam: "100"}, game.CopyDetails{
+			Kind:     game.KindLibrary,
+			Platform: game.PlatformSteam,
+		})
+
+		t.Run("WHEN only the cached sheet is asked", func(t *testing.T) {
+			_, ok, err := env.svc.Details.Cached(ctx, g.ID(), "en")
+
+			t.Run("THEN there is none, and no provider is asked", func(t *testing.T) {
+				require.NoError(t, err)
+				assert.False(t, ok)
+				assert.Zero(t, env.store.calls.Load())
+			})
+		})
+
+		t.Run("WHEN the sheet was gathered once and only the cached sheet is asked", func(t *testing.T) {
+			_, _, err := env.svc.Details.GameDetails(ctx, g.ID(), "en", false)
+			require.NoError(t, err)
+
+			d, ok, err := env.svc.Details.Cached(ctx, g.ID(), "en")
+
+			t.Run("THEN it is served from the cache with its screenshot's local name, without asking again", func(t *testing.T) {
+				require.NoError(t, err)
+				require.True(t, ok)
+				require.Len(t, d.Screenshots, 1)
+				assert.NotEmpty(t, d.Screenshots[0].FullAsset)
+				assert.Equal(t, int32(1), env.store.calls.Load())
+			})
+		})
+	})
+}

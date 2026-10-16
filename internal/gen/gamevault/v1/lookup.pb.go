@@ -27,11 +27,13 @@ type BarcodeMatch struct {
 	// Product name as the database has it, e.g. "Assassin's Creed Iii Ed. Special Ps3(sp)".
 	Raw string `protobuf:"bytes,1,opt,name=raw,proto3" json:"raw,omitempty"`
 	// Cleaned up from raw.
-	Title         string `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
-	Platform      string `protobuf:"bytes,3,opt,name=platform,proto3" json:"platform,omitempty"`
-	Edition       string `protobuf:"bytes,4,opt,name=edition,proto3" json:"edition,omitempty"`
-	ImageUrl      string `protobuf:"bytes,5,opt,name=image_url,json=imageUrl,proto3" json:"image_url,omitempty"`
-	ProviderId    string `protobuf:"bytes,6,opt,name=provider_id,json=providerId,proto3" json:"provider_id,omitempty"`
+	Title      string `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	Platform   string `protobuf:"bytes,3,opt,name=platform,proto3" json:"platform,omitempty"`
+	Edition    string `protobuf:"bytes,4,opt,name=edition,proto3" json:"edition,omitempty"`
+	ImageUrl   string `protobuf:"bytes,5,opt,name=image_url,json=imageUrl,proto3" json:"image_url,omitempty"`
+	ProviderId string `protobuf:"bytes,6,opt,name=provider_id,json=providerId,proto3" json:"provider_id,omitempty"`
+	// The market of the box when the database knows it; unspecified otherwise.
+	Region        CopyRegion `protobuf:"varint,7,opt,name=region,proto3,enum=gamevault.v1.CopyRegion" json:"region,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -106,6 +108,13 @@ func (x *BarcodeMatch) GetProviderId() string {
 		return x.ProviderId
 	}
 	return ""
+}
+
+func (x *BarcodeMatch) GetRegion() CopyRegion {
+	if x != nil {
+		return x.Region
+	}
+	return CopyRegion_COPY_REGION_UNSPECIFIED
 }
 
 // GameSuggestion is a canonical game proposed by a cover provider, with its cover.
@@ -579,7 +588,7 @@ var File_gamevault_v1_lookup_proto protoreflect.FileDescriptor
 
 const file_gamevault_v1_lookup_proto_rawDesc = "" +
 	"\n" +
-	"\x19gamevault/v1/lookup.proto\x12\fgamevault.v1\"\xaa\x01\n" +
+	"\x19gamevault/v1/lookup.proto\x12\fgamevault.v1\x1a\x17gamevault/v1/game.proto\"\xdc\x01\n" +
 	"\fBarcodeMatch\x12\x10\n" +
 	"\x03raw\x18\x01 \x01(\tR\x03raw\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x1a\n" +
@@ -587,7 +596,8 @@ const file_gamevault_v1_lookup_proto_rawDesc = "" +
 	"\aedition\x18\x04 \x01(\tR\aedition\x12\x1b\n" +
 	"\timage_url\x18\x05 \x01(\tR\bimageUrl\x12\x1f\n" +
 	"\vprovider_id\x18\x06 \x01(\tR\n" +
-	"providerId\"\xb3\x01\n" +
+	"providerId\x120\n" +
+	"\x06region\x18\a \x01(\x0e2\x18.gamevault.v1.CopyRegionR\x06region\"\xb3\x01\n" +
 	"\x0eGameSuggestion\x12\x14\n" +
 	"\x05title\x18\x01 \x01(\tR\x05title\x12\x1a\n" +
 	"\bplatform\x18\x02 \x01(\tR\bplatform\x12\x1b\n" +
@@ -647,24 +657,26 @@ var file_gamevault_v1_lookup_proto_goTypes = []any{
 	(*IdentifyBarcodeResponse)(nil), // 5: gamevault.v1.IdentifyBarcodeResponse
 	(*SuggestGamesRequest)(nil),     // 6: gamevault.v1.SuggestGamesRequest
 	(*SuggestGamesResponse)(nil),    // 7: gamevault.v1.SuggestGamesResponse
+	(CopyRegion)(0),                 // 8: gamevault.v1.CopyRegion
 }
 var file_gamevault_v1_lookup_proto_depIdxs = []int32{
-	2, // 0: gamevault.v1.OwnedCopy.game:type_name -> gamevault.v1.GameRef
-	3, // 1: gamevault.v1.IdentifyBarcodeResponse.owned:type_name -> gamevault.v1.OwnedCopy
-	0, // 2: gamevault.v1.IdentifyBarcodeResponse.match:type_name -> gamevault.v1.BarcodeMatch
-	1, // 3: gamevault.v1.IdentifyBarcodeResponse.suggestions:type_name -> gamevault.v1.GameSuggestion
-	2, // 4: gamevault.v1.IdentifyBarcodeResponse.existing:type_name -> gamevault.v1.GameRef
-	1, // 5: gamevault.v1.SuggestGamesResponse.suggestions:type_name -> gamevault.v1.GameSuggestion
-	2, // 6: gamevault.v1.SuggestGamesResponse.existing:type_name -> gamevault.v1.GameRef
-	4, // 7: gamevault.v1.LookupService.IdentifyBarcode:input_type -> gamevault.v1.IdentifyBarcodeRequest
-	6, // 8: gamevault.v1.LookupService.SuggestGames:input_type -> gamevault.v1.SuggestGamesRequest
-	5, // 9: gamevault.v1.LookupService.IdentifyBarcode:output_type -> gamevault.v1.IdentifyBarcodeResponse
-	7, // 10: gamevault.v1.LookupService.SuggestGames:output_type -> gamevault.v1.SuggestGamesResponse
-	9, // [9:11] is the sub-list for method output_type
-	7, // [7:9] is the sub-list for method input_type
-	7, // [7:7] is the sub-list for extension type_name
-	7, // [7:7] is the sub-list for extension extendee
-	0, // [0:7] is the sub-list for field type_name
+	8,  // 0: gamevault.v1.BarcodeMatch.region:type_name -> gamevault.v1.CopyRegion
+	2,  // 1: gamevault.v1.OwnedCopy.game:type_name -> gamevault.v1.GameRef
+	3,  // 2: gamevault.v1.IdentifyBarcodeResponse.owned:type_name -> gamevault.v1.OwnedCopy
+	0,  // 3: gamevault.v1.IdentifyBarcodeResponse.match:type_name -> gamevault.v1.BarcodeMatch
+	1,  // 4: gamevault.v1.IdentifyBarcodeResponse.suggestions:type_name -> gamevault.v1.GameSuggestion
+	2,  // 5: gamevault.v1.IdentifyBarcodeResponse.existing:type_name -> gamevault.v1.GameRef
+	1,  // 6: gamevault.v1.SuggestGamesResponse.suggestions:type_name -> gamevault.v1.GameSuggestion
+	2,  // 7: gamevault.v1.SuggestGamesResponse.existing:type_name -> gamevault.v1.GameRef
+	4,  // 8: gamevault.v1.LookupService.IdentifyBarcode:input_type -> gamevault.v1.IdentifyBarcodeRequest
+	6,  // 9: gamevault.v1.LookupService.SuggestGames:input_type -> gamevault.v1.SuggestGamesRequest
+	5,  // 10: gamevault.v1.LookupService.IdentifyBarcode:output_type -> gamevault.v1.IdentifyBarcodeResponse
+	7,  // 11: gamevault.v1.LookupService.SuggestGames:output_type -> gamevault.v1.SuggestGamesResponse
+	10, // [10:12] is the sub-list for method output_type
+	8,  // [8:10] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_gamevault_v1_lookup_proto_init() }
@@ -672,6 +684,7 @@ func file_gamevault_v1_lookup_proto_init() {
 	if File_gamevault_v1_lookup_proto != nil {
 		return
 	}
+	file_gamevault_v1_game_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

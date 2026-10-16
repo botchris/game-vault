@@ -10,6 +10,7 @@
     "language": "Language",
     "logs": "Logs",
     "providers": "Providers",
+    "notifications": "Notifications",
     "fields": "Fields",
     "scan": "Scan",
     "main": "Main",
@@ -185,7 +186,6 @@
     "markRedeemedHelp": "Stores never tell whether a key was redeemed. These keys are revealed and the game is already in that platform's library, so they almost certainly were.",
     "markedRedeemed_one": "{{count}} key marked as redeemed.",
     "markedRedeemed_other": "{{count}} keys marked as redeemed.",
-    "checkOwnership": "Do I own it?",
     "addGame": "Add game",
     "showing": "{{shown}} of {{total}} games",
     "showingEditions": "{{editions}} of {{games}}",
@@ -226,7 +226,8 @@
       "genresPartial": "Genres known for {{cached}} of {{total}} games; the rest download in the background.",
       "done": "Show results",
       "sources": "Source",
-      "manual": "Added by hand"
+      "manual": "Added by hand",
+      "regions": "Region"
     },
     "alpha": "Jump to letter",
     "noResults": "No games match these filters."
@@ -239,8 +240,8 @@
     "discardAndClose": "Discard and close",
     "title": "Title",
     "delete": "Delete game",
-    "confirmDelete_one": "Delete \"{{title}}\" and its copy? This cannot be undone.",
-    "confirmDelete_other": "Delete \"{{title}}\" and its {{count}} copies? This cannot be undone.",
+    "confirmDelete_one": "Delete \"{{title}}\" and its copy? A copy imported from a store will not be imported again; you can bring it back from the source's settings.",
+    "confirmDelete_other": "Delete \"{{title}}\" and its {{count}} copies? Copies imported from a store will not be imported again; you can bring them back from the source's settings.",
     "merge": "Merge another game into this one…",
     "mergeHelp": "Use it when the same game was imported under two titles.",
     "mergeTitle": "Merge into \"{{title}}\"",
@@ -316,7 +317,8 @@
     "currency": "Currency",
     "priceInvalid": "Not an amount, e.g. 29.95",
     "confirmExclude": "Remove «{{title}}» from {{source}} and do not import it again? The next sync will skip it; you can bring it back from the source's settings.",
-    "confirmExcludeLoses": " Its photos and price estimates will be deleted."
+    "confirmExcludeLoses": " Its photos and price estimates will be deleted.",
+    "region": "Region"
   },
   "picker": {
     "search": "Search games…",
@@ -324,33 +326,6 @@
     "copies_one": "{{count}} copy",
     "copies_other": "{{count}} copies",
     "noMatches": "No matching games."
-  },
-  "ownership": {
-    "title": "Do I own it?",
-    "intro": "Paste a list of titles, one per line: a bundle's games, a sale, a wishlist. Bullets, numbering, prices and DLC or soundtrack lines are cleaned up. Nothing is saved.",
-    "placeholder": "Paste titles here…",
-    "check": "Check",
-    "checking": "Checking…",
-    "results": "Results",
-    "nothing": "Nothing to check: paste some titles first.",
-    "skipped_one": "{{count}} line skipped as DLC or soundtrack.",
-    "skipped_other": "{{count}} lines skipped as DLC or soundtrack.",
-    "tooLong_one": "{{count}} line skipped for being too long to be a title.",
-    "tooLong_other": "{{count}} lines skipped for being too long to be a title.",
-    "shortAnswer": "The server answered for fewer titles than were sent. Try again.",
-    "copyManually": "Copy them from the field below.",
-    "summary": "You own {{owned}} of {{total}}",
-    "possibleCount_one": "{{count}} possible",
-    "possibleCount_other": "{{count}} possible",
-    "copyMissing": "Copy the ones I don't own",
-    "copied": "Copied",
-    "maybe": "Maybe:",
-    "pendingKey": "key not redeemed",
-    "status": {
-      "owned": "Owned",
-      "possible": "Possible",
-      "not_owned": "Not owned"
-    }
   },
   "newGame": {
     "firstCopy": "First copy",
@@ -712,7 +687,8 @@
       "backup_failed": "The last backup failed: make one now in Backups below",
       "backup_stale": "No backup in {{days}} days",
       "disk_low": "Only {{free}} free ({{percent}}%) on the disk with the data",
-      "disk_critical": "Almost no space left: {{free}} free on the disk with the data"
+      "disk_critical": "Almost no space left: {{free}} free on the disk with the data",
+      "connector_paused": "Notifications are paused: {{reason}}"
     }
   },
   "providerStatus": {
@@ -1084,5 +1060,125 @@
     "usePhoto": "Use a photo",
     "useAsMain": "Use as the game's cover",
     "isMain": "The game's cover"
+  },
+  "systemPicker": {
+    "search": "Search systems",
+    "yours": "In your collection",
+    "use": "Use “{{text}}”",
+    "none": "No system matches",
+    "otherMaker": "Other"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "intro": "Send what happens in Game Vault to Telegram, ntfy or any web address.",
+    "address": "Game Vault address",
+    "addressHelp": "Optional. The address you open Game Vault at, such as http://192.168.1.10:8080: messages then link to the game.",
+    "addressSaved": "Address saved.",
+    "connections": "Connections",
+    "add": "Add connection",
+    "chooseType": "Where should messages go?",
+    "addTitle": "New {{type}} connection",
+    "editTitle": "Edit {{name}}",
+    "none": "No connections yet.",
+    "name": "Name",
+    "enabled": "Send messages",
+    "toggle": "Send messages through {{name}}",
+    "language": "Language of the messages",
+    "eventsTitle": "What to send",
+    "noEvents": "Choose at least one event.",
+    "all": "All",
+    "allGroup": "All: {{group}}",
+    "groups": {
+      "activity": "Activity",
+      "attention": "Needs attention",
+      "security": "Security"
+    },
+    "events": {
+      "collection.added": "New games in the library",
+      "release.announced": "Announced releases",
+      "release.out": "Releases out today",
+      "deal.historical_low": "Historical lows",
+      "issue.opened": "Problems",
+      "issue.resolved": "Problems solved",
+      "keys.expiring": "Keys about to expire",
+      "auth.failed_logins": "Failed sign-ins"
+    },
+    "eventsHint": {
+      "collection.added": "Games a scan brings in, and games you add by hand (gathered into one message after 10 minutes).",
+      "release.announced": "A new upcoming game in a series you own.",
+      "release.out": "An upcoming game of a series you own comes out.",
+      "deal.historical_low": "A game you do not own on PC reaches its lowest price ever.",
+      "issue.opened": "Something stops working, like a store signed out or a failed backup.",
+      "issue.resolved": "A problem reported before is fixed.",
+      "keys.expiring": "Keys still to redeem whose deadline is within 30 days, again at 7 days and the day before.",
+      "auth.failed_logins": "Several wrong passwords from the same address within an hour."
+    },
+    "state": {
+      "failing": "Last message failed",
+      "working": "Working",
+      "paused": "Paused",
+      "off": "Off",
+      "untested": "Nothing sent yet"
+    },
+    "pausedNote": "Paused: {{reason}}. Fix the settings, then test or save.",
+    "eventCount_one": "{{count}} event",
+    "eventCount_other": "{{count}} events",
+    "deliveries": "Recent messages",
+    "noDeliveries": "Nothing sent through this connection yet.",
+    "attempts_one": "{{count}} failed attempt",
+    "attempts_other": "{{count}} failed attempts",
+    "delivery": {
+      "queued": "Queued",
+      "sent": "Sent",
+      "failed": "Failed",
+      "dropped": "Dropped"
+    },
+    "chatFound": "Chat found: {{value}}. It is filled in; save to keep it.",
+    "deleteConfirm": "Delete the connection \"{{name}}\"? Messages waiting to be sent through it are dropped.",
+    "secretsNote": "Tokens and secrets are stored on this server and never shown again; leave the dots to keep the saved value.",
+    "telegram": {
+      "description": "Messages through a Telegram bot of your own: new games, releases, deals and problems, with the cover when there is one.",
+      "token": "Bot token",
+      "tokenHelp": "1. Open Telegram and talk to @BotFather (the page above).\n2. Send `/newbot` and follow the steps to name your bot.\n3. Copy the token it gives you here.\nNever share it: anyone with it controls the bot.",
+      "chat": "Chat",
+      "chatHelp": "1. Open your bot in Telegram and send it any message (or add it to a group and write there).\n2. Press Test with this field empty: Game Vault finds the chat and fills it in."
+    },
+    "ntfy": {
+      "description": "Push notifications to your phone through ntfy (ntfy.sh or a server of your own): new games, releases, deals and problems, with the cover when there is one.",
+      "server": "Server",
+      "serverHelp": "Leave it empty to use https://ntfy.sh. If you run your own ntfy, paste its address (starting with http:// or https://).",
+      "topic": "Topic",
+      "topicHelp": "1. Install the ntfy app on your phone.\n2. Pick a topic name nobody else would guess, for example a long random phrase: on ntfy.sh anyone who knows the name can read it.\n3. Subscribe to that topic in the app and type the same name here.",
+      "token": "Access token",
+      "tokenHelp": "Only for a protected topic or server: create an access token in ntfy (Account, Access tokens) and paste it here. Leave it empty for an open topic."
+    },
+    "webhook": {
+      "description": "Sends each event as a JSON document to an address of your own, so your own tools or scripts can react to it.",
+      "url": "Address",
+      "urlHelp": "The address that receives a POST with the JSON document, starting with http:// or https://. It must answer with a 2xx status; redirects are not followed, so use the final address.",
+      "header": "Header name",
+      "headerHelp": "Optional: the name of a header sent with every request, for example Authorization or X-Webhook-Secret. Fill in the value below.",
+      "secret": "Header value",
+      "secretHelp": "Optional: the value of that header (a token or a shared secret). Never shared or shown again once saved."
+    }
+  },
+  "region": {
+    "unspecified": "Not set",
+    "pal": "PAL (Europe, Australia)",
+    "ntsc_u": "NTSC-U (Americas)",
+    "ntsc_j": "NTSC-J (Japan)",
+    "ntsc_k": "NTSC-K (Korea)",
+    "ntsc_c": "NTSC-C (China)",
+    "asia": "Asia",
+    "region_free": "Region free",
+    "short": {
+      "pal": "PAL",
+      "ntsc_u": "US",
+      "ntsc_j": "JP",
+      "ntsc_k": "KR",
+      "ntsc_c": "CN",
+      "asia": "Asia",
+      "region_free": "Free"
+    }
   }
 }

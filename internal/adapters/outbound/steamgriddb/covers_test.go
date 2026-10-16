@@ -676,16 +676,21 @@ func TestCovers_failures(t *testing.T) {
 
 func TestWithoutStoreTags(t *testing.T) {
 	for title, want := range map[string]string{
-		"Example Quest (Steam Key)":      "Example Quest",
-		"Example Quest - GOG Key":        "Example Quest",
-		"Example Quest [PS2]":            "Example Quest",
-		"Example Quest (PC/Mac)":         "Example Quest",
-		"Example Quest™ Steam CD Key":    "Example Quest",
-		"Example Remastered":             "Example Remastered",
-		"Doom (2016)":                    "Doom (2016)",
-		"Example: Definitive Edition":    "Example: Definitive Edition",
-		"Example Quest (Director's Cut)": "Example Quest (Director's Cut)",
-		"Example Quest (Gold) Steam Key": "Example Quest (Gold)",
+		"Example Quest (Steam Key)":             "Example Quest",
+		"Example Quest - GOG Key":               "Example Quest",
+		"Example Quest [PS2]":                   "Example Quest",
+		"Example Quest (PC/Mac)":                "Example Quest",
+		"Example Quest™ Steam CD Key":           "Example Quest",
+		"Example Remastered":                    "Example Remastered",
+		"Doom (2016)":                           "Doom (2016)",
+		"Super Metroid [SNES]":                  "Super Metroid",
+		"Gunstar Heroes (Mega Drive / Genesis)": "Gunstar Heroes",
+		"Example: Definitive Edition":           "Example: Definitive Edition",
+		"Example Quest (Director's Cut)":        "Example Quest (Director's Cut)",
+		"Example Quest (Gold) Steam Key":        "Example Quest (Gold)",
+		"Example Quest (Nintendo eShop)":        "Example Quest",
+		"Example Quest (PlayStation Store)":     "Example Quest",
+		"Example Quest PC Key":                  "Example Quest",
 	} {
 		assert.Equal(t, want, withoutStoreTags(title), title)
 	}

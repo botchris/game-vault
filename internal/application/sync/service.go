@@ -14,9 +14,11 @@ import (
 	"time"
 
 	"gamevault/internal/application/catalog"
+	"gamevault/internal/application/events"
 	"gamevault/internal/application/port"
 	"gamevault/internal/application/unattended"
 	"gamevault/internal/domain/errkind"
+	"gamevault/internal/domain/event"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/schema"
 	"gamevault/internal/domain/source"
@@ -77,6 +79,7 @@ type Service struct {
 	providers map[source.Type]Provider
 	log       *slog.Logger
 	running   gosync.Mutex // one scan at a time keeps consolidation consistent
+	events    events.Publisher
 
 	// warnedSystems holds "<source id>\x00<system>" for each invalid system a source sent that a scan
 	// already warned about in this process: a source sends the same one on every scan, so repeats
@@ -103,7 +106,7 @@ type keepAliveFailure struct {
 
 // NewService builds the service. Each provider is registered under its descriptor's type; scans
 // merge their copies into the catalog through cat, which also drops the cached covers their changes
-// make stale. Options: WithClock, WithLogger.
+// make stale. Options: WithClock, WithLogger, WithEvents.
 func NewService(sources source.Repository, games game.Repository, tx port.TxManager, cat *catalog.Service,
 	providers []Provider, opts ...Option) *Service {
 	m := map[source.Type]Provider{}
@@ -119,6 +122,7 @@ func NewService(sources source.Repository, games game.Repository, tx port.TxMana
 		now:           time.Now,
 		providers:     m,
 		log:           slog.New(slog.DiscardHandler),
+		events:        events.Nop{},
 		warnedSystems: map[string]bool{},
 		aliveFailures: map[source.ID]keepAliveFailure{},
 	}
@@ -139,6 +143,9 @@ func WithClock(now port.Clock) Option { return func(s *Service) { s.now = now } 
 
 // WithLogger sets the logger (discarded by default).
 func WithLogger(log *slog.Logger) Option { return func(s *Service) { s.log = log } }
+
+// WithEvents sets the publisher told about the games a scan creates (none by default: events.Nop).
+func WithEvents(p events.Publisher) Option { return func(s *Service) { s.events = p } }
 
 // Types lists the available source types, sorted by name.
 func (s *Service) Types() []source.TypeDescriptor {
@@ -432,7 +439,7 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 	report := source.SyncReport{StartedAt: s.now()}
 	settings := src.Settings() // the provider may write a rotated session into it
 
-	removed, syncErr := s.scan(ctx, src, p, settings, &report)
+	res, syncErr := s.scan(ctx, src, p, settings, &report)
 	s.finishReport(&report, src.LastSync(), syncErr)
 
 	src, saveErr := s.recordScan(ctx, src, settings, report)
@@ -447,7 +454,12 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 	}
 
 	s.log.Info("source synced", "source", src.Name(), "fetched", report.Fetched, "added", report.CopiesAdded,
-		"updated", report.CopiesUpdated, "removed", removed, "games_created", report.GamesCreated, "error", report.Err)
+		"updated", report.CopiesUpdated, "removed", res.CopiesRemoved, "games_created", report.GamesCreated, "error", report.Err)
+
+	// Only now that the scan is saved; a failed scan's consolidation is zero, so it tells nothing.
+	if added, ok := res.Added(event.OriginSource, src.Name()); ok {
+		s.events.Publish(ctx, event.New(event.KindCollectionAdded, s.now(), added))
+	}
 
 	v, err := s.view(ctx, src)
 	if err != nil {
@@ -458,9 +470,9 @@ func (s *Service) Sync(ctx context.Context, id source.ID) (SourceView, error) {
 }
 
 // scan fetches the source's copies and consolidates them into the catalog, filling the report's
-// counts and warnings. It returns how many copies the source withdrew.
+// counts and warnings. It returns what the consolidation changed, zero when the scan failed.
 func (s *Service) scan(ctx context.Context, src *source.Source, p Provider, settings schema.Settings,
-	report *source.SyncReport) (int, error) {
+	report *source.SyncReport) (catalog.Consolidation, error) {
 	copies, warnings, err := p.Fetch(ctx, settings)
 	report.Warnings = warnings
 
@@ -471,7 +483,7 @@ func (s *Service) scan(ctx context.Context, src *source.Source, p Provider, sett
 	}
 
 	if err != nil {
-		return 0, err
+		return catalog.Consolidation{}, err
 	}
 
 	var excluded int
@@ -489,7 +501,7 @@ func (s *Service) scan(ctx context.Context, src *source.Source, p Provider, sett
 		return kept, nil
 	})
 	if err != nil {
-		return 0, err // nothing was saved, so nothing was skipped either
+		return catalog.Consolidation{}, err // nothing was saved, so nothing was skipped either
 	}
 
 	report.Excluded = excluded
@@ -505,7 +517,7 @@ func (s *Service) scan(ctx context.Context, src *source.Source, p Provider, sett
 
 	s.forgetKeepAlive(src.ID()) // the session works after all
 
-	return res.CopiesRemoved, nil
+	return res, nil
 }
 
 // finishReport closes the report: its end, and for a failed scan the error and since when the

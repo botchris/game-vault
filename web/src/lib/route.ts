@@ -4,7 +4,7 @@
 import { gameIdFromHash } from './gameRoute.ts';
 
 /** The app's pages, as their addresses name them; the first is the start page. */
-export const PAGES = ['home', 'library', 'scan', 'sources', 'providers', 'fields', 'system', 'logs', 'settings'] as const;
+export const PAGES = ['home', 'library', 'scan', 'sources', 'providers', 'notifications', 'fields', 'system', 'logs', 'settings'] as const;
 
 export type Page = (typeof PAGES)[number];
 

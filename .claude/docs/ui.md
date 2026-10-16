@@ -29,12 +29,11 @@ because Simple Icons removed them).
   open (`lib/editDrafts.ts`), and leaving with one asks first; the image viewer catches the arrows first; the sheet is not remounted per
   game, only its body is keyed; its parts are `SheetHero`, `CopiesTab` with `CopyCard`, `EditTab`, and
   `SheetDialogs` with `EditCopyDialog`, sharing the types in `sheet.ts`), `GameSheet` (details from metadata providers),
-  `CopyPhotos` (a copy's thumbnail strip, uploads with progress, the viewer with its photo footer),
-  `OwnershipDialog` ("Do I own it?": paste box, rows, full screen on phones); `LibraryPage` opens the
+  `CopyPhotos` (a copy's thumbnail strip, uploads with progress, the viewer with its photo footer);
+  `LibraryPage` opens the
   sheet a `#/game/<id>` address names (`useGameAddress`).
 - `features/system/AccessTokens`: create (shown once), list, revoke.
-- `lib/ownership.ts`: paste cleaning, request chunks, rows (pure, Node-tested); `lib/gameRoute.ts`:
-  `#/game/<id>`. `components/ui.tsx`: `Modal` has `phoneFull`; a press on its backdrop closes only that dialog and never
+- `lib/gameRoute.ts`: `#/game/<id>`. `components/ui.tsx`: `Modal` has `phoneFull`; a press on its backdrop closes only that dialog and never
   reaches an overlay it was opened over, such as the game sheet (`lib/backdrop.ts`).
 - `components/Cover.tsx`: edition cover with the borrowed-box fallback. `whole` (posters, the sheet's
   hero, the cover picker) shows the box uncropped through `WholeCover`: the same 2:3 cell everywhere,
@@ -54,6 +53,13 @@ because Simple Icons removed them).
   `components/PlatformBadge.tsx`, status dot, copies, a round scan button; the row opens the
   settings dialog, which holds the last scan report and Delete), then tiles for the stores not
   added yet. Only "Scan all" is amber.
+- `features/notifications` (`#/notifications`): `NotificationsPage` (the optional Game Vault address,
+  the connections as rows with their Enabled switch and state, then tiles for the connector types not
+  added yet), `ConnectionDialog` (name, the type's fields with their help, language, events by group
+  with a named "All" box per group, Test with the unsaved settings, Save, Delete; a chat the test found
+  is shown until the settings are edited) and `Deliveries` (the last 20 messages of a connection).
+  `lib/notifications.ts` holds the pure parts (event groups, a connection's state: working, failing,
+  paused, off, untested), Node-tested.
 - `features/sources`, `features/providers`: settings dialogs; field help is rendered by
   `components/FieldHelp.tsx` from plain text (lines `1. …` become numbered steps, backticks become
   code).

@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
 	"gamevault/internal/domain/schema"
 )
@@ -26,6 +27,14 @@ const (
 		"masterBoxDetails":null},"error":{"code":"","internal_message":"","moreInfo":[]}}}`
 	film = `{"response":{"ack":"Success","data":{"boxDetails":[{"boxId":"5051892123456",
 		"boxName":"Inception (2 Discs)","categoryName":"Blu-Ray Peliculas","superCatId":2}]},"error":{}}}`
+
+	// A Switch box as the UK catalog lists it: the category's system is a one-word name followed by
+	// "Games" (shape of the real answers, values made up).
+	zelda = `{"response":{"ack":"Success","data":{"boxDetails":[{"boxId":"0045496420055",
+		"boxName":"Zelda Breath of the Wild Switch Game","categoryId":1032,"categoryName":"Switch Games",
+		"categoryFriendlyName":"Switch Games","superCatId":1,"superCatName":"Gaming","sellPrice":30}],
+		"masterBoxDetails":null},"error":{"code":"","internal_message":"","moreInfo":[]}}}`
+
 	notFound = `{"response":{"ack":"Success","data":null,"error":{"code":"","internal_message":"","moreInfo":[]}}}`
 )
 
@@ -58,8 +67,10 @@ func (f *fakeCeX) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ean := parts[2]
 
 	switch {
-	case ean == "5030934110075" && country == "es":
+	case ean == "5030934110075" && (country == "es" || country == "mx"):
 		w.Write([]byte(deadSpace3))
+	case ean == "0045496420055" && country == "uk":
+		w.Write([]byte(zelda))
 	case ean == "5051892123456":
 		w.Write([]byte(film))
 	default:
@@ -249,6 +260,61 @@ func TestLookup_failures(t *testing.T) {
 			t.Run("THEN it is not offered as a game", func(t *testing.T) {
 				require.NoError(t, err)
 				assert.Empty(t, m)
+			})
+		})
+	})
+}
+
+func TestLookup_regionOfTheCountry(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	srv := httptest.NewServer(&fakeCeX{})
+	defer srv.Close()
+
+	p := New()
+	p.API.BaseURL = srv.URL + "/%s"
+
+	for country, want := range map[string]game.Region{"es": game.RegionPAL, "mx": game.RegionNTSCU} {
+		t.Run("GIVEN a code only the "+country+" catalog knows", func(t *testing.T) {
+			t.Run("WHEN that catalog answers", func(t *testing.T) {
+				matches, err := p.Lookup(ctx, "5030934110075", schema.Settings{settingCountries: country})
+				require.NoError(t, err)
+				require.Len(t, matches, 1)
+
+				t.Run("THEN the match carries the region its country sells", func(t *testing.T) {
+					assert.Equal(t, want, matches[0].Region)
+				})
+			})
+		})
+	}
+}
+
+func TestCountries_haveARegion(t *testing.T) {
+	for _, c := range Countries {
+		assert.NotEmpty(t, countryRegions[c], "country %s needs a region", c)
+	}
+}
+
+func TestLookup_oneWordSystemCategory(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN a box whose category is a one-word system followed by Games", func(t *testing.T) {
+		srv := httptest.NewServer(&fakeCeX{})
+		t.Cleanup(srv.Close)
+
+		p := New()
+		p.API.BaseURL, p.API.HTTP = srv.URL+"/%s", srv.Client()
+
+		t.Run("WHEN it is scanned", func(t *testing.T) {
+			m, err := p.Lookup(ctx, "0045496420055", schema.Settings{})
+			require.NoError(t, err)
+			require.Len(t, m, 1)
+
+			t.Run("THEN the category names its platform and the title loses the system words", func(t *testing.T) {
+				assert.Equal(t, game.SystemSwitch, m[0].Platform)
+				assert.Equal(t, "Zelda Breath of the Wild", m[0].Title)
 			})
 		})
 	})

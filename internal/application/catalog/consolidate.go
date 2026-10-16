@@ -3,6 +3,7 @@ package catalog
 import (
 	"context"
 
+	"gamevault/internal/domain/event"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/source"
 )
@@ -20,6 +21,37 @@ func (c Consolidation) AddTo(r *source.SyncReport) {
 	r.CopiesUnchanged = c.CopiesUnchanged
 	r.GamesCreated = c.GamesCreated
 	r.Warnings = append(r.Warnings, c.Warnings...)
+}
+
+// Added returns what a collection.added event tells about the consolidation: the games it created,
+// in order, and the copies it added to games that were already there. It reports false when no game
+// was created: copies joining known games alone are not news.
+func (c Consolidation) Added(origin event.Origin, originName string) (event.CollectionAdded, bool) {
+	saved := make(map[game.ID]*game.Game, len(c.Changed))
+	for _, g := range c.Changed {
+		saved[g.ID()] = g
+	}
+
+	added := event.CollectionAdded{
+		Origin:      origin,
+		OriginName:  originName,
+		Games:       make([]event.GameRef, 0, len(c.Created)),
+		CopiesAdded: c.CopiesAdded,
+	}
+
+	for _, id := range c.Created {
+		g, ok := saved[id]
+		if !ok {
+			continue // a withdrawal later in the same import emptied it, and it was deleted
+		}
+
+		added.Games = append(added.Games, event.RefOf(g))
+		added.CopiesAdded -= len(g.Copies()) // a new game's copies all came with it
+	}
+
+	added.CopiesAdded = max(added.CopiesAdded, 0)
+
+	return added, len(added.Games) > 0
 }
 
 // Consolidate merges imported copies into the catalog on behalf of sourceID (empty for a file),

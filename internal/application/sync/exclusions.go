@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"slices"
 
 	"gamevault/internal/application/catalog"
@@ -89,6 +90,65 @@ func (s *Service) ExcludeCopy(ctx context.Context, gameID, copyID game.ID) (*gam
 	s.catalog.DropCovers(ctx, &stale)
 
 	return out, nil
+}
+
+// DeleteGame deletes a game and records each copy a source imported on that source's removed list,
+// so later scans do not bring the game back. Copies added by hand are simply deleted with it, and so
+// is a copy whose source no longer exists.
+func (s *Service) DeleteGame(ctx context.Context, id game.ID) error {
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		g, err := s.games.Get(ctx, id)
+		if err != nil {
+			return err
+		}
+
+		now := s.now()
+		changed := map[source.ID]*source.Source{}
+
+		for _, c := range g.Copies() {
+			if c.SourceID == "" || c.ExternalID == "" {
+				continue
+			}
+
+			sid := source.ID(c.SourceID)
+
+			src, ok := changed[sid]
+			if !ok {
+				if src, err = s.sources.Get(ctx, sid); errors.Is(err, source.ErrNotFound) {
+					continue
+				} else if err != nil {
+					return err
+				}
+
+				changed[sid] = src
+			}
+
+			if err := src.Exclude(source.Exclusion{
+				ExternalID: c.ExternalID,
+				Title:      g.Title(),
+				At:         now,
+			}); err != nil {
+				return err
+			}
+		}
+
+		for _, src := range changed {
+			if err := s.sources.Save(ctx, src); err != nil {
+				return err
+			}
+		}
+
+		return s.games.Delete(ctx, id)
+	})
+	if err != nil {
+		return err
+	}
+
+	var stale catalog.StaleCovers
+	stale.AddGame(id)
+	s.catalog.DropCovers(ctx, &stale)
+
+	return nil
 }
 
 // IncludeCopy takes an item off a source's removed list: the next scan imports it again.

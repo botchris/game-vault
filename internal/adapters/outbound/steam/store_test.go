@@ -475,3 +475,9 @@ func TestStore_findLinks(t *testing.T) {
 		})
 	})
 }
+
+func TestModernEnough_catalogFlag(t *testing.T) {
+	assert.True(t, modernEnough(media.GameQuery{Platforms: []string{"Switch 2"}}))
+	assert.False(t, modernEnough(media.GameQuery{Platforms: []string{"SNES"}}))
+	assert.True(t, modernEnough(media.GameQuery{}))
+}

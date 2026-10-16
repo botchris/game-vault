@@ -286,7 +286,8 @@ var (
 	reTrailingMarker = regexp.MustCompile(`(?i)(?:[\s:\-–—](?:` + nonGameMarkers + `)|[(\[]\s*(?:` + nonGameMarkers + `)\s*[)\]])$`)
 
 	// reAnywhereMarker matches the phrases that mark a video wherever they are.
-	reAnywhereMarker = regexp.MustCompile(`(?i)\b(?:behind the scenes|making of)\b`)
+	// Spanish accounts list them as "… Detrás de cámaras" and "Cómo se hizo …".
+	reAnywhereMarker = regexp.MustCompile(`(?i)\b(?:behind the scenes|making of|detrás de (?:las )?cámaras|cómo se hizo)\b`)
 )
 
 // nonGameName reports whether a title's name clearly marks it as something other than a game, by

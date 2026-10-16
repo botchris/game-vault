@@ -3,8 +3,8 @@
 // end-to-end tests of the API, so both build the same graph and a new dependency is added once.
 //
 // What differs between them comes in as options: the plugins (real stores or fakes), the image
-// fetcher, the password hasher's cost, the certificate policy and the disk check. Starting the
-// background jobs and listening stay with the server.
+// fetcher, the password hasher's cost, the certificate policy, the disk check and whether
+// notifications are sent. Starting the background jobs and listening stay with the server.
 package app
 
 import (
@@ -32,6 +32,7 @@ import (
 	"gamevault/internal/application/home"
 	"gamevault/internal/application/logs"
 	"gamevault/internal/application/media"
+	"gamevault/internal/application/notify"
 	"gamevault/internal/application/ownership"
 	"gamevault/internal/application/port"
 	"gamevault/internal/application/providers"
@@ -43,8 +44,8 @@ import (
 	domainauth "gamevault/internal/domain/auth"
 )
 
-// Plugins are the integrations the services run: store sources, media providers and price
-// providers (plugin.Registry in the server, fakes in tests).
+// Plugins are the integrations the services run: store sources, media providers, price providers
+// and notification connectors (plugin.Registry in the server, fakes in tests).
 type Plugins interface {
 	// Sources are the store integrations, one per source type.
 	Sources() []sync.Provider
@@ -60,6 +61,9 @@ type Plugins interface {
 
 	// Releases are the home page's upcoming releases providers.
 	Releases() []home.ReleasesProvider
+
+	// Connectors are the notification connector types, in the order the UI lists them.
+	Connectors() []notify.Connector
 }
 
 // App is Game Vault built: the HTTP handler, and the services the server still needs to start the
@@ -82,6 +86,15 @@ type App struct {
 
 	// Home gathers the home page's deals and releases.
 	Home *home.Service
+
+	// Notify keeps the notification connections and delivers what is queued for them.
+	Notify *notify.Service
+
+	// NotifyWatcher turns Health's problems into notifications.
+	NotifyWatcher *notify.Watcher
+
+	// NotifyDaily tells the keys whose deadline comes near and the releases out today.
+	NotifyDaily *notify.Daily
 }
 
 // Option configures Build.
@@ -95,6 +108,7 @@ type options struct {
 	disk    health.DiskSpace
 	now     port.Clock
 	version string
+	sending bool
 }
 
 // WithPlugins sets the integrations (none by default).
@@ -122,6 +136,11 @@ func WithClock(now port.Clock) Option { return func(o *options) { o.now = now } 
 
 // WithVersion sets the version the status reports ("dev" by default).
 func WithVersion(v string) Option { return func(o *options) { o.version = v } }
+
+// WithSending turns on queueing notifications for the connections. It is off by default, so tests
+// and a server on a copy of the config (whose connections hold real secrets) never send; only a
+// connection's Test sends then.
+func WithSending(on bool) Option { return func(o *options) { o.sending = on } }
 
 // Build wires Game Vault over an open database, in the folders of cfg, logging to log and to
 // logFiles. It applies the saved log and security settings (and -reset-auth) before returning, so
@@ -185,20 +204,28 @@ func Build(ctx context.Context, cfg config.Config, db *sqlite.DB, logFiles *logf
 	mediaSvcs := media.New(games, registry, assets, o.images,
 		media.WithPhotoStore(photos), media.WithDetailsStore(sqlite.NewDetailsStore(db)), media.WithClock(now), media.WithLogger(log))
 
+	// The notification service is built before the use cases that publish to it. It reads covers
+	// from the game data only: rendering a message must never make a request.
+	notifyStore := sqlite.NewNotifyStore(db)
+	notifySvc := notify.NewService(sqlite.NewConnectionRepository(db), notifyStore, notifyStore, games, assets,
+		notify.WithConnectors(o.plugins.Connectors()...), notify.WithClock(now), notify.WithLogger(log),
+		notify.WithSending(o.sending))
+
 	valuationSvc := valuation.NewService(games, db, registry, settingsRepo, now, log, o.plugins.Valuations()...)
 	fieldsSvc := fields.NewService(settingsRepo, games, db, now)
 	catalogSvc := catalog.NewService(games, db, catalog.WithClock(now), catalog.WithCoverCache(mediaSvcs.Covers),
-		catalog.WithPhotoFiles(photos), catalog.WithFields(settingsRepo))
+		catalog.WithPhotoFiles(photos), catalog.WithFields(settingsRepo), catalog.WithEvents(notifySvc))
 	ownershipSvc := ownership.NewService(games)
 	homeSvc := home.NewService(registry, games, ownershipSvc, sqlite.NewHomeSnapshots(db), settingsRepo,
 		home.WithDeals(o.plugins.Deals()...), home.WithReleases(o.plugins.Releases()...),
-		home.WithClock(now), home.WithLogger(log))
+		home.WithClock(now), home.WithLogger(log), home.WithEvents(notifySvc))
 
 	mediaSvcs.AutoLinks.SetGameLinker(catalogSvc) // automatic links are saved by the catalog, in its transactions
 	syncSvc := sync.NewService(sources, games, db, catalogSvc, o.plugins.Sources(),
-		sync.WithClock(now), sync.WithLogger(log))
+		sync.WithClock(now), sync.WithLogger(log), sync.WithEvents(notifySvc))
 	linkStores := media.NewStores(registry, syncSvc)
-	transferSvc := transfer.NewService(games, catalogSvc, settingsRepo, csvfile.Codec{}, transfer.WithClock(now))
+	transferSvc := transfer.NewService(games, catalogSvc, settingsRepo, csvfile.Codec{}, transfer.WithClock(now),
+		transfer.WithEvents(notifySvc))
 	systemSvc := system.NewService(games, db, backupdir.New(cfg.BackupDir()), settingsRepo,
 		system.WithPhotoArchive(photostore.NewArchive(photos, backupPhotos)), system.WithClock(now), system.WithLogger(log),
 		system.WithStatus(system.Status{
@@ -211,11 +238,17 @@ func Build(ctx context.Context, cfg config.Config, db *sqlite.DB, logFiles *logf
 	healthSvc := health.NewService(registry, syncSvc, systemSvc, health.DiskCheck{
 		Path:  cfg.ConfigDir,
 		Space: o.disk,
-	})
+	}, notifySvc)
+
+	notifyWatcher := notify.NewWatcher(healthSvc, notifyStore, notifySvc,
+		notify.WithWatcherClock(now), notify.WithWatcherLogger(log))
+	notifyDaily := notify.NewDaily(games, notifyStore, homeSvc, notifySvc,
+		notify.WithDailyClock(now), notify.WithDailyLogger(log))
 
 	// The saved certificate setting must be applied before any background job starts: until then
 	// requests would ignore it.
-	authSvc := auth.NewService(sqlite.NewAuthRepository(db), settingsRepo, o.hasher, o.certs, now, log)
+	authSvc := auth.NewService(sqlite.NewAuthRepository(db), settingsRepo, o.hasher, o.certs, now, log,
+		auth.WithEvents(notifySvc))
 	if cfg.ResetAuth {
 		if err := authSvc.ResetAuthentication(ctx); err != nil {
 			return nil, fmt.Errorf("resetting authentication: %w", err)
@@ -244,6 +277,9 @@ func Build(ctx context.Context, cfg config.Config, db *sqlite.DB, logFiles *logf
 		Health:      rpc.NewHealthHandler(healthSvc),
 		Ownership:   rpc.NewOwnershipHandler(ownershipSvc),
 		Home:        rpc.NewHomeHandler(homeSvc),
+		Catalog:     rpc.NewCatalogHandler(),
+
+		Notifications: rpc.NewNotificationHandler(notifySvc),
 	}, rpc.Options{
 		UIDir:       cfg.UIDir,
 		CORSOrigins: cfg.CORSOrigins,
@@ -251,12 +287,15 @@ func Build(ctx context.Context, cfg config.Config, db *sqlite.DB, logFiles *logf
 	})
 
 	return &App{
-		Handler:   handler,
-		Sync:      syncSvc,
-		Valuation: valuationSvc,
-		Media:     mediaSvcs,
-		System:    systemSvc,
-		Home:      homeSvc,
+		Handler:       handler,
+		Sync:          syncSvc,
+		Valuation:     valuationSvc,
+		Media:         mediaSvcs,
+		System:        systemSvc,
+		Home:          homeSvc,
+		Notify:        notifySvc,
+		NotifyWatcher: notifyWatcher,
+		NotifyDaily:   notifyDaily,
 	}, nil
 }
 
@@ -272,6 +311,8 @@ func (noPlugins) Valuations() []valuation.Provider { return nil }
 func (noPlugins) Deals() []home.DealsProvider { return nil }
 
 func (noPlugins) Releases() []home.ReleasesProvider { return nil }
+
+func (noPlugins) Connectors() []notify.Connector { return nil }
 
 // keepValidating is the default certificate policy: it applies nothing, so Go's default (every
 // certificate checked) stays.

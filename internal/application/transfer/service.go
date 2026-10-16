@@ -9,8 +9,10 @@ import (
 	"time"
 
 	"gamevault/internal/application/catalog"
+	"gamevault/internal/application/events"
 	"gamevault/internal/application/port"
 	"gamevault/internal/domain/errkind"
+	"gamevault/internal/domain/event"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/money"
 	"gamevault/internal/domain/settings"
@@ -37,11 +39,12 @@ type Service struct {
 	prefs   settings.Repository
 	codec   Codec
 	now     port.Clock
+	events  events.Publisher
 }
 
 // NewService builds the service around the file codec. Imports are merged into the catalog through
 // cat; the preferences give the currency of rows that have a price but no currency. Options:
-// WithClock.
+// WithClock, WithEvents.
 func NewService(games game.Repository, cat *catalog.Service, prefs settings.Repository, codec Codec, opts ...Option) *Service {
 	s := &Service{
 		games:   games,
@@ -49,6 +52,7 @@ func NewService(games game.Repository, cat *catalog.Service, prefs settings.Repo
 		prefs:   prefs,
 		codec:   codec,
 		now:     time.Now,
+		events:  events.Nop{},
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -63,8 +67,13 @@ type Option func(*Service)
 // WithClock sets the clock that dates imports and names exports (time.Now by default).
 func WithClock(now port.Clock) Option { return func(s *Service) { s.now = now } }
 
+// WithEvents sets the publisher told about the games an import creates (none by default:
+// events.Nop).
+func WithEvents(p events.Publisher) Option { return func(s *Service) { s.events = p } }
+
 // Import consolidates the rows of a file into the catalog. Rows carry stable external ids, so
-// importing the same file twice updates instead of duplicating.
+// importing the same file twice updates instead of duplicating. The games it creates are published
+// in one collection.added event.
 func (s *Service) Import(ctx context.Context, content []byte) (source.SyncReport, error) {
 	report := source.SyncReport{StartedAt: s.now()}
 
@@ -91,6 +100,10 @@ func (s *Service) Import(ctx context.Context, content []byte) (source.SyncReport
 	}
 
 	report.FinishedAt = s.now()
+
+	if added, ok := res.Added(event.OriginImport, ""); ok {
+		s.events.Publish(ctx, event.New(event.KindCollectionAdded, report.FinishedAt, added))
+	}
 
 	return report, err
 }

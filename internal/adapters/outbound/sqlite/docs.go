@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"gamevault/internal/domain/connection"
+	"gamevault/internal/domain/event"
 	"gamevault/internal/domain/field"
 	"gamevault/internal/domain/game"
 	"gamevault/internal/domain/provider"
@@ -23,6 +25,8 @@ const (
 	sourceDocVersion   = 1
 	providerDocVersion = 1
 	fieldsDocVersion   = 1
+
+	connectionDocVersion = 1
 )
 
 // errNewerDocument means a document was written by a newer Game Vault, whose fields this version
@@ -105,6 +109,7 @@ type copyDoc struct {
 	Edition    string `json:"edition,omitempty"`
 
 	Grade         string        `json:"grade,omitempty"`
+	Region        string        `json:"region,omitempty"`
 	Contents      []string      `json:"contents,omitempty"`
 	Location      string        `json:"location,omitempty"`
 	Barcode       string        `json:"barcode,omitempty"`
@@ -192,6 +197,21 @@ type providerDoc struct {
 	UpdatedAt string          `json:"updatedAt"`
 }
 
+// connectionDoc is the stored form of a connection.Connection.
+type connectionDoc struct {
+	V         int             `json:"v"`
+	Type      string          `json:"type"`
+	Name      string          `json:"name"`
+	Enabled   bool            `json:"enabled"`
+	Events    []string        `json:"events"`
+	Language  string          `json:"language"`
+	Settings  schema.Settings `json:"settings,omitempty"`
+	PausedWhy string          `json:"pausedWhy,omitempty"`
+	PausedAt  string          `json:"pausedAt,omitempty"`
+	CreatedAt string          `json:"createdAt"`
+	UpdatedAt string          `json:"updatedAt"`
+}
+
 func encode(doc any) (string, error) {
 	b, err := json.Marshal(doc)
 	if err != nil {
@@ -241,6 +261,7 @@ func encodeGame(g *game.Game) (string, error) {
 			AcquiredOn:    string(c.AcquiredOn),
 			Edition:       c.Edition,
 			Grade:         string(c.Grade),
+			Region:        string(c.Region),
 			Contents:      contentStrings(c.Contents),
 			Location:      c.Location,
 			Barcode:       string(c.Barcode),
@@ -293,6 +314,7 @@ func decodeGame(id game.ID, raw string) (*game.Game, error) {
 				AcquiredOn: game.Date(c.AcquiredOn),
 				Edition:    c.Edition,
 				Grade:      game.Grade(c.Grade),
+				Region:     game.Region(c.Region),
 				Contents:   contents,
 				Location:   c.Location,
 				Barcode:    game.Barcode(c.Barcode),
@@ -763,4 +785,59 @@ func encodeFields(s *field.Set) (string, error) {
 	}
 
 	return encode(doc)
+}
+
+func encodeConnection(c *connection.Connection) (string, error) {
+	events := make([]string, 0, len(c.Events()))
+	for _, k := range c.Events() {
+		events = append(events, string(k))
+	}
+
+	return encode(connectionDoc{
+		V:         connectionDocVersion,
+		Type:      string(c.Type()),
+		Name:      c.Name(),
+		Enabled:   c.Enabled(),
+		Events:    events,
+		Language:  c.Language(),
+		Settings:  c.Settings(),
+		PausedWhy: c.PausedWhy(),
+		PausedAt:  optionalTime(c.PausedAt()),
+		CreatedAt: formatTime(c.CreatedAt()),
+		UpdatedAt: formatTime(c.UpdatedAt()),
+	})
+}
+
+func decodeConnection(id connection.ID, raw string) (*connection.Connection, error) {
+	var doc connectionDoc
+	if err := json.Unmarshal([]byte(raw), &doc); err != nil {
+		return nil, err
+	}
+
+	if err := checkVersion(doc.V, connectionDocVersion); err != nil {
+		return nil, err
+	}
+
+	if doc.Settings == nil {
+		doc.Settings = schema.Settings{}
+	}
+
+	events := make([]event.Kind, 0, len(doc.Events))
+	for _, k := range doc.Events {
+		events = append(events, event.Kind(k))
+	}
+
+	return connection.Rehydrate(connection.Snapshot{
+		ID:        id,
+		Type:      connection.Type(doc.Type),
+		Name:      doc.Name,
+		Enabled:   doc.Enabled,
+		Events:    events,
+		Language:  doc.Language,
+		Settings:  doc.Settings,
+		PausedWhy: doc.PausedWhy,
+		PausedAt:  parseTime(doc.PausedAt),
+		CreatedAt: parseTime(doc.CreatedAt),
+		UpdatedAt: parseTime(doc.UpdatedAt),
+	}), nil
 }

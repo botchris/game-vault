@@ -4,7 +4,8 @@ import { PlatformBadge } from '../../components/PlatformBadge';
 import { KeyCell, useFormatters } from '../../components/ui';
 import { deadlineTone } from '../../lib/deadlines';
 import { formatAmount } from '../../lib/money';
-import { CopyKind, daysUntil, describePhysical, kindKey, redeemUrl, statusKey, type Copy, type Game } from '../../lib/model';
+import { CopyRegion } from '../../gen/gamevault/v1/game_pb';
+import { CopyKind, daysUntil, describePhysical, kindKey, redeemUrl, regionKey, statusKey, type Copy, type Game } from '../../lib/model';
 import { useAppData } from '../../state/AppData';
 import { FieldList } from '../fields/FieldList';
 import CopyPhotos from './CopyPhotos';
@@ -44,6 +45,7 @@ export default function CopyCard({ game, copy, actions, redeeming, onRedeeming, 
       <div className="copy-top">
         <span className={`kind kind-${kindKey(d.kind)}`}>{t(`kind.${kindKey(d.kind)}`)}</span>
         {d.platform && <PlatformBadge platform={d.platform} full />}
+        {d.region !== CopyRegion.UNSPECIFIED && <span className="badge" title={t(`region.${regionKey(d.region)}`)}>{t(`region.short.${regionKey(d.region)}`)}</span>}
         <span className={`status status-${statusKey(d.status)}`}>{t(`status.${statusKey(d.status)}`)}</span>
         {copy.redundant && <span className="badge warn" title={t('copy.redundantHelp')}>{t('copy.redundant')}</span>}
         <span className="spacer" />

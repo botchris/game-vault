@@ -90,6 +90,7 @@ func releasesToPB(in []game.Release) []*pb.HomeRelease {
 			ReleaseDate:   string(r.Date),
 			Platforms:     r.Platforms,
 			CoverUrl:      r.CoverURL,
+			ArtUrl:        r.ArtURL,
 			Url:           r.URL,
 			BecauseGameId: string(r.Because),
 			BecauseTitle:  r.BecauseTitle,

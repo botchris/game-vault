@@ -30,26 +30,29 @@ type HealthIssue struct {
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// "error" (stopped working until the user acts) or "warning"; the server sends no other value.
 	Level string `protobuf:"bytes,2,opt,name=level,proto3" json:"level,omitempty"`
-	// "provider", "source", "backups" or "disk"; the server sends no other value.
+	// "provider", "source", "backups", "disk" or "connector"; the server sends no other value.
 	Kind string `protobuf:"bytes,3,opt,name=kind,proto3" json:"kind,omitempty"`
-	// What has the problem: the provider's or source's name; empty for the backups and the disk,
-	// which clients name in their language by kind.
+	// What has the problem: the provider's, source's or connection's name; empty for the backups
+	// and the disk, which clients name in their language by kind.
 	Source string `protobuf:"bytes,4,opt,name=source,proto3" json:"source,omitempty"`
 	// What happened and what to do, in English: the detail under the translated reason (often the
 	// service's own words).
 	Message string `protobuf:"bytes,5,opt,name=message,proto3" json:"message,omitempty"`
 	// When the problem was first seen; unset when unknown.
 	Since *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=since,proto3" json:"since,omitempty"`
-	// Where it can be fixed: "providers", "sources", "system/backups"; empty when nowhere.
+	// Where it can be fixed: "providers", "sources", "system/backups", "notifications"; empty when
+	// nowhere.
 	Target string `protobuf:"bytes,7,opt,name=target,proto3" json:"target,omitempty"`
-	// Narrows the target (a source's id).
+	// Narrows the target (a source's or a notification connection's id).
 	TargetId string `protobuf:"bytes,8,opt,name=target_id,json=targetId,proto3" json:"target_id,omitempty"`
 	// A code clients translate: "provider_quota", "provider_rate_limited", "provider_unavailable",
 	// "provider_settings", "source_signed_out", "source_sync_failed", "source_keepalive_failed",
-	// "source_list_failed", "backup_failed", "backup_stale", "disk_low", "disk_critical".
+	// "source_list_failed", "backup_failed", "backup_stale", "disk_low", "disk_critical",
+	// "connector_paused".
 	Reason string `protobuf:"bytes,9,opt,name=reason,proto3" json:"reason,omitempty"`
 	// The reason's values: "until" (RFC 3339) for provider_quota, "days" for backup_stale, "free",
-	// "percent" and "path" for the disk.
+	// "percent" and "path" for the disk, "reason" for
+	// connector_paused.
 	Params        map[string]string `protobuf:"bytes,10,rep,name=params,proto3" json:"params,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

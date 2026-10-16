@@ -113,6 +113,30 @@ func TestEditionCoverFiles(t *testing.T) {
 	})
 }
 
+func TestEditionCoverFiles_catalogNameWithSlash(t *testing.T) {
+	g := media.GameRef{
+		ID:    "019b11c2-cccc",
+		Title: "Sonic",
+	}
+
+	t.Run("GIVEN a cover saved for a catalog system whose name has a slash", func(t *testing.T) {
+		root := t.TempDir()
+		s, err := Open(root)
+		require.NoError(t, err)
+		require.NoError(t, s.PutCover(g, "Mega Drive / Genesis", jpg))
+
+		t.Run("THEN it reads back and the file name has no slash", func(t *testing.T) {
+			img, ok, err := s.GetCover(g.ID, "Mega Drive / Genesis")
+			require.NoError(t, err)
+			assert.True(t, ok)
+			assert.Equal(t, jpg.Data, img.Data)
+
+			assert.NotContains(t, coverFile("Mega Drive / Genesis"), "/")
+			assert.Len(t, filesLike(t, filepath.Join(root, "Sonic [019b11c2-cccc]"), "cover-mega-drive-genesis-*.jpg"), 1)
+		})
+	})
+}
+
 func TestPruneCoverMarkers(t *testing.T) {
 	g := media.GameRef{
 		ID:    "019b11c2-cccc",

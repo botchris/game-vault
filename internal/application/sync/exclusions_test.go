@@ -111,6 +111,39 @@ func TestExclusions(t *testing.T) {
 		return out
 	}
 
+	t.Run("GIVEN a synced source WHEN the user deletes a whole game it imported, with a copy added by hand", func(t *testing.T) {
+		svc, _, games, id := setup(t)
+		gameID, _ := copyOf(t, games, "Netflix")
+
+		g, err := games.Get(ctx, gameID)
+		require.NoError(t, err)
+		_, err = g.AddCopy(game.CopyDetails{
+			Kind:     game.KindPhysical,
+			Platform: "PS4",
+		}, time.Now())
+		require.NoError(t, err)
+		require.NoError(t, games.Save(ctx, g))
+
+		require.NoError(t, svc.DeleteGame(ctx, gameID))
+
+		t.Run("THEN the game is gone and the source lists its imported item", func(t *testing.T) {
+			assert.ElementsMatch(t, []string{"Journey"}, titles(t, games))
+
+			v, err := svc.Get(ctx, id)
+			require.NoError(t, err)
+			require.Len(t, v.Exclusions(), 1)
+			assert.Equal(t, "ls:netflix", v.Exclusions()[0].ExternalID)
+			assert.Equal(t, "Netflix", v.Exclusions()[0].Title)
+		})
+
+		t.Run("AND the next sync does not bring it back", func(t *testing.T) {
+			v, err := svc.Sync(ctx, id)
+			require.NoError(t, err)
+			assert.ElementsMatch(t, []string{"Journey"}, titles(t, games))
+			assert.Equal(t, 1, v.LastSync().Excluded)
+		})
+	})
+
 	t.Run("GIVEN a synced source WHEN the user removes an item", func(t *testing.T) {
 		svc, _, games, id := setup(t)
 		gameID, copyID := copyOf(t, games, "Netflix")

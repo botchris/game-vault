@@ -153,3 +153,26 @@ func TestStoredFormats_details(t *testing.T) {
 		})
 	})
 }
+
+func TestStoredFormats_connection(t *testing.T) {
+	t.Run("GIVEN a version-1 connection document with every field", func(t *testing.T) {
+		raw := readFixture(t, "connection.v1.json")
+
+		t.Run("WHEN it is decoded", func(t *testing.T) {
+			c, err := decodeConnection("conn1", raw)
+			require.NoError(t, err)
+
+			t.Run("THEN its times are not swapped and it is paused", func(t *testing.T) {
+				assert.True(t, c.CreatedAt().Before(c.UpdatedAt()))
+				assert.True(t, c.Paused())
+				assert.Equal(t, "es", c.Language())
+			})
+
+			t.Run("AND encoding it again writes the same bytes", func(t *testing.T) {
+				again, err := encodeConnection(c)
+				require.NoError(t, err)
+				assert.Equal(t, raw, again)
+			})
+		})
+	})
+}

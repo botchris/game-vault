@@ -67,6 +67,9 @@ message HomeRelease {
   // The owned game whose series it continues, and its title; empty for an anticipated release.
   string because_game_id = 6;
   string because_title = 7;
+  // A wide picture of the game (artwork, else a screenshot), loaded through the image proxy; the
+  // hero fills its band with it. Empty when there is none.
+  string art_url = 8;
 }
 
 message GetHomeRequest {}

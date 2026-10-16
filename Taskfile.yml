@@ -213,6 +213,12 @@ tasks:
       - '{{.IN_TOOLCHAIN}} go run ./tools/docspacing -fix internal cmd tools'
       - '{{.IN_TOOLCHAIN}} golangci-lint fmt ./...'
 
+  screenshots:
+    desc: Rebuild the README's screenshots (docs/images) from a demo catalog on a throwaway server (port 8094)
+    deps: [build]
+    cmds:
+      - tools/screenshots/run.sh
+
   extension:pack:
     desc: Zip the browser extension (extension/) for the Chrome Web Store / Firefox Add-ons into dist/
     deps: [toolchain]

@@ -36,15 +36,15 @@ export type HealthIssue = Message<"gamevault.v1.HealthIssue"> & {
   level: string;
 
   /**
-   * "provider", "source", "backups" or "disk"; the server sends no other value.
+   * "provider", "source", "backups", "disk" or "connector"; the server sends no other value.
    *
    * @generated from field: string kind = 3;
    */
   kind: string;
 
   /**
-   * What has the problem: the provider's or source's name; empty for the backups and the disk,
-   * which clients name in their language by kind.
+   * What has the problem: the provider's, source's or connection's name; empty for the backups
+   * and the disk, which clients name in their language by kind.
    *
    * @generated from field: string source = 4;
    */
@@ -66,14 +66,15 @@ export type HealthIssue = Message<"gamevault.v1.HealthIssue"> & {
   since?: Timestamp | undefined;
 
   /**
-   * Where it can be fixed: "providers", "sources", "system/backups"; empty when nowhere.
+   * Where it can be fixed: "providers", "sources", "system/backups", "notifications"; empty when
+   * nowhere.
    *
    * @generated from field: string target = 7;
    */
   target: string;
 
   /**
-   * Narrows the target (a source's id).
+   * Narrows the target (a source's or a notification connection's id).
    *
    * @generated from field: string target_id = 8;
    */
@@ -82,7 +83,8 @@ export type HealthIssue = Message<"gamevault.v1.HealthIssue"> & {
   /**
    * A code clients translate: "provider_quota", "provider_rate_limited", "provider_unavailable",
    * "provider_settings", "source_signed_out", "source_sync_failed", "source_keepalive_failed",
-   * "source_list_failed", "backup_failed", "backup_stale", "disk_low", "disk_critical".
+   * "source_list_failed", "backup_failed", "backup_stale", "disk_low", "disk_critical",
+   * "connector_paused".
    *
    * @generated from field: string reason = 9;
    */
@@ -90,7 +92,8 @@ export type HealthIssue = Message<"gamevault.v1.HealthIssue"> & {
 
   /**
    * The reason's values: "until" (RFC 3339) for provider_quota, "days" for backup_stale, "free",
-   * "percent" and "path" for the disk.
+   * "percent" and "path" for the disk, "reason" for
+   * connector_paused.
    *
    * @generated from field: map<string, string> params = 10;
    */

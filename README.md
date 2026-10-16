@@ -1,13 +1,18 @@
 # Game Vault
 
-**Know which games you own, and where.**
+**Know which games you own, and where.** A self-hosted web app for your whole game collection:
+store libraries, keys and discs, on your own server, used from any browser.
+
+![Game Vault's home page: today's deals for games you don't own yet, historical lows, and what needs your attention in your collection](docs/images/home.jpg)
 
 If you have played on PC and consoles for a while, your games are scattered: Steam, Epic, GOG,
 Battle.net, the EA app, Ubisoft Connect, Xbox, PlayStation, a pile of Humble Bundle keys you
 never redeemed, and shelves of discs. Before buying a game, or when a bundle hands you a key,
 it is hard to answer a simple question: *do I already have it?*
 
-Game Vault puts your whole collection in one catalog that runs on your own computer:
+Game Vault puts your whole collection in one catalog. You run it yourself, on a home server, a NAS
+or your own computer (a single Docker container or program), and open it from the browser of any
+device: there is nothing to install on your phone and no account in anyone's cloud. What you get:
 
 - **Every copy of a game, together.** A game lists every copy you own: in a store library, as a
   CD key, on a disc. Browse your library by platform, where each one has its own card and box (a
@@ -24,8 +29,7 @@ Game Vault puts your whole collection in one catalog that runs on your own compu
 - **A home page** that opens with what needs your attention, the deals of the day for games you don't
   own yet (with a free [IsThereAnyDeal](https://isthereanydeal.com) key) and the upcoming releases of
   your series (with IGDB).
-- **Do I already own it?** Paste a bundle's games, or any list of titles, to see which ones you have.
-  With the browser extension, Steam, GOG, Humble Bundle and Fanatical pages show whether a game is in
+- **Do I already own it?** With the browser extension, Steam, GOG, Humble Bundle and Fanatical pages show whether a game is in
   your collection, and bundle pages how many of their games you own. If the extension talks to Game
   Vault from another device, use HTTPS or a private tunnel.
 - **A proper catalog:**
@@ -37,9 +41,36 @@ Game Vault puts your whole collection in one catalog that runs on your own compu
     lists such as "keys you don't need" or "games you own on several platforms".
 - **Your own fields:** add the details you care about (where you bought it, who you lent it to,
   which shelf it is on…) to games or to copies, and filter by them.
+- **Notifications** to Telegram, ntfy or any webhook: new games, upcoming releases, keys about to
+  expire, sign-ins that failed, and problems that need your attention.
 - **A health check** tells you when something needs your attention: an account that signed you
   out, a failed backup, a service that is not answering, a disk running out of space.
-- Works on desktop and phone, in English and Spanish. Your data stays on your machine.
+- A web app for desktop and phone browsers, in English and Spanish. Your data stays on your own
+  server.
+
+## Screenshots
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/library.jpg" alt="The library: every game with its box art and the platforms you have it on"></td>
+    <td width="50%"><img src="docs/images/game.jpg" alt="A game's sheet: summary, platforms, release, developer and rating"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>The library.</b> Every game once, with the platforms you have it on and what needs doing.</sub></td>
+    <td align="center"><sub><b>A game's sheet.</b> Summary, genres, ratings and trailers, found automatically.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/images/copies.jpg" alt="A game's copies: a sealed PAL collector's edition on shelf A, and the Steam copy"></td>
+    <td width="50%"><img src="docs/images/phone.jpg" alt="The library, a game's sheet and its copies on a phone"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>Every copy you own.</b> Store libraries, keys and discs, with edition, condition, region and shelf.</sub></td>
+    <td align="center"><sub><b>In your phone's browser.</b> The same catalog, and the barcode scanner for your discs.</sub></td>
+  </tr>
+</table>
+
+<sub>The home page above is the maintainer's own collection; these screenshots are a demo catalog,
+rebuilt with `task screenshots`.</sub>
 
 ## Supported platforms
 
@@ -48,7 +79,7 @@ Game Vault puts your whole collection in one catalog that runs on your own compu
 | Steam, Epic Games Store, GOG, Battle.net, EA app, Ubisoft Connect, Xbox / Microsoft Store, PlayStation (PS4, PS5), Amazon Games (Prime Gaming), itch.io | Imported from your account and rescanned automatically |
 | Humble Bundle keys (Steam, Epic, GOG, Ubisoft, EA… keys) | Imported from your Humble Bundle account, with their redeem deadlines |
 | Fanatical keys ⚠️ | Imported from your Fanatical account, **at your own risk**: Fanatical's terms do not allow other apps to read your account, and it could suspend it. You have to accept that in its settings before it works |
-| Physical games (Xbox 360, PS3, PS4, Switch…) | Barcode scan from the phone, or typed in |
+| Physical games of consoles, handhelds and classic computers of every generation (NES, Mega Drive, PS1, Xbox 360, Switch…), with their region | Barcode scan from the phone, or typed in |
 | Anything else (other launchers, older keys…) | Added by hand, or imported from a CSV file |
 
 Game Vault only **reads** your accounts: it never buys, redeems, installs or changes anything.
@@ -63,6 +94,9 @@ it, step by step.
 ```bash
 docker run -d --name game-vault -p 8080:8080 -v game-vault-data:/config botchrishub/game-vault
 ```
+
+Or with Docker Compose: download [`compose.yaml`](compose.yaml), set your time zone in it, and run
+`docker compose up -d`.
 
 Then open **http://127.0.0.1:8080**. Your data lives in the `game-vault-data` volume. To update,
 pull the image again (`docker pull botchrishub/game-vault`) and recreate the container. In Docker,
@@ -113,6 +147,9 @@ password. To use it from other devices, create a user in **System → Security**
 make the password required everywhere, or let in your home network without one. To scan barcodes
 from your phone, open Game Vault through HTTPS (the camera requires it), e.g. behind a reverse
 proxy. Forgot the password? Start Game Vault with `-reset-auth`.
+
+The store sign-ins in the database are not encrypted: read [SECURITY.md](SECURITY.md) for what is
+stored, how access works, how to run Game Vault safely and how to report a security problem.
 
 ## License
 

@@ -9,6 +9,8 @@ test('an address names a page and what to open on it', () => {
   assert.deepEqual(parseHash('#/scan'), { page: 'scan', target: '', game: '' });
   assert.deepEqual(parseHash('#/library/pending'), { page: 'library', target: 'pending', game: '' });
   assert.deepEqual(parseHash('#/home'), { page: 'home', target: '', game: '' });
+  assert.deepEqual(parseHash('#/notifications'), { page: 'notifications', target: '', game: '' });
+  assert.deepEqual(parseHash('#/notifications/c%201'), { page: 'notifications', target: 'c 1', game: '' });
 });
 
 test("a game's address is the library with that game's sheet", () => {

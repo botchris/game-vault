@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"gamevault/internal/application/events"
 	"gamevault/internal/application/ownership"
 	"gamevault/internal/application/port"
 	"gamevault/internal/application/providers"
@@ -150,6 +151,7 @@ type Service struct {
 	releases map[provider.ID]ReleasesProvider
 	now      port.Clock
 	log      *slog.Logger
+	events   events.Publisher
 
 	// rhythm draws and waits the job's pauses (see Run).
 	rhythm unattended.Rhythm
@@ -167,7 +169,8 @@ type Service struct {
 }
 
 // NewService builds the service. Without providers (WithDeals, WithReleases) both blocks say they
-// are not configured.
+// are not configured. Options: WithDeals, WithReleases, WithClock, WithLogger, WithRhythm,
+// WithEvents.
 func NewService(configs Configs, games Catalog, owners Ownership, snaps Snapshots, prefs Preferences, opts ...Option) *Service {
 	s := &Service{
 		configs:  configs,
@@ -180,6 +183,7 @@ func NewService(configs Configs, games Catalog, owners Ownership, snaps Snapshot
 		attempts: map[Block]time.Time{},
 		now:      time.Now,
 		log:      slog.New(slog.DiscardHandler),
+		events:   events.Nop{},
 	}
 	for _, o := range opts {
 		o(s)
@@ -465,8 +469,7 @@ func (s *Service) refresh(ctx context.Context, b Block) error {
 		s.configs.ReportResult(v.ID(), err)
 
 		if err == nil {
-			gathered.Block, gathered.FetchedAt = b, s.now()
-			return s.snaps.SaveSnapshot(ctx, gathered)
+			return s.store(ctx, gathered, b, owned)
 		}
 
 		last = err

@@ -1,0 +1,1 @@
+{"v":1,"type":"ntfy","name":"Phone","enabled":true,"events":["collection.added","issue.opened"],"language":"es","settings":{"server":"https://ntfy.example.test","token":"fake-token","topic":"vault"},"pausedWhy":"The server rejected the token.","pausedAt":"2026-10-15T09:30:00.123456789Z","createdAt":"2026-10-14T18:30:00.123456789Z","updatedAt":"2026-10-15T08:30:00.123456789Z"}
