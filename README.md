@@ -52,8 +52,8 @@ Game Vault puts your whole collection in one catalog that runs on your own compu
 
 <p align="center"><img src="docs/images/phone.jpg" alt="The library on a phone" width="300"></p>
 
-<sub>The home page is a real collection with its figures blurred; the other screenshots are a demo
-catalog, rebuilt with `task screenshots`.</sub>
+<sub>The home page is the maintainer's own collection; the other screenshots are a demo catalog,
+rebuilt with `task screenshots`.</sub>
 
 ## Supported platforms
 
