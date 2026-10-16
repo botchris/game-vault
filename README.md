@@ -1,5 +1,8 @@
 # Game Vault
 
+[![Development build (dev branch)](https://img.shields.io/github/actions/workflow/status/botchris/game-vault/ci.yml?branch=dev&label=dev%20build&logo=githubactions&logoColor=white)](https://github.com/botchris/game-vault/actions/workflows/ci.yml?query=branch%3Adev)
+[![Latest Docker image release](https://img.shields.io/github/actions/workflow/status/botchris/game-vault/release.yml?label=docker%20image%20release&logo=docker&logoColor=white)](https://github.com/botchris/game-vault/actions/workflows/release.yml)
+
 **Know which games you own, and where.** A self-hosted web app for your whole game collection:
 store libraries, keys and discs, on your own server, used from any browser.
 
