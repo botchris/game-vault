@@ -7,6 +7,8 @@ Battle.net, the EA app, Ubisoft Connect, Xbox, PlayStation, a pile of Humble Bun
 never redeemed, and shelves of discs. Before buying a game, or when a bundle hands you a key,
 it is hard to answer a simple question: *do I already have it?*
 
+![The library: every game you own, with its box art and the platforms you have it on](docs/images/library.jpg)
+
 Game Vault puts your whole collection in one catalog that runs on your own computer:
 
 - **Every copy of a game, together.** A game lists every copy you own: in a store library, as a
@@ -42,6 +44,14 @@ Game Vault puts your whole collection in one catalog that runs on your own compu
   out, a failed backup, a service that is not answering, a disk running out of space.
 - Works on desktop and phone, in English and Spanish. Your data stays on your machine.
 
+| A game's sheet | Every copy you own of it |
+|---|---|
+| ![A game's sheet: summary, platforms, release, developer and rating](docs/images/game.jpg) | ![A game's copies: a sealed PAL collector's edition on shelf A, and the Steam copy](docs/images/copies.jpg) |
+
+<p align="center"><img src="docs/images/phone.jpg" alt="The library on a phone" width="300"></p>
+
+<sub>Screenshots of a demo catalog, rebuilt with `task screenshots`.</sub>
+
 ## Supported platforms
 
 | | How it gets in |
@@ -64,6 +74,9 @@ it, step by step.
 ```bash
 docker run -d --name game-vault -p 8080:8080 -v game-vault-data:/config botchrishub/game-vault
 ```
+
+Or with Docker Compose: download [`compose.yaml`](compose.yaml), set your time zone in it, and run
+`docker compose up -d`.
 
 Then open **http://127.0.0.1:8080**. Your data lives in the `game-vault-data` volume. To update,
 pull the image again (`docker pull botchrishub/game-vault`) and recreate the container. In Docker,
@@ -114,6 +127,9 @@ password. To use it from other devices, create a user in **System → Security**
 make the password required everywhere, or let in your home network without one. To scan barcodes
 from your phone, open Game Vault through HTTPS (the camera requires it), e.g. behind a reverse
 proxy. Forgot the password? Start Game Vault with `-reset-auth`.
+
+The store sign-ins in the database are not encrypted: read [SECURITY.md](SECURITY.md) for what is
+stored, how access works, how to run Game Vault safely and how to report a security problem.
 
 ## License
 

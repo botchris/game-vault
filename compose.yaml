@@ -1,0 +1,17 @@
+# Game Vault with Docker Compose: `docker compose up -d`, then open http://127.0.0.1:8080.
+# Your data (database, box art, photos, backups) lives in the game-vault-data volume.
+services:
+  game-vault:
+    image: botchrishub/game-vault:latest
+    container_name: game-vault
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - game-vault-data:/config
+    environment:
+      # Your time zone, for the daily jobs (keys about to expire, releases out today).
+      TZ: Etc/UTC
+
+volumes:
+  game-vault-data:
