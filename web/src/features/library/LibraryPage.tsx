@@ -21,7 +21,6 @@ import FilterPanel from './FilterPanel';
 import GameDetail from './GameDetail';
 import type { SheetNav } from './sheet';
 import NewGameDialog from './NewGameDialog';
-import OwnershipDialog from './OwnershipDialog';
 import { Stars } from './PlayControls';
 import PosterGrid, { ItemBadges, moreStoresId } from './PosterGrid';
 import { useAction } from '../../lib/useAction';
@@ -77,9 +76,8 @@ export default function LibraryPage({ target }: { target: string }) {
   const [shown, setShown] = useState(CHUNK);
   // The open sheet, which a "#/game/<id>" address opens too.
   const exists = useCallback((id: string) => games.some((g) => g.id === id), [games]);
-  const { open, setOpen, close: closeSheet, openFromLink: openAddress } = useGameAddress(loading ? null : exists);
+  const { open, setOpen, close: closeSheet } = useGameAddress(loading ? null : exists);
   const [creating, setCreating] = useState(false);
-  const [checking, setChecking] = useState(false);
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
   const redeem = useAction({ onError: (text) => setNotice({ tone: 'error', text }) });
   const sentinel = useRef<HTMLDivElement>(null);
@@ -186,9 +184,6 @@ export default function LibraryPage({ target }: { target: string }) {
           })
           : t('library.showing', { shown: filtered.length.toLocaleString(i18n.language), total: games.length.toLocaleString(i18n.language) })}
         actions={<>
-          <button onClick={() => setChecking(true)} title={t('library.checkOwnership')} aria-label={t('library.checkOwnership')}>
-            <Icon name="check" size={18} /><span className="hide-narrow">{t('library.checkOwnership')}</span>
-          </button>
           <button className="primary" onClick={() => setCreating(true)}><Icon name="plus" size={18} /><span className="hide-narrow">{t('library.addGame')}</span></button>
         </>} />
 
@@ -275,7 +270,6 @@ export default function LibraryPage({ target }: { target: string }) {
       {open && <GameDetail gameId={open.id} system={open.system} onClose={closeSheet} onOpenGame={(id) => setOpen({ id, system: '' })} nav={nav}
         onEdition={(system) => setOpen((o) => (o ? { ...o, system } : o))}
         onPlatform={(p) => { closeSheet(); setFilters((f) => ({ ...f, platforms: [p] })); }} />}
-      {checking && <OwnershipDialog onClose={() => setChecking(false)} onOpenGame={(id) => { setChecking(false); openAddress(id); }} />}
       {creating && <NewGameDialog onClose={() => setCreating(false)} onCreated={(id) => { setCreating(false); setOpen({ id, system: '' }); }} />}
     </div>
   );

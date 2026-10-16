@@ -29,12 +29,11 @@ because Simple Icons removed them).
   open (`lib/editDrafts.ts`), and leaving with one asks first; the image viewer catches the arrows first; the sheet is not remounted per
   game, only its body is keyed; its parts are `SheetHero`, `CopiesTab` with `CopyCard`, `EditTab`, and
   `SheetDialogs` with `EditCopyDialog`, sharing the types in `sheet.ts`), `GameSheet` (details from metadata providers),
-  `CopyPhotos` (a copy's thumbnail strip, uploads with progress, the viewer with its photo footer),
-  `OwnershipDialog` ("Do I own it?": paste box, rows, full screen on phones); `LibraryPage` opens the
+  `CopyPhotos` (a copy's thumbnail strip, uploads with progress, the viewer with its photo footer);
+  `LibraryPage` opens the
   sheet a `#/game/<id>` address names (`useGameAddress`).
 - `features/system/AccessTokens`: create (shown once), list, revoke.
-- `lib/ownership.ts`: paste cleaning, request chunks, rows (pure, Node-tested); `lib/gameRoute.ts`:
-  `#/game/<id>`. `components/ui.tsx`: `Modal` has `phoneFull`; a press on its backdrop closes only that dialog and never
+- `lib/gameRoute.ts`: `#/game/<id>`. `components/ui.tsx`: `Modal` has `phoneFull`; a press on its backdrop closes only that dialog and never
   reaches an overlay it was opened over, such as the game sheet (`lib/backdrop.ts`).
 - `components/Cover.tsx`: edition cover with the borrowed-box fallback. `whole` (posters, the sheet's
   hero, the cover picker) shows the box uncropped through `WholeCover`: the same 2:3 cell everywhere,
