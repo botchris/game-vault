@@ -9,10 +9,10 @@ export interface OpenGame {
 }
 
 /**
- * The library's open sheet and its address. "#/game/<id>" (links from the bundle checker and the
- * browser extension) opens that game's sheet, now and whenever the address changes; going back
- * closes it. Moving to another game in a sheet opened that way moves the address with it. `exists`
- * says whether a game is in the catalog (null while it loads): an address naming one that is not
+ * The library's open sheet and its address. "#/game/<id>" (links from the browser extension and the
+ * home page) opens that game's sheet, now and whenever the address changes; going back closes it.
+ * Moving to another game in a sheet opened that way moves the address with it. `exists` says
+ * whether a game is in the catalog (null while it loads): an address naming one that is not
  * (deleted, mistyped) opens nothing and is cleared. The history rules are in gameAddress.ts.
  */
 export function useGameAddress(exists: ((id: string) => boolean) | null) {
@@ -41,12 +41,5 @@ export function useGameAddress(exists: ((id: string) => boolean) | null) {
     if (exists && open && address.missing(open.id, exists)) close();
   }, [address, exists, open, close]);
 
-  /** Opens a game from a link inside the app (the checker): the address names it, and opens it
-   *  even when the address is already that one. */
-  const openFromLink = useCallback((id: string) => {
-    address.openFromLink(id);
-    setOpen({ id, system: '' });
-  }, [address]);
-
-  return { open, setOpen, close, openFromLink };
+  return { open, setOpen, close };
 }

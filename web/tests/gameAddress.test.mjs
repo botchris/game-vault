@@ -30,28 +30,6 @@ test('a sheet opened from its address keeps the address on the game shown, and c
   assert.equal(win.history.length, entries, 'replaced, never pushed: Back leaves the app as it came');
 });
 
-test('a game opened from a link inside the app adds a history entry, and closing goes back to the entry before it', async () => {
-  const { win, address } = setup('#/library');
-  const entries = win.history.length;
-  address.openFromLink('a');
-  assert.equal(win.location.hash, '#/game/a');
-  assert.equal(win.history.length, entries + 1, 'pushed: Back closes the sheet');
-  address.close();
-  await settle();
-  assert.equal(win.location.hash, '#/library', 'went back instead of adding a second #/library');
-  assert.equal(address.follow(''), 'keep', 'the sheet is already closed');
-});
-
-test('a link to the game the address already names adds no entry, so closing replaces the address', () => {
-  const { win, address } = setup('#/game/a');
-  const entries = win.history.length;
-  address.openFromLink('a');
-  assert.equal(win.history.length, entries);
-  address.close();
-  assert.equal(win.location.hash, '#/library');
-  assert.equal(win.history.length, entries);
-});
-
 test('going back from an address-opened sheet closes it; a sheet opened from the grid leaves the address alone', () => {
   const { win, address } = setup('#/library');
   assert.equal(address.follow('a'), 'open');

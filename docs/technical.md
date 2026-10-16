@@ -393,7 +393,8 @@ Game Vault tab that asked. It never signs in for the user and never works around
 
 ## Do I own it?
 
-One lookup answers "do I already have it?" for store pages, bundles and pasted lists.
+One lookup answers "do I already have it?" for the store and bundle pages the browser extension
+labels. The web UI has no paste box for it: the library's search answers the same question.
 
 - **Lookup.** `OwnershipService/CheckOwnership` (`internal/application/ownership`) takes up to 200
   items, each `{store, id}` (a link key such as `steam` or `gog` and the game's id there), a
@@ -406,13 +407,6 @@ One lookup answers "do I already have it?" for store pages, bundles and pasted l
   not owned. An owned game comes with its copies (platform, system, kind, pending key) and
   `#/game/<id>`, the address that opens its sheet in the web UI. The lookup only reads (no
   provider or network calls, nothing saved); a request is at most 256 KiB.
-- **Bundle checker.** Library → **Do I own it?** cleans a pasted list (`web/src/lib/ownership.ts`:
-  one title per line; bullets, numbering, prices, discounts and currency signs removed; lines
-  marked as DLC or soundtrack skipped and counted; blank, overlong and duplicate lines dropped),
-  checks it 200 titles at a time and lists every title as owned (badges, pending key, a link to
-  the sheet), possible (its candidates) or not owned, with "You own N of M" and **Copy the ones I
-  don't own** (possible ones are not copied). Nothing is saved; on phones the dialog is full
-  screen, the list above the results.
 - **Store labels (browser extension).** With **Show what I own on store pages** on, the extension
   asks the browser for `store.steampowered.com`, `www.gog.com`, every `humblebundle.com` site
   (`*.humblebundle.com`, so language sites such as `es.humblebundle.com` work) and
