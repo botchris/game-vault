@@ -1,6 +1,7 @@
 # Game Vault
 
-**Know which games you own, and where.**
+**Know which games you own, and where.** A self-hosted web app for your whole game collection:
+store libraries, keys and discs, on your own server, used from any browser.
 
 ![Game Vault's home page: today's deals for games you don't own yet, historical lows, and what needs your attention in your collection](docs/images/home.jpg)
 
@@ -9,7 +10,9 @@ Battle.net, the EA app, Ubisoft Connect, Xbox, PlayStation, a pile of Humble Bun
 never redeemed, and shelves of discs. Before buying a game, or when a bundle hands you a key,
 it is hard to answer a simple question: *do I already have it?*
 
-Game Vault puts your whole collection in one catalog that runs on your own computer:
+Game Vault puts your whole collection in one catalog. You run it yourself, on a home server, a NAS
+or your own computer (a single Docker container or program), and open it from the browser of any
+device: there is nothing to install on your phone and no account in anyone's cloud. What you get:
 
 - **Every copy of a game, together.** A game lists every copy you own: in a store library, as a
   CD key, on a disc. Browse your library by platform, where each one has its own card and box (a
@@ -42,7 +45,8 @@ Game Vault puts your whole collection in one catalog that runs on your own compu
   expire, sign-ins that failed, and problems that need your attention.
 - **A health check** tells you when something needs your attention: an account that signed you
   out, a failed backup, a service that is not answering, a disk running out of space.
-- Works on desktop and phone, in English and Spanish. Your data stays on your machine.
+- A web app for desktop and phone browsers, in English and Spanish. Your data stays on your own
+  server.
 
 ## Screenshots
 
@@ -61,7 +65,7 @@ Game Vault puts your whole collection in one catalog that runs on your own compu
   </tr>
   <tr>
     <td align="center"><sub><b>Every copy you own.</b> Store libraries, keys and discs, with edition, condition, region and shelf.</sub></td>
-    <td align="center"><sub><b>On your phone.</b> The same catalog, and the barcode scanner for your discs.</sub></td>
+    <td align="center"><sub><b>In your phone's browser.</b> The same catalog, and the barcode scanner for your discs.</sub></td>
   </tr>
 </table>
 
