@@ -31,6 +31,7 @@ dependencies: the host only needs Docker and Task.
 | Regenerate API code after editing `proto/` | `task generate` |
 | Test server on a copy of the config (port 8093) | `task test-server` (`-- --full` copies images), `task test-server:stop` |
 | Translations check only | `task i18n` |
+| README screenshots from a demo catalog (port 8094) | `task screenshots` |
 | One-off command in the toolchain (one package, a tool…) | `task shell`, or `docker run` with the volumes from `Taskfile.yml` (`DOCKER_RUN`) |
 | Release binaries (linux, darwin, windows) | `task build:release` |
 | Tag a release (SemVer, from a clean main) | `task release -- X.Y.Z` — creates a local tag only (see "Branches and releases") |

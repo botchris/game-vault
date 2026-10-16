@@ -16,6 +16,9 @@ comments, `docs/`, specs and plans, code comments, test data, and these memory f
   soundtracks", "a catalog scanned before the fix holds old-format ids". Test fixtures use
   invented or well-known public data, not exports of the maintainer's catalog.
 - Results from the maintainer's own data stay in the chat, never in the repository or on GitHub.
+- One deliberate exception (maintainer's decision, 2026-10-16): the README's home page screenshot
+  (`docs/images/home.jpg`) is the maintainer's real server, shown as it is, without blurring. Do
+  not blur or replace it on your own; other screenshots stay on the demo catalog (`task screenshots`).
 - Describe the license as source-available (PolyForm Noncommercial), see [[license]].
 
 **Why:** the maintainer pointed out that PR #13 said "the user's PlayStation library has about 20
