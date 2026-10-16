@@ -2,12 +2,12 @@
 
 **Know which games you own, and where.**
 
+![Game Vault's home page: today's deals for games you don't own yet, historical lows, and what needs your attention in your collection](docs/images/home.jpg)
+
 If you have played on PC and consoles for a while, your games are scattered: Steam, Epic, GOG,
 Battle.net, the EA app, Ubisoft Connect, Xbox, PlayStation, a pile of Humble Bundle keys you
 never redeemed, and shelves of discs. Before buying a game, or when a bundle hands you a key,
 it is hard to answer a simple question: *do I already have it?*
-
-![The library: every game you own, with its box art and the platforms you have it on](docs/images/library.jpg)
 
 Game Vault puts your whole collection in one catalog that runs on your own computer:
 
@@ -44,15 +44,28 @@ Game Vault puts your whole collection in one catalog that runs on your own compu
   out, a failed backup, a service that is not answering, a disk running out of space.
 - Works on desktop and phone, in English and Spanish. Your data stays on your machine.
 
-| A game's sheet | Every copy you own of it |
-|---|---|
-| ![A game's sheet: summary, platforms, release, developer and rating](docs/images/game.jpg) | ![A game's copies: a sealed PAL collector's edition on shelf A, and the Steam copy](docs/images/copies.jpg) |
+## Screenshots
 
-![The home page: today's deals for games you don't own, historical lows, and what needs your attention](docs/images/home.jpg)
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/library.jpg" alt="The library: every game with its box art and the platforms you have it on"></td>
+    <td width="50%"><img src="docs/images/game.jpg" alt="A game's sheet: summary, platforms, release, developer and rating"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>The library.</b> Every game once, with the platforms you have it on and what needs doing.</sub></td>
+    <td align="center"><sub><b>A game's sheet.</b> Summary, genres, ratings and trailers, found automatically.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/images/copies.jpg" alt="A game's copies: a sealed PAL collector's edition on shelf A, and the Steam copy"></td>
+    <td width="50%"><img src="docs/images/phone.jpg" alt="The library, a game's sheet and its copies on a phone"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>Every copy you own.</b> Store libraries, keys and discs, with edition, condition, region and shelf.</sub></td>
+    <td align="center"><sub><b>On your phone.</b> The same catalog, and the barcode scanner for your discs.</sub></td>
+  </tr>
+</table>
 
-<p align="center"><img src="docs/images/phone.jpg" alt="The library on a phone" width="300"></p>
-
-<sub>The home page is the maintainer's own collection; the other screenshots are a demo catalog,
+<sub>The home page above is the maintainer's own collection; these screenshots are a demo catalog,
 rebuilt with `task screenshots`.</sub>
 
 ## Supported platforms

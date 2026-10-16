@@ -68,7 +68,31 @@ const id = await desk.evaluate(async () => {
 await shot(desk, `#/game/${id}`, 'game.jpg', 4000);
 await shot(desk, `#/game/${id}`, 'copies.jpg', 1500, (p) => p.getByRole('tab', { name: /copies/ }).click());
 
+// Three phone screens side by side, in the same landscape frame as the others, so the README's grid
+// stays even: the library, a game's sheet and its copies.
 const phone = await open(390, 844, true);
-await shot(phone, '#/library', 'phone.jpg');
+const screens = [];
+for (const [hash, before] of [
+  ['#/library'],
+  [`#/game/${id}`],
+  [`#/game/${id}`, async (p) => {
+    await p.getByRole('tab', { name: /copies/ }).click();
+    await p.evaluate(() => document.querySelector('[role=tablist]')?.scrollIntoView({ block: 'start' }));
+  }],
+]) {
+  await phone.goto(`${base}/${hash}`);
+  await settle(phone, 2500);
+  if (before) {
+    await before(phone);
+    await settle(phone, 1500);
+  }
+  screens.push((await phone.screenshot({ type: 'png' })).toString('base64'));
+}
+const frame = await (await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 })).newPage();
+await frame.setContent(`<body style="margin:0;height:100vh;display:flex;gap:48px;align-items:center;justify-content:center;background:#e3e7ef">
+  ${screens.map((b) => `<img src="data:image/png;base64,${b}" style="height:800px;border-radius:28px;box-shadow:0 18px 50px rgb(24 28 44 / .22)">`).join('')}
+</body>`);
+await frame.screenshot({ path: `${out}/phone.jpg`, type: 'jpeg', quality: 82 });
+console.log('wrote phone.jpg');
 
 await browser.close();
