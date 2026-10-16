@@ -48,9 +48,12 @@ Game Vault puts your whole collection in one catalog that runs on your own compu
 |---|---|
 | ![A game's sheet: summary, platforms, release, developer and rating](docs/images/game.jpg) | ![A game's copies: a sealed PAL collector's edition on shelf A, and the Steam copy](docs/images/copies.jpg) |
 
+![The home page: today's deals for games you don't own, historical lows, and what needs your attention](docs/images/home.jpg)
+
 <p align="center"><img src="docs/images/phone.jpg" alt="The library on a phone" width="300"></p>
 
-<sub>Screenshots of a demo catalog, rebuilt with `task screenshots`.</sub>
+<sub>The home page is a real collection with its figures blurred; the other screenshots are a demo
+catalog, rebuilt with `task screenshots`.</sub>
 
 ## Supported platforms
 
