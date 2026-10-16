@@ -1,5 +1,8 @@
 # Game Vault
 
+[![CI](https://github.com/botchris/game-vault/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/botchris/game-vault/actions/workflows/ci.yml)
+[![Release](https://github.com/botchris/game-vault/actions/workflows/release.yml/badge.svg)](https://github.com/botchris/game-vault/actions/workflows/release.yml)
+
 **Know which games you own, and where.** A self-hosted web app for your whole game collection:
 store libraries, keys and discs, on your own server, used from any browser.
 
