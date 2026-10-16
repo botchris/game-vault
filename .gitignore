@@ -40,3 +40,4 @@
 # Agent work files (plan ledgers, review packages)
 /.superpowers/
 dist/
+/.taste-skill/
