@@ -164,6 +164,9 @@ func newClient(baseURL string) *apiclient.Client {
 	c := apiclient.New(baseURL)
 	c.HTTP.Timeout = 30 * time.Second
 	c.UserAgent = apiclient.BrowserUserAgent
+	// Sony names titles in the language asked for, else in the account's ("La LEGO® NINJAGO®
+	// Película"); covers and sheets are found by English names. PSNAWP asks for English the same way.
+	c.Header = http.Header{"Accept-Language": {"en-US"}}
 
 	return c
 }

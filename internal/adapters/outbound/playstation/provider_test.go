@@ -69,6 +69,19 @@ type fakeSony struct {
 
 	// libraryRequests counts the library requests with the registered query.
 	libraryRequests int
+
+	// languages records the Accept-Language of the last request to each endpoint ("graphql",
+	// "gamelist").
+	languages map[string]string
+}
+
+// sawLanguage records the language a request asked for.
+func (f *fakeSony) sawLanguage(endpoint string, r *http.Request) {
+	if f.languages == nil {
+		f.languages = map[string]string{}
+	}
+
+	f.languages[endpoint] = r.Header.Get("Accept-Language")
 }
 
 func (f *fakeSony) handler() http.Handler {
@@ -141,6 +154,7 @@ func (f *fakeSony) handler() http.Handler {
 		}
 
 		f.libraryRequests++
+		f.sawLanguage("graphql", r)
 
 		if f.libraryStatus != 0 {
 			w.WriteHeader(f.libraryStatus)
@@ -260,6 +274,20 @@ func TestFetch(t *testing.T) {
 
 // TestTest_readsOnePage checks that "Test connection" reads one page of purchases, not the whole
 // library.
+// TestFetch_asksForEnglishNames checks that both Sony services are asked for English names:
+// titles in the account's language ("La LEGO® NINJAGO® Película") match no cover or sheet.
+func TestFetch_asksForEnglishNames(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	p, f := newTest(t)
+
+	_, _, err := p.Fetch(ctx, schema.Settings{settingNPSSO: `{"npsso":"good-npsso"}`})
+	require.NoError(t, err)
+
+	assert.Equal(t, map[string]string{"graphql": "en-US", "gamelist": "en-US"}, f.languages)
+}
+
 func TestTest_readsOnePage(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()

@@ -240,6 +240,7 @@ var nonGameMarkers = strings.Join([]string{
 	`trial`, `trial version`, `free trial`,
 	`beta`, `open beta`, `closed beta`,
 	`soundtrack`, `original soundtrack`, `ost`,
+	`tech test`, `technical test`,
 	`theme`, `dynamic theme`,
 	`avatars?`,
 	`art ?book`, `digital art ?book`,
@@ -270,12 +271,15 @@ var leadingNonGameMarkers = strings.Join([]string{
 	`(?:dynamic )?theme(?:[:]| -)`,
 	`avatars?(?:[:]| -)`,
 	`(?:digital )?art ?book(?: of\s|:| -)`,
+	`the art of\s`, // "The Art of Horizon Zero Dawn"; "Art of Fighting" has no "The"
+
 	`demo(?:[:]| -)`,
 	`trial(?:[:]| -)`,
 }, "|")
 
-// trademarkSymbols are dropped from a name before it is matched: "Demo™" is still a demo.
-var trademarkSymbols = strings.NewReplacer("™", "", "®", "", "℠", "")
+// trademarkSymbols are dropped from a name before it is matched: "Demo™" is still a demo. So are
+// quotes, which some names close with: `RESIDENT EVIL 3 "Raccoon City Demo"`.
+var trademarkSymbols = strings.NewReplacer("™", "", "®", "", "℠", "", `"`, "", "“", "", "”", "")
 
 var (
 	// reLeadingMarker matches a marker phrase and its joiner at the start of the name.
@@ -287,12 +291,13 @@ var (
 
 	// reAnywhereMarker matches the phrases that mark a video wherever they are.
 	// Spanish accounts list them as "… Detrás de cámaras" and "Cómo se hizo …".
-	reAnywhereMarker = regexp.MustCompile(`(?i)\b(?:behind the scenes|making of|detrás de (?:las )?cámaras|cómo se hizo)\b`)
+	// A teaser is one wherever it is named ("Resident Evil 7 Teaser: Beginning Hour").
+	reAnywhereMarker = regexp.MustCompile(`(?i)\b(?:behind the scenes|making of|detrás de (?:las )?cámaras|cómo se hizo|teaser)\b`)
 )
 
 // nonGameName reports whether a title's name clearly marks it as something other than a game, by
-// a marker at its end or at its start followed by a joiner: a demo, trial, beta, soundtrack,
-// theme, avatar, art book or making-of video. A marker word that is part of a real title ("Theme Park Rush", "Trial of the Lantern") does not count.
+// a marker at its end or at its start followed by a joiner: a demo, trial, beta, tech test,
+// teaser, soundtrack, theme, avatar, art book or making-of video. A marker word that is part of a real title ("Theme Park Rush", "Trial of the Lantern") does not count.
 func nonGameName(name string) bool {
 	name = strings.TrimSpace(trademarkSymbols.Replace(name))
 
