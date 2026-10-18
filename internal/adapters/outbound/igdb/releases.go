@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -34,7 +35,8 @@ const (
 
 // releaseFields are the game fields a release card needs. Platforms stay ids: they are mapped to
 // Game Vault's systems, unknown ones left out.
-const releaseFields = "name,first_release_date,url,cover.image_id,artworks.image_id,screenshots.image_id,platforms,franchise,franchises,collections"
+const releaseFields = "name,first_release_date,url,cover.image_id,artworks.image_id,screenshots.image_id," +
+	"external_games.uid,external_games.external_game_source,platforms,franchise,franchises,collections"
 
 // mainGames keeps editions and add-ons out: a deluxe edition or a DLC is not a new game.
 const mainGames = "version_parent = null & parent_game = null"
@@ -74,8 +76,18 @@ func (r *Releases) Test(ctx context.Context, s schema.Settings) error {
 	return r.c.testWith(ctx, s, "games", r.anticipatedQuery(testWindow), &out)
 }
 
+// steamArtURL is the header of a game's Steam page on Steam's public CDN: the wide art of a release
+// IGDB has no artwork or screenshot for, which is common before launch, when the store page already
+// exists for wishlists.
+const steamArtURL = "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/%s/header.jpg"
+
+// reSteamApp matches a Steam AppID, the only form put into steamArtURL.
+var reSteamApp = regexp.MustCompile(`^[0-9]{1,10}$`)
+
 // ImageHosts implements media.ImageHoster.
-func (r *Releases) ImageHosts() []string { return []string{"images.igdb.com"} }
+func (r *Releases) ImageHosts() []string {
+	return []string{"images.igdb.com", "shared.akamai.steamstatic.com"}
+}
 
 // releaseJSON is a game as the release queries return it.
 type releaseJSON struct {
@@ -86,12 +98,13 @@ type releaseJSON struct {
 	Cover            struct {
 		ImageID string `json:"image_id"`
 	} `json:"cover"`
-	Artworks    []imageJSON `json:"artworks"`
-	Screenshots []imageJSON `json:"screenshots"`
-	Platforms   []int       `json:"platforms"`
-	Franchise   int64       `json:"franchise"`
-	Franchises  []int64     `json:"franchises"`
-	Collections []int64     `json:"collections"`
+	Artworks      []imageJSON    `json:"artworks"`
+	Screenshots   []imageJSON    `json:"screenshots"`
+	ExternalGames []externalJSON `json:"external_games"`
+	Platforms     []int          `json:"platforms"`
+	Franchise     int64          `json:"franchise"`
+	Franchises    []int64        `json:"franchises"`
+	Collections   []int64        `json:"collections"`
 }
 
 // Anticipated implements home.ReleasesProvider with one query: main games whose first release falls
@@ -344,6 +357,15 @@ var systemByPlatform = func() map[int]string {
 	return out
 }()
 
+// externalJSON is a store page of a game as the release queries return it.
+type externalJSON struct {
+	// Source is the store (steamSource for Steam).
+	Source int `json:"external_game_source"`
+
+	// UID is the game's id in that store (a Steam AppID).
+	UID string `json:"uid"`
+}
+
 // imageJSON is an artwork or a screenshot as the release queries return it.
 type imageJSON struct {
 	ImageID string `json:"image_id"`
@@ -370,6 +392,15 @@ func (g releaseJSON) release() game.Release {
 		if len(images) > 0 && images[0].ImageID != "" {
 			out.ArtURL = imageURL("1080p", images[0].ImageID)
 			break
+		}
+	}
+
+	if out.ArtURL == "" {
+		for _, e := range g.ExternalGames {
+			if e.Source == steamSource && reSteamApp.MatchString(e.UID) {
+				out.ArtURL = fmt.Sprintf(steamArtURL, e.UID)
+				break
+			}
 		}
 	}
 

@@ -98,6 +98,46 @@ func TestReleases_anticipated(t *testing.T) {
 	})
 }
 
+// TestReleases_steamArtWhenIGDBHasNone checks the wide art of a release IGDB has no artwork or
+// screenshot for (common before launch): the header of its Steam page, found through IGDB's link.
+func TestReleases_steamArtWhenIGDBHasNone(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	t.Run("GIVEN an anticipated game with only a cover on IGDB, and pages on GOG and Steam", func(t *testing.T) {
+		f := newFakeIGDB(t)
+		f.anticipated = `[{"id": 3002, "name": "Night Ferry", "first_release_date": 1795000000,
+			"cover": {"image_id": "co-nf"},
+			"external_games": [{"external_game_source": 5, "uid": "1207658924"}, {"external_game_source": 1, "uid": "2468100"}]},
+			{"id": 3003, "name": "Copper Coast", "first_release_date": 1795000000, "cover": {"image_id": "co-cc"},
+			"external_games": [{"external_game_source": 5, "uid": "1207658925"}]}]`
+		r := NewReleases(f.client(func() time.Time { return releaseNow }))
+
+		t.Run("WHEN the anticipated releases are asked for", func(t *testing.T) {
+			got, err := r.Anticipated(ctx, goodSettings, 60*24*time.Hour)
+			require.NoError(t, err)
+			require.Len(t, got, 2)
+
+			t.Run("THEN the query asks for the game's store pages", func(t *testing.T) {
+				assert.Contains(t, f.sent("games")[0], "external_games.uid")
+				assert.Contains(t, f.sent("games")[0], "external_games.external_game_source")
+			})
+
+			t.Run("AND the game with a Steam page gets its header as wide art", func(t *testing.T) {
+				assert.Equal(t, "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2468100/header.jpg", got[0].ArtURL)
+
+				u, err := url.Parse(got[0].ArtURL)
+				require.NoError(t, err)
+				assert.Contains(t, r.ImageHosts(), u.Hostname(), "the page loads it through the image proxy")
+			})
+
+			t.Run("AND the game without one keeps no wide art", func(t *testing.T) {
+				assert.Empty(t, got[1].ArtURL)
+			})
+		})
+	})
+}
+
 func TestReleases_sequels(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()

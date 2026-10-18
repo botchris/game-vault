@@ -515,10 +515,16 @@ that runs edge to edge. Top to bottom:
   when no deals provider is enabled). On desktops a wide picture fills the right
   of the band edge to edge and fades into the text through a mask: a deal's banner (ITAD's art is at
   most 600 pixels wide, so it is stretched), a release's artwork or screenshot from IGDB
-  (`artworks`/`screenshots` in the releases queries, `t_1080p`), and for a game of the collection the
-  first screenshot of its sheet when the sheet was gathered before (`GetGameDetails` with
-  `cached_only`, which never asks a provider, so opening Home sends no metadata requests). Without a
-  wide picture, the slide shows the poster beside the text over a blurred copy of itself. On phones the art sits above the text (a poster small).
+  (`artworks`/`screenshots` in the releases queries, `t_1080p`), else the header of its Steam page
+  (the AppID from the same query's `external_games`; upcoming games often have a store page before
+  IGDB has art), and for a game of the collection the first screenshot of its sheet when the sheet
+  was gathered before (`GetGameDetails` with `cached_only`, which never asks a provider, so opening
+  Home sends no metadata requests), else the header of its Steam page when it is linked to Steam
+  (`steamArt`). Steam headers come from Steam's public CDN through the image proxy. Without a wide
+  picture, the slide shows the poster beside the text over a blurred copy of itself. On phones the
+  art spans the top of the band at its own shape and fades into the text, which keeps to the bottom
+  at the same place on every slide; a poster shows the same way, its top band visible (where a box
+  has its title), so no slide looks different.
   A strip in the bottom-right corner shows every slide as a thumbnail with its kind and title (on
   phones, as bars); the current one's bar fills in seven seconds and then the next slide shows.
   Hovering or focusing the hero holds it, reduced motion never moves on by itself, and the strip
