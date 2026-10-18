@@ -1026,23 +1026,35 @@ a.home-because { color: var(--link); }
 
 @media (max-width: 860px) {
   .home { --home-gutter: 16px; gap: 24px; margin: -16px -16px 0; }
-  .home-hero { min-height: 0; }
+  .home-hero { min-height: 0; --hero-art-h: min(100vw * 215 / 460, 240px); grid-template-columns: minmax(0, 1fr); }
   .home-hero:empty { min-height: 320px; }
-  .home-hero-body { flex-direction: column-reverse; align-items: stretch; gap: 20px; padding: 16px var(--home-gutter) 40px; }
-  .home-hero-art { width: 100%; box-shadow: var(--shadow-md); }
-  /* A poster goes above the text, small: beside it, it would squeeze the title into a column of
-     syllables. */
-  /* Art and text keep together at the bottom of the band, so the text sits at the same height on
-     every slide however tall the tallest one makes the band. */
-  .home-hero-body { align-items: flex-start; justify-content: flex-start; }
-  .home-hero-art { align-self: stretch; }
-  .home-hero-poster { width: 104px; box-shadow: var(--shadow-md); }
-  .home-hero-body:has(.home-hero-poster) { padding-top: 24px; }
-  .home-hero-title { font-size: 30px; }
-  .home-hero-price b { font-size: 24px; }
-  /* Phones keep the art above the text and the strip as bars, without pictures or names. */
-  .home-hero-wide { display: none; }
-  .home-hero-slide.is-wide .home-hero-art { display: block; }
+  /* On phones the art is the band's background, edge to edge, and the text sits on its lower part:
+     a picture above the text made the band take more than half the screen, and moved up and down
+     with the height of each slide's text. Every slide is as tall as the band, with its text at the
+     bottom, so nothing shifts between slides. The columns are bounded so a long button cannot
+     widen the band past the screen. */
+  .home-hero-body { align-items: flex-end; gap: 16px; padding: calc(var(--hero-art-h) - 76px) var(--home-gutter) 36px; }
+  .home-hero-slide { grid-template-columns: minmax(0, 1fr); }
+  .home-hero-art { display: none; }
+  /* A poster sits in the top corner, where the wide art shows on the other slides (beside the text it
+     would squeeze the title and the buttons), always at the same place. */
+  .home-hero-body:has(.home-hero-poster) { padding-top: calc(24px + 96px + 16px); }
+  .home-hero-poster { position: absolute; top: 24px; left: var(--home-gutter); width: 64px; box-shadow: var(--shadow-md); }
+  /* One row of buttons: a long "Because you have …" is cut short instead of adding a row. */
+  .home-hero-text { flex: 1 1 0; min-width: 0; max-width: none; grid-template-columns: minmax(0, 1fr); }
+  .home-hero-actions { flex-wrap: nowrap; justify-self: stretch; }
+  .home-hero-actions .button { display: block; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .home-hero-actions .button.primary { flex: none; }
+  .home-hero-title { font-size: 28px; }
+  .home-hero-price b { font-size: 22px; }
+  /* The wide art at its own shape across the top, fading into the blurred copy where the text
+     begins, so it is neither cropped to the band nor scaled up. */
+  .home-hero-wide {
+    inset: 0 0 auto; height: var(--hero-art-h);
+    mask-image: linear-gradient(180deg, #000 0%, #000 52%, rgb(0 0 0 / .55) 74%, rgb(0 0 0 / .18) 88%, transparent 100%);
+  }
+  .home-hero-wide > img { object-position: center; }
+  /* The strip as bars, without pictures or names. */
   .home-hero-strip { bottom: 14px; gap: 6px; }
   .home-hero-strip button { width: 32px; }
   .home-hero-thumb { aspect-ratio: auto; height: 4px; margin: 8px 0; border-radius: var(--radius-pill); background: var(--glass-strong); outline: 0; }
