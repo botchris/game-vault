@@ -5,6 +5,9 @@ metadata:
   type: reference
 ---
 As of 2026-10:
+- Names come in the account's language unless asked: since 2026-10-18 both Sony clients send
+  `Accept-Language: en-US` (as PSNAWP does); untested on a real account. Existing copies keep the
+  title they were imported with (matched by external id).
 - NPSSO from `ca.account.sony.com/api/v1/ssocookie` (the user must be signed in on
   playstation.com).
 - The library GraphQL only runs registered query hashes, and checks the hash before auth (so
@@ -25,6 +28,7 @@ As of 2026-10:
     Art Book (+ Spanish), "Behind the Scenes" / "Making of" anywhere (Spanish "Detrás de (las) cámaras" / "Cómo se hizo" since 2026-10-15), and (2026-10-13) the same words at the
     start when a joiner follows ("Banda sonora de X", "Soundtrack of X", "Original Soundtrack: X",
     "Demo - X"; no "of" for demo/trial/theme/avatar, since "Trial of the Lantern" is a game). ™ ® are
-    ignored. Withdrawn copies keep their id, so earlier imports are removed on the next scan.
+    ignored; 2026-10-18 added trailing Tech Test, "Teaser" anywhere, leading "The Art of ", quotes
+  ignored (`RESIDENT EVIL 3 "Raccoon City Demo"`). Withdrawn copies keep their id, so earlier imports are removed on the next scan.
   The store catalog would tell every title's kind, but it is not used: playstation.com's terms forbid
   automated access. Anything else is still removed by hand with "Remove and do not import again".
