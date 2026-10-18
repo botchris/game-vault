@@ -1037,14 +1037,14 @@ a.home-because { color: var(--link); }
   .home-hero-slide { grid-template-columns: minmax(0, 1fr); }
   .home-hero-art { display: none; }
   /* A release with no wide art (only its box) shows the box the same way, across the top: every
-     slide looks alike. */
+     slide looks alike. Its top band shows, where a box has its title and key art. */
   .home-hero-poster {
     position: absolute; inset: 0 0 auto; z-index: -1; width: auto; height: var(--hero-art-h);
     border-radius: 0; box-shadow: none;
     mask-image: linear-gradient(180deg, #000 0%, #000 52%, rgb(0 0 0 / .55) 74%, rgb(0 0 0 / .18) 88%, transparent 100%);
   }
   .home-hero-poster > img, .home-hero-poster .cover, .home-hero-poster .cover img {
-    width: 100%; height: 100%; aspect-ratio: auto; border-radius: 0; object-fit: cover; object-position: center 30%;
+    width: 100%; height: 100%; aspect-ratio: auto; border-radius: 0; object-fit: cover; object-position: center top;
   }
   /* One row of buttons: a long "Because you have …" is cut short instead of adding a row. */
   .home-hero-text { flex: 1 1 0; min-width: 0; max-width: none; grid-template-columns: minmax(0, 1fr); }
