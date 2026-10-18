@@ -32,3 +32,10 @@ As of 2026-10:
   ignored (`RESIDENT EVIL 3 "Raccoon City Demo"`). Withdrawn copies keep their id, so earlier imports are removed on the next scan.
   The store catalog would tell every title's kind, but it is not used: playstation.com's terms forbid
   automated access. Anything else is still removed by hand with "Remove and do not import again".
+- Entitlements API checked with a real account's dump (2026-10-18; `m.np.playstation.com/api/entitlement/v2/users/me/internal/entitlements`,
+  as andshrew/PlayStation-Entitlements): it separates avatars and themes (`gameMeta.type` PS4MISC, `packageSubType`
+  MISC_AVATAR / MISC_THEME), add-ons (PS4AL, PS4AC) and Play At Home trackers (`entitlementType` 1), but games,
+  demos, betas, apps (Netflix, YouTube…), soundtracks, art books and making-of videos are all `PS4GD`,
+  `productMeta.contentType` "game", with `featureType` 1 or 3 on both sides (3 looks like free claims). No field
+  tells a demo or app from a game, so switching to it would not replace the played-titles check or the name markers.
+
