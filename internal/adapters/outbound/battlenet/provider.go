@@ -214,6 +214,11 @@ type title struct {
 	Name string
 }
 
+// linkID is the store link for a title id. Classic games have no id, so theirs is made from the
+// name and has spaces ("diablo ii"); links cannot, so the spaces become hyphens. The external id
+// keeps the original form: it must never change.
+func linkID(id string) string { return strings.ReplaceAll(id, " ", "-") }
+
 // collectTitles walks a JSON answer for objects naming a game ("localizedGameName"), so small
 // changes in how Battle.net nests them do not break scans. A game without a title id whose name
 // gives no id either (game.TitleIDKey keeps Latin letters and digits only) is put in unkeyed by
@@ -317,7 +322,7 @@ func (p *Provider) Fetch(ctx context.Context, settings schema.Settings) ([]game.
 	for _, t := range byName {
 		out = append(out, game.ImportedCopy{
 			ExternalID: "battlenet:" + t.ID,
-			Links:      game.Links{LinkedStore.Key: t.ID},
+			Links:      game.Links{LinkedStore.Key: linkID(t.ID)},
 			Title:      t.Name,
 			Details: game.CopyDetails{
 				Kind:     game.KindLibrary,

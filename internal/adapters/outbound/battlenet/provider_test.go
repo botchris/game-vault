@@ -131,6 +131,31 @@ func TestFetchRenewsTheSession(t *testing.T) {
 	}
 }
 
+// TestFetch_classicGamesGetValidLinks checks that a classic game, whose id is made from its name
+// ("diablo ii"), still gets a store link the catalog accepts: links are ids without spaces.
+func TestFetch_classicGamesGetValidLinks(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	srv := fakeAccount(t)
+	p := NewProvider()
+	p.Account.BaseURL = srv.URL
+	settings := schema.Settings{settingCookies: "Cookie: SESSION=expired; BA-tassadar=long-lived"}
+
+	copies, _, err := p.Fetch(ctx, settings)
+	require.NoError(t, err)
+
+	for _, c := range copies {
+		_, err := c.Links.Valid()
+		require.NoError(t, err, c.Title)
+
+		if c.Title == "Diablo® II" {
+			assert.Equal(t, "battlenet:diablo ii", c.ExternalID, "the external id must never change")
+			assert.Equal(t, "diablo-ii", c.Links[LinkedStore.Key])
+		}
+	}
+}
+
 // TestTest_readsOneEndpoint checks that "Test connection" reads the games overview only, not the
 // classic games list a scan reads too.
 func TestTest_readsOneEndpoint(t *testing.T) {
