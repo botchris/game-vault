@@ -210,6 +210,13 @@ export function isBoxArt(url: string): boolean {
   return /\/boxart\.[a-z]+(\?|$)/i.test(url);
 }
 
+/** The header of a game's Steam page on Steam's public CDN, "" without a Steam link: the hero's
+ *  wide art for a game whose sheet has no screenshot yet. Loaded through the image proxy. */
+export function steamArt(links: Record<string, string>): string {
+  const app = links.steam ?? '';
+  return /^[0-9]{1,10}$/.test(app) ? `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${app}/header.jpg` : '';
+}
+
 /** Below this many pixels a row's overflow is rounding, not more cards. */
 const SLACK = 2;
 

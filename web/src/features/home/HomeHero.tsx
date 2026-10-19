@@ -6,7 +6,7 @@ import { useFormatters } from '../../components/ui';
 import type { Game } from '../../gen/gamevault/v1/game_pb';
 import type { HomeDeal, HomeRelease } from '../../gen/gamevault/v1/home_pb';
 import { gameHash } from '../../lib/gameRoute';
-import { endsInDays, httpsLink, type HeroSlide } from '../../lib/home';
+import { endsInDays, httpsLink, steamArt, type HeroSlide } from '../../lib/home';
 import { toDate } from '../../lib/model';
 import { dealPrice, dealRegular } from './DealsBlock';
 
@@ -151,7 +151,8 @@ function ReleaseSlide({ release: r, series, shown }: { release: HomeRelease; ser
   const { t, i18n } = useTranslation();
   const fmt = useFormatters();
   const cover = proxiedImage(r.coverUrl);
-  // A release with wide art fills the band with it, like a deal; without, its poster sits beside the text.
+  // A release with wide art (IGDB's, else its Steam page's header) fills the band with it, like a deal;
+  // without, its box takes that place.
   const art = r.artUrl ? proxiedImage(r.artUrl) : '';
   const when = r.releaseDate ? fmt.date(r.releaseDate) : t('home.releases.tba');
   const systems = new Intl.ListFormat(i18n.language, { type: 'unit' }).format(r.platforms);
@@ -175,7 +176,10 @@ function ReleaseSlide({ release: r, series, shown }: { release: HomeRelease; ser
 function GameSlide({ game, backlog, shown, dealsNotConfigured }: { game: Game; backlog: boolean; shown: boolean; dealsNotConfigured: boolean }) {
   const { t, i18n } = useTranslation();
   const systems = [...new Set(game.copies.map((c) => c.effectiveSystem).filter(Boolean))].join(' · ');
-  const art = useScreenshot(game.id, i18n.language);
+  // The sheet's first screenshot, else the header of the game's Steam page; without either, its box.
+  const shot = useScreenshot(game.id, i18n.language);
+  const steam = steamArt(game.links);
+  const art = shot || (steam ? proxiedImage(steam) : '');
 
   return (
     <SlideFrame shown={shown} backdrop={art ? <img src={art} alt="" decoding="async" /> : <Cover game={game} />} wide={art || undefined}

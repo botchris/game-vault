@@ -1,21 +1,34 @@
 <!doctype html>
 <meta charset="utf-8">
 <link rel="stylesheet" href="ui.css">
-<main>
-  <h1>Game Vault Connector</h1>
-  <section id="current"></section>
-  <h2 data-i18n="popupAddresses"></h2>
-  <ul id="origins"></ul>
-  <h2 data-i18n="ownershipTitle"></h2>
-  <section id="ownership">
-    <label class="row"><input type="checkbox" id="own-enabled"> <span data-i18n="ownershipToggle"></span></label>
-    <label class="stack"><span data-i18n="ownershipAddress"></span><select id="own-origin"></select></label>
-    <label class="stack"><span data-i18n="ownershipToken"></span>
-      <input id="own-token" type="password" autocomplete="off" spellcheck="false" placeholder="gvt_…"></label>
-    <p class="warn" id="own-insecure" data-i18n="ownershipInsecure" hidden></p>
-    <p class="muted" data-i18n="ownershipTokenHelp"></p>
-    <p class="muted" id="own-status"></p>
+<main class="popup">
+  <header class="head">
+    <span class="mark" aria-hidden="true"></span>
+    <h1>Game Vault <span>Connector</span></h1>
+    <span class="version" id="version"></span>
+  </header>
+  <section id="current" class="current"></section>
+  <section class="block">
+    <h2 data-i18n="popupAddresses"></h2>
+    <ul id="origins" class="cards"></ul>
   </section>
-  <p class="muted" id="version"></p>
+  <section class="block" id="ownership">
+    <h2 data-i18n="ownershipTitle"></h2>
+    <div class="card">
+      <label class="switch-row">
+        <span data-i18n="ownershipToggle"></span>
+        <input type="checkbox" role="switch" class="switch" id="own-enabled">
+      </label>
+      <p class="status" id="own-status"></p>
+      <label class="field"><span data-i18n="ownershipAddress"></span><select id="own-origin"></select></label>
+      <label class="field"><span data-i18n="ownershipToken"></span>
+        <input id="own-token" type="password" autocomplete="off" spellcheck="false" placeholder="gvt_…"></label>
+      <p class="warn" id="own-insecure" data-i18n="ownershipInsecure" hidden></p>
+      <details class="help">
+        <summary data-i18n="ownershipHow"></summary>
+        <p data-i18n="ownershipTokenHelp"></p>
+      </details>
+    </div>
+  </section>
 </main>
 <script type="module" src="popup.js"></script>

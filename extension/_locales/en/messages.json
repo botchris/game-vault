@@ -33,6 +33,7 @@
   "ownershipToggle": { "message": "Show what I own on store pages" },
   "ownershipAddress": { "message": "Game Vault address" },
   "ownershipToken": { "message": "Access token (optional)" },
+  "ownershipHow": { "message": "What is read and sent" },
   "ownershipTokenHelp": { "message": "Needed when this browser is not on a trusted network: create one in Game Vault, System → Security. Only Steam, GOG, Humble Bundle and Fanatical pages are read, and only the game ids and titles they show are sent, only to your Game Vault." },
   "ownershipNoAddress": { "message": "Enable the extension on your Game Vault first." },
   "ownershipStores": { "message": "Shown on: $STORES$", "placeholders": { "stores": { "content": "$1", "example": "Steam, GOG" } } },

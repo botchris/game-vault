@@ -35,6 +35,7 @@ const fakeGameListPage = 2
 // bogus token (probed 2026-10-12). Values are invented.
 func (f *fakeSony) gameList(w http.ResponseWriter, r *http.Request) {
 	categories := r.URL.Query().Get("categories")
+	f.sawLanguage("gamelist", r)
 
 	if f.gameListCalls == nil {
 		f.gameListCalls = map[string]int{}
@@ -322,6 +323,13 @@ func TestNonGameName(t *testing.T) {
 		{"Avatares de Glass Orchard", true}, //nolint:misspell // Spanish plural of avatar
 		{"Demo de Lantern Keep®", true},
 		{"Paper Kites Demo™", true},
+		{`PAPER KITES "Harbor Demo"`, true},
+		{"The Art of Paper Kites™", true},
+		{"Paper Kites Teaser: Opening Hour", true},
+		{"Paper Kites 2 Tech Test", true},
+		{"Art of Lantern", false},
+		{"The Artful Escape", false},
+		{"Technical Test Pilot", false},
 		{"Beta Protocol", false},
 		{"Soundtrack Hero", false},
 		{"Tema Rally", false},

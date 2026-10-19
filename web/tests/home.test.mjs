@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   blockMode, canRefresh, collectionSummary, endsInDays, heroSlides, httpsLink, isBoxArt, libraryPreset, minutesUntil, pendingItems, pickValue,
-  railArrows, refreshDelay, staleLine,
+  railArrows, refreshDelay, staleLine, steamArt,
 } from '../src/lib/home.ts';
 
 const t = (key, opts) => `${key}${opts ? ' ' + JSON.stringify(opts) : ''}`;
@@ -236,4 +236,11 @@ test("a deal's art is box art only when ITAD's file says so", () => {
   assert.equal(isBoxArt('https://assets.isthereanydeal.com/018d937f/boxart.jpg?t=1'), true);
   assert.equal(isBoxArt('https://assets.isthereanydeal.com/018d937f/banner600.jpg?t=1'), false);
   assert.equal(isBoxArt(''), false);
+});
+
+test('steamArt is the Steam header of a game linked to Steam, and nothing otherwise', () => {
+  assert.equal(steamArt({ steam: '620' }), 'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/620/header.jpg');
+  assert.equal(steamArt({ gog: '1207658924' }), '');
+  assert.equal(steamArt({ steam: '../620' }), '');
+  assert.equal(steamArt({}), '');
 });
