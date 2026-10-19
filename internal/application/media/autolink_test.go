@@ -179,7 +179,9 @@ func (env autoLinkEnv) game(t *testing.T, ctx context.Context, id game.ID) *game
 }
 
 func TestAutoLink(t *testing.T) {
-	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	// One budget for every scenario below, each opening its own database: under the race detector
+	// on CI they take about ten seconds together, so ten seconds left the last one without time.
+	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
 	defer cancel()
 
 	disc := game.CopyDetails{
