@@ -54,3 +54,8 @@ settings group `igdb`):
 - **Awaits a test with a real Twitch application**; only the error shapes above were seen live,
   everything else against the fake in `fake_test.go`. If the first real sheet fails, ask for the
   warning text (IGDB's own `[{"title":…,"cause":…}]` is passed through).
+- **Releases art (2026-10-18):** the releases queries also ask `external_games.uid,external_games.external_game_source`;
+  a release with no artwork or screenshot gets its Steam page's header (`shared.akamai.steamstatic.com/store_item_assets/steam/apps/<id>/header.jpg`).
+  First real query ran on a test copy that day: IGDB accepted the fields and returned art for most upcoming games.
+  Home's releases block is cached: art added on IGDB later shows only after a refresh.
+
