@@ -34,3 +34,18 @@ test('the answer is the browser\'s, once the write is done too', async () => {
   refused.finishWrite();
   assert.equal(await q, false);
 });
+
+test('a request the browser refuses outright counts as not granted', async () => {
+  // Firefox throws instead of answering when it no longer counts the call as part of a click.
+  const chrome = {
+    storage: { local: { set: async () => {} } },
+    permissions: { request: () => Promise.reject(new Error('permissions.request may only be called from a user input handler')) },
+  };
+  const warn = console.warn;
+  console.warn = () => {};
+  try {
+    assert.equal(await saveAndRequest(chrome, { a: 1 }, { origins: [] }), false);
+  } finally {
+    console.warn = warn;
+  }
+});
