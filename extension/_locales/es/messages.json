@@ -33,6 +33,7 @@
   "ownershipToggle": { "message": "Mostrar lo que tengo en las tiendas" },
   "ownershipAddress": { "message": "Dirección de Game Vault" },
   "ownershipToken": { "message": "Token de acceso (opcional)" },
+  "ownershipHow": { "message": "Qué se lee y qué se envía" },
   "ownershipTokenHelp": { "message": "Hace falta cuando este navegador no está en una red de confianza: créalo en Game Vault, Sistema → Seguridad. Solo se leen páginas de Steam, GOG, Humble Bundle y Fanatical, y solo se envían los identificadores y títulos que muestran, y solo a tu Game Vault." },
   "ownershipNoAddress": { "message": "Activa antes la extensión en tu Game Vault." },
   "ownershipStores": { "message": "Se muestra en: $STORES$", "placeholders": { "stores": { "content": "$1", "example": "Steam, GOG" } } },

@@ -1,16 +1,129 @@
-/* Shared by the popup and the confirmation window. */
-:root { color-scheme: light dark; --amber: #ffb020; --ink: #181c2c; --muted: #6b7388; }
-body { margin: 0; font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; min-width: 320px; }
-main { padding: 12px 14px; }
-h1 { font-size: 15px; margin: 0 0 8px; }
-h2 { font-size: 13px; margin: 14px 0 6px; }
-ul { margin: 0; padding-left: 18px; }
-li { margin: 3px 0; }
+/* Shared by the popup and the confirmation window. The tokens are the web app's ("la vitrina"):
+   mist and paper, ink text, amber only for the main action and what is on. */
+:root {
+  color-scheme: light dark;
+  --bg: #edf0f5;
+  --surface: #ffffff;
+  --surface-2: #e3e7ef;
+  --border: #d3d9e4;
+  --text: #181c2c;
+  --muted: #5d6680;
+  --accent: #ffb020;
+  --accent-strong: #e59400;
+  --accent-text: #181c2c;
+  --ok: #17803d;
+  --warn: #8f5a00;
+  --warn-bg: #fff0d0;
+  --shadow-sm: 0 1px 2px rgb(24 28 44 / .08);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-pill: 999px;
+  --ease-out: cubic-bezier(.23, 1, .32, 1);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #181c2c;
+    --surface: #262c42;
+    --surface-2: #2f3651;
+    --border: #353d5a;
+    --text: #eef1f7;
+    --muted: #9ba3bd;
+    --ok: #55cf7d;
+    --warn: #ffc455;
+    --warn-bg: #3d3220;
+    --shadow-sm: none;
+  }
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; min-width: 320px; }
+main { padding: 14px; }
+h1 { font-size: 16px; margin: 0 0 10px; }
+h2 { font-size: 12px; font-weight: 600; color: var(--muted); margin: 0 0 6px; }
+p { margin: 0; }
+ul { margin: 0; padding: 0; list-style: none; }
 .muted { color: var(--muted); }
-button { font: inherit; padding: 4px 10px; border-radius: 6px; border: 1px solid #c8cdd8; background: transparent; cursor: pointer; }
-button.primary, #current > button { background: var(--amber); color: var(--ink); border-color: var(--amber); font-weight: 600; }
+
+button {
+  font: inherit; padding: 5px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+  background: var(--surface); color: var(--text); cursor: pointer; transition: transform 160ms var(--ease-out);
+}
+button:active { transform: scale(.97); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+@media (hover: hover) and (pointer: fine) {
+  button:hover { background: var(--surface-2); }
+  button.primary:hover { background: var(--accent-strong); border-color: var(--accent-strong); }
+}
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+select, input[type="password"], input[type="text"] {
+  font: inherit; width: 100%; padding: 6px 9px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+  background: var(--surface); color: var(--text);
+}
+select:disabled { opacity: .6; }
+.warn { padding: 8px 10px; border-radius: var(--radius-sm); background: var(--warn-bg); color: var(--warn); }
 .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
-.row { display: flex; align-items: center; gap: 6px; margin: 6px 0; }
-.stack { display: flex; flex-direction: column; gap: 3px; margin: 8px 0; }
-input[type="password"], select { font: inherit; padding: 4px 6px; border-radius: 6px; border: 1px solid #c8cdd8; background: transparent; color: inherit; }
-.warn { margin: 6px 0; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--amber); background: color-mix(in srgb, var(--amber) 14%, transparent); }
+
+/* ---- Popup ---- */
+.popup { width: 340px; display: grid; gap: 14px; }
+.head { display: flex; align-items: center; gap: 10px; }
+.head h1 { margin: 0; font-size: 15px; font-weight: 800; letter-spacing: -.01em; }
+.head h1 span { font-weight: 500; color: var(--muted); }
+.head .version { margin-left: auto; font-size: 11px; color: var(--muted); }
+/* The app's mark: two amber boxes, the second offset behind the first. */
+.mark { flex: none; width: 12px; height: 18px; border-radius: 3px; background: var(--accent); box-shadow: 5px 3px 0 -1px var(--accent-strong); margin-right: 4px; }
+
+.card, .current:not(:empty), .cards > li {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-sm);
+}
+.card { padding: 12px; display: grid; gap: 10px; }
+
+/* What the extension can do on the open tab. */
+.current:empty { display: none; }
+.current { padding: 12px; display: grid; gap: 8px; }
+.current > button { width: 100%; padding: 8px 12px; background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; overflow-wrap: anywhere; }
+.current > .muted { font-size: 12px; }
+.current[data-kind="enabled"] { grid-template-columns: auto 1fr; align-items: baseline; }
+.current[data-kind="enabled"]::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); transform: translateY(-1px); }
+
+/* The enabled Game Vault addresses, each with the store sites it may read sessions on. */
+.cards { display: grid; gap: 6px; }
+.cards > li { padding: 8px 8px 8px 12px; display: grid; gap: 6px; }
+.cards > li.empty { padding: 10px 12px; color: var(--muted); background: transparent; border-style: dashed; box-shadow: none; }
+.origin { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.origin-name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.origin-name span { font-weight: 400; color: var(--muted); }
+.origin button { padding: 3px 9px; font-size: 12px; color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { display: inline-flex; align-items: center; gap: 2px; padding: 1px 2px 1px 8px; border-radius: var(--radius-pill); background: var(--surface-2); font-size: 11.5px; }
+.chip button { border: 0; background: transparent; padding: 0 6px; line-height: 18px; border-radius: var(--radius-pill); color: var(--muted); }
+
+/* The store-page option. */
+.switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: 600; cursor: pointer; }
+.switch {
+  appearance: none; flex: none; margin: 0; width: 34px; height: 20px; border-radius: var(--radius-pill);
+  background: var(--surface-2); border: 1px solid var(--border); position: relative; cursor: pointer;
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+.switch::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%;
+  background: var(--surface); box-shadow: 0 1px 2px rgb(24 28 44 / .3); transition: transform 200ms var(--ease-out);
+}
+.switch:checked { background: var(--accent); border-color: var(--accent-strong); }
+.switch:checked::after { transform: translateX(14px); }
+.switch:disabled { opacity: .5; cursor: default; }
+.status:empty { display: none; }
+.status { font-size: 12px; color: var(--muted); margin-top: -4px; }
+.field { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+.help { font-size: 12px; color: var(--muted); }
+.help summary { cursor: pointer; width: fit-content; }
+.help p { margin-top: 6px; }
+
+@media (prefers-reduced-motion: reduce) {
+  button, .switch, .switch::after { transition: none; }
+}
+
+/* ---- Confirmation window ---- */
+#hosts { display: grid; gap: 4px; margin: 10px 0; }
+#hosts li { padding: 6px 10px; border-radius: var(--radius-sm); background: var(--surface); border: 1px solid var(--border); }
+#remember-row { display: flex; align-items: center; gap: 6px; }

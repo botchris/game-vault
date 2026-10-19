@@ -23,6 +23,7 @@ async function render() {
   const current = $('current');
   current.textContent = '';
   const place = popupPlace(tab?.url ?? '', origins, grants);
+  current.dataset.kind = place.kind;
   if (place.kind === 'offer') {
     const here = place.origin;
     const b = document.createElement('button');
@@ -58,6 +59,16 @@ async function render() {
   list.textContent = '';
   for (const origin of origins) {
     const li = document.createElement('li');
+    const head = document.createElement('div');
+    head.className = 'origin';
+    // The host stands out; the scheme and port are there, quieter, since they tell addresses apart.
+    const { protocol, host } = new URL(origin);
+    const name = document.createElement('span');
+    name.className = 'origin-name';
+    name.title = origin;
+    const scheme = document.createElement('span');
+    scheme.textContent = `${protocol}//`;
+    name.append(scheme, host);
     const remove = document.createElement('button');
     remove.textContent = t('popupRemove');
     remove.onclick = async () => {
@@ -66,21 +77,25 @@ async function render() {
       await chrome.storage.local.set({ origins: origins.filter((o) => o !== origin), grants });
       render();
     };
-    li.append(origin, ' ', remove);
+    head.append(name, remove);
+    li.append(head);
     const hosts = grants[origin] ?? [];
     if (hosts.length) {
       const ul = document.createElement('ul');
+      ul.className = 'chips';
       for (const h of hosts) {
         const hl = document.createElement('li');
+        hl.className = 'chip';
         const x = document.createElement('button');
         x.textContent = '×';
         x.title = t('popupForget', [h]);
+        x.setAttribute('aria-label', x.title);
         x.onclick = async () => {
           grants[origin] = hosts.filter((o) => o !== h);
           await chrome.storage.local.set({ grants });
           render();
         };
-        hl.append(h, ' ', x);
+        hl.append(h, x);
         ul.append(hl);
       }
       li.append(ul);
@@ -89,7 +104,7 @@ async function render() {
   }
   if (!origins.length) {
     const li = document.createElement('li');
-    li.className = 'muted';
+    li.className = 'empty';
     li.textContent = t('popupNoAddresses');
     list.append(li);
   }
