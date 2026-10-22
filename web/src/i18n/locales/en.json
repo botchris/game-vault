@@ -20,6 +20,8 @@
     "title": "Home",
     "pending": {
       "label": "Needs your attention",
+      "keysOnly_other": "{{count}} games only playable once a key is redeemed",
+      "keysOnly_one": "1 game only playable once a key is redeemed",
       "none": "All caught up",
       "expiring_one": "1 key expires soon · {{title}}, {{when}}",
       "expiring_other": "{{count}} keys expire soon · first {{title}}, {{when}}",
@@ -176,6 +178,8 @@
     "quick": {
       "all": "",
       "pending": "Pending keys",
+      "keysOnly": "Only keys to redeem",
+      "playable": "Playable now",
       "expiring": "Expiring soon",
       "redundant": "Keys you don't need",
       "several": "On several platforms",

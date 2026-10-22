@@ -26,9 +26,19 @@ test('the pending strip counts keys with the library\'s rules, nearest deadline 
   assert.deepEqual(items, [
     { kind: 'expiring', count: 2, nearest: { title: 'Lantern Keep', days: 3, gameId: 'g1' }, href: '#/library/expiring' },
     { kind: 'pending', count: 4, href: '#/library/pending' },
+    { kind: 'keysOnly', count: 2, href: '#/library/keys-only' }, // Echo Valley and Copper Coast
     { kind: 'redundant', count: 1, href: '#/library/redundant' },
     { kind: 'health', count: 2, level: 'error', href: '#/system/health' },
   ]);
+});
+
+test('"only keys to redeem" counts games, not keys, and never a game playable some other way', () => {
+  const items = pendingItems([
+    game('g1', 'Lantern Keep', [key(1), key(2)]),          // two keys, one game
+    game('g2', 'Echo Valley', [key(1), disc('PS4', 7)]),   // its disc is lent: still only keys
+    game('g3', 'Harbor Lights', [key(1), disc('PS4')]),    // its disc is at home
+  ], [], today);
+  assert.deepEqual(items.find((it) => it.kind === 'keysOnly'), { kind: 'keysOnly', count: 2, href: '#/library/keys-only' });
 });
 
 test('keys past their deadline get their own chip; "expiring" is today up to 30 days', () => {
@@ -46,7 +56,7 @@ test('keys past their deadline get their own chip; "expiring" is today up to 30 
 
 test('with only past deadlines there is no "expiring" chip', () => {
   const items = pendingItems([game('g1', 'Harbor Lights', [key(1, '2026-10-12')])], [], today);
-  assert.deepEqual(items.map((it) => it.kind), ['expired', 'pending']);
+  assert.deepEqual(items.map((it) => it.kind), ['expired', 'pending', 'keysOnly']);
 });
 
 test('with nothing pending, the strip is empty (the page says "All caught up")', () => {
@@ -197,6 +207,8 @@ test('the home page links to library views by address', () => {
   assert.deepEqual(libraryPreset('pending'), { quick: 'pending' });
   assert.deepEqual(libraryPreset('expiring'), { quick: 'expiring' });
   assert.deepEqual(libraryPreset('redundant'), { quick: 'redundant' });
+  assert.deepEqual(libraryPreset('keys-only'), { quick: 'keysOnly' });
+  assert.deepEqual(libraryPreset('playable'), { quick: 'playable' });
   assert.deepEqual(libraryPreset('backlog'), { play: 1 });
   assert.deepEqual(libraryPreset('physical'), { kind: 3 });
   assert.deepEqual(libraryPreset('recent'), { sort: 'added' });

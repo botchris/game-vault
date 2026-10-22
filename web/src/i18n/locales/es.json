@@ -20,6 +20,8 @@
     "title": "Inicio",
     "pending": {
       "label": "Requiere tu atención",
+      "keysOnly_other": "{{count}} juegos que solo podrás jugar al canjear una key",
+      "keysOnly_one": "1 juego que solo podrás jugar al canjear una key",
       "none": "Todo al día",
       "expiring_one": "1 clave caduca pronto · {{title}}, {{when}}",
       "expiring_other": "{{count}} claves caducan pronto · la primera {{title}}, {{when}}",
@@ -176,6 +178,8 @@
     "quick": {
       "all": "",
       "pending": "Claves pendientes",
+      "keysOnly": "Solo keys por canjear",
+      "playable": "Jugables ahora",
       "expiring": "Caducan pronto",
       "redundant": "Claves que no necesitas",
       "several": "En varias plataformas",
