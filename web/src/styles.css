@@ -276,7 +276,7 @@ input[type="checkbox"], input[type="radio"] { min-height: 0; accent-color: var(-
      gradient below it, shown only once the bar has left its place. */
   .library-controls {
     position: sticky; top: 0; z-index: var(--z-sticky);
-    margin: 0 -36px; padding: 12px 36px 0;
+    margin: 0 -36px 6px; padding: 12px 36px 14px;
     background: color-mix(in srgb, var(--bg) 78%, transparent);
     -webkit-backdrop-filter: blur(18px) saturate(1.4); backdrop-filter: blur(18px) saturate(1.4);
   }
@@ -286,7 +286,8 @@ input[type="checkbox"], input[type="radio"] { min-height: 0; accent-color: var(-
     opacity: 0; transition: opacity 200ms ease;
   }
   .library-controls.stuck::after { opacity: 1; }
-  .library-controls .quick-row { margin-bottom: 12px; }
+  /* The space under the chips is the bar's own padding, so its background reaches past them. */
+  .library-controls .quick-row { margin-bottom: 0; }
   .library-body .alpha-rail { top: calc(var(--library-controls-h, 0px) + 12px); max-height: calc(100dvh - var(--library-controls-h, 0px) - 24px); }
 }
 .filter-fab { display: none; }
