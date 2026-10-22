@@ -134,25 +134,22 @@ export default function LibraryPage({ target }: { target: string }) {
     return sortItems(base.filter((i) => !letter || initialOf(i.game.title) === letter), cmp[sortBy]);
   }, [base, letter, sortBy, i18n.language]);
 
-  // The search, sort and filters stay at hand far down the list: on wide screens the bar sticks to
-  // the top (shaded once it has left its place); on phones, where the whole bar is too tall to
-  // stick, a floating Filters button shows once the bar has scrolled away.
+  // The search and filters stay at hand far down the list: on wide screens the whole bar sticks to
+  // the top (frosted, fading into the list once it has left its place); on phones, where the whole
+  // bar is too tall, only its first row does, the search and the Filters button (see styles.css).
   const controls = useRef<HTMLDivElement>(null);
   const controlsTop = useRef<HTMLDivElement>(null);
   const [stuck, setStuck] = useState(false);
-  const [controlsAway, setControlsAway] = useState(false);
   useEffect(() => {
     const top = controlsTop.current;
     const bar = controls.current;
     if (!top || !bar) return;
     const stuckWatch = new IntersectionObserver(([e]) => setStuck(!e.isIntersecting));
-    const awayWatch = new IntersectionObserver(([e]) => setControlsAway(!e.isIntersecting));
     stuckWatch.observe(top);
-    awayWatch.observe(bar);
     // The A–Z rail sticks just under the bar.
     const sized = new ResizeObserver(() => document.documentElement.style.setProperty('--library-controls-h', `${bar.offsetHeight}px`));
     sized.observe(bar);
-    return () => { stuckWatch.disconnect(); awayWatch.disconnect(); sized.disconnect(); };
+    return () => { stuckWatch.disconnect(); sized.disconnect(); };
   }, []);
 
   // Reset the window when the result changes; grow it as the user scrolls. A change made far down
@@ -229,34 +226,38 @@ export default function LibraryPage({ target }: { target: string }) {
       <div ref={controlsTop} aria-hidden="true" />
       <div ref={controls} className={`library-controls${stuck ? ' stuck' : ''}`}>
       <div className="toolbar library-toolbar">
-        <label className="search-field">
-          <Icon name="search" size={18} />
-          <input type="search" placeholder={t('library.search')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('library.search')} />
-        </label>
-        <select className="sort-select" value={sortBy} onChange={(e) => setSortBy(e.target.value as SortBy)} aria-label={t('library.sort.label')}>
-          {SORTS.map((s) => <option key={s} value={s}>{t(`library.sort.${s}`)}</option>)}
-        </select>
-        <div className="filter-anchor">
-          <button className={`filter-button ${nFilters ? 'has-filters' : ''}`} onClick={() => setFiltersOpen((o) => !o)} aria-expanded={filtersOpen}>
-            <Icon name="filter" size={18} />
-            <span className="hide-narrow">{t('library.filters.button')}</span>
-            {nFilters > 0 && <span className="filter-count">{nFilters}</span>}
-          </button>
-          {filtersOpen && (
-            <FilterPanel games={views} total={games.length} filters={filters} onChange={setFilters} onClose={() => setFiltersOpen(false)}
-              detailsCached={detailsCached} />
-          )}
-        </div>
-        <div className="segmented grouping-toggle" role="group" aria-label={t('library.grouping.label')}>
-          {(['platform', 'game'] as const).map((g) => (
-            <button key={g} className={grouping === g ? 'active' : ''} aria-pressed={grouping === g} onClick={() => setGrouping(g)}>
-              {t(`library.grouping.${g}`)}
+        <div className={`library-search-row${stuck ? ' stuck' : ''}`}>
+          <label className="search-field">
+            <Icon name="search" size={18} />
+            <input type="search" placeholder={t('library.search')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('library.search')} />
+          </label>
+          <div className="filter-anchor">
+            <button className={`filter-button ${nFilters ? 'has-filters' : ''}`} onClick={() => setFiltersOpen((o) => !o)} aria-expanded={filtersOpen}>
+              <Icon name="filter" size={18} />
+              <span className="hide-narrow">{t('library.filters.button')}</span>
+              {nFilters > 0 && <span className="filter-count">{nFilters}</span>}
             </button>
-          ))}
+            {filtersOpen && (
+              <FilterPanel games={views} total={games.length} filters={filters} onChange={setFilters} onClose={() => setFiltersOpen(false)}
+                detailsCached={detailsCached} />
+            )}
+          </div>
         </div>
-        <div className="segmented view-toggle" role="group" aria-label={t('library.view.label')}>
-          <button className={view === 'posters' ? 'active' : ''} onClick={() => setView('posters')} title={t('library.view.posters')} aria-label={t('library.view.posters')}><Icon name="grid" size={18} /></button>
-          <button className={view === 'list' ? 'active' : ''} onClick={() => setView('list')} title={t('library.view.list')} aria-label={t('library.view.list')}><Icon name="list" size={18} /></button>
+        <div className="library-options">
+          <select className="sort-select" value={sortBy} onChange={(e) => setSortBy(e.target.value as SortBy)} aria-label={t('library.sort.label')}>
+            {SORTS.map((s) => <option key={s} value={s}>{t(`library.sort.${s}`)}</option>)}
+          </select>
+          <div className="segmented grouping-toggle" role="group" aria-label={t('library.grouping.label')}>
+            {(['platform', 'game'] as const).map((g) => (
+              <button key={g} className={grouping === g ? 'active' : ''} aria-pressed={grouping === g} onClick={() => setGrouping(g)}>
+                {t(`library.grouping.${g}`)}
+              </button>
+            ))}
+          </div>
+          <div className="segmented view-toggle" role="group" aria-label={t('library.view.label')}>
+            <button className={view === 'posters' ? 'active' : ''} onClick={() => setView('posters')} title={t('library.view.posters')} aria-label={t('library.view.posters')}><Icon name="grid" size={18} /></button>
+            <button className={view === 'list' ? 'active' : ''} onClick={() => setView('list')} title={t('library.view.list')} aria-label={t('library.view.list')}><Icon name="list" size={18} /></button>
+          </div>
         </div>
       </div>
 
@@ -272,12 +273,6 @@ export default function LibraryPage({ target }: { target: string }) {
         )}
       </div>
       </div>
-      {controlsAway && !filtersOpen && (
-        <button className="filter-fab" onClick={() => setFiltersOpen(true)} aria-label={t('library.filters.button')}>
-          <Icon name="filter" size={20} />
-          {nFilters > 0 && <span className="filter-count">{nFilters}</span>}
-        </button>
-      )}
 
       {quick === 'redundant' && counts.revealedRedundant > 0 && (
         <div className="hint-bar">
