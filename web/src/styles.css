@@ -272,11 +272,20 @@ input[type="checkbox"], input[type="radio"] { min-height: 0; accent-color: var(-
    the page's background behind them, a shade once they have left their place. On phones the bar is
    too tall to stick; a floating Filters button stands in for it (.filter-fab). */
 @media (min-width: 861px) {
+  /* No hard edge: the bar is frosted page background, and the covers fade under it through a short
+     gradient below it, shown only once the bar has left its place. */
   .library-controls {
-    position: sticky; top: 0; z-index: var(--z-sticky); background: var(--bg);
-    margin: 0 -36px; padding: 12px 36px 0; transition: box-shadow 200ms ease;
+    position: sticky; top: 0; z-index: var(--z-sticky);
+    margin: 0 -36px; padding: 12px 36px 0;
+    background: color-mix(in srgb, var(--bg) 78%, transparent);
+    -webkit-backdrop-filter: blur(18px) saturate(1.4); backdrop-filter: blur(18px) saturate(1.4);
   }
-  .library-controls.stuck { box-shadow: 0 8px 16px -12px rgb(24 28 44 / .35); }
+  .library-controls::after {
+    content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 28px; pointer-events: none;
+    background: linear-gradient(color-mix(in srgb, var(--bg) 78%, transparent), transparent);
+    opacity: 0; transition: opacity 200ms ease;
+  }
+  .library-controls.stuck::after { opacity: 1; }
   .library-controls .quick-row { margin-bottom: 12px; }
   .library-body .alpha-rail { top: calc(var(--library-controls-h, 0px) + 12px); max-height: calc(100dvh - var(--library-controls-h, 0px) - 24px); }
 }
