@@ -8,6 +8,7 @@ import { Alert, useFormatters } from '../../components/ui';
 import { deadlineTone, expiresSoon } from '../../lib/deadlines';
 import { searchableText } from '../../lib/fields';
 import { libraryPreset } from '../../lib/home';
+import { isPhone } from '../../lib/usePhone';
 import { isPlayable, onlyKeysToRedeem } from '../../lib/playable';
 import { useGameAddress } from '../../lib/useGameAddress';
 import { replaceRoute } from '../../lib/useHashRoute';
@@ -134,8 +135,43 @@ export default function LibraryPage({ target }: { target: string }) {
     return sortItems(base.filter((i) => !letter || initialOf(i.game.title) === letter), cmp[sortBy]);
   }, [base, letter, sortBy, i18n.language]);
 
-  // Reset the window when the result changes; grow it as the user scrolls.
-  useEffect(() => setShown(CHUNK), [q, quick, letter, filters, sortBy, grouping]);
+  // The search and filters stay at hand far down the list: on wide screens the whole bar sticks to
+  // the top (frosted, fading into the list once it has left its place); on phones, where the whole
+  // bar is too tall, only its first row does, the search and the Filters button (see styles.css).
+  const controls = useRef<HTMLDivElement>(null);
+  const controlsTop = useRef<HTMLDivElement>(null);
+  const [stuck, setStuck] = useState(false);
+  useEffect(() => {
+    const top = controlsTop.current;
+    const bar = controls.current;
+    if (!top || !bar) return;
+    const stuckWatch = new IntersectionObserver(([e]) => setStuck(!e.isIntersecting));
+    stuckWatch.observe(top);
+    // The A–Z rail sticks just under the bar.
+    const sized = new ResizeObserver(() => document.documentElement.style.setProperty('--library-controls-h', `${bar.offsetHeight}px`));
+    sized.observe(bar);
+    return () => { stuckWatch.disconnect(); sized.disconnect(); };
+  }, []);
+
+  // Reset the window when the result changes; grow it as the user scrolls. A change made far down
+  // the list brings its first results into view just under what sticks (the bar, or on phones the
+  // search row), instantly since it happens on every keystroke; a list already in view stays put.
+  const results = useRef<HTMLDivElement>(null);
+  const searchRow = useRef<HTMLDivElement>(null);
+  const firstResult = useRef(true);
+  useEffect(() => {
+    setShown(CHUNK);
+    if (firstResult.current) {
+      firstResult.current = false;
+      return;
+    }
+    const list = results.current;
+    const stuckEl = isPhone() ? searchRow.current : controls.current;
+    if (!list || !stuckEl) return;
+    const under = stuckEl.getBoundingClientRect().height + 8;
+    const top = list.getBoundingClientRect().top;
+    if (top < under) window.scrollTo({ top: window.scrollY + top - under });
+  }, [q, quick, letter, filters, sortBy, grouping]);
   useEffect(() => {
     const el = sentinel.current;
     if (!el) return;
@@ -195,35 +231,41 @@ export default function LibraryPage({ target }: { target: string }) {
           <button className="primary" onClick={() => setCreating(true)}><Icon name="plus" size={18} /><span className="hide-narrow">{t('library.addGame')}</span></button>
         </>} />
 
+      <div ref={controlsTop} aria-hidden="true" />
+      <div ref={controls} className={`library-controls${stuck ? ' stuck' : ''}`}>
       <div className="toolbar library-toolbar">
-        <label className="search-field">
-          <Icon name="search" size={18} />
-          <input type="search" placeholder={t('library.search')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('library.search')} />
-        </label>
-        <select className="sort-select" value={sortBy} onChange={(e) => setSortBy(e.target.value as SortBy)} aria-label={t('library.sort.label')}>
-          {SORTS.map((s) => <option key={s} value={s}>{t(`library.sort.${s}`)}</option>)}
-        </select>
-        <div className="filter-anchor">
-          <button className={`filter-button ${nFilters ? 'has-filters' : ''}`} onClick={() => setFiltersOpen((o) => !o)} aria-expanded={filtersOpen}>
-            <Icon name="filter" size={18} />
-            <span className="hide-narrow">{t('library.filters.button')}</span>
-            {nFilters > 0 && <span className="filter-count">{nFilters}</span>}
-          </button>
-          {filtersOpen && (
-            <FilterPanel games={views} total={games.length} filters={filters} onChange={setFilters} onClose={() => setFiltersOpen(false)}
-              detailsCached={detailsCached} />
-          )}
-        </div>
-        <div className="segmented grouping-toggle" role="group" aria-label={t('library.grouping.label')}>
-          {(['platform', 'game'] as const).map((g) => (
-            <button key={g} className={grouping === g ? 'active' : ''} aria-pressed={grouping === g} onClick={() => setGrouping(g)}>
-              {t(`library.grouping.${g}`)}
+        <div ref={searchRow} className={`library-search-row${stuck ? ' stuck' : ''}`}>
+          <label className="search-field">
+            <Icon name="search" size={18} />
+            <input type="search" placeholder={t('library.search')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('library.search')} />
+          </label>
+          <div className="filter-anchor">
+            <button className={`filter-button ${nFilters ? 'has-filters' : ''}`} onClick={() => setFiltersOpen((o) => !o)} aria-expanded={filtersOpen}>
+              <Icon name="filter" size={18} />
+              <span className="hide-narrow">{t('library.filters.button')}</span>
+              {nFilters > 0 && <span className="filter-count">{nFilters}</span>}
             </button>
-          ))}
+            {filtersOpen && (
+              <FilterPanel games={views} total={games.length} filters={filters} onChange={setFilters} onClose={() => setFiltersOpen(false)}
+                detailsCached={detailsCached} />
+            )}
+          </div>
         </div>
-        <div className="segmented view-toggle" role="group" aria-label={t('library.view.label')}>
-          <button className={view === 'posters' ? 'active' : ''} onClick={() => setView('posters')} title={t('library.view.posters')} aria-label={t('library.view.posters')}><Icon name="grid" size={18} /></button>
-          <button className={view === 'list' ? 'active' : ''} onClick={() => setView('list')} title={t('library.view.list')} aria-label={t('library.view.list')}><Icon name="list" size={18} /></button>
+        <div className="library-options">
+          <select className="sort-select" value={sortBy} onChange={(e) => setSortBy(e.target.value as SortBy)} aria-label={t('library.sort.label')}>
+            {SORTS.map((s) => <option key={s} value={s}>{t(`library.sort.${s}`)}</option>)}
+          </select>
+          <div className="segmented grouping-toggle" role="group" aria-label={t('library.grouping.label')}>
+            {(['platform', 'game'] as const).map((g) => (
+              <button key={g} className={grouping === g ? 'active' : ''} aria-pressed={grouping === g} onClick={() => setGrouping(g)}>
+                {t(`library.grouping.${g}`)}
+              </button>
+            ))}
+          </div>
+          <div className="segmented view-toggle" role="group" aria-label={t('library.view.label')}>
+            <button className={view === 'posters' ? 'active' : ''} onClick={() => setView('posters')} title={t('library.view.posters')} aria-label={t('library.view.posters')}><Icon name="grid" size={18} /></button>
+            <button className={view === 'list' ? 'active' : ''} onClick={() => setView('list')} title={t('library.view.list')} aria-label={t('library.view.list')}><Icon name="list" size={18} /></button>
+          </div>
         </div>
       </div>
 
@@ -238,6 +280,7 @@ export default function LibraryPage({ target }: { target: string }) {
           <button className="link clear-all" onClick={() => { setFilters(NO_FILTERS); setLetter(''); setQuick(null); setQ(''); }}>{t('library.filters.clearAll')}</button>
         )}
       </div>
+      </div>
 
       {quick === 'redundant' && counts.revealedRedundant > 0 && (
         <div className="hint-bar">
@@ -247,7 +290,7 @@ export default function LibraryPage({ target }: { target: string }) {
       )}
       {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
 
-      <div className={`library-body view-${view}`}>
+      <div ref={results} className={`library-body view-${view}`}>
         <nav className="alpha-rail" aria-label={t('library.alpha')}>
           {LETTERS.map((l) => (
             <button key={l} className={letter === l ? 'active' : ''} disabled={!lettersWithGames.has(l)} aria-pressed={letter === l}

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Icon } from '../../components/Icon';
 import { useEscape } from '../../components/useEscape';
@@ -6,6 +7,7 @@ import { MANUAL, NO_FILTERS, activeFilterCount, systemCounts, type Filters } fro
 import { filterOptions, isFilterable, type Definition } from '../../lib/fields';
 import { CopyKind, KINDS, PLAY_STATUSES, PlayStatus, REGIONS, kindKey, playKey, regionKey, type Game } from '../../lib/model';
 import { groupByMaker } from '../../lib/systems';
+import { usePhone } from '../../lib/usePhone';
 import { useAppData } from '../../state/AppData';
 
 function toggle<T>(list: T[], v: T) {
@@ -28,6 +30,7 @@ export default function FilterPanel({ games, total, filters, onChange, onClose, 
 }) {
   const { t, i18n } = useTranslation();
   const panel = useRef<HTMLDivElement>(null);
+  const phone = usePhone();
   const { sources: configured, fields: defs, systems: catalog } = useAppData();
 
   useEscape(onClose);
@@ -89,7 +92,10 @@ export default function FilterPanel({ games, total, filters, onChange, onClose, 
     onChange({ ...filters, fields });
   };
 
-  return (
+  // On phones the panel is a bottom sheet over the whole page: it is rendered into <body>, since a
+  // fixed box inside the library's sticky, frosted search row would be placed and clipped by that row
+  // (a backdrop-filter makes it the containing block) and stacked under the tab bar.
+  const sheet = (
     <>
       <div className="sheet-backdrop" onClick={onClose} />
       <div className="filter-panel" ref={panel} role="dialog" aria-label={t('library.filters.button')}>
@@ -214,4 +220,5 @@ export default function FilterPanel({ games, total, filters, onChange, onClose, 
       </div>
     </>
   );
+  return phone ? createPortal(sheet, document.body) : sheet;
 }
