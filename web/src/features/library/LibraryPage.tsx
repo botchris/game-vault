@@ -8,6 +8,7 @@ import { Alert, useFormatters } from '../../components/ui';
 import { deadlineTone, expiresSoon } from '../../lib/deadlines';
 import { searchableText } from '../../lib/fields';
 import { libraryPreset } from '../../lib/home';
+import { isPhone } from '../../lib/usePhone';
 import { isPlayable, onlyKeysToRedeem } from '../../lib/playable';
 import { useGameAddress } from '../../lib/useGameAddress';
 import { replaceRoute } from '../../lib/useHashRoute';
@@ -153,7 +154,10 @@ export default function LibraryPage({ target }: { target: string }) {
   }, []);
 
   // Reset the window when the result changes; grow it as the user scrolls. A change made far down
-  // the list brings its first results into view, under the bar (instantly: filters change often).
+  // the list brings its first results into view just under what sticks (the bar, or on phones the
+  // search row), instantly since it happens on every keystroke; a list already in view stays put.
+  const results = useRef<HTMLDivElement>(null);
+  const searchRow = useRef<HTMLDivElement>(null);
   const firstResult = useRef(true);
   useEffect(() => {
     setShown(CHUNK);
@@ -161,8 +165,12 @@ export default function LibraryPage({ target }: { target: string }) {
       firstResult.current = false;
       return;
     }
-    const top = controlsTop.current;
-    if (top && top.getBoundingClientRect().top < 0) window.scrollTo({ top: window.scrollY + top.getBoundingClientRect().top });
+    const list = results.current;
+    const stuckEl = isPhone() ? searchRow.current : controls.current;
+    if (!list || !stuckEl) return;
+    const under = stuckEl.getBoundingClientRect().height + 8;
+    const top = list.getBoundingClientRect().top;
+    if (top < under) window.scrollTo({ top: window.scrollY + top - under });
   }, [q, quick, letter, filters, sortBy, grouping]);
   useEffect(() => {
     const el = sentinel.current;
@@ -226,7 +234,7 @@ export default function LibraryPage({ target }: { target: string }) {
       <div ref={controlsTop} aria-hidden="true" />
       <div ref={controls} className={`library-controls${stuck ? ' stuck' : ''}`}>
       <div className="toolbar library-toolbar">
-        <div className={`library-search-row${stuck ? ' stuck' : ''}`}>
+        <div ref={searchRow} className={`library-search-row${stuck ? ' stuck' : ''}`}>
           <label className="search-field">
             <Icon name="search" size={18} />
             <input type="search" placeholder={t('library.search')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('library.search')} />
@@ -282,7 +290,7 @@ export default function LibraryPage({ target }: { target: string }) {
       )}
       {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
 
-      <div className={`library-body view-${view}`}>
+      <div ref={results} className={`library-body view-${view}`}>
         <nav className="alpha-rail" aria-label={t('library.alpha')}>
           {LETTERS.map((l) => (
             <button key={l} className={letter === l ? 'active' : ''} disabled={!lettersWithGames.has(l)} aria-pressed={letter === l}

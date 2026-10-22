@@ -1,4 +1,5 @@
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
+import { isPhone, usePhone } from '../lib/usePhone';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { systemCounts } from '../lib/editions';
@@ -14,18 +15,6 @@ import { useEscape } from './useEscape';
 // Both overlays are manual popovers (the browser's top layer) rendered into <body>: the field
 // usually sits in a dialog whose body scrolls and would clip a positioned list, and a portal keeps
 // the list out of the <label>, whose activation would reopen the list on every pick.
-
-const PHONE = '(max-width: 860px)';
-
-function subscribePhone(onChange: () => void): () => void {
-  const query = window.matchMedia(PHONE);
-  query.addEventListener('change', onChange);
-  return () => query.removeEventListener('change', onChange);
-}
-
-function isPhone(): boolean {
-  return window.matchMedia(PHONE).matches;
-}
 
 /** One choosable line of the list: a catalog system, or the typed text kept as it is. */
 interface Choice {
@@ -68,7 +57,7 @@ interface Props {
 
 /** A searchable system field: a popover list on desktop, a bottom sheet on phones. */
 export default function SystemPicker({ value, onChange, label, placeholder, autoFocus, className, children }: Props) {
-  const phone = useSyncExternalStore(subscribePhone, isPhone);
+  const phone = usePhone();
   const inputRef = useRef<HTMLInputElement>(null);
   const listId = useId();
   // null: closed. A string: open, listing the systems that match it ('' lists them all).
