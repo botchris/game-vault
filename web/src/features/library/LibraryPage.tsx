@@ -8,6 +8,7 @@ import { Alert, useFormatters } from '../../components/ui';
 import { deadlineTone, expiresSoon } from '../../lib/deadlines';
 import { searchableText } from '../../lib/fields';
 import { libraryPreset } from '../../lib/home';
+import { isPlayable, onlyKeysToRedeem } from '../../lib/playable';
 import { useGameAddress } from '../../lib/useGameAddress';
 import { replaceRoute } from '../../lib/useHashRoute';
 import { useStoredChoice } from '../../lib/useStoredChoice';
@@ -25,7 +26,7 @@ import { Stars } from './PlayControls';
 import PosterGrid, { ItemBadges, moreStoresId } from './PosterGrid';
 import { useAction } from '../../lib/useAction';
 
-type Quick = 'pending' | 'expiring' | 'redundant' | 'several' | null;
+type Quick = 'playable' | 'keysOnly' | 'pending' | 'expiring' | 'redundant' | 'several' | null;
 export type SortBy = 'titleAsc' | 'titleDesc' | 'added' | 'year' | 'deadline' | 'copies' | 'rating';
 type View = 'list' | 'posters';
 
@@ -94,6 +95,8 @@ export default function LibraryPage({ target }: { target: string }) {
       expiring: views.filter(isExpiring).length,
       redundant: views.filter((g) => g.copies.some((c) => c.redundant)).length,
       several: severalSystemsCount(items),
+      playable: items.filter((i) => isPlayable(i.game)).length,
+      keysOnly: items.filter((i) => onlyKeysToRedeem(i.game)).length,
       revealedRedundant: copies.filter((c) => c.redundant && c.details?.status === CopyStatus.REVEALED).length,
     };
   }, [games, views, items]);
@@ -108,7 +111,10 @@ export default function LibraryPage({ target }: { target: string }) {
       ...g.copies.flatMap((c) => [c.details?.origin, c.details?.notes, c.details?.location, c.details?.edition]), searchableText(g, fields)]
       .join(' ').toLocaleLowerCase(i18n.language).includes(needle);
     // "On several platforms" is about the game, not one edition: every edition of such a game stays.
-    const gameOk = (g: Game) => searchOk(g) && (quick !== 'several' || onSeveralSystems(g));
+    // Whether a game can be played is the whole game's: a key to redeem on Steam and the game in
+    // the Epic library is playable, also in the PC edition's view.
+    const gameOk = (g: Game) => searchOk(g) && (quick !== 'several' || onSeveralSystems(g))
+      && (quick !== 'playable' || isPlayable(g)) && (quick !== 'keysOnly' || onlyKeysToRedeem(g));
     return filterItems(items, filters, fields, { copyLevel: quickOk, gameLevel: gameOk });
   }, [items, q, quick, filters, fields, i18n.language]);
 
@@ -168,6 +174,8 @@ export default function LibraryPage({ target }: { target: string }) {
   });
 
   const quickChips: { key: Exclude<Quick, null>; count: number; tone?: string }[] = [
+    { key: 'playable', count: counts.playable },
+    { key: 'keysOnly', count: counts.keysOnly },
     { key: 'pending', count: counts.pending },
     { key: 'expiring', count: counts.expiring, tone: counts.expiring ? 'danger' : undefined },
     { key: 'redundant', count: counts.redundant, tone: counts.redundant ? 'warn' : undefined },

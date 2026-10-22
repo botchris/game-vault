@@ -5,6 +5,7 @@
 // is features/home/HomePage.tsx.
 import { daysUntil, expiresSoon, isPendingKey } from './deadlines.ts';
 import { sinceText, worstLevel } from './health.ts';
+import { onlyKeysToRedeem } from './playable.ts';
 
 type Translate = (key: string, options?: Record<string, string>) => string;
 
@@ -40,12 +41,12 @@ const isHeld = (c: CopyLike) => !GONE.has(c.details?.status ?? 0);
 /** One chip of the pending strip. */
 export type PendingItem =
   | { kind: 'expiring'; count: number; nearest: { title: string; days: number; gameId: string }; href: string }
-  | { kind: 'expired' | 'pending' | 'redundant'; count: number; href: string }
+  | { kind: 'expired' | 'pending' | 'keysOnly' | 'redundant'; count: number; href: string }
   | { kind: 'health'; count: number; level: 'error' | 'warning'; href: string };
 
 /** The pending strip: keys whose deadline has passed, keys that expire within the library's
- *  "Expiring" window with the nearest one, keys still to redeem, keys not needed, and the Health
- *  issues. Both deadline chips open the library's "Expiring" view, which lists the two together.
+ *  "Expiring" window with the nearest one, keys still to redeem, games that can only be played once
+ *  a key is redeemed (counted as games), keys not needed, and the Health issues. Both deadline chips open the library's "Expiring" view, which lists the two together.
  *  Empty when nothing is pending. */
 export function pendingItems(games: GameLike[], issues: { level: string }[], today: Date): PendingItem[] {
   let pending = 0;
@@ -74,6 +75,8 @@ export function pendingItems(games: GameLike[], issues: { level: string }[], tod
   if (expired) out.push({ kind: 'expired', count: expired, href: '#/library/expiring' });
   if (nearest) out.push({ kind: 'expiring', count: expiring, nearest, href: '#/library/expiring' });
   if (pending) out.push({ kind: 'pending', count: pending, href: '#/library/pending' });
+  const keysOnly = games.filter(onlyKeysToRedeem).length;
+  if (keysOnly) out.push({ kind: 'keysOnly', count: keysOnly, href: '#/library/keys-only' });
   if (redundant) out.push({ kind: 'redundant', count: redundant, href: '#/library/redundant' });
   const level = worstLevel(issues);
   if (level) out.push({ kind: 'health', count: issues.length, level, href: '#/system/health' });
@@ -257,7 +260,7 @@ export function httpsLink(url: string): string {
 
 /** A library view the home page links to ("#/library/<target>"). */
 export type LibraryPreset =
-  | { quick: 'pending' | 'expiring' | 'redundant' }
+  | { quick: 'pending' | 'expiring' | 'redundant' | 'playable' | 'keysOnly' }
   | { play: number }
   | { kind: number }
   | { sort: 'added' };
@@ -268,7 +271,10 @@ export function libraryPreset(target: string): LibraryPreset | null {
     case 'pending':
     case 'expiring':
     case 'redundant':
+    case 'playable':
       return { quick: target };
+    case 'keys-only':
+      return { quick: 'keysOnly' };
     case 'backlog':
       return { play: PLAY_BACKLOG };
     case 'physical':
