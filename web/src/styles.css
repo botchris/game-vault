@@ -268,6 +268,33 @@ input[type="checkbox"], input[type="radio"] { min-height: 0; accent-color: var(-
 .grouping-toggle { flex: none; }
 .grouping-toggle button { min-height: 34px; }
 
+/* The search, sort, filters and quick filters stick to the top on wide screens (see LibraryPage):
+   the page's background behind them, a shade once they have left their place. On phones the bar is
+   too tall to stick; a floating Filters button stands in for it (.filter-fab). */
+@media (min-width: 861px) {
+  .library-controls {
+    position: sticky; top: 0; z-index: var(--z-sticky); background: var(--bg);
+    margin: 0 -36px; padding: 12px 36px 0; transition: box-shadow 200ms ease;
+  }
+  .library-controls.stuck { box-shadow: 0 8px 16px -12px rgb(24 28 44 / .35); }
+  .library-controls .quick-row { margin-bottom: 12px; }
+  .library-body .alpha-rail { top: calc(var(--library-controls-h, 0px) + 12px); max-height: calc(100dvh - var(--library-controls-h, 0px) - 24px); }
+}
+.filter-fab { display: none; }
+@media (max-width: 860px) {
+  .filter-fab {
+    display: inline-flex; align-items: center; gap: 6px; position: fixed; right: 16px; bottom: calc(84px + env(safe-area-inset-bottom));
+    z-index: var(--z-nav); min-height: 48px; padding: 0 14px; border-radius: var(--radius-pill);
+    background: var(--text); border-color: var(--text); color: var(--bg); box-shadow: var(--shadow-lg);
+    transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
+    @starting-style { opacity: 0; transform: scale(.9); }
+  }
+  .filter-fab:active { transform: scale(.97); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .filter-fab { transition: none; }
+}
+
 /* On wide screens the chips wrap, so nothing (the "Clear all" link last) hides past the edge; on
    phones they scroll sideways in one row, a familiar pattern there. */
 .quick-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 18px; padding-bottom: 2px; }

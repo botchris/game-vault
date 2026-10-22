@@ -134,8 +134,39 @@ export default function LibraryPage({ target }: { target: string }) {
     return sortItems(base.filter((i) => !letter || initialOf(i.game.title) === letter), cmp[sortBy]);
   }, [base, letter, sortBy, i18n.language]);
 
-  // Reset the window when the result changes; grow it as the user scrolls.
-  useEffect(() => setShown(CHUNK), [q, quick, letter, filters, sortBy, grouping]);
+  // The search, sort and filters stay at hand far down the list: on wide screens the bar sticks to
+  // the top (shaded once it has left its place); on phones, where the whole bar is too tall to
+  // stick, a floating Filters button shows once the bar has scrolled away.
+  const controls = useRef<HTMLDivElement>(null);
+  const controlsTop = useRef<HTMLDivElement>(null);
+  const [stuck, setStuck] = useState(false);
+  const [controlsAway, setControlsAway] = useState(false);
+  useEffect(() => {
+    const top = controlsTop.current;
+    const bar = controls.current;
+    if (!top || !bar) return;
+    const stuckWatch = new IntersectionObserver(([e]) => setStuck(!e.isIntersecting));
+    const awayWatch = new IntersectionObserver(([e]) => setControlsAway(!e.isIntersecting));
+    stuckWatch.observe(top);
+    awayWatch.observe(bar);
+    // The A–Z rail sticks just under the bar.
+    const sized = new ResizeObserver(() => document.documentElement.style.setProperty('--library-controls-h', `${bar.offsetHeight}px`));
+    sized.observe(bar);
+    return () => { stuckWatch.disconnect(); awayWatch.disconnect(); sized.disconnect(); };
+  }, []);
+
+  // Reset the window when the result changes; grow it as the user scrolls. A change made far down
+  // the list brings its first results into view, under the bar (instantly: filters change often).
+  const firstResult = useRef(true);
+  useEffect(() => {
+    setShown(CHUNK);
+    if (firstResult.current) {
+      firstResult.current = false;
+      return;
+    }
+    const top = controlsTop.current;
+    if (top && top.getBoundingClientRect().top < 0) window.scrollTo({ top: window.scrollY + top.getBoundingClientRect().top });
+  }, [q, quick, letter, filters, sortBy, grouping]);
   useEffect(() => {
     const el = sentinel.current;
     if (!el) return;
@@ -195,6 +226,8 @@ export default function LibraryPage({ target }: { target: string }) {
           <button className="primary" onClick={() => setCreating(true)}><Icon name="plus" size={18} /><span className="hide-narrow">{t('library.addGame')}</span></button>
         </>} />
 
+      <div ref={controlsTop} aria-hidden="true" />
+      <div ref={controls} className={`library-controls${stuck ? ' stuck' : ''}`}>
       <div className="toolbar library-toolbar">
         <label className="search-field">
           <Icon name="search" size={18} />
@@ -238,6 +271,13 @@ export default function LibraryPage({ target }: { target: string }) {
           <button className="link clear-all" onClick={() => { setFilters(NO_FILTERS); setLetter(''); setQuick(null); setQ(''); }}>{t('library.filters.clearAll')}</button>
         )}
       </div>
+      </div>
+      {controlsAway && !filtersOpen && (
+        <button className="filter-fab" onClick={() => setFiltersOpen(true)} aria-label={t('library.filters.button')}>
+          <Icon name="filter" size={20} />
+          {nFilters > 0 && <span className="filter-count">{nFilters}</span>}
+        </button>
+      )}
 
       {quick === 'redundant' && counts.revealedRedundant > 0 && (
         <div className="hint-bar">
